@@ -8,3 +8,4 @@ dist/*.idsig
 dist/*.keystore
 .play_tmp*
 .claude/worktrees/
+__pycache__/
