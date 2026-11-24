@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#222">
+<script src="../src/logic.js"></script><script src="../src/art.js"></script>
+<div id="out"></div>
+<script>
+const out = document.getElementById('out');
+function show(c, s, label) { const d = document.createElement('div'); d.style.cssText = 'display:inline-block;margin:6px;vertical-align:top;color:#ccc;font:12px sans-serif'; const cv = document.createElement('canvas'); cv.width = c.width * s; cv.height = c.height * s; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, cv.width, cv.height); d.appendChild(cv); d.appendChild(document.createElement('br')); d.append(label || ''); out.appendChild(d); }
+const look = { hair: '#2a2230', skin: '#f2c9a0', f: 0 }, lookF = { hair: '#3b2a22', skin: '#f6d3b3', f: 1 };
+// 检查宽度
+const bad = [];
+show(ART.sit(look, 0), 6, '炼气'); show(ART.sit(look, 2), 6, '金丹'); show(ART.sit(lookF, 3), 6, '女元婴'); show(ART.sit(look, 7), 6, '大乘');
+show(ART.standRealm(look, 1, 0), 6, '站立'); show(ART.standRealm(lookF, 4, 1), 6, '女站立B');
+for (let t = 1; t <= 6; t++) show(ART.pet(t), 6, 'pet' + t);
+show(ART.wolf(['#8a7a66', '#5f5244']), 6, 'wolf'); show(ART.foeMan(['#cfc8b0', '#8f876c'], 'tomb'), 6, 'tomb'); show(ART.foeMan(['#b0303c', '#6a1820'], 'blood'), 6, 'blood');
+show(ART.elder(), 6, 'elder'); show(ART.avatar(look, 2), 5, 'avatar');
+// 场景
+function scene(fn, label) { const c = document.createElement('canvas'); c.width = 200; c.height = 180; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; ART.setCtx(g, 200); g.setTransform(1, 0, 0, 1, 0, 20); fn(g); show(c, 3, label); }
+for (const [lv, ph] of [[0, 0.5], [2, 0.3], [4, 0.75], [7, 0.05], [10, 0.5]]) {
+  scene(g => { const st = { home: { cave: lv, field: lv * 2, furnace: lv, array: lv } }; const parts = []; const r = ART.drawHome(st, 1000, 20, parts, { phase: ph }); g.drawImage(ART.sit(look, Math.min(8, lv)), 88, 108); g.drawImage(ART.pet(Math.min(6, 1 + (lv % 6))), 116, 122); ART.nightOverlay(r.sky, 20, 180, [{ x: 100, y: 120, r: 14, c: '#8ff5d0', a: 0.5 }]); }, 'cave ' + lv + ' ph ' + ph);
+}
+for (const bg of ['forest', 'tomb', 'blood', 'sea', 'stars', 'palace']) scene(g => { ART.drawAdventure(bg, 1000, 20, 300); g.drawImage(ART.standRealm(look, 2, 0), 50, 96); }, bg);
+</script>

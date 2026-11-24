@@ -66,12 +66,14 @@ def build_font(text):
 def main():
     template = (SRC / "template.html").read_text(encoding="utf-8")
     logic = (SRC / "logic.js").read_text(encoding="utf-8")
+    art = (SRC / "art.js").read_text(encoding="utf-8")
     ui = (SRC / "ui.js").read_text(encoding="utf-8")
-    woff2 = build_font(charset([template, logic, ui]))
+    woff2 = build_font(charset([template, logic, art, ui]))
     b64 = base64.b64encode(woff2).decode("ascii")
     page = (
         template.replace("/*FONT_B64*/", b64)
         .replace("/*LOGIC_JS*/", logic.replace("</script", "<\\/script"))
+        .replace("/*ART_JS*/", art.replace("</script", "<\\/script"))
         .replace("/*UI_JS*/", ui.replace("</script", "<\\/script"))
     )
     DIST.mkdir(exist_ok=True)

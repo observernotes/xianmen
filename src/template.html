@@ -1,7 +1,7 @@
-<title>仙门崛起</title>
+<title>废柴仙途</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* 布局：竖屏单列游戏机——顶栏 / 像素宗门场景 / 消息卷 / 底部五键；弹窗是展开的卷轴 */
+/* 布局：竖屏单列游戏机——顶栏 / 像素场景 / 修为条 / 消息卷 / 底部五键；弹窗是展开的卷轴 */
 @font-face {
   font-family: "XPixel";
   src: url(data:font/woff2;base64,/*FONT_B64*/) format("woff2");
@@ -68,7 +68,21 @@ img.px, canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* 顶栏 */
 #top { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; }
 #top .row { display: flex; align-items: center; gap: 8px; }
-#sectName { font-size: calc(var(--fs) * 1); color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+#pName { color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+#lifeBox.low b { color: var(--red); animation: blink 1s steps(2) infinite; }
+#cult { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border: 0; color: var(--text); text-align: left; cursor: pointer; flex: none; }
+#cult .row { display: flex; gap: 8px; align-items: baseline; }
+#cult #realm { color: var(--gold); flex: none; }
+#cult #xpTxt { color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cult #pw { color: var(--muted); flex: none; }
+#cult .xbar { display: block; height: 8px; background: var(--panel-lo); position: relative; box-shadow: 0 0 0 1px var(--ink); }
+#cult .xbar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(var(--jade), #2f9a76); }
+#cult .xbar i::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255,255,255,.35); }
+#cult.ready { background: #4a2a1a; animation: readyPulse 1s steps(2) infinite; }
+#cult.ready .xbar i { background: linear-gradient(var(--gold), #c08a1a); }
+#cult.ready #xpTxt { color: var(--gold); }
+#cult.away { opacity: .85; }
+@keyframes readyPulse { 50% { background: #6a3a1a; } }
 #date { color: var(--muted); white-space: nowrap; }
 .res { display: flex; align-items: center; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .res img { width: 20px; height: 20px; }
@@ -252,16 +266,16 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 <div id="app">
   <div id="top" class="pxbox">
     <div class="row">
-      <span id="sectName">仙门</span>
-      <span id="date">第1年 1月</span>
+      <span id="pName">无名</span>
+      <span id="date">第1年</span>
       <button class="iconbtn" id="btnSpeed" aria-label="游戏速度">×1</button>
       <button class="iconbtn" id="btnSound" aria-label="声音开关"></button>
     </div>
     <div class="row r2">
-      <span class="res" title="灵石"><img class="px" data-icon="stone" alt=""><b id="vStone">0</b><small id="vInc" class="num" style="color:var(--jade)"></small></span>
-      <span class="res" title="声望"><img class="px" data-icon="rep" alt=""><b id="vRep">0</b></span>
+      <span class="res" title="灵石"><img class="px" data-icon="stone" alt=""><b id="vStone">0</b></span>
       <span class="res" title="破境丹"><img class="px" data-icon="pill" alt=""><b id="vPill">0</b></span>
-      <span class="res" title="宗门排名"><img class="px" data-icon="flag" alt=""><b id="vRank">100</b></span>
+      <span class="res" id="lifeBox" title="年龄 / 寿元"><img class="px" data-icon="life" alt=""><b id="vLife">16/100</b></span>
+      <span class="res" title="天骄榜排名"><img class="px" data-icon="flag" alt=""><b id="vRank">100</b></span>
     </div>
   </div>
   <div id="sceneWrap" class="pxbox">
@@ -271,18 +285,23 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
     <div id="banner"></div>
     <div id="tip" hidden></div>
   </div>
+  <button id="cult" class="pxbox" aria-label="修为">
+    <span class="row"><span id="realm">炼气初期</span><span id="xpTxt" class="num"></span><span id="pw" class="num"></span></span>
+    <span class="xbar"><i id="xpFill"></i></span>
+  </button>
   <div id="goal" class="pxbox"><span class="lab">目标</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span></div>
   <div id="feed" class="pxbox"></div>
   <div id="nav">
-    <button data-nav="disciples"><img class="px" data-icon="disc" alt=""><span>弟子</span></button>
-    <button data-nav="recruit"><img class="px" data-icon="recruit" alt=""><span>收徒</span></button>
-    <button data-nav="dungeon"><img class="px" data-icon="sword" alt=""><span>秘境</span></button>
-    <button data-nav="build"><img class="px" data-icon="build" alt=""><span>建设</span></button>
+    <button data-nav="exp"><img class="px" data-icon="sword" alt=""><span>历练</span></button>
+    <button data-nav="home"><img class="px" data-icon="build" alt=""><span>洞府</span></button>
     <button data-nav="sect"><img class="px" data-icon="flag" alt=""><span>宗门</span></button>
+    <button data-nav="market"><img class="px" data-icon="bag" alt=""><span>坊市</span></button>
+    <button data-nav="me"><img class="px" data-icon="disc" alt=""><span>人物</span></button>
   </div>
 </div>
 <div id="modal" hidden></div>
 <div id="intro" hidden></div>
 
 <script>/*LOGIC_JS*/</script>
+<script>/*ART_JS*/</script>
 <script>/*UI_JS*/</script>
