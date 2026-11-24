@@ -1,21 +1,102 @@
 /* 废柴仙途 · 逻辑模块 events-engine：奇遇事件引擎与访客
- * 模块写法见 src/logic.js 顶部说明。 */
+ * 模块写法见 src/logic.js 顶部说明。事件能力登记（哪些写法引擎已经支持）见 core.js 的 L.CAPS。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// ---------- 事件引擎（数据见 events.js） ----------
-L.events = () => (globalThis.EVENTS || (typeof require === 'function' ? (() => { try { return require('../events.js'); } catch (err) { return []; } })() : []));
+// ---------- 事件数据 ----------
+// 浏览器：src/events.js 设 window.EVENTS，src/content/*.js 再 push 进去（tools/build.py 按顺序内联）。
+// node：require src/events.js 与 L.CONTENT_FILES 里的扩展包，拼成一份。
+L.CONTENT_FILES = ['ev_realm_rivals', 'ev_sect_people', 'ev_world_chains'];
+let nodeEvents = null;
+L.events = function () {
+  if (globalThis.EVENTS) return globalThis.EVENTS;
+  if (nodeEvents) return nodeEvents;
+  if (typeof require !== 'function') return [];
+  const out = [];
+  try { out.push(...require('../events.js')); } catch (err) { /* 没有事件文件 */ }
+  for (const f of L.CONTENT_FILES) { try { out.push(...require('../content/' + f + '.js')); } catch (err) { /* 扩展包缺失时跳过 */ } }
+  nodeEvents = out;
+  return out;
+};
 L.fill = function (st, text) {
   const sc = L.sectOf(st);
   return String(text || '').replace(/\{su\}/g, L.npcName(st, 'su')).replace(/\{ye\}/g, L.npcName(st, 'ye')).replace(/\{ex\}/g, st.exName)
     .replace(/\{sect\}/g, sc ? sc.n : '宗门').replace(/\{name\}/g, st.p.name);
 };
 function flagOn(st, f) { return !!(st.eflags && st.eflags[f]); }
+
+// ---------- 能力闸门：事件用到的写法全部登记过才放行 ----------
+// 结构字段（任何事件都有、引擎本来就认）不算能力
+const EV_BASE = ['id', 'where', 'title', 'text', 'choices', 'speaker', 'weight', 'once', 'visit', 'trigger'];
+const CH_BASE = ['t', 'cost', 'p', 'duel', 'ok', 'fail'];
+const triggerOk = t => { const C = L.CAPS.trigger; if (C[t]) return true; const i = t.indexOf(':'); return i > 0 && !!C[t.slice(0, i + 1)]; };
+const triggerKey = t => { const i = t.indexOf(':'); return i > 0 ? t.slice(0, i + 1) + '*' : t; };
+// 返回这条事件缺的能力（空数组 = 可以上线），形如 'fx.grudge'、'elig.favorMin'、'trigger.rookie:*'、'fx.item=need'
+function gate(ev) {
+  const C = L.CAPS, miss = new Set();
+  if (!C.where[ev.where]) miss.add('where.' + ev.where);
+  if (ev.trigger !== undefined && !triggerOk(ev.trigger)) miss.add('trigger.' + triggerKey(ev.trigger));
+  for (const k of Object.keys(ev)) {
+    if (EV_BASE.includes(k)) continue;
+    const c = C.elig[k];
+    if (!c) miss.add('elig.' + k); else if (c.ok && !c.ok(ev[k], ev)) miss.add('elig.' + k + '=' + ev[k]);
+  }
+  for (const ch of ev.choices || []) {
+    for (const k of Object.keys(ch)) {
+      if (CH_BASE.includes(k)) continue;
+      if (!C.choice[k]) miss.add('choice.' + k);
+    }
+    for (const k of Object.keys(ch.cost || {})) if (!C.cost[k]) miss.add('cost.' + k);
+    for (const b of ['ok', 'fail']) {
+      const fx = ch[b] && ch[b].fx;
+      if (!fx) continue;
+      for (const k of Object.keys(fx)) {
+        const c = C.fx[k];
+        if (!c) miss.add('fx.' + k);
+        else if (c.ok && !c.ok(fx[k], fx)) miss.add('fx.' + k + '=' + (typeof fx[k] === 'object' ? JSON.stringify(fx[k]).slice(0, 24) : fx[k]));
+      }
+    }
+  }
+  return [...miss];
+}
+const gateCache = new WeakMap();
+L.evGate = function (ev) {
+  const c = gateCache.get(ev);
+  if (c && c.ver === L.CAPS.ver) return c.miss;
+  const miss = gate(ev);
+  gateCache.set(ev, { ver: L.CAPS.ver, miss });
+  return miss;
+};
+L.evLive = ev => !L.evGate(ev).length;
+
+// ---------- 引擎本来就支持的写法 ----------
+for (const w of ['home', 'exp', 'story']) L.supportWhere(w);
+for (const t of ['realm:', 'sect', 'pet', 'daolv', 'rank:', 'npc:', 'boss:']) L.supportTrigger(t);
+// 本模块新接的剧情触发键：首次击败宿敌、晋升身份、约战前夜、第一次渡雷劫
+for (const t of ['beat:', 'srank:', 'pact_eve', 'trib:']) L.supportTrigger(t);
+for (const k of ['minR', 'maxR', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'bg']) L.supportElig(k);
+// 新资格字段：冷却（默认 40 周天）、宗门身份下限、天骄榜名次上限、奇遇链（完成第 n 步自动置「链短名_n」）
+L.supportElig('cooldown', { ok: v => v > 0 });
+L.supportElig('srankMin', { ok: v => v >= 0 && v < 7 });
+L.supportElig('rankMax', { ok: v => v >= 1 });
+L.supportElig('chain'); L.supportElig('step');
+// 选项级：need / not / srankMin 不满足时该选项不显示；dao 记一笔道心（SYSTEMS §14 的道心系统上线前只记数，st.dao）
+L.supportChoice('need'); L.supportChoice('not'); L.supportChoice('srankMin');
+L.supportChoice('dao', { apply: (st, v) => { if (!['k', 'w', 'r'].includes(v)) return; st.dao = st.dao || { k: 0, w: 0, r: 0 }; st.dao[v] = (st.dao[v] || 0) + 1; } });
+for (const k of ['stones', 'pills', 'herbs']) L.supportCost(k);
+for (const k of ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'vein', 'contrib', 'talent', 'trait', 'title', 'daolv']) L.supportFx(k);
+// item：w 法宝 / a 功法（按阶抽一门具体的，见 arts.js）/ pet 灵宠；'need'（最弱槽位的法宝）与 'o' / 'r'（法衣、饰品）等法宝系统
+L.supportFx('item', { ok: v => ['w', 'a', 'pet'].includes(v) });
+L.supportFx('buff', { ok: v => !!v && (v.cul > 0 || v.atk > 0) });
+
+// ---------- 资格 ----------
+L.EV_COOL = 40;   // 随机事件默认冷却（周天），事件可用 cooldown 覆盖
 L.eligible = function (st, ev, where, ctx) {
   ctx = ctx || {};
   if (ev.where !== where) return false;
+  if (!L.evLive(ev)) return false;
   const r = st.p.r;
   if (where === 'story') { if (ev.trigger !== ctx.trigger) return false; if (st.evDone[ev.id]) return false; }
   if (ev.once && st.evDone[ev.id]) return false;
@@ -26,13 +107,23 @@ L.eligible = function (st, ev, where, ctx) {
   if (ev.npc && ev.aff) { const a = L.aff(st, ev.npc); if (a < ev.aff[0] || a > ev.aff[1]) return false; }
   if (ev.sect === true && !st.sect) return false;
   if (ev.sect === false && st.sect) return false;
+  if (ev.srankMin !== undefined && !(st.sect && st.sect.rank >= ev.srankMin)) return false;
+  if (ev.rankMax !== undefined && st.rank > ev.rankMax) return false;
   if (ev.daolv === true && !st.daolv) return false;
   if (ev.daolv === false && st.daolv) return false;
   if (where === 'exp' && ev.bg && ctx.bg && !ev.bg.includes(ctx.bg)) return false;
-  if (where !== 'story' && st.evLast[ev.id] !== undefined && st.tick - st.evLast[ev.id] < 40) return false;
+  if (where !== 'story' && st.evLast[ev.id] !== undefined && st.tick - st.evLast[ev.id] < (ev.cooldown || L.EV_COOL)) return false;
   // 一个选项都付不起的奇遇不要弹出来（否则玩家只能干看着）
-  if (where !== 'story' && !ev.choices.some(c => L.costOk(st, c.cost))) return false;
+  if (where !== 'story' && !ev.choices.some(c => L.choiceShown(st, c) && L.costOk(st, c.cost))) return false;
   if (where === 'home' && ctx.visit && !ev.visit) return false;
+  return true;
+};
+// 选项是否显示（need / not / srankMin）
+L.choiceShown = function (st, c) {
+  if (!c) return false;
+  if (c.need && !c.need.every(f => flagOn(st, f))) return false;
+  if (c.not && c.not.some(f => flagOn(st, f))) return false;
+  if (c.srankMin !== undefined && !(st.sect && st.sect.rank >= c.srankMin)) return false;
   return true;
 };
 L.pickEvent = function (st, where, ctx) {
@@ -53,6 +144,7 @@ L.costOk = function (st, cost) {
   if (cost.stones && st.stones < cost.stones * Math.max(L.income(st), 20)) return false;
   if (cost.pills && st.pills < cost.pills) return false;
   if (cost.herbs && st.herbs < cost.herbs * L.herbScale(st)) return false;
+  for (const k in cost) { const c = L.CAPS.cost[k]; if (c && c.ok && !c.ok(st, cost[k])) return false; }
   return true;
 };
 L.costText = function (st, cost) {
@@ -60,12 +152,13 @@ L.costText = function (st, cost) {
   if (cost.stones) a.push('灵石 ' + L.fmt(cost.stones * Math.max(L.income(st), 20)));
   if (cost.pills) a.push('破境丹 ' + cost.pills);
   if (cost.herbs) a.push('灵草 ' + L.fmt(cost.herbs * L.herbScale(st)));
+  for (const k in cost) { const c = L.CAPS.cost[k]; if (c && c.text) a.push(c.text(st, cost[k])); }
   return a.join('、');
 };
 // 事件里的 xp: N 表示 N × L.EV_XP 个周天的修为（打坐速度，不计闭关、历练的状态）。
 // 0.3：途中遭遇（每趟 60%）和访客（每周天 10%）加起来很密，按 1 算时奇遇占了勤快玩家三成修为（tools/sim.js 校准）
 L.EV_XP = 0.3;
-L.applyFx = function (st, fx) {
+L.applyFx = function (st, fx, ctx) {
   const out = [];
   if (!fx) return out;
   const p = st.p, f = L.fmt;
@@ -79,9 +172,8 @@ L.applyFx = function (st, fx) {
   if (fx.item) {
     const kind = fx.item, up = fx.itemUp || 0;
     const base = kind === 'w' ? 1 + Math.floor(p.r * 0.75) : kind === 'a' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.6);
-    const it = L.giveItem(st, kind, base + up);
-    const tn = kind === 'w' ? L.WEAPONS[it.tier].n : kind === 'a' ? L.ARTS[it.tier].n : L.PETS[it.tier].n;
-    out.push((it.equip ? '获得' : '得到（已有更好的，换成灵石）') + tn + (kind === 'a' ? '《' + it.name + '》' : '【' + it.name + '】'));
+    const it = L.giveItem(st, kind, base + up, undefined, { src: 'event' });
+    out.push(L.itemText(st, it));
     out.item = it;
   }
   if (fx.aff) for (const id in fx.aff) { const d = L.addAff(st, id, fx.aff[id]); if (d) out.push(`好感 ${L.npcName(st, id)} ${d > 0 ? '+' : ''}${d}`); }
@@ -91,30 +183,44 @@ L.applyFx = function (st, fx) {
   if (fx.cul) { st.bonus.cul += fx.cul; out.push(`永久修炼速度 +${Math.round(fx.cul * 100)}%`); }
   if (fx.power) { st.bonus.atk += fx.power; out.push(`永久战力 +${Math.round(fx.power * 100)}%`); }
   if (fx.vein && st.sect) { st.sect.veins = (st.sect.veins || 0) + fx.vein; out.push(`宗门灵脉 +${fx.vein}（俸禄 +${fx.vein * 25}%）`); }
-  if (fx.contrib && st.sect) { const v = L.contribFor(Math.min(10, p.r + 1)) * fx.contrib; st.sect.total += v; st.sect.pts += v; out.push('宗门贡献 +' + f(v)); }
+  if (fx.contrib && st.sect) {
+    const v = L.contribFor(Math.min(10, p.r + 1)) * fx.contrib;
+    // 负数：从可用贡献里扣（累计贡献是晋升门槛，不倒退）
+    if (v >= 0) { st.sect.total += v; st.sect.pts += v; out.push('宗门贡献 +' + f(v)); }
+    else { const d = Math.min(st.sect.pts, -v); st.sect.pts -= d; out.push('宗门贡献 −' + f(d)); }
+  }
   if (fx.talent && p.t < 6) { const from = p.t; p.t = Math.min(6, p.t + fx.talent); out.push(`灵根 ${L.talentInfo(st, from).n} → ${L.talentInfo(st, p.t).n}`); out.talent = true; }
   if (fx.trait && L.TRAITS[fx.trait] && !p.tr.includes(fx.trait)) { p.tr.push(fx.trait); out.push('获得天赋【' + L.TRAITS[fx.trait].n + '】'); }
   if (fx.title) { L.grantTitle(st, fx.title); out.push('获得称号「' + fx.title + '」'); }
-  if (fx.daolv && !st.daolv) { st.daolv = fx.daolv; out.push(`与${L.npcName(st, fx.daolv)}结为道侣：双修，修炼速度 ×1.25`); L.log(st, `与${L.npcName(st, fx.daolv)}结为道侣`, 'gold'); L.fireTrigger(st, 'daolv'); }
+  if (fx.daolv && !st.daolv && (!L.daolvBlocked || !L.daolvBlocked(st))) { st.daolv = fx.daolv; st.eflags['daolv_' + fx.daolv] = 1; out.push(`与${L.npcName(st, fx.daolv)}结为道侣：双修，修炼速度 ×1.25`); L.log(st, `与${L.npcName(st, fx.daolv)}结为道侣`, 'gold'); L.fireTrigger(st, 'daolv'); }
+  // 各系统登记的 fx（arts.js 的 art / mastery …）
+  for (const k in fx) { const c = L.CAPS.fx[k]; if (c && c.apply) c.apply(st, fx[k], out, fx, ctx); }
   return out;
 };
 L.choiceLuck = st => (L.has(st, 'lucky') ? 0.1 : 0) + (L.has(st, 'hero') ? 0.05 : 0) + (L.friend(st, 'bai') ? 0.05 : 0);
 L.resolveChoice = function (st, ev, idx) {
   const ch = ev.choices[idx];
-  if (!ch || !L.costOk(st, ch.cost)) return null;
-  if (ch.cost) L.applyFx(st, { stones: -(ch.cost.stones || 0), pills: -(ch.cost.pills || 0), herbs: -(ch.cost.herbs || 0) });
+  if (!ch || !L.choiceShown(st, ch) || !L.costOk(st, ch.cost)) return null;
+  if (ch.cost) {
+    L.applyFx(st, { stones: -(ch.cost.stones || 0), pills: -(ch.cost.pills || 0), herbs: -(ch.cost.herbs || 0) });
+    for (const k in ch.cost) { const c = L.CAPS.cost[k]; if (c && c.pay) c.pay(st, ch.cost[k]); }
+  }
   let ok = true, duel = null;
-  if (ch.duel) { const S = L.duelPower(st, { kind: 'event', id: ev.id }), Q = L.power(st) * ch.duel; const p = L.duelChance(S, Q); ok = R() < p; duel = { S, Q, p, win: ok }; }
+  if (ch.duel) { const foe = { kind: 'event', id: ev.id }; const S = L.duelPower(st, foe), Q = L.power(st) * ch.duel; const p = L.duelP(st, S, Q, foe); ok = R() < p; duel = { S, Q, p, win: ok }; }
   else if (ch.p !== undefined) ok = R() < Math.min(0.95, ch.p + L.choiceLuck(st));
   const br = ok ? ch.ok : (ch.fail || ch.ok);
   if (ev.npc) { st.npc = st.npc || {}; if (!st.npc[ev.npc]) st.npc[ev.npc] = { aff: 0 }; }
   st.evLast[ev.id] = st.tick;
   if (ev.once || ev.where === 'story') st.evDone[ev.id] = 1;
   st.stats.events++;
+  // 选项级字段（dao 记道心…）
+  for (const k in ch) { const c = L.CAPS.choice[k]; if (c && c.apply) c.apply(st, ch[k], ev, ch); }
+  // 奇遇链：完成第 n 步，置「链短名_n」（ch_tea 第 2 步 → tea_2），下一步的 need 用它
+  if (ev.chain && ev.step) st.eflags[String(ev.chain).replace(/^ch_/, '') + '_' + ev.step] = 1;
   // 访客：见过就算数；途中遭遇：成了本趟分数 +5，砸了 −5
   if (st.visitor && st.visitor.id === ev.id) { st.visitor = null; st.stats.visits = (st.stats.visits || 0) + 1; }
   if (st.exp && st.exp.plan && st.exp.encEv === ev.id && !st.exp.encDone) { st.exp.encDone = 1; st.exp.plan.adj = (st.exp.plan.adj || 0) + (ok ? 5 : -5); }
-  const fx = L.applyFx(st, br && br.fx);
+  const fx = L.applyFx(st, br && br.fx, { ev });
   const text = L.fill(st, br ? br.text : '');
   L.log(st, `【${L.fill(st, ev.title)}】${text}`.slice(0, 60), ok ? 'jade' : 'red');
   L.checkQuests(st);
@@ -137,8 +243,9 @@ function visitorLeave(st) {
   const ev = L.visitorEvent(st);
   st.visitor = null;
   if (!ev) return null;
-  let idx = ev.choices.findIndex(c => !c.cost && c.p === undefined && !c.duel);
-  if (idx < 0) idx = ev.choices.findIndex(c => !c.cost);
+  const shown = i => L.choiceShown(st, ev.choices[i]);
+  let idx = ev.choices.findIndex((c, i) => shown(i) && !c.cost && c.p === undefined && !c.duel);
+  if (idx < 0) idx = ev.choices.findIndex((c, i) => shown(i) && !c.cost);
   if (idx < 0) return null;
   const visits = st.stats.visits;
   st.visitor = { id: ev.id, left: 0 };

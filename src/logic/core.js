@@ -65,6 +65,21 @@ L.modParts = function (kind, st, a, b, c) {
 L.modProd = (parts) => { let v = 1; for (const x of parts) v *= x[1]; return v; };
 L.modSum = (parts) => { let v = 0; for (const x of parts) v += x[1]; return v; };
 
+// ---------- 事件能力登记（docs/EVENT_INTEGRATION.md） ----------
+// 事件数据（src/events.js 与 src/content/*.js）里用到的每个 fx 键、资格字段、选项字段、花费键、剧情触发键、where，
+// 引擎都要先登记“支持”，事件才会出现；用到任何一个没登记的写法，事件整条不出（L.evGate 列出缺什么）。
+// 各系统在自己的模块里登记自己实现的键（例：arts.js 登记 fx.art、fx.mastery），这样系统一接入，对应的事件就自动上线。
+//   L.supportFx(key, { ok(v) 值校验（可省）, apply(st, v, out, fx) 结算（可省，省了表示 L.applyFx 里已内建） })
+//   L.supportElig(key, { ok(v) })      事件级资格字段（minR、srankMin、cooldown…）
+//   L.supportChoice(key, { apply(st, v, ev, ch) })  选项级字段（need/not/srankMin 决定是否显示；dao 记道心）
+//   L.supportCost(key, { ok(st, v), pay(st, v), text(st, v) })
+//   L.supportTrigger(key)              剧情触发键；以 ':' 结尾的是前缀（'realm:' 匹配 realm:1…realm:8）
+//   L.supportWhere(where)
+L.CAPS = { ver: 0, fx: {}, elig: {}, choice: {}, cost: {}, trigger: {}, where: {} };
+const cap = kind => (key, o) => { L.CAPS[kind][key] = o || {}; L.CAPS.ver++; };
+L.supportFx = cap('fx'); L.supportElig = cap('elig'); L.supportChoice = cap('choice'); L.supportCost = cap('cost');
+L.supportTrigger = key => cap('trigger')(key); L.supportWhere = w => cap('where')(w);
+
 // ---------- 数值参数（模型见 docs/DESIGN.md §3；常数由 tools/sim.js 校准） ----------
 // g0/gGrow：倍率为 1 时每周天修为 = g0 × gGrow^i；pw*：战力 = pw0 × pwStage^i × pwRealm^r
 const P = L.P = { g0: 10, gGrow: 1.30, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };

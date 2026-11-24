@@ -429,7 +429,7 @@ const LIST = [
  * 五、宗门 · 血煞魔宗（6）：血河老祖 强者为尊 / 鬼医薛三 毒亦是药 / 幽姬 人心可用
  * ============================================================ */
 {
-  id: 'mo_xuehe_1', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 20], maxR: 7, once: true, title: '血令',
+  id: 'mo_xuehe_1', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 20], once: true, title: '血令',
   text: '血河老祖把一枚血令丢到你脚边：“城南有个叛徒，三年前卷了宗里的丹方跑了。提头来见。”你捡起血令，背面画着人像——是从前总给{ye}留一壶酒的老酒保。',
   choices: [
     { t: '提头来见', duel: 1.0, dao: 'k',

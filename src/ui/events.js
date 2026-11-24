@@ -12,14 +12,18 @@ function showChoice(ev) {
   const spk = ev.speaker || ev.npc;
   const who = spk && L.NPCS[spk] ? `<div class="seal">${esc(L.npcName(st, spk))} <span class="muted">${L.NPCS[spk].title}${L.met(st, spk) ? ' · 好感 ' + L.aff(st, spk) : ''}</span></div>` : spk === 'elder' ? '<div class="seal">戒中老祖</div>' : '';
   const luck = L.choiceLuck(st);
+  // 选项上的 need / not / srankMin 不满足时不显示（L.choiceShown）；按钮的 data-c 仍是原序号
+  let first = true;
   const btns = ev.choices.map((c, i) => {
+    if (!L.choiceShown(st, c)) return '';
     const can = L.costOk(st, c.cost);
     const bits = [];
     if (c.cost) bits.push(L.costText(st, c.cost));
-    if (c.duel) bits.push('胜算 ' + L.pct(L.duelChance(1, c.duel)));
+    if (c.duel) { const foe = { kind: 'event', id: ev.id }; bits.push('胜算 ' + L.pct(L.duelP(st, L.duelPower(st, foe), L.power(st) * c.duel, foe))); }
     else if (c.p !== undefined) bits.push('把握 ' + L.pct(Math.min(0.95, c.p + luck)));
-    return `<button class="btn ${i === 0 ? 'gold' : 'alt'}" data-c="${i}" ${can ? '' : 'disabled'}><span>${esc(L.fill(st, c.t))}</span><small>${esc(bits.join(' · '))}</small></button>`;
-  }).join('') + (ev.choices.some(c => L.costOk(st, c.cost)) ? '' : '<button class="btn alt" data-leave="1"><span>作罢</span><small>眼下拿不出这些，只好作罢</small></button>');
+    const gold = first; first = false;
+    return `<button class="btn ${gold ? 'gold' : 'alt'}" data-c="${i}" ${can ? '' : 'disabled'}><span>${esc(L.fill(st, c.t))}</span><small>${esc(bits.join(' · '))}</small></button>`;
+  }).join('') + (ev.choices.some(c => L.choiceShown(st, c) && L.costOk(st, c.cost)) ? '' : '<button class="btn alt" data-leave="1"><span>作罢</span><small>眼下拿不出这些，只好作罢</small></button>');
   const s = sheet({
     title: (ev.where === 'story' ? '<span class="story-tag">主线</span>' : '') + esc(L.fill(st, ev.title)), center: true, noClose: true,
     body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div><div class="choices">${btns}</div>`,

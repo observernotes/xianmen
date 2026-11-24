@@ -77,6 +77,7 @@ L.breakthrough = function (st, n) {
     if (desp) st.stats.despWin++;
     res.sure = sure;
     L.fireTrigger(st, 'realm:' + p.r);
+    if (res.trib > 0 && !st.flags.trib1) { st.flags.trib1 = 1; L.fireTrigger(st, 'trib:1'); }
     if (p.r >= 9) { res.ascend = true; st.flags.ascended = 1; L.log(st, `★ ${p.name} 渡过九九天劫，白日飞升！`, 'gold'); }
     else { if (carry > 0) { res.carry = carry; L.addXp(st, carry); } L.log(st, `突破成功，踏入${L.REALMS[p.r].n}期！寿元增至 ${L.fmt(L.lifespan(st))} 年`, p.r >= 2 ? 'gold' : 'jade'); }
     res.after = L.power(st);

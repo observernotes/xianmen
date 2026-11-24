@@ -55,6 +55,7 @@ L.tick = function (st, cont) {
   } else if (!st.retreat && !out.visitor && (st.rebirth > 0 || st.stats.visits > 0 || st.stats.retreat > 0 || st.tick >= 20) && R() < L.VISIT.p * evMul) {
     out.visitor = L.spawnVisitor(st);
   }
+  if (!st.pact && st.tick === L.PACT_TICK - 1) L.fireTrigger(st, 'pact_eve');
   if (!st.pact && st.tick >= L.PACT_TICK) out.pact = true;
   if (!out.pact && L.canTrain(st) && !st.flags.trainOffered) { st.flags.trainOffered = 1; out.train = true; }
   if (!st.sect && p.r >= 1 && st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 12; }

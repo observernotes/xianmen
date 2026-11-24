@@ -9,6 +9,7 @@
 源码布局：
   src/logic/*.js  逻辑模块。顺序以 src/logic.js 里的 MODULES 数组为准（这里直接读它），按顺序原样内联；
                   每个模块自带一行样板，浏览器里执行即装到 window.L 上。
+  src/events.js + src/content/*.js  事件数据，按 L.CONTENT_FILES 的顺序拼进同一个 <script>。
   src/ui/*.js     界面片段。共用一个作用域，按下面 UI_PARTS 的顺序拼进同一个 IIFE。
                   顺序只对“加载时就执行”的语句有要求（const/let 的声明要在被用到之前），函数声明会提升。
 """
@@ -57,6 +58,23 @@ def logic_bundle():
     parts = []
     for n in names:
         parts.append(f"/* ===== src/logic/{n}.js ===== */\n" + (SRC / "logic" / f"{n}.js").read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def events_bundle():
+    """src/events.js（设 window.EVENTS）+ src/content/*.js 扩展包（push 进 window.EVENTS）。
+    扩展包的顺序以 src/logic/events-engine.js 里的 L.CONTENT_FILES 为准（node 端也按它加载）。"""
+    parts = []
+    base = SRC / "events.js"
+    if base.exists():
+        parts.append("/* ===== src/events.js ===== */\n" + base.read_text(encoding="utf-8"))
+    eng = (SRC / "logic" / "events-engine.js").read_text(encoding="utf-8")
+    m = re.search(r"L\.CONTENT_FILES = \[([^\]]*)\]", eng)
+    names = re.findall(r"'([\w-]+)'", m.group(1)) if m else []
+    for n in names:
+        f = SRC / "content" / f"{n}.js"
+        if f.exists():
+            parts.append(f"/* ===== src/content/{n}.js ===== */\n" + f.read_text(encoding="utf-8"))
     return "\n".join(parts)
 
 
@@ -116,8 +134,7 @@ def main():
     template = (SRC / "template.html").read_text(encoding="utf-8")
     logic = logic_bundle()
     art = (SRC / "art.js").read_text(encoding="utf-8")
-    events_path = SRC / "events.js"
-    events = events_path.read_text(encoding="utf-8") if events_path.exists() else ""
+    events = events_bundle()
     ui = ui_bundle()
     woff2 = build_font(charset([template, logic, art, ui, events]))
     b64 = base64.b64encode(woff2).decode("ascii")

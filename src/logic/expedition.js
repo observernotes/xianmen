@@ -271,8 +271,10 @@ L.bossPower = k => L.rec(k, 2) * 1.6;
 L.fightBoss = function (st, k) {
   if (!L.bossReady(st, k) || L.busy(st)) return null;
   const B = L.BOSSES[k];
-  const S = L.duelPower(st, { kind: 'boss', k, el: L.REGIONS[k].el }), Q = L.bossPower(k);
-  const p = L.duelChance(S, Q);
+  const foe = { kind: 'boss', k };
+  const S = L.duelPower(st, foe), Q = L.bossPower(k);
+  const p = L.duelP(st, S, Q, foe);
+  if (L.revealFoe) L.revealFoe(st, foe);
   const win = R() < p;
   const res = { k, S, Q, p, win, B };
   if (win) {

@@ -48,6 +48,12 @@ function rollTier(st, base, max) {
   if (R() < 0.15) t--;
   return clamp(t, 1, max);
 }
+// 奇遇结果里的一句话（功法的写法见 arts.js 的 L.artItemText）
+L.itemText = function (st, it) {
+  if (it.kind === 'a' && L.artItemText) return L.artItemText(st, it);
+  const tn = it.kind === 'w' ? L.WEAPONS[it.tier].n : it.kind === 'a' ? L.ARTS[it.tier].n : L.PETS[it.tier].n;
+  return (it.equip ? '获得' : '得到（已有更好的，换成灵石）') + tn + (it.kind === 'a' ? '《' + it.name + '》' : '【' + it.name + '】');
+};
 L.giveItem = function (st, kind, tier, name) {
   const p = st.p;
   if (kind === 'pet') {

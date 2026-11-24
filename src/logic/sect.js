@@ -112,13 +112,16 @@ L.promote = function (st) {
   const nx = L.SRANKS[st.sect.rank + 1];
   const res = { from: st.sect.rank, to: st.sect.rank + 1 };
   if (nx.duel) {
-    const S = L.duelPower(st, { kind: 'heir' }), Q = L.heirPower();
-    const p = L.duelChance(S, Q);
+    const foe = { kind: 'heir', sect: st.sect.id };
+    const S = L.duelPower(st, foe), Q = L.heirPower();
+    const p = L.duelP(st, S, Q, foe);
+    if (L.revealFoe) L.revealFoe(st, foe);
     res.duel = { S, Q, p, win: R() < p };
     if (!res.duel.win) { st.flags.promoFail = st.tick; L.log(st, `挑战原${L.srankName(st, st.sect.rank + 1)}失利，来日再战`, 'red'); return res; }
   }
   st.sect.rank++;
   res.ok = true;
+  L.fireTrigger(st, 'srank:' + st.sect.rank);
   L.log(st, `全宗震动！晋升${L.SECTS.find(x => x.id === st.sect.id).n}${L.srankName(st, st.sect.rank)}`, 'gold');
   L.checkQuests(st);
   return res;
@@ -140,8 +143,10 @@ L.vaultBuy = function (st, k) {
 L.warPower = () => P.pw0 * Math.pow(P.pwStage, 21) * Math.pow(P.pwRealm, 5) * 7 * 3;
 L.wardMult = st => Math.pow(1.15, (st.sect && st.sect.build && st.sect.build.ward) || 0);
 L.sectWar = function (st) {
-  const S = L.duelPower(st, { kind: 'war', id: 'tianjian' }) * L.wardMult(st), Q = L.warPower();
-  const p = L.duelChance(S, Q);
+  const foe = { kind: 'war', id: 'tianjian' };
+  const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower();
+  const p = L.duelP(st, S, Q, foe);
+  if (L.revealFoe) L.revealFoe(st, foe);
   const win = R() < p;
   const res = { S, Q, p, win };
   if (win) {
@@ -169,8 +174,10 @@ L.sectMeet = function (st) {
     const q = pos === 1 ? 2 : pos - 1;
     const foe = L.nineAt(st, q);
     const Q = L.ninePower(st, q);
-    const Sr = L.duelPower(st, { kind: 'sect', id: foe.id });
-    const p = L.duelChance(Sr, Q);
+    const fo = { kind: 'sect', id: foe.id };
+    const Sr = L.duelPower(st, fo);
+    const p = L.duelP(st, Sr, Q, fo);
+    if (L.revealFoe) L.revealFoe(st, fo);
     const win = R() < p;
     const rd = { q, foe, Q, S: Sr, p, win, defend: pos === 1 };
     if (win) {
