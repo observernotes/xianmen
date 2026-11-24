@@ -18,6 +18,8 @@ L.arrayMult = lv => Math.pow(1.08, lv);
 L.fieldInc = lv => (lv > 0 ? 6 * Math.pow(1.42, lv) : 0);
 L.fieldHerb = lv => 0.1 * lv;
 L.vein = r => 4 * Math.pow(2.5, Math.min(r, 8));
+L.addCulMod('array', 30, st => ['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']);
+L.addIncSrc('field', 10, st => ['灵田 Lv' + st.home.field, L.fieldInc(st.home.field), 'field']);
 // 设施解锁：聚灵阵要先历练一趟，灵田两趟，丹炉和洞府扩建要炼气后期
 L.homeOpen = function (st, k) {
   if (st.rebirth > 0 || (st.flags.maxR || 0) >= 1) return true;
@@ -34,7 +36,7 @@ L.upInfo = function (st, k) {
   const o = { k, lv, max: lv >= b.max, cost: lv >= b.max ? 0 : L.hCost(k, lv), lock: L.homeLock(st, k), note: '' };
   if (o.max) return o;
   if (k === 'array') {
-    const g = L.gain(st), g1 = g * 1.08, left = Math.max(0, L.pNeed(st.p) - st.p.xp);
+    const g = L.gainCalm(st), g1 = g * 1.08, left = Math.max(0, L.pNeed(st.p) - st.p.xp);
     o.d0 = g; o.d1 = g1;
     const save = g > 0 && !L.isFull(st) ? left / g - left / g1 : 0;
     o.note = `修炼 +${L.fmt1(g1 - g)}/周天` + (save >= 0.5 ? `，本层提前 ${Math.round(save)} 周天` : '');

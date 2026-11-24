@@ -54,7 +54,7 @@ function actGuided(st, rec, seed) {
   // 灵石：先留够闭关和丹药的钱，其余按折算价升级
   for (let loop = 0; loop < 30; loop++) { const u = cheapestUp(st); if (!u || st.stones < u.c || !L.upgrade(st, u.k)) break; }
   const r = Math.min(p.r, 8);
-  const capW = Math.min(7, 2 + r), capA = Math.min(6, 2 + r);
+  const capW = L.boxCap(st, 'w'), capA = L.boxCap(st, 'a');
   if ((p.w < capW || p.a < capA) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * (st.boxMiss >= 2 ? 1 : 1.5)) L.buy(st, 'box');
   if (L.marketOpen(st, 'egg') && (!p.pet || p.pet.tier < Math.min(6, 1 + Math.floor(r * 0.6))) && st.stones >= L.price(st, 'egg') * 1.5) L.buy(st, 'egg');
   if (st.pills < 2 && st.stones >= L.price(st, 'pill') * 3) L.buy(st, 'pill');

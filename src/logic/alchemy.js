@@ -47,7 +47,7 @@ L.craft = function (st, k) {
   res.q = q; const m = L.QUAL[q].m * L.pillPower(st);
   if (q >= 2) st.stats.goodPill = (st.stats.goodPill || 0) + 1;
   if (q === 3) st.stats.perfect++;
-  if (k === 'peiyuan') { const g = L.gain(st) * 4 * m; L.addXp(st, g); res.fx = '修为 +' + L.fmt(g); }
+  if (k === 'peiyuan') { const g = L.gainCalm(st) * 4 * m; L.addXp(st, g); res.fx = '修为 +' + L.fmt(g); }
   else if (k === 'pojing') { const n = q === 3 ? 2 : 1; st.pills += n; res.fx = '破境丹 +' + n; }
   else if (k === 'juling') { const t = Math.round(6 * m); const c = q === 3 ? 2 : 1.5; st.buffs.push({ cul: c, left: t }); res.fx = `修炼速度 ×${c}（${t} 周天）`; }
   else if (k === 'yanshou') { st.lifePills[p.r] = (st.lifePills[p.r] || 0) + 1; const v = Math.round(L.REALMS[p.r].life * 0.08 * m); st.lifeBonus += v; res.fx = `寿元 +${L.fmt(v)} 年`; }

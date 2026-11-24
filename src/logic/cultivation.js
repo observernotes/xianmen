@@ -12,14 +12,16 @@ L.tuna = function (st) {
   if (!L.tunaReady(st)) return 0;
   st.tuna = 0;
   st.stats.tuna = (st.stats.tuna || 0) + 1;
-  const g = L.gainBase(st) * (st.p.inj > 0 ? 0.5 : 1);
+  const g = L.gainCalm(st);
   L.addXp(st, g);
   L.checkQuests(st);
   return g;
 };
 
-// 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚）
+// 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，随天劫系统接入）
+// 基础成功率在 L.REALMS[r].rate；后续系统的加成（祭法宝、灵宠挡劫、渡劫阵…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]
 L.BT = { pill: 0.15, maxPills: 3, furnace: 0.01, fail: 0.10, desperate: 0.25 };
+L.addBtMod = (id, order, fn) => L.addMod('bt', id, order, fn);
 L.btPills = (st, n) => (n === true ? Math.min(L.BT.maxPills, st.pills) : clamp(Math.floor(n || 0), 0, Math.min(L.BT.maxPills, st.pills)));
 // 老祖护法：第一世第一次冲击筑基必成
 L.btGuard = st => st.rebirth === 0 && st.p.r === 0 && !st.flags.guardUsed;
@@ -32,7 +34,7 @@ L.btParts = function (st, n) {
   if (L.has(st, 'alch')) a.push(['丹道奇才', 0.15]);
   const sc = L.sectOf(st); if (sc && sc.bt) a.push([sc.n, sc.bt]);
   if (L.desperate(st)) a.push(['绝境', L.BT.desperate]);
-  return a;
+  return a.concat(L.modParts('bt', st));
 };
 L.btRate = function (st, n) {
   if (st.flags.sureBt || L.btGuard(st)) return 1;
@@ -93,8 +95,14 @@ L.breakthrough = function (st, n) {
 };
 
 // ---------- 闭关与疗伤 ----------
-// 4 周天，修炼 ×(2 + 0.05×洞府等级)；花费 25 × 1.27^i 灵石（第一次免费）；出关 30% 概率顿悟，再得 2 周天修为
-L.RET = { len: 4, base: 25, grow: 1.27, epi: 0.30, epiDao: 0.45, epiTicks: 2 };
+// 4 周天，修炼 ×(2 + 0.05×洞府等级)；花费 50 × 1.30^i 灵石（SYSTEMS §18；第一次免费，玄天道宗 −30%）；
+// 出关 30% 概率顿悟（玄天道宗 45%），再得 2 周天修为。
+// 闭关疲劳：两趟历练之间连着闭关，从第二次起每次倍率 −0.5（最低 ×1.25）；出门历练一趟就清零（劳逸结合）。
+L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
+// TODO SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”以后移到静室
+L.retBaseMult = st => 2 + 0.05 * st.home.cave;
+L.retStreak = st => st.flags.retStreak || 0;
+L.retMult = st => Math.max(L.RET.minM, L.retBaseMult(st) - L.RET.fatigue * L.retStreak(st));
 L.retOpen = st => st.rebirth > 0 || Math.max(L.si(st.p), st.flags.maxI || 0) >= 1;
 L.retCost = function (st) {
   if (!st.flags.retFree) return 0;
@@ -113,12 +121,14 @@ L.retWhy = function (st) {
 };
 L.canRetreat = st => !L.retWhy(st);
 // 闭关值不值：多得多少修为、提前几周天升层
+// m 本次倍率；m0 不计疲劳的倍率；extra 比打坐多得的修为；save 本层提前几周天；total 这 4 周天共得多少修为
 L.retInfo = function (st) {
-  const m = L.retMult(st), base = L.gainBase(st) * (st.p.inj > 0 ? 0.5 : 1);
+  const m = L.retMult(st), m0 = L.retBaseMult(st), base = L.gainCalm(st);
   const extra = base * (m - 1) * L.RET.len;
   const left = Math.max(0, L.pNeed(st.p) - st.p.xp);
-  const t0 = left / base, t1 = left <= base * m * L.RET.len ? left / (base * m) : L.RET.len + (left - base * m * L.RET.len) / base;
-  return { cost: L.retCost(st), m, len: L.RET.len, extra, save: Math.max(0, Math.round(t0 - t1)), why: L.retWhy(st), free: !st.flags.retFree };
+  const t0 = base > 0 ? left / base : 0, t1 = left <= base * m * L.RET.len ? left / (base * m) : L.RET.len + (left - base * m * L.RET.len) / base;
+  return { cost: L.retCost(st), m, m0, tired: m < m0, streak: L.retStreak(st), len: L.RET.len, extra, total: base * m * L.RET.len, save: Math.max(0, Math.round(t0 - t1)), why: L.retWhy(st), free: !st.flags.retFree,
+    epi: st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi };
 };
 L.startRetreat = function (st, opt) {
   opt = opt || {};
@@ -129,6 +139,7 @@ L.startRetreat = function (st, opt) {
     st.stones -= L.retCost(st); st.flags.retFree = 1; st.flags.spentAt = st.tick;
   }
   st.retreat = { left: L.RET.len, total: L.RET.len, m: opt.m !== undefined ? opt.m : L.retMult(st), kind: opt.kind || 'ret', got: 0 };
+  if (!special) st.flags.retStreak = L.retStreak(st) + 1;
   if (opt.task !== undefined) st.retreat.task = opt.task;
   st.tuna = 0;
   L.log(st, opt.kind === 'train' ? '老祖亲自特训：4 周天，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟 4 周天' : `闭关 ${L.RET.len} 周天，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
@@ -147,7 +158,7 @@ L.endRetreat = function (st, done) {
       const first = !st.stats.retreat;
       st.stats.retreat = (st.stats.retreat || 0) + 1;
       const pe = st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi;
-      if (r.kind === 'ret' && (first || R() < pe)) { res.epi = L.gainBase(st) * L.RET.epiTicks; L.addXp(st, res.epi); }
+      if (r.kind === 'ret' && (first || R() < pe)) { res.epi = L.gainCalm(st) * L.RET.epiTicks; L.addXp(st, res.epi); }
       if (st.sect) L.taskHit(st, 'act', t => t.sub === 'retreat');
       if (first && !st.visitor && !st.stats.visits) res.visitor = L.spawnVisitor(st);   // 第一位访客固定在首次出关时上门
     }
@@ -167,7 +178,8 @@ L.startTrain = function (st) {
   st.flags.trained = 1;
   return L.startRetreat(st, { kind: 'train', m: 3 });
 };
-// 服丹疗伤：一枚破境丹，立刻痊愈
+// 服丹疗伤：一枚破境丹，立刻痊愈。
+// TODO SYSTEMS §5：疗伤丹上线后优先用疗伤丹，破境丹作兜底（效果相同）
 L.canHeal = st => st.p.inj > 0 && st.pills > 0;
 L.heal = function (st) {
   if (!L.canHeal(st)) return false;

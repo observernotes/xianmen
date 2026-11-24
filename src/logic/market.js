@@ -15,6 +15,9 @@ L.MARKET = [
 L.price = (st, k) => Math.floor(L.MARKET.find(m => m.k === k).base * Math.pow(2.6, Math.min(st.p.r, 8)));
 L.marketOpen = (st, k) => { const m = L.MARKET.find(x => x.k === k); return !m.minR || st.p.r >= m.minR || (st.flags.maxR || 0) >= m.minR; };
 
+// 寻宝保底能补到的最高阶：L.BOX_CAP + 境界（法宝至多 7 阶、功法至多 6 阶）
+L.BOX_CAP = 2;
+L.boxCap = (st, kind) => Math.min(kind === 'w' ? 7 : 6, L.BOX_CAP + Math.min(st.p.r, 8));
 L.buy = function (st, k) {
   if (!L.marketOpen(st, k)) return null;
   const c = L.price(st, k);
@@ -33,8 +36,8 @@ L.buy = function (st, k) {
   st.stones -= c; st.flags.spentAt = st.tick;
   if (k === 'pill') { st.pills++; return { k }; }
   if (k === 'box') {
-    // 保底：连续两次没带来提升，第三次必得“当前最高阶 +1”（上限 2 + r 阶）
-    const capW = Math.min(7, 2 + r), capA = Math.min(6, 2 + r);
+    // 保底：连续两次没带来提升，第三次必得“当前最高阶 +1”（上限见 L.boxCap）
+    const capW = L.boxCap(st, 'w'), capA = L.boxCap(st, 'a');
     let it;
     if ((st.boxMiss || 0) >= 2 && (p.w < capW || p.a < capA)) {
       const kind = p.w < capW && (p.a >= capA || p.w <= p.a) ? 'w' : 'a';

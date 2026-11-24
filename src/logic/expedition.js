@@ -5,19 +5,20 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 历练：地点 k × 深度 d × 行事 a
+// 历练：地点 k × 深度 d × 行事 a。el：地图五行（SYSTEMS §1；第一次去过之后显示，克制效果随功法·五行系统接入）
+L.ELEM = { jin: '金', mu: '木', shui: '水', huo: '火', tu: '土' };
 L.REGIONS = [
-  { n: '后山野林', mon: 2, foe: 'beast', fc: ['#8a7a66', '#5f5244'], bg: 'forest', desc: '野狼出没，适合初入仙途' },
-  { n: '黑风岭', mon: 2, foe: 'man', fc: ['#4a4a52', '#2c2c34'], bg: 'hill', desc: '一伙劫道的散修匪寇' },
-  { n: '落日古墓', mon: 2, foe: 'man', fc: ['#cfc8b0', '#8f876c'], bg: 'tomb', desc: '筑基老祖的埋骨之地，尸骨成精' },
-  { n: '万妖山脉', mon: 3, foe: 'beast', fc: ['#6a8f3a', '#3f5e22'], bg: 'forest', desc: '妖兽成群，凶险异常' },
-  { n: '血煞秘境', mon: 3, foe: 'man', fc: ['#b0303c', '#6a1820'], bg: 'blood', desc: '魔道遗留的小世界，血气冲天' },
-  { n: '上古剑冢', mon: 3, foe: 'orb', fc: ['#d8f0ff', '#7fb8e0'], bg: 'swords', desc: '万剑埋骨之地，剑灵游荡' },
-  { n: '九幽魔渊', mon: 3, foe: 'man', fc: ['#6a2a8a', '#3a1450'], bg: 'abyss', desc: '深不见底，魔气翻涌' },
-  { n: '东海龙宫', mon: 4, foe: 'snake', fc: ['#3fb0c8', '#1f6e8a'], bg: 'sea', desc: '龙族秘藏，宝光冲霄' },
-  { n: '天外星墟', mon: 4, foe: 'orb', fc: ['#ffe28a', '#c9a032'], bg: 'stars', desc: '破碎星辰的残骸，藏有仙人遗物' },
-  { n: '太古仙府', mon: 4, foe: 'man', fc: ['#e0c070', '#9a7a30'], bg: 'palace', desc: '上古大能的洞府，傀儡守卫森严' },
-  { n: '混沌裂隙', mon: 5, foe: 'snake', fc: ['#2a2a3a', '#0e0e18'], bg: 'chaos', desc: '天地初开时留下的伤痕' },
+  { el: 'mu', n: '后山野林', mon: 2, foe: 'beast', fc: ['#8a7a66', '#5f5244'], bg: 'forest', desc: '野狼出没，适合初入仙途' },
+  { el: 'jin', n: '黑风岭', mon: 2, foe: 'man', fc: ['#4a4a52', '#2c2c34'], bg: 'hill', desc: '一伙劫道的散修匪寇' },
+  { el: 'tu', n: '落日古墓', mon: 2, foe: 'man', fc: ['#cfc8b0', '#8f876c'], bg: 'tomb', desc: '筑基老祖的埋骨之地，尸骨成精' },
+  { el: 'mu', n: '万妖山脉', mon: 3, foe: 'beast', fc: ['#6a8f3a', '#3f5e22'], bg: 'forest', desc: '妖兽成群，凶险异常' },
+  { el: 'huo', n: '血煞秘境', mon: 3, foe: 'man', fc: ['#b0303c', '#6a1820'], bg: 'blood', desc: '魔道遗留的小世界，血气冲天' },
+  { el: 'jin', n: '上古剑冢', mon: 3, foe: 'orb', fc: ['#d8f0ff', '#7fb8e0'], bg: 'swords', desc: '万剑埋骨之地，剑灵游荡' },
+  { el: 'shui', n: '九幽魔渊', mon: 3, foe: 'man', fc: ['#6a2a8a', '#3a1450'], bg: 'abyss', desc: '深不见底，魔气翻涌' },
+  { el: 'shui', n: '东海龙宫', mon: 4, foe: 'snake', fc: ['#3fb0c8', '#1f6e8a'], bg: 'sea', desc: '龙族秘藏，宝光冲霄' },
+  { el: 'huo', n: '天外星墟', mon: 4, foe: 'orb', fc: ['#ffe28a', '#c9a032'], bg: 'stars', desc: '破碎星辰的残骸，藏有仙人遗物' },
+  { el: 'tu', n: '太古仙府', mon: 4, foe: 'man', fc: ['#e0c070', '#9a7a30'], bg: 'palace', desc: '上古大能的洞府，傀儡守卫森严' },
+  { el: '', n: '混沌裂隙', mon: 5, foe: 'snake', fc: ['#2a2a3a', '#0e0e18'], bg: 'chaos', desc: '天地初开时留下的伤痕' },
 ];
 L.DEPTHS = ['外围', '腹地', '禁地'];
 // stone/herb/item：灵石、灵草、法宝功法掉率的倍率
@@ -33,8 +34,13 @@ L.RATINGS = ['丁', '丙', '乙', '甲', '天'];
 L.RATE_TH = [48, 66, 88, 105];           // 丙、乙、甲、天 的分数线
 L.RATE_M = [0.15, 0.6, 1.0, 1.5, 2.0];   // 各评价的奖励倍率
 L.ratingOf = s => (s >= L.RATE_TH[3] ? 4 : s >= L.RATE_TH[2] ? 3 : s >= L.RATE_TH[1] ? 2 : s >= L.RATE_TH[0] ? 1 : 0);
-L.rec = (k, d) => 6 * Math.pow(12, k) * Math.pow(2.3, d || 0);
-L.rew = (k, d) => 55 * Math.pow(2.9, k) * Math.pow(1.35, d || 0);
+// 推荐战力：每张图 ×13.4、每深一层 ×2.37（SYSTEMS §18）；基础灵石 80 × 2.9^k × 1.35^d（§18：55 → 80）
+L.REC = { base: 6, k: 13.4, d: 2.37 };
+L.REW = { base: 80, k: 2.9, d: 1.35 };
+L.rec = (k, d) => L.REC.base * Math.pow(L.REC.k, k) * Math.pow(L.REC.d, d || 0);
+L.rew = (k, d) => L.REW.base * Math.pow(L.REW.k, k) * Math.pow(L.REW.d, d || 0);
+// 破境丹掉率（§18：40% → 25%）
+L.EXP_PILL = 0.25;
 L.expLen = k => 4 + (k >= 3 ? 1 : 0) + (k >= 7 ? 1 : 0);
 // 地点需要的境界（小层序号）：黑风岭筑基，落日古墓筑基后期，之后每个大境界一张，混沌裂隙要渡劫圆满
 const REG_SI = [0, 4, 6, 8, 12, 16, 20, 24, 28, 32, 35];
@@ -71,12 +77,18 @@ L.homeRegion = function (st) { let k = 0; for (let j = 1; j < L.REGIONS.length; 
 L.affOf = function (st, k, a) { let v = L.AFF[k][a]; if (a === 0 && st.sect && st.sect.id === 'jian') v = Math.min(2, v + 1); return v; };
 L.affKnown = (st, k, a) => !!(st.meta && st.meta.aff && st.meta.aff[k * 3 + a]);
 L.affSym = (st, k, a) => (L.affKnown(st, k, a) ? L.AFF_SYM[L.affOf(st, k, a)] : '？');
-// 分数里确定的三项：斩获（战力比）、身法（相性，采药 +6）、胆魄（禁地 +3、同伴与称号）
-L.expExtra = () => 0;   // 同伴与称号加成，阶段四接入
+L.elemKnown = (st, k) => !!(st.meta && st.meta.elem && st.meta.elem[k]);
+L.elemName = k => (L.REGIONS[k].el ? L.ELEM[L.REGIONS[k].el] : '无');
+// 分数里确定的三项：斩获（战力比）、身法（相性，采药 +6）、胆魄（禁地 +3，加上 L.addExpMod 登记的各项）
+// TODO：同伴（§7.4）、五行克制（SYSTEMS §1：克 +8 / 被克 −8）、法衣、词条、道心都用 L.addExpMod 接进来
+L.expExtraParts = (st, k, d, a) => L.modParts('exp', st, k, d, a);
+L.expExtra = (st, k, d, a) => L.modSum(L.expExtraParts(st, k, d, a));
 L.expParts = function (st, k, d, a) {
   const T = L.power(st), rec = L.rec(k, d), ratio = T / rec;
-  return { T, rec, ratio, pow: 70 + 25 * Math.log2(Math.max(ratio, 1e-9)), aff: (L.affOf(st, k, a) - 1) * 12 + (a === 2 ? 6 : 0), guts: (d === 2 ? 3 : 0) + L.expExtra(st, k, d, a) };
+  return { T, rec, ratio, pow: 70 + 25 * Math.log2(Math.max(ratio, 1e-9)), aff: (L.affOf(st, k, a) - 1) * 12 + (a === 2 ? 6 : 0), guts: (d === 2 ? 3 : 0) + L.expExtra(st, k, d, a), extra: L.expExtraParts(st, k, d, a) };
 };
+// 历练灵石倍率：锦鲤 ×1.5、夜璃知己 ×1.2（TODO：聚财词条、同伴）
+L.expStoneMult = st => (L.has(st, 'koi') ? 1.5 : 1) * (L.friend(st, 'ye') ? 1.2 : 1);
 // 出发确认页用：预计评价区间、负伤风险、灵石大约多少。没试过的相性按 ○ 估，并标 unknown
 L.expForecast = function (st, k, d, a) {
   const pt = L.expParts(st, k, d, a), known = L.affKnown(st, k, a);
@@ -88,9 +100,10 @@ L.expForecast = function (st, k, d, a) {
   if (first) { lo = hi = 3; risk = 0; em = L.RATE_M[3]; }
   else for (let j = 0; j < 5; j++) em += dist[j] * L.RATE_M[j];
   const leap = pt.ratio < 0.6;
-  let stones = L.rew(k, d) * em * L.APPR[a].stone * (leap ? (dist[2] + dist[3] + dist[4] > 0 ? 1.5 : 1) : 1);
-  if (L.has(st, 'koi')) stones *= 1.5;
-  if (L.friend(st, 'ye')) stones *= 1.2;
+  // 灵石期望：越级时乙以上再 ×2（与 expCalc 一致）
+  let emL = em;
+  if (leap && !first) { emL = 0; for (let j = 0; j < 5; j++) emL += dist[j] * L.RATE_M[j] * (j >= 2 ? 2 : 1); }
+  let stones = L.rew(k, d) * emL * L.APPR[a].stone * L.expStoneMult(st);
   return { k, d, a, T: pt.T, rec: pt.rec, ratio: pt.ratio, base, lo, hi, risk, dist, pOk: dist[2] + dist[3] + dist[4], leap, unknown: !known, first,
     text: lo === hi ? L.RATINGS[lo] : L.RATINGS[lo] + '～' + L.RATINGS[hi], stones: Math.floor(stones), len: L.expLen(k),
     warnFull: L.isFull(st), warnInj: st.p.inj > 0 ? st.p.inj : 0 };
@@ -132,13 +145,11 @@ function expCalc(st, e) {
   const m = L.RATE_M[rating];
   const leap = pl.ratio < 0.6 && rating >= 2;
   const o = { k, d, a, score, rating, m, leap, ratio: pl.ratio, parts: { pow: pl.pow, luck: pl.rnd + (pl.adj || 0), aff: pl.aff, guts: pl.guts } };
-  let stones = L.rew(k, d) * m * A.stone * (0.9 + 0.2 * u[0]) * (leap ? 2 : 1);
-  if (L.has(st, 'koi')) stones *= 1.5;
-  if (L.friend(st, 'ye')) stones *= 1.2;
+  let stones = L.rew(k, d) * m * A.stone * (0.9 + 0.2 * u[0]) * (leap ? 2 : 1) * L.expStoneMult(st);
   if (e.escort !== undefined) stones = 0;
   o.stones = Math.floor(stones);
   o.herbs = Math.round((2 + k) * (1 + 0.5 * d) * A.herb * m);
-  o.pills = rating >= 1 && u[1] < 0.4 ? 1 : 0;
+  o.pills = rating >= 1 && u[1] < L.EXP_PILL ? 1 : 0;
   o.drops = [];
   if (pl.gift) o.drops.push(['w', 1]);
   else {
@@ -179,6 +190,9 @@ L.resolveExp = function (st) {
   const akey = k * 3 + a;
   res.affV = L.affOf(st, k, a);
   if (!st.meta.aff[akey]) { st.meta.aff[akey] = 1; res.affNew = true; }
+  if (!st.meta.elem) st.meta.elem = {};
+  if (!st.meta.elem[k]) { st.meta.elem[k] = 1; res.elemNew = true; }
+  st.flags.retStreak = 0;   // 出门一趟，闭关疲劳清零
   if (!e.recall) {
     const bkey = k + '_' + d, prev = st.best[bkey] || 0;
     if (res.rating > prev) st.best[bkey] = res.rating;
@@ -257,7 +271,7 @@ L.bossPower = k => L.rec(k, 2) * 1.6;
 L.fightBoss = function (st, k) {
   if (!L.bossReady(st, k) || L.busy(st)) return null;
   const B = L.BOSSES[k];
-  const S = L.power(st), Q = L.bossPower(k);
+  const S = L.duelPower(st, { kind: 'boss', k, el: L.REGIONS[k].el }), Q = L.bossPower(k);
   const p = L.duelChance(S, Q);
   const win = R() < p;
   const res = { k, S, Q, p, win, B };

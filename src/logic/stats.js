@@ -1,78 +1,68 @@
 /* 废柴仙途 · 逻辑模块 stats：修炼、战力、收入的倍率汇总与数值拆解
- * 模块写法见 src/logic.js 顶部说明。 */
+ * 模块写法见 src/logic.js 顶部说明。各系统的加成用 core.js 的 L.addCulMod / L.addAtkMod / L.addIncSrc … 登记到这里。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 状态倍率：打坐 ×1；闭关 ×(2 + 0.05×洞府等级)；历练中 ×0.5
-L.retMult = st => 2 + 0.05 * st.home.cave;
-L.statusMult = st => (st.exp ? 0.5 : st.retreat ? st.retreat.m : 1);
-// 不含“状态”和负伤的修炼速度（吐纳、顿悟、培元丹按它结算）
-L.gainBase = function (st) {
-  const p = st.p, i = Math.min(L.si(p), 35);
-  let m = L.TALENTS[p.t].cul * L.ARTS[p.a].m * L.arrayMult(st.home.array) * L.rebCul(st);
-  const sc = L.sectOf(st); if (sc) m *= sc.cul;
-  if (L.has(st, 'wise')) m *= 1.3;
-  m *= L.culMult(st);
-  return L.g0(i) * m;
+// ---------- 本模块登记的通用项：灵根、天赋、轮回、机缘、增益、负伤、灵脉、锦鲤 ----------
+L.addCulMod('talent', 10, st => { const TI = L.talentInfo(st); return ['灵根·' + TI.n, TI.cul, 'talent']; });
+L.addAtkMod('talent', 10, st => { const TI = L.talentInfo(st); return ['灵根·' + TI.n, TI.atk, 'talent']; });
+L.addCulMod('wise', 50, st => (L.has(st, 'wise') ? ['天赋·悟性超群', 1.3, ''] : null));
+L.addAtkMod('sword', 50, st => (L.has(st, 'sword') ? ['天赋·先天剑骨', 1.5, ''] : null));
+L.addCulMod('reb', 60, st => (L.rebCul(st) > 1 ? ['宿慧（轮回）', L.rebCul(st), ''] : null));
+L.addAtkMod('reb', 60, st => (L.rebAtk(st) > 1 ? ['根骨（轮回）', L.rebAtk(st), ''] : null));
+L.addCulMod('bonus', 70, st => (st.bonus && st.bonus.cul ? ['机缘加成', 1 + st.bonus.cul, ''] : null));
+L.addAtkMod('bonus', 70, st => (st.bonus && st.bonus.atk ? ['机缘加成', 1 + st.bonus.atk, ''] : null));
+L.addCulMod('buffs', 90, st => (st.buffs || []).filter(b => b.cul).map(b => ['丹药增益（剩' + b.left + '周天）', b.cul, '']));
+L.addAtkMod('buffs', 90, st => (st.buffs || []).filter(b => b.atk).map(b => ['增益（剩' + b.left + '周天）', b.atk, '']));
+L.addAtkMod('inj', 100, st => (st.p.inj > 0 ? ['负伤（剩' + st.p.inj + '周天）', 0.6, ''] : null));
+L.addIncSrc('vein', 20, st => ['灵脉（' + L.REALMS[Math.min(st.p.r, 8)].n + '）', L.vein(st.p.r), '']);
+L.addIncMul('koi', 50, st => (L.has(st, 'koi') ? ['天赋·锦鲤附体', 1.5, ''] : null));
+
+// ---------- 状态倍率：打坐 ×1；闭关 ×m（见 cultivation.js）；历练中 ×0.5；负伤 ×0.5 ----------
+L.statusParts = function (st) {
+  const a = [];
+  if (st.exp) a.push(['历练途中', 0.5, '']);
+  if (st.retreat) a.push([(st.retreat.kind === 'train' ? '老祖特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关') + '（剩' + st.retreat.left + '周天）', st.retreat.m, '']);
+  if (st.p.inj > 0) a.push(['负伤（剩' + st.p.inj + '周天）', 0.5, '']);
+  return a;
 };
-L.gain = function (st) {
-  let g = L.gainBase(st) * L.statusMult(st);
-  if (st.p.inj > 0) g *= 0.5;
-  return g;
+L.statusMult = st => L.modProd(L.statusParts(st));
+L.culParts = st => L.modParts('cul', st);
+L.atkParts = st => L.modParts('atk', st);
+L.baseCul = st => L.g0(Math.min(L.si(st.p), 35));
+L.baseAtk = st => P.pw0 * Math.pow(P.pwStage, L.si(st.p)) * Math.pow(P.pwRealm, st.p.r);
+// 修炼倍率之积（不含状态）。sim 和界面里说的“修炼 ×N”就是它
+L.culMult = st => L.modProd(L.culParts(st));
+L.atkMult = st => L.modProd(L.atkParts(st));
+// 不含“状态”的修炼速度（吐纳、顿悟、培元丹、战斗感悟按它结算，负伤另算）
+L.gainBase = st => L.baseCul(st) * L.culMult(st);
+L.gain = st => L.gainBase(st) * L.statusMult(st);
+// 负伤时的吐纳/顿悟也减半（但不受闭关、历练的状态影响）
+L.gainCalm = st => L.gainBase(st) * (st.p.inj > 0 ? 0.5 : 1);
+L.power = st => L.baseAtk(st) * L.atkMult(st);
+// 对决用的战力：在 L.power 上再乘对决专属的项（五行克制等，foe = { kind, el, … }）
+L.duelParts = (st, foe) => L.modParts('duel', st, foe || {});
+L.duelPower = (st, foe) => L.power(st) * L.modProd(L.duelParts(st, foe));
+L.incParts = function (st) {
+  const m = L.modProd(L.modParts('incMul', st));
+  return L.modParts('inc', st).map(x => [x[0], x[1] * m, x[2]]);
 };
-L.power = function (st) {
-  const p = st.p, i = L.si(p);
-  let v = P.pw0 * Math.pow(P.pwStage, i) * Math.pow(P.pwRealm, p.r);
-  v *= L.TALENTS[p.t].atk * L.WEAPONS[p.w].m * L.PETS[p.pet ? p.pet.tier : 0].m * L.rebAtk(st);
-  if (L.has(st, 'sword')) v *= 1.5;
-  const sc = L.sectOf(st); if (sc) v *= sc.atk;
-  v *= L.atkMult(st);
-  if (p.inj > 0) v *= 0.6;
-  return v;
-};
-L.income = function (st) {
-  let s = L.fieldInc(st.home.field) + L.vein(st.p.r) + L.pay(st);
-  if (L.has(st, 'koi')) s *= 1.5;
-  return s;
-};
+L.income = st => L.modSum(L.incParts(st));
 // 升到下一小层（或圆满）还要几个周天，按当前速度
 L.ticksToNext = st => { const g = L.gain(st); return g > 0 ? Math.max(0, Math.ceil((L.pNeed(st.p) - st.p.xp) / g)) : Infinity; };
-// 数值拆解：给“变强”面板展示每一项数值从哪来
+// 照现在的速度（不算闭关、历练），升到 si 还要几个周天
+L.ticksToStage = function (st, si) {
+  const p = st.p, g = L.gainCalm(st);
+  if (!(g > 0)) return Infinity;
+  let need = L.pNeed(p) - p.xp;
+  for (let i = L.si(p) + 1; i < si && i <= 35; i++) need += L.need(i);
+  return Math.max(0, Math.ceil(need / g));
+};
+// 数值拆解：给“变强”面板展示每一项数值从哪来（与 gain / power / income 用的是同一份登记）
 L.breakdown = function (st) {
-  const p = st.p, i = Math.min(L.si(p), 35), sc = L.sectOf(st), TI = L.talentInfo(st);
-  const cul = [], atk = [], inc = [];
-  const baseCul = L.g0(i);
-  cul.push(['灵根·' + TI.n, TI.cul, 'talent']);
-  cul.push(['功法·' + (p.a ? p.an : '基础吐纳'), L.ARTS[p.a].m, 'art']);
-  cul.push(['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']);
-  if (L.rebCul(st) > 1) cul.push(['宿慧（轮回）', L.rebCul(st), '']);
-  if (sc && sc.cul !== 1) cul.push(['宗门·' + sc.n, sc.cul, 'sect']);
-  if (L.has(st, 'wise')) cul.push(['天赋·悟性超群', 1.3, '']);
-  if (st.bonus.cul) cul.push(['机缘加成', 1 + st.bonus.cul, '']);
-  if (L.friend(st, 'su')) cul.push(['知己·' + L.npcName(st, 'su'), 1.1, '']);
-  if (st.daolv) cul.push(['道侣双修', 1.25, '']);
-  for (const b of st.buffs || []) if (b.cul) cul.push(['丹药增益（剩' + b.left + '周天）', b.cul, '']);
-  if (st.exp) cul.push(['历练途中', 0.5, '']);
-  if (st.retreat) cul.push([(st.retreat.kind === 'train' ? '老祖特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关') + '（剩' + st.retreat.left + '周天）', st.retreat.m, '']);
-  if (p.inj > 0) cul.push(['负伤（剩' + p.inj + '周天）', 0.5, '']);
-  const baseAtk = P.pw0 * Math.pow(P.pwStage, i) * Math.pow(P.pwRealm, p.r);
-  atk.push(['灵根·' + TI.n, TI.atk, 'talent']);
-  atk.push(['法宝·' + (p.w ? p.wn : '赤手空拳'), L.WEAPONS[p.w].m, 'weapon']);
-  atk.push(['灵宠·' + (p.pet ? p.pet.name : '无'), L.PETS[p.pet ? p.pet.tier : 0].m, 'pet']);
-  if (L.rebAtk(st) > 1) atk.push(['根骨（轮回）', L.rebAtk(st), '']);
-  if (L.has(st, 'sword')) atk.push(['天赋·先天剑骨', 1.5, '']);
-  if (sc && sc.atk !== 1) atk.push(['宗门·' + sc.n, sc.atk, 'sect']);
-  if (st.bonus.atk) atk.push(['机缘加成', 1 + st.bonus.atk, '']);
-  if (L.friend(st, 'ye')) atk.push(['知己·' + L.npcName(st, 'ye'), 1.1, '']);
-  if (L.friend(st, 'chu')) atk.push(['知己·楚狂', 1.15, '']);
-  for (const b of st.buffs || []) if (b.atk) atk.push(['增益（剩' + b.left + '周天）', b.atk, '']);
-  if (p.inj > 0) atk.push(['负伤', 0.6, '']);
-  const koi = L.has(st, 'koi') ? 1.5 : 1;
-  inc.push(['灵田 Lv' + st.home.field, L.fieldInc(st.home.field) * koi, 'field']);
-  inc.push(['灵脉（' + L.REALMS[Math.min(p.r, 8)].n + '）', L.vein(p.r) * koi, '']);
-  if (st.sect) inc.push(['宗门俸禄·' + L.srankName(st, st.sect.rank), L.pay(st) * koi, 'sect']);
-  return { baseCul, cul, gain: L.gain(st), baseAtk, atk, power: L.power(st), inc, income: L.income(st) };
+  const cul = L.culParts(st).concat(L.statusParts(st));
+  return { baseCul: L.baseCul(st), cul, gain: L.gain(st), baseAtk: L.baseAtk(st), atk: L.atkParts(st), power: L.power(st), inc: L.incParts(st), income: L.income(st) };
 };
 });

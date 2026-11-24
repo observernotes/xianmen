@@ -29,18 +29,9 @@ L.addAff = function (st, id, d) {
   if (before < 60 && o.aff >= 60 && !o.f60) { o.f60 = 1; L.log(st, `与${L.npcName(st, id)}结为知己：${L.NPCS[id].bonus}`, 'gold'); L.fireTrigger(st, 'npc:' + id + ':60'); }
   return o.aff - before;
 };
-L.culMult = function (st) {
-  let m = 1 + ((st.bonus && st.bonus.cul) || 0);
-  if (L.friend(st, 'su')) m *= 1.1;
-  if (st.daolv) m *= 1.25;
-  for (const b of st.buffs || []) if (b.cul) m *= b.cul;
-  return m;
-};
-L.atkMult = function (st) {
-  let m = 1 + ((st.bonus && st.bonus.atk) || 0);
-  if (L.friend(st, 'ye')) m *= 1.1;
-  if (L.friend(st, 'chu')) m *= 1.15;
-  for (const b of st.buffs || []) if (b.atk) m *= b.atk;
-  return m;
-};
+// 知己与道侣的永久加成（TODO 阶段四：五颗心、同伴、委托）
+L.addCulMod('friend_su', 80, st => (L.friend(st, 'su') ? ['知己·' + L.npcName(st, 'su'), 1.1, ''] : null));
+L.addCulMod('daolv', 85, st => (st.daolv ? ['道侣双修·' + L.npcName(st, st.daolv), 1.25, ''] : null));
+L.addAtkMod('friend_ye', 80, st => (L.friend(st, 'ye') ? ['知己·' + L.npcName(st, 'ye'), 1.1, ''] : null));
+L.addAtkMod('friend_chu', 81, st => (L.friend(st, 'chu') ? ['知己·楚狂', 1.15, ''] : null));
 });

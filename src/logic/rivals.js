@@ -5,10 +5,10 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 天骄榜对手战力 = exp(A(名次) + 0.016 × 周天)。A 的锚点线性插值；
+// 天骄榜对手战力 = exp(A(名次) + 0.0185 × 周天)（SYSTEMS §18：斜率 0.016 → 0.0185）。A 的锚点线性插值；
 // 对手涨得比玩家慢，每位宿敌卡在设计好的时间段（见 §3.10）
 const RA = [[1, 14.6], [4, 12.2], [12, 8.9], [45, 5.7], [72, 3.3], [100, 1.6]];
-L.RIVAL_SLOPE = 0.016;
+L.RIVAL_SLOPE = 0.0185;
 L.rivalA = function (q) {
   for (let j = 0; j < RA.length - 1; j++) {
     const [q0, a0] = RA[j], [q1, a1] = RA[j + 1];
@@ -26,13 +26,15 @@ L.duelChance = (P1, P2) => clamp(0.5 + 0.55 * Math.log2(P1 / P2), 0.03, 0.97);
 L.duelLines = Q => ({ even: Q, sure: Q * 1.8 });
 // 三年之约：第 36 周天（炼气期 12 周天一年）。第一世未筑基时老祖借力 ×2
 L.PACT_TICK = 36;
-L.PACT_POWER = 90;
+L.PACT_POWER = 100;   // SYSTEMS §18：90 → 100
 L.PACT_ASSIST = 2;
 L.pactPower = () => L.PACT_POWER;
+// 对手描述（给对决倍率用；五行等属性随宿敌资料接入，见 CONTENT §10）
+L.PACT_FOE = { kind: 'rival', id: 'mu' };
 L.pactAssist = st => (st.rebirth === 0 && st.p.r === 0 ? L.PACT_ASSIST : 1);
 L.pactInfo = function (st) {
   const left = Math.max(0, L.PACT_TICK - st.tick);
-  const base = L.power(st), assist = L.pactAssist(st), S = base * assist, Q = L.PACT_POWER;
+  const base = L.duelPower(st, L.PACT_FOE), assist = L.pactAssist(st), S = base * assist, Q = L.PACT_POWER;
   return { left, base, assist, S, Q, p: L.duelChance(S, Q), done: !!st.pact };
 };
 const TOUR_EVERY = 12, MEET_EVERY = 24, MEET_AT = 18;
@@ -53,12 +55,13 @@ L.nextBig = function (st) {
 };
 L.pactDuel = function (st) {
   const assist = L.pactAssist(st) > 1;
-  const S = L.power(st) * L.pactAssist(st);
+  const S = L.duelPower(st, L.PACT_FOE) * L.pactAssist(st);
   const Q = L.pactPower();
   const p = L.duelChance(S, Q);
   const win = R() < p;
   st.pact = win ? 1 : -1;
   const res = { S, Q, p, win, assist, base: S / L.pactAssist(st), rank0: st.rank };
+  st.stats.pactP = p;
   if (win) {
     st.beaten.mu = 1;
     const q = L.rivalRank(st, 'mu');
@@ -103,9 +106,10 @@ L.tournament = function (st) {
     }
     const rv = L.rivalAt(st, q);
     const Q = L.rivalPower(st, q);
-    const p = L.duelChance(S, Q);
+    const Sr = L.duelPower(st, { kind: 'rival', q, id: rv && rv.id });
+    const p = L.duelChance(Sr, Q);
     const win = R() < p;
-    const round = { q, rv, P: Q, p, win };
+    const round = { q, rv, P: Q, S: Sr, p, win };
     if (win) {
       st.stats.tourWins = (st.stats.tourWins || 0) + 1;
       if (st.rank === 1) round.defend = true; else st.rank = q;

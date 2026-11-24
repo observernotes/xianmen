@@ -33,6 +33,10 @@ L.PETS = [
   { n: '上古神兽', m: 2.5, c: ['#f6e7ff', '#d6b8ff', '#a67ee6'], names: ['九尾天狐', '冰凰', '貔貅'] },
   { n: '太古真灵', m: 3.0, c: ['#ffe27a', '#f0b429', '#b87b10'], names: ['太古金龙', '麒麟', '金乌'] },
 ];
+// 功法、法宝、灵宠的倍率（SYSTEMS §2～§4 会把这三个单值换成槽位/名册，届时只改这三行登记）
+L.addCulMod('art', 20, st => ['功法·' + (st.p.a ? st.p.an : '基础吐纳'), L.ARTS[st.p.a].m, 'art']);
+L.addAtkMod('weapon', 20, st => ['法宝·' + (st.p.w ? st.p.wn : '赤手空拳'), L.WEAPONS[st.p.w].m, 'weapon']);
+L.addAtkMod('pet', 25, st => ['灵宠·' + (st.p.pet ? st.p.pet.name : '无'), L.PETS[st.p.pet ? st.p.pet.tier : 0].m, 'pet']);
 
 // ---------- 宝物 ----------
 L.rollTier = rollTier;

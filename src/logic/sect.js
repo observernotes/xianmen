@@ -8,22 +8,27 @@ const P = L.P;
 // 宗门
 L.SECTS = [
   { id: 'jian', n: '太虚剑宗', d: '天下剑修圣地', perk: '战力 ×1.2；斩妖相性高一档；宝库法宝便宜三成', fit: '适合：爱历练', atk: 1.2, cul: 1, bt: 0, color: '#4aa8ff' },
-  { id: 'dan', n: '丹霞谷', d: '丹道第一宗门', perk: '突破 +10%；成丹率 +15%、丹效 ×1.3；每 6 周天俸禄附一枚破境丹', fit: '适合：爱炼丹', atk: 1, cul: 1, bt: 0.1, pill: true, color: '#ff8a5c' },
+  { id: 'dan', n: '丹霞谷', d: '丹道第一宗门', perk: '突破 +10%；成丹率 +15%、丹效 ×1.3；手里破境丹不足 6 枚时，每 6 周天俸禄附一枚', fit: '适合：爱炼丹', atk: 1, cul: 1, bt: 0.1, pill: true, color: '#ff8a5c' },
   { id: 'dao', n: '玄天道宗', d: '传承万年的道法正宗', perk: '修炼 ×1.2；闭关花费 −30%，顿悟概率 30%→45%', fit: '适合：爱闭关', atk: 1, cul: 1.2, bt: 0, color: '#c27dff' },
 ];
-// 宗门身份：r 需要的境界，c 需要的累计贡献（60 × 4.2^(k−1)），pay 俸禄倍率
+L.DAN_PILL_CAP = 6;
+// 宗门身份：r 需要的境界，c 需要的累计贡献（SYSTEMS §18：80 × 5.2^(k−1)，原 60 × 4.2^(k−1)），pay 俸禄倍率
+const SC = k => (k ? Math.round(80 * Math.pow(5.2, k - 1)) : 0);
 L.SRANKS = [
-  { n: '外门弟子', r: 0, c: 0, pay: 0.5 },
-  { n: '内门弟子', r: 1, c: 60, pay: 1 },
-  { n: '真传弟子', r: 2, c: 252, pay: 1.5 },
-  { n: '圣子', nf: '圣女', r: 3, c: 1058, pay: 2.5, duel: true },
-  { n: '长老', r: 4, c: 4445, pay: 4 },
-  { n: '太上长老', r: 6, c: 18670, pay: 6 },
-  { n: '宗主', r: 7, c: 78415, pay: 10 },
+  { n: '外门弟子', r: 0, c: SC(0), pay: 0.5 },
+  { n: '内门弟子', r: 1, c: SC(1), pay: 1 },
+  { n: '真传弟子', r: 2, c: SC(2), pay: 1.5 },
+  { n: '圣子', nf: '圣女', r: 3, c: SC(3), pay: 2.5, duel: true },
+  { n: '长老', r: 4, c: SC(4), pay: 4 },
+  { n: '太上长老', r: 6, c: SC(5), pay: 6 },
+  { n: '宗主', r: 7, c: SC(6), pay: 10 },
 ];
 L.sectOf = st => { if (!st.sect) return null; if (!st.sect.order) { st.sect.order = L.NINE.map(x => x.id); st.sect.veins = st.sect.veins || 0; st.sect.meets = st.sect.meets || 0; st.sect.best = st.sect.order.indexOf(st.sect.id) + 1; } return L.SECTS.find(x => x.id === st.sect.id); };
 L.srankName = (st, i) => { const R0 = L.SRANKS[i]; return st.p.look.f && R0.nf ? R0.nf : R0.n; };
 L.pay = st => (st.sect ? L.vein(st.p.r) * L.SRANKS[st.sect.rank].pay * L.sectPayMult(st) : 0);
+L.addCulMod('sect', 40, st => { const sc = L.sectOf(st); return sc && sc.cul !== 1 ? ['宗门·' + sc.n, sc.cul, 'sect'] : null; });
+L.addAtkMod('sect', 40, st => { const sc = L.sectOf(st); return sc && sc.atk !== 1 ? ['宗门·' + sc.n, sc.atk, 'sect'] : null; });
+L.addIncSrc('pay', 30, st => (st.sect ? ['宗门俸禄·' + L.srankName(st, st.sect.rank), L.pay(st), 'sect'] : null));
 // ---------- 九大宗门（宗门榜） ----------
 // pos: 初始排名；champ: 会武代表；eq: 该名次代表相当于天骄榜第几名
 L.NINE = [
@@ -43,11 +48,18 @@ L.sectOrder = st => (st.sect ? st.sect.order : null);
 L.sectPos = st => (st.sect ? st.sect.order.indexOf(st.sect.id) + 1 : 0);
 L.sectPayMult = st => { if (!st.sect || !st.sect.order) return 1; const b = st.sect.build || {}; return (1 + 0.08 * (9 - L.sectPos(st))) * (1 + 0.25 * (st.sect.veins || 0)) * (1 + 0.25 * (b.vein || 0)); };
 L.nineAt = (st, pos) => L.NINE.find(x => x.id === st.sect.order[pos - 1]);
-L.canPromote = function (st) {
-  if (!st.sect) return false;
-  const nx = L.SRANKS[st.sect.rank + 1];
-  return !!nx && st.p.r >= nx.r && st.sect.total >= nx.c;
+// 晋升条件：境界、累计贡献（圣子那一级另要当众击败原圣子，见 L.promote）。
+// TODO SYSTEMS §11：人脉（圣子、宗主需两位长老支持 ≥ 50）用 L.addPromoReq 接进来，fn(st, 目标身份序号) → { t, ok } 或 null
+L.PROMO_REQS = [];
+L.addPromoReq = (id, fn) => { L.PROMO_REQS = L.PROMO_REQS.filter(x => x.id !== id).concat([{ id, fn }]); };
+L.promoteNeeds = function (st) {
+  const nx = st.sect && L.SRANKS[st.sect.rank + 1];
+  if (!nx) return [];
+  const a = [{ k: 'realm', t: `境界达到${L.REALMS[nx.r].n}期`, ok: st.p.r >= nx.r }, { k: 'contrib', t: `累计贡献 ${L.fmt(st.sect.total)} / ${L.fmt(nx.c)}`, ok: st.sect.total >= nx.c, v: st.sect.total / nx.c }];
+  for (const q of L.PROMO_REQS) { const x = q.fn(st, st.sect.rank + 1); if (x) a.push(x); }
+  return a;
 };
+L.canPromote = st => !!st.sect && !!L.SRANKS[st.sect.rank + 1] && L.promoteNeeds(st).every(x => x.ok);
 // 一趟 k 号地点乙等历练的贡献；任务、论道、会武的贡献都以它为单位
 L.CONTRIB = { base: 10, grow: 2.3, tour: 1, meet: 2, task: 2 };
 L.contribFor = k => Math.floor(L.CONTRIB.base * Math.pow(L.CONTRIB.grow, k));
@@ -93,14 +105,14 @@ L.joinSect = function (st, id) {
   L.checkQuests(st);
   return true;
 };
-// 原圣子（或圣女）的战力：元婴中期裸装 × 2.3
-L.heirPower = () => P.pw0 * Math.pow(P.pwStage, 13) * Math.pow(P.pwRealm, 3) * 2.3;
+// 原圣子（或圣女）的战力：元婴中期裸装 × 2.3 × 1.5（SYSTEMS §18：为后续系统的战力预算 ×1.5）
+L.heirPower = () => P.pw0 * Math.pow(P.pwStage, 13) * Math.pow(P.pwRealm, 3) * 2.3 * 1.5;
 L.promote = function (st) {
   if (!L.canPromote(st)) return null;
   const nx = L.SRANKS[st.sect.rank + 1];
   const res = { from: st.sect.rank, to: st.sect.rank + 1 };
   if (nx.duel) {
-    const S = L.power(st), Q = L.heirPower();
+    const S = L.duelPower(st, { kind: 'heir' }), Q = L.heirPower();
     const p = L.duelChance(S, Q);
     res.duel = { S, Q, p, win: R() < p };
     if (!res.duel.win) { st.flags.promoFail = st.tick; L.log(st, `挑战原${L.srankName(st, st.sect.rank + 1)}失利，来日再战`, 'red'); return res; }
@@ -124,10 +136,11 @@ L.vaultBuy = function (st, k) {
   L.checkQuests(st);
   return out;
 };
-// 天剑宗来犯：对手是天剑宗长老团（约等于炼虚中期的强者）
-L.warPower = () => P.pw0 * Math.pow(P.pwStage, 21) * Math.pow(P.pwRealm, 5) * 7;
+// 天剑宗来犯：对手是天剑宗长老团（约等于炼虚中期的强者；SYSTEMS §18：×7 再 ×3）
+L.warPower = () => P.pw0 * Math.pow(P.pwStage, 21) * Math.pow(P.pwRealm, 5) * 7 * 3;
+L.wardMult = st => Math.pow(1.15, (st.sect && st.sect.build && st.sect.build.ward) || 0);
 L.sectWar = function (st) {
-  const S = L.power(st) * Math.pow(1.15, (st.sect.build || {}).ward || 0), Q = L.warPower();
+  const S = L.duelPower(st, { kind: 'war', id: 'tianjian' }) * L.wardMult(st), Q = L.warPower();
   const p = L.duelChance(S, Q);
   const win = R() < p;
   const res = { S, Q, p, win };
@@ -156,9 +169,10 @@ L.sectMeet = function (st) {
     const q = pos === 1 ? 2 : pos - 1;
     const foe = L.nineAt(st, q);
     const Q = L.ninePower(st, q);
-    const p = L.duelChance(S, Q);
+    const Sr = L.duelPower(st, { kind: 'sect', id: foe.id });
+    const p = L.duelChance(Sr, Q);
     const win = R() < p;
-    const rd = { q, foe, Q, p, win, defend: pos === 1 };
+    const rd = { q, foe, Q, S: Sr, p, win, defend: pos === 1 };
     if (win) {
       if (pos > 1) { const o = st.sect.order; [o[pos - 1], o[q - 1]] = [o[q - 1], o[pos - 1]]; }
       st.stats.meetWins = (st.stats.meetWins || 0) + 1;

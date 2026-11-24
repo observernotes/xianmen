@@ -62,11 +62,13 @@ L.costText = function (st, cost) {
   if (cost.herbs) a.push('灵草 ' + L.fmt(cost.herbs * L.herbScale(st)));
   return a.join('、');
 };
+// 事件里的 xp: N 表示 N × L.EV_XP 个周天的修为（打坐速度，不计闭关、历练的状态）
+L.EV_XP = 1;
 L.applyFx = function (st, fx) {
   const out = [];
   if (!fx) return out;
   const p = st.p, f = L.fmt;
-  if (fx.xp) { const g = L.gain(st) * fx.xp; L.addXp(st, g); out.push('修为 +' + f(g)); }
+  if (fx.xp) { const g = L.gainCalm(st) * fx.xp * L.EV_XP; L.addXp(st, g); out.push('修为 +' + f(g)); }
   if (fx.stones) { const v = Math.round(fx.stones * Math.max(L.income(st), 20)); st.stones = Math.max(0, st.stones + v); out.push('灵石 ' + (v >= 0 ? '+' : '') + f(v)); }
   if (fx.pills) { st.pills = Math.max(0, st.pills + fx.pills); out.push('破境丹 ' + (fx.pills > 0 ? '+' : '') + fx.pills); }
   if (fx.herbs) { const v = Math.round(fx.herbs * L.herbScale(st)); st.herbs = Math.max(0, st.herbs + v); out.push('灵草 ' + (v > 0 ? '+' : '') + f(v)); }
@@ -101,7 +103,7 @@ L.resolveChoice = function (st, ev, idx) {
   if (!ch || !L.costOk(st, ch.cost)) return null;
   if (ch.cost) L.applyFx(st, { stones: -(ch.cost.stones || 0), pills: -(ch.cost.pills || 0), herbs: -(ch.cost.herbs || 0) });
   let ok = true, duel = null;
-  if (ch.duel) { const S = L.power(st), Q = S * ch.duel; const p = L.duelChance(S, Q); ok = R() < p; duel = { S, Q, p, win: ok }; }
+  if (ch.duel) { const S = L.duelPower(st, { kind: 'event', id: ev.id }), Q = L.power(st) * ch.duel; const p = L.duelChance(S, Q); ok = R() < p; duel = { S, Q, p, win: ok }; }
   else if (ch.p !== undefined) ok = R() < Math.min(0.95, ch.p + L.choiceLuck(st));
   const br = ok ? ch.ok : (ch.fail || ch.ok);
   if (ev.npc) { st.npc = st.npc || {}; if (!st.npc[ev.npc]) st.npc[ev.npc] = { aff: 0 }; }
