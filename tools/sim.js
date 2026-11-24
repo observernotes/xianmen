@@ -51,6 +51,7 @@ for (let n = 0; n < 2000; n++) {
   while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) pickC(ev); }
   if (out.invite) { L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]); mark('join'); }
   if (out.pact) { const r = L.pactDuel(st); mark(r.win ? 'pactWin' : 'pactLose'); }
+  if (out.meet) { L.sectMeet(st); for (const q of [5, 3, 1]) if (L.sectPos(st) <= q) mark('sect' + q); }
   if (out.war) { const r = L.sectWar(st); mark(r.win ? 'warWin' : 'warLose'); }
   if (out.tourney) {
     L.tournament(st);

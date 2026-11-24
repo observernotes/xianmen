@@ -30,7 +30,7 @@ L.fmt = function (n) {
 L.pct = p => Math.round(p * 100) + '%';
 
 // ---------- 数值参数 ----------
-const P = L.P = { needBase: 30, needGrow: 1.55, monBase: 12, monGrow: 1.19, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
+const P = L.P = { needBase: 30, needGrow: 1.55, monBase: 25, monGrow: 1.19, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
 
 // ---------- 静态数据 ----------
 // life: 该境界寿元（年）；mpt: 一个周天流逝的年数
@@ -150,9 +150,28 @@ L.SRANKS = [
   { n: '太上长老', r: 6, c: 1e5, pay: 32 },
   { n: '宗主', r: 7, c: 4e5, pay: 64 },
 ];
-L.sectOf = st => st.sect ? L.SECTS.find(x => x.id === st.sect.id) : null;
+L.sectOf = st => { if (!st.sect) return null; if (!st.sect.order) { st.sect.order = L.NINE.map(x => x.id); st.sect.veins = st.sect.veins || 0; st.sect.meets = st.sect.meets || 0; st.sect.best = st.sect.order.indexOf(st.sect.id) + 1; } return L.SECTS.find(x => x.id === st.sect.id); };
 L.srankName = (st, i) => { const R0 = L.SRANKS[i]; return st.p.look.f && R0.nf ? R0.nf : R0.n; };
-L.pay = st => st.sect ? 2 * Math.pow(2, st.p.r) * L.SRANKS[st.sect.rank].pay : 0;
+L.pay = st => st.sect ? 2 * Math.pow(2, st.p.r) * L.SRANKS[st.sect.rank].pay * L.sectPayMult(st) : 0;
+// ---------- 九大宗门（宗门榜） ----------
+// pos: 初始排名；champ: 会武代表；eq: 该名次代表相当于天骄榜第几名
+L.NINE = [
+  { id: 'kunlun', n: '昆仑仙宫', champ: '云无极', line: '昆仑之巅，从不为谁让路。' },
+  { id: 'tianjian', n: '天剑宗', champ: '楚天阔', line: '当年的弃徒，也配代表一宗？' },
+  { id: 'xuesha', n: '血煞魔宗', champ: '血无涯', line: '正道宗门？不过是待宰的羔羊。' },
+  { id: 'wanfa', n: '万法阁', champ: '诸葛千机', line: '你的每一招，我都算到了。' },
+  { id: 'jingang', n: '金刚寺', champ: '慧能大师', line: '阿弥陀佛，施主请回吧。' },
+  { id: 'jian', n: '太虚剑宗', champ: '剑十三', line: '我这一剑，你接不住。' },
+  { id: 'dao', n: '玄天道宗', champ: '玄微子', line: '道法自然，胜负亦然。请。' },
+  { id: 'dan', n: '丹霞谷', champ: '丹红袖', line: '丹修也能打，你信不信？' },
+  { id: 'yushou', n: '御兽山', champ: '驭天风', line: '我的兽群，会把你撕成碎片。' },
+];
+const NINE_EQ = [3, 9, 16, 26, 38, 50, 62, 74, 88];
+L.ninePower = (st, pos) => L.rivalPower(st, NINE_EQ[pos - 1]);
+L.sectOrder = st => st.sect ? st.sect.order : null;
+L.sectPos = st => st.sect ? st.sect.order.indexOf(st.sect.id) + 1 : 0;
+L.sectPayMult = st => { if (!st.sect || !st.sect.order) return 1; return (1 + 0.08 * (9 - L.sectPos(st))) * (1 + 0.25 * (st.sect.veins || 0)); };
+L.nineAt = (st, pos) => L.NINE.find(x => x.id === st.sect.order[pos - 1]);
 L.canPromote = function (st) {
   if (!st.sect) return false;
   const nx = L.SRANKS[st.sect.rank + 1];
@@ -181,7 +200,7 @@ L.RIVALS = [
   { id: 'zhao', q: 45, name: '赵乾', sect: '天剑宗', title: '天剑宗大师兄' },
   { id: 'chu', q: 12, name: '楚天阔', sect: '天剑宗', title: '天剑宗圣子' },
   { id: 'xue', q: 4, name: '血无涯', sect: '血煞魔宗', title: '魔道圣子' },
-  { id: 'yun', q: 1, name: '云无极', sect: '太虚宫', title: '天下第一天骄' },
+  { id: 'yun', q: 1, name: '云无极', sect: '昆仑仙宫', title: '天下第一天骄' },
 ];
 
 // ---------- 公式 ----------
@@ -321,9 +340,11 @@ L.GOALS = [
   { t: '成为宗门圣子', c: st => st.sect && st.sect.rank >= 3, rw: 5e4 },
   { t: '踏入化神', c: st => (st.flags.maxR || 0) >= 4, rw: 1e5 },
   { t: '击败天剑宗圣子楚天阔', c: st => !!st.beaten.chu, rw: 3e5 },
+  { t: '九宗会武中力压天剑宗', c: st => !!st.flags.beatTianjian, rw: 3e5 },
   { t: '击退来犯的天剑宗', c: st => !!st.flags.warWon, rw: 5e5 },
   { t: '踏入合体', c: st => (st.flags.maxR || 0) >= 6, rw: 1.5e6 },
   { t: '执掌宗门，成为宗主', c: st => st.sect && st.sect.rank >= 6, rw: 6e6 },
+  { t: '带领宗门成为天下第一宗', c: st => st.sect && st.sect.best <= 1, rw: 8e6 },
   { t: '击败魔道圣子血无涯', c: st => !!st.beaten.xue, rw: 4e6 },
   { t: '登顶天骄榜第一', c: st => st.bestRank <= 1, rw: 1e7 },
   { t: '踏入渡劫', c: st => (st.flags.maxR || 0) >= 8, rw: 2e7 },
@@ -584,7 +605,8 @@ L.tournament = function (st) {
 // ---------- 宗门 ----------
 L.joinSect = function (st, id) {
   const sc = L.SECTS.find(x => x.id === id); if (!sc || st.sect) return false;
-  st.sect = { id, rank: 0, total: 0, pts: 0, joined: st.tick };
+  st.sect = { id, rank: 0, total: 0, pts: 0, joined: st.tick, veins: 0, order: L.NINE.map(x => x.id), meets: 0, best: 9 };
+  st.sect.best = L.sectPos(st);
   L.log(st, `拜入${sc.n}，成为外门弟子`, 'gold');
   L.fireTrigger(st, 'sect');
   L.checkGoals(st);
@@ -636,6 +658,36 @@ L.sectWar = function (st) {
     st.flags.war = st.tick + 24;
     L.log(st, '天剑宗来犯，宗门苦战方才退敌……此仇必报', 'red');
   }
+  L.checkGoals(st);
+  return res;
+};
+
+// 九宗会武：你作为本宗代表，挑战排名更高的宗门
+L.sectMeet = function (st) {
+  if (!st.sect) return null;
+  st.sect.meets++;
+  const S = L.power(st);
+  const res = { n: st.sect.meets, start: L.sectPos(st), rounds: [], S };
+  for (let j = 0; j < 3; j++) {
+    const pos = L.sectPos(st);
+    const q = pos === 1 ? 2 : pos - 1;
+    const foe = L.nineAt(st, q);
+    const Q = L.ninePower(st, q);
+    const p = L.duelChance(S, Q);
+    const win = R() < p;
+    const rd = { q, foe, Q, p, win, defend: pos === 1 };
+    if (win) {
+      if (pos > 1) { const o = st.sect.order; [o[pos - 1], o[q - 1]] = [o[q - 1], o[pos - 1]]; }
+      rd.contrib = L.contribFor(Math.min(10, st.p.r + 1)) * 2; st.sect.total += rd.contrib; st.sect.pts += rd.contrib;
+      rd.stones = Math.floor(L.income(st) * 5 + 100); st.stones += rd.stones;
+      if (foe.id === 'tianjian') st.flags.beatTianjian = (st.flags.beatTianjian || 0) + 1;
+    }
+    res.rounds.push(rd);
+    if (!win || rd.defend) break;
+  }
+  res.end = L.sectPos(st);
+  st.sect.best = Math.min(st.sect.best, res.end);
+  L.log(st, `第${res.n}届九宗会武落幕，${L.sectOf(st).n}位列天下第 ${res.end} 宗`, res.end < res.start ? 'gold' : '');
   L.checkGoals(st);
   return res;
 };
@@ -752,7 +804,7 @@ L.pickEvent = function (st, where, ctx) {
   // 尚未出现过的事件优先
   const fresh = list.filter(ev => st.evLast[ev.id] === undefined);
   const pool = fresh.length && R() < 0.75 ? fresh : list;
-  return wpick(pool.map(ev => [ev, (ev.weight || 1) * (ev.npc ? 1.3 : 1)]));
+  return wpick(pool.map(ev => [ev, (ev.weight || 1) * (ev.npc ? 2.5 : 1)]));
 };
 L.fireTrigger = function (st, key) {
   for (const ev of L.events()) if (ev.where === 'story' && ev.trigger === key && !st.evDone[ev.id] && !st.storyQ.includes(ev.id) && L.eligible(st, ev, 'story', { trigger: key })) st.storyQ.push(ev.id);
@@ -798,6 +850,7 @@ L.applyFx = function (st, fx) {
   if (fx.buff) { st.buffs.push({ cul: fx.buff.cul, atk: fx.buff.atk, left: fx.buff.ticks || 6 }); out.push(fx.buff.cul ? `修炼速度 ×${fx.buff.cul}（${fx.buff.ticks || 6} 周天）` : `战力 ×${fx.buff.atk}（${fx.buff.ticks || 6} 周天）`); }
   if (fx.cul) { st.bonus.cul += fx.cul; out.push(`永久修炼速度 +${Math.round(fx.cul * 100)}%`); }
   if (fx.power) { st.bonus.atk += fx.power; out.push(`永久战力 +${Math.round(fx.power * 100)}%`); }
+  if (fx.vein && st.sect) { st.sect.veins = (st.sect.veins || 0) + fx.vein; out.push(`宗门灵脉 +${fx.vein}（俸禄 +${fx.vein * 25}%）`); }
   if (fx.contrib && st.sect) { const v = L.contribFor(Math.min(10, p.r + 1)) * fx.contrib; st.sect.total += v; st.sect.pts += v; out.push('宗门贡献 +' + f(v)); }
   if (fx.talent && p.t < 6) { const from = p.t; p.t = Math.min(6, p.t + fx.talent); out.push(`灵根 ${L.TALENTS[from].n} → ${L.TALENTS[p.t].n}`); out.talent = true; }
   if (fx.trait && L.TRAITS[fx.trait] && !p.tr.includes(fx.trait)) { p.tr.push(fx.trait); out.push('获得天赋【' + L.TRAITS[fx.trait].n + '】'); }
@@ -939,6 +992,10 @@ L.ACHS = [
   { id: 'chu', n: '剑压圣子', d: '击败楚天阔', c: st => !!st.beaten.chu, t: '剑压圣子' },
   { id: 'xue', n: '斩魔', d: '击败血无涯', c: st => !!st.beaten.xue, t: '斩魔圣手' },
   { id: 'war', n: '一人守山门', d: '击退天剑宗来犯', c: st => !!st.flags.warWon, t: '一剑守山' },
+  { id: 'sect3', n: '名门大派', d: '带领宗门进入宗门榜前三', c: st => st.sect && st.sect.best <= 3, t: '宗门砥柱' },
+  { id: 'sect1', n: '天下第一宗', d: '带领宗门登顶宗门榜', c: st => st.sect && st.sect.best <= 1, t: '天下第一宗' },
+  { id: 'tianjian', n: '弃徒压宗', d: '九宗会武中击败天剑宗', c: st => !!st.flags.beatTianjian, t: '弃徒压宗' },
+  { id: 'veins', n: '灵脉之主', d: '为宗门夺得 3 条灵脉', c: st => st.sect && (st.sect.veins || 0) >= 3, t: '灵脉之主' },
   { id: 'exp10', n: '行走江湖', d: '历练 10 次', c: st => st.stats.exp >= 10, t: '江湖客' },
   { id: 'exp50', n: '踏遍山河', d: '历练 50 次', c: st => st.stats.exp >= 50, t: '踏遍山河' },
   { id: 'leap', n: '越级而战', d: '越级挑战成功', c: st => st.stats.leapWins >= 1, t: '越级而战' },
@@ -994,12 +1051,14 @@ L.tick = function (st, cont) {
     if (st.exp.left <= 0) {
       const bg = L.REGIONS[st.exp.k].bg;
       out.exp = L.resolveExp(st);
-      if (out.exp.ok && R() < 0.4 * evMul) out.choice = L.pickEvent(st, 'exp', { bg });
+      if (out.exp.ok && R() < 0.5 * evMul) out.choice = L.pickEvent(st, 'exp', { bg });
     }
-  } else if (st.tick > 4) {
+  }
+  // 洞府奇遇：在外历练时也会有人来访、传讯，回来再处理
+  if (!out.choice && st.tick > 4) {
     const x = R();
-    if (x < 0.1 * evMul) out.choice = L.pickEvent(st, 'home');
-    else if (x < 0.1 * evMul + 0.05) out.event = L.randomEvent(st);
+    if (x < 0.16 * evMul) out.choice = L.pickEvent(st, 'home');
+    else if (!st.exp && x < 0.16 * evMul + 0.04) out.event = L.randomEvent(st);
   }
   if (!st.pact && st.year >= 3) out.pact = true;
   if (!st.sect && p.r >= 1 && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 24; }
@@ -1011,6 +1070,7 @@ L.tick = function (st, cont) {
     if (!L.canPromote(st)) st.flags.promoNote = 0;
   }
   if (st.tick % 12 === 0 && st.tick >= 12) out.tourney = true;
+  if (st.sect && st.sect.order && st.tick - st.sect.joined >= 12 && st.tick % 24 === 6) out.meet = true;
   if (p.r <= L.MAXR && p.age >= L.lifespan(st)) out.death = true;
   if (L.desperate(st) && !st.flags.warnLife) { st.flags.warnLife = 1; L.log(st, '寿元将尽！突破时将获得绝境加成', 'red'); }
   if (!L.desperate(st)) st.flags.warnLife = 0;

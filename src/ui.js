@@ -855,12 +855,62 @@ function showSect() {
     title: sc.n, sub: `${sc.d} · 宗门加成：${sc.perk}`,
     body: `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
       <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? '，每 6 周天一枚破境丹' : ''}</dd><dt>可用贡献</dt><dd class="num">${fmt(st.sect.pts)}</dd></dl>
-      ${promo}<div class="sep"></div><div class="muted">宗门宝库（用贡献兑换）</div>${vault}
+      ${promo}<div class="sep"></div>${nineHTML()}<div class="sep"></div><div class="muted">宗门宝库（用贡献兑换）</div>${vault}
       <div class="muted">历练成功、天骄论道获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`,
   });
   const pb = s.querySelector('#btnPromo');
   if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
   s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, '破境丹 +2', '#ffe39a'); showSect(); } });
+}
+function nineHTML() {
+  const pos = L.sectPos(st);
+  const next = 24 - ((st.tick - 6) % 24 + 24) % 24 || 24;
+  const rows = st.sect.order.map((id, i) => {
+    const N = L.NINE.find(x => x.id === id), me = id === st.sect.id;
+    return `<div class="${me ? 'me' : ''}"><b>第${i + 1}</b><span>${N.n}${me ? '（本宗）' : ` · ${N.champ}`}</span><span class="num">${me ? fmt(L.power(st)) : fmt(L.ninePower(st, i + 1))}</span></div>`;
+  }).join('');
+  return `<div class="muted">天下九宗（九宗会武每 24 周天一届，你代表本宗出战）</div>
+    <dl class="grid2"><dt>宗门排名</dt><dd>天下第 ${pos} 宗 · 最高第 ${st.sect.best}</dd><dt>灵脉</dt><dd>${st.sect.veins || 0} 条（俸禄 +${(st.sect.veins || 0) * 25}%）</dd><dt>下届会武</dt><dd>约 ${next} 周天后</dd></dl>
+    <div class="ladder">${rows}</div>`;
+}
+const NINE_LOOK = { kunlun: 'yun', tianjian: 'chu', xuesha: 'xue' };
+function runSectMeet() {
+  const res = L.sectMeet(st);
+  if (!res) return;
+  const sc = L.sectOf(st);
+  let step = -1;
+  const next = () => {
+    step++;
+    if (step === 0) {
+      SFX.gong();
+      sheet({ title: `第${res.n}届 九宗会武`, center: true, noClose: true,
+        body: `<p class="center">天下九宗齐聚问剑台，以武论高下，排定宗门座次！</p><div class="center">${myAvImg(52)}</div><p class="center">你代表 <b>${sc.n}</b> 出战 · 当前天下第 ${res.start} 宗</p>`,
+        foot: [{ t: '为宗门而战！', gold: true, fn: next }] });
+      return;
+    }
+    const rd = res.rounds[step - 1];
+    if (!rd) { summary(); return; }
+    const look = NINE_LOOK[rd.foe.id];
+    const tj = rd.foe.id === 'tianjian';
+    duel({
+      title: `会武 · 对阵${rd.foe.n}`,
+      right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: res.S, win: rd.win,
+      quote: `${rd.foe.champ}：“${rd.foe.line}”`,
+      winText: `${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
+      loseText: '对方底蕴深厚，下届会武再来！',
+      btn: res.rounds[step] ? '下一场' : '会武落幕',
+      done: next,
+    });
+  };
+  const summary = () => {
+    const up = res.start - res.end;
+    if (res.end === 1 && res.start > 1) banner('天下第一宗', sc.n);
+    else if (up > 0) banner(`宗门 ↑${up}`, `天下第 ${res.end} 宗`);
+    sheet({ title: '会武落幕', center: true,
+      body: `<div class="center big ${up > 0 ? 'goldt' : ''}">天下第 ${res.end} 宗</div><p class="center">${up > 0 ? `${esc(sc.n)}从第 ${res.start} 升至第 ${res.end}！` : res.end === 1 ? `${esc(sc.n)}稳坐天下第一宗！` : '座次未变，下届再战。'}</p>${res.end === 1 && res.start > 1 ? `<div class="quote">九宗俯首。从今日起，${esc(sc.n)}便是天下第一宗！</div>` : ''}<p class="center muted">宗门排名越高，俸禄越多。</p>`,
+      foot: [{ t: '回洞府', gold: true, fn: closeModal }] });
+  };
+  next();
 }
 function doPromote() {
   const sc = L.sectOf(st);
@@ -1211,7 +1261,8 @@ function tip(key, text) {
   if (!st || st.seenTips[key]) return;
   st.seenTips[key] = 1;
   const el = $('#tip');
-  el.innerHTML = `<img class="px" src="${ELDER}" alt=""><div class="grow"><span class="who">戒中老祖：</span>${esc(text)}</div><span class="x">×</span>`;
+  const gone = st.eflags && st.eflags.st_farewell;
+  el.innerHTML = `<img class="px" src="${ELDER}" alt=""${gone ? ' style="opacity:.4"' : ''}><div class="grow"><span class="who">${gone ? '戒中余音' : '戒中老祖'}：</span>${esc(text)}</div><span class="x">×</span>`;
   el.hidden = false;
   el.onclick = () => { el.hidden = true; SFX.tap(); };
 }
@@ -1231,6 +1282,7 @@ function onTick() {
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
   if (out.tourney) pushPopup(runTournament);
+  if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
   if (st.tick === 3) tip('exp', '光打坐可攒不下家底。点【历练】出去闯闯，打妖兽、拿灵石，还能捡到法宝功法！');
   if (st.tick === 8 && st.home.array === 0) tip('home', '灵石够了就去【洞府】升级聚灵阵，修炼更快；灵田每周天都产灵石。');
@@ -1371,5 +1423,5 @@ function start(data) {
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, get cine() { return !!cine; } };
+window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, get cine() { return !!cine; } };
 })();

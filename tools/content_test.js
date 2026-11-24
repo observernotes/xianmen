@@ -30,6 +30,12 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.closeModal());
   await page.evaluate(() => window.__xm.fightBossUI(3)); await page.waitForTimeout(1400); await shot('c06-boss');
   await page.click('#modal .foot .btn'); await page.waitForTimeout(200);
+  // 九宗会武
+  await page.evaluate(() => window.__xm.runSectMeet()); await page.waitForTimeout(300); await shot('c09-meet0');
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1400); await shot('c10-meet1');
+  for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
+  await page.click('[data-nav="sect"]'); await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#modal .body').scrollTop = 700); await page.waitForTimeout(100); await shot('c11-sect');
+  await page.evaluate(() => window.__xm.closeModal());
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await page.evaluate(() => window.__xm.closeModal());

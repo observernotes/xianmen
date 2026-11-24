@@ -19,7 +19,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.screenshot({ path: out + '/03-start.png' });
   const X = 'window.__xm';
   // 中期局面
-  await page.evaluate(() => { const { st, L } = window.__xm; st.stones = 5e4; st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.p.t = 6; st.p.w = 4; st.p.a = 3; st.p.pet = { tier: 3, name: '青鸾' }; st.home = { cave: 4, array: 9, field: 8, furnace: 5 }; st.p.age = 60; st.year = 44; L.joinSect(st, 'dao'); st.sect.total = 3000; st.sect.pts = 900; });
+  await page.evaluate(() => { window.__xm.setSpeed(3); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.stones = 5e4; st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.p.t = 6; st.p.w = 4; st.p.a = 3; st.p.pet = { tier: 3, name: '青鸾' }; st.home = { cave: 4, array: 9, field: 8, furnace: 5 }; st.p.age = 60; st.year = 44; L.joinSect(st, 'dao'); st.sect.total = 3000; st.sect.pts = 900; st.storyQ = []; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); window.__xm.setSpeed(0); });
   await page.waitForTimeout(1200);
   await page.screenshot({ path: out + '/04-home-mid.png' });
   for (const [nav, name] of [['exp', '05-exp'], ['home', '06-home'], ['sect', '07-sect'], ['market', '08-market'], ['me', '09-me']]) {
