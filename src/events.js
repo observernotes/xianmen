@@ -155,7 +155,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_2', where: 'home', need: ['su_met'], not: ['su_tea'], npc: 'su', speaker: 'su', weight: 2,
+  id: 'su_2', where: 'home', visit: true, need: ['su_met'], not: ['su_tea'], npc: 'su', speaker: 'su', weight: 2,
   title: '复诊',
   text: '{su}拎着药箱找上门，进屋先皱眉：“丹炉旁边晾袜子，你是想炼脚气丹？”说着已卷起袖子替你把脉，又掏出一碗黑得发亮的汤药：“经脉里有暗伤。喝。”',
   choices: [
@@ -166,7 +166,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_visit', where: 'home', need: ['su_tea'], npc: 'su', speaker: 'su', aff: [15, 100],
+  id: 'su_visit', where: 'home', visit: true, need: ['su_tea'], npc: 'su', speaker: 'su', aff: [15, 100],
   title: '药香',
   text: '{su}又来了，照例先数落你一通：熬夜打坐、乱吃丹药、历练不带伤药。数落完，把一包新配的药搁在桌上，假装只是顺路。',
   choices: [
@@ -176,7 +176,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_3', where: 'home', need: ['su_tea'], not: ['su_crisis'], npc: 'su', speaker: 'su', aff: [30, 100], minR: 2,
+  id: 'su_3', where: 'home', visit: true, need: ['su_tea'], not: ['su_crisis'], npc: 'su', speaker: 'su', aff: [30, 100], minR: 2,
   title: '疫镇',
   text: '{su}深夜叩门，衣角沾着泥：山下小镇染了妖疫，丹霞谷嫌无利可图，不肯拨药。“我一个人的丹不够，”对方咬着唇，头一回对你低了头，“……帮我。”',
   choices: [
@@ -188,7 +188,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_4', where: 'home', need: ['su_crisis'], not: ['su_bond'], npc: 'su', speaker: 'su', aff: [60, 100],
+  id: 'su_4', where: 'home', visit: true, need: ['su_crisis'], not: ['su_bond'], npc: 'su', speaker: 'su', aff: [60, 100],
   title: '药囊',
   text: '月色很好。{su}难得没有数落你，递来一只针脚歪歪扭扭的药囊：“安神的。丑是丑了点，敢笑就还我。”顿了顿，又低声道：“我在丹霞谷没有朋友。你算头一个。”',
   choices: [
@@ -197,7 +197,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_5', where: 'home', need: ['su_bond'], npc: 'su', speaker: 'su', aff: [90, 100], daolv: false, weight: 3,
+  id: 'su_5', where: 'home', visit: true, need: ['su_bond'], npc: 'su', speaker: 'su', aff: [90, 100], daolv: false, weight: 3,
   title: '问心',
   text: '丹霞谷长老为{su}定了一门亲事。{su}连夜跑来，站在你洞府门口，眼眶微红，语气还硬撑着：“我就来问一句。你要是说不在乎，我明天就回去。”',
   choices: [
@@ -208,7 +208,7 @@ const EVENTS = [
 
 /* ---------- {ye}：魔门圣宗 ye_met → ye_debt → ye_crisis → ye_bond → 道侣 ---------- */
 {
-  id: 'ye_1', where: 'home', not: ['ye_met'], minR: 1, npc: 'ye', speaker: 'ye',
+  id: 'ye_1', where: 'home', visit: true, not: ['ye_met'], minR: 1, npc: 'ye', speaker: 'ye',
   title: '屋顶来客',
   text: '半夜，屋顶瓦片轻响。有人翘着腿坐在你房梁上喝你的酒，见你醒了也不慌：“听说落霞城出了个被退婚的废柴，我特地来瞧瞧。”腰间一枚血玉令牌——魔门圣宗。',
   choices: [
@@ -230,7 +230,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ye_visit', where: 'home', need: ['ye_debt'], npc: 'ye', speaker: 'ye', aff: [10, 100],
+  id: 'ye_visit', where: 'home', visit: true, need: ['ye_debt'], npc: 'ye', speaker: 'ye', aff: [10, 100],
   title: '恶作剧',
   text: '你一推门，一盆水兜头浇下。{ye}坐在窗台上晃着腿，笑得前仰后合：“堂堂天骄，连这都躲不开？”桌上却摆着一桌还冒热气的魔域小吃。',
   choices: [
@@ -240,7 +240,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ye_3', where: 'home', need: ['ye_debt'], not: ['ye_crisis'], npc: 'ye', speaker: 'ye', aff: [30, 100], minR: 2,
+  id: 'ye_3', where: 'home', visit: true, need: ['ye_debt'], not: ['ye_crisis'], npc: 'ye', speaker: 'ye', aff: [30, 100], minR: 2,
   title: '血衣',
   text: '{ye}浑身是血撞进你洞府，倒下前只说了一句：“圣宗内乱……借我躲一夜。”话音未落，山下火把如龙，正道巡查使已在叩门：交出魔门妖人，否则同罪。',
   choices: [
@@ -254,7 +254,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ye_4', where: 'home', need: ['ye_crisis'], not: ['ye_bond'], npc: 'ye', speaker: 'ye', aff: [60, 100],
+  id: 'ye_4', where: 'home', visit: true, need: ['ye_crisis'], not: ['ye_bond'], npc: 'ye', speaker: 'ye', aff: [60, 100],
   title: '灯会',
   text: '{ye}拉着你溜进魔域的万鬼灯会。满街鬼面花灯里，对方忽然安静下来：“我娘是被正道‘替天行道’的。那年我七岁。”又很快笑起来：“骗你的——你信不信？”',
   choices: [
@@ -263,7 +263,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ye_5', where: 'home', need: ['ye_bond'], npc: 'ye', speaker: 'ye', aff: [90, 100], daolv: false, weight: 3,
+  id: 'ye_5', where: 'home', visit: true, need: ['ye_bond'], npc: 'ye', speaker: 'ye', aff: [90, 100], daolv: false, weight: 3,
   title: '赌约',
   text: '{ye}平定内乱，执掌圣宗，当夜却独自来找你，把血玉令牌往桌上一丢：“打个赌。你若敢当着天下正道的面说要我，圣宗归你一半，我归你全部。”眼神亮得惊人。',
   choices: [
@@ -285,7 +285,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'chu_2', where: 'home', need: ['chu_met'], not: ['chu_wine'], npc: 'chu', speaker: 'chu', weight: 2,
+  id: 'chu_2', where: 'home', visit: true, need: ['chu_met'], not: ['chu_wine'], npc: 'chu', speaker: 'chu', weight: 2,
   title: '第七次约战',
   text: '楚狂又来了。这是他第七次站在你洞府门口，还是那两个字：“拔剑。”不同的是，这回他背上多了两坛酒。',
   choices: [
@@ -296,7 +296,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'chu_visit', where: 'home', need: ['chu_wine'], npc: 'chu', speaker: 'chu',
+  id: 'chu_visit', where: 'home', visit: true, need: ['chu_wine'], npc: 'chu', speaker: 'chu',
   title: '切磋',
   text: '楚狂蹲在你院墙上啃干饼，见你出来，把饼一丢，手按上了剑柄。不用问，又是那两个字。',
   choices: [
@@ -329,7 +329,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'chu_5', where: 'home', need: ['chu_bond'], once: true, minR: 4, npc: 'chu', speaker: 'chu', weight: 2,
+  id: 'chu_5', where: 'home', visit: true, need: ['chu_bond'], once: true, minR: 4, npc: 'chu', speaker: 'chu', weight: 2,
   title: '一剑之约',
   text: '楚狂要去闭死关：“成了，剑道通神。不成，埋剑冢。”临行前他把毕生剑悟刻成一枚玉简，推到你面前：“我若回不来，替我用出去，让天下人看看。”',
   choices: [
@@ -340,7 +340,7 @@ const EVENTS = [
 
 /* ---------- 葛老：落魄丹师 ge_met → ge_wine → ge_crisis → ge_bond ---------- */
 {
-  id: 'ge_1', where: 'home', not: ['ge_met'], npc: 'ge', speaker: 'ge',
+  id: 'ge_1', where: 'home', visit: true, not: ['ge_met'], npc: 'ge', speaker: 'ge',
   title: '门口醉汉',
   text: '一个邋遢老头醉倒在你洞府门口，抱着酒葫芦打呼。你正要绕开，他闭着眼嘟囔：“三息前火候过了半分，这炉回春丹，废喽。”屋里的丹炉应声冒出一股黑烟。',
   choices: [
@@ -349,7 +349,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ge_2', where: 'home', need: ['ge_met'], not: ['ge_wine'], npc: 'ge', speaker: 'ge', weight: 2,
+  id: 'ge_2', where: 'home', visit: true, need: ['ge_met'], not: ['ge_wine'], npc: 'ge', speaker: 'ge', weight: 2,
   title: '赊酒钱',
   text: '葛老愁眉苦脸蹲在你门口：山下酒肆的掌柜扬言再不还钱就打断他的腿。“小友，江湖救急！老夫拿一张压箱底的丹方抵给你，童叟无欺！”那丹方上还沾着酒渍。',
   choices: [
@@ -359,7 +359,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ge_visit', where: 'home', need: ['ge_wine'], npc: 'ge', speaker: 'ge',
+  id: 'ge_visit', where: 'home', visit: true, need: ['ge_wine'], npc: 'ge', speaker: 'ge',
   title: '蹭饭',
   text: '葛老循着饭香摸进你洞府，自带一只空碗：“老夫掐指一算，今日你这儿有口福。”他瞥了眼你晾晒的灵草，直摇头：“暴殄天物，暴殄天物啊。”',
   choices: [
@@ -369,7 +369,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ge_3', where: 'home', need: ['ge_wine'], not: ['ge_crisis'], npc: 'ge', speaker: 'ge', aff: [25, 100], minR: 2,
+  id: 'ge_3', where: 'home', visit: true, need: ['ge_wine'], not: ['ge_crisis'], npc: 'ge', speaker: 'ge', aff: [25, 100], minR: 2,
   title: '赌丹',
   text: '丹霞谷执事带人堵在你门口，当众羞辱葛老是“偷丹方的丧家犬”，扬言赌丹：输了，葛老自断双手。葛老攥着酒葫芦，手抖得厉害——他连一炉像样的药材都凑不齐。',
   choices: [
@@ -381,7 +381,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ge_4', where: 'home', need: ['ge_crisis'], not: ['ge_bond'], npc: 'ge', speaker: 'ge', aff: [55, 100],
+  id: 'ge_4', where: 'home', visit: true, need: ['ge_crisis'], not: ['ge_bond'], npc: 'ge', speaker: 'ge', aff: [55, 100],
   title: '旧事',
   text: '葛老这回没带酒。他坐在你炉边，盯着火看了很久：“当年偷丹方的是我徒弟。那孩子家里穷……老夫替他认了。他如今是丹霞谷长老，见了我，绕着走。”',
   choices: [
@@ -390,7 +390,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'ge_5', where: 'home', need: ['ge_bond'], once: true, minR: 3, npc: 'ge', speaker: 'ge', weight: 2,
+  id: 'ge_5', where: 'home', visit: true, need: ['ge_bond'], once: true, minR: 3, npc: 'ge', speaker: 'ge', weight: 2,
   title: '衣钵',
   text: '葛老把一只磨得发亮的旧药鼎搬到你屋里，又把酒葫芦挂在鼎耳上：“老夫的本事，带进棺材可惜。你这块料，丹道上比剑道还邪门。学不学？一句话。”',
   choices: [
@@ -401,7 +401,7 @@ const EVENTS = [
 
 /* ---------- 白小九：灵狐 bai_met → bai_food → bai_crisis → bai_bond ---------- */
 {
-  id: 'bai_1', where: 'home', not: ['bai_met'], npc: 'bai',
+  id: 'bai_1', where: 'home', visit: true, not: ['bai_met'], npc: 'bai',
   title: '偷草贼',
   text: '灵田里的灵草一夜之间被啃秃了一角。你顺着牙印找过去，草垛里蜷着一只肚皮滚圆的小白狐，嘴边还挂着半片叶子，正打着饱嗝装死。',
   choices: [
@@ -410,7 +410,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'bai_2', where: 'home', need: ['bai_met'], not: ['bai_food'], npc: 'bai', speaker: 'bai', weight: 2,
+  id: 'bai_2', where: 'home', visit: true, need: ['bai_met'], not: ['bai_food'], npc: 'bai', speaker: 'bai', weight: 2,
   title: '化形',
   text: '“恩人！我化形啦！”一个顶着狐耳的少女扑进门，转了个圈，尾巴没藏住。白小九得意没过三息，袖子带翻了你的丹炉——轰的一声，洞府多了个天窗。',
   choices: [
@@ -419,7 +419,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'bai_visit', where: 'home', need: ['bai_food'], npc: 'bai', speaker: 'bai',
+  id: 'bai_visit', where: 'home', visit: true, need: ['bai_food'], npc: 'bai', speaker: 'bai',
   title: '报恩',
   text: '白小九又来报恩了。上回是一条咸鱼，上上回是别人家的门匾。这回她背着手，尾巴摇得像风车：“恩人猜猜，我带了什么！”',
   choices: [
@@ -430,7 +430,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'bai_3', where: 'home', need: ['bai_food'], not: ['bai_crisis'], npc: 'bai', aff: [25, 100], minR: 2,
+  id: 'bai_3', where: 'home', visit: true, need: ['bai_food'], not: ['bai_crisis'], npc: 'bai', aff: [25, 100], minR: 2,
   title: '猎妖令',
   text: '白小九没来蹭饭。你在山下集市找到了她——关在猎妖师的铁笼里，脖子上套着锁妖环，明码标价。她看见你，拼命摇头，用口型说：别管我，他们人多。',
   choices: [
@@ -451,7 +451,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'bai_5', where: 'home', need: ['bai_bond'], once: true, minR: 4, npc: 'bai', speaker: 'bai', weight: 2,
+  id: 'bai_5', where: 'home', visit: true, need: ['bai_bond'], once: true, minR: 4, npc: 'bai', speaker: 'bai', weight: 2,
   title: '青丘来信',
   text: '青丘的使者找上门：白小九是九尾天狐遗脉，须回族地觉醒血脉，一去百年。小九攥着你的袖子，耳朵耷拉着：“恩人说不去，小九就不去。”',
   choices: [
@@ -462,7 +462,7 @@ const EVENTS = [
 
 /* ---------- 墨无痕：st_mo_seen → mo_warn → mo_save → mo_ask → (st_truth) mo_bond ---------- */
 {
-  id: 'mo_1', where: 'home', need: ['st_mo_seen'], not: ['mo_warn'], minR: 2, maxR: 7, npc: 'mo', weight: 2,
+  id: 'mo_1', where: 'home', visit: true, need: ['st_mo_seen'], not: ['mo_warn'], minR: 2, maxR: 7, npc: 'mo', weight: 2,
   title: '墨色剑帖',
   text: '桌上凭空多了一张墨色剑帖，字迹凌厉：“三日后子时，后山。戒指，或者你的一条胳膊。”帖下还压着一坛好酒。老祖冷哼：“墨家人，还是这副又狠又别扭的德行。”',
   choices: [
@@ -482,7 +482,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'mo_3', where: 'home', need: ['mo_save', 'st_half'], not: ['mo_ask', 'st_truth'], minR: 4, maxR: 5, npc: 'mo', speaker: 'mo', weight: 2,
+  id: 'mo_3', where: 'home', visit: true, need: ['mo_save', 'st_half'], not: ['mo_ask', 'st_truth'], minR: 4, maxR: 5, npc: 'mo', speaker: 'mo', weight: 2,
   title: '问师祖',
   text: '墨无痕立在你院中，对着戒指，把那句祖训问出了口：“可曾信过墨离？”老祖怒极反笑：“他那一剑刺过来的时候，可曾当我是师父？”一人一魂，隔着三千年对峙。',
   choices: [
@@ -492,7 +492,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'mo_4', where: 'home', need: ['st_truth'], not: ['mo_bond'], minR: 6, maxR: 7, npc: 'mo', speaker: 'mo', weight: 3,
+  id: 'mo_4', where: 'home', visit: true, need: ['st_truth'], not: ['mo_bond'], minR: 6, maxR: 7, npc: 'mo', speaker: 'mo', weight: 3,
   title: '三千年',
   text: '真相大白的那夜，墨无痕提着酒坐在你屋顶，头一回摘了面巾。“我爹到死都以为先祖是罪人。我练剑，是为了有朝一日替先祖向师祖谢罪。”他笑了一声，“结果该谢罪的，另有其人。”',
   choices: [
@@ -501,7 +501,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'mo_5', where: 'home', need: ['mo_bond'], once: true, minR: 7, npc: 'mo', speaker: 'mo', weight: 2,
+  id: 'mo_5', where: 'home', visit: true, need: ['mo_bond'], once: true, minR: 7, npc: 'mo', speaker: 'mo', weight: 2,
   title: '同门',
   text: '墨无痕递来一柄墨色长剑：“墨离佩剑，名‘不悔’。按辈分，你是师祖的关门弟子，我得叫你一声小师叔祖。”他面无表情，“只叫这一次。”',
   choices: [
@@ -516,7 +516,7 @@ const EVENTS = [
  * 三、洞府随机事件（home）
  * ============================================================ */
 {
-  id: 'home_challenger', where: 'home',
+  id: 'home_challenger', where: 'home', visit: true,
   title: '上门踢馆',
   text: '一名锦衣修士踹开你的院门，下巴抬得比天高：“听说你就是那个被退婚的废物？本公子赏你个机会，跪下磕头，收你当个提鞋的。”身后跟班齐声叫好。',
   choices: [
@@ -529,7 +529,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_zhao', where: 'home', minR: 1, maxR: 4, once: true,
+  id: 'home_zhao', where: 'home', visit: true, minR: 1, maxR: 4, once: true,
   title: '大师兄驾到',
   text: '赵乾负手立在你门前，还是当年踢你下山时那副嘴脸：“听说你筑基了？杂灵根走了狗屎运罢了。今日教教你，什么叫云泥之别。”他抬起了脚——还是那只脚。',
   choices: [
@@ -540,7 +540,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_ex_letter', where: 'home', minR: 2, once: true,
+  id: 'home_ex_letter', where: 'home', visit: true, minR: 2, once: true,
   title: '迟来的信',
   text: '慕容家的信使送来一封信，落款是{ex}。信写得客气又生分：当年退婚“另有苦衷”，听闻你今非昔比，盼能“一叙旧谊”。信纸熏了香，和退婚书是同一种。',
   choices: [
@@ -551,7 +551,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_elder_roast', where: 'home', maxR: 7, speaker: 'elder',
+  id: 'home_elder_roast', where: 'home', visit: true, maxR: 7, speaker: 'elder',
   title: '老祖点评',
   text: '你打坐正到紧要处，老祖幽幽开口：“本座观察你三天了。腰是弯的，气是散的，脑子里想的是晚饭。你这不叫修炼，叫坐着发呆。”',
   choices: [
@@ -562,7 +562,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_heart_demon', where: 'home', minR: 3, once: true,
+  id: 'home_heart_demon', where: 'home', visit: true, minR: 3, once: true,
   title: '心魔',
   text: '深夜入定，眼前忽然回到落霞城——满堂宾客哄笑，退婚书甩在你脸上，赵乾的鞋底越来越近。一个与你一模一样的声音低语：“你骨子里，还是那个废物。”',
   choices: [
@@ -573,7 +573,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_deviation', where: 'home', minR: 1,
+  id: 'home_deviation', where: 'home', visit: true, minR: 1,
   title: '岔气',
   text: '行功到第九周天，一股灵力忽然窜错了经脉，在体内横冲直撞。你半边身子发麻，头顶开始冒白烟——再不处理，就真成“走火入魔”的反面教材了。',
   choices: [
@@ -585,7 +585,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_purple_qi', where: 'home', minR: 1,
+  id: 'home_purple_qi', where: 'home', visit: true, minR: 1,
   title: '紫气东来',
   text: '拂晓，东方天际忽现三万里紫气，百年难遇。附近山头的修士全爬上了屋顶抢着吐纳。你隔壁的散修甚至搬出了锅——据说想接一点回去炖汤。',
   choices: [
@@ -596,7 +596,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_storyteller', where: 'home', minR: 2,
+  id: 'home_storyteller', where: 'home', visit: true, minR: 2,
   title: '说书人',
   text: '山下茶馆的说书人把你的事迹编成了话本《废柴逆袭录》，场场爆满。只是话本里的你身高八尺、三头六臂，一顿饭吃一头牛，还和七位道友纠缠不清。',
   choices: [
@@ -605,7 +605,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_merchant', where: 'home', maxR: 7,
+  id: 'home_merchant', where: 'home', visit: true, maxR: 7,
   title: '祖传秘宝',
   text: '一个游商在你门口摆摊，神神秘秘掀开破布：“道友，上古大能遗宝，祖传的，今日有缘只卖十枚灵石！”那是一只豁了口的破碗，碗底依稀有字。老祖：“……咦？”',
   choices: [
@@ -619,7 +619,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_sect_chore', where: 'home', sect: true,
+  id: 'home_sect_chore', where: 'home', visit: true, sect: true,
   title: '藏经阁轮值',
   text: '轮到你去藏经阁扫地。看阁的老执事趴在桌上打盹，口水流了一案。最顶层那排落灰的书架后面，似乎有什么东西在微微发光。',
   choices: [
@@ -630,7 +630,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_sect_junior', where: 'home', sect: true, minR: 2,
+  id: 'home_sect_junior', where: 'home', visit: true, sect: true, minR: 2,
   title: '求指点',
   text: '一群外门弟子堵在你洞府外，捧着瓜果，眼巴巴求你指点修行。领头的小弟子涨红了脸：“前辈！我也是杂灵根，他们都说我没救了……”',
   choices: [
@@ -639,7 +639,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_sect_elders', where: 'home', sect: true, minR: 3,
+  id: 'home_sect_elders', where: 'home', visit: true, sect: true, minR: 3,
   title: '抢徒大战',
   text: '两位长老在你洞府门口吵了起来，都要收你做亲传。一个拍出灵石，一个亮出法宝，吵到后来开始互揭老底：“你三百岁还尿过丹炉！”“你偷喝过掌门的药酒！”',
   choices: [
@@ -650,7 +650,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_recruit', where: 'home', sect: false, minR: 1, maxR: 7,
+  id: 'home_recruit', where: 'home', visit: true, sect: false, minR: 1, maxR: 7,
   title: '三宗抢人',
   text: '太虚剑宗、丹霞谷、玄天道宗的招揽使者同时到了，在你院里大眼瞪小眼。三份礼单越摞越高，三张笑脸越凑越近。老祖幸灾乐祸：“当年踢你下山的时候，可没人排队。”',
   choices: [
@@ -661,7 +661,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_crane', where: 'home',
+  id: 'home_crane', where: 'home', visit: true,
   title: '落难仙鹤',
   text: '一只翅膀带伤的仙鹤栽进你的院子，压塌了晾衣杆。它脖子上挂着一枚小玉牌，像是哪家大宗门的信使。它盯着你的灵草，又盯着你，眼神很是矜持。',
   choices: [
@@ -673,7 +673,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_thunder', where: 'home', minR: 2, once: true,
+  id: 'home_thunder', where: 'home', visit: true, minR: 2, once: true,
   title: '雷雨夜',
   text: '惊雷滚过山头，一道接一道劈在你洞府外的老松上。老松不倒，反而越劈越亮——树心里竟孕着一截雷击灵木。雷云未散，下一道随时会落。',
   choices: [
@@ -687,7 +687,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_elder_tale', where: 'home', need: ['st_r1'], maxR: 5, once: true, speaker: 'elder',
+  id: 'home_elder_tale', where: 'home', visit: true, need: ['st_r1'], maxR: 5, once: true, speaker: 'elder',
   title: '老祖讲古',
   text: '夜深，老祖忽然来了谈兴：“本座当年收过两个徒弟。大的稳重周全，人人都夸；小的又倔又闷，三棍子打不出一句话。”他停了很久，“……看人这事，本座不如你。”',
   choices: [
@@ -696,7 +696,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_chu_tiankuo', where: 'home', minR: 3, maxR: 6, once: true,
+  id: 'home_chu_tiankuo', where: 'home', visit: true, minR: 3, maxR: 6, once: true,
   title: '圣子战帖',
   text: '天剑宗圣子楚天阔的战帖送到了，烫金大字，措辞傲慢：“弃徒侥幸得势，终是沐猴而冠。三日后山门外，本圣子替师门清理门户。”送帖的弟子鼻孔朝天。',
   choices: [
@@ -707,7 +707,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_fans', where: 'home', minR: 2,
+  id: 'home_fans', where: 'home', visit: true, minR: 2,
   title: '门庭若市',
   text: '你成名之后，洞府外天天有人排队：求字的、求指点的、求你摸一下头“沾沾气运”的，还有位大娘坚持要把自家七个晚辈的画像全塞给你。',
   choices: [
@@ -716,7 +716,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_old_dream', where: 'home', maxR: 3, once: true,
+  id: 'home_old_dream', where: 'home', visit: true, maxR: 3, once: true,
   title: '旧梦',
   text: '你梦见了当年的自己：蜷在破庙角落，浑身是伤，攥着一枚生锈的戒指发抖。那个狼狈的自己抬起头，问你：“后来……我们赢了吗？”',
   choices: [
@@ -725,7 +725,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_alchemy', where: 'home',
+  id: 'home_alchemy', where: 'home', visit: true,
   title: '开炉',
   text: '你手痒想自己炼一炉丹。丹方是照着抄的，火候是凭感觉的，药材是差不多就行的。炉盖开始咔咔跳动，不知是丹要成了，还是炉要炸了。',
   choices: [
@@ -737,7 +737,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_xue_invite', where: 'home', minR: 4, once: true,
+  id: 'home_xue_invite', where: 'home', visit: true, minR: 4, once: true,
   title: '魔道请柬',
   text: '血无涯的请柬是一只血色纸鹤，落在你掌心便化作一行字：“正道容不下你这样的人，魔道可以。来，你我共分天下。”纸鹤腹中，还藏着一枚气息诱人的血丹。',
   choices: [
@@ -751,7 +751,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_yun_chess', where: 'home', minR: 6, once: true,
+  id: 'home_yun_chess', where: 'home', visit: true, minR: 6, once: true,
   title: '榜首对弈',
   text: '云无极独自登门，白衣不染尘，带了一副棋。“论剑台上人多眼杂，我想先看看你。”这位天下第一天骄落子如飞，“我无敌太久，很寂寞。你别让我失望。”',
   choices: [
@@ -764,7 +764,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_rust', where: 'home', maxR: 2, speaker: 'elder',
+  id: 'home_rust', where: 'home', visit: true, maxR: 2, speaker: 'elder',
   title: '擦戒指',
   text: '闲来无事，你拿布蘸了醋，想把戒指上的锈擦掉。老祖勃然大怒：“住手！这是本座的门面！你管这叫锈？这叫岁月的包浆！”',
   choices: [
@@ -775,7 +775,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_murong_gift', where: 'home', minR: 3, once: true,
+  id: 'home_murong_gift', where: 'home', visit: true, minR: 3, once: true,
   title: '慕容家的礼',
   text: '慕容家的大管事亲自登门，身后抬着八口箱子，腰弯得极低：“当年之事纯属误会，家主日夜懊悔……”三年前，正是此人把退婚书甩在你脸上，还啐了一口。',
   choices: [
@@ -784,12 +784,99 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_empty_ring', where: 'home', need: ['st_farewell'], once: true, weight: 3,
+  id: 'home_empty_ring', where: 'home', visit: true, need: ['st_farewell'], once: true, weight: 3,
   title: '空戒',
   text: '你习惯性地对着戒指说了半天话：今天雷云又厚了一层，隔壁的散修搬走了，晚饭的鱼有点咸。戒指安安静静，再没人骂你废话多。',
   choices: [
     { t: '继续说下去', ok: { text: '你把这一路的事从头讲了一遍。讲到破庙那夜，心口那道剑意轻轻一颤，像是有人“哼”了一声。', fx: { xp: 8, buff: { cul: 1.5, ticks: 10 } } } },
     { t: '擦净戒指', ok: { text: '你把戒指擦得莹润如新，重新戴好。“看好了，师父。”你抬头望向劫云，“我替你上去看看。”', fx: { xp: 5, buff: { atk: 1.5, ticks: 10 } } } }
+  ]
+},
+
+/* ---- 以下十则原是 logic.js 里硬编码的随机事件（randomEvent），并入事件库，作为访客/洞府见闻 ---- */
+{
+  id: 're_enl', where: 'home', visit: true, weight: 2.2,
+  title: '观云有悟',
+  text: '清晨推门，云海翻涌如潮。你站在崖边看了半晌，胸中忽然一片澄明，像是有什么东西松动了。',
+  choices: [
+    { t: '就地打坐', ok: { text: '观云海翻涌，忽有所悟——顿悟！修为大涨。', fx: { xp: 6 } } }
+  ]
+},
+{
+  id: 're_cave', where: 'home', visit: true, weight: 1.8,
+  title: '古修洞府',
+  text: '后山一场山雨冲垮了半面石壁，露出一道刻满符纹的石门。门缝里透出陈年的灵气。',
+  choices: [
+    { t: '进去看看', ok: { text: '于后山寻得一处古修洞府，石匣里的灵石码得整整齐齐。', fx: { stones: 8 } } },
+    { t: '细细搜刮', p: 0.5, ok: { text: '你连墙角的蒲团都翻了，底下竟压着一只小丹瓶。', fx: { stones: 8, pills: 1 } }, fail: { text: '触动了残阵，被弹出洞外，灰头土脸，只抓到一把灵石。', fx: { stones: 3 } } }
+  ]
+},
+{
+  id: 're_rain', where: 'home', visit: true, weight: 1,
+  title: '天降灵雨',
+  text: '乌云不带半点雷声，雨丝落在身上却温润如玉。方圆十里的草木一夜之间拔高了一截。',
+  choices: [
+    { t: '雨中吐纳', ok: { text: '天降灵雨，修为精进。', fx: { xp: 3 } } },
+    { t: '接雨浇田', ok: { text: '你搬出所有的盆盆罐罐。几日后，田里多出一片嫩芽。', fx: { herbs: 3 } } }
+  ]
+},
+{
+  id: 're_pill', where: 'home', visit: true, weight: 0.8,
+  title: '游方丹师',
+  text: '一位背着药葫芦的游方丹师路过，讨了碗水喝，眯眼把你上下打量一番：“小友根基不俗，就是缺点外力。”',
+  choices: [
+    { t: '请教丹道', ok: { text: '游方丹师路过洞府，临走时在桌上留下一枚破境丹。', fx: { pills: 1 } } }
+  ]
+},
+{
+  id: 're_bandit', where: 'home', visit: true, weight: 1,
+  title: '劫修夜闯',
+  text: '半夜，洞府外的禁制被人一脚踹开。一个蒙面劫修提刀而入：“识相的，把灵石都交出来！”',
+  choices: [
+    { t: '一剑斩之', duel: 0.9, ok: { text: '劫修夜闯洞府，被一剑斩退！他丢下的储物袋归了你。', fx: { stones: 5 } }, fail: { text: '劫修夜闯洞府，抢走了你不少灵石……此仇必报！', fx: { stones: -4, inj: 1 } } },
+    { t: '破财消灾', ok: { text: '你丢出一袋灵石。劫修掂了掂，冷哼一声，翻墙走了。', fx: { stones: -2 } } }
+  ]
+},
+{
+  id: 're_taunt', where: 'home', visit: true, weight: 0.9,
+  title: '上门打脸',
+  text: '天剑宗弟子路过洞府，隔着篱笆高声道：“哟，这不是当年被逐出师门的废物吗？”',
+  choices: [
+    { t: '一指点出', ok: { text: '一指点出，那人倒飞三里。他的同伴慌忙赔上一袋灵石，头也不敢回。', fx: { stones: 2 } } },
+    { t: '关门修炼', ok: { text: '你懒得理会。门外骂了半个时辰，自觉没趣，走了。你的心境反倒更稳了。', fx: { xp: 2 } } }
+  ]
+},
+{
+  id: 're_fairy', where: 'home', visit: true, weight: 0.6,
+  title: '仙子落难',
+  text: '一位衣袂染血的仙子踉跄撞进你的洞府，身后妖兽的咆哮越来越近。',
+  choices: [
+    { t: '出手相救', ok: { text: '你救下了被妖兽追杀的仙子。她临走时留下一只储物袋，里面是满满的灵石。', fx: { stones: 10 } } }
+  ]
+},
+{
+  id: 're_recruit', where: 'home', visit: true, weight: 0.6, sect: false,
+  title: '长老登门',
+  text: '某大宗长老亲自登门，开口便要收你为亲传弟子，言语间仿佛这是天大的恩典。',
+  choices: [
+    { t: '婉言谢绝', ok: { text: '长老也不恼，笑着留下见面礼：“想通了，随时来找老夫。”', fx: { stones: 6 } } }
+  ]
+},
+{
+  id: 're_ring', where: 'home', visit: true, weight: 0.3, maxR: 7, speaker: 'elder',
+  title: '戒中传功',
+  text: '夜深人静，戒指微微发烫……“小子，你的根基够了。坐好，老夫传你一门新功法！”',
+  choices: [
+    { t: '洗耳恭听', ok: { text: '老祖讲了一夜，你记了一夜。天亮时，一门新的心法已在经脉里运转自如。', fx: { item: 'a', itemUp: 1 } } }
+  ]
+},
+{
+  id: 're_beast', where: 'home', visit: true, weight: 0.5,
+  title: '门口的小兽',
+  text: '一只受伤的小兽倒在洞府门口，气息微弱，却还冲你龇了龇牙。',
+  choices: [
+    { t: '为它疗伤', ok: { text: '你替它包好伤口，又喂了些灵果。它蹭了蹭你的手，再也不肯走了。', fx: { item: 'pet' } } },
+    { t: '放它归山', ok: { text: '你把它抱到林边。它一步三回头，最后叼来一株灵草放在你脚边。', fx: { herbs: 2 } } }
   ]
 },
 
@@ -1134,7 +1221,7 @@ const EVENTS = [
 ,
 
   // ===== 宗门之争（sect:true） =====
-  { id: 'sect_vein_1', where: 'home', sect: true, minR: 1, weight: 2, title: '灵脉现世',
+  { id: 'sect_vein_1', where: 'home', visit: true, sect: true, minR: 1, weight: 2, title: '灵脉现世',
     text: '宗门探子回报：百里外的青石岭裂开一道上品灵脉，天剑宗和万法阁的人已经在路上了。掌事长老看向你：“这一脉，{sect}要不要争？”',
     choices: [
       { t: '我去抢', duel: 1.0, ok: { text: '你后发先至，一剑划下界线：“此脉归{sect}，不服的，过来。”两宗弟子面面相觑，悻悻退走。', fx: { vein: 1, contrib: 3, title: '夺脉之人' } }, fail: { text: '对方人多势众，你受了伤，只抢回半截灵石。', fx: { inj: 2, stones: 5 } } },
@@ -1145,27 +1232,27 @@ const EVENTS = [
     choices: [
       { t: '破阵夺脉', duel: 1.1, ok: { text: '你一剑斩碎血阵，灵脉重归平静。消息传回宗门，掌门亲自给你记了一功。', fx: { vein: 1, contrib: 4, power: 0.03 } }, fail: { text: '血阵反噬，你吐血倒退。魔修大笑着带走了半条灵脉。', fx: { inj: 3 } } },
       { t: '回宗报信', ok: { text: '宗门长老赶来时魔修已经撤了，但灵脉总算保住一半。', fx: { contrib: 2 } } } ] },
-  { id: 'sect_vein_3', where: 'home', sect: true, minR: 5, weight: 1, title: '九宗分脉',
+  { id: 'sect_vein_3', where: 'home', visit: true, sect: true, minR: 5, weight: 1, title: '九宗分脉',
     text: '九宗会盟，议定天下灵脉归属。轮到{sect}时，天剑宗长老冷笑：“一个靠弃徒撑门面的宗门，也配分脉？”',
     choices: [
       { t: '当场问剑', duel: 1.2, ok: { text: '你没说话，只拔剑。三招之后，天剑宗长老的剑断了。会盟上鸦雀无声，{sect}多分得两条灵脉。', fx: { vein: 2, contrib: 5, title: '一剑分脉' } }, fail: { text: '你惜败半招。天剑宗长老得意地拂袖，{sect}只分到一条贫脉。', fx: { vein: 1, inj: 2 } } },
       { t: '据理力争', p: 0.6, ok: { text: '你把天剑宗当年偷师的旧账翻出来，满座哗然。{sect}多分得一条灵脉。', fx: { vein: 1, contrib: 3 } }, fail: { text: '众人只当你在攀咬，什么也没分到。', fx: { stones: -5 } } } ] },
-  { id: 'sect_poach', where: 'home', sect: true, minR: 2, maxR: 7, once: true, title: '挖墙脚',
+  { id: 'sect_poach', where: 'home', visit: true, sect: true, minR: 2, maxR: 7, once: true, title: '挖墙脚',
     text: '万法阁长老深夜来访，推过一只储物袋：“来我万法阁，长老之位虚席以待，这些只是见面礼。”',
     choices: [
       { t: '原物奉还', ok: { text: '“{sect}待我不薄。”你把袋子推了回去。这事不知怎么传回宗门，掌门对你更加器重。', fx: { contrib: 4, title: '忠义之士' } } },
       { t: '收礼不跳槽', p: 0.6, ok: { text: '你笑眯眯收下：“礼我收了，人就算了。”长老气得胡子发抖，却也拿你没办法。', fx: { stones: 15, treasure: 1 } }, fail: { text: '长老翻脸，在会武前四处散播你“贪财”的流言。', fx: { stones: 10, contrib: 1, inj: 1 } } } ] },
-  { id: 'sect_spy', where: 'home', sect: true, minR: 2, title: '细作',
+  { id: 'sect_spy', where: 'home', visit: true, sect: true, minR: 2, title: '细作',
     text: '你闭关时察觉宗门藏经阁有人翻找你的剑诀笔记——是个面生的外门弟子，袖口露出一角血煞魔宗的纹身。',
     choices: [
       { t: '当场拿下', duel: 0.8, ok: { text: '细作被你一指点倒，搜出一份九宗会武的名单。宗门上下对你刮目相看。', fx: { contrib: 3, xp: 4 } }, fail: { text: '细作捏碎遁符逃了，你的笔记被撕走一页。', fx: { inj: 1 } } },
       { t: '将计就计', p: 0.65, ok: { text: '你故意留下一份假剑诀。后来血煞魔宗有弟子练岔了气，你乐了好几天。', fx: { contrib: 4, title: '老阴阳人' } }, fail: { text: '细作没上当，只是悄悄溜走了。', fx: {} } } ] },
-  { id: 'sect_bully', where: 'home', sect: true, minR: 1, maxR: 5, title: '护短',
+  { id: 'sect_bully', where: 'home', visit: true, sect: true, minR: 1, maxR: 5, title: '护短',
     text: '宗门几个小弟子哭着回山：在坊市被天剑宗弟子当众羞辱，说{sect}“只配给天剑宗提鞋”。',
     choices: [
       { t: '带他们讨说法', duel: 0.9, ok: { text: '你一人站在天剑宗弟子面前：“道歉。”三息之后，对方跪着把话收了回去。小弟子们看你的眼神亮了。', fx: { contrib: 3, title: '护短师兄' } }, fail: { text: '对方来了个硬茬，你挂了彩，但小弟子们记住了你挡在前面的样子。', fx: { contrib: 2, inj: 2 } } },
       { t: '让他们自己变强', ok: { text: '你把小弟子们拎到演武场，亲自操练了三个月。下一次，他们自己把场子找回来了。', fx: { contrib: 2, xp: 3 } } } ] },
-  { id: 'sect_marriage', where: 'home', sect: true, minR: 3, daolv: false, title: '联姻',
+  { id: 'sect_marriage', where: 'home', visit: true, sect: true, minR: 3, daolv: false, title: '联姻',
     text: '金刚寺俗家一脉的掌事带着厚礼登门：愿与{sect}联姻，对象正是你。礼单长得拖到了门外。',
     choices: [
       { t: '婉言谢绝', ok: { text: '“修道之人，姻缘随心。”你推了亲事，对方倒也敬你几分，礼留下一半。', fx: { stones: 10 } } },
@@ -1175,22 +1262,22 @@ const EVENTS = [
     choices: [
       { t: '打出一条路', duel: 1.0, ok: { text: '你连胜三场，各宗弟子自觉让开。秘境里的东西，{sect}先挑。', fx: { item: 'a', itemUp: 1, contrib: 3 } }, fail: { text: '你败给了昆仑仙宫的弟子，只在门外捡到些灵草。', fx: { herbs: 4, inj: 2 } } },
       { t: '提议轮流进', ok: { text: '众人同意轮流入内，你分到一份不多不少的机缘。', fx: { herbs: 6, xp: 4 } } } ] },
-  { id: 'sect_merchant_war', where: 'home', sect: true, minR: 2, title: '坊市商战',
+  { id: 'sect_merchant_war', where: 'home', visit: true, sect: true, minR: 2, title: '坊市商战',
     text: '万法阁在坊市压价倾销丹药，{sect}的丹铺快开不下去了。管事愁眉苦脸地来找你。',
     choices: [
       { t: '亲自炼丹坐镇', cost: { herbs: 6 }, ok: { text: '你亲手炼的丹药挂上招牌，“某某亲炼”四个字比什么都好使，丹铺门口排起长队。', fx: { stones: 20, contrib: 2 } } },
       { t: '去万法阁谈谈', p: 0.6, ok: { text: '你只在万法阁喝了一盏茶，第二天他们的丹价就恢复了。', fx: { contrib: 3 } }, fail: { text: '对方装傻充愣，你白跑一趟。', fx: { xp: 1 } } } ] },
-  { id: 'sect_alliance', where: 'home', sect: true, minR: 4, title: '会盟',
+  { id: 'sect_alliance', where: 'home', visit: true, sect: true, minR: 4, title: '会盟',
     text: '血煞魔宗异动频频，金刚寺发起正道会盟，请{sect}派人主持盟约。宗门推举了你。',
     choices: [
       { t: '登台主盟', p: 0.7, ok: { text: '你立于盟台之上，九宗代表齐齐拱手。{sect}的名望一夜之间又高了一截。', fx: { contrib: 5, title: '正道盟主' } }, fail: { text: '天剑宗当场搅局，会盟不欢而散，但你的名字已经传遍了正道。', fx: { contrib: 2 } } },
       { t: '让给长辈', ok: { text: '你推长老主盟，自己在台下坐镇。散会后长老拍着你的肩膀说了句“好孩子”。', fx: { contrib: 3, xp: 2 } } } ] },
-  { id: 'sect_war_xuesha', where: 'home', sect: true, minR: 6, once: true, weight: 2, title: '正魔大战',
+  { id: 'sect_war_xuesha', where: 'home', visit: true, sect: true, minR: 6, once: true, weight: 2, title: '正魔大战',
     text: '血煞魔宗倾巢而出，血云压境三千里。九宗联军阵前，血无涯遥遥指向你：“听说你很能打？来。”',
     choices: [
       { t: '出阵迎战', duel: 1.15, ok: { text: '两军阵前，你一剑劈开血云。血无涯退了三步，魔宗大军随之溃退。此战之后，天下再无人敢小觑{sect}。', fx: { contrib: 5, vein: 1, power: 0.05, title: '破魔之剑' } }, fail: { text: '你与血无涯两败俱伤，联军勉强守住防线。', fx: { inj: 4, contrib: 3 } } },
       { t: '坐镇后方调度', ok: { text: '你调兵遣将，联军稳扎稳打，魔宗无功而返。', fx: { contrib: 4, xp: 4 } } } ] },
-  { id: 'sect_tianjian_letter', where: 'home', sect: true, minR: 3, maxR: 6, title: '天剑宗战书',
+  { id: 'sect_tianjian_letter', where: 'home', visit: true, sect: true, minR: 3, maxR: 6, title: '天剑宗战书',
     text: '天剑宗送来一封战书，指名道姓要你在九宗会武上“认清自己的身份”。落款：赵乾。',
     choices: [
       { t: '回信：恭候', ok: { text: '你只回了两个字。听说赵乾看完，把桌子拍碎了。', fx: { buff: { atk: 1.3, ticks: 8 }, title: '恭候' } } },

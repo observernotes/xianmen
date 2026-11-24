@@ -8,7 +8,7 @@ const NPCS = ['su', 'ye', 'chu', 'ge', 'bai', 'mo'];
 const SPEAKERS = NPCS.concat(['elder', 'me']);
 const BGS = ['forest', 'hill', 'tomb', 'blood', 'swords', 'abyss', 'sea', 'stars', 'palace', 'chaos'];
 const TRAITS = ['sword', 'wise', 'alch', 'lucky', 'longev', 'steady', 'koi'];
-const EV_KEYS = ['id', 'where', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices'];
+const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices'];
 const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail'];
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein'];
 const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name'];
@@ -39,7 +39,7 @@ function checkText(id, s, where) {
 if (!Array.isArray(EVENTS)) { console.error('EVENTS 不是数组'); process.exit(1); }
 
 const ids = new Set(), flagsSet = new Set(), flagsUsed = new Map();
-let talentN = 0, traitN = 0;
+let talentN = 0, traitN = 0, visitN = 0;
 const bgCount = Object.fromEntries(BGS.map(b => [b, 0]));
 const npcCount = Object.fromEntries(NPCS.map(n => [n, 0]));
 const whereCount = { home: 0, exp: 0, story: 0 };
@@ -175,6 +175,9 @@ for (const e of EVENTS) {
   }
   if (/[他她]/.test(joined) && !e.npc) warn(id, '出现 他/她，请确认不是指主角');
   if (e.where === 'home' && 'bg' in e) err(id, 'home 事件不应有 bg');
+  // 访客：洞府奇遇以访客形式出现（logic.js 的 L.spawnVisitor 只挑 visit:true 的），过期时自动走不花钱的选项
+  if ('visit' in e) { if (e.visit !== true) err(id, 'visit 只能是 true'); if (e.where !== 'home') err(id, 'visit 只能用于 home 事件'); else visitN++; }
+  else if (e.where === 'home') err(id, 'home 事件需标 visit: true');
 
   if (e.where === 'story' && !e.npc || e.id.startsWith('story_')) cat.main++;
   else if (e.npc && /^(su|ye|chu|ge|bai|mo)_/.test(e.id)) cat.npc++;
@@ -201,6 +204,8 @@ if (EVENTS.length < 85 || EVENTS.length > 160) err('count', `事件总数 ${EVEN
 for (const b of BGS) if (bgCount[b] < 2) err('count', `bg ${b} 的 exp 事件只有 ${bgCount[b]} 个`);
 for (const n of NPCS) if (npcCount[n] < 4) err('count', `NPC ${n} 的事件只有 ${npcCount[n]} 个`);
 for (const n of ['su', 'ye']) if (!daolvBy[n]) err('count', `缺少 ${n} 的结为道侣事件`);
+if (visitN < 30) err('count', `访客事件 ${visitN}，应 ≥30`);
+for (const rid of ['re_enl', 're_cave', 're_rain', 're_pill', 're_bandit', 're_taunt', 're_fairy', 're_recruit', 're_ring', 're_beast']) if (!ids.has(rid)) err('count', `缺少由 randomEvent 改写的事件 ${rid}`);
 if (talentN > 2) err('count', `talent 出现 ${talentN} 处（上限 2）`);
 if (traitN > 4) err('count', `trait 出现 ${traitN} 处（上限 4）`);
 
@@ -208,6 +213,7 @@ console.log(`事件总数 ${EVENTS.length}  | where: home ${whereCount.home} / e
 console.log(`分类: 主线 ${cat.main} / NPC链 ${cat.npc} / 洞府随机 ${cat.home} / 历练随机 ${cat.exp}`);
 console.log('bg  :', BGS.map(b => `${b} ${bgCount[b]}`).join(', '), `| 不限地图 ${EVENTS.filter(e => e.where === 'exp' && !e.bg).length}`);
 console.log('npc :', NPCS.map(n => `${n} ${npcCount[n]}`).join(', '));
+console.log(`访客事件 ${visitN}`);
 console.log(`talent ${talentN}/2, trait ${traitN}/4, flags ${flagsSet.size}`);
 if (warns.length) { console.log(`\n警告 ${warns.length}:`); warns.forEach(w => console.log('  ! ' + w)); }
 if (errors.length) { console.log(`\n错误 ${errors.length}:`); errors.forEach(x => console.log('  x ' + x)); process.exit(1); }
