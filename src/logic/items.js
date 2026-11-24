@@ -33,10 +33,11 @@ L.PETS = [
   { n: '上古神兽', m: 2.5, c: ['#f6e7ff', '#d6b8ff', '#a67ee6'], names: ['九尾天狐', '冰凰', '貔貅'] },
   { n: '太古真灵', m: 3.0, c: ['#ffe27a', '#f0b429', '#b87b10'], names: ['太古金龙', '麒麟', '金乌'] },
 ];
-// 功法、法宝、灵宠的倍率（SYSTEMS §2～§4 会把这三个单值换成槽位/名册，届时只改这三行登记）
-L.addCulMod('art', 20, st => ['功法·' + (st.p.a ? st.p.an : '基础吐纳'), L.ARTS[st.p.a].m, 'art']);
+// 法宝、灵宠的倍率（SYSTEMS §3～§4 会把这两个单值换成槽位/名册，届时只改这两行登记；功法三槽见 arts.js）
+// L.ARTS 现在只是心法的阶倍率表（arts.js 按阶取 m）
 L.addAtkMod('weapon', 20, st => ['法宝·' + (st.p.w ? st.p.wn : '赤手空拳'), L.WEAPONS[st.p.w].m, 'weapon']);
-L.addAtkMod('pet', 25, st => ['灵宠·' + (st.p.pet ? st.p.pet.name : '无'), L.PETS[st.p.pet ? st.p.pet.tier : 0].m, 'pet']);
+// 灵宠：驭兽诀、万兽朝苍放大“超出 1 的部分”（L.petBoost）
+L.addAtkMod('pet', 25, st => { const m = L.PETS[st.p.pet ? st.p.pet.tier : 0].m; return ['灵宠·' + (st.p.pet ? st.p.pet.name : '无'), 1 + (m - 1) * (L.petBoost ? L.petBoost(st) : 1), 'pet']; });
 
 // ---------- 宝物 ----------
 L.rollTier = rollTier;
@@ -50,12 +51,14 @@ function rollTier(st, base, max) {
 }
 // 奇遇结果里的一句话（功法的写法见 arts.js 的 L.artItemText）
 L.itemText = function (st, it) {
-  if (it.kind === 'a' && L.artItemText) return L.artItemText(st, it);
-  const tn = it.kind === 'w' ? L.WEAPONS[it.tier].n : it.kind === 'a' ? L.ARTS[it.tier].n : L.PETS[it.tier].n;
-  return (it.equip ? '获得' : '得到（已有更好的，换成灵石）') + tn + (it.kind === 'a' ? '《' + it.name + '》' : '【' + it.name + '】');
+  if (it.kind === 'a') return L.artItemText(st, it);
+  const tn = it.kind === 'w' ? L.WEAPONS[it.tier].n : L.PETS[it.tier].n;
+  return (it.equip ? '获得' : '得到（已有更好的，换成灵石）') + tn + '【' + it.name + '】';
 };
-L.giveItem = function (st, kind, tier, name) {
+// kind：'w' 法宝 / 'a' 功法（按阶抽一门具体的，见 arts.js 的 L.rollArt；ctx = { k 地图, d 深度, src 来源 }）/ 'pet' 灵宠
+L.giveItem = function (st, kind, tier, name, ctx) {
   const p = st.p;
+  if (kind === 'a') return L.giveArt(st, L.rollArt(st, tier, ctx), ctx);
   if (kind === 'pet') {
     tier = clamp(tier, 1, L.PETS.length - 1);
     const T = L.PETS[tier];
@@ -64,10 +67,10 @@ L.giveItem = function (st, kind, tier, name) {
     else { it.value = Math.floor(L.price(st, 'egg') * 0.3); st.stones += it.value; }
     return it;
   }
-  const list = kind === 'w' ? L.WEAPONS : L.ARTS;
+  const list = L.WEAPONS;
   tier = clamp(tier, 1, list.length - 1);
   const it = { kind, tier, name: name || pick(list[tier].names) };
-  if (p[kind] < tier) { p[kind] = tier; p[kind + 'n'] = it.name; it.equip = true; }
+  if (p.w < tier) { p.w = tier; p.wn = it.name; it.equip = true; }
   else { it.value = Math.floor(L.price(st, 'box') * 0.3); st.stones += it.value; }
   return it;
 };

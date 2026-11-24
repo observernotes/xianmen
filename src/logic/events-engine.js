@@ -174,6 +174,7 @@ L.applyFx = function (st, fx, ctx) {
     const base = kind === 'w' ? 1 + Math.floor(p.r * 0.75) : kind === 'a' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.6);
     const it = L.giveItem(st, kind, base + up, undefined, { src: 'event' });
     out.push(L.itemText(st, it));
+    if (it.kind === 'a') (out.artTexts = out.artTexts || []).push(out[out.length - 1]);
     out.item = it;
   }
   if (fx.aff) for (const id in fx.aff) { const d = L.addAff(st, id, fx.aff[id]); if (d) out.push(`好感 ${L.npcName(st, id)} ${d > 0 ? '+' : ''}${d}`); }

@@ -9,7 +9,7 @@ const P = L.P;
 L.MARKET = [
   { k: 'pill', n: '破境丹', d: '突破时服用，每枚成功率 +15%（一次最多三枚）；负伤时可服一枚疗伤', base: 60 },
   { k: 'life', n: '延寿丹', d: '寿元 +10%，每个大境界最多服用三枚', base: 250, minR: 1 },
-  { k: 'box', n: '寻宝', d: '随机得到一件法宝或一部功法；连续两次没提升，第三次必出更高一阶', base: 150 },
+  { k: 'box', n: '寻宝', d: '随机得到一件法宝或一门具体的功法（已会的熟练 +20）；连续两次没提升，第三次必出更高一阶', base: 150 },
   { k: 'egg', n: '灵兽蛋', d: '孵化一只灵宠，品阶随机', base: 400, minR: 1 },
 ];
 L.price = (st, k) => Math.floor(L.MARKET.find(m => m.k === k).base * Math.pow(2.6, Math.min(st.p.r, 8)));
@@ -17,7 +17,8 @@ L.marketOpen = (st, k) => { const m = L.MARKET.find(x => x.k === k); return !m.m
 
 // 寻宝保底（和拍卖）能补到的最高阶：L.BOX_CAP + 境界（法宝至多 7 阶、功法至多 6 阶）。
 // v1 写的是 2 + r；寻宝便宜、拍卖每 24 周天一次，按 2 算时功法化神就满、法宝炼虚就满，改 1（tools/sim.js 校准）
-// TODO SYSTEMS §2～§3：功法、法宝改成具体条目与槽位后，寻宝产出改为“按阶抽一门/一件”，保底规则沿用这里的上限
+// 功法按阶抽一门具体的（arts.js 的 L.rollArt）；保底给最落后的已开槽补高一阶的一门（L.artPity）。
+// TODO SYSTEMS §3：法宝改成三槽与词条后，寻宝的法宝也改为“按阶抽一件”，保底规则沿用这里的上限
 L.BOX_CAP = 1;
 L.boxCap = (st, kind) => Math.min(kind === 'w' ? 7 : 6, L.BOX_CAP + Math.min(st.p.r, 8));
 L.buy = function (st, k) {
@@ -38,17 +39,18 @@ L.buy = function (st, k) {
   st.stones -= c; st.flags.spentAt = st.tick;
   if (k === 'pill') { st.pills++; return { k }; }
   if (k === 'box') {
-    // 保底：连续两次没带来提升，第三次必得“当前最高阶 +1”（上限见 L.boxCap）
-    const capW = L.boxCap(st, 'w'), capA = L.boxCap(st, 'a');
+    // 第一次寻宝保底《引气诀》；连续两次没带来提升，第三次必得“当前最高阶 +1”（上限见 L.boxCap）
+    const capW = L.boxCap(st, 'w'), capA = L.boxCap(st, 'a'), pityArt = L.artPity(st, capA);
     let it;
-    if ((st.boxMiss || 0) >= 2 && (p.w < capW || p.a < capA)) {
-      const kind = p.w < capW && (p.a >= capA || p.w <= p.a) ? 'w' : 'a';
-      it = L.giveItem(st, kind, p[kind] + 1); it.pity = true;
+    if (!st.arts.firstBox) it = L.giveItem(st, 'a', 1, undefined, { src: 'box' });
+    else if ((st.boxMiss || 0) >= 2 && (p.w < capW || pityArt)) {
+      const kind = p.w < capW && (!pityArt || p.w <= L.artBestTier(st)) ? 'w' : 'a';
+      it = kind === 'w' ? L.giveItem(st, 'w', p.w + 1) : L.giveArt(st, pityArt, { src: 'box' }); it.pity = true;
     } else {
       const kind = R() < 0.55 ? 'w' : 'a';
-      it = L.giveItem(st, kind, L.rollTier(st, 1 + Math.floor(r * (kind === 'w' ? 0.75 : 0.6)), kind === 'w' ? 7 : 6));
+      it = L.giveItem(st, kind, L.rollTier(st, 1 + Math.floor(r * (kind === 'w' ? 0.75 : 0.6)), kind === 'w' ? 7 : 6), undefined, { src: 'box' });
     }
-    st.boxMiss = it.equip ? 0 : (st.boxMiss || 0) + 1;
+    st.boxMiss = it.equip || it.better ? 0 : (st.boxMiss || 0) + 1;
     L.checkQuests(st);
     return { k, it };
   }
@@ -66,9 +68,13 @@ L.auctionOpen = st => !!st.auction && st.tick < st.auction.until;
 L.rollAuction = rollAuction;
 function rollAuction(st) {
   const p = st.p, inc = Math.max(L.income(st), 20), pool = [];
-  // 高一阶的法宝功法，但不超过本境界的寻宝上限（L.boxCap），免得拍卖把装备拉到境界前头
+  // 高一阶的法宝、一门具体的功法，但不超过本境界的寻宝上限（L.boxCap），免得拍卖把装备拉到境界前头
   if (p.w < L.boxCap(st, 'w')) pool.push({ k: 'w', tier: p.w + 1, n: L.WEAPONS[p.w + 1].n + '一件', m: 1.2 });
-  if (p.a < L.boxCap(st, 'a')) pool.push({ k: 'a', tier: p.a + 1, n: L.ARTS[p.a + 1].n + '功法一部', m: 1.2 });
+  const pa = L.artPity(st, L.boxCap(st, 'a'));
+  if (pa) { const A = L.art(pa); pool.push({ k: 'a', art: pa, tier: A.t, n: `${L.artTierName(A.t)}${L.ART_CAT[A.k]}《${A.n}》`, m: 1.2 }); }
+  // 化神起偶有神阶残篇（鸿蒙造化经、周天星斗大法，三片合一）
+  const fr = ['x_hongmeng', 'm_xingdou'].filter(id => !L.artOwned(st, id));
+  if (p.r >= 4 && fr.length) { const id = pick(fr); pool.push({ k: 'frag', art: id, tier: 6, n: `《${L.art(id).n}》残篇（${(st.arts.frag[id] || 0)}/3）`, m: 1.4 }); }
   pool.push({ k: 'treasure', n: '天材地宝', m: 0.8 });
   if (p.t < L.talentCap(st)) pool.push({ k: 'xisui', n: '洗髓丹', m: 1.5 });
   pool.push({ k: 'pack', n: '九转金丹材料包', m: 1.1 });
@@ -84,7 +90,8 @@ L.auctionBuy = function (st, i) {
   st.stones -= it.price; it.sold = 1; st.flags.spentAt = st.tick;
   st.stats.auction = (st.stats.auction || 0) + 1;
   const res = { k: it.k, n: it.n };
-  if (it.k === 'w' || it.k === 'a') res.it = L.giveItem(st, it.k, it.tier);
+  if (it.k === 'w') res.it = L.giveItem(st, it.k, it.tier);
+  else if (it.k === 'a' || it.k === 'frag') res.it = L.giveArt(st, it.art, { src: 'auction' });
   else if (it.k === 'treasure') st.treasure++;
   else if (it.k === 'xisui') { const from = st.p.t; st.p.t = Math.min(6, st.p.t + 1); res.talent = [from, st.p.t]; }
   else if (it.k === 'pack') { st.treasure += 2; st.herbs += L.herbCost(st, L.RECIPES.find(x => x.k === 'jiuzhuan')); }

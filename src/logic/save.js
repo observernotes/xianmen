@@ -5,16 +5,38 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// ---------- 存档迁移（v2 → v3，DESIGN §9） ----------
-// v2 是 main 分支（旧数值体系）的存档，v3 是现在的。读档一律先过 L.migrate：
+// ---------- 存档迁移（v2 → v3 → v4，DESIGN §9、SYSTEMS §18 第 10 条） ----------
+// v2 是 main 分支（旧数值体系）的存档，v3 是功法改三槽之前的，v4 是现在的。读档一律先过 L.migrate：
 // 缺的字段补默认值；旧数值体系下的修为按比例折算；走到一半的旧历练按旧规则结算一次（结果放在 s.migratedExp）；
 // st.meta 不存在则新建。从 v2 迁来的档 s.flags.fromV2 = 1（界面据此跳过新手引导）。返回 null 表示读不了。
-// TODO SYSTEMS §18 第 10 条：功法/法宝/灵宠换成槽位与名册时存档升到 v4，在这里加 v3 → v4 的迁移
-L.SAVE_V = 3;
+// v3 → v4：单一功法 st.p.a（阶）换成三槽 st.arts —— 旧功法阶 → 该阶的第一门心法，熟练记小成（L.migrateArts）。
+// TODO SYSTEMS §18 第 10 条：法宝、灵宠换成槽位与名册时存档再升一版，旧法宝阶 → 该阶同名兵器 +0，旧灵宠 → 对应阶的基础种
+L.SAVE_V = 4;
+L.migrateArts = function (s) {
+  const p = s.p, a = s.arts && typeof s.arts === 'object' ? s.arts : L.newArts();
+  const d = L.newArts();
+  for (const k in d) if (a[k] === undefined || a[k] === null) a[k] = d[k];
+  if (!Array.isArray(a.slot) || a.slot.length !== 3) a.slot = [null, null, null];
+  for (const id of Object.keys(a.own)) if (!L.art(id) || typeof a.own[id] !== 'number' || !isFinite(a.own[id])) delete a.own[id];
+  a.slot = a.slot.map((id, i) => (id && a.own[id] !== undefined && L.artSlotOf(id) === i ? id : null));
+  let note = '';
+  if (typeof p.a === 'number' && p.a > 0 && !Object.keys(a.own).length) {
+    const tier = clamp(Math.floor(p.a), 1, 6);
+    const A = L.ARTL.find(x => x.k === 'x' && x.t === tier);
+    a.own[A.id] = L.artNeed(A.id, 1);
+    a.slot[0] = A.id;
+    a.firstBox = 1;
+    note = `旧功法${p.an ? '《' + p.an + '》' : ''}（${L.ARTS[tier].n}）折成同阶心法《${A.n}》，熟练记小成`;
+  }
+  delete p.a; delete p.an;
+  s.arts = a;
+  s.meta.combo = s.meta.combo || {}; s.meta.chint = s.meta.chint || {};
+  return note;
+};
 L.migrate = function (s) {
   if (!s || typeof s !== 'object' || !s.p || !s.home) return null;
-  if (s.v !== 2 && s.v !== L.SAVE_V) return null;
-  const old = s.v === 2;
+  if (s.v !== 2 && s.v !== 3 && s.v !== L.SAVE_V) return null;
+  const old = s.v === 2, v3 = s.v < 4;
   const p = s.p;
   s.flags = s.flags || {}; s.seenTips = s.seenTips || {}; s.beaten = s.beaten || {}; s.lifePills = s.lifePills || {}; s.lives = s.lives || [];
   s.stats = Object.assign(L.newStats(), s.stats || {});
@@ -34,6 +56,7 @@ L.migrate = function (s) {
   if (typeof p.inj !== 'number') p.inj = 0;
   if (typeof p.fails !== 'number') p.fails = 0;
   p.tr = p.tr || [];
+  const artNote = L.migrateArts(s);
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值
@@ -70,6 +93,7 @@ L.migrate = function (s) {
   if (s.sect) { s.sect.tasks = s.sect.tasks || []; s.sect.build = s.sect.build || { ward: 0, lib: 0, vein: 0 }; }
   if (s.exp && !s.exp.plan) s.exp = null;
   if (s.retreat && !(s.retreat.left > 0)) s.retreat = null;
+  if (v3 && !old) L.log(s, '功法换了新章法：心法、战技、秘术三槽，练久了有熟练' + (artNote ? '。' + artNote : ''), 'gold');
   s.v = L.SAVE_V;
   return s;
 };

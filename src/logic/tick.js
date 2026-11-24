@@ -11,7 +11,7 @@ L.flow = function (st, f) {
   if (st.retreat) st.retreat.got += g;
   L.addXp(st, g);
   st.stones += L.income(st) * f;
-  if (st.p.r <= L.MAXR) st.p.age += L.REALMS[st.p.r].mpt * f;
+  if (st.p.r <= L.MAXR) st.p.age += L.REALMS[st.p.r].mpt * f * L.ageRate(st);
   st.year += L.REALMS[Math.min(st.p.r, 8)].mpt * f;
 };
 // 一趟历练中途的遭遇：第 ceil(len/2) 周天，60% 概率，前两趟不触发
@@ -22,12 +22,14 @@ L.tick = function (st, cont) {
   st.tick++;
   const p = st.p;
   if (p.inj > 0) p.inj--;
+  // 功法：熟练、长春功的额外疗伤（arts.js）
+  L.artTick(st);
   // 增益与灵草
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);
-  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
+  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field) * L.fieldHerbMult(st); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
   // 吐纳环：在洞府打坐才蓄
-  if (!L.busy(st) && !L.isFull(st) && p.r <= L.MAXR) st.tuna = Math.min(L.TUNA_FULL, (st.tuna || 0) + 1);
+  if (!L.busy(st) && !L.isFull(st) && p.r <= L.MAXR) st.tuna = Math.min(L.TUNA_FULL, Math.round(((st.tuna || 0) + L.tunaStep(st)) * 1e6) / 1e6);
   const evMul = L.friend(st, 'bai') ? 1.5 : 1;
   if (st.exp) {
     const e = st.exp;

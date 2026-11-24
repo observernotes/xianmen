@@ -21,7 +21,6 @@ L.tuna = function (st) {
 // 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，随天劫系统接入）
 // 基础成功率在 L.REALMS[r].rate；后续系统的加成（祭法宝、灵宠挡劫、渡劫阵…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]
 L.BT = { pill: 0.15, maxPills: 3, furnace: 0.01, fail: 0.10, desperate: 0.25 };
-L.addBtMod = (id, order, fn) => L.addMod('bt', id, order, fn);
 L.btPills = (st, n) => (n === true ? Math.min(L.BT.maxPills, st.pills) : clamp(Math.floor(n || 0), 0, Math.min(L.BT.maxPills, st.pills)));
 // 老祖护法：第一世第一次冲击筑基必成
 L.btGuard = st => st.rebirth === 0 && st.p.r === 0 && !st.flags.guardUsed;
@@ -84,7 +83,8 @@ L.breakthrough = function (st, n) {
     res.lifeAfter = L.lifespan(st);
   } else {
     p.fails++; st.stats.btFails++;
-    if (!L.has(st, 'steady')) { p.xp = Math.floor(L.pNeed(p) * 0.7); p.inj = Math.max(p.inj, 3); }
+    // 厚土载物经：只退到 85%（L.btKeep）
+    if (!L.has(st, 'steady')) { p.xp = Math.floor(L.pNeed(p) * L.btKeep(st)); p.inj = Math.max(p.inj, 3); }
     else p.xp = Math.floor(L.pNeed(p) * 0.95);
     p.over = 0;
     st.flags.readyNotified = 0;
@@ -101,7 +101,8 @@ L.breakthrough = function (st, n) {
 // 闭关疲劳：两趟历练之间连着闭关，从第二次起每次倍率 −0.5（最低 ×1.25）；出门历练一趟就清零（劳逸结合）。
 L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
 // TODO SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”以后移到静室
-L.retBaseMult = st => 2 + 0.05 * st.home.cave;
+// 烈阳诀 +0.2、星河倒悬 +0.125（arts.js 的 L.artRetBonus）
+L.retBaseMult = st => 2 + 0.05 * st.home.cave + L.artRetBonus(st);
 L.retStreak = st => st.flags.retStreak || 0;
 L.retMult = st => Math.max(L.RET.minM, L.retBaseMult(st) - L.RET.fatigue * L.retStreak(st));
 L.retOpen = st => st.rebirth > 0 || Math.max(L.si(st.p), st.flags.maxI || 0) >= 1;
@@ -129,7 +130,7 @@ L.retInfo = function (st) {
   const left = Math.max(0, L.pNeed(st.p) - st.p.xp);
   const t0 = base > 0 ? left / base : 0, t1 = left <= base * m * L.RET.len ? left / (base * m) : L.RET.len + (left - base * m * L.RET.len) / base;
   return { cost: L.retCost(st), m, m0, tired: m < m0, streak: L.retStreak(st), len: L.RET.len, extra, total: base * m * L.RET.len, save: Math.max(0, Math.round(t0 - t1)), why: L.retWhy(st), free: !st.flags.retFree,
-    epi: st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi };
+    epi: (st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st), fenshen: L.artOn(st, 'm_fenshen') };
 };
 L.startRetreat = function (st, opt) {
   opt = opt || {};
@@ -158,8 +159,10 @@ L.endRetreat = function (st, done) {
     if (done) {
       const first = !st.stats.retreat;
       st.stats.retreat = (st.stats.retreat || 0) + 1;
-      const pe = st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi;
+      const pe = (st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st);
       if (r.kind === 'ret' && (first || R() < pe)) { res.epi = L.gainCalm(st) * L.RET.epiTicks; L.addXp(st, res.epi); }
+      // 分身术：闭关时分身去外围历练了一趟
+      if (r.kind === 'ret') res.fenshen = L.fenshenTrip(st);
       if (st.sect) L.taskHit(st, 'act', t => t.sub === 'retreat');
       if (first && !st.visitor && !st.stats.visits) res.visitor = L.spawnVisitor(st);   // 第一位访客固定在首次出关时上门
     }

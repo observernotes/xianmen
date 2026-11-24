@@ -24,8 +24,6 @@ L.rivalRank = function (st, id) { const i = st.ladder.findIndex(x => x.id === id
 L.duelChance = (P1, P2) => clamp(0.5 + 0.55 * Math.log2(P1 / P2), 0.03, 0.97);
 // 带上下文的胜算：功法与共鸣可以抬上限（玄霄剑卷 97% → 99%）、垫下限（天河倒悬对天剑宗 50%）、直接加减（剑心通明 +3%）。
 // 用 L.addDuelPMod(id, order, fn(st, foe) → { hi, lo, add, n } | null) 登记；逻辑里所有对决都用它，界面显示的胜算也用它
-L.MODS.duelp = [];
-L.addDuelPMod = (id, order, fn) => L.addMod('duelp', id, order, fn);
 L.duelPParts = (st, foe) => { const a = []; for (const m of L.MODS.duelp) { const r = m.fn(st, foe || {}); if (r) a.push(r); } return a; };
 L.duelP = function (st, S, Q, foe) {
   let lo = 0.03, hi = 0.97, add = 0;
@@ -42,8 +40,8 @@ L.markBeat = function (st, id) {
 L.duelLines = Q => ({ even: Q, sure: Q * 1.8 });
 // 三年之约：第 36 周天（炼气期 12 周天一年）。第一世未筑基时老祖借力 ×2
 L.PACT_TICK = 36;
-L.PACT_POWER = 100;   // SYSTEMS §18：90 → 100
-L.PACT_ASSIST = 2;
+L.PACT_POWER = 125;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125（tools/sim.js 校准：guided 约 93%，借力同比 2 → 2.5，idle 不变）
+L.PACT_ASSIST = 2.5;
 L.pactPower = () => L.PACT_POWER;
 // 对手描述（给对决倍率用；五行等属性随宿敌资料接入，见 CONTENT §10）
 L.PACT_FOE = { kind: 'rival', id: 'mu' };

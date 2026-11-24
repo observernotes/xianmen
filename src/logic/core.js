@@ -34,7 +34,7 @@ L.fmt1 = v => (v < 100 ? (Math.round(v * 10) / 10).toString() : L.fmt(v));
 // 每项 { id, order, fn }，fn(st, …) 返回 null（不适用）、一项或一组 [显示名, 数值, 拆解面板操作键]。
 // stats.js 把它们乘起来（收入是加起来），数值拆解面板也读同一份，所以界面上的数和实际结算永远一致。
 // order 决定拆解面板里的先后（灵根 10、功法 20、聚灵阵 30、宗门 40、天赋 50、轮回 60、机缘 70、人物 80、丹药 90、状态 100）。
-L.MODS = { cul: [], atk: [], inc: [], incMul: [], exp: [], duel: [], bt: [] };
+L.MODS = { cul: [], atk: [], inc: [], incMul: [], exp: [], duel: [], duelp: [], bt: [] };
 L.addMod = function (kind, id, order, fn) {
   const list = L.MODS[kind];
   const i = list.findIndex(x => x.id === id);
@@ -53,6 +53,10 @@ L.addIncMul = (id, order, fn) => L.addMod('incMul', id, order, fn);
 L.addExpMod = (id, order, fn) => L.addMod('exp', id, order, fn);
 // 对决战力倍率：fn(st, foe) → [显示名, 倍率]；foe = { kind, el, … }（五行克制、战斗丹药…）
 L.addDuelMod = (id, order, fn) => L.addMod('duel', id, order, fn);
+// 对决胜算的上下限与加减：fn(st, foe) → { hi, lo, add } | null（rivals.js 的 L.duelP 读）
+L.addDuelPMod = (id, order, fn) => L.addMod('duelp', id, order, fn);
+// 突破成功率加项：fn(st) → [显示名, 加多少] 或一组（cultivation.js 的 L.btParts 读）
+L.addBtMod = (id, order, fn) => L.addMod('bt', id, order, fn);
 L.modParts = function (kind, st, a, b, c) {
   const out = [];
   for (const m of L.MODS[kind]) {
@@ -198,8 +202,8 @@ L.rebAtk = st => 1 + 0.10 * perk(st, 'bone');
 // ---------- 新档 ----------
 L.newStats = () => ({ exp: 0, expWin: 0, bt: 0, events: 0, tour: 0, tourWins: 0, leapWins: 0, crafts: 0, perfect: 0, goodPill: 0, jiuzhuan: 0, btFails: 0, bosses: 0, despWin: 0,
   retreat: 0, tuna: 0, visits: 0, herbExp: 0, seekExp: 0, slayExp: 0, sectTasks: 0, auction: 0, meetWins: 0, compExp: 0, dings: 0, tians: 0, expStones: 0 });
-// st.meta 跨世保留：aff 相性图鉴、perk 轮回殿加成、seen 见过的功能/事件、elem 已知的地图五行
-L.newMeta = () => ({ aff: {}, perk: {}, seen: {}, elem: {} });
+// st.meta 跨世保留：aff 相性图鉴、perk 轮回殿加成、seen 见过的功能/事件、elem 已知的地图与对手五行、combo 发现过的功法共鸣、chint 共鸣提示
+L.newMeta = () => ({ aff: {}, perk: {}, seen: {}, elem: {}, combo: {}, chint: {} });
 L.newState = function (o) {
   o = o || {};
   const female = !!o.female;
@@ -211,13 +215,13 @@ L.newState = function (o) {
     exp: null, retreat: null, visitor: null, auction: null, tuna: 0, boxMiss: 0, lastExp: null, best: {},
     rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     quest: { done: {} }, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {}, origin: o.origin || 'qitu', meta,
-    stats: L.newStats(),
+    stats: L.newStats(), arts: L.newArts(),
     npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
     herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {
       name: o.name || '林逸尘', look: { hair: '#2a2230', skin: '#f2c9a0', f: female ? 1 : 0 },
       t: o.t !== undefined ? o.t : 1, tr: o.tr || ['hero'], r: 0, s: 0, xp: 0, over: 0, age: 16,
-      w: 0, wn: '', a: 0, an: '', pet: null, inj: 0, fails: 0,
+      w: 0, wn: '', pet: null, inj: 0, fails: 0,
     },
     exName: female ? '慕容轩' : '慕容雪',
   };

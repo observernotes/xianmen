@@ -17,8 +17,9 @@ L.RECIPES = [
   { k: 'jiuzhuan', n: '九转金丹', d: '下一次大境界突破必定成功', herbs: 40, treasure: 2, lv: 12 },
 ];
 L.QUAL = [{ n: '下品', m: 0.7 }, { n: '中品', m: 1 }, { n: '上品', m: 1.3 }, { n: '极品', m: 1.8 }];
-L.herbCost = (st, rc) => Math.ceil(rc.herbs * L.herbScale(st));
-L.alchRate = st => clamp(0.6 + 0.03 * st.home.furnace + (L.friend(st, 'ge') ? 0.15 : 0) + (L.has(st, 'alch') ? 0.15 : 0) + (st.sect && st.sect.id === 'dan' ? 0.15 : 0), 0.1, 0.97);
+// 太乙真经（丹毒上线前的替代效果）省灵草；丹火诀、炉火纯青加成丹率（arts.js）
+L.herbCost = (st, rc) => Math.ceil(rc.herbs * L.herbScale(st) * L.artHerbCost(st));
+L.alchRate = st => clamp(0.6 + 0.03 * st.home.furnace + (L.friend(st, 'ge') ? 0.15 : 0) + (L.has(st, 'alch') ? 0.15 : 0) + (st.sect && st.sect.id === 'dan' ? 0.15 : 0) + L.artAlchRate(st), 0.1, 0.97);
 L.pillPower = st => (st.sect && st.sect.id === 'dan' ? 1.3 : 1);   // 丹霞谷：丹药效果 ×1.3
 L.canCraft = function (st, k) {
   const rc = L.RECIPES.find(x => x.k === k);
@@ -36,16 +37,19 @@ L.canCraft = function (st, k) {
 L.craft = function (st, k) {
   if (L.canCraft(st, k)) return null;
   const rc = L.RECIPES.find(x => x.k === k), p = st.p;
-  st.herbs -= L.herbCost(st, rc);
+  // 丹剑双绝：25% 不耗灵草（药引上线后改为不耗药引）
+  const free = L.comboOn(st, 'c9') && R() < 0.25;
+  if (!free) st.herbs -= L.herbCost(st, rc);
   st.treasure -= rc.treasure || 0;
   st.stats.crafts++;
   if (st.sect) L.taskHit(st, 'act', t => t.sub === 'craft');
-  const res = { k, n: rc.n };
+  const res = { k, n: rc.n, free };
   if (R() >= L.alchRate(st)) { res.ok = false; L.log(st, `炼制${rc.n}时炸炉了……灵草化为飞灰`, 'red'); return res; }
   res.ok = true;
   const pPerfect = 0.05 + st.home.furnace * 0.006 + (L.friend(st, 'ge') ? 0.05 : 0) + (L.has(st, 'alch') ? 0.05 : 0);
+  const pGood = 0.25 + L.artAlchQual(st);   // 丹火诀：上品以上 +10%
   const x = R();
-  const q = x < pPerfect ? 3 : x < pPerfect + 0.25 ? 2 : x < pPerfect + 0.75 ? 1 : 0;
+  const q = x < pPerfect ? 3 : x < pPerfect + pGood ? 2 : x < pPerfect + pGood + 0.5 ? 1 : 0;
   res.q = q; const m = L.QUAL[q].m * L.pillPower(st);
   if (q >= 2) st.stats.goodPill = (st.stats.goodPill || 0) + 1;
   if (q === 3) st.stats.perfect++;

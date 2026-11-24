@@ -65,15 +65,16 @@ L.CONTRIB = { base: 10, grow: 2.3, tour: 1, meet: 2, task: 2 };
 L.contribFor = k => Math.floor(L.CONTRIB.base * Math.pow(L.CONTRIB.grow, k));
 function addContrib(st, v) { v = Math.floor(v); if (!st.sect || v <= 0) return 0; st.sect.total += v; st.sect.pts += v; return v; }
 L.addContrib = addContrib;
-// 宗门宝库（贡献兑换）
+// 宗门宝库（贡献兑换）。功法是各宗独有的四门（CONTENT §9，见 arts.js 的 L.vaultArts），按身份开放
 L.VAULT = [
-  { k: 'vart', n: '秘传功法', d: '本宗不传之秘' },
+  { k: 'vart', n: '秘传功法', d: '本宗不传之秘（四门，按身份开放）' },
   { k: 'vwep', n: '镇宗法宝', d: '借出镇宗之宝，归你所有' },
   { k: 'vpill', n: '破境丹 ×2', d: '宗门丹房特供' },
 ];
-L.vaultTier = (st, k) => { const up = Math.floor(((st.sect.build || {}).lib || 0) / 2); return k === 'vart' ? Math.min(6, st.sect.rank + 1 + up) : k === 'vwep' ? Math.min(7, st.sect.rank + 2 + up) : 0; };
+L.vaultTier = (st, k) => { const up = Math.floor(((st.sect.build || {}).lib || 0) / 2); if (k === 'vart') { const A = L.vaultArtNext(st); return A ? A.t : 0; } return k === 'vwep' ? Math.min(7, st.sect.rank + 2 + up) : 0; };
 L.vaultCost = function (st, k) {
   if (k === 'vpill') return Math.floor(15 * Math.pow(2.3, st.p.r));
+  if (k === 'vart') { const A = L.vaultArtNext(st); return A ? L.vaultArtCost(st, A) : Infinity; }
   if (st.sect.freePick > 0) return 0;   // 札记奖励：宝库任选一件
   return Math.floor((k === 'vart' ? 40 : 60) * Math.pow(3.2, st.sect.rank) * (k === 'vwep' && st.sect.id === 'jian' ? 0.7 : 1));
 };
@@ -131,11 +132,12 @@ L.vaultBuy = function (st, k) {
   const c = L.vaultCost(st, k);
   if (st.sect.pts < c) return null;
   if (k === 'vpill') { st.sect.pts -= c; st.pills += 2; return { k }; }
+  // 秘传功法：身份够得着的下一门（指定哪一门用 L.vaultBuyArt）
+  if (k === 'vart') { const A = L.vaultArtNext(st); return A ? L.vaultBuyArt(st, A.id) : null; }
   const tier = L.vaultTier(st, k);
-  const key = k === 'vart' ? 'a' : 'w';
-  if (st.p[key] >= tier) return null;
+  if (st.p.w >= tier) return null;
   if (st.sect.freePick > 0) st.sect.freePick--; else st.sect.pts -= c;
-  const out = { k, it: L.giveItem(st, key, tier) };
+  const out = { k, it: L.giveItem(st, 'w', tier) };
   L.checkQuests(st);
   return out;
 };
