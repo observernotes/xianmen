@@ -3,7 +3,7 @@
 // ---------- 存档 ----------
 // 存档键沿用 v2 时代的名字，这样旧版本的存档能被找到；读进来一律先过 L.migrate（v2 → v3）
 const SAVE_KEY = 'xiantu_save_v2';
-const saveOk = s => !!s && (s.v === 2 || s.v === L.SAVE_V);
+const saveOk = s => !!s && (s.v === 2 || s.v === 3 || s.v === L.SAVE_V);
 const PREF_KEY = 'xianmen_pref_v1';
 function saveLocal() { if (!st) return; try { st.savedAt = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }

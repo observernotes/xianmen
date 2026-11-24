@@ -81,7 +81,44 @@ const HINTS = [
       return `${L.REGIONS[k].n}的首领<b>${B.n}</b>出来了，战力 <b>${fmt(Q)}</b>，你的胜算 <b>${L.pct(L.duelChance(S, Q))}</b>。掉天材地宝和专属法宝，去【历练】里挑战。`;
     } },
   { id: 'life', when: () => L.desperate(st) && !modalOpen(), target: '#lifeBox', btn: '知道了', text: () => `寿元只剩 <b>${L.lifeTicks(st)}</b> 个周天！延寿丹还能吃 <b>${Math.max(0, 3 - (st.lifePills[st.p.r] || 0))}</b> 枚（${fmt(L.price(st, 'life'))} 灵石）；或者现在就冲，绝境 +${L.pct(L.BT.desperate)}。` },
+  // ---------- 功法与五行（SYSTEMS §2 / §17）：每个解锁一次阻塞讲解，数字当场从逻辑层算 ----------
+  { id: 'art1', intro: true, when: () => artCalm() && !!L.artSlots(st)[0], target: '[data-nav="me"]', btn: '好', text: () => {
+      const id = L.artSlots(st)[0], c = artWithout(0, () => L.gain(st));
+      return `这是<b>功法</b>：心法管修炼。《${esc(L.art(id).n)}》修炼 <b>×${dec2(L.artXMult(st))}</b>：每周天 <b>+${dec(c.off)} → +${dec(c.on)}</b>。装着就涨熟练，到<b>小成</b>再强一成。【人物】→ 功法 里换。`;
+    } },
+  { id: 'art2', intro: true, when: () => artCalm() && Object.keys(st.arts.own).filter(id => L.art(id).k === 'x').length >= 2, target: '[data-nav="me"]', btn: '好', text: () => {
+      const rows = L.artList(st, 0), rec = rows.find(r => r.rec), cur = rows.find(r => r.cur);
+      if (rec) return `功法不止一门。《${esc(rec.A.n)}》修炼 <b>×${dec2(1 + (L.ARTS[rec.A.t].m - 1) * L.MAST.mult[rec.lv])}</b>，比你现在的多 <b>+${dec(rec.d.g1 - rec.d.g0)}/周天</b>；练久了还有熟练。【人物】→ 功法，点一下就换（先转修 ${L.SWAP.len} 周天）。`;
+      const nw = rows.find(r => !r.cur);
+      return `又得一门心法《${esc(nw.A.n)}》，不如你现在的《${esc(cur ? cur.A.n : '')}》（修炼 ×${dec2(L.artXMult(st))}），先收着。每门练到<b>圆满</b>都有一份融会：修炼 <b>+${(L.RONG.x[0] * 100).toFixed(1)}%</b>，卸下也保留。`;
+    } },
+  { id: 'zhanji', intro: true, when: () => artCalm() && L.artSlotOpen(st, 1) && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
+      const id = L.artSlots(st)[1], head = `<b>战技槽</b>开了：战技管战力，还定你的<b>攻击属性</b>（五行）。`;
+      const tail = '金克木、木克土、土克水、水克火、火克金：克得住的地方历练分数 <b>+8</b>，被克 <b>−8</b>。';
+      if (!id) return head + `手里还没有战技，寻宝或历练掉一门就能装，战力 <b>×${L.ZHAN_M[0]}</b> 起。` + tail;
+      const c = artWithout(1, () => [L.power(st), L.pactInfo(st).p]);
+      const pp = !st.pact && L.pct(c.off[1]) !== L.pct(c.on[1]) ? `，约战胜算 <b>${L.pct(c.off[1])} → ${L.pct(c.on[1])}</b>` : '';
+      return head + `老夫给你装上了《${esc(L.art(id).n)}》（${L.elName(L.art(id).el)}）：战力 <b>${fmt(c.off[0])} → ${fmt(c.on[0])}</b>${pp}。` + tail;
+    } },
+  { id: 'mishu', intro: true, when: () => artCalm() && L.artSlotOpen(st, 2) && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
+      const id = L.artSlots(st)[2];
+      return `<b>秘术槽</b>开了：秘术不加倍率，只给特效。` + (id ? `老夫给你装上了《${esc(L.art(id).n)}》：${esc(L.artDesc(st, id))}。` : '你还没有秘术：寻宝、宗门宝库都换得到。') + `三槽齐了，三门同属的共鸣是修炼、战力各 <b>+${Math.round(L.GEN.three * 100)}%</b>。`;
+    } },
+  { id: 'ke', intro: true, when: () => { const k = L.REGIONS.findIndex(r => r.n === modalTitle()); return k >= 0 && L.elemKnown(st, k) && L.expElem(st, k).v < 0 && !!document.querySelector('#expElem'); }, target: '#expElem', btn: '知道了', text: () => {
+      const k = L.REGIONS.findIndex(r => r.n === modalTitle()), e = L.expElem(st, k), z = L.art(L.artSlots(st)[1]);
+      const sw = document.querySelector('#expElem [data-swapz]'), B = sw && L.art(sw.dataset.swapz);
+      return `${L.elName(e.it)}克${L.elName(e.me)}，你这手${L.elName(e.me)}系的《${esc(z.n)}》在${L.REGIONS[k].n}要吃亏：分数 <b>−${-e.v}</b>。换一门战技，或者认了。` + (B ? `你有《${esc(B.n)}》，点右边一下就换。` : '');
+    } },
 ];
+// 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
+const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
+// 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
+function artWithout(i, fn) {
+  const a = st.arts, prev = a.slot[i];
+  const on = fn();
+  a.slot[i] = null;
+  try { return { on, off: fn() }; } finally { a.slot[i] = prev; }
+}
 let activeHint = null, tempHint = null, guideShownId = '', guideHold = false, hintCool = 0;
 function ensureGuide() {
   if (!st.guide) st.guide = { step: 0, done: st.tick > 3 || st.stats.exp > 0 || st.rebirth > 0 };
@@ -166,6 +203,7 @@ function showHelp() {
     sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
     sec('build', '洞府', '聚灵阵加修炼速度，灵田产灵石和灵草，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时可以服一枚破境丹疗伤。'),
+    sec('disc', '功法与五行', `【人物】→ 功法：三个槽，点槽再点一门就换上。心法管修炼，战技管战力并定攻击属性（炼气后期开），秘术给特效（金丹开）。装着就涨熟练（入门→小成→大成→圆满→化境，倍率的超出部分最多 ×${L.MAST.mult[4]}），圆满留一份融会。两门同属 +${Math.round(L.GEN.two * 100)}%、三门 +${Math.round(L.GEN.three * 100)}%；特定几门凑在一起有名有姓的共鸣，试出来就记进图鉴。五行：金克木、木克土、土克水、水克火、火克金，克制历练分数 +${L.EL_EXP}、对决 ×${L.EL_DUEL[0]}，被克反之。`),
     sec('bag', '坊市', '买破境丹、延寿丹；寻宝抽法宝功法（连续两次没提升，第三次必出更高一阶）；筑基后孵灵兽蛋；金丹后每 24 周天有拍卖会。价格随境界上涨。'),
     sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 周天九宗会武，你代表本宗往上打。'),
     sec('flag', '天骄论道', `三年之约之后每 ${L.TOUR_EVERY} 周天一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
@@ -177,7 +215,7 @@ function showHelp() {
   sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
 }
 const GO = {
-  exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(),
+  exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'),
   cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };
 // 札记（DESIGN §4.6）：本章主线 + 前三条未完成的小任务 + 以前章节没做完的主线；完成即领

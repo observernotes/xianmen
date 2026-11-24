@@ -7,10 +7,10 @@ function showGrowth(focus) {
   const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return '<span class="muted">未解锁</span>'; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
   const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
-  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('去寻宝', 'market'), array: () => upBtn('array'), weapon: () => goBtn('去历练', 'exp'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
+  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), weapon: () => goBtn('去历练', 'exp'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
   const tips = {
     talent: '灵根是天生的，炼丹房的洗髓丹能提升一品（需要天材地宝）。',
-    art: '功法来自历练掉落、坊市寻宝、宗门宝库，越高阶修炼越快。',
+    art: '功法三槽：心法管修炼、战技管战力与攻击属性、秘术给特效；练久了有熟练，凑对了有共鸣。来自历练、寻宝、宗门宝库、首领与奇遇。',
     array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
     weapon: '法宝来自历练掉落、首领、坊市寻宝、宗门宝库。',
     pet: '灵宠来自坊市灵兽蛋、历练与奇遇。',
@@ -23,7 +23,7 @@ function showGrowth(focus) {
   const body = [
     `<div class="muted">每项数值 = 基础 × 各项加成。点右边的按钮直接去提升。</div>`,
     sec('cul', '修炼速度', '+' + fmt(B.gain) + ' /周天', '境界基础（' + L.stageName(p) + '）', B.baseCul, B.cul,
-      row('运功吐纳', `${Math.min(st.tuna || 0, L.TUNA_FULL)}/${L.TUNA_FULL}`, '', `在洞府打坐时吐纳环每周天蓄 1/${L.TUNA_FULL}，蓄满后点画面里的自己，立得 1 周天修为（+${dec(L.gainCalm(st))}）。`) +
+      row('运功吐纳', `${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}`, '', `在洞府打坐时吐纳环每周天蓄 1/${L.TUNA_FULL}，蓄满后点画面里的自己，立得 1 周天修为（+${dec(L.gainCalm(st))}）。`) +
       row('闭关', L.retOpen(st) ? '×' + L.retInfo(st).m.toFixed(2) : '未解锁', goBtn('洞府', 'home'), `4 周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花费 ${fmt(L.retCost(st))} 灵石；连着闭关每次 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5。`)),
     sec('atk', '战力', fmt(B.power), '境界基础（' + L.stageName(p) + '）', B.baseAtk, B.atk,
       row('突破大境界', '大幅', '', '每升一个大境界，战力翻好几倍。战力决定历练成功率、论道和会武胜负。')),
@@ -54,7 +54,7 @@ function showBig() {
 // 三年之约的锦囊：每条办法算出做完之后的新胜算（DESIGN §4.4），过滤掉不可行和涨不到 3% 的，按新胜算排序取前三
 function pactTips() {
   const pi = L.pactInfo(st), p = st.p, out = [];
-  const with_ = (m, assist) => L.duelChance(pi.base * m * (assist === undefined ? pi.assist : assist), pi.Q);
+  const with_ = (m, assist) => L.duelP(st, pi.base * m * (assist === undefined ? pi.assist : assist), pi.Q, L.PACT_FOE);
   if (p.inj > 0) out.push({ t: '先疗伤', cost: L.canHeal(st) ? '破境丹 1 枚' : `歇 ${p.inj} 周天`, p: with_(1 / 0.6), go: 'home' });
   if (p.r === 0 && !L.isFull(st)) {
     const n = L.ticksToStage(st, L.si(p) + 1);
@@ -65,22 +65,46 @@ function pactTips() {
   if (p.w < L.boxCap(st, 'w')) out.push({ t: `换一件${L.WEAPONS[p.w + 1].n}`, cost: `寻宝 ${fmt(L.price(st, 'box'))} 或历练掉落`, p: with_(L.WEAPONS[p.w + 1].m / L.WEAPONS[p.w].m), go: navLock('market') ? 'exp' : 'market' });
   if (!p.pet && L.marketOpen(st, 'egg')) out.push({ t: '收一只灵宠', cost: `灵兽蛋 ${fmt(L.price(st, 'egg'))}`, p: with_(L.PETS[1].m), go: 'market' });
   if (L.canRetreat(st) && p.r === 0) { const ri = L.retInfo(st); if (ri.save > 0) out.push({ t: '闭关', cost: ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`, p: pi.p, extra: `本层提前 ${ri.save} 周天`, go: 'home' }); }
+  // 换成克制对手的战技（SYSTEMS §17 锦囊候选）：战技即换即生效，点【换上】一下完成
+  const sw = zSwapTip(L.PACT_FOE, S => S * pi.assist, pi.Q);
+  if (sw) out.push(sw);
   return out.filter(x => x.p - pi.p >= 0.03 || x.extra).sort((a, b) => b.p - a.p).slice(0, 3);
+}
+// 锦囊里的“换成克制对手的战技”：试遍已有战技，取胜算最高、且至少涨 3% 的一门
+function zSwapTip(foe, scale, Q) {
+  if (!L.artSlotOpen(st, 1)) return null;
+  const sl = L.artSlots(st), fe = L.foeEl(foe), known = L.foeElKnown(st, foe);
+  const p0 = L.duelP(st, scale(L.duelPower(st, foe)), Q, foe);
+  let best = null;
+  for (const id of Object.keys(st.arts.own)) {
+    if (L.art(id).k !== 'z' || id === sl[1]) continue;
+    const p = L.artTry(st, id, () => L.duelP(st, scale(L.duelPower(st, foe)), Q, foe));
+    if (!best || p > best.p) best = { id, p };
+  }
+  if (!best || best.p - p0 < 0.03) return null;
+  const me = L.atkEl(st, fe, [sl[0], best.id, sl[2]]), ke = known && L.elKe(me, fe);
+  return { t: ke ? `换成克制对手的战技《${L.art(best.id).n}》（${L.elName(me)}克${L.elName(fe)}）` : `换上战技《${L.art(best.id).n}》`, cost: '免费，即换即生效', p: best.p, go: 'eqz:' + best.id, btn: '换上' };
 }
 // 三年之约：双方数值摆在明面上，外加老祖锦囊（每条都写清楚能涨多少）
 function showPact() {
   const pi = L.pactInfo(st), p = st.p;
   const row = (n, eff, act, tip) => `<div class="grow-row"><span class="gn">${n}</span><span class="gm">${eff}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
   const go = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
-  const tips = pactTips().map(x => row(x.t, x.extra ? x.extra : `${L.pct(pi.p)} → <b>${L.pct(x.p)}</b>`, go('前往', x.go), x.cost));
+  const tips = pactTips().map(x => row(x.t, x.extra ? x.extra : `${L.pct(pi.p)} → <b>${L.pct(x.p)}</b>`, go(x.btn || '前往', x.go), x.cost));
+  const muEl = L.artSlotOpen(st, 1) && L.foeElKnown(st, L.PACT_FOE) ? ' ' + elChip(L.foeEl(L.PACT_FOE)) : '';
   const body = `<p class="center">还剩 <b>${pi.left} 个周天</b>，${esc(st.exName)}在落霞城擂台等你。</p>
     <div class="vs"><div class="side">${myAvImg(56)}<div>${esc(p.name)}</div><div class="num">${fmt(pi.base)}${pi.assist > 1 ? ` ×${pi.assist}` : ''}</div><div class="num jadet">= ${fmt(pi.S)}</div></div>
       <div class="vsx">VS</div>
-      <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器</div><div class="num seal">${fmt(pi.Q)}</div></div></div>
+      <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器${muEl}</div><div class="num seal">${fmt(pi.Q)}</div></div></div>
     <div class="center big ${pi.p < 0.45 ? 'seal' : pi.p < 0.8 ? 'goldt' : 'jadet'}">胜算 ${L.pct(pi.p)}</div>
     ${pi.assist > 1 ? `<p class="muted center">×${pi.assist} 是老夫借你的神魂之力，只在你筑基之前有效。</p>` : ''}
     <p class="muted center">五五线：战力 ${fmt(L.duelLines(pi.Q).even)} · 稳赢线：${fmt(L.duelLines(pi.Q).sure)}</p>
     <div class="grow-sec"><h3>老祖锦囊<span>怎么提高胜算</span></h3>${tips.join('') || '<p class="muted">已经稳了，安心等着打脸吧。</p>'}</div>`;
   const s = sheet({ title: '三年之约', body });
-  s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { SFX.tap(); const k = b.dataset.go; if (k === 'cult') { closeModal(); if (L.isReady(st)) showBreakthrough(); } else GO[k](); });
+  s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+    const k = b.dataset.go;
+    if (k.startsWith('eqz:')) { if (L.equipArt(st, k.slice(4))) { SFX.coin(); showPact(); } return; }
+    SFX.tap();
+    if (k === 'cult') { closeModal(); if (L.isReady(st)) showBreakthrough(); } else GO[k]();
+  });
 }

@@ -34,10 +34,13 @@ function showChoice(ev) {
     SFX.tap();
     const res = L.resolveChoice(st, ev, +b.dataset.c);
     if (!res) return;
-    const chips = res.fx.length ? `<div class="fxlist">${res.fx.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '';
+    // 得到的功法单列一行（图标、五行、给什么；更强时带【换上】）
+    const arts = (res.fx.items || (res.fx.item ? [res.fx.item] : [])).filter(it => it && it.kind === 'a');
+    const plain = res.fx.filter(f => !(res.fx.artTexts || []).includes(f));
+    const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('');
     if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
     if (res.duel) {
-      duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, win: res.duel.win,
+      duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
         winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done: closeModal });
       return;
     }

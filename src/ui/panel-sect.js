@@ -15,7 +15,7 @@ function showSect() {
     const needs = L.promoteNeeds(st);
     promo = `<div class="card flat"><div class="main"><div>晋升 ${L.srankName(st, sr + 1)} <span class="muted">（俸禄 ×${L.SRANKS[sr].pay} → ×${nx.pay}）</span></div>
       ${needs.map(x => `<div class="${x.ok ? 'jadet' : 'muted'}">${x.ok ? '✓' : '·'} ${esc(x.t)}</div>${x.v !== undefined ? bar(Math.min(1, x.v), x.ok) : ''}`).join('')}
-      ${nx.duel ? `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}（战力 ${fmt(L.heirPower())}，你的胜算 ${L.pct(L.duelChance(L.duelPower(st, { kind: 'heir' }), L.heirPower()))}）</div>` : ''}</div>
+      ${nx.duel ? (() => { const foe = { kind: 'heir', sect: st.sect.id }; return `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}（战力 ${fmt(L.heirPower())}${L.foeElKnown(st, foe) ? '，' + L.elName(L.foeEl(foe)) + '系' : ''}，你的胜算 ${L.pct(L.duelP(st, L.duelPower(st, foe), L.heirPower(), foe))}）</div>`; })() : ''}</div>
       <div class="right"><button class="btn sm ${L.canPromote(st) ? 'gold' : 'alt'}" id="btnPromo" ${L.canPromote(st) ? '' : 'disabled'}>晋升</button></div></div>`;
   } else promo = '<div class="quote">你已是一宗之主，号令一方。</div>';
   const tasks = (st.sect.tasks || []).map((t, i) => {
@@ -24,10 +24,16 @@ function showSect() {
     return `<div class="card flat"><div class="main"><div>${esc(L.taskText(st, t))}</div><div class="goldt">${esc(L.taskReward(st, t))}</div></div><div class="right">${btn}</div></div>`;
   }).join('');
   const taskBoard = `<div class="muted">任务板（每届论道后刷新，可以同时接；下次刷新约 ${L.nextTour(st)} 周天后）</div>${tasks || '<p class="muted">这一届的任务都做完了。</p>'}`;
-  const vault = L.VAULT.map(v => {
+  // 宝库：本宗独有的四门功法（按身份开放），镇宗法宝与丹药
+  const vArts = L.vaultArts(st).map(A => {
+    const own = L.artOwned(st, A.id), need = L.vaultArtRank(st, A), c = L.vaultArtCost(st, A), can = !own && sr >= need && st.sect.pts >= c;
+    const why = own ? '<span class="chip ok">已习得</span>' : sr < need ? `<span class="muted">${L.srankName(st, need)}可换</span>` : `<button class="btn sm ${can ? 'gold' : 'alt'} eq" data-va="${A.id}" ${can ? '' : 'disabled'}>贡献 ${fmt(c)}</button>`;
+    return `<div class="card flat">${artImg(A.id, 2)}<div class="main"><div class="line"><span>《${esc(A.n)}》</span>${tierTag(A.t)}${elChip(A.el)}<span class="muted">${L.ART_CAT[A.k]}</span></div><div class="muted">${esc(artMain(A.id))}${A.k !== 'm' ? ' · ' + esc(L.artDesc(st, A.id)) : ''}</div></div><div class="right">${why}</div></div>`;
+  }).join('');
+  const vault = vArts + L.VAULT.filter(v => v.k !== 'vart').map(v => {
     const c = L.vaultCost(st, v.k), tier = L.vaultTier(st, v.k);
-    const desc = v.k === 'vart' ? `${L.ARTS[tier].n}功法 · 修炼×${L.ARTS[tier].m}` : v.k === 'vwep' ? `${L.WEAPONS[tier].n} · 战力×${L.WEAPONS[tier].m}` : v.d;
-    const owned = (v.k === 'vart' && p.a >= tier) || (v.k === 'vwep' && p.w >= tier);
+    const desc = v.k === 'vwep' ? `${L.WEAPONS[tier].n} · 战力×${L.WEAPONS[tier].m}` : v.d;
+    const owned = v.k === 'vwep' && p.w >= tier;
     const dis = owned || st.sect.pts < c;
     return `<div class="card flat"><div class="main"><div>${v.n}</div><div class="muted">${desc}${owned ? '（已有更好的）' : ''}</div></div><div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-v="${v.k}" ${dis ? 'disabled' : ''}>贡献 ${fmt(c)}</button></div></div>`;
   }).join('');
@@ -43,6 +49,7 @@ function showSect() {
   s.querySelectorAll('[data-td]').forEach(b => b.onclick = () => { if (L.taskDeliver(st, +b.dataset.td)) { SFX.coin(); showSect(); } });
   const pb = s.querySelector('#btnPromo');
   if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
+  s.querySelectorAll('button[data-va]').forEach(btn => btn.onclick = () => { const r = L.vaultBuyArt(st, btn.dataset.va); if (!r) return; SFX.coin(); revealItem(r.it, showSect); });
   s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, '破境丹 +2', '#ffe39a'); showSect(); } });
 }
 function nineHTML() {
@@ -77,7 +84,7 @@ function runSectMeet() {
     const tj = rd.foe.id === 'tianjian';
     duel({
       title: `会武 · 对阵${rd.foe.n}`,
-      right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, win: rd.win,
+      right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rd.foe.champ}：“${rd.foe.line}”`,
       winText: `${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
       loseText: '对方底蕴深厚，下届会武再来！',
@@ -112,7 +119,7 @@ function doPromote() {
     const heir = { n: st.p.look.f ? '原圣女·苏清寒' : '原圣子·萧凌风' };
     duel({
       title: `${title}之争`, intro: `你要晋升${title}的消息传出，原${title}当众拦下：“想坐我的位置？先过我这一关！”`,
-      right: { img: rivalAvImg(heir, 66), name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, win: res.duel.win,
+      right: { img: rivalAvImg(heir, 66), name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
       quote: `${heir.n}：“一个半路入门的散修，也配当${title}？”`,
       winText: `${esc(heir.n)}面如死灰，长剑落地。全场鸦雀无声，随后掌声雷动！`, loseText: '你惜败一招。来日修为更进一步，再来挑战！',
       done: () => { if (res.ok) celebrate(); else closeModal(); },
@@ -145,7 +152,7 @@ function runWar() {
   const sc = L.sectOf(st);
   duel({
     title: '天剑宗来犯', intro: `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个弃徒！`,
-    right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, win: res.win,
+    right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
     quote: '天剑宗长老：“交出那个弃徒，饶你们满门不死！”',
     winText: `你一人一剑立于山门之前，剑光过处，天剑宗众人倒飞而出！<br>宗门贡献 +${fmt(res.contrib || 0)}，灵石 +${fmt(res.stones || 0)}`,
     loseText: '宗门众长老联手苦战，方才逼退来敌。天剑宗扬言还会再来……',

@@ -88,7 +88,7 @@ function sceneClick(e) {
       tone(784, 0, 0.12, 'triangle', 0.1);
       floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0');
       for (let k = 0; k < 16; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
-    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.min(st.tuna || 0, L.TUNA_FULL)}/${L.TUNA_FULL}，在洞府打坐时每周天蓄一格`, '#9d93b8', false, true);
+    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}，在洞府打坐时每周天蓄一格${L.tunaStep(st) > 1 ? '（引气诀蓄得快些）' : ''}`, '#9d93b8', false, true);
     return;
   }
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }

@@ -3,7 +3,7 @@
 // ---------- 对决（通用） ----------
 function duel(o) {
   const S = o.S || L.power(st);
-  const p = L.duelChance(S, o.Q);
+  const p = o.p !== undefined ? o.p : L.duelChance(S, o.Q);   // 逻辑层掷骰用的胜算（L.duelP，含功法共鸣的上下限）
   const s = sheet({
     title: o.title, center: true, noClose: true,
     body: `${o.intro ? `<p>${o.intro}</p>` : ''}<div class="vs"><div class="side">${myAvImg(66).replace('<img ', '<img id="vsL" ')}<div>${esc(st.p.name)}</div><div class="muted num">${fmt(S)}</div></div>
@@ -32,7 +32,7 @@ function runPact() {
   const ex = st.exName;
   duel({
     title: '三年之约', intro: '三年之期已到。落霞城擂台下人山人海，都来看那个被退婚的“废物”如何收场。' + (res.assist ? `<br><span class="jadet">戒中老祖借你一缕神魂：战力 ${fmt(res.base)} ×${L.PACT_ASSIST} = ${fmt(res.S)}</span>` : ''),
-    right: { img: rivalAvImg({ n: ex, id: 'mu' }, 66), name: ex, sub: fmt(res.Q) }, Q: res.Q, S: res.S, win: res.win,
+    right: { img: rivalAvImg({ n: ex, id: 'mu' }, 66), name: ex, sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
     quote: `${ex}：“三年了，废物终究是废物。现在认输，我还能给你留几分颜面。”`,
     winText: `${res.assist ? '危急关头，戒指中涌出一股浩瀚之力！<br>' : ''}一招落定，${esc(ex)}倒退十余步，满城哗然！<br>“莫欺少年穷！今日之后，你我再无瓜葛。”<br>灵石 +${fmt(res.stones || 0)}`,
     loseText: `${esc(ex)}冷笑离去。你攥紧拳头：天骄榜上，我们再见分晓！`,
@@ -69,7 +69,7 @@ function runTournament() {
     const lines = rv.id ? RIVAL_LINES[rv.id] : null;
     duel({
       title: `第 ${step} 战`,
-      right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, win: rd.win,
+      right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rv.n}：“${lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
       winText: `${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',

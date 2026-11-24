@@ -16,6 +16,7 @@ function sheet(o) {
   const c = m.querySelector('.close'); if (c) c.onclick = () => { SFX.tap(); closeModal(); };
   m.querySelectorAll('[data-fi]').forEach(b => { b.onclick = () => { SFX.tap(); o.foot[+b.dataset.fi].fn(); }; });
   m.onclick = e => { if (e.target === m && !o.noClose) closeModal(); };
+  bindEquipButtons(m);   // 掉落卡里的【换上】（panel-arts.js）
   return m.querySelector('.sheet');
 }
 function closeModal() {
