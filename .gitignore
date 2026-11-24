@@ -5,3 +5,4 @@ android/build/
 android/assets/
 android/release.keystore
 dist/*.idsig
+dist/*.keystore
