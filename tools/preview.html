@@ -1,14 +1,120 @@
 <!doctype html><meta charset="utf-8"><body style="margin:0;background:#2b3442">
-<!-- 美术预览：?only=spr|home|adv 只看一部分；?s=3 场景放大倍数；?oy=40 场景加高 -->
+<!-- 美术预览。默认：阶段二新资产总览（半身像、图标、界面皮肤、印章、对决、首领、过场画）
+     ?only=pt|ic|ui|duel|misc|boss|intro 只看一部分；?z=3 半身像放大倍数；?ids=mu,zhao 只看某几位
+     ?only=old 旧精灵与场景（也可 only=spr|home|adv；?s=3 场景放大倍数；?oy=40 场景加高） -->
 <script src="../src/logic.js"></script><script src="../src/art.js"></script>
 <div id="out"></div>
 <script>
 const out = document.getElementById('out'), q = new URLSearchParams(location.search), only = q.get('only'), SS = +(q.get('s') || 3), OY = +(q.get('oy') || 40);
-function show(c, s, label) { const d = document.createElement('div'); d.style.cssText = 'display:inline-block;margin:5px;vertical-align:top;color:#ccc;font:12px sans-serif'; const cv = document.createElement('canvas'); cv.width = c.width * s; cv.height = c.height * s; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, cv.width, cv.height); d.appendChild(cv); d.appendChild(document.createElement('br')); d.append(label || ''); out.appendChild(d); }
+function show(c, s, label, bg) { const d = document.createElement('div'); d.style.cssText = 'display:inline-block;margin:3px;vertical-align:top;color:#ccc;font:11px sans-serif;text-align:center'; const cv = document.createElement('canvas'); cv.width = c.width * s; cv.height = c.height * s; if (bg) cv.style.background = bg; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, cv.width, cv.height); d.appendChild(cv); if (label) { d.appendChild(document.createElement('br')); d.append(label); } out.appendChild(d); return d; }
 function br() { out.appendChild(document.createElement('br')); }
+function h(t) { const d = document.createElement('div'); d.style.cssText = 'color:#f4c542;font:bold 14px sans-serif;margin:10px 6px 2px'; d.textContent = t; out.appendChild(d); }
+function sil(c) { const o = document.createElement('canvas'); o.width = c.width; o.height = c.height; const g = o.getContext('2d'); g.drawImage(c, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#101018'; g.fillRect(0, 0, o.width, o.height); return o; }
+function ncol(c) { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, s = new Set(); for (let i = 0; i < d.length; i += 4) if (d[i + 3]) s.add(d[i] << 16 | d[i + 1] << 8 | d[i + 2]); return s.size; }
+function scene(fn, label, hh) { const c = document.createElement('canvas'); c.width = 200; c.height = (hh || 160) + OY; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; ART.setCtx(g, 200); g.setTransform(1, 0, 0, 1, 0, OY); fn(g); show(c, SS, label); }
 const look = { hair: '#2a2230', skin: '#f2c9a0', f: 0 }, lookF = { hair: '#3b2a22', skin: '#f6d3b3', f: 1 };
-const D = ART.dims;
-if (!only || only === 'spr') {
+const D = ART.dims, isOld = ['old', 'spr', 'home', 'adv'].includes(only), sec = k => !isOld && (!only || only === k);
+const NAMES = { elder: '玄霄', mu: '慕容雪', mu2: '慕容轩', zhao: '赵乾', tian: '楚天阔', xue: '血无涯', yun: '云无极', su: '苏青瑶', su2: '苏景行', ye: '夜璃', ye2: '夜无殇', chu: '楚狂', ge: '葛老', bai: '白小九', mo: '墨无痕', jian: '凌虚子', dan: '丹云婆婆', dao: '玄微子' };
+const PAPER = '#efe3c4', PANEL = '#262038';
+
+if (sec('pt') && ART.portrait) {
+  const z = +(q.get('z') || 3), moods = ['n', 'joy', 'ang', 'shock', 'sad'], ids = q.get('ids') ? q.get('ids').split(',') : ART.portraitIds();
+  h('半身像 48×48（平常 / 得意 / 怒 / 惊 / 黯然），右侧为原尺寸与剪影');
+  const all = [];
+  const block = (label, get) => {
+    const w = document.createElement('span'); w.style.cssText = 'display:inline-block;margin:0 14px 6px 0;white-space:nowrap'; out.appendChild(w); const o2 = out;
+    const add = (c, s, l, bg) => w.appendChild(show(c, s, l, bg));
+    moods.forEach((m, i) => add(get(m), z, i ? '' : label + ' · ' + ncol(get(m)) + ' 色', i % 2 ? PANEL : PAPER));
+    add(get('n'), 1, '', PAPER); add(sil(get('n')), 1, '', '#d8d8d8'); all.push([label, get('n')]);
+  };
+  if (!q.get('ids')) for (const [l, r, n] of [[look, 0, '主角·炼气'], [lookF, 1, '主角·筑基'], [look, 4, '主角·化神'], [lookF, 7, '主角·大乘'], [look, 9, '主角·真仙']]) block(n, m => ART.portraitMe(l, r, m));
+  for (const id of ids) block(NAMES[id] || id, m => ART.portrait(id, m));
+  br(); h('剪影对照（去掉颜色）');
+  for (const [l, c] of all) show(sil(c), 2, l, '#d8d8d8');
+  br(); h('主角九色道袍'); for (let r = 0; r <= 9; r++) { show(ART.portraitMe(look, r, 'n'), 2, L.REALMS[r].n, PANEL); show(ART.portraitMe(lookF, r, 'n'), 2, '', PANEL); }
+  br();
+}
+
+if (sec('ic') && ART.icon) {
+  h('图标：上排 16×16 原尺寸（纸底 / 暗底），下排放大 4 倍');
+  const names = ART.iconNames();
+  for (const bg of [PAPER, PANEL]) { for (const n of names) show(ART.icon(n), 1, '', bg); show(ART.icon('atk8'), 1, '', bg); br(); }
+  for (const n of names) show(ART.icon(n), 4, n, names.indexOf(n) % 2 ? PANEL : PAPER); show(ART.icon('atk8'), 4, 'atk8', PANEL);
+  br(); h('底栏图标 24×24（原尺寸 / 2 倍 / 4 倍）');
+  for (const n of ART.navIcons()) { show(ART.icon(n), 1, '', PANEL); show(ART.icon(n), 2, '', PANEL); show(ART.icon(n), 4, n, PANEL); }
+  br(); h('物品图：法宝七阶、功法六阶（原尺寸 / 4 倍）');
+  for (let t = 1; t <= 7; t++) { show(ART.item('w', t), 1, '', PAPER); show(ART.item('w', t), 4, L.WEAPONS[t].n, t % 2 ? PANEL : PAPER); }
+  br(); for (let t = 1; t <= 6; t++) { show(ART.item('a', t), 1, '', PAPER); show(ART.item('a', t), 4, L.ARTS[t].n, t % 2 ? PANEL : PAPER); }
+  br(); h('九宗徽记 16×16');
+  for (const id of ART.emblemIds()) { show(ART.emblem(id), 1, '', PAPER); show(ART.emblem(id), 4, (L.NINE.find(x => x.id === id) || {}).n, PANEL); }
+  br();
+}
+if (sec('ui') && ART.frame) {
+  h('印章 24×24（原尺寸 / 3 倍，盖在纸上）');
+  for (const r of '天甲乙丙丁胜败完') { show(ART.stamp(r), 1, '', PAPER); show(ART.stamp(r), 3, r, PAPER); }
+  br(); h('九宫格边框与按钮（左：原图 4 倍；右：border-image 拉伸成实际控件，2 倍像素）');
+  for (const k of ART.frameKinds()) {
+    const F = ART.frame(k); show(F.canvas, 4, k + ' · slice ' + F.slice, '#444');
+    const d = document.createElement('div'); const big = !k.startsWith('btn');
+    d.style.cssText = `display:inline-block;vertical-align:top;margin:3px 16px 3px 3px;box-sizing:border-box;width:${big ? 220 : 120}px;height:${big ? 96 : 44}px;border:12px solid transparent;border-image:url(${F.url}) ${F.slice} fill / 12px stretch;image-rendering:pixelated;color:${F.ink};font:14px sans-serif;text-align:center;line-height:${big ? 70 : 18}px`;
+    d.textContent = { hud: '暗玉 HUD', sheet: '纸卷面板', card: '卡片', btnGold: '出发', btnAlt: '再想想', btnSeal: '兵解', btnOff: '还差 23' }[k]; out.appendChild(d);
+  }
+  br();
+}
+
+if (sec('duel') && ART.drawDuelStage) {
+  h('对决舞台 200×160（小人脚底 y=128；框内为 200×90 主体区）');
+  const T = +(q.get('t') || 1000), who = ['mu', 'tian', 'yun', 'xue'], fr = [['idle0', 'strike'], ['windup', 'idle1'], ['strike', 'hit'], ['idle0', 'down']], FD = ART.dims.fighter;
+  ART.duelStages().forEach((k, i) => scene(g => {
+    ART.drawDuelStage(k, T, OY);
+    g.drawImage(ART.fighter({ look: i % 2 ? lookF : look, realm: 1 + i * 2 }, fr[i][0]), 62 - FD.ax, 128 - FD.ay);
+    g.drawImage(ART.fighter(who[i], fr[i][1], true), 138 - (FD.w - 1 - FD.ax), 128 - FD.ay);
+    ART.drawHpBar(30, 84, 60, 0.8, { lag: 0.9 }); ART.drawHpBar(110, 84, 60, 0.35, { right: true, lag: 0.6 });
+    if (i === 2) ART.drawSpark(118, 110, 0.25); if (i === 0) ART.drawSpark(82, 108, 0.6);
+  }, k));
+  br(); h('对决六帧（idle0 idle1 windup strike hit down），48×40，3 倍');
+  const rows = [['主角', { look, realm: 2 }], ['主角·女', { look: lookF, realm: 4 }], ['慕容雪', 'mu'], ['赵乾', 'zhao'], ['楚天阔', 'tian'], ['血无涯', 'xue'], ['云无极', 'yun'], ['路人', { hair: '#4a3628', skin: '#e8b68a', f: 0, robe: ['#5a4a6a', '#8a7a9a', '#b8a8c8'], trim: '#e0d8f0' }]];
+  for (const [n, w] of rows) { ART.fighterFrames.forEach((f, i) => show(ART.fighter(w, f), 3, i ? '' : n, PANEL)); show(ART.fighter(w, 'strike', true), 3, '镜像', PAPER); br(); }
+  h('其余人物的小人（idle0）'); for (const id of ['su', 'su2', 'ye', 'ye2', 'chu', 'ge', 'bai', 'mo', 'jian', 'dan', 'dao', 'mu2', 'elder']) show(ART.fighter(id, 'idle0'), 3, NAMES[id], PANEL);
+  br(); h('命中火花（进度 0.1 / 0.35 / 0.6 / 0.9）');
+  { const c = document.createElement('canvas'); c.width = 120; c.height = 30; const g = c.getContext('2d'); ART.setCtx(g, 120); g.fillStyle = PANEL; g.fillRect(0, 0, 120, 30); [0.1, 0.35, 0.6, 0.9].forEach((k, i) => ART.drawSpark(15 + i * 30, 15, k)); show(c, 4); }
+  br();
+}
+if (sec('misc') && ART.elderSprite) {
+  h('老祖场景精灵 24×28（两帧，1× / 4×）、访客四种、吐纳环、闭关');
+  for (const f of [0, 1]) { show(ART.elderSprite(f), 1, '', PANEL); show(ART.elderSprite(f), 4, '帧 ' + f, f ? PAPER : PANEL); }
+  br();
+  const T = +(q.get('t') || 1000);
+  const home = (label, fn, ph) => scene(g => {
+    const st = { year: 0.3, home: { cave: 4, field: 6, furnace: 4, array: 5 } }, parts = [];
+    const r = ART.drawHome(st, T, OY, parts, { phase: ph || 0.5 }); fn(g);
+    ART.nightOverlay(r.sky, OY, 160 + OY, r.lights);
+  }, label);
+  const me = g => g.drawImage(ART.sit(look, 2), 100 - D.sit.w / 2, 136 - D.sit.h);
+  home('访客：凡人 / 修士 / 女修 / 黑衣 + 老祖', g => { me(g); ART.visitorKinds().forEach((k, i) => ART.drawVisitor(34 + i * 14 + (i > 1 ? 80 : 0), 132, k, T + i * 300, { shake: i === 3 })); g.drawImage(ART.elderSprite(0), 60, 98); });
+  home('访客：有名人物（苏青瑶 / 白小九 / 葛老）', g => { me(g); ART.drawVisitor(40, 132, 'su', T); ART.drawVisitor(150, 132, 'bai', T + 500); ART.drawVisitor(170, 132, 'ge', T, { bubble: false }); });
+  home('吐纳环 60%', g => { ART.drawTunaRing(100, 136, 0.6, T, 'back'); me(g); ART.drawTunaRing(100, 136, 0.6, T, 'front'); });
+  home('吐纳环 蓄满', g => { ART.drawTunaRing(100, 136, 1, T, 'back'); me(g); ART.drawTunaRing(100, 136, 1, T, 'front'); });
+  home('闭关（白天）', g => { ART.drawRetreat(T, 100, 136, 'back'); me(g); ART.drawRetreat(T, 100, 136, 'front'); });
+  { const W2 = 216, c = document.createElement('canvas'); c.width = W2; c.height = 160 + OY; const g = c.getContext('2d'); ART.setCtx(g, 200); g.setTransform(1, 0, 0, 1, 8, OY);
+    const r = ART.drawHome({ year: 0.3, home: { cave: 7, field: 6, furnace: 4, array: 5 } }, T, OY, [], { phase: 0.5 }); me(g); ART.extendSides(W2); show(c, SS, '逻辑宽 216：两侧镜像延伸'); }
+  home('闭关（夜）', g => { ART.drawRetreat(T, 100, 136, 'back'); me(g); ART.drawRetreat(T, 100, 136, 'front'); }, 0.02);
+  br();
+}
+
+if (sec('boss') && ART.boss) {
+  h('首领 48×48（3 倍 + 原尺寸）');
+  L.BOSSES.forEach((B, k) => { show(ART.boss(k), 3, B.n + ' · ' + ncol(ART.boss(k)) + ' 色', k % 2 ? PANEL : PAPER); show(ART.boss(k), 1, '', PAPER); });
+  br();
+}
+if (sec('intro') && ART.introPanel) {
+  h('开场四格画 200×120、章末结算底图、轮回殿背景');
+  ['一 逐出山门', '二 当众退婚', '三 破庙拾戒', '四 老祖现身'].forEach((n, i) => show(ART.introPanel(i), SS, n));
+  br(); show(ART.backdrop('chapter'), SS, '章末结算底图'); show(ART.backdrop('samsara'), SS, '轮回殿');
+  br();
+}
+
+if (!only || only === 'old' || only === 'spr') { if (isOld) {
   const s = 6;
   for (const [l, r, n] of [[look, 0, '炼气'], [lookF, 1, '筑基'], [look, 2, '金丹'], [lookF, 3, '元婴'], [look, 5, '炼虚'], [look, 7, '大乘'], [lookF, 9, '真仙']]) show(ART.sit(l, r), s, n);
   show(ART.sit(look, 4, { gray: true }), s, '受伤');
@@ -20,9 +126,8 @@ if (!only || only === 'spr') {
   show(ART.wolf(['#8a7a66', '#5f5244']), s, '狼'); show(ART.wolf(['#6a8f3a', '#3f5e22']), s, '妖狼');
   show(ART.elder(), s, '老祖'); show(ART.avatar(look, 2, '#c48bff'), s, '头像'); show(ART.avatar(lookF, 5, '#4ccb9f'), s, '头像');
   br();
-}
-function scene(fn, label) { const c = document.createElement('canvas'); c.width = 200; c.height = 160 + OY; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; ART.setCtx(g, 200); g.setTransform(1, 0, 0, 1, 0, OY); fn(g); show(c, SS, label); }
-if (!only || only === 'home') {
+} }
+if (only === 'old' || only === 'home') {
   const list = q.get('l') ? JSON.parse(q.get('l')) : [[0, 0.5, 0.1], [1, 0.3, 0.3], [2, 0.5, 0.6], [4, 0.75, 0.6], [5, 0.5, 0.9], [7, 0.05, 0.1], [8, 0.6, 0.3], [10, 0.5, 0.1], [12, 0.95, 0.3]];
   for (const [lv, ph, yr] of list) scene(g => {
     const st = { year: yr, home: { cave: lv, field: lv * 2, furnace: lv * 2, array: lv } }, parts = [];
@@ -34,7 +139,7 @@ if (!only || only === 'home') {
   }, '洞府 ' + lv + ' 级 · 相位 ' + ph);
   br();
 }
-if (!only || only === 'adv') {
+if (only === 'old' || only === 'adv') {
   const T = +(q.get('t') || 1000);
   for (const R0 of L.REGIONS) { if (q.get('bg') && !q.get('bg').split(',').includes(R0.bg)) continue; scene(g => {
     ART.drawAdventure(R0.bg, T, OY, 300);

@@ -1607,6 +1607,1272 @@ ART.drawCrane = function (x, y, t) {
   ctx.drawImage(spr, Math.round(x - 18), Math.round(y - 6 + Math.sin(t / 300) * 1.5));
 };
 
+// ====================================================================
+// 阶段二新增资产：半身像、图标、界面皮肤、对决、过场画（接口见 docs/DESIGN.md §6.1）
+// 统一规则：轮廓线深紫 INK，光源左上，每种材质三个色阶（亮 / 中 / 暗），单个精灵不超过 16 色
+// ====================================================================
+const INK = '#1b1326';
+const dnMap = new Map(), upMap = new Map(), upRev = new Map(), derived = new Set();
+function dn(c) { let v = dnMap.get(c); if (!v) { v = hs(c, 0.72); dnMap.set(c, v); } derived.add(v); return v; }
+function up(c) { let v = upMap.get(c); if (!v) { v = hs(c, 1.25); upMap.set(c, v); } upRev.set(v, c); return v; }
+// 登记一种材质的三个色阶，返回中间色
+function tone(mid, dark, light) { if (dark) { dnMap.set(mid, dark); derived.add(dark); } if (light) upMap.set(mid, light); return mid; }
+
+// 像素缓冲：先在各图层上画纯色形状，lit() 自动打出左上亮边与右下暗边，over() 叠到底图上并留出分隔线，最后 cv() 描边出图
+function Buf(w, h) { this.w = w; this.h = h; this.d = new Array(w * h).fill(null); }
+Buf.prototype = {
+  at(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h ? this.d[y * this.w + x] : null; },
+  p(x, y, c) { x = Math.round(x); y = Math.round(y); if (c !== undefined && x >= 0 && y >= 0 && x < this.w && y < this.h) this.d[y * this.w + x] = c; return this; },
+  r(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.p(x + i, y + j, c); return this; },
+  hl(x0, x1, y, c) { for (let x = x0; x <= x1; x++) this.p(x, y, c); return this; },
+  e(cx, cy, rx, ry, c) { for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) { const u = (x + 0.5 - cx) / rx, v = (y + 0.5 - cy) / ry; if (u * u + v * v <= 1) this.p(x, y, c); } return this; },
+  l(x0, y0, x1, y1, c, th) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); th = th || 1; for (let i = 0; i <= n; i++) this.r(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), th, th, c); return this; },
+  // 字符图：pal 里没有的字符跳过；flip 时以整幅画布中线镜像
+  m(x, y, rows, pal, flip) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const c = pal[rows[j][i]]; if (c) this.p(flip ? this.w - 1 - (x + i) : x + i, y + j, c); } return this; },
+  // 左右对称的逐行半宽（36 进制字符串），中线在 cx 左侧
+  sy(y0, s, c, cx) { cx = cx || this.w / 2; for (let k = 0; k < s.length; k++) { const hw = parseInt(s[k], 36); if (hw) this.hl(cx - hw, cx + hw - 1, y0 + k, c); } return this; },
+  // 以画布中线镜像地画（fn 只画左半边）
+  mir(fn) { const t = new Buf(this.w, this.h); fn(t); for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) { const c = t.d[y * this.w + x]; if (c) { this.p(x, y, c); this.p(this.w - 1 - x, y, c); } } return this; },
+  lit(noHi) {
+    const s = this.d.slice(), w = this.w, h = this.h;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, c = s[i]; if (!c) continue;
+      const k = (y > 0 && !s[i - w] ? 1 : 0) + (x > 0 && !s[i - 1] ? 1 : 0) - (y < h - 1 && !s[i + w] ? 1 : 0) - (x < w - 1 && !s[i + 1] ? 1 : 0);
+      if (k > 0) { if (!noHi) this.d[i] = up(c); } else if (k < 0) this.d[i] = dn(c);
+    }
+    return this;
+  },
+  // 叠加图层。sep：底图上紧贴图层边缘的像素压暗一级（内部分隔线）；cast=[dx,dy]：图层向该方向投影
+  over(L, o) {
+    o = o || {}; const w = this.w, h = this.h, mark = [], own = new Set(L.d);
+    const dark = (x, y) => { const c = this.at(x, y); if (c && !L.at(x, y) && !derived.has(c) && !own.has(c)) mark.push(y * w + x); };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!L.d[y * w + x]) continue;
+      if (o.sep) { dark(x - 1, y); dark(x + 1, y); dark(x, y - 1); dark(x, y + 1); }
+      if (o.cast) dark(x + o.cast[0], y + o.cast[1]);
+    }
+    for (const i of mark) { const c = this.d[i]; this.d[i] = upRev.has(c) && upRev.get(c) !== c ? upRev.get(c) : dn(c); }
+    for (let i = 0; i < L.d.length; i++) if (L.d[i]) this.d[i] = L.d[i];
+    return this;
+  },
+  // 新开一个图层画完再叠上来
+  add(fn, o) { const L = new Buf(this.w, this.h); fn(L); if (!o || !o.flat) L.lit(o && o.noHi); return this.over(L, o || { sep: 1 }); },
+  cv(o) {
+    o = o || {}; const w = this.w, h = this.h, c = mk(w, h), g = c.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+    const ink = hex(o.ink || INK);
+    if (o.max) { // 颜色数超限时，把最接近的两种颜色并成一种（保留用得多的）
+      const cnt = new Map(); for (const c of this.d) if (c) cnt.set(c, (cnt.get(c) || 0) + 1);
+      while (cnt.size > o.max) {
+        const ks = [...cnt.keys()]; let best = 1e9, A = null, B = null;
+        for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) { const a = hex(ks[i]), b2 = hex(ks[j]), dd = (a[0] - b2[0]) ** 2 * 0.3 + (a[1] - b2[1]) ** 2 * 0.59 + (a[2] - b2[2]) ** 2 * 0.11; if (dd < best) { best = dd; A = ks[i]; B = ks[j]; } }
+        if (cnt.get(A) < cnt.get(B)) { const t = A; A = B; B = t; }
+        for (let i = 0; i < this.d.length; i++) if (this.d[i] === B) this.d[i] = A;
+        cnt.set(A, cnt.get(A) + cnt.get(B)); cnt.delete(B);
+      }
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x; let col = this.d[i] ? hex(this.d[i]) : null;
+      if (!col && !o.noOutline && (this.at(x - 1, y) || this.at(x + 1, y) || this.at(x, y - 1) || this.at(x, y + 1))) col = ink;
+      if (col) { d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255; }
+    }
+    g.putImageData(img, 0, 0); return c;
+  },
+};
+
+// ---------- 半身像 48×48 ----------
+// 脸型：从 y=11 起逐行半宽。圆（少女）、鹅蛋（青年）、方（赵乾）、尖（魔道）、长（老者）、阔（发福的老人）
+const FSHAPE = {
+  round: '79abbbbbbbbbbbbbbbaa9864',
+  oval: '79abbbbbbbbbbbbbbbaa99875',
+  square: '79abbbbbbbbbbbbbbbbbba987',
+  sharp: '79aaaaaaaaaaaaaaaa9987653',
+  long: '689aaaaaaaaaaaaaaaaa998764',
+  wide: '79abbbbbbbbbbbbbcccccba86',
+};
+function skinTone(skin) {
+  const S = lerpC(hs(skin, 0.84), '#d98a86', 0.22);
+  tone(skin, S, lerpC(skin, '#fff8e8', 0.4));
+  return { s: skin, S, m: lerpC(skin, '#f2777c', 0.42), M: lerpC(skin, '#8a3040', 0.7) };
+}
+// 眼睛（画的是画面左侧那只，外眼角在左；右眼镜像）。L 睫毛 I 瞳 i 虹膜 h 高光 w 眼白 u 眼睑阴影 r 眼尾妆
+const ARC = ['......', '.LLLL.', 'L....L'];
+const EYES = {
+  f: { n: ['LLLLL.', 'LhIIw.', '.IIIw.', '.iii..'], joy: ARC, ang: ['L.....', '.LLLLL', '.hIIw.', '.iii..'], shock: ['.LLLL.', 'LwwwwL', 'LwIIwL', '.wwww.'], sad: ['......', 'LLLLL.', 'LIIIw.', '.iii..'] },
+  m: { n: ['LLLLL.', '.hIIw.', '.iii..'], joy: ARC, ang: ['L.....', '.LLLLL', '.hIIw.'], shock: ['.LLLL.', 'LwIIwL', '.wwww.'], sad: ['......', 'LLLLL.', '.iIIw.'] },
+  n: { n: ['......', 'LLLLL.', '..IIw.'], joy: ARC, ang: ['L.....', '.LLLLL', '..II..'], shock: ['.LLLL.', 'LwIIwL', '.wwww.'], sad: ['......', '......', 'LLLLL.', '..ii..'] },
+  c: { n: ['......', '......', 'L....L', '.LLLL.'], joy: ARC, ang: ['......', 'LLLLLL', '.wiIw.'], shock: ['.LLLL.', 'LwiiwL', 'LwiiwL', '.wwww.'], sad: ['......', '......', 'L....L', '.LLLL.'] },
+  d: { n: ['......', '.LLLLL', 'LhIIw.', '.iii..'], sad: ['......', '......', '.LLLLL', 'LiIIw.'] },
+  x: { n: ['r.....', 'LLLLL.', '.hIIw.', '.iIi..'], ang: ['r.....', 'LLL...', '.hILLL', '.iIi..'], sad: ['......', 'rLLLL.', '.IIiw.', '.iIi..'] },
+  o: { n: ['......', '......', 'LLLLL.', 'u.....'], joy: ['......', '.LLLL.', 'L....L', 'u.....'], ang: ['......', 'L.....', '.LLLLL', '..II..'], shock: ['.LLLL.', 'LwIIwL', '.wwww.'], sad: ['......', '......', 'LLLLL.', '..ii..'] },
+};
+const MOUTHS = {
+  line: ['MM'], flat: ['MMM'], smile: ['M..M', '.MM.'], smirk: ['...M', 'MMM.'], open: ['MMMM', 'MttM', '.MM.'], grin: ['MMMMM', 'MwwwM', '.MMM.'], frown: ['.MM.', 'M..M'],
+  grit: ['MMMMM', 'MwMwM', 'MMMMM'], o: ['.MM.', 'MttM', '.MM.'], pout: ['.M.', 'M.M'], cat: ['M.M.M', '.M.M.'], fang: ['M.....M', '.MwMMwM', '..MMMM.'], fangO: ['MMMMMMM', 'MwMttwM', '.MMMMM.'], lip: ['.tt.', 'tMMt'], none: [],
+};
+// 五官。F = {eye, iris, lash, ex, ey, brow:{c,len,th,y,in,tilt}, mouth:{n,joy,...}, my, blush, nose, sk}
+function feat(b, F, mood) {
+  const sk = F.sk, ey = F.ey || 24, ex = F.ex || 17;
+  const st = EYES[F.eye] || EYES.m, rows = (F.eyes && F.eyes[mood]) || st[mood] || (F.fem ? EYES.f : EYES.m)[mood];
+  const iris = mood === 'shock' && F.eye !== 'c' ? '#2a1a30' : F.iris || '#4a3a5a';
+  const pal = { L: F.lash || '#2a1a30', I: F.lash || '#2a1a30', i: iris, h: '#f6f2fa', w: '#f6f2fa', u: sk.S, r: F.tail || F.lash || '#2a1a30' };
+  for (const fl of [0, 1]) b.m(ex - 1, ey, rows, pal, fl);
+  // 眉：ang 内低外高，sad 内高外低，shock 整体上挑
+  const B = F.brow || {}, bl = B.len || 5, by = (B.y || ey - 2) - (mood === 'shock' ? 1 : 0), tilt = (mood === 'ang' ? 1 : mood === 'sad' ? -1 : 0) + (B.tilt || 0);
+  if (B.c !== 0) for (let k = 0; k < bl; k++) {
+    const x = ex + 4 + (B.in || 0) - k, y = by + Math.round(tilt * (1 - 2 * k / (bl - 1)) * 0.9) + (mood === 'joy' && (k === 0 || k === bl - 1) ? 1 : 0);
+    for (let j = 0; j < (B.th || 1); j++) { b.p(x, y - j, B.c || pal.L); b.p(47 - x, y - j, B.c || pal.L); }
+  }
+  if (F.nose !== 0) { b.p(24, ey + 5, sk.S); if (F.nose !== 1) b.p(24, ey + 4, sk.S); }
+  if (F.blush) for (const x of [ex - 1, ex, ex + 1, 46 - ex, 47 - ex, 48 - ex]) b.p(x, ey + 5, sk.m);
+  const mk2 = Object.assign({ n: 'line', joy: 'open', ang: 'frown', shock: 'o', sad: 'frown' }, F.mouth)[mood], mr = MOUTHS[mk2] || [];
+  if (mr.length) b.m(24 - Math.ceil(mr[0].length / 2), F.my || ey + 7, mr, { M: sk.M, t: F.lip || sk.m, w: '#f6f2fa' });
+}
+// 肩与交领。robe = [暗, 中, 亮]
+function bust(b, robe, trim, o) {
+  o = o || {}; const sw = o.sw || 19, top = o.top || 38, hw = [7, 12, 15, 17, 18, 19, 19, 20, 20, 20];
+  tone(robe[1], robe[0], robe[2]);
+  b.add(L => {
+    for (let k = 0; top + k < 48; k++) { const w = Math.min(23, Math.round(hw[Math.min(k, 9)] * sw / 19)); L.hl(24 - w, 23 + w, top + k, robe[1]); }
+  });
+  for (let y = top + 5; y < 48; y++) { b.p(24 - sw + 5, y, robe[0]); b.p(23 + sw - 5, y, robe[0]); }
+  for (let y = top + 3; y < 48; y += 2) b.p(24 - sw + 3 + ((y >> 1) & 1), y, robe[2]);
+  if (o.col === 0) return;
+  const inner = o.inner || '#f6f2fa', t2 = robe[0];
+  for (let k = 0; top + k < 48; k++) {
+    const y = top + k, xl = 18 + k, xr = 29 - k;
+    for (let x = xl + 2; x <= xr - 2; x++) b.p(x, y, k < 2 ? o.skin : inner);
+    if (xl + 1 < xr - 1) { b.p(xl, y, trim); b.p(xl + 1, y, trim); }
+    b.p(xr + 1, y, t2); b.p(xr, y, trim); b.p(xr - 1, y, trim);
+  }
+}
+// 发盖：头顶是椭圆，下缘由 fr 逐列给出（y = 10 + 36 进制值；长度为半幅时自动镜像）
+function cap(L, c, fr, o) {
+  o = o || {}; const full = o.full ? fr : fr + fr.split('').reverse().join(''), n = full.length, x0 = 24 - n / 2, rx = o.rx || n / 2, top = o.top === undefined ? 6 : o.top, ry = o.ry || 11;
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i, u = Math.min(0.999, Math.abs(x + 0.5 - 24) / rx), yt = Math.round(top + ry - ry * Math.sqrt(1 - u * u)), yb = 10 + parseInt(full[i], 36);
+    for (let y = yt; y <= yb; y++) L.p(x, y, c);
+  }
+}
+function face(b, shape, sk, o) {
+  o = o || {};
+  b.add(L => L.r(21, 32, 6, 8, sk.s), { sep: 1, noHi: 1 });
+  b.add(L => { L.sy(11, FSHAPE[shape], sk.s); if (!o.noEar) { const hw = parseInt(FSHAPE[shape][14], 36); L.r(24 - hw - 2, 24, 2, 5, sk.s); L.r(24 + hw, 24, 2, 5, sk.s); } }, { sep: 1, cast: [0, 2], noHi: 1 });
+  const fs = FSHAPE[shape]; for (let y = 17; y < 11 + fs.length - 2; y++) b.p(24 + parseInt(fs[y - 11], 36) - 2, y, sk.S);
+}
+
+const HAIR_K = '#2a2230';
+function hairTone(c) { const dark = lum(c) < 110; tone(c, hs(c, dark ? 0.62 : 0.74), dark ? lerpC(c, '#9aa2dc', 0.42) : lerpC(c, '#ffffff', 0.7)); return c; }
+const GOLD = tone('#f4c542', '#a8742a', '#fff2a8'), JADE = tone('#5fd3b0', '#2a8a7a', '#c8fff0'), RED = tone('#d8404a', '#8a1e2e', '#ff8a8a'), WOOD = tone('#8a5c36', '#5a3a26', '#b98a4c'), STEEL = tone('#aeb8c8', '#5a6480', '#eef4ff'), WHITE = tone('#f6f2fa', '#b4b0cc', '#ffffff');
+// 斜插在背后的剑柄：从 (x0,y0) 肩后伸到 (x1,y1) 柄端
+function hilt(b, x0, y0, x1, y1, o) {
+  o = o || {};
+  b.add(L => {
+    L.l(x0, y0, x1, y1, o.grip || WOOD, 2);
+    const n = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / n, uy = (y1 - y0) / n, gx = x0 + ux * (o.g || 3), gy = y0 + uy * (o.g || 3), gw = o.gw || 3;
+    L.l(gx + uy * gw, gy - ux * gw, gx - uy * gw, gy + ux * gw, o.guard || GOLD, 2);
+    L.r(Math.round(x1), Math.round(y1), 2, 2, o.pommel || GOLD);
+    if (o.blade) L.l(x0 - ux * 2, y0 - uy * 2, x0 - ux * o.blade, y0 - uy * o.blade, STEEL, o.bw || 2);
+  });
+}
+
+// 通用人物：o = {skin, shape, hair, robe, trim, fr, back(L), hairX(L,c), F, bust:{}, pre(b), mid(b), skinX(b), post(b)}
+function person(o, mood) {
+  const b = new Buf(48, 48), sk = skinTone(o.skin || '#f2c9a0'), hc = hairTone(o.hair || HAIR_K);
+  if (o.back) b.add(L => o.back(L, hc));
+  if (o.pre) o.pre(b, mood, hc, sk);
+  bust(b, o.robe, o.trim, Object.assign({ skin: sk.s }, o.bust));
+  if (o.mid) o.mid(b, mood, hc, sk);
+  face(b, o.shape || 'oval', sk, o.face);
+  feat(b, Object.assign({ sk }, o.F), mood);
+  if (o.skinX) o.skinX(b, mood, sk, hc);
+  b.add(L => { if (o.fr) cap(L, hc, o.fr, o.cap); if (o.hairX) o.hairX(L, hc); }, { sep: 1, cast: [0, 1] });
+  if (!o.noGloss) for (const [x0, x1, y] of [[15, 21, 9], [14, 17, 10], [14, 15, 11], [27, 30, 9]]) for (let x = x0; x <= x1; x++) if (b.at(x, y) === hc && x % 4 !== 0) b.p(x, y, up(hc));
+  if (o.post) o.post(b, mood, hc, sk);
+  return b;
+}
+
+const PINK = tone('#f7a3bd', '#c8607e', '#ffd6e4'), GREEN = tone('#62b25a', '#2f6e4b', '#a8e08a');
+// 主角：男女各一，道袍随境界九色，眼神随境界从怯到定，大乘起白发
+function meSpec(look, realm) {
+  const R0 = L.REALMS[Math.min(realm, 9)], f = look.f, hair = realm >= 7 ? '#e9e8f2' : look.hair || HAIR_K;
+  return {
+    skin: look.skin, hair, shape: f ? 'round' : 'oval', robe: R0.robe, trim: R0.trim,
+    fr: f ? 'ssba98766667' : 'jkcba9876656',
+    back: f ? (L, c) => L.r(12, 15, 24, 24, c) : (L, c) => L.r(16, 26, 16, 10, c),
+    hairX: f ? (L, c) => { L.e(17, 4.5, 4.5, 4, c); L.e(31, 4.5, 4.5, 4, c); L.r(16, 4, 2, 2, null); L.r(30, 4, 2, 2, null); } : (L, c) => L.e(24, 3.5, 4, 3.2, c),
+    F: { eye: f ? 'f' : 'm', fem: f, iris: '#6a5a9a', blush: f, brow: { tilt: realm < 2 ? -0.6 : realm >= 6 ? 0.6 : 0, c: realm >= 7 ? '#8a88a0' : undefined }, mouth: { n: realm < 2 ? 'line' : 'smile' } },
+    post: b => {
+      if (f) { b.r(22, 5, 4, 3, PINK); b.r(23, 4, 2, 5, PINK); b.r(23, 6, 2, 1, '#f4c542'); }
+      else b.r(21, 6, 6, 2, realm >= 9 ? '#f6f2fa' : '#f4c542');
+    },
+  };
+}
+// 药篓与露出来的药草（苏青瑶 / 苏景行）
+function suBasket(b) {
+  const BK = tone('#b98a4c', '#7a5230', '#e0b878');
+  b.add(L => { L.l(37, 27, 36, 18, GREEN); L.l(41, 27, 43, 19, GREEN); L.l(39, 27, 39, 21, GREEN); L.r(35, 17, 2, 2, GREEN); L.r(43, 20, 2, 2, GREEN); L.p(38, 22, GREEN); L.p(40, 23, GREEN); }, { flat: 1, sep: 1 });
+  b.p(36, 16, '#f6f2fa'); b.p(43, 18, '#f7a3bd'); b.p(39, 20, '#f4c542');
+  b.add(L => { L.r(34, 28, 11, 14, BK); L.r(33, 26, 13, 3, BK); });
+  for (let y = 30; y < 42; y++) for (let x = 35; x < 45; x++) if ((x + y * 2) % 4 === 0) b.p(x, y, '#7a5230');
+}
+const suStrap = b => { b.l(33, 40, 25, 47, '#8a5c36', 2); b.l(34, 40, 26, 47, '#5a3a26'); };
+const yeFr = 'mkedccbbaa9988776654579cgj';
+function yeRing(b) { b.r(12, 32, 1, 3, '#f4c542'); b.add(L => L.r(11, 35, 3, 3, RED)); b.hl(21, 26, 36, '#1e1430'); b.r(23, 37, 2, 1, '#d8404a'); }
+
+const PEOPLE = {
+  // 玄霄：半透明青白残魂，长眉长须，玉冠缺角，下缘散成烟
+  elder: {
+    skin: '#a6cdee', hair: '#f0f9ff', shape: 'long', robe: ['#3f6aa8', '#7aa8e0', '#c0dcff'], trim: '#e6f6ff', bust: { sw: 17, inner: '#9cc0ec' },
+    fr: 'f8765544444', back: (L, c) => L.r(14, 14, 20, 22, c), hairX: (L, c) => L.e(24, 4.5, 3.5, 2.5, c), noGloss: 1,
+    F: { eye: 'n', iris: '#27357a', lash: '#27357a', brow: { c: 0 }, mouth: { n: 'none', joy: 'none', ang: 'none', shock: 'o', sad: 'none' }, nose: 2 },
+    post: (b, mood, W, sk) => {
+      const tl = mood === 'ang' ? 1 : mood === 'sad' ? -1 : 0, by = mood === 'shock' ? 20 : 21;
+      b.add(L => L.mir(T => { T.l(21, by + tl, 16, by - tl, W); T.l(21, by + tl - 1, 17, by - tl - 1, W); T.l(15, by - tl, 12, by + 3, W); T.l(12, by + 4, 11, by + 10, W); }));
+      b.add(L => { L.mir(T => { T.l(23, 31, 20, 32, W); T.l(19, 33, 18, 37, W); }); L.sy(34, '122222221111', W); });
+      if (mood === 'joy') b.hl(22, 25, 33, sk.M);
+      b.add(L => { L.r(20, 0, 8, 5, JADE); L.r(26, 0, 2, 2, null); L.r(22, 5, 4, 2, JADE); });
+      b.hl(16, 31, 3, '#f0f9ff'); b.hl(21, 26, 3, '#2a8a7a');
+    },
+    fx: 'ghost',
+  },
+  // 慕容雪：粉衣、高髻金步摇、下巴微抬
+  mu: {
+    hair: '#3a2630', skin: '#f8d8bc', shape: 'round', robe: ['#b0486e', '#e87aa0', '#ffb4cc'], trim: '#fff0f4',
+    fr: 'pp8765444456', back: (L, c) => L.r(11, 14, 26, 27, c),
+    hairX: (L, c) => { L.e(24, 4, 7.5, 4.5, c); L.e(15, 7, 3, 3, c); L.e(33, 7, 3, 3, c); },
+    F: { eye: 'f', fem: 1, ey: 23, iris: '#a05a3a', blush: 1, brow: { y: 20 }, eyes: { n: ['......', 'LLLLL.', 'LIIIw.', '.iii..'] }, mouth: { n: 'pout', joy: 'smirk', ang: 'frown' } },
+    post: b => {
+      b.r(23, 17, 2, 1, '#d8404a'); b.p(23, 18, '#d8404a');
+      b.add(L => { L.hl(19, 28, 8, GOLD); L.hl(21, 26, 7, GOLD); L.r(23, 5, 2, 2, GOLD); L.l(34, 9, 37, 12, GOLD); L.l(11, 9, 13, 9, GOLD); }, { flat: 1, sep: 1 });
+      b.r(23, 7, 2, 1, '#d8404a');
+      for (const [x, y, c] of [[37, 13, GOLD], [37, 15, '#d8404a'], [37, 17, GOLD], [37, 19, '#fff2a8'], [35, 12, GOLD], [35, 14, '#fff2a8'], [10, 10, GOLD], [10, 12, '#d8404a'], [10, 14, GOLD]]) b.p(x, y, c);
+      b.hl(21, 26, 42, GOLD); b.r(23, 43, 2, 1, '#d8404a');
+    },
+  },
+  // 慕容轩：金冠横簪、两缕龙须、玫红袍
+  mu2: {
+    hair: '#3a2630', skin: '#f6d6ba', shape: 'oval', robe: ['#a8446a', '#e07a9c', '#ffb4cc'], trim: '#fff0f4',
+    fr: 'jj8765444456', back: (L, c) => L.r(13, 14, 22, 22, c), hairX: (L, c) => L.e(24, 3.5, 4, 3.2, c),
+    mid: b => b.add(L => { for (let i = 0; i < 4; i++) { L.e(7 + i * 4, 44 - i * 2, 3.5, 3, WHITE); L.e(41 - i * 4, 44 - i * 2, 3.5, 3, WHITE); } }),
+    F: { eye: 'm', ey: 23, iris: '#a05a3a', brow: { y: 20 }, eyes: { n: ['......', 'LLLLL.', '.IIIw.'] }, mouth: { n: 'flat', joy: 'smirk', ang: 'frown' } },
+    post: b => { b.add(L => { L.r(21, 1, 6, 5, GOLD); L.hl(15, 32, 3, GOLD); }); b.r(23, 3, 2, 2, '#d8404a'); b.hl(21, 26, 42, GOLD); },
+  },
+  // 赵乾：方脸、蓝袍方巾、背后一柄不出鞘的剑
+  zhao: {
+    skin: '#e8b88e', shape: 'square', robe: ['#263f7a', '#3f6ec0', '#7aa2e6'], trim: '#d8e4ff', bust: { sw: 21 },
+    fr: 'gg8777777777', back: (L, c) => L.r(15, 26, 18, 10, c),
+    pre: b => hilt(b, 37, 38, 43, 21, { g: 5, gw: 3 }),
+    F: { eye: 'n', iris: '#3a3040', brow: { th: 2, tilt: 0.6 }, mouth: { n: 'smirk', joy: 'grin', ang: 'grit' } },
+    skinX: (b, m, sk) => { b.p(17, 31, sk.S); b.p(30, 31, sk.S); },
+    post: b => {
+      b.add(L => { L.r(15, 2, 18, 8, '#3f6ec0'); L.r(14, 9, 20, 2, '#3f6ec0'); });
+      b.hl(15, 32, 8, '#263f7a'); b.r(22, 4, 4, 3, '#d8e4ff'); b.r(23, 5, 2, 1, '#5fd3b0');
+      b.r(43, 17, 2, 4, '#3f6ec0'); b.p(44, 21, '#3f6ec0');
+    },
+  },
+  // 楚天阔：白衣金纹、披肩长发、高冠、目光笔直
+  tian: {
+    skin: '#f6d8bc', shape: 'oval', robe: ['#a8a4bc', '#eeeaf4', '#ffffff'], trim: '#e8b84a', bust: { inner: '#d8d4e4' },
+    fr: 'zz9876554445', back: (L, c) => L.r(9, 13, 30, 35, c),
+    hairX: (L, c) => { L.e(24, 4, 3, 3.5, c); L.r(10, 16, 2, 32, c); L.r(36, 16, 2, 32, c); },
+    F: { eye: 'm', iris: '#4a5a8a', brow: { len: 6, in: 1 }, mouth: { n: 'flat', joy: 'smile', ang: 'frown', sad: 'flat' } },
+    post: b => { b.add(L => { L.r(22, 0, 4, 6, GOLD); L.hl(18, 29, 3, GOLD); }); b.mir(T => { T.hl(15, 17, 44, '#e8b84a'); T.p(16, 43, '#e8b84a'); T.p(16, 45, '#e8b84a'); T.p(14, 46, '#e8b84a'); }); },
+  },
+  // 血无涯：暗红袍立领、一对短角、尖牙笑
+  xue: {
+    skin: '#ecc6b6', hair: '#4a1420', shape: 'sharp', robe: ['#3e0a14', '#7a1a26', '#b03a40'], trim: '#e8b04a', bust: { inner: '#2a0c12', sw: 20 },
+    fr: 'ea7544456789',
+    back: (L, c) => { L.r(12, 12, 24, 22, c); L.mir(T => { T.l(12, 20, 7, 17, c, 2); T.l(12, 26, 6, 26, c, 2); T.l(13, 31, 8, 35, c, 2); }); },
+    mid: b => b.add(L => L.mir(T => { for (let y = 28; y <= 41; y++) T.hl(9 + (y < 31 ? 1 : 0), 11 + Math.round((y - 28) * 0.55), y, '#7a1a26'); })),
+    F: { eye: 'x', iris: '#e8303a', brow: { tilt: 0.6 }, mouth: { n: 'fang', joy: 'fangO', ang: 'grit', shock: 'o', sad: 'flat' } },
+    post: b => {
+      const H = tone('#e4d6b8', '#9a7a6a', '#fff8e0');
+      b.add(L => L.mir(T => { T.r(15, 9, 3, 3, H); T.r(14, 6, 3, 3, H); T.r(13, 3, 2, 3, H); T.p(12, 2, H); T.p(12, 1, H); }));
+      b.mir(T => { T.p(12, 1, '#8a1e2e'); T.p(12, 2, '#8a1e2e'); T.p(13, 3, '#8a1e2e'); for (let y = 29; y <= 41; y++) T.p(11 + Math.round((y - 28) * 0.55), y, '#e8b04a'); });
+    },
+  },
+  // 云无极：银发莲冠、淡蓝袍云肩、闭着眼
+  yun: {
+    skin: '#fae4d6', hair: '#ccd6ee', shape: 'oval', robe: ['#4a74b8', '#86b4ea', '#cfe6ff'], trim: '#ffffff',
+    fr: 'zz9865444445', back: (L, c) => { L.e(24, 22, 14, 16, c); L.sy(24, 'eeeeffffffgggggggggggggg', c); },
+    pre: b => b.add(L => L.mir(T => { T.l(5, 47, 3, 36, '#8fc8f0'); T.l(3, 35, 5, 27, '#8fc8f0'); T.l(6, 26, 8, 24, '#8fc8f0'); }), { flat: 1 }),
+    mid: b => b.add(L => L.mir(T => { T.e(13, 42, 5, 3, WHITE); T.e(20, 44, 4, 3, WHITE); })),
+    F: { eye: 'c', iris: '#6ab8f0', lash: '#5a6488', brow: { c: '#9aa8c8' }, mouth: { n: 'line', joy: 'smile', ang: 'flat', shock: 'o', sad: 'line' } },
+    post: b => {
+      const C = tone('#8fc8f0', '#4a7ab8', '#e8f8ff');
+      b.add(L => { L.sy(0, '1122221', C); L.mir(T => { T.l(19, 6, 16, 2, C, 2); T.p(16, 1, C); }); L.hl(19, 28, 7, C); });
+      b.r(23, 16, 2, 3, '#4aa8ff');
+    },
+  },
+  // 苏青瑶：杏色衣、药篓、垂眼笑、侧辫
+  su: {
+    skin: '#f8d8bc', hair: '#6a4630', shape: 'round', robe: ['#b8743e', '#f0b070', '#ffdca8'], trim: '#fff4dc',
+    fr: 'kkba9a99a9a9', back: (L, c) => L.r(13, 14, 22, 20, c), hairX: (L, c) => L.e(30, 5, 4, 3.5, c),
+    pre: suBasket, mid: suStrap,
+    F: { eye: 'd', fem: 1, iris: '#7a5a3a', blush: 1, mouth: { n: 'smile', joy: 'open', ang: 'pout', shock: 'o', sad: 'frown' } },
+    post: (b, m, c) => {
+      b.add(L => { for (let k = 0; k < 6; k++) L.e(10.5 - (k % 2) * 1 - k * 0.2, 28 + k * 3.2, 2.6, 2.2, c); });
+      b.hl(8, 11, 43, '#d8404a'); b.l(27, 3, 35, 7, '#8a5c36'); b.r(13, 16, 3, 1, '#f6f2fa'); b.r(14, 15, 1, 3, '#f6f2fa'); b.p(14, 16, '#f4c542');
+    },
+  },
+  su2: {
+    skin: '#f6d6ba', hair: '#6a4630', shape: 'oval', robe: ['#b8743e', '#f0b070', '#ffdca8'], trim: '#fff4dc',
+    fr: 'jkcba9876656', back: (L, c) => L.r(15, 24, 18, 12, c), hairX: (L, c) => L.e(24, 3.5, 4, 3.2, c),
+    pre: suBasket, mid: suStrap,
+    F: { eye: 'd', iris: '#7a5a3a', mouth: { n: 'smile', joy: 'open', ang: 'flat', shock: 'o', sad: 'frown' } },
+    post: b => { b.r(21, 6, 6, 2, '#f0b070'); b.l(27, 7, 32, 9, '#f0b070'); b.l(27, 8, 31, 12, '#b8743e'); },
+  },
+  // 夜璃：紫黑衣、红眼尾、单边耳坠、高侧马尾
+  ye: {
+    skin: '#f6dcd0', hair: '#34204a', shape: 'sharp', robe: ['#1e1430', '#3e2a5e', '#6a4a94'], trim: '#d8507a', bust: { inner: '#1e1430' },
+    fr: yeFr, cap: { full: 1 },
+    back: (L, c) => { L.r(12, 13, 24, 20, c); L.e(35, 6, 5, 4, c); L.l(38, 8, 41, 20, c, 4); L.l(41, 20, 40, 34, c, 3); L.l(40, 34, 42, 41, c, 2); },
+    F: { eye: 'x', fem: 1, iris: '#a050c8', tail: '#e03a4a', brow: { y: 21 }, lip: '#d8405a', mouth: { n: 'smirk', joy: 'open', ang: 'frown', shock: 'o', sad: 'pout' } },
+    post: b => { yeRing(b); b.r(33, 7, 2, 3, '#d8404a'); },
+  },
+  ye2: {
+    skin: '#f4d8c8', hair: '#34204a', shape: 'sharp', robe: ['#1e1430', '#3e2a5e', '#6a4a94'], trim: '#d8507a', bust: { inner: '#8a1e2e', sw: 20 },
+    fr: yeFr, cap: { full: 1 },
+    back: (L, c) => { L.r(12, 13, 24, 18, c); L.l(26, 3, 36, 7, c, 3); L.l(37, 8, 39, 30, c, 3); L.l(39, 30, 38, 37, c, 2); },
+    hairX: (L, c) => L.e(24, 3.5, 3.5, 3.5, c),
+    F: { eye: 'x', iris: '#a050c8', tail: '#e03a4a', brow: { y: 21, th: 1 }, mouth: { n: 'smirk', joy: 'grin', ang: 'frown', shock: 'o', sad: 'flat' } },
+    post: b => { yeRing(b); b.r(21, 6, 6, 2, '#d8404a'); },
+  },
+  // 楚狂：灰衣、乱发胡茬、额带、背三把剑
+  chu: {
+    skin: '#e6b48a', hair: '#33303a', shape: 'oval', robe: ['#44444e', '#72728a', '#a4a4b8'], trim: '#cfcfe0', bust: { sw: 21 },
+    fr: 'fgb9a8b89a79',
+    back: (L, c) => { L.r(12, 12, 24, 22, c); L.l(13, 11, 9, 9, c, 2); L.l(34, 12, 38, 10, c, 2); L.l(35, 28, 38, 32, c, 2); L.l(12, 28, 9, 31, c, 2); },
+    hairX: (L, c) => { L.l(17, 7, 14, 3, c, 2); L.l(27, 6, 30, 2, c, 2); },
+    pre: b => { hilt(b, 11, 38, 5, 20, { g: 6 }); hilt(b, 36, 38, 40, 19, { g: 6 }); hilt(b, 40, 41, 46, 28, { g: 6 }); },
+    F: { eye: 'm', iris: '#8a5a2a', brow: { th: 2 }, mouth: { n: 'grin', joy: 'open', ang: 'grit', shock: 'o', sad: 'flat' } },
+    skinX: (b, m, sk) => { for (let y = 31; y <= 34; y++) for (let x = 15; x <= 32; x++) if ((x + y) % 2 === 0 && (x * 7 + y * 3) % 5 < 3 && b.at(x, y) === sk.s && (y > 33 || x < 20 || x > 27)) b.p(x, y, sk.S); },
+    post: b => { const C = tone('#b04a3a', '#6a2a2a', '#e07a5a'); b.add(L => { L.r(13, 15, 22, 2, C); L.l(35, 16, 41, 19, C, 2); L.l(35, 17, 40, 23, C); }); },
+  },
+  // 葛老：皱纹、酒糟鼻、歪戴的丹师帽、酒葫芦
+  ge: {
+    skin: '#eab896', hair: '#e8e6ee', shape: 'wide', robe: ['#54402c', '#86694a', '#b8986c'], trim: '#d8c090', bust: { sw: 20, inner: '#c8b890' }, noGloss: 1,
+    hairX: (L, c) => L.mir(T => { T.e(11.5, 22, 3, 5, c); T.p(8, 20, c); T.p(8, 24, c); T.p(9, 27, c); }),
+    F: { eye: 'o', iris: '#4a3a3a', brow: { c: '#e8e6ee', th: 2, len: 6, y: 21, tilt: -0.5 }, nose: 0, blush: 1, my: 32, mouth: { n: 'smile', joy: 'open', ang: 'frown', shock: 'o', sad: 'flat' } },
+    skinX: (b, m, sk) => {
+      b.hl(19, 23, 17, sk.S); b.hl(23, 28, 19, sk.S);
+      b.mir(T => { T.p(14, 27, sk.S); T.p(13, 28, sk.S); T.l(19, 29, 18, 31, sk.S); });
+      b.r(22, 27, 4, 3, '#e0705a'); b.p(22, 27, '#f2a08a'); b.p(25, 29, '#b84a48'); b.p(21, 28, '#e0705a'); b.p(26, 28, '#e0705a');
+    },
+    post: (b, m, W) => {
+      b.add(L => { L.mir(T => { T.hl(19, 22, 30, W); T.p(18, 31, W); }); L.sy(34, '344321', W); });
+      const C = tone('#8a3c38', '#52202a', '#c06a5c');
+      b.add(L => { for (let k = 0; k <= 12; k++) L.hl(Math.round(13 + k * 0.6), Math.round(34 + k * 0.45), 15 - k, C); L.e(36, 3.5, 4, 2.5, C); });
+      b.hl(13, 34, 15, '#d8c090'); b.hl(13, 34, 14, '#52202a');
+      b.r(22, 8, 4, 3, '#f4c542'); b.p(22, 11, '#f4c542'); b.p(25, 11, '#f4c542'); b.hl(23, 24, 7, '#f4c542'); b.r(30, 6, 3, 3, '#c06a5c'); b.p(31, 7, '#52202a');
+      const G = tone('#d89a4a', '#8a5a2a', '#f8d08a');
+      b.add(L => { L.e(7, 42, 4.5, 4.5, G); L.e(7, 35.5, 3, 2.5, G); L.r(6, 31, 2, 2, '#8a5a2a'); });
+      b.hl(4, 9, 38, '#d8404a');
+    },
+  },
+  // 白小九：白发狐耳、藏不住的尾巴、毛领铃铛
+  bai: {
+    skin: '#fbe2d2', hair: '#f4f2fa', shape: 'round', robe: ['#a8323e', '#e05a64', '#ff9a9a'], trim: '#fff0d0',
+    fr: 'kjbabaab9aba', back: (L, c) => { L.r(11, 13, 26, 20, c); L.e(12, 30, 3, 4, c); L.e(36, 30, 3, 4, c); },
+    hairX: (L, c) => { L.mir(T => { for (let y = 0; y <= 9; y++) T.hl(11 - Math.round(y * 0.25), 11 + Math.round(y * 0.8), y, c); }); L.l(24, 6, 26, 2, c); },
+    pre: (b, m, c) => b.add(L => { L.e(41, 36, 5.5, 10, c); L.e(40.5, 25, 4, 5, c); L.e(38.5, 20, 2.5, 3, c); }),
+    mid: b => b.add(L => { for (let i = 0; i < 5; i++) L.e(15 + i * 4.5, 40, 3.2, 2.6, WHITE); }),
+    F: { eye: 'f', fem: 1, iris: '#f0a020', blush: 1, brow: { c: '#b4b0cc', len: 4 }, mouth: { n: 'cat', joy: 'open', ang: 'pout', shock: 'o', sad: 'frown' } },
+    post: (b, m) => {
+      b.mir(T => { for (let y = 3; y <= 8; y++) T.hl(11, 11 + Math.round((y - 3) * 0.6), y, '#f7a3bd'); });
+      b.r(23, 42, 2, 2, '#f4c542'); b.r(23, 44, 2, 1, '#a8742a'); b.p(39, 19, '#f7a3bd'); b.p(38, 18, '#f7a3bd');
+      if (m === 'n' || m === 'joy') b.p(26, 32, '#f6f2fa');
+    },
+  },
+  // 墨无痕：黑衣斗笠、遮半脸的面巾、墨色剑穗
+  mo: {
+    skin: '#e8c8a8', hair: '#1e1a26', shape: 'oval', robe: ['#17131f', '#2e2838', '#4a4157'], trim: '#6a6088', bust: { inner: '#17131f' }, noGloss: 1,
+    fr: 'kkb999999999', back: (L, c) => L.r(14, 24, 20, 14, c),
+    pre: b => {
+      hilt(b, 11, 38, 5, 23, { grip: '#2e2838', guard: STEEL, pommel: STEEL });
+      b.r(4, 25, 1, 3, '#6a6088'); b.r(3, 28, 3, 2, '#5fd3b0'); b.add(L => L.r(3, 30, 3, 8, '#2e2838')); b.p(4, 38, '#2e2838'); b.p(3, 32, '#4a4157'); b.p(3, 35, '#4a4157');
+    },
+    F: { eye: 'n', iris: '#8a9ab8', nose: 0, mouth: { n: 'none', joy: 'none', ang: 'none', shock: 'none', sad: 'none' } },
+    skinX: b => {
+      const M = tone('#3a3548', '#221e2e', '#5c5674');
+      b.add(L => L.sy(28, 'bbaa998754', M));
+      b.hl(14, 33, 28, '#5c5674'); b.l(19, 31, 22, 34, '#221e2e'); b.l(29, 31, 26, 35, '#221e2e'); b.p(24, 30, '#5c5674');
+    },
+    post: b => {
+      const H = tone('#4c465c', '#2a2636', '#7c7694');
+      b.add(L => { for (let y = 1; y <= 16; y++) { const w = Math.round(2 + (y - 1) * 1.4); L.hl(24 - w, 23 + w, y, H); } }, { sep: 1, cast: [0, 2] });
+      for (const k of [-15, -8, 0, 8, 15]) b.l(24 + (k > 0 ? -1 : 0), 3, 24 + k, 15, '#2a2636'); b.r(23, 0, 2, 2, '#7c7694');
+    },
+  },
+  // 凌虚子：白眉、背巨剑、剑簪
+  jian: {
+    skin: '#eac4a0', hair: '#eeeef6', shape: 'long', robe: ['#24487e', '#3f7ed0', '#7ab4f4'], trim: '#eef6ff', bust: { sw: 20 },
+    fr: 'f8765544444', back: (L, c) => L.r(14, 14, 20, 24, c), hairX: (L, c) => L.e(24, 4.5, 3.5, 3, c),
+    pre: b => b.add(L => { L.l(35, 28, 29, 41, STEEL, 6); L.l(38, 22, 43, 6, WOOD, 3); L.l(32, 20, 44, 26, GOLD, 3); L.r(43, 2, 4, 4, GOLD); }),
+    F: { eye: 'n', iris: '#3a5a8a', brow: { c: '#eeeef6', th: 2, len: 6, tilt: 0.8, y: 22 }, mouth: { n: 'none', joy: 'none', ang: 'none', shock: 'o', sad: 'none' } },
+    skinX: (b, m, sk) => { b.hl(21, 26, 18, sk.S); b.mir(T => T.l(18, 29, 17, 31, sk.S)); },
+    post: (b, m, W) => {
+      b.add(L => { L.mir(T => T.l(23, 31, 19, 32, W, 2)); L.sy(34, '2222211', W); });
+      b.add(L => L.r(23, 0, 2, 8, STEEL)); b.hl(21, 26, 6, '#3f7ed0');
+    },
+  },
+  // 丹云婆婆：笑眯眯、圆髻横簪、耳坠
+  dan: {
+    skin: '#f2c8a4', hair: '#d6d2dc', shape: 'wide', robe: ['#a04424', '#e8743c', '#ffa870'], trim: '#ffe8c0', bust: { sw: 20 },
+    fr: 'gf9876555555', back: (L, c) => L.r(13, 14, 22, 16, c), hairX: (L, c) => L.e(24, 4, 6.5, 4.5, c),
+    F: { eye: 'o', fem: 1, iris: '#5a3a2a', blush: 1, brow: { c: '#a8a4b8', y: 21 }, my: 32, eyes: { n: ARC, joy: ARC, ang: ['......', 'LLLLL.', '.wIIw.'], sad: ['......', '......', 'LLLLL.', '..ii..'] }, mouth: { n: 'smile', joy: 'open', ang: 'flat', shock: 'o', sad: 'frown' } },
+    skinX: (b, m, sk) => { b.hl(20, 27, 18, sk.S); b.mir(T => { T.p(14, 26, sk.S); T.p(13, 27, sk.S); T.l(18, 30, 17, 32, sk.S); }); },
+    post: b => {
+      b.add(L => L.r(12, 3, 24, 2, WOOD)); b.r(11, 3, 2, 2, '#f4c542'); b.r(35, 3, 2, 2, '#f4c542');
+      b.r(17, 5, 3, 3, '#d8404a'); b.r(18, 4, 1, 5, '#d8404a'); b.r(16, 6, 5, 1, '#d8404a'); b.p(18, 6, '#f4c542');
+      b.mir(T => { T.p(11, 29, '#f4c542'); T.r(11, 30, 1, 3, '#5fd3b0'); });
+    },
+  },
+  // 玄微子：高冠、三绺长须、肩上搭着拂尘
+  dao: {
+    skin: '#f0cca8', hair: '#2a2630', shape: 'long', robe: ['#54288a', '#8a4ec8', '#c27dff'], trim: '#f0e0ff',
+    fr: 'f8765544444', back: (L, c) => L.r(14, 14, 20, 22, c),
+    F: { eye: 'n', iris: '#5a3a7a', brow: { y: 21, tilt: -0.3 }, eyes: { n: ['......', '......', 'LLLLL.', '..Iw..'] }, mouth: { n: 'smile', joy: 'smile', ang: 'flat', shock: 'o', sad: 'flat' } },
+    post: (b, m, c) => {
+      const H = tone('#3e2c62', '#1e1430', '#6e5aa0');
+      b.add(L => { L.r(19, 0, 10, 9, H); L.r(18, 8, 12, 2, H); });
+      b.hl(18, 29, 8, '#f4c542'); b.hl(14, 33, 5, '#f4c542'); b.r(23, 2, 2, 3, '#5fd3b0');
+      b.mir(T => { T.l(22, 31, 20, 32, c); T.l(19, 33, 19, 37, c); }); b.r(23, 35, 2, 8, c); b.p(23, 43, c);
+      b.add(L => L.l(8, 47, 6, 27, WOOD, 2)); b.r(5, 25, 4, 2, '#f4c542');
+      b.add(L => { L.e(6, 22.5, 4, 3, WHITE); L.l(2, 24, 1, 38, WHITE, 3); L.r(1, 40, 2, 3, WHITE); });
+    },
+  },
+};
+
+// 残魂：整体略透，下缘抖动着散成烟
+function ghost(src) {
+  const c = mk(48, 48), g = c.getContext('2d');
+  g.globalAlpha = 0.93; g.drawImage(src, 0, 0); g.globalAlpha = 1;
+  g.globalCompositeOperation = 'destination-out';
+  for (let y = 40; y < 48; y++) for (let x = 0; x < 48; x++) {
+    const lv = (y - 40) * 2 + Math.abs(x - 23.5) * 0.28 + Math.sin(x * 0.9 + y * 0.5) * 2.5;
+    if (BAYER[(x & 3) + (y & 3) * 4] < lv) g.fillRect(x, y, 1, 1);
+  }
+  return c;
+}
+const P_ALIAS = { tiankuo: 'tian', 'rival:chu': 'tian', chutiankuo: 'tian', lingxu: 'jian', danyun: 'dan', xuanwei: 'dao', xuanxiao: 'elder' };
+const MOODS = ['n', 'joy', 'ang', 'shock', 'sad'];
+// 有名人物半身像 48×48。id：elder mu zhao tian xue yun su ye chu ge bai mo jian dan dao；
+// alt 为真时取“主角为女”的版本（慕容轩 / 苏景行 / 夜无殇），与 L.npcName 的规则一致
+ART.portrait = function (id, mood, alt) {
+  id = P_ALIAS[id] || id; if (alt && PEOPLE[id + '2']) id += '2';
+  if (!MOODS.includes(mood)) mood = 'n';
+  const spec = PEOPLE[id]; if (!spec) return null;
+  return cached('pt|' + id + '|' + mood, () => { const c = person(spec, mood).cv({ max: 15 }); return spec.fx === 'ghost' ? ghost(c) : c; });
+};
+ART.portraitIds = () => Object.keys(PEOPLE);
+ART.hasPortrait = id => !!PEOPLE[P_ALIAS[id] || id];
+// 主角半身像：look = {hair, skin, f}，realm 0～9
+ART.portraitMe = function (look, realm, mood) {
+  if (!MOODS.includes(mood)) mood = 'n'; realm = Math.max(0, Math.min(9, realm | 0));
+  return cached(['ptme', look.hair, look.skin, look.f ? 1 : 0, realm, mood].join('|'), () => person(meSpec(look, realm), mood).cv({ max: 15 }));
+};
+
+// ---------- 图标 16×16（画在 14×14 内，自动描边；底栏五个为 24×24） ----------
+const IPAL = {
+  K: INK, w: '#ffffff', W: '#c8d0e8', c: '#7fe0f0', C: '#3fa8c8', d: '#1f6e8a', g: '#62d26f', G: '#2f8e4b', l: '#b4f08a',
+  y: '#f4c542', Y: '#a8742a', h: '#fff2a8', r: '#d8404a', R: '#8a1e2e', p: '#ff9a8a', j: '#4ccb9f', J: '#2a8a7a',
+  b: '#4aa8ff', B: '#24579a', v: '#c27dff', V: '#6a3aa8', s: '#928ea8', S: '#55506e', t: '#c8c4d8',
+  o: '#b98a4c', O: '#7a5230', n: '#efe3c4', N: '#c8b48c', e: '#f2c9a0', E: '#d09a7a', k: '#2c2238',
+};
+const HEART = '..rrr...rrr/.rpprr.rrrrR/rpprrrrrrrrRR/rprrrrrrrrrRR/rrrrrrrrrrrRR/rrrrrrrrrrRRR/.rrrrrrrrrRR/..rrrrrrrRR/...rrrrrRR/....rrrRR/.....rRR/......R';
+const PILL = '....aaaa/..aahhaaaa/.aahhaaaaaA/.ahhaaaaaaA/aahaaaaaaaAA/aaaaaaaaaaAA/aaaaaaaaaAAA/aaaaaaaaaAAA/.aaaaaaaAAA/.aaAAAAAAAA/..AAAAAAAA/....AAAA';
+const ICONS = {
+  stone: '.....ww/....wccC/...wcccCC/...wccCCCd/..wcccCCCd.w/..wcccCCCdwcC/..wccCCCCdwcCd/..wccCCCCd.cCd/..wccCCCddcCCd/...ccCCCd.cCCd/...cCCCdd..Cd/....CCdd/.....dd',
+  herb: '......l/.....lgl..l/.....lgG.lgl/..l..lgG.lgG/.lgl.lgGlgG/.lggGlgGgG/..lgGggGG/...gGggG..p/....GgG..prp/.....gG...p/.....gG/....GgGG/...GG..GG',
+  treasure: '..........w/...rrrrr.www/..rpprrrR.w/.rpprryrRR/.rprryyrRR/.rrrrrrrRR/..RRnnRRR/....nnN/....nnN..l/...nnN..lg/...nnNN.gG/..ooOOOoo',
+  insight: '......w/......w/.....wjw/.....wjw/..w.wjjjw.w/wwwjjjwjjjwww/..w.wjjjw.w/.....wjw/.....wjw/......w/......w',
+  contrib: '....yyyyy/...yhhhhyY/...yhyyyyY/...yhRRyyY/...yhRRyyY/...yhRRyyY/...yhyyyyY/...yyyyyyY/....YYYYY/.....rr/.....rr/....rRrR/....r.rR',
+  life: '..oooooooo/..OwwwwwwO/...WwwwwW/...WyyyyW/....WyyW/.....Wy/.....yW/....W.yW/...W..y.W/...W.yyyW/..OyyyyyyO/..oooooooo',
+  atk: '...........ww/..........wpp/.........wpp/........wpp/.......wpp/......wpp/..y..wpp/..yywpp/...yyp/..oyyy/.oO..yy/oO',
+  cult: '......j/.....jj/.....jJj..j/..j.jjJj.jj/..jjjwjJjjJ/..jJjwwjJjJ/.jjJwwwjJJj/.jJjwwwwjJj/.jJjwwwwjJJ/.jJJjwwjJJJ/..JJJjjJJJ/...JJJJJJ',
+  cave: '......yy/....rrrrrr/..rrRRRRRRrr/rrRRRRRRRRRRrr/...nnnnnnnn/...nNOOOONn/...nNOyyONn/...nNOyyONn/...nNOOOONn/..ssssssssss/.sSSSSSSSSSSs',
+  array: '.....cccc/...cc....cc/..c...jj...c/.c...j..j...c/.c..j.ww.j..c/c..j.wccw.j..c/c..j.wccw.j..c/.c..j.ww.j..c/.c...j..j...c/..c...jj...c/...cc....cc/.....cccc',
+  field: '/..l....l....l/.lgl..lgl..lgl/..g....g....g/OOoOOOOoOOOOoO/oooooooooooooo/..l....l....l/.lgl..lgl..lgl/..g....g....g/OOoOOOOoOOOOoO/oooooooooooooo',
+  furnace: '.....yy/....yYYy/..ssssssss/.sttttttSs/.StwttttSS/ySttttttSSy/.SttrrttSS/.StryyrtSS/.SSttttSS/..SSSSSS/..S.rr.S/.SS.ryr.SS',
+  retreat: '..ssssssssss/.stttttttttSs/.stSSSKSSStSs/.stSttKttStSs/.stSttKttStSs/.stSyyyyyStSs/.stSyrryyStSs/.stSyyyyyStSs/.stSttKttStSs/.stSttKttStSs/.stSttKttStSs/.SSSSSSSSSSSS',
+  slay: '.r.........ww/.rr.......wW/..rr.....wW/..rrr...wW/...rrr.wW/....rrwW/.....wWr/....wW.rr/.y.wW...r/.yyW/..yy/.o.yy',
+  seek: '..........w/.........www/..ooooooo.w/.oyyyyyyyo/.oyOOOOOyo/.oyyyyyyyo/.OOOOhhOOO/.oyyyhhyyo/.oyyyyyyyo/.oyyyyyyyo/.OOOOOOOOO',
+  gather: '....l..l/...lgl.lg/...lgGlgG..p/....gGgG..prp/..oooooooo.p/.oOoOoOoOoo/.OoOoOoOoOo/.oOoOoOoOoo/.OoOoOoOoOo/..OoOoOoOo/..oooooooo',
+  best: '....yyyyyy/..yyy....yyy/.yy........yy/.y...yyyy...y/yy..yy..yy..yy/y...y....y...y/y...y....y...y/yy..yy..yy..yy/.y...yyyy...y/.yy........yy/..yyy....yyy/....yyyyyy',
+  ok: '....gggggg/..gggggggggg/.ggg......ggg/.gg........gg/gg..........gg/gg..........gg/gg..........gg/gg..........gg/.gg........gg/.ggg......ggg/..gggggggggg/....gggggg',
+  bad: '......bb/......bb/.....bbbb/.....b..b/....bb..bb/....b....b/...bb....bb/...b......b/..bb......bb/..b........b/.bbbbbbbbbbbb/.bbbbbbbbbbbb',
+  unk: '...vvvvvv/..vvvvvvvv/.vvv....vvv/.vv......vv/.........vv/........vvv/......vvvv/.....vvv/.....vv/....../.....vv/.....vv',
+  lock: '....sssss/...st...Ss/...st...Ss/...st...Ss/.yyyyyyyyy/.yhhhhhhyY/.yhyKKyyyY/.yhyKKyyyY/.yhyyKyyyY/.yhyyyyyyY/.yYYYYYYYY',
+  badge: '....rrrrr/..rrrrrrrrr/.rrrrwwrrrrR/.rrrrwwrrrrR/rrrrrwwrrrrRR/rrrrrwwrrrrRR/rrrrrwwrrrrRR/rrrrrrrrrrrRR/.rrrrwwrrrRR/.rrrrwwrrRRR/..rrRRRRRRR/....RRRRR',
+  up: '......gg/.....gggg/....gggggg/...gggggggg/..gggggggggg/.gggggggggggg/.GGGggggGGGG/....ggggG/....ggggG/....ggggG/....ggggG/....GGGGG',
+  hurt: '.ww........ww/wwWw......wwWw/.wwWw....wwWw/..wwWw..wwWw/...wwWwwwWw/....wwrrWw/....wwrrWw/...wwWwwwWw/..wwWw..wwWw/.wwWw....wwWw/wwWw......wwWw/.WW........WW',
+  buff: '.....oo/.....rr/....rrrr/...rprrrR/...rprrrR/....rrrR/....yyyy/...rrrrrR/..rprrrrrR/..rprrrrrR/..rrrrrrRR/...rrrrRR/....RRRR',
+  buddy: '/...kkk/..kkkkk..kkk/..keeek.kkkkk/..keeek.keeek/...eee..keeek/..bbbbb..eee/.bbbbbbbjjjjj/.bbbbbbjjjjjjj/.bbbbbbjjjjjjj/.BBBBBBJJJJJJJ',
+  heart: HEART,
+  heart0: HEART.replace(/r/g, 'S').replace(/R/g, 'k').replace(/p/g, 's'),
+  gear: '.....ssss/..ss.sttS.ss/.sttsttttSttS/.sStttttttSS/..sttSSSStS/sstS....SttSs/sttS....SttSS/sStS....SttSS/..sttttttSS/.sStttttttSS/.sSSsttSSsSS/..SS.sSSS.SS/.....SSSS',
+  pause: '/..nnnn..nnnn/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..nnnN..nnnN/..NNNN..NNNN',
+  play: '/...nn/...nnnn/...nnnnnn/...nnnnnnnn/...nnnnnnnnnn/...nnnnnnnnnN/...nnnnnnnNN/...nnnnnNN/...nnnNN/...nNN/...N',
+  close: '/..nn......nn/..nnn....nnN/...nnn..nnN/....nnnnnN/.....nnnN/.....nnnn/....nnNnnn/...nnN..nnn/..nnN....nnn/..nN......nN',
+  egg: '.....nnnn/....nnnnnn/...nnhnnnnN/...nhnnjnnN/..nnhnnjjnnN/..nnnnnnnnnN/..njjnnnnnnN/..nnjnnnnjNN/..nnnnnnjjNN/...nnnnnnNN/....NNNNNN/.....NNNN',
+  daoguo: '.......GG/......Gg.l/.....yG.lgl/...yyyGyy.g/..yhhyyyyyY/.yhhyyyyyyYY/.yhyyyyyyyYY/.yyyyyyyyyYY/.yyyyyyyyYYY/..yyyyyyYYY/...yYYYYYY/.....YYY',
+  rank: '.yyyyyyyyyyy/.yhhyyyyyyY/yyhyyyyyyyYyy/y.yhyyyyyyY.y/y.yhyyyyyyY.y/.yyyyyyyyYYy/...yyyyyYY/....yyyYY/.....yyY/.....yyY/...yyyyyYY/...YYYYYYY',
+  xp: '......j/.....jjj/....jjwjj/...jjwwjjJ/..jjwwjjjJJ/.jjwjjjjjJJJ/..jjjjjjJJJ/...jjjjJJJ/....jjJJJ/.....jJJ/......J',
+  gift: '....rr..rr/...r..rr..r/....rrrrrr/..yyyyrryyyy/..yhhyrryyyY/..YYYYrrYYYY/...yhyrryyY/...yhyrryyY/...yhyrryyY/...yyyrryyY/...YYYRRYYY',
+  time: '....oooooo/..ooonnnnooo/.oonnnOnnnnoo/.onnnnOnnnnno/oonnnnOnnnnnoo/onnnnnOnnnnnnO/onnnnnOOOOnnnO/oonnnnnnnnnnOO/.onnnnnnnnnnO/.oonnnnnnnnOO/..OOOnnnnOOO/....OOOOOO',
+};
+// 六种丹药：同一枚丹丸换色，再点上各自的记号
+const PILLS = {
+  peiyuan: ['#62d26f', '#2f8e4b', '#d4ffb4', '.../....../....../....ww/...www.w/..wwwww/..wwww/...ww.w/......w'],
+  pojing: ['#c27dff', '#6a3aa8', '#f0dcff', '/....../......ww/.....ww/....ww/...wwwww/.....ww/....ww/...ww'],
+  juling: ['#4aa8ff', '#24579a', '#d4ecff', '/....../....www/...w...w/..w..w..w/..w.w.w.w/..w..ww.w/...w....w/....wwww'],
+  yanshou: ['#ff8a9a', '#b83a5a', '#ffe0e4', '/....../...ww.ww/..wwwwwww/..wwwwwww/...wwwww/....www/.....w'],
+  xisui: ['#e8f4f8', '#8aa8c0', '#ffffff', '/....../.....b/.....b/....bbb/...bbbbb/...bbbbb/....bbb'],
+  jiuzhuan: ['#f4c542', '#a8742a', '#fff6c8', '/....../....www/...w...w/..w..r..w/..w.rrr.w/..w..r..w/...w...w/....www'],
+};
+function iconBuf(rows, pal) { const b = new Buf(16, 16); b.m(1, 1, rows.split('/'), pal || IPAL); return b; }
+// 底栏图标 24×24
+const NAV = {
+  exp: b => { // 历练：出鞘的剑与远山
+    b.add(L => { L.sy(13, '12345689ab', '#5a82aa', 9); L.sy(15, '1234567a', '#7ca2c8', 17); }); b.p(8, 13, '#ffffff'); b.r(7, 14, 2, 1, '#ffffff'); b.p(16, 15, '#ffffff');
+    b.add(L => { L.l(20, 2, 9, 13, STEEL, 3); L.r(20, 1, 2, 2, STEEL); }); b.l(20, 2, 10, 12, '#ffffff');
+    b.add(L => { L.l(6, 11, 11, 16, GOLD, 2); L.l(7, 15, 4, 18, WOOD, 2); L.r(2, 19, 2, 2, GOLD); });
+  },
+  home: b => { // 洞府：飞檐小楼
+    b.add(L => { L.r(5, 11, 14, 9, '#efe3c4'); L.r(3, 20, 18, 2, '#928ea8'); });
+    b.r(10, 14, 4, 6, '#7a5230'); b.r(11, 15, 2, 5, '#f4c542'); b.r(6, 13, 2, 3, '#7a5230'); b.r(16, 13, 2, 3, '#7a5230'); b.hl(5, 18, 11, '#c8b48c');
+    b.add(L => { L.sy(5, '24689b', RED, 12); L.r(1, 10, 2, 1, RED); L.r(21, 10, 2, 1, RED); L.p(0, 9, RED); L.p(23, 9, RED); L.r(11, 2, 2, 3, GOLD); });
+  },
+  sect: b => { // 宗门：山门牌坊与旗
+    b.add(L => { L.r(3, 8, 3, 14, RED); L.r(18, 8, 3, 14, RED); L.r(1, 9, 22, 3, '#3f6ec0'); L.r(8, 13, 8, 2, RED); });
+    b.add(L => { L.sy(4, '4abc', '#928ea8', 12); L.r(0, 7, 24, 1, '#928ea8'); L.r(11, 1, 2, 3, GOLD); });
+    b.r(9, 9, 6, 3, '#f4c542'); b.r(10, 10, 4, 1, '#a8742a'); b.r(2, 21, 5, 1, '#55506e'); b.r(17, 21, 5, 1, '#55506e');
+  },
+  market: b => { // 坊市：灵石钱袋
+    b.add(L => { L.e(12, 15, 8.5, 7, WOOD); L.r(8, 5, 8, 4, WOOD); L.r(6, 2, 3, 3, WOOD); L.r(15, 2, 3, 3, WOOD); L.r(10, 3, 4, 2, WOOD); });
+    b.r(7, 8, 10, 2, '#d8404a'); b.r(11, 10, 2, 3, '#d8404a'); b.r(10, 12, 1, 2, '#d8404a'); b.r(13, 12, 1, 2, '#d8404a');
+    b.add(L => L.sy(13, '12332', '#7fe0f0', 12)); b.p(11, 14, '#ffffff'); b.p(11, 15, '#ffffff'); b.p(12, 17, '#3fa8c8'); b.p(13, 16, '#3fa8c8');
+  },
+  me: b => { // 人物：束发的修士
+    const hk = hairTone(HAIR_K), sk = skinTone('#f2c9a0');
+    b.add(L => { L.sy(15, '5789aaaaa', '#4ccb9f', 12); }); b.l(9, 16, 12, 20, '#efe3c4'); b.l(14, 16, 12, 19, '#efe3c4');
+    b.add(L => L.r(10, 12, 4, 4, sk.s), { noHi: 1, sep: 1 });
+    b.add(L => L.sy(5, '3455555543', sk.s, 12), { noHi: 1, sep: 1 });
+    b.add(L => { L.sy(3, '34566', hk, 12); L.r(6, 7, 2, 4, hk); L.r(16, 7, 2, 4, hk); L.r(8, 7, 2, 1, hk); L.r(14, 7, 2, 1, hk); L.e(12, 1.5, 2, 1.5, hk); });
+    b.r(11, 3, 2, 1, '#f4c542'); b.r(9, 9, 2, 2, INK); b.r(13, 9, 2, 2, INK); b.p(9, 9, '#ffffff'); b.p(13, 9, '#ffffff'); b.r(11, 12, 2, 1, sk.M);
+  },
+};
+// 图标：返回 16×16 画布；exp/home/sect/market/me 这五个底栏图标为 24×24；'atk8' 为小怪头顶用的 8×8 小剑
+ART.icon = function (name) {
+  return cached('ic|' + name, () => {
+    if (NAV[name]) { const b = new Buf(24, 24); NAV[name](b); return b.cv(); }
+    if (PILLS[name]) { const P = PILLS[name], b = iconBuf(PILL, { a: P[0], A: P[1], h: P[2] }); b.m(2, 1, P[3].split('/'), { w: P[2], b: '#4aa8ff', r: '#d8404a' }); return b.cv(); }
+    if (name === 'atk8') return new Buf(8, 8).m(1, 1, ['....ww', '...wp', '..wp', 'y.p', '.y', 'o.y'], IPAL).cv();
+    return ICONS[name] ? iconBuf(ICONS[name]).cv() : null;
+  });
+};
+ART.iconNames = () => Object.keys(ICONS).concat(Object.keys(PILLS));
+ART.navIcons = () => Object.keys(NAV);
+
+// ---------- 印章 24×24：天甲乙丙丁、胜、败、完 ----------
+const GLYPH = {
+  '天': '..XXXXXXXXXX/..XXXXXXXXXX/......XX/......XX/XXXXXXXXXXXXXX/XXXXXXXXXXXXXX/......XX/.....XXXX/.....XXXX/....XX..XX/...XXX..XXX/..XXX....XXX/XXXX......XXXX/XX..........XX',
+  '甲': '.XXXXXXXXXXXX/.XXXXXXXXXXXX/.XX...XX...XX/.XX...XX...XX/.XXXXXXXXXXXX/.XXXXXXXXXXXX/.XX...XX...XX/.XX...XX...XX/.XXXXXXXXXXXX/.XXXXXXXXXXXX/......XX/......XX/......XX/......XX',
+  '乙': '.XXXXXXXXXXX/.XXXXXXXXXXX/.........XX/........XX/.......XX/......XX/.....XX/....XX/...XX/..XX/..XX........XX/..XX........XX/..XXXXXXXXXXXX/...XXXXXXXXXX',
+  '丙': 'XXXXXXXXXXXXXX/XXXXXXXXXXXXXX/......XX/......XX/.XXXXXXXXXXXX/.XXXXXXXXXXXX/.XX...XX...XX/.XX..XXXX..XX/.XX..XXXX..XX/.XX.XX..XX.XX/.XXXX....XXXX/.XX........XX/.XX......XXXX/.XX......XXX',
+  '丁': 'XXXXXXXXXXXXXX/XXXXXXXXXXXXXX/......XX/......XX/......XX/......XX/......XX/......XX/......XX/......XX/......XX/..XX..XX/..XXXXXX/...XXXX',
+  '胜': '.XXXX....X/.X..X.X..X/.X..X.X..X/.XXXX.XXXXXXX/.X..X.X..X/.X..X....X/.XXXX....X/.X..X.XXXXXX/.X..X....X/.X..X....X/.X..X....X/X...X....X/X..XX.XXXXXXX',
+  '败': 'XXXXX...X/X...X..X/X.X.X..XXXXXX/X.X.X.X...X/X.X.X.X...X/X.X.XX.X..X/X.X.X..X.X/X.X.X...XX/X.X.X...XX/.X.X...X..X/.X..X.X....X/X...XX......X',
+  '完': '......X/......X/XXXXXXXXXXXXX/X...........X/X..XXXXXXX..X/............./.XXXXXXXXXXX/....X...X/....X...X/....X...X/...X....X...X/..X.....X...X/XX.......XXXX',
+};
+const STAMP_C = { '天': ['#c8323c', 1], '甲': ['#c8323c', 0], '乙': ['#c8323c', 0], '丙': ['#a8483a', 0], '丁': ['#8a6a62', 0], '胜': ['#c8323c', 1], '败': ['#55506e', 1], '完': ['#c8323c', 0] };
+// 印章：rating 为 '天' '甲' '乙' '丙' '丁' '胜' '败' '完'（也接受 0～4 表示 天～丁）。天 / 胜 / 败 为阴刻（实底留白字）
+ART.stamp = function (rating) {
+  if (typeof rating === 'number') rating = '天甲乙丙丁'[rating];
+  const S = STAMP_C[rating]; if (!S) return null;
+  return cached('stamp|' + rating, () => {
+    const b = new Buf(24, 24), col = S[0], thin = '胜败完'.includes(rating), rows = GLYPH[rating].split('/'), r = seeded(rating.charCodeAt(0));
+    b.r(1, 0, 22, 24, col); b.r(0, 1, 24, 22, col);
+    if (!S[1]) { b.r(2, 2, 20, 20, null); b.p(2, 2, col); b.p(21, 2, col); b.p(2, 21, col); b.p(21, 21, col); }
+    else if (rating === '天') { b.r(2, 2, 20, 1, '#f4c542'); b.r(2, 21, 20, 1, '#f4c542'); b.r(2, 2, 1, 20, '#f4c542'); b.r(21, 2, 1, 20, '#f4c542'); }
+    const ink = S[1] ? '#fff6e0' : col, oy = 5 + ((14 - rows.length) >> 1);
+    for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) if (rows[j][i] === 'X') { b.p(5 + i, oy + j, ink); if (thin) b.p(6 + i, oy + j, ink); }
+    // 印泥不匀：边角随机缺几粒
+    for (let k = 0; k < 9; k++) { const x = Math.floor(r() * 24), y = Math.floor(r() * 24); if (x < 3 || x > 20 || y < 3 || y > 20) b.p(x, y, null); }
+    return b.cv({ noOutline: 1 });
+  });
+};
+
+// ---------- 界面皮肤：九宫格边框与按钮（border-image 用，角 6 像素） ----------
+const FRAMES = {
+  hud: { fill: '#262038', draw: b => { box(b, '#262038', '#3a3155', '#1a1528'); for (const [x, y] of [[2, 2], [17, 2], [2, 17], [17, 17]]) { b.p(x, y, '#4ccb9f'); } b.mir(T => { T.hl(2, 4, 2, '#4ccb9f'); T.r(2, 2, 1, 3, '#4ccb9f'); T.hl(2, 4, 17, '#2a8a7a'); T.r(2, 15, 1, 3, '#2a8a7a'); }); } },
+  sheet: { fill: '#efe3c4', draw: b => { box(b, '#efe3c4', '#fff6dc', '#c8b48c'); ring(b, 1, '#8a5c36'); ring(b, 2, '#b98a4c'); b.mir(T => { for (const y of [3, 16]) { T.r(3, y, 2, 1, '#8a5c36'); } T.p(3, 4, '#8a5c36'); T.p(3, 15, '#8a5c36'); }); } },
+  card: { fill: '#e6d8b4', draw: b => { box(b, '#e6d8b4', '#f6ecd0', '#c8b48c'); ring(b, 1, '#7a6650'); for (const [x, y] of [[1, 1], [18, 1], [1, 18], [18, 18]]) b.p(x, y, null); b.hl(2, 17, 18, '#5a4a3a'); b.hl(2, 17, 17, '#c8b48c'); for (const [x, y] of [[2, 2], [17, 2], [2, 17], [17, 17]]) b.p(x, y, '#7a6650'); } },
+  btnGold: { fill: '#f4c542', ink: '#3b2b1f', draw: b => btn(b, '#f4c542', '#fff2a8', '#a8742a', '#ffe07a') },
+  btnAlt: { fill: '#efe3c4', ink: '#3b2b1f', draw: b => btn(b, '#efe3c4', '#fffaf0', '#b8a47c', '#f6ecd4') },
+  btnSeal: { fill: '#c8323c', ink: '#fff6e0', draw: b => btn(b, '#c8323c', '#f07a6a', '#7a1a26', '#d8484a') },
+  btnOff: { fill: '#55506e', ink: '#a8a4b8', draw: b => btn(b, '#55506e', '#6e6a88', '#3a3650', '#5c5876') },
+};
+function ring(b, k, c) { const n = b.w - 1 - k; b.hl(k, n, k, c); b.hl(k, n, n, c); for (let y = k; y <= n; y++) { b.p(k, y, c); b.p(n, y, c); } }
+function box(b, fill, hi, lo) { b.r(1, 1, 18, 18, fill); ring(b, 1, lo); b.hl(1, 18, 1, hi); b.r(1, 1, 1, 18, hi); }
+function btn(b, fill, hi, lo, hi2) {
+  b.r(1, 1, 18, 18, fill); b.hl(1, 18, 1, hi); b.hl(1, 18, 2, hi2); b.hl(1, 18, 17, lo); b.hl(1, 18, 18, lo); b.r(18, 2, 1, 16, lo); b.r(1, 2, 1, 15, hi);
+  for (const [x, y] of [[1, 1], [18, 1], [1, 18], [18, 18]]) b.p(x, y, null);
+  b.p(2, 2, hi); b.p(3, 3, '#ffffff'); b.p(17, 16, lo);
+}
+// 九宫格皮肤：返回 { url, slice, size, fill, ink, canvas }。kind: hud | sheet | card | btnGold | btnAlt | btnSeal | btnOff
+// CSS：border: 6px solid transparent; border-image: url(...) 6 fill / (6×n/dpr)px stretch; image-rendering: pixelated
+ART.frame = function (kind) {
+  const F = FRAMES[kind]; if (!F) return null;
+  return cached('frame|' + kind, () => {
+    const b = new Buf(20, 20); F.draw(b); const c = b.cv();
+    return { url: c.toDataURL(), slice: 6, size: 20, fill: F.fill, ink: F.ink || (kind === 'hud' ? '#efe3c4' : '#3b2b1f'), canvas: c };
+  });
+};
+ART.frameKinds = () => Object.keys(FRAMES);
+
+// ---------- 九宗徽记 16×16：圆牌 + 宗门色环 + 符号 ----------
+const EMBLEMS = {
+  kunlun: ['#8fd0ff', '#1f3a6a', '....ww/...wwww/...wwcw/..wwcccw/..wcccccw/.wccc.cccw/.ccc...ccc/ccc.....cc'],
+  tianjian: ['#aeb8c8', '#1e2a4a', '....ww/....ww/....ww/....ww/....ww/....ww/.yyyyyyyy/....oo/....oo/....yy'],
+  xuesha: ['#d8404a', '#2a0c12', '.r......r/.rr....rr/..r....r/..rrrrrr/.rrwrrwrr/.rrrrrrrr/..rrwwrr/...rrrr/....rr'],
+  wanfa: ['#c27dff', '#22143a', '....vv/....vv/.v..vv..v/..v.vv.v/...vwwv/vvvwwwwvvv/...vwwv/..v.vv.v/.v..vv..v/....vv'],
+  jingang: ['#f4c542', '#3a2a10', '....yy/...yhhy/.y.yhhy.y/yhyyyyyyhy/yhhyyyyhhy/.yhhyyhhy/..yyyyyy/.yyyyyyyy'],
+  jian: ['#4aa8ff', '#102a4a', '....ww/...wwww/....bb/....bb/....bb/....bb/....bb/..bbbbbb/....ww/....ww'],
+  dao: ['#c27dff', '#22143a', '...wwww/..wwwwvv/.wwwwvvvv/.wwVVwvvv/wwwVVwvvvv/wwwwvvwwvv/.wwwvvwwv/.wwwwvvvv/..wwvvvv/...vvvv'],
+  dan: ['#ff8a5c', '#3a1a10', '....pp/....oo/...pppp/...pwpp/....pp/..pppppp/.pwpppppp/.pwpppppp/.pppppppp/..pppppp'],
+  yushou: ['#62d26f', '#12301c', '/.gg....gg/.gg.gg.gg/....gg/..gggggg/.gggggggg/.gggggggg/..gg..gg'],
+};
+ART.emblem = function (id) {
+  const E = EMBLEMS[id]; if (!E) return null;
+  return cached('emb|' + id, () => {
+    const b = new Buf(16, 16);
+    b.e(8, 8, 7, 7, E[0]); b.e(8, 8, 5.6, 5.6, E[1]); b.p(4, 3, '#ffffff'); b.p(3, 4, '#ffffff');
+    b.m(3, 3, E[2].split('/'), Object.assign({}, IPAL, { c: '#8fd0ff' }));
+    return b.cv();
+  });
+};
+ART.emblemIds = () => Object.keys(EMBLEMS);
+
+// ---------- 物品图 16×16：法宝七阶（一阶一形）、功法六阶；a/A/h 为品阶色的中 / 暗 / 亮 ----------
+const QCOL = ['#b8b8b8', '#62d26f', '#4aa8ff', '#c27dff', '#ffb23f', '#ff6b6b'];
+const ITEM_W = [
+  '..........WW/.........WwW/........WwW/.......WwW/......WwW/.....WwW/..o.WwW/..oOwW/...oO/..OoOO/.oO..O/oO', // 凡器：铁剑
+  '..........hh/.........haa/........haa/.......haa/......haa/.....haA/..y.haA/..yyaA/...yy/..oyyy/.oO..y/oO', // 法器：青锋
+  '...........h/..........ha/.........haA/....aa..haA/.....aahaA/......aaA/.....o.aa/....o...a/...o/..o/.o/o', // 灵器：长枪
+  '....yyyyyy/..yyhhhhhhyy/.yhhaaaaaahY/.yhaaaahaaaY/.yaaaahaaaaY/.yaaahaaaaAY/.yaaaaaaaAAY/.yyaaaaaAAYY/..YYAAAAYY/....YYYY/.....yY/....yyYY', // 法宝：宝镜
+  '......yy/......hh/.....haaA/....yyyyyy/.....haaA/...yyyyyyyy/....hhaaAA/..yyyyyyyyyy/...hhaaaAAA/.yyyyyyyyyyyy/..YYYYYYYYYY', // 灵宝：宝塔
+  '.....ww/....wwh/....wh..h/.....yy.ha/....haaA.a/...haaaaA/...haaaaA/....yyyy/..hhaaaaAA/.hhaaaaaaAA/.haaaaaaaAA/..aaaaaAAA/...AAAAAA', // 仙器：斩仙葫芦
+  '..hhh....o/.haaah..o/haaaaahoO/haaaaaaO/haaaaaoa/.haaaoOaa/..hhoO.aA/....o...A/...oO/..oO/.oO/oO', // 混沌至宝：开天斧
+];
+const ITEM_A = [
+  '/..aaaaaaaaa/..ahhhhhhhA/..ahnnnnnaA/..ahnKKKnaA/..ahnnnnnaA/..ahnKKKnaA/..ahnnnnnaA/..ahhhhhhaA/..aAAAAAAAA/..nnnnnnnnN', // 黄阶：薄册
+  '/.aaaaaaaaaa/.ahhhhhhhhAy/.ahnnnnnnaAy/.ahnKKKKnaA/.ahnnnnnnaAy/.ahnKKKKnaAy/.ahnnnnnnaA/.ahhhhhhhhAy/.aAAAAAAAAA/.nnnnnnnnnN/.NNNNNNNNNN', // 玄阶：厚册
+  '.oO........oO/.aannnnnnnnaa/.aAnnnnnnnnaA/.oOnKKnKKKnoO/..nnnnnnnnn/..nnKKKnKKn/..nnnnnnnnn/..nnKKnKKKn/.oOnnnnnnnnoO/.aannnnnnnnaa/.aAnnnnnnnnaA/.oO........oO', // 地阶：卷轴
+  '..y.y.y.y.y/..aaaaaaaaa/.haAhaAhaAhaA/.haAhaAhaAhaA/.haAhaAhaAhaA/.yyyyyyyyyyyy/.haAhaAhaAhaA/.haAhaAhaAhaA/.yyyyyyyyyyyy/.haAhaAhaAhaA/.haAhaAhaAhaA/..AAAAAAAAA', // 天阶：玉简
+  '.....hhhh/..h.haaaah.h/.h.haaaaaah.h/...haahhaaA/h..haahhaaA..h/...haaaaaaA/.h..haaaaA..h/..h..AAAA..h/....yyyyyy/...yhhhhhhY/...YYYYYYYY', // 仙阶：光轮宝卷
+  '......hh/..h..haah..h/....haaaah/.h.haahhaaA.h/...hahwwhaA/hh.hahwwhaA.hh/...haahhaaA/.h..haaaaA..h/....haaaA/..h..hAA..h/......AA', // 神阶：鸿蒙道印
+];
+// 物品图：kind 'w' 法宝（tier 1～7）| 'a' 功法（tier 1～6）
+ART.item = function (kind, tier) {
+  const list = kind === 'a' ? ITEM_A : ITEM_W; tier = Math.max(1, Math.min(list.length, tier | 0));
+  return cached('item|' + kind + tier, () => {
+    const q = QCOL[Math.min(5, tier - 1)], b = iconBuf(list[tier - 1], Object.assign({}, IPAL, { a: q, A: hs(q, 0.62), h: lerpC(q, '#ffffff', 0.6) }));
+    if (kind !== 'a' && tier === 7) { // 混沌：彩虹色
+      const rb = ['#ff6b6b', '#ffb23f', '#f4e04a', '#62d26f', '#4aa8ff', '#c27dff'];
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const c = b.at(x, y); if (c === q || c === hs(q, 0.62)) b.p(x, y, rb[(x + y) % 6 | 0]); }
+    }
+    return b.cv();
+  });
+};
+ART.qualityColor = t => QCOL[Math.max(0, Math.min(5, t - 1))];
+
+// ---------- 对决小人：六帧 idle0 idle1 windup strike hit down；48×40，面朝右，脚底锚点 (21, 39) ----------
+ART.dims.fighter = { w: 48, h: 40, ax: 21, ay: 39 };
+const FIGHT_FRAMES = ['idle0', 'idle1', 'windup', 'strike', 'hit', 'down'];
+ART.fighterFrames = FIGHT_FRAMES;
+// 小人头部的改造（在 30×35 的字符网格上改）
+const FMOD = {
+  long(g) { for (let y = 12; y <= 27; y++) { put(g, 7, y, 'H'); put(g, 8, y, y % 4 === 1 ? 'j' : 'h'); put(g, 22, y, 'H'); put(g, 21, y, 'h'); } },
+  crown(g) { for (let y = 0; y < 3; y++) { put(g, 14, y, 'g'); put(g, 15, y, 'G'); } put(g, 13, 2, 'g'); put(g, 16, 2, 'G'); put(g, 12, 2, 'y'); put(g, 17, 2, 'G'); },
+  cap(g) { for (let y = 0; y < 4; y++) for (let x = 0; x < 30; x++) g[y][x] = '.'; for (let y = 1; y <= 5; y++) for (let x = 9; x <= 20; x++) put(g, x, y, y === 1 ? 'q' : x > 17 ? 'R' : 'r'); for (let x = 8; x <= 21; x++) put(g, x, 6, 'D'); put(g, 14, 3, 't'); put(g, 15, 3, 't'); },
+  horns(g) { for (let y = 0; y < 4; y++) for (let x = 0; x < 30; x++) g[y][x] = '.'; for (let x = 12; x <= 17; x++) put(g, x, 3, x < 15 ? 'H' : 'h'); for (const sx of [0, 1]) { const X = x => sx ? 29 - x : x; put(g, X(10), 4, 'O'); put(g, X(11), 4, 'O'); put(g, X(10), 3, 'o'); put(g, X(9), 3, 'O'); put(g, X(9), 2, 'o'); put(g, X(8), 1, 'o'); put(g, X(9), 1, 'o'); put(g, X(8), 0, 'O'); } },
+  shut(g) { for (const x of [11, 17]) for (const y of [12, 14]) { put(g, x, y, 's'); put(g, x + 1, y, 's'); } },
+  pins(g) { put(g, 14, 4, 'g'); put(g, 15, 4, 'g'); put(g, 9, 5, 'g'); put(g, 20, 5, 'g'); put(g, 21, 6, 'g'); put(g, 21, 8, 'y'); put(g, 21, 10, 'g'); },
+  ears(g) { for (let y = 0; y < 4; y++) for (let x = 0; x < 30; x++) g[y][x] = '.'; for (const sx of [0, 1]) { const X = x => sx ? 29 - x : x; put(g, X(9), 1, 'h'); put(g, X(9), 2, 'h'); put(g, X(10), 2, 'p'); put(g, X(8), 3, 'H'); put(g, X(9), 3, 'p'); put(g, X(10), 3, 'h'); put(g, X(11), 3, 'h'); } },
+  hat(g) { for (let y = 0; y < 4; y++) for (let x = 0; x < 30; x++) g[y][x] = '.'; for (let y = 1; y <= 8; y++) { const w = Math.round(1 + (y - 1) * 1.7); for (let x = 15 - w; x < 15 + w; x++) put(g, x, y, y === 8 ? 'k' : x < 13 ? 'K' : 'k'); } for (let y = 14; y <= 17; y++) for (let x = 9; x <= 20; x++) if ('sSmMi'.includes(g[y][x])) g[y][x] = 'k'; },
+  beard(g) { for (const [x, y] of [[13, 15], [14, 15], [15, 15], [16, 15], [12, 16], [13, 16], [14, 16], [15, 16], [16, 16], [17, 16], [13, 17], [14, 17], [15, 17], [16, 17], [14, 18], [15, 18], [14, 19], [15, 19], [14, 20]]) put(g, x, y, 'u'); },
+  basket(g) { for (let y = 19; y <= 25; y++) { put(g, 5, y, 'C'); put(g, 6, y, y % 2 ? 'c' : 'C'); } put(g, 5, 18, 'c'); put(g, 6, 17, 'p'); },
+};
+const FSPEC = { mu: ['pins'], mu2: ['long', 'crown'], zhao: ['cap'], tian: ['long', 'crown'], xue: ['horns'], yun: ['long', 'crown', 'shut'], bai: ['ears'], mo: ['hat'], ge: ['beard'], jian: ['beard'], dan: [], dao: ['crown'], elder: ['beard', 'crown'], su: ['basket'], su2: ['basket'] };
+function swordOn(G, x0, y0, x1, y1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), flat = Math.abs(x1 - x0) > Math.abs(y1 - y0), ux = (x1 - x0) / n, uy = (y1 - y0) / n;
+  for (let i = 0; i <= n; i++) { const x = Math.round(x0 + ux * i), y = Math.round(y0 + uy * i); put(G, x, y, i > n - 2 ? 'X' : 'x'); if (i < n - 1) put(G, flat ? x : x - 1, flat ? y - 1 : y, 'X'); }
+  for (const k of [-2, -1, 1, 2]) put(G, Math.round(x0 - uy * k), Math.round(y0 + ux * k), 'G'); put(G, x0, y0, 'g');
+  put(G, Math.round(x0 - ux), Math.round(y0 - uy), 'n'); put(G, Math.round(x0 - ux * 2), Math.round(y0 - uy * 2), 'n');
+}
+function fighterGrid(base, frame) {
+  const Gd = blank(46, 38), ox = 5, oy = 3;
+  if (frame === 'down') {
+    for (let y = 0; y < base.length; y++) for (let x = 0; x < 30; x++) { const ch = base[y][x]; if (ch !== '.') put(Gd, y + 1, 41 - x, ch); }
+    swordOn(Gd, 36, 36, 45, 37);
+    return Gd;
+  }
+  const lean = { windup: -2, strike: 3, hit: -3 }[frame] || 0, bob = frame === 'idle1' || frame === 'stand1' ? 1 : 0;
+  for (let y = 0; y < base.length; y++) {
+    const dx = y < 18 ? lean : Math.round(lean * (34 - y) / 17), dy = y < 30 ? bob : 0;
+    for (let x = 0; x < 30; x++) { const ch = base[y][x]; if (ch !== '.') put(Gd, ox + x + dx, oy + y + dy, ch); }
+  }
+  if (frame === 'stand0' || frame === 'stand1') return Gd;
+  const S = { idle0: [28, 28, 34, 13], idle1: [28, 29, 34, 14], windup: [30, 21, 27, 1], strike: [33, 26, 45, 26], hit: [24, 31, 32, 37] }[frame];
+  if (frame === 'windup' || frame === 'strike') { // 抬起的手臂
+    const sx = ox + 20 + lean, sy = oy + 21, n = Math.max(Math.abs(S[0] - sx), Math.abs(S[1] - sy), 1);
+    for (let i = 0; i <= n; i++) { const x = Math.round(sx + (S[0] - sx) * i / n), y = Math.round(sy + (S[1] - sy) * i / n); put(Gd, x, y, 'r'); put(Gd, x, y + 1, 'R'); put(Gd, x, y - 1, 'q'); }
+  }
+  swordOn(Gd, S[0], S[1], S[2], S[3]);
+  put(Gd, S[0], S[1] + 1, 's'); put(Gd, S[0] - 1, S[1] + 1, 's');
+  return Gd;
+}
+// 对决小人。who：人物 id（同 ART.portrait）| { look, realm }（主角）| { hair, skin, f, robe, trim }（路人换色）
+// frame：'idle0' 'idle1' 'windup' 'strike' 'hit' 'down' 或 0～5（另有不持剑的 'stand0' 'stand1'，访客用）；flip 为真时面朝左（锚点 x 变为 26）
+ART.fighter = function (who, frame, flip, alt) {
+  if (typeof frame === 'number') frame = FIGHT_FRAMES[frame]; if (!FIGHT_FRAMES.includes(frame) && frame !== 'stand0' && frame !== 'stand1') frame = 'idle0';
+  let look, robe, trim, mods = [], pal = {};
+  if (typeof who === 'string') {
+    let id = P_ALIAS[who] || who; if (alt && PEOPLE[id + '2']) id += '2';
+    const S = PEOPLE[id] || PEOPLE.chu;
+    look = { hair: S.hair || HAIR_K, skin: S.skin || '#f2c9a0', f: S.F && S.F.fem ? 1 : 0 }; robe = S.robe; trim = S.trim; mods = FSPEC[id] || [];
+    if (id === 'xue') pal = { E: '#5a0a10', i: '#ff3a2a', o: '#e4d6b8', O: '#9a7a6a' };
+    if (id === 'mo') pal = { K: '#4c465c', k: '#2a2636' };
+    if (id === 'elder') pal = { u: '#f0f9ff' };
+  } else if (who.look) { const R0 = L.REALMS[Math.min(who.realm | 0, 9)]; look = Object.assign({}, who.look, { hair: who.realm >= 7 ? '#e9e8f2' : who.look.hair }); robe = R0.robe; trim = R0.trim; }
+  else { look = who; robe = who.robe || L.REALMS[0].robe; trim = who.trim || '#dfe7ef'; }
+  const key = ['ft', look.hair, look.skin, look.f ? 1 : 0, robe.join(), trim, mods.join(), frame, flip ? 1 : 0].join('|');
+  return cached(key, () => {
+    const g = charGrid(STAND_BODY, look.f);
+    for (const m of mods) FMOD[m](g);
+    if (frame === 'hit' || frame === 'down') { for (const x of [11, 12, 17, 18]) for (const y of [12, 13, 14]) put(g, x, y, 's'); for (const [x, y] of frame === 'hit' ? [[11, 12], [12, 13], [11, 14], [18, 12], [17, 13], [18, 14]] : [[11, 13], [12, 13], [17, 13], [18, 13]]) put(g, x, y, 'E'); }
+    const c = render(fighterGrid(g, frame), palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, pal)));
+    if (!flip) return c;
+    const f = mk(c.width, c.height), fg = f.getContext('2d'); fg.translate(c.width, 0); fg.scale(-1, 1); fg.drawImage(c, 0, 0); return f;
+  });
+};
+
+// ---------- 命中火花、血条 ----------
+// k: 0～1 的播放进度
+ART.drawSpark = function (x, y, k) {
+  x = Math.round(x); y = Math.round(y); const r = 3 + k * 9, c = k < 0.35 ? '#ffffff' : k < 0.7 ? '#fff2a8' : '#ff9a8a';
+  if (k < 0.4) { disc(x, y, Math.round(3 - k * 5), '#ffffff'); glow(x, y, 9, '#fff2a8', 0.5 - k); }
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + 0.3, r0 = r * 0.45, len = i % 2 ? r : r * 0.7; line(x + Math.cos(a) * r0, y + Math.sin(a) * r0, x + Math.cos(a) * len, y + Math.sin(a) * len, c); }
+  if (k > 0.3) for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.8; R(x + Math.cos(a) * (r + 2), y + Math.sin(a) * (r + 2) + k * 3, 1, 1, '#f4c542'); }
+};
+// 血条：左上角 (x,y)，宽 w（高 5）。o = { right: 从右往左扣, lag: 白色残影比例, c: 颜色 }
+ART.drawHpBar = function (x, y, w, frac, o) {
+  o = o || {}; x = Math.round(x); y = Math.round(y); frac = Math.max(0, Math.min(1, frac));
+  R(x + 1, y, w - 2, 5, INK); R(x, y + 1, w, 3, INK); R(x + 1, y + 1, w - 2, 3, '#3a2030');
+  const iw = w - 2, fw = Math.round(iw * frac), lw = Math.round(iw * Math.max(frac, Math.min(1, o.lag || 0))), c = o.c || (frac < 0.3 ? '#e8483a' : '#ff9a8a');
+  if (lw > fw) R(o.right ? x + 1 + iw - lw : x + 1, y + 1, lw, 3, '#ffffff');
+  if (fw > 0) { const fx = o.right ? x + 1 + iw - fw : x + 1; R(fx, y + 1, fw, 3, c); R(fx, y + 1, fw, 1, lerpC(c, '#ffffff', 0.5)); R(fx, y + 3, fw, 1, hs(c, 0.7)); }
+  R(o.right ? x + w - 1 : x, y + 1, 1, 3, '#f4c542');
+};
+
+// ---------- 对决舞台：200 宽，坐标同历练场景（小人脚底 y=128，画布 160 高，OY 为上方加高的天空） ----------
+function flag(x, y, t, c, c2, w) { // 旗杆顶在 (x,y)，旗面向右飘
+  w = w || 14; R(x, y, 1, 40, '#5a3a2a'); R(x - 1, y - 1, 3, 1, '#f4c542');
+  for (let i = 0; i < w; i++) { const dy = Math.round(Math.sin(t / 220 + i * 0.6 + x) * (i / w) * 2); R(x + 1 + i, y + 1 + dy, 1, 9, i % 5 === 4 ? hs(c, 0.8) : c); R(x + 1 + i, y + 1 + dy, 1, 1, c2); R(x + 1 + i, y + 9 + dy, 1, 1, c2); if (i > 3 && i < 9) R(x + 1 + i, y + 4 + dy, 1, 3, c2); }
+}
+const DUSK_ROOF = { l: '#8a5a78', m: '#6a4464', d: '#4a2e50', e: '#b07a8a', u: '#2a1a36' };
+const STAGES = {
+  // 落霞城：晚霞里的擂台，城楼、灯笼、看客
+  town: {
+    sky: ['#2a2456', '#5a3474', '#b8507a', '#ff9a6a', '#ffd89a'],
+    build() {
+      disc(148, 84, 15, '#fff0b8'); glow(148, 84, 26, '#ffb070', 0.5);
+      const far = ridgeLine(21, 200, 92, 22, 4, 1.5); paintRidge(far, 112, '#9a5a86', '#e8a08a');
+      // 远处的城郭
+      for (let i = 0; i < 12; i++) { const x = i * 18 - 4, h = 8 + (i * 7 % 9); R(x, 100 - h, 15, h + 14, '#6a4470'); R(x, 100 - h, 15, 1, '#a8708a'); R(x - 1, 99 - h, 17, 1, '#4a2e50'); if (i % 3 === 0) R(x + 5, 104 - h, 3, 3, '#ffcf6a'); }
+      R(0, 104, 200, 20, '#5a3a62'); for (let x = 0; x < 200; x += 6) R(x, 101, 4, 3, '#5a3a62'); R(0, 104, 200, 1, '#8a5a82'); dR(0, 114, 200, 10, '#3e2848', 6);
+      // 城门楼
+      R(72, 86, 56, 22, '#6a4470'); wallBays(100, 88, 50, 12, { wall: '#c89a8a', pil: '#8a2c34', pilL: '#c85a52', pilD: '#5a1c2a', beam: '#3a4a6a', beamL: '#f4c542', frame: '#6a2a2a', paper: '#ffd88a', lat: '#c8843c', panel: '#8a3c3a', door: '#6a2428', doorD: '#3a1420', doorL: '#f4c542' }, { bays: 5 });
+      roof(100, 76, 44, 70, 9, DUSK_ROOF, { big: true }); R(90, 110, 20, 14, '#2a1a36'); R(92, 112, 16, 12, '#3e2848');
+      // 擂台：台面、台裙、红毯
+      R(8, 122, 184, 14, '#b8a8a0'); R(8, 122, 184, 1, '#f0e0d0'); R(8, 123, 184, 1, '#d8c8bc');
+      for (let x = 12; x < 190; x += 16) R(x, 124, 1, 12, '#9a8a88');
+      R(34, 125, 132, 9, '#a8323c'); R(34, 125, 132, 1, '#f4c542'); R(34, 133, 132, 1, '#f4c542'); dR(34, 126, 132, 7, '#7a1a26', 4);
+      R(8, 136, 184, 16, '#7a6a72'); R(8, 136, 184, 1, '#55485a'); for (let x = 14; x < 188; x += 22) { R(x, 139, 16, 9, '#8a7a80'); R(x, 139, 16, 1, '#a8989a'); R(x + 5, 142, 6, 3, '#6a5a66'); } R(8, 152, 184, 8, '#3e2848');
+      R(0, 136, 8, 24, '#3e2848'); R(192, 136, 8, 24, '#3e2848');
+      // 鼓
+      R(20, 108, 2, 14, '#5a3a2a'); R(30, 108, 2, 14, '#5a3a2a'); disc(26, 106, 7, '#a8323c'); disc(26, 106, 5, '#f0dcb0'); disc(25, 105, 2, '#fff6dc'); R(19, 105, 1, 3, '#f4c542'); R(33, 105, 1, 3, '#f4c542');
+    },
+    fx(t) {
+      flag(12, 78, t, '#c8323c', '#f4c542'); flag(174, 78, t + 900, '#c8323c', '#f4c542');
+      for (const [x, y] of [[64, 96], [136, 96], [46, 104], [154, 104]]) { lantern(x, y, true); glow(x, y + 3, 7, '#ff8a44', 0.35 + Math.sin(t / 400 + x) * 0.08); }
+      // 台下看客
+      for (let i = 0; i < 17; i++) { const x = 4 + i * 12, y = 153 + (i * 5 % 3) + Math.round(Math.sin(t / 260 + i * 1.7) * 0.8), c = ['#2a1a36', '#3a2440', '#241630'][i % 3]; disc(x, y, 4, c); R(x - 5, y + 3, 11, 8, c); if (i % 4 === 1) R(x - 1, y - 6, 3, 3, '#3a2a30'); }
+    },
+  },
+  // 论道台：云海之上的白玉圆台
+  cloud: {
+    sky: ['#143a8a', '#2c74c6', '#6cb0e8', '#bfe4f8', '#eefaff'],
+    build() {
+      disc(40, 30, 9, '#ffffff'); glow(40, 30, 18, '#fff6d0', 0.6);
+      paintRidge(ridgeLine(41, 200, 84, 50, 3, 2.4), 118, '#7c9ccc', '#e4f0ff', { snow: 58 });
+      paintRidge(ridgeLine(47, 200, 100, 30, 4, 1.8), 120, '#5a7eb0', '#dceaff');
+      for (let i = 0; i < 9; i++) ctx.drawImage(cloudSprite(30 + i, 26 + (i * 7 % 18), '#ffffff', '#e4ecfa', '#c0cce8'), i * 26 - 20, 100 + (i * 5 % 9));
+      R(0, 114, 200, 46, '#e4ecfa'); dR(0, 112, 200, 3, '#e4ecfa', 8);
+      // 玉柱
+      for (const x of [22, 58, 142, 178]) { const h = x < 30 || x > 170 ? 46 : 38; column(x, 124, h, ['#8aa8c8', '#c8dcec', '#f4fbff'], true); R(x - 1, 124 - h - 5, 3, 3, '#4ccb9f'); R(x, 124 - h - 6, 1, 1, '#c8fff0'); }
+      // 圆台
+      ellipse(100, 139, 96, 13, '#7088a8'); ellipse(100, 131, 96, 12, '#93a8c0'); ellipse(100, 129, 96, 12, '#dce6f0'); ellipse(100, 129, 90, 10, '#eef4fa');
+      ellipse(100, 129, 30, 5, '#c8d6e6'); ellipse(92, 129, 15, 3, '#93a8c0'); ellipse(108, 129, 15, 3, '#f8fcff'); R(84, 129, 3, 1, '#f8fcff'); R(114, 129, 3, 1, '#7088a8');
+      for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8, x = 100 + Math.cos(a) * 78, y = 129 + Math.sin(a) * 8; R(x - 1, y, 3, 1, '#a8bcd0'); }
+      for (let x = 10; x < 190; x += 9) R(x, 142 + Math.round(Math.sqrt(Math.max(0, 1 - ((x - 100) / 96) ** 2)) * 7), 1, 3, '#55708e');
+    },
+    fx(t) {
+      for (const x of [22, 58, 142, 178]) glow(x, 124 - (x < 30 || x > 170 ? 46 : 38) - 4, 5, '#8ff5d0', 0.5 + Math.sin(t / 500 + x) * 0.2);
+      for (let i = 0; i < 7; i++) { const spr = cached('dcl' + i, () => cloudSprite(60 + i, 30 + (i * 11 % 20), '#ffffff', '#eef2fc', '#ccd6ee')), x = ((i * 43 + t * (0.004 + (i % 3) * 0.002)) % 280) - 60; ctx.drawImage(spr, Math.round(x), 146 + (i % 3) * 4); }
+    },
+  },
+  // 演武场：宗门大殿前的青石广场
+  sect: {
+    sky: ['#2c74c6', '#6cb0e8', '#a8d4f0', '#d4f0f8', '#eefaff'],
+    build() {
+      paintRidge(ridgeLine(61, 200, 70, 40, 3, 1.9), 110, '#8fb0d4', '#dcecf8', { snow: 50 });
+      paintRidge(ridgeLine(67, 200, 88, 22, 5, 1.4), 112, '#6a94a8', '#cfe4e8', { trees: '#4a7a6a' });
+      // 大殿
+      const st = ['#8a8498', '#a8a2b4', '#c4bece', '#e0dce8'];
+      terrace(100, 112, 150, 6, st); rail(26, 88, 106, st); rail(112, 174, 106, st);
+      wallBays(100, 84, 124, 22, pavPal(false), { door: true, bays: 7 });
+      roof(100, 68, 84, 150, 14, ROOF.slate, { big: true }); plaque(100, 74, 18, true);
+      R(99, 58, 2, 6, '#f4c542'); R(98, 61, 4, 2, '#ffe8a0');
+      for (const x of [8, 192]) { pine(x, 114, 34, ['#2a5a46', '#3f7e5a', '#6aa878']); pine(x + (x < 100 ? 12 : -12), 114, 22, ['#2a5a46', '#3f7e5a', '#6aa878']); }
+      // 青石地面
+      R(0, 112, 200, 48, '#a8a0a8'); R(0, 112, 200, 1, '#d8d0d4');
+      for (let k = 0; k < 7; k++) { const y = 114 + Math.round(k * k * 0.9 + k * 2); R(0, y, 200, 1, '#8a8290'); }
+      for (let i = -8; i <= 8; i++) line(100 + i * 14, 113, 100 + i * 34, 160, '#8a8290');
+      dR(0, 112, 200, 6, '#c4bcc4', 6); dR(0, 150, 200, 10, '#6e667a', 6);
+      ellipse(100, 131, 60, 7, '#b8b0b8'); ellipse(100, 131, 56, 6, '#a8a0a8');
+      // 兵器架、香炉
+      for (const x of [14, 172]) { R(x, 104, 14, 2, '#5a3a2a'); R(x, 118, 14, 2, '#5a3a2a'); R(x, 102, 2, 20, '#7a5230'); R(x + 12, 102, 2, 20, '#7a5230'); for (let k = 0; k < 3; k++) { R(x + 3 + k * 3, 92, 1, 28, '#8a6a4a'); R(x + 2 + k * 3, 90 - k % 2, 3, 3, '#c8d0e0'); R(x + 3 + k * 3, 88 - k % 2, 1, 2, '#ffffff'); R(x + 3 + k * 3, 94, 1, 2, '#c8323c'); } }
+      R(96, 106, 8, 2, '#5a5066'); R(94, 100, 12, 6, '#7a7088'); R(94, 100, 12, 1, '#a8a0b8'); R(95, 108, 2, 3, '#5a5066'); R(103, 108, 2, 3, '#5a5066');
+    },
+    fx(t) {
+      flag(44, 66, t, '#3f6ec0', '#eef6ff', 12); flag(144, 66, t + 700, '#3f6ec0', '#eef6ff', 12);
+      for (let i = 0; i < 3; i++) { const k = ((t / 60 + i * 9) % 27) | 0; ctx.globalAlpha = 0.5 - k / 60; R(99 + Math.round(Math.sin((t / 300) + k * 0.4 + i) * 2), 98 - k, 2, 2, '#e8e4f0'); } ctx.globalAlpha = 1;
+    },
+  },
+  // 野外：暮色里的林间空地
+  wild: {
+    sky: ['#101a44', '#2a3a7a', '#5a5a9a', '#b88aa8', '#f8c8a0'],
+    stars: 1,
+    build() {
+      disc(158, 34, 8, '#f4f6ff'); disc(155, 32, 2, '#d4dcf0'); glow(158, 34, 16, '#b8c8ff', 0.45);
+      paintRidge(ridgeLine(81, 200, 80, 36, 4, 1.8), 116, '#5a5a92', '#c89ab0');
+      paintRidge(ridgeLine(87, 200, 98, 22, 6, 1.3), 120, '#3a4a78', '#8a7aa0', { trees: '#2a3660' });
+      for (const [x, h] of [[6, 46], [22, 34], [38, 26], [164, 28], [180, 38], [195, 48]]) pine(x, 124, h, ['#16283e', '#22405a', '#3a6278'], '#1a1a2a');
+      deadTree(60, 122, 22, ['#2a2440', '#3a3458', '#5a5478'], 5);
+      // 草地与土路
+      R(0, 120, 200, 40, '#2e5a52'); R(0, 120, 200, 1, '#6aa878'); dR(0, 121, 200, 3, '#4a8a66', 8);
+      ellipse(100, 132, 78, 8, '#6a5a58'); ellipse(100, 131, 74, 6, '#8a7468'); dR(30, 128, 140, 8, '#a08a78', 4);
+      dR(0, 140, 200, 20, '#1e3e44', 8); R(0, 152, 200, 8, '#1e3e44');
+      const r = seeded(9); for (let i = 0; i < 40; i++) { const x = Math.floor(r() * 200), y = 122 + Math.floor(r() * 36); if (Math.abs(x - 100) < 70 && y > 125 && y < 138) continue; R(x, y, 1, 2, '#4a8a66'); R(x + 1, y - 1, 1, 2, '#6aa878'); }
+      rock(8, [118, 116, 114, 113, 113, 112, 112, 113, 114, 114, 115, 117, 118, 119], 126, G.r, 4); rock(170, [119, 117, 116, 115, 115, 116, 116, 117, 119], 126, G.r, 7);
+      for (const [x, y] of [[40, 143], [150, 146], [112, 150]]) { R(x, y, 5, 2, '#55506e'); R(x + 1, y - 1, 3, 1, '#928ea8'); }
+    },
+    fx(t) {
+      for (let i = 0; i < 9; i++) { const x = (i * 53 + Math.sin(t / 900 + i) * 9) % 200, y = 100 + (i * 17 % 44) + Math.sin(t / 600 + i * 2) * 4, a = 0.5 + Math.sin(t / 250 + i * 1.3) * 0.5; if (a < 0.2) continue; ctx.globalAlpha = a; R(x, y, 1, 1, '#e8ff9a'); ctx.globalAlpha = a * 0.3; R(x - 1, y - 1, 3, 3, '#c8f06a'); ctx.globalAlpha = 1; }
+      ctx.globalAlpha = 0.25; for (const [y, sp] of [[112, 0.006], [118, 0.01]]) { const x = -(((t * sp) % 200) | 0); for (const dx of [0, 200]) dR(x + dx, y, 120, 3, '#c8c0e0', 6); } ctx.globalAlpha = 1;
+    },
+  },
+};
+let stageCur = null;
+// 对决舞台。kind：'town' 落霞城擂台 | 'cloud' 论道台 | 'sect' 演武场 | 'wild' 野外。画满 200×(160+OY)，主体在 y=40～150
+ART.drawDuelStage = function (kind, t, OY) {
+  const S = STAGES[kind] || STAGES.wild; OY = OY || 0; kind = STAGES[kind] ? kind : 'wild';
+  if (!stageCur || stageCur.kind !== kind || stageCur.OY !== OY) {
+    const c = on(mk(200, 160 + OY), () => {
+      vgrad(0, 0, 200, OY + 122, ramp(S.sky, 7), 0.34);
+      if (S.stars) { const r = seeded(77); for (let i = 0; i < 40; i++) { const x = Math.floor(r() * 200), y = Math.floor(r() * (OY + 70)); R(x, y, 1, 1, r() > 0.6 ? '#ffffff' : '#9aa2dc'); } }
+      ctx.translate(0, OY); S.build();
+    });
+    stageCur = { kind, OY, c };
+  }
+  ctx.drawImage(stageCur.c, 0, -OY);
+  S.fx(t || 0);
+};
+ART.duelStages = () => Object.keys(STAGES);
+
+// ---------- 场景里飘出的老祖：24×28，两帧浮动 ----------
+ART.elderSprite = function (frame) {
+  frame = frame ? 1 : 0;
+  return cached('elderSp' + frame, () => {
+    const b = new Buf(24, 28), W = hairTone('#f0f9ff'), sk = skinTone('#a6cdee'), RB = tone('#7aa8e0', '#3f6aa8', '#c0dcff'), dy = frame ? 0 : 1;
+    // 烟尾
+    b.add(L => { const pts = frame ? [[12, 20], [14, 23], [11, 25], [13, 27]] : [[12, 21], [10, 23], [13, 25], [11, 27]]; for (let i = 0; i < 3; i++) L.l(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], RB, 3 - i); });
+    b.add(L => { L.e(12, 17 + dy, 6.5, 4.5, RB); L.r(4, 16 + dy, 3, 3, RB); L.r(17, 16 + dy, 3, 3, RB); });
+    b.add(L => L.e(12, 9 + dy, 6, 5.5, sk.s), { noHi: 1, sep: 1 });
+    b.add(L => { L.e(12, 6.5 + dy, 6.6, 4, W); L.r(5, 7 + dy, 2, 6, W); L.r(17, 7 + dy, 2, 6, W); L.e(12, 1.8 + dy, 2, 1.6, W); for (let x = 8; x < 16; x++) L.p(x, 9 + dy, null); L.r(9, 8 + dy, 6, 1, null); });
+    b.r(11, 2 + dy, 2, 1, '#5fd3b0');
+    b.r(8, 10 + dy, 2, 1, '#27357a'); b.r(14, 10 + dy, 2, 1, '#27357a'); b.hl(7, 10, 9 + dy, W); b.hl(13, 16, 9 + dy, W); b.p(6, 10 + dy, W); b.p(17, 10 + dy, W);
+    b.add(L => { L.sy(12 + dy, '3432211', W, 12); });
+    b.l(9, 16 + dy, 11, 19 + dy, '#e6f6ff'); b.l(14, 16 + dy, 12, 19 + dy, '#e6f6ff');
+    const src = b.cv({ ink: '#27357a', max: 12 }), c = mk(24, 28), g = c.getContext('2d');
+    g.globalAlpha = 0.94; g.drawImage(src, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out';
+    for (let y = 21; y < 28; y++) for (let x = 0; x < 24; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 20) * 2) g.fillRect(x, y, 1, 1);
+    return c;
+  });
+};
+
+// ---------- 访客：洞府门口的小人 + “！”气泡 ----------
+const VISITORS = {
+  mortal: [{ hair: '#4a3628', skin: '#e8b68a', f: 0 }, ['#54402c', '#86694a', '#b8986c'], '#d8c090'],
+  cult: [{ hair: '#2a2230', skin: '#f2c9a0', f: 0 }, ['#3a5a7a', '#5a84a8', '#8ab0cc'], '#dfe7ef'],
+  fem: [{ hair: '#3b2a22', skin: '#f6d3b3', f: 1 }, ['#a04a6a', '#d87a98', '#f8b0c4'], '#fff0f4'],
+  dark: [{ hair: '#1d1a24', skin: '#d9a47c', f: 0 }, ['#17131f', '#2e2838', '#4a4157'], '#6a6088', { kind: 'hill', pal: { E: '#1a0c10' } }],
+};
+// (x,y) 为脚底中心。kind：mortal 凡人 | cult 修士 | fem 女修 | dark 黑衣，或人物 id（画成该人物的小人）。
+// o = { bubble: false 不画气泡, shake: 气泡抖动（快走了）, alpha }；返回气泡的点击范围 { x, y, w, h }
+ART.drawVisitor = function (x, y, kind, t, o) {
+  o = o || {}; x = Math.round(x); y = Math.round(y);
+  const V = VISITORS[kind], f = (t / 520 | 0) % 2;
+  if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
+  ellipse(x, y, 8, 2, 'rgba(20,14,40,0.28)');
+  let top;
+  if (V) { const s = ART.stand(V[0], V[1], V[2], f, V[3]); ctx.drawImage(s, x - (s.width >> 1), y - s.height + 1); top = y - s.height; }
+  else { const s = ART.fighter(kind, f ? 'stand1' : 'stand0', true), D2 = ART.dims.fighter; ctx.drawImage(s, x - (D2.w - 1 - D2.ax), y - D2.ay); top = y - 37; }
+  ctx.globalAlpha = 1;
+  if (o.bubble === false) return null;
+  const bx = x - 5 + (o.shake ? Math.round(Math.sin(t / 40) * 1.2) : 0), by = top - 14 + Math.round(Math.sin(t / 300) * 1.5);
+  R(bx + 1, by, 9, 12, INK); R(bx, by + 1, 11, 10, INK); R(bx + 4, by + 12, 3, 1, INK); R(bx + 5, by + 13, 1, 1, INK);
+  R(bx + 1, by + 1, 9, 10, '#fff6e0'); R(bx + 5, by + 11, 1, 1, '#fff6e0'); R(bx + 1, by + 10, 9, 1, '#dccca4');
+  R(bx + 4, by + 2, 3, 5, '#c8323c'); R(bx + 5, by + 7, 1, 1, '#c8323c'); R(bx + 4, by + 9, 3, 1, '#c8323c'); R(bx + 4, by + 2, 1, 1, '#f07a6a');
+  return { x: bx - 4, y: by - 4, w: 19, h: 22 };
+};
+ART.visitorKinds = () => Object.keys(VISITORS);
+
+// ---------- 吐纳环：脚下一圈灵光，fill 0～1 逐段点亮，蓄满后脉动 ----------
+// part：'back' 只画人物身后的半圈，'front' 只画身前半圈，省略则整圈
+ART.drawTunaRing = function (x, y, fill, t, part) {
+  x = Math.round(x); y = Math.round(y); fill = Math.max(0, Math.min(1, fill));
+  const N = 28, full = fill >= 1, pulse = full ? 0.5 + Math.sin(t / 160) * 0.5 : 0, rx = 25 + (full ? Math.round(pulse * 2) : 0), ry = 7 + (full ? Math.round(pulse) : 0);
+  for (let i = 0; i < N; i++) {
+    const a = -Math.PI / 2 + (i + 0.5) / N * Math.PI * 2, s = Math.sin(a);
+    if (part === 'back' ? s > 0 : part === 'front' ? s <= 0 : false) continue;
+    const px = x + Math.round(Math.cos(a) * rx), py = y - 2 + Math.round(s * ry), on2 = i / N < fill;
+    if (!on2) { R(px, py, 1, 1, '#2a8a7a'); R(px, py - 1, 1, 1, 'rgba(200,255,240,0.35)'); continue; }
+    const head = !full && (i + 1) / N >= fill, c = full ? lerpC('#4ccb9f', '#fff2a8', pulse) : '#4ccb9f';
+    R(px - 1, py, 3, 1, c); R(px, py - 1, 1, 1, lerpC(c, '#ffffff', 0.6)); if (head || (full && (i + (t / 90 | 0)) % 7 === 0)) { R(px, py - 2, 1, 2, '#ffffff'); glow(px, py, 4, '#8ff5d0', 0.5); }
+  }
+  if (full && part !== 'back') for (let i = 0; i < 4; i++) { const k = ((t / 70 + i * 13) % 26) | 0, a = i * 1.7 + 0.4; ctx.globalAlpha = 1 - k / 26; R(x + Math.round(Math.cos(a) * 20), y - 4 - k, 1, 2, '#c8fff0'); ctx.globalAlpha = 1; }
+};
+
+// ---------- 闭关：身后的封印石门 + 罩住人物的光罩 ----------
+// (x,y) 为人物脚底中心，省略时取洞府里主角的位置；part：'back' 石门 | 'front' 光罩 | 省略两者都画
+ART.drawRetreat = function (t, x, y, part) {
+  x = x === undefined ? 100 : Math.round(x); y = y === undefined ? 136 : Math.round(y);
+  if (part !== 'front') {
+    const d = cached('retreatDoor', () => on(mk(44, 50), () => {
+      R(4, 8, 36, 42, '#55506e'); R(8, 2, 28, 8, '#55506e'); R(6, 4, 32, 6, '#55506e');
+      R(7, 10, 30, 40, '#716c8a'); R(10, 5, 24, 6, '#716c8a'); R(7, 10, 1, 40, '#928ea8'); R(10, 5, 24, 1, '#b4b0c8');
+      R(10, 13, 24, 37, '#3e3a56'); R(11, 14, 10, 36, '#928ea8'); R(23, 14, 10, 36, '#847f9c'); R(11, 14, 10, 1, '#b4b0c8'); R(11, 14, 1, 36, '#b4b0c8'); R(23, 14, 1, 36, '#a8a4bc'); R(32, 14, 1, 36, '#55506e');
+      for (const yy of [22, 34, 44]) { R(12, yy, 8, 1, '#716c8a'); R(24, yy, 8, 1, '#716c8a'); }
+      R(18, 30, 2, 3, '#f4c542'); R(24, 30, 2, 3, '#f4c542');
+      R(17, 16, 10, 13, '#f4e6b0'); R(17, 16, 10, 1, '#fff6dc'); R(26, 17, 1, 12, '#c8b48c'); for (const [a, b2, w, h] of [[19, 18, 6, 1], [21, 18, 2, 9], [19, 21, 6, 1], [19, 24, 2, 1], [23, 24, 2, 1], [19, 26, 6, 1]]) R(a, b2, w, h, '#c8323c');
+      dR(4, 44, 36, 6, '#3e3a56', 6);
+    }));
+    ctx.drawImage(d, x - 22, y - 62);
+    glow(x, y - 40, 8, '#ffcf6a', 0.25 + Math.sin(t / 500) * 0.1);
+  }
+  if (part === 'back') return;
+  const rr = 27, c = '#8ff5d0';
+  ctx.save();
+  for (let j = -rr; j <= 2; j++) {
+    const w = Math.round(Math.sqrt(rr * rr - j * j) * 1.05), yy = y + j;
+    ctx.globalAlpha = 0.16 + (j + rr) / rr * 0.1; dR(x - w, yy, w * 2, 1, c, j < -rr * 0.5 ? 6 : 3);
+    ctx.globalAlpha = 0.85; R(x - w - 1, yy, 2, 1, c); R(x + w - 1, yy, 2, 1, '#4ccb9f');
+  }
+  ctx.globalAlpha = 0.85; R(x - 9, y - rr - 1, 18, 1, c);
+  ctx.globalAlpha = 0.9; for (let j = -rr + 5; j < -6; j += 2) { const w = Math.round(Math.sqrt(rr * rr - j * j) * 1.05); R(x - w + 3 + Math.round((j + rr) * 0.15), y + j, 1, 1, '#ffffff'); }
+  // 绕罩流转的符文
+  for (let i = 0; i < 6; i++) { const a = t / 900 + i * Math.PI / 3, s = Math.sin(a); if (s < -0.2) continue; const px = x + Math.round(Math.cos(a) * (rr - 1)), py = y - 12 + Math.round(Math.sin(t / 700 + i) * 2) - (i % 2) * 8; ctx.globalAlpha = 0.5 + s * 0.5; R(px - 1, py, 3, 1, '#fff2a8'); R(px, py - 1, 1, 3, '#fff2a8'); }
+  ctx.globalAlpha = 0.9; for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20; R(x + Math.round(Math.cos(a) * (rr + 1)), y + 1 + Math.round(Math.sin(a) * 3), 1, 1, i % 2 ? c : '#c8fff0'); }
+  ctx.restore();
+};
+
+// ---------- 首领 48×48（顺序同 L.BOSSES） ----------
+function spikes(L, cx, cy, r0, r1, n, c, th, a0) { for (let i = 0; i < n; i++) { const a = (a0 || 0) + i * Math.PI * 2 / n; L.l(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, c, th || 2); } }
+const BOSS = [
+  // 0 独眼狼王：左眼一道疤，右眼通红
+  b => {
+    const F = tone('#8f8a9e', '#55506e', '#c8c4d8'), D = tone('#5a5572', '#34304a', '#7a7592'), M = tone('#d8d4e4', '#a09cb4', '#ffffff');
+    b.add(L => { L.e(24, 28, 19, 18, D); spikes(L, 24, 29, 15, 22, 9, D, 4, 0.9); L.mir(T => { T.l(8, 34, 3, 40, D, 3); T.l(12, 40, 9, 46, D, 3); }); });
+    b.add(L => L.mir(T => { for (let y = 1; y <= 15; y++) T.hl(Math.round(9 - (y - 1) * 0.25), Math.round(9 + (y - 1) * 0.65), y, F); }));
+    b.mir(T => { for (let y = 6; y <= 13; y++) T.hl(10, Math.round(10 + (y - 6) * 0.4), y, '#c8607e'); }); b.r(6, 7, 3, 2, null);
+    b.add(L => { L.e(24, 23, 14, 12, F); L.sy(30, 'a987654', F); });
+    b.add(L => L.e(24, 33, 7, 6.5, M));
+    b.r(22, 28, 4, 3, INK); b.p(22, 28, '#7a7592'); b.r(23, 31, 2, 3, '#a09cb4');
+    b.hl(19, 28, 35, INK); b.r(20, 34, 8, 1, '#8a1e2e'); b.r(19, 35, 2, 3, '#ffffff'); b.r(27, 35, 2, 3, '#ffffff'); b.p(22, 36, '#ffffff'); b.p(25, 36, '#ffffff');
+    b.l(26, 19, 34, 17, '#34304a', 2); b.r(28, 21, 5, 3, INK); b.r(29, 21, 3, 2, '#ff3a2a'); b.p(29, 21, '#fff2a8');
+    b.l(13, 17, 21, 19, '#34304a', 2); b.hl(15, 19, 22, INK); b.l(14, 14, 20, 28, '#8a1e2e'); b.l(15, 14, 21, 28, '#d8404a');
+    b.mir(T => { T.l(10, 27, 7, 30, F); T.l(11, 30, 8, 34, F); });
+  },
+  // 1 黑风寨主雷彪：络腮胡、红头巾、开山斧
+  {
+    skin: '#d9a47c', hair: '#1d1a24', shape: 'square', robe: ['#3a2a22', '#5e4836', '#8a6c4c'], trim: '#9a3a34', bust: { sw: 22 }, noGloss: 1,
+    fr: 'gg9888888888', back: (L, c) => L.r(14, 24, 20, 12, c),
+    pre: b => { b.add(L => { L.l(41, 47, 43, 12, WOOD, 2); L.e(37, 17, 7, 9, STEEL); L.r(39, 8, 4, 18, null); L.l(41, 30, 43, 12, WOOD, 2); }); b.l(31, 12, 31, 22, '#eef4ff'); },
+    mid: b => b.add(L => { for (let i = 0; i < 6; i++) L.e(9 + i * 6, 40 + Math.abs(i - 2.5) * 0.8, 4, 3, '#7a5a40'); }),
+    F: { eye: 'n', iris: '#3a2a2a', brow: { th: 2, tilt: 0.9, len: 6 }, mouth: { n: 'none' } },
+    post: (b, m, c, sk) => {
+      b.add(L => { L.sy(29, 'bbbbba9864', c); L.r(20, 30, 8, 2, null); });
+      b.m(20, 30, ['MMMMMMMM', 'wMwMwMwM'], { M: sk.M, w: '#f6f2fa' }); b.l(28, 24, 32, 29, '#8a3040');
+      b.add(L => { L.r(13, 13, 22, 4, RED); L.l(35, 15, 40, 19, RED, 2); L.l(35, 16, 38, 23, RED, 2); }); b.r(22, 14, 4, 2, '#f4c542');
+    },
+  },
+  // 2 古墓尸王：额头贴着镇尸符
+  {
+    skin: '#a9c4a2', hair: '#d8d8e2', shape: 'long', robe: ['#24243e', '#42426a', '#6a6a94'], trim: '#c8a84a', bust: { inner: '#8a8ab0' }, noGloss: 1,
+    fr: 'zz87655444', back: (L, c) => { L.r(11, 12, 26, 34, c); L.l(11, 40, 8, 47, c, 2); L.l(36, 40, 39, 47, c, 2); },
+    F: { eye: 'n', eyes: { n: [] }, brow: { c: 0 }, nose: 0, mouth: { n: 'none' } },
+    skinX: (b, m, sk) => {
+      b.mir(T => { T.r(16, 23, 6, 4, '#2c3a30'); T.r(18, 24, 2, 2, '#8fffa0'); T.p(18, 24, '#ffffff'); T.l(16, 29, 18, 33, sk.S); });
+      b.m(19, 31, ['MMMMMMMMMM', 'wMwMwMwMwM', 'MMMMMMMMMM'], { M: '#2c3a30', w: '#e8f0d8' });
+    },
+    post: b => {
+      b.add(L => { L.r(15, 2, 18, 7, '#42426a'); L.r(13, 8, 22, 2, '#42426a'); L.r(22, 0, 4, 2, '#42426a'); }); b.hl(13, 34, 8, '#c8a84a'); b.r(23, 4, 2, 2, '#d8404a'); b.r(30, 3, 2, 3, null);
+      b.add(L => L.r(21, 11, 6, 17, '#f4e08a'), { sep: 1, noHi: 1 }); for (const [x, y, w] of [[22, 13, 4], [23, 15, 2], [22, 17, 4], [22, 19, 1], [25, 19, 1], [22, 21, 4], [23, 23, 2], [22, 25, 4]]) b.r(x, y, w, 1, '#c8323c');
+    },
+  },
+  // 3 赤炎猿王：火焰鬃毛
+  b => {
+    const F = tone('#d8502a', '#8a2a1a', '#ff9a4a'), S = skinTone('#f0c090');
+    b.add(L => { L.e(24, 26, 19, 18, F); for (const [x, y] of [[8, 12], [13, 5], [19, 2], [25, 0], [31, 3], [37, 7], [42, 14], [5, 20], [44, 22]]) L.l(24 + (x - 24) * 0.6, 14, x, y, F, 3); });
+    for (const [x, y] of [[13, 5], [19, 2], [25, 0], [31, 3], [37, 7], [8, 12], [42, 14]]) { b.r(x, y, 2, 2, '#f4c542'); b.p(x, y, '#fff2a8'); }
+    b.add(L => L.mir(T => T.e(7, 25, 3.5, 4.5, S.s)), { sep: 1, noHi: 1 }); b.mir(T => T.r(7, 24, 1, 3, S.S));
+    b.add(L => { L.sy(17, '789aaaa99887', S.s); L.e(24, 33, 10, 7.5, S.s); }, { sep: 1, noHi: 1 });
+    b.add(L => { L.r(13, 16, 22, 4, F); L.sy(20, '2', F); });
+    b.mir(T => { T.r(16, 21, 5, 3, INK); T.r(17, 22, 3, 2, '#f4c542'); T.p(18, 22, INK); T.l(15, 19, 21, 21, '#8a2a1a'); });
+    b.p(22, 28, S.M); b.p(25, 28, S.M); b.hl(22, 25, 27, S.S); b.r(17, 33, 14, 4, '#5a1420'); b.hl(17, 30, 32, INK); b.r(18, 33, 2, 3, '#ffffff'); b.r(28, 33, 2, 3, '#ffffff'); b.r(21, 33, 6, 1, '#ffffff'); b.r(22, 36, 4, 1, '#f6f2fa');
+    b.add(L => L.sy(42, '9bdfhj', F)); b.add(L => { for (let i = 0; i < 5; i++) L.e(14 + i * 5, 43.5 + Math.abs(i - 2) * 0.5, 2, 2, WHITE); });
+  },
+  // 4 血煞老魔：血色兜帽、枯瘦的脸
+  {
+    skin: '#d8c2c8', hair: '#e8e0e8', shape: 'sharp', robe: ['#2a0810', '#5a1220', '#8a2a34'], trim: '#c8a84a', bust: { inner: '#1a0a10', sw: 21 }, noGloss: 1,
+    F: { eye: 'x', iris: '#ff3a2a', tail: '#8a1e2e', brow: { c: '#e8e0e8', len: 6, tilt: 0.8 }, mouth: { n: 'fang' } },
+    skinX: (b, m, sk) => { b.mir(T => { T.l(17, 28, 19, 33, sk.S); T.p(15, 27, sk.S); }); b.hl(21, 26, 17, sk.S); b.hl(20, 27, 19, sk.S); },
+    post: (b, m, c) => {
+      b.add(L => { L.e(24, 20, 17, 19, '#5a1220'); L.sy(0, '1123', '#5a1220'); L.r(8, 36, 32, 4, '#5a1220'); L.e(24, 24, 10.5, 12.5, null); L.r(17, 33, 14, 7, null); });
+      b.add(L => L.sy(35, '111111111', c)); b.mir(T => { for (let y = 12; y < 34; y += 3) T.p(13 - (y > 24 ? 1 : 0), y, '#c8a84a'); });
+      b.add(L => L.r(22, 43, 4, 4, WHITE)); b.p(22, 44, INK); b.p(25, 44, INK); b.r(23, 46, 2, 1, INK);
+    },
+  },
+  // 5 剑冢守墓人：蒙眼布，背后插满残剑
+  {
+    skin: '#d8b89a', hair: '#9a98aa', shape: 'long', robe: ['#34343e', '#5a5a68', '#86869a'], trim: '#b0b0c0', noGloss: 1,
+    fr: 'zzkf976554', back: (L, c) => L.r(11, 12, 26, 32, c),
+    pre: b => { hilt(b, 9, 38, 3, 17, { g: 6, guard: STEEL, pommel: STEEL }); hilt(b, 15, 36, 11, 5, { g: 6 }); hilt(b, 33, 36, 37, 4, { g: 6, guard: STEEL }); hilt(b, 39, 38, 45, 16, { g: 6 }); },
+    F: { eye: 'n', eyes: { n: [] }, brow: { c: 0 }, mouth: { n: 'flat' } },
+    skinX: (b, m, sk) => { b.mir(T => T.l(18, 29, 17, 32, sk.S)); b.hl(21, 26, 18, sk.S); },
+    post: (b, m, c) => {
+      b.add(L => { L.r(13, 22, 22, 5, '#e8e4d8'); L.l(35, 23, 41, 27, '#e8e4d8', 2); L.l(35, 25, 39, 32, '#e8e4d8'); }); b.hl(14, 33, 24, '#b8b4a8'); b.l(20, 22, 22, 26, '#b8b4a8');
+      b.add(L => { L.mir(T => T.l(22, 31, 19, 32, c)); L.sy(34, '33221', c); });
+    },
+  },
+  // 6 九幽魔将：重盔、巨角、面甲后两点魔火
+  b => {
+    const H = tone('#4c3c70', '#221a3a', '#8070b0'), B = tone('#b8b0a0', '#6a6258', '#e8e0d0');
+    b.add(L => L.mir(T => { T.l(13, 15, 5, 12, B, 3); T.l(5, 12, 3, 4, B, 3); T.l(3, 4, 5, 0, B, 2); }));
+    b.add(L => { L.r(10, 38, 28, 10, H); L.mir(T => { T.e(7, 43, 7.5, 6, H); T.l(5, 38, 2, 31, H, 2); T.l(9, 38, 9, 33, H, 2); }); });
+    b.add(L => { L.e(24, 18, 13, 13, H); L.sy(22, 'ddddccba98765', H); });
+    b.add(L => L.sy(4, '111111222', '#8070b0')); b.r(23, 2, 2, 3, '#e85aff');
+    b.r(13, 20, 22, 4, INK); b.mir(T => { T.r(16, 21, 5, 2, '#e85aff'); T.p(17, 21, '#ffd0ff'); T.p(15, 20, '#e85aff'); });
+    for (let x = 17; x <= 30; x += 3) b.r(x, 27, 1, 6, INK); b.hl(15, 32, 26, '#221a3a'); b.hl(13, 34, 19, '#8070b0');
+    b.add(L => L.sy(40, '234', '#e85aff')); b.p(23, 41, '#ffd0ff'); b.hl(12, 35, 38, '#8070b0');
+  },
+  // 7 东海蛟皇：鹿角、长须、金瞳
+  b => {
+    const T0 = tone('#3fb0c8', '#1f6e8a', '#a8ecf4'), A = tone('#e8d49a', '#a88a4a', '#fff6d0'), Bl = tone('#e8f4c8', '#a8c090', '#ffffff');
+    b.add(L => L.mir(T => { T.l(16, 14, 10, 6, A, 2); T.l(10, 6, 9, 0, A, 2); T.l(12, 8, 5, 7, A, 2); T.l(5, 7, 3, 3, A); }));
+    b.add(L => L.mir(T => { T.e(8, 24, 4, 7, '#1f6e8a'); T.l(5, 20, 2, 16, '#1f6e8a', 2); T.l(5, 27, 1, 28, '#1f6e8a', 2); }));
+    b.add(L => { L.e(24, 22, 13, 11, T0); L.e(24, 33, 9.5, 9, T0); L.sy(40, '9abcdeg', T0); });
+    b.add(L => L.sy(8, '1122', RED)); for (let y = 14; y < 30; y += 3) for (let x = 14 + (y % 2); x < 34; x += 4) if (b.at(x, y) === T0) b.p(x, y, '#1f6e8a');
+    b.add(L => { L.e(24, 37, 6, 4, Bl); L.sy(41, '678', Bl); }, { sep: 1 });
+    b.mir(T => { T.l(13, 18, 20, 20, '#1f6e8a', 2); T.r(15, 21, 5, 3, INK); T.r(16, 21, 3, 3, '#f4c542'); T.r(17, 21, 1, 3, INK); T.p(16, 21, '#fff2a8'); });
+    b.p(21, 30, INK); b.p(26, 30, INK); b.hl(16, 31, 35, INK); for (let x = 17; x <= 30; x += 3) { b.p(x, 36, '#ffffff'); b.p(x, 34, '#ffffff'); }
+    b.add(L => L.mir(T => { T.l(17, 32, 9, 34, WHITE); T.l(9, 34, 4, 39, WHITE); T.l(4, 39, 3, 45, WHITE); }), { flat: 1 });
+  },
+  // 8 吞星巨兽：一张吞下星辰的巨口
+  b => {
+    const N = tone('#2a2860', '#141232', '#5a58a8');
+    b.add(L => { L.e(24, 25, 21, 21, N); spikes(L, 24, 25, 19, 24, 10, N, 3, 0.3); });
+    const r = seeded(8); for (let i = 0; i < 26; i++) { const x = 4 + Math.floor(r() * 40), y = 5 + Math.floor(r() * 40); if (b.at(x, y) === N) b.p(x, y, i % 4 ? '#8a88d8' : '#ffffff'); }
+    b.add(L => L.e(24, 29, 14, 12, '#0c0a1a'), { flat: 1, sep: 1 });
+    b.e(24, 31, 7, 6, '#6a3aa8'); b.e(24, 31, 5, 4, '#f4c542'); b.e(24, 31, 2.5, 2, '#ffffff'); b.p(18, 27, '#fff2a8'); b.p(30, 34, '#fff2a8'); b.p(29, 26, '#c27dff');
+    for (let i = 0; i < 7; i++) { const x = 12 + i * 4; b.r(x, 18 + Math.round(Math.abs(i - 3) * 1.2), 2, 3 + (i % 2), '#ffffff'); b.r(x + 1, 39 - Math.round(Math.abs(i - 3) * 1.2) - (i % 2), 2, 3 + (i % 2), '#e8e4f0'); }
+    for (const [x, y, s] of [[13, 11, 3], [22, 7, 4], [32, 10, 3], [38, 16, 2], [8, 17, 2]]) { b.r(x, y, s, s - 1, INK); b.r(x, y, s - 1, s - 1, '#f4c542'); b.p(x, y, '#ffffff'); }
+  },
+  // 9 仙府傀儡王：金盔红缨、白面蓝瞳、背后的机括光轮
+  b => {
+    const Gd = tone('#ecb43c', '#a8742a', '#fff2a8');
+    b.add(L => { L.e(24, 20, 21, 20, '#a8742a'); L.e(24, 20, 17.5, 16.5, null); spikes(L, 24, 20, 20, 23, 12, '#a8742a', 3); }, { flat: 1 });
+    b.add(L => { L.sy(38, 'dgjkllllll', Gd); }); b.mir(T => { T.e(8, 42, 6, 4, '#fff2a8'); T.hl(4, 12, 45, '#a8742a'); });
+    b.add(L => L.sy(13, '8abbbbbbbbbbbbbaa98765', WHITE), { sep: 1 });
+    b.add(L => { L.e(24, 13, 13, 10, Gd); L.r(11, 13, 4, 14, Gd); L.r(33, 13, 4, 14, Gd); L.r(15, 13, 18, 8, null); L.sy(13, '56789', Gd); L.r(22, 18, 4, 4, Gd); });
+    b.add(L => L.sy(0, '1122221', RED)); b.r(23, 9, 2, 3, '#4aa8ff'); b.p(23, 9, '#ffffff');
+    b.mir(T => { T.r(15, 23, 6, 2, INK); T.r(16, 23, 4, 2, '#4aa8ff'); T.p(17, 23, '#ffffff'); T.r(18, 25, 1, 7, '#d8404a'); });
+    b.hl(21, 26, 31, '#b4b0cc'); b.p(21, 30, '#b4b0cc'); b.p(26, 30, '#b4b0cc'); b.r(23, 32, 2, 3, '#b4b0cc');
+    b.add(L => L.sy(41, '234', '#4aa8ff')); b.p(23, 42, '#ffffff');
+  },
+  // 10 混沌魔神残影：只剩轮廓与一双眼
+  b => {
+    const K = tone('#221a40', '#0e0a1e', '#5a3a9a');
+    b.add(L => { L.e(24, 34, 18, 16, K); L.e(24, 16, 10, 10.5, K); L.mir(T => { T.l(17, 9, 11, 3, K, 3); T.l(11, 3, 12, 0, K, 2); T.l(8, 30, 2, 26, K, 3); T.l(7, 38, 1, 40, K, 3); }); });
+    b.mir(T => { T.r(17, 14, 5, 2, '#ffffff'); T.p(16, 13, '#c27dff'); T.p(22, 16, '#c27dff'); });
+    for (let x = 18; x <= 29; x++) b.p(x, 21 + (x % 2), x % 3 ? '#ffffff' : '#c27dff');
+    b.l(24, 26, 20, 38, '#c27dff'); b.l(20, 38, 22, 47, '#4aa8ff'); b.l(27, 30, 31, 37, '#ff6b6b'); b.l(31, 37, 29, 44, '#ffb23f'); b.l(15, 32, 13, 40, '#62d26f'); b.l(33, 40, 36, 46, '#f4e04a');
+  },
+];
+// 首领半身像：k 为地图序号 0～10
+ART.boss = function (k) {
+  k = Math.max(0, Math.min(BOSS.length - 1, k | 0));
+  return cached('boss|' + k, () => {
+    const S = BOSS[k]; let c;
+    if (typeof S === 'function') { const b = new Buf(48, 48); S(b); c = b.cv({ max: 15 }); } else c = person(S, 'n').cv({ max: 15 });
+    return k === 10 ? ghost(c) : c;
+  });
+};
+
+// ---------- 开场四格画 200×120 ----------
+const ME0 = { hair: '#2a2230', skin: '#f2c9a0', f: 0 };
+function frameEdge() { R(0, 0, 200, 1, INK); R(0, 119, 200, 1, INK); R(0, 0, 1, 120, INK); R(199, 0, 1, 120, INK); }
+function crowd(xs, y, cols) { xs.forEach((x, i) => { const c = cols[i % cols.length], yy = y + (i * 7 % 4); disc(x, yy, 5, c); R(x - 7, yy + 4, 15, 30, c); R(x - 2, yy - 8, 4, 4, c); }); }
+const INTRO = [
+  // 一、雨夜，被扔出山门
+  look => {
+    vgrad(0, 0, 200, 120, ramp(['#070818', '#121a40', '#263466', '#3a4a86'], 6), 0.34);
+    paintRidge(ridgeLine(5, 200, 60, 34, 3, 2), 100, '#1c2650', '#34447e');
+    // 山门
+    R(108, 62, 84, 6, '#4a4a6a'); R(108, 62, 84, 1, '#7a7aa0');
+    for (const x of [116, 180]) { R(x, 30, 6, 32, '#5a2430'); R(x, 30, 2, 32, '#8a3a44'); }
+    R(124, 34, 54, 28, '#141228'); R(126, 36, 24, 26, '#2a1c2c'); R(152, 36, 24, 26, '#241826'); R(150, 36, 2, 26, '#0a0816');
+    roof(151, 18, 56, 96, 10, { l: '#4a5a80', m: '#34446a', d: '#222e50', e: '#7a90b8', u: '#101428' }, { big: true }); plaque(151, 26, 16, true);
+    // 长阶
+    for (let i = 0; i < 13; i++) { const y = 68 + i * 4, x0 = 104 - i * 6, w = 92 + i * 3; R(x0, y, w, 4, i % 2 ? '#3a3e62' : '#464a72'); R(x0, y, w, 1, '#6a70a0'); }
+    R(0, 112, 200, 8, '#1c2040'); dR(0, 108, 60, 4, '#1c2040', 8);
+    for (const x of [112, 190]) { lantern(x, 40, true); glow(x, 44, 10, '#ff8a44', 0.5); }
+    const z = ART.fighter('zhao', 'idle0', true); ctx.drawImage(z, 150, 26);
+    ctx.drawImage(ART.fighter({ look, realm: 0 }, 'down'), 22, 78);
+    R(74, 110, 9, 6, '#6a5236'); R(75, 109, 7, 1, '#8a6e48'); R(77, 107, 3, 2, '#8a6e48');
+    // 雨
+    const r = seeded(3); ctx.globalAlpha = 0.5; for (let i = 0; i < 90; i++) { const x = r() * 220, y = r() * 120, l = 4 + r() * 5; line(x, y, x - l * 0.35, y + l, i % 3 ? '#8fa0d8' : '#c8d4f8'); } ctx.globalAlpha = 1;
+    for (let i = 0; i < 9; i++) R(10 + i * 21 + (i * 7 % 9), 114 + (i % 3), 5, 1, '#5a6aa8');
+  },
+  // 二、当众退婚
+  look => {
+    R(0, 0, 200, 120, '#3a2030');
+    wallBays(100, 14, 204, 58, { wall: '#e0c8a0', pil: '#a8323c', pilL: '#d8605a', pilD: '#6a1c26', beam: '#3a2a3a', beamL: '#f4c542', frame: '#7a2a22', paper: '#f6e4b0', lat: '#c89a5a', panel: '#b85a44', door: '#8a2c24', doorD: '#4f1818', doorL: '#f4c542' }, { bays: 7 });
+    R(0, 0, 200, 14, '#2a1826'); for (let x = 4; x < 200; x += 12) { R(x, 10, 8, 3, '#a8323c'); R(x, 13, 8, 1, '#f4c542'); }
+    for (const x of [30, 170]) { R(x - 6, 12, 12, 44, '#b02a34'); R(x - 6, 12, 2, 44, '#d8484a'); R(x - 4, 20, 8, 1, '#f4c542'); R(x - 4, 48, 8, 1, '#f4c542'); R(x - 2, 28, 4, 12, '#f4c542'); R(x - 6, 56, 3, 3, '#b02a34'); R(x + 3, 56, 3, 3, '#b02a34'); }
+    // 地面与台阶
+    R(0, 72, 200, 48, '#b8a48c'); R(0, 72, 200, 1, '#e8d8b8'); for (let k = 0; k < 6; k++) R(0, 76 + k * k * 1.2 + k * 3, 200, 1, '#9a8672'); for (let i = -6; i <= 6; i++) line(100 + i * 16, 73, 100 + i * 40, 120, '#9a8672');
+    for (let i = 0; i < 3; i++) { R(112 - i * 5, 80 + i * 4, 70 + i * 10, 4, i % 2 ? '#c8b89c' : '#d8c8ac'); R(112 - i * 5, 80 + i * 4, 70 + i * 10, 1, '#f0e4c8'); }
+    R(118, 76, 58, 4, '#a8323c'); R(118, 76, 58, 1, '#f4c542');
+    // 光柱
+    ctx.globalAlpha = 0.14; for (let k = 0; k < 3; k++) for (let y = 14; y < 120; y++) { const u = (y - 14) / 106; R(44 + k * 8 + u * (12 + k * 4), y, 16 + u * 24, 1, '#fff2c8'); } ctx.globalAlpha = 1;
+    const D2 = ART.dims.fighter;
+    ctx.drawImage(ART.fighter('mu', 'stand0', true), 148 - (D2.w - 1 - D2.ax), 80 - D2.ay);
+    ctx.drawImage(ART.fighter('jian', 'stand0', true), 172 - (D2.w - 1 - D2.ax), 78 - D2.ay);
+    const s = ART.sit(look, 0, { gray: false }); ctx.drawImage(s, 62, 104 - s.height);
+    // 撕碎的婚书
+    for (const [x, y, w] of [[104, 60, 3], [112, 70, 2], [98, 78, 3], [118, 86, 2], [108, 94, 3], [92, 90, 2], [124, 66, 2]]) { R(x, y, w, 2, '#fff6e0'); R(x, y + 1, 1, 1, '#c8323c'); }
+    crowd([8, 24, 40, 6, 22], 96, ['#2a1826', '#3a2030', '#241424']); crowd([196, 182, 190], 98, ['#2a1826', '#3a2030']);
+  },
+  // 三、破庙里，月光照着一枚戒指
+  look => {
+    R(0, 0, 200, 120, '#12101e'); vgrad(0, 0, 200, 80, ramp(['#0e0c1a', '#1a1830', '#262444'], 5), 0.34);
+    // 破屋顶的窟窿与月
+    R(84, 0, 46, 16, '#263466'); disc(112, 6, 6, '#f4f6ff'); R(84, 14, 8, 3, '#1a1830'); R(120, 12, 10, 4, '#1a1830'); line(84, 0, 92, 16, '#3a3458', 2); line(130, 0, 122, 14, '#3a3458', 2);
+    for (const [x, w] of [[0, 30], [44, 34], [140, 28], [176, 24]]) { R(x, 10 + (x % 7), w, 3, '#2e2a48'); R(x, 10 + (x % 7), w, 1, '#4a4468'); }
+    // 柱与残像
+    for (const x of [22, 178]) { R(x - 5, 14, 10, 86, '#3a2a34'); R(x - 5, 14, 3, 86, '#5a3e48'); R(x - 7, 96, 14, 5, '#3a3458'); }
+    line(150, 16, 168, 98, '#3a2a34', 6); R(60, 44, 34, 42, '#2e2a48'); disc(77, 40, 11, '#2e2a48'); R(64, 50, 4, 30, '#3e3a5c'); disc(74, 37, 8, '#3e3a5c'); R(56, 84, 44, 8, '#3a3458'); R(56, 84, 44, 1, '#55506e');
+    // 地面
+    R(0, 98, 200, 22, '#221e34'); R(0, 98, 200, 1, '#3e3a5c'); const r = seeded(4); for (let i = 0; i < 26; i++) { const x = r() * 200, y = 101 + r() * 17; R(x, y, 2 + r() * 4, 1, i % 2 ? '#34304a' : '#16142a'); }
+    // 月光
+    for (let y = 16; y < 110; y++) { const k = (y - 16) / 94, x0 = 88 - k * 14, x1 = 126 + k * 26; ctx.globalAlpha = 0.2; dR(x0, y, x1 - x0, 1, '#b8c8ff', y < 98 ? 6 : 10); } ctx.globalAlpha = 1;
+    ellipse(120, 106, 30, 5, '#4a4a78'); ellipse(120, 106, 22, 3, '#6a6aa0');
+    // 蛛网
+    for (let k = 0; k < 5; k++) line(27, 14, 27 + 18 * Math.cos(k * 0.4), 14 + 18 * Math.sin(k * 0.4), '#55506e'); for (const rr of [7, 13]) for (let k = 0; k < 4; k++) line(27 + rr * Math.cos(k * 0.4), 14 + rr * Math.sin(k * 0.4), 27 + rr * Math.cos((k + 1) * 0.4), 14 + rr * Math.sin((k + 1) * 0.4), '#55506e');
+    // 戒指
+    glow(120, 103, 16, '#7fe0f0', 0.7); R(117, 101, 6, 1, '#fff2a8'); R(116, 102, 1, 3, '#f4c542'); R(123, 102, 1, 3, '#a8742a'); R(117, 105, 6, 1, '#a8742a'); R(119, 99, 3, 2, '#7fe0f0'); R(119, 99, 1, 1, '#ffffff');
+    for (const [x, y] of [[108, 60], [126, 44], [116, 76], [132, 84], [104, 88], [122, 30]]) R(x, y, 1, 1, '#e8f0ff');
+    const s = ART.sit(look, 0); ctx.drawImage(s, 60, 110 - s.height);
+  },
+  // 四、晨光里，老祖现身
+  look => {
+    vgrad(0, 0, 200, 96, ramp(['#2c3878', '#7a62a4', '#e89a9c', '#ffcf9a', '#fff0c0'], 6), 0.34);
+    disc(118, 84, 16, '#fff6d0'); glow(118, 84, 30, '#ffd88a', 0.6);
+    paintRidge(ridgeLine(11, 200, 78, 30, 3, 2), 104, '#a48ebc', '#ffdccc');
+    paintRidge(ridgeLine(14, 200, 92, 20, 5, 1.5), 112, '#78689e', '#f0c4b8');
+    for (let i = 0; i < 7; i++) ctx.drawImage(cloudSprite(20 + i, 24 + (i * 9 % 16), '#fff6e8', '#f8d8cc', '#d8b0c0'), i * 32 - 18, 98 + (i * 5 % 8));
+    R(0, 112, 200, 8, '#f8d8cc');
+    // 崖
+    rock(0, Array.from({ length: 84 }, (_, x) => Math.round(92 + (x > 60 ? (x - 60) * (x - 60) * 0.045 : 0) + Math.sin(x * 0.5) * 1.2)), 120, ['#3e3a5c', '#5a5478', '#7c7698', '#a8a2c0'], 6, { moss: G.moss });
+    pine(10, 93, 30, ['#22405a', '#3a6a62', '#6a9a78']);
+    const st = ART.standRealm(look, 0, 0); ctx.drawImage(st, 44, 93 - st.height);
+    // 戒中飘出的魂烟与老祖
+    for (let i = 0; i < 22; i++) { const k = i / 21, x = 66 + k * 56 + Math.sin(k * 7) * 3, y = 78 - k * 30 - Math.sin(k * 3.14) * 6; ctx.globalAlpha = 0.25 + k * 0.4; dR(x - 2 - k * 4, y - 2 - k * 3, 5 + k * 9, 4 + k * 7, '#c0dcff', 8); } ctx.globalAlpha = 1;
+    glow(140, 40, 30, '#8fd0ff', 0.45); R(64, 77, 2, 2, '#7fe0f0');
+    ctx.drawImage(ART.portrait('elder', 'joy'), 116, 12);
+    for (const [x, y] of [[104, 30], [170, 22], [176, 52], [108, 58], [160, 8]]) { R(x, y, 1, 1, '#ffffff'); R(x - 1, y, 3, 1, 'rgba(255,255,255,0.5)'); R(x, y - 1, 1, 3, 'rgba(255,255,255,0.5)'); }
+    if (ART.drawCrane) ART.drawCrane(30, 26, 0);
+  },
+];
+// 开场四格画：n = 0～3，200×120。look 可传主角的 { hair, skin, f }
+ART.introPanel = function (n, look) {
+  n = Math.max(0, Math.min(3, n | 0)); look = look || ME0;
+  return cached(['intro', n, look.hair, look.skin, look.f ? 1 : 0].join('|'), () => on(mk(200, 120), () => { INTRO[n](look); frameEdge(); }));
+};
+
+// ---------- 章末结算底图、轮回殿背景 200×120 ----------
+const BACKDROP = {
+  // 宣纸上的淡墨远山与一轮朱日
+  chapter: () => {
+    R(0, 0, 200, 120, '#efe3c4'); const r = seeded(12); for (let i = 0; i < 160; i++) R(r() * 200, r() * 120, 1 + r() * 3, 1, i % 2 ? '#e6d8b4' : '#f6ecd0');
+    disc(160, 30, 13, '#e8a08a'); disc(160, 30, 11, '#d8605a'); dR(146, 30, 30, 14, '#efe3c4', 6);
+    paintRidge(ridgeLine(31, 200, 76, 30, 3, 2), 104, '#b8ac98', '#efe3c4', { lit: '#c8bca4', dark: '#a89c88' });
+    paintRidge(ridgeLine(37, 200, 92, 22, 5, 1.5), 116, '#8a8478', '#e6d8b4', { lit: '#a8a090', dark: '#6e6860' });
+    dR(0, 100, 200, 20, '#efe3c4', 8); R(0, 114, 200, 6, '#e6d8b4');
+    for (const [x, y] of [[30, 40], [44, 34], [56, 42]]) { R(x, y, 4, 1, '#7a6650'); R(x + 1, y - 1, 2, 1, '#7a6650'); R(x + 4, y + 1, 3, 1, '#7a6650'); }
+    for (const y of [3, 116]) { R(4, y, 192, 1, '#b98a4c'); } R(4, 5, 192, 1, '#dccca4'); R(4, 114, 192, 1, '#dccca4');
+  },
+  // 轮回殿：幽蓝大殿里一座缓缓转动的命轮
+  samsara: () => {
+    vgrad(0, 0, 200, 120, ramp(['#060612', '#101030', '#1e1a4a', '#2e2460'], 6), 0.34);
+    const r = seeded(21); for (let i = 0; i < 70; i++) { const b = r(); R(r() * 200, r() * 90, 1, 1, b > 0.7 ? '#ffffff' : b > 0.4 ? '#9aa2dc' : '#55508a'); }
+    glow(100, 52, 44, '#6a3aa8', 0.5); glow(100, 52, 26, '#f4c542', 0.35);
+    for (let i = 0; i < 96; i++) { const a = i * Math.PI / 48; for (const [rr, c] of [[38, '#a8742a'], [37, '#f4c542'], [30, '#6a5aa0'], [14, '#f4c542']]) R(100 + Math.cos(a) * rr, 52 + Math.sin(a) * rr, 1, 1, c); }
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6, x = 100 + Math.cos(a) * 34, y = 52 + Math.sin(a) * 34; line(100 + Math.cos(a) * 15, 52 + Math.sin(a) * 15, 100 + Math.cos(a) * 30, 52 + Math.sin(a) * 30, '#4a3e80'); disc(x, y, 3, INK); disc(x, y, 2, i % 3 ? '#8a7ac8' : '#fff2a8'); R(x - 1, y - 1, 1, 1, '#ffffff'); }
+    disc(100, 52, 8, '#1e1a4a'); disc(100, 52, 6, '#f4c542'); disc(99, 51, 3, '#fff2a8');
+    for (const x of [14, 40, 160, 186]) { const h = x < 30 || x > 170 ? 104 : 86; R(x - 5, 110 - h, 10, h, '#2a2456'); R(x - 5, 110 - h, 3, h, '#4a4488'); R(x + 3, 110 - h, 2, h, '#16122e'); R(x - 7, 106 - h, 14, 4, '#3a3470'); R(x - 7, 106, 14, 4, '#3a3470'); R(x - 1, 114 - h, 2, 10, '#f4c542'); }
+    R(0, 110, 200, 10, '#16122e'); R(0, 110, 200, 1, '#4a4488'); for (let i = -7; i <= 7; i++) line(100 + i * 12, 111, 100 + i * 20, 120, '#2a2456'); ctx.globalAlpha = 0.25; dR(70, 111, 60, 9, '#f4c542', 6); ctx.globalAlpha = 1;
+    ellipse(100, 108, 26, 4, '#3a3470'); ellipse(100, 107, 22, 3, '#6a5aa0'); for (let i = 0; i < 7; i++) { R(80 + i * 6, 102, 4, 4, '#c27dff'); R(81 + i * 6, 101, 2, 1, '#f0dcff'); }
+  },
+};
+// 结算 / 轮回底图 200×120。kind：'chapter' 章末结算 | 'samsara' 轮回殿
+ART.backdrop = function (kind) { return BACKDROP[kind] ? cached('bd|' + kind, () => on(mk(200, 120), BACKDROP[kind])) : null; };
+
+// ---------- 场景两侧延伸：逻辑宽大于 200 时，把 200 宽的场景居中画好后调用，用边缘镜像补满两侧 ----------
+// 用法：画布宽 W（200～216，按 1:1 逻辑像素），先 ctx.translate((W-200)/2, 0) 画洞府 / 历练 / 舞台，再 ART.extendSides(W)。
+// 宽度不足 200（最少 180）时不需要调用，直接居中裁掉两侧即可。
+ART.extendSides = function (W2) {
+  const m = Math.ceil((W2 - 200) / 2), c = ctx.canvas; if (m <= 0) return;
+  ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.setTransform(-1, 0, 0, 1, 2 * m, 0); ctx.drawImage(c, m, 0, m, c.height, m, 0, m, c.height);
+  ctx.setTransform(-1, 0, 0, 1, 2 * (m + 200), 0); ctx.drawImage(c, 200, 0, m, c.height, 200, 0, m, c.height);
+  ctx.restore();
+};
 
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
