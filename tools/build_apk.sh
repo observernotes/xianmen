@@ -29,6 +29,6 @@ if [ ! -f "$KS" ]; then
   keytool -genkeypair -keystore "$KS" -storepass "$KS_PASS" -keypass "$KS_PASS" -alias xiantu \
     -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=Xiantu Feichai, O=Indie, C=CN" >/dev/null 2>&1
 fi
-"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$KS_PASS" --ks-key-alias xiantu --out "$ROOT/dist/xiantu.apk" "$OUT/app.aligned.apk"
+"$BT/apksigner" sign --v4-signing-enabled false --ks "$KS" --ks-pass "pass:$KS_PASS" --ks-key-alias xiantu --out "$ROOT/dist/xiantu.apk" "$OUT/app.aligned.apk"
 "$BT/apksigner" verify --verbose "$ROOT/dist/xiantu.apk" | head -5
 ls -la "$ROOT/dist/xiantu.apk"

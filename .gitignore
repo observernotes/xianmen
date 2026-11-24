@@ -4,3 +4,4 @@ node_modules/
 android/build/
 android/assets/
 android/release.keystore
+dist/*.idsig
