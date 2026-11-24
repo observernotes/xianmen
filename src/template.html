@@ -82,6 +82,31 @@ img.px, canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 #cult.ready .xbar i { background: linear-gradient(var(--gold), #c08a1a); }
 #cult.ready #xpTxt { color: var(--gold); }
 #cult.away { opacity: .85; }
+#stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: none; }
+#stats button { border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 3px 2px; min-width: 0;
+  background: var(--panel); color: var(--text);
+  box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), inset 0 2px 0 0 var(--panel-hi); }
+#stats button .k { color: var(--muted); white-space: nowrap; }
+#stats button b { font-weight: normal; color: var(--jade); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-variant-numeric: tabular-nums; }
+#stats button[data-s="atk"] b { color: #ff9a8a; }
+#stats button[data-s="inc"] b { color: var(--gold); }
+#stats button[data-s="big"] { background: #3a2030; }
+#stats button[data-s="big"] .k { color: #f0c8c8; }
+#stats button[data-s="big"] b.lo { color: #ff7a7a; }
+#stats button[data-s="big"] b.md { color: var(--gold); }
+#stats button[data-s="big"] b.hi { color: var(--jade); }
+#stats button[data-s="big"].soon { animation: navHint 1s steps(2) infinite; }
+#stats button:active { transform: translateY(1px); }
+.grow-sec { display: flex; flex-direction: column; gap: 4px; }
+.grow-sec h3 { margin: 0; font-size: var(--fs); font-weight: normal; display: flex; justify-content: space-between; gap: 8px; color: var(--seal); }
+.grow-sec h3 span { color: var(--paper-ink); font-variant-numeric: tabular-nums; }
+.grow-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 6px; background: #f7eed6; }
+.grow-row .gn { min-width: 0; }
+.grow-row .gm { font-variant-numeric: tabular-nums; color: #1d8a63; }
+.grow-row .gm.low { color: var(--seal); }
+.grow-row .ga { justify-self: end; }
+.grow-row .ga .btn { padding: 2px 8px; }
+.grow-row .tipx { color: var(--paper-mute); grid-column: 1 / -1; }
 @keyframes readyPulse { 50% { background: #6a3a1a; } }
 #date { color: var(--muted); white-space: nowrap; }
 .res { display: flex; align-items: center; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -132,6 +157,35 @@ img.px, canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 #goal .lab { color: var(--seal); background: var(--paper); padding: 0 4px; flex: none; }
 #goal .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #goal .rw { color: var(--gold); flex: none; }
+#goal { cursor: pointer; }
+#goal .q { flex: none; color: var(--muted); }
+/* 新手引导 */
+#guide { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+#guide .spot { position: fixed; box-shadow: 0 0 0 3px var(--gold), 0 0 0 9999px rgba(8, 6, 14, .62); pointer-events: none; animation: spotPulse 1s steps(2) infinite; }
+#guide .spot.none { left: 50%; top: 40%; width: 0; height: 0; box-shadow: 0 0 0 9999px rgba(8, 6, 14, .62); animation: none; }
+@keyframes spotPulse { 50% { box-shadow: 0 0 0 5px #fff6c0, 0 0 0 9999px rgba(8, 6, 14, .62); } }
+#guide .garrow { position: fixed; color: var(--gold); font-size: calc(var(--fs) * 2); line-height: 1; transform: translate(-50%, 0); text-shadow: 2px 2px 0 var(--ink); animation: arrowBob .6s steps(2) infinite; pointer-events: none; }
+#guide .garrow.up { animation-name: arrowBobUp; }
+@keyframes arrowBob { 50% { margin-top: 6px; } }
+@keyframes arrowBobUp { 50% { margin-top: -6px; } }
+#guide .gbox { position: fixed; left: 0; right: 0; margin: 0 auto; width: calc(100% - 24px); max-width: 456px; box-sizing: border-box; display: flex; gap: 8px; align-items: flex-start; padding: 10px; pointer-events: auto;
+  background: var(--paper); color: var(--paper-ink);
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--paper-lo); }
+#guide .gav { width: 40px; height: 40px; flex: none; }
+#guide .gmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+#guide .gtext b { color: var(--seal); font-weight: normal; }
+#guide .gbtns { display: flex; gap: 8px; justify-content: flex-end; }
+#guide .gbtns .btn { flex: none; padding: 4px 12px; }
+#guide .gbtns .skip { background: none; border: 0; color: var(--paper-mute); cursor: pointer; padding: 4px 6px; }
+/* 推荐操作的按钮闪光 */
+#nav button.hint { animation: navHint 1s steps(2) infinite; }
+#nav button.locked img { opacity: .3; filter: grayscale(1); }
+#nav button.locked span:not(.badge) { color: #5a5470; }
+#nav button.locked .lk { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); color: #8a83a0; font-size: .8em; white-space: nowrap; }
+@keyframes navHint { 50% { background: #6a5a2a; box-shadow: 0 -2px 0 0 var(--gold), 0 2px 0 0 var(--gold), -2px 0 0 0 var(--gold), 2px 0 0 0 var(--gold), inset 0 -3px 0 0 var(--panel-lo); } }
+.guide-sec { display: flex; gap: 8px; align-items: flex-start; }
+.guide-sec img { flex: none; }
+.guide-sec b { font-weight: normal; color: var(--seal); }
 /* 消息 */
 #feed { flex: 1; min-height: 40px; overflow: hidden; padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
 #feed div { flex: none; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -285,6 +339,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
       <span id="date">第1年</span>
       <button class="iconbtn" id="btnSpeed" aria-label="游戏速度">×1</button>
       <button class="iconbtn" id="btnSound" aria-label="声音开关"></button>
+      <button class="iconbtn" id="btnHelp" aria-label="玩法指南">？</button>
     </div>
     <div class="row r2">
       <span class="res" title="灵石"><img class="px" data-icon="stone" alt=""><b id="vStone">0</b></span>
@@ -301,10 +356,16 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
     <div id="tip" hidden></div>
   </div>
   <button id="cult" class="pxbox" aria-label="修为">
-    <span class="row"><span id="realm">炼气初期</span><span id="xpTxt" class="num"></span><span id="pw" class="num"></span></span>
+    <span class="row"><span id="realm">炼气初期</span><span id="xpTxt" class="num"></span></span>
     <span class="xbar"><i id="xpFill"></i></span>
   </button>
-  <div id="goal" class="pxbox"><span class="lab">目标</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span></div>
+  <div id="stats">
+    <button data-s="cul" aria-label="修炼速度"><span class="k">修炼/周天</span><b id="sCul">+1</b></button>
+    <button data-s="atk" aria-label="战力"><span class="k">战力</span><b id="sAtk">10</b></button>
+    <button data-s="inc" aria-label="灵石收入"><span class="k">灵石/周天</span><b id="sInc">+11</b></button>
+    <button data-s="big" id="sBigBtn" aria-label="下一件大事"><span class="k" id="sBigK">三年之约</span><b id="sBig">胜算 --</b></button>
+  </div>
+  <div id="goal" class="pxbox" role="button" aria-label="当前目标，点击查看做法"><span class="lab">目标</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span><span class="q">？</span></div>
   <div id="feed" class="pxbox"></div>
   <div id="nav">
     <button data-nav="exp"><img class="px" data-icon="sword" alt=""><span>历练</span></button>
@@ -316,6 +377,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 </div>
 <div id="modal" hidden></div>
 <div id="intro" hidden></div>
+<div id="guide" hidden><div class="spot"></div><div class="garrow">▼</div><div class="gbox"><img class="px gav" alt=""><div class="gmain"><div class="gtext"></div><div class="gbtns"></div></div></div></div>
 
 <script>/*EVENTS_JS*/</script>
 <script>/*LOGIC_JS*/</script>

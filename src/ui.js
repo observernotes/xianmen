@@ -124,7 +124,7 @@ let lastMode = 'home';
 const D = () => ART.dims;
 function fitScene() {
   const app = $('#app'), wrap = $('#sceneWrap');
-  const others = ['#top', '#cult', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0) + 6 * 6 + 16;
+  const others = ['#top', '#cult', '#stats', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0) + 6 * 7 + 16;
   const avail = app.clientHeight - others - 70;
   const w = wrap.clientWidth || 300;
   const h = Math.max(160, Math.min(250, Math.floor(avail / w * W)));
@@ -520,6 +520,8 @@ function loadState(s) {
   if (!s || s.v !== 2) return;
   st = s;
   st.flags = st.flags || {}; st.seenTips = st.seenTips || {}; st.beaten = st.beaten || {}; st.lifePills = st.lifePills || {}; st.lives = st.lives || [];
+  if (!st.xs) { st.p.xp *= 10; st.xs = 10; } // 旧存档：修为数值放大了 10 倍
+  lastExp = null;
   L.hook = onHook;
   ART.clearCache(); avCache.clear();
   adv = null; lastMode = st.exp ? 'adv' : 'home';
@@ -535,7 +537,6 @@ function onHook(type, data) {
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-    tip('ready', `修为圆满了！点场景下方金色的修为条，冲击${nxt}。大境界有天劫，成功后战力和寿元暴涨。`);
   } else if (type === 'goal') { SFX.goal(); floatText(100, 60, data.rw ? `目标达成 灵石+${fmt(data.rw)}` : '目标达成', '#ffe39a'); }
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', '宗门贡献够了，去【宗门】晋升身份吧！身份越高，俸禄越多，宝库能换的东西越好。'); }
 }
@@ -562,8 +563,22 @@ function updateHUD() {
   if (p.r >= 9) $('#xpTxt').textContent = '已证大道';
   else if (ready) $('#xpTxt').textContent = `修为圆满 · 点此冲击${p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n}`;
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n}`;
-  else $('#xpTxt').textContent = `${fmt(p.xp)} / ${fmt(need)}  +${fmt(L.gain(st))}/周天`;
-  $('#pw').textContent = '战力 ' + fmt(L.power(st));
+  else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}`;
+  $('#sCul').textContent = '+' + fmt(L.gain(st));
+  $('#sAtk').textContent = fmt(L.power(st));
+  $('#sInc').textContent = '+' + fmt(L.income(st));
+  const nb = L.nextBig(st), bb = $('#sBig');
+  if (nb.k === 'pact') {
+    $('#sBigK').textContent = `约战${nb.left}周天`;
+    bb.textContent = '胜算 ' + L.pct(nb.info.p);
+    bb.className = nb.info.p < 0.45 ? 'lo' : nb.info.p < 0.8 ? 'md' : 'hi';
+  } else {
+    $('#sBigK').textContent = nb.n;
+    bb.textContent = nb.left + '周天后';
+    bb.className = 'md';
+  }
+  $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
+  $$('#nav button').forEach(b => b.classList.toggle('locked', !!navLock(b.dataset.nav)));
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
   $('#cult').classList.toggle('away', !!st.exp);
@@ -571,10 +586,20 @@ function updateHUD() {
   $('#goalTxt').textContent = g ? L.goalText(st, g) : '大道已成';
   $('#goalRw').textContent = g && g.rw ? '灵石+' + fmt(g.rw) : '';
   setBadge('exp', !st.exp && !ready && p.r < 9 ? '闲' : '');
+  const gd = st.guide && st.guide.done;
+  const rec = !gd || ready || p.r >= 9 ? '' : !st.exp ? 'exp' : st.stones >= L.hCost('array', st.home.array) ? 'home' : '';
+  $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
   setBadge('home', L.HOME.some(b => st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k])) ? '↑' : '');
   setBadge('sect', L.canPromote(st) ? '升' : '');
   setBadge('market', L.desperate(st) && (st.lifePills[p.r] || 0) < 3 ? '!' : '');
   if (feedDirty) renderFeed();
+}
+// 渐进解锁：一开始只给历练、洞府、人物，免得一上来不知道点哪
+function navLock(nav) {
+  if (!st || st.rebirth) return '';
+  if (nav === 'market' && st.stats.exp < 1) return '坊市要等你先出去历练一趟、见过世面再说。先点【历练】。';
+  if (nav === 'sect' && !st.sect && st.p.r < 1) return '宗门只收筑基修士。修为圆满后突破到筑基，三大宗门会上门抢人。';
+  return '';
 }
 function setBadge(nav, text) {
   const btn = document.querySelector(`[data-nav="${nav}"]`);
@@ -750,7 +775,19 @@ function itemLine(it) {
   if (!it.equip) return `<div class="quote">得到${nm}，不如身上的，卖得灵石 ${fmt(it.value)}</div>`;
   return `<div class="quote">获得${nm}！${it.kind === 'w' ? `战力 ×${L.WEAPONS[it.tier].m}` : `修炼速度 ×${L.ARTS[it.tier].m}`}</div>`;
 }
+function deltaHTML(res) {
+  const d = [];
+  const arrow = (a, b) => (b > a ? '<span class="jadet">▲</span>' : '<span class="seal">▼</span>');
+  if (res.pw1 !== undefined && fmt(res.pw1) !== fmt(res.pw0)) d.push(`<dt>战力</dt><dd class="num">${fmt(res.pw0)} → <b>${fmt(res.pw1)}</b> ${arrow(res.pw0, res.pw1)}</dd>`);
+  if (res.gain1 !== undefined && dec(res.gain1) !== dec(res.gain0)) d.push(`<dt>修炼/周天</dt><dd class="num">+${dec(res.gain0)} → <b>+${dec(res.gain1)}</b> ${arrow(res.gain0, res.gain1)}</dd>`);
+  if (!st.pact && res.pw1 !== undefined) {
+    const a = L.pactAssist(st), p0 = L.duelChance(res.pw0 * a, L.PACT_POWER), p1 = L.duelChance(res.pw1 * a, L.PACT_POWER);
+    if (L.pct(p0) !== L.pct(p1)) d.push(`<dt>约战胜算</dt><dd class="num">${L.pct(p0)} → <b>${L.pct(p1)}</b> ${arrow(p0, p1)}</dd>`);
+  }
+  return d.length ? `<dl class="grid2 delta">${d.join('')}</dl>` : '';
+}
 function showExpResult(res) {
+  lastExp = res;
   const rg = L.REGIONS[res.k];
   const lines = [`<div class="center">${myAvImg(52)}</div>`];
   if (res.ok) {
@@ -758,10 +795,12 @@ function showExpResult(res) {
     lines.push(`<dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(res.stones)}${res.leap ? '（翻倍）' : ''}</dd><dt>修为</dt><dd class="num">+${fmt(res.xp)}</dd>${res.pills ? `<dt>破境丹</dt><dd>+${res.pills}</dd>` : ''}${res.herbs ? `<dt>灵草</dt><dd class="num">+${fmt(res.herbs)}</dd>` : ''}${res.treasure ? `<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>` : ''}${res.contrib ? `<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>` : ''}</dl>`);
     for (const it of res.items) lines.push(itemLine(it));
     if (res.fortune) lines.push(`<div class="quote seal">奇遇！${esc(res.fortune)}</div>`);
+    if (res.first) lines.push('<div class="quote">戒中老祖：“第一趟，老夫暗中替你挡了两爪子。以后可得靠你自己了。”</div>');
+    lines.push(deltaHTML(res));
     SFX.coin();
   } else {
     lines.push('<div class="center big seal">铩羽而归</div>');
-    lines.push(`<p class="center">敌人太强，负伤三周天。带回灵石 ${fmt(res.stones)}。</p><p class="center muted">提升战力后再来，或选更稳妥的地方。</p>`);
+    lines.push(`<p class="center">敌人太强，负伤三周天（修炼减半、战力 ×0.6）。带回灵石 ${fmt(res.stones)}。</p><p class="center muted">提升战力后再来，或选更稳妥的地方。</p>`);
     SFX.fail();
   }
   const again = L.unlocked(st, res.k) && !L.isReady(st);
@@ -779,7 +818,7 @@ function showHome() {
       <div class="right"><button class="btn sm ${st.stones >= c && !max ? 'gold' : 'alt'}" data-k="${b.k}" ${max || st.stones < c ? 'disabled' : ''}>${max ? '已满级' : `${iconHTML('stone', 12)} ${fmt(c)}`}</button></div></div>`;
   }).join('');
   const alch = st.home.furnace ? `<button class="btn gold" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}</button>` : '<div class="muted">建造丹炉后可以炼丹（灵田和历练产出灵草）。</div>';
-  const s = sheet({ title: '洞府', sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))}`, body: alch + body });
+  const s = sheet({ title: '洞府', sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))}<br>灵石花在这里最值：聚灵阵加修炼速度，灵田产灵石灵草，丹炉出丹药，洞府加寿元。`, body: alch + body });
   const ab = s.querySelector('#btnAlch'); if (ab) ab.onclick = () => { SFX.tap(); showAlchemy(); };
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
     if (L.upgrade(st, btn.dataset.k)) {
@@ -951,7 +990,7 @@ function showInvite() {
     s.querySelectorAll('.cand').forEach(x => x.classList.toggle('sel', x === c));
     s.querySelector('#inv').textContent = `${sc.n}：${sc.d}。加成：${sc.perk}`;
     ok.disabled = false;
-    ok.onclick = () => { SFX.win(); L.joinSect(st, sc.id); closeModal(); banner('拜入' + sc.n, '外门弟子'); tip('sect', '入了宗门，历练和论道都能挣贡献。贡献够了去【宗门】晋升身份，还能在宝库换功法法宝。'); };
+    ok.onclick = () => { SFX.win(); L.joinSect(st, sc.id); closeModal(); banner('拜入' + sc.n, '外门弟子'); };
   });
 }
 function runWar() {
@@ -998,7 +1037,7 @@ function runPact() {
   const res = L.pactDuel(st);
   const ex = st.exName;
   duel({
-    title: '三年之约', intro: '三年之期已到。落霞城擂台下人山人海，都来看那个被退婚的“废物”如何收场。',
+    title: '三年之约', intro: '三年之期已到。落霞城擂台下人山人海，都来看那个被退婚的“废物”如何收场。' + (res.assist ? `<br><span class="jadet">戒中老祖借你一缕神魂：战力 ${fmt(res.base)} ×${L.PACT_ASSIST} = ${fmt(res.S)}</span>` : ''),
     right: { img: rivalAvImg({ n: ex, id: 'mu' }, 66), name: ex, sub: fmt(res.Q) }, Q: res.Q, S: res.S, win: res.win,
     quote: `${ex}：“三年了，废物终究是废物。现在认输，我还能给你留几分颜面。”`,
     winText: `${res.assist ? '危急关头，戒指中涌出一股浩瀚之力！<br>' : ''}一招落定，${esc(ex)}倒退十余步，满城哗然！<br>“莫欺少年穷！今日之后，你我再无瓜葛。”<br>灵石 +${fmt(res.stones || 0)}`,
@@ -1026,7 +1065,7 @@ function runTournament() {
     if (step === 0) {
       SFX.gong();
       sheet({ title: `第${res.n}届 天骄论道`, center: true, noClose: true,
-        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p><div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
+        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${res.n === 1 ? '<div class="quote">天骄论道每 12 周天一届，会自动开打：你按战力去挑战榜上的对手，赢了就顶替对方的名次。宿敌们都在榜上。</div>' : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
         foot: [{ t: '登台！', gold: true, fn: next }] });
       return;
     }
@@ -1124,6 +1163,81 @@ function showAlchemy() {
   });
 }
 
+// ---------- 变强之道（数值拆解） ----------
+function showGrowth(focus) {
+  const p = st.p, B = L.breakdown(st);
+  const mx = v => (v >= 10 ? v.toFixed(0) : v.toFixed(2)).replace(/\.?0+$/, '');
+  const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
+  const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
+  const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
+  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('去寻宝', 'market'), array: () => upBtn('array'), weapon: () => goBtn('去历练', 'exp'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
+  const tips = {
+    talent: '灵根是天生的，炼丹房的洗髓丹能提升一品（需要天材地宝）。',
+    art: '功法来自历练掉落、坊市寻宝、宗门宝库，越高阶修炼越快。',
+    array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
+    weapon: '法宝来自历练掉落、首领、坊市寻宝、宗门宝库。',
+    pet: '灵宠来自坊市灵兽蛋、历练与奇遇。',
+    field: `下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石，还产灵草。`,
+  };
+  const sec = (key, title, total, baseName, base, parts, extra) => `<div class="grow-sec" id="g-${key}"><h3>${title}<span>${total}</span></h3>
+    ${baseName ? row(baseName, fmt(base), '', '') : ''}${parts.map(([n, m, k]) => row(n, m, k && act[k] ? act[k]() : '', k && tips[k] ? tips[k] : '')).join('')}${extra || ''}</div>`;
+  const nxt = p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n;
+  const bt = L.btRate(st, st.pills > 0);
+  const body = [
+    `<div class="muted">每项数值 = 基础 × 各项加成。点右边的按钮直接去提升。</div>`,
+    sec('cul', '修炼速度', '+' + fmt(B.gain) + ' /周天', '境界基础（' + L.stageName(p) + '）', B.baseCul, B.cul,
+      row('运功吐纳', `${st.tunaLeft === undefined ? L.TUNA_MAX : st.tunaLeft}/${L.TUNA_MAX}`, '', '点画面里的自己，每次额外 +10% 周天修为，每周天 12 次。')),
+    sec('atk', '战力', fmt(B.power), '境界基础（' + L.stageName(p) + '）', B.baseAtk, B.atk,
+      row('突破大境界', '大幅', '', '每升一个大境界，战力翻好几倍。战力决定历练成功率、论道和会武胜负。')),
+    sec('inc', '灵石收入', '+' + fmt(B.income) + ' /周天', '', 0, B.inc.map(([n, v, k]) => [n, '+' + fmt(v), k]),
+      row('历练', '大头', goBtn('去历练', 'exp'), '历练带回的灵石远比每周天收入多。') + (st.sect ? '' : row('宗门俸禄', '未入宗', '', '筑基后拜入宗门，每周天领俸禄。'))),
+    `<div class="grow-sec" id="g-bt"><h3>冲击${nxt}成功率<span>${L.pct(bt)}</span></h3>
+      ${row('境界基础', L.pct(L.REALMS[Math.min(p.r, 8)].rate), '', '')}
+      ${row('丹炉 Lv' + st.home.furnace, '+' + st.home.furnace * 2 + '%', upBtn('furnace'), '每级 +2%，还会自动炼出破境丹。')}
+      ${row('破境丹 ×' + st.pills, st.pills ? '+20%' : '无', goBtn('去买', 'market'), '突破时服一枚 +20%。坊市、历练、丹炉都能得到。')}
+      ${p.fails ? row('屡败屡战', '+' + p.fails * 12 + '%', '', '') : ''}</div>`,
+    `<div class="grow-sec" id="g-life"><h3>寿元<span>${Math.floor(p.age)} / ${p.r >= 9 ? '∞' : fmt(L.lifespan(st))} 岁</span></h3>
+      ${row('洞府 Lv' + st.home.cave, '+' + st.home.cave * 5 + '%', upBtn('cave'), '洞府每级寿元 +5%。')}
+      ${row('延寿丹', '+10%', goBtn('去买', 'market'), '每个大境界最多三枚。')}
+      ${row('突破大境界', '翻倍', '', '境界越高寿元越长。寿元耗尽会坐化转世。')}</div>`,
+  ].join('<div class="sep"></div>');
+  const s = sheet({ title: '变强之道', sub: `灵石 ${fmt(st.stones)} · 破境丹 ${st.pills} · 灵草 ${fmt(st.herbs)}`, body });
+  s.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { if (L.upgrade(st, b.dataset.up)) { SFX.coin(); showGrowth(focus); } });
+  s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { SFX.tap(); const k = b.dataset.go; if (k === 'alch') { if (st.home.furnace) showAlchemy(); else showHome(); } else GO[k](); });
+  if (focus && focus !== 'all') { const el = s.querySelector('#g-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
+}
+$('#stats').addEventListener('click', e => { const b = e.target.closest('button[data-s]'); if (!b || !st || cine) return; ac(); SFX.tap(); if (b.dataset.s === 'big') showBig(); else showGrowth(b.dataset.s); });
+function showBig() {
+  const nb = L.nextBig(st);
+  if (nb.k === 'tour') { showMe('rank'); return; }
+  if (nb.k === 'meet') { showSect(); return; }
+  showPact();
+}
+// 三年之约：双方数值摆在明面上，外加老祖锦囊（每条都写清楚能涨多少）
+function showPact() {
+  const pi = L.pactInfo(st), p = st.p;
+  const row = (n, eff, act, tip) => `<div class="grow-row"><span class="gn">${n}</span><span class="gm">${eff}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
+  const go = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
+  const with_ = m => L.pct(L.duelChance(pi.S * m, pi.Q));
+  const tips = [];
+  if (p.w < 2) tips.push(row('历练捡法宝', p.w ? '×1.3→×1.7' : '×1.3 起', go('去历练', 'exp'), `凡器 ×1.3、法器 ×1.7，后山野林、黑风岭都会掉。换上法器胜算 → <b>${with_(L.WEAPONS[2].m / L.WEAPONS[p.w].m)}</b>。`));
+  if (p.r === 0 && p.s < 3) {
+    const need = Math.max(0, L.pNeed(p) - p.xp), t = Math.ceil(need / Math.max(L.gain(st), 1e-9));
+    tips.push(row('修为再升一层', '×1.5', go('聚灵阵', 'home'), `还差 ${fmt(need)} 修为，照现在约 ${t} 周天。升一层胜算 → <b>${with_(1.5)}</b>。聚灵阵、运功吐纳都能加快。`));
+  } else if (p.r === 0) tips.push(row('突破筑基', '暴涨', '', '修为条变金色就点它。筑基后不光境界涨，还会有大机缘——到时她根本不是对手。'));
+  if (!p.pet) tips.push(row('收服灵宠', '×1.2 起', navLock('market') ? go('去历练', 'exp') : go('去坊市', 'market'), '历练时偶尔能收服，坊市也能买灵兽蛋。'));
+  if (p.inj > 0) tips.push(row('养伤', '负伤 ×0.6', '', `还要 ${p.inj} 周天才好，别赶在开打前受伤。`));
+  const body = `<p class="center">还剩 <b>${pi.left} 个周天</b>，${esc(st.exName)}在落霞城擂台等你。</p>
+    <div class="vs"><div class="side">${myAvImg(56)}<div>${esc(p.name)}</div><div class="num">${fmt(pi.base)}${pi.assist > 1 ? ` ×${pi.assist}` : ''}</div><div class="num jadet">= ${fmt(pi.S)}</div></div>
+      <div class="vsx">VS</div>
+      <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器</div><div class="num seal">${fmt(pi.Q)}</div></div></div>
+    <div class="center big ${pi.p < 0.45 ? 'seal' : pi.p < 0.8 ? 'goldt' : 'jadet'}">胜算 ${L.pct(pi.p)}</div>
+    ${pi.assist > 1 ? '<p class="muted center">×3 是老夫借你的神魂之力，只在你筑基之前有效。</p>' : ''}
+    <div class="grow-sec"><h3>老祖锦囊<span>怎么提高胜算</span></h3>${tips.join('') || '<p class="muted">已经稳了，安心等着打脸吧。</p>'}</div>`;
+  const s = sheet({ title: '三年之约', body });
+  s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { SFX.tap(); GO[b.dataset.go](); });
+}
+
 // ---------- 人物 ----------
 function ladderHTML() {
   const rows = [];
@@ -1145,6 +1259,7 @@ function showMe(tab) {
     body = `<div class="row">${myAvImg(78)}
       <div class="grow"><div class="big">${esc(p.name)}</div>${st.title ? `<div class="seal">「${esc(st.title)}」</div>` : ''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${talentTag(p.t)}${st.sect ? `<span class="chip">${L.sectOf(st).n}·${L.srankName(st, st.sect.rank)}</span>` : '<span class="chip">散修</span>'}${st.daolv ? `<span class="chip ok">道侣 ${esc(L.npcName(st, st.daolv))}</span>` : ''}</div>
       <div style="margin-top:4px">${L.stageName(p)}${st.rebirth ? ` · 第 ${st.rebirth + 1} 世` : ''}</div></div></div>
+    <button class="btn gold" id="btnGrow" style="width:100%">查看每项数值怎么来、怎么提升 ▸</button>
     <dl class="grid2">
       <dt>修为</dt><dd class="num">${fmt(p.xp)} / ${fmt(L.pNeed(p))}</dd>
       <dt>修炼速度</dt><dd class="num">+${fmt(L.gain(st))} / 周天</dd>
@@ -1182,6 +1297,7 @@ function showMe(tab) {
   const s = sheet({ title: '人物', body: `<div class="tabs">${tabs}</div>` + body });
   s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); });
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
+  const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
   const rb = s.querySelector('#btnReset');
   if (rb) rb.onclick = () => sheet({
     title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？这会清除本机与云端存档。</p>',
@@ -1245,6 +1361,8 @@ function rebirthPick() {
       ok.onclick = () => {
         const old = st, card = cards[i];
         const ns = L.newState({ name: old.p.name, female: old.p.look.f, rebirth: n, t: card.t, tr: card.tr, lives: old.lives });
+        ns.guide = { step: GUIDE.length, done: true };
+        ns.hintSeen = Object.assign({}, old.hintSeen || {}, { pactSoon: 0, afterPact: 0 });
         closeModal();
         loadState(ns);
         L.log(st, `第 ${n + 1} 世，${st.p.name}再踏仙途`, 'gold');
@@ -1267,12 +1385,173 @@ function tip(key, text) {
   el.onclick = () => { el.hidden = true; SFX.tap(); };
 }
 
+// ---------- 新手引导 ----------
+const modalTitle = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent.replace(/^主线/, '').trim() : ''; };
+const modalOpen = () => !$('#modal').hidden;
+const PI = () => L.pactInfo(st);
+const BIG = '#stats button[data-s="big"]';
+const dec = v => (v < 10 ? (Math.round(v * 10) / 10).toString() : fmt(v));
+let lastExp = null;
+// 新手引导：学游戏发展国的秘书——一次只说一两句、说话时暂停、句句带数字，说完立刻让你动手
+const GUIDE = [
+  { id: 'welcome', text: () => `小子，我是住在你戒指里的老祖。<b>三年之约</b>还剩 <b>${PI().left} 个周天</b>（一周天约 5 秒），到时${esc(st.exName)}要在擂台上当众羞辱你。`, btn: '然后呢' },
+  { id: 'stakes', target: BIG, text: () => `她战力 <b>${L.PACT_POWER}</b>，你只有 <b>${fmt(L.power(st))}</b>。老夫借你神魂之力能翻 <b>3 倍</b>，胜算也才 <b>${L.pct(PI().p)}</b>。光打坐，必输。`, btn: '那怎么办？' },
+  { id: 'expNav', show: () => !modalOpen() && !st.exp, target: '[data-nav="exp"]', text: '出去<b>【历练】</b>！打妖兽能捡<b>法宝</b>，战力直接 ×1.3 起，还能带回灵石。', until: () => modalTitle() === '外出历练' || !!st.exp },
+  { id: 'expPick', show: () => modalTitle() === '外出历练', target: '#modal .card[data-k="0"]', text: () => `先去最近的<b>后山野林</b>，成功率 <b>${L.pct(L.expChance(st, 0).p)}</b>，稳。`, until: () => modalTitle() === '后山野林' || !!st.exp, back: () => (!modalOpen() && !st.exp ? 'expNav' : null) },
+  { id: 'expGo', show: () => modalTitle() === '后山野林', target: '#modal .foot .btn.gold', text: '点<b>【御剑出发】</b>。', until: () => !!st.exp, back: () => (modalTitle() === '外出历练' ? 'expPick' : !modalOpen() && !st.exp ? 'expNav' : null) },
+  { id: 'speed', show: () => !modalOpen(), target: '#btnSpeed', text: () => `路上会自动打怪，${L.REGIONS[st.exp ? st.exp.k : 0].mon} 个周天后回来。嫌慢就点这里<b>加速</b>。`, btn: '好' },
+  { id: 'waitExp', silent: true, until: () => st.stats.exp >= 1 && !modalOpen() && !st.exp },
+  { id: 'afterExp', show: () => !modalOpen() && !!lastExp, target: '#stats button[data-s="atk"]', text: () => {
+      const e = lastExp, a = L.pactAssist(st), it = e.items.find(x => x.kind === 'w' && x.equip);
+      const p0 = L.duelChance(e.pw0 * a, L.PACT_POWER), p1 = L.duelChance(e.pw1 * a, L.PACT_POWER);
+      return `看见没？${it ? `捡了把<b>${esc(it.name)}</b>，` : ''}战力 <b>${fmt(e.pw0)} → ${fmt(e.pw1)}</b>，胜算 <b>${L.pct(p0)} → ${L.pct(p1)}</b>。`;
+    }, btn: '再接再厉', until: () => !lastExp },
+  { id: 'homeNav', show: () => !modalOpen(), target: '[data-nav="home"]', text: '灵石要花出去才有用。去<b>【洞府】</b>升级聚灵阵——修炼越快升层越快，<b>每升一层战力 ×1.5</b>。', until: () => modalTitle() === '洞府' || st.home.array >= 1 },
+  { id: 'homeArray', show: () => modalTitle() === '洞府', target: '#modal button[data-k="array"]', text: () => `点这里升级<b>聚灵阵</b>：修炼 <b>+${dec(L.gain(st))} → +${dec(L.gain(st) * 1.11)}</b> /周天。`, until: () => st.home.array >= 1, back: () => (!modalOpen() && st.home.array < 1 ? 'homeNav' : null) },
+  { id: 'loop', show: () => !modalOpen(), target: BIG, text: () => `就这么循环：<b>历练 → 花灵石升级 → 再历练</b>。现在胜算 <b>${L.pct(PI().p)}</b>，随时看这一格，点开有老夫的锦囊。不知道干嘛就点下面的<b>目标</b>栏。`, btn: '明白了' },
+];
+const nextName = () => (st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n);
+const HINTS = [
+  { id: 'ready', urgent: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满了！点这个<b>金色的修为条</b>冲击${nextName()}，成功率 <b>${L.pct(L.btRate(st, st.pills > 0))}</b>${st.pills ? '（已算上破境丹）' : ''}。突破后战力、寿元大涨。`, until: () => /突破|天劫/.test(modalTitle()) || !!cine },
+  { id: 'btGo', urgent: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: '有破境丹就勾上，<b>成功率 +20%</b>。准备好了点<b>开始突破</b>。失败不会死，下次成功率 +12%。', until: () => !!cine || !modalOpen() },
+  { id: 'afterPact', urgent: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => (st.pact > 0 ? '痛快！满城都知道你不是废物了。' : '输了不丢人，她就在天骄榜上。') +
+      `每 <b>12 周天</b>一届<b>天骄论道</b>，看这一格倒计时${st.pact > 0 ? '' : '，到时再找她算账'}。` + (st.p.r < 1 ? '眼下先冲<b>筑基</b>：战力暴涨，宗门也会来抢你。' : '你已筑基，宗门很快会来招揽。') },
+  { id: 'pactSoon', urgent: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 6, target: BIG, btn: '好', text: () => {
+      const pi = PI();
+      return `还剩 <b>${pi.left} 个周天</b>就是三年之约！你 ${fmt(pi.base)}×${pi.assist} = <b>${fmt(pi.S)}</b>，她 <b>${pi.Q}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
+        (pi.p < 0.5 ? '不够稳：再历练捡件法器（×1.7），或者让修为再升一层（×1.5）。点这一格看锦囊。' : pi.p < 0.85 ? '还差一口气，再历练两趟。' : '稳了。到时候让全城看看谁是废物。');
+    } },
+  { id: 'market', when: () => st.guide.done && st.stats.exp >= 2 && !modalOpen() && st.stones >= L.price(st, 'pill'), target: '[data-nav="market"]', text: () => `<b>【坊市】</b>开张了：破境丹 <b>${fmt(L.price(st, 'pill'))}</b> 灵石一枚（突破成功率 +20%），“寻宝”能抽法宝功法，还能孵灵兽蛋。`, btn: '记住了' },
+  { id: 'tuna', when: () => st.guide.done && !st.exp && !modalOpen() && st.tick >= 6 && !L.isReady(st) && st.p.r <= L.MAXR && (st.tunaLeft === undefined || st.tunaLeft === L.TUNA_MAX), target: '#sceneWrap', text: () => `在洞府的空当，<b>点画面里的你</b>能运功吐纳：每次 <b>+${dec(L.gain(st) * 0.1)}</b> 修为，每周天 ${L.TUNA_MAX} 次。点一下试试！`, btn: '下次再说', until: () => st.tunaLeft !== undefined && st.tunaLeft < L.TUNA_MAX },
+  { id: 'sect', when: () => !!st.sect && !modalOpen(), target: '[data-nav="sect"]', text: '入宗了！历练、论道都能挣<b>宗门贡献</b>，攒够了来<b>【宗门】</b>晋升身份；宝库能用贡献换功法法宝；每 24 周天还有九宗会武。', btn: '好' },
+  { id: 'me', when: () => st.stats.tour >= 1 && !modalOpen(), target: '[data-nav="me"]', text: '论道排名、宿敌都在<b>【人物】→ 天骄榜</b>。那里还有属性、人物好感和成就称号。', btn: '好' },
+  { id: 'alch', when: () => st.home.furnace >= 1 && !modalOpen() && st.herbs >= L.herbCost(st, L.RECIPES[0]), target: '[data-nav="home"]', text: '丹炉有了，灵草也够了。去<b>【洞府】→ 炼丹房</b>：聚灵丹加速修炼，延寿丹续命，洗髓丹还能提升灵根！', btn: '好' },
+  { id: 'boss', when: () => !modalOpen() && L.REGIONS.some((r, k) => L.bossReady(st, k)), target: '[data-nav="exp"]', text: '有张地图的<b>首领</b>现身了！去<b>【历练】</b>里挑战它，掉落天材地宝和专属法宝。', btn: '好' },
+  { id: 'life', when: () => L.desperate(st) && !modalOpen(), target: '#lifeBox', text: '<b>寿元</b>快到头了！去坊市买延寿丹，或者赶紧突破——寿元将尽时突破有绝境加成。', btn: '知道了' },
+];
+let activeHint = null, tempHint = null, guideShownId = '', guideHold = false, hintCool = 0;
+function ensureGuide() {
+  if (!st.guide) st.guide = { step: 0, done: st.tick > 3 || st.stats.exp > 0 || st.rebirth > 0 };
+  if (!st.hintSeen) st.hintSeen = {};
+}
+function currentGuide() {
+  if (!st || !$('#intro').hidden || cine) return null;
+  ensureGuide();
+  if (tempHint) return tempHint;
+  const g = st.guide;
+  if (!g.done) {
+    for (let guard = 0; guard < 20 && g.step < GUIDE.length; guard++) {
+      const s0 = GUIDE[g.step];
+      if (s0.until && s0.until()) { g.step++; continue; }
+      const b = s0.back && s0.back();
+      if (b) { g.step = GUIDE.findIndex(x => x.id === b); continue; }
+      break;
+    }
+    if (g.step >= GUIDE.length) g.done = true;
+    else { const s0 = GUIDE[g.step]; return !s0.silent && (!s0.show || s0.show()) ? s0 : null; }
+  }
+  if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; }
+  if (activeHint && !activeHint.until && !activeHint.when()) activeHint = null;
+  if (!activeHint) activeHint = HINTS.find(h => !st.hintSeen[h.id] && (h.urgent || st.tick >= hintCool) && h.when()) || null;
+  if (activeHint && activeHint.until && !activeHint.when() && !activeHint.until()) return null;
+  return activeHint;
+}
+function advanceGuide(cur) {
+  SFX.tap();
+  if (cur === tempHint) { tempHint = null; return; }
+  hintCool = st.tick + 2; // 两条提示之间至少隔两个周天，别连珠炮
+  if (GUIDE.includes(cur)) { st.guide.step = GUIDE.indexOf(cur) + 1; return; }
+  st.hintSeen[cur.id] = 1; activeHint = null;
+}
+function updateGuide() {
+  const el = $('#guide');
+  const cur = currentGuide();
+  guideHold = false;
+  if (!cur) { if (!el.hidden) el.hidden = true; guideShownId = ''; return; }
+  const tgt = cur.target ? document.querySelector(cur.target) : null;
+  if (cur.target && (!tgt || !tgt.offsetParent)) { el.hidden = true; return; }
+  el.hidden = false;
+  guideHold = !!cur.btn; // 老祖说话时时间暂停
+  const id = cur.id + (GUIDE.includes(cur) ? '' : '_h');
+  if (guideShownId !== id) {
+    guideShownId = id;
+    el.querySelector('.gav').src = ELDER;
+    el.querySelector('.gtext').innerHTML = typeof cur.text === 'function' ? cur.text() : cur.text;
+    const bt = el.querySelector('.gbtns');
+    bt.innerHTML = (GUIDE.includes(cur) ? '<button class="skip" data-g="skip">跳过教程</button>' : '') + (cur.btn ? `<button class="btn gold" data-g="ok">${cur.btn}</button>` : '');
+    const ok = bt.querySelector('[data-g="ok"]'); if (ok) ok.onclick = () => { ac(); advanceGuide(cur); updateGuide(); };
+    const sk = bt.querySelector('[data-g="skip"]'); if (sk) sk.onclick = () => { SFX.tap(); st.guide.done = true; updateGuide(); };
+  }
+  const z = parseFloat(document.documentElement.style.zoom) || 1;
+  const spot = el.querySelector('.spot'), arrow = el.querySelector('.garrow'), box = el.querySelector('.gbox');
+  const vh = window.innerHeight / z;
+  if (tgt) {
+    const r = tgt.getBoundingClientRect();
+    const k = /Chrome\/(\d+)/.test(navigator.userAgent) && +RegExp.$1 >= 128 ? 1 : z; // 新版浏览器的 rect 已含缩放
+    const L0 = r.left / k, T0 = r.top / k, W0 = r.width / k, H0 = r.height / k;
+    spot.className = 'spot';
+    Object.assign(spot.style, { left: (L0 - 4) + 'px', top: (T0 - 4) + 'px', width: (W0 + 8) + 'px', height: (H0 + 8) + 'px' });
+    const below = T0 + H0 / 2 < vh / 2;
+    arrow.hidden = false;
+    arrow.className = 'garrow' + (below ? ' up' : '');
+    arrow.textContent = below ? '▲' : '▼';
+    arrow.style.left = (L0 + W0 / 2) + 'px';
+    arrow.style.top = (below ? T0 + H0 + 8 : T0 - 8 - 24) + 'px';
+    if (below) { box.style.top = ''; box.style.bottom = '16px'; } else { box.style.bottom = ''; box.style.top = '16px'; }
+  } else {
+    spot.className = 'spot none'; spot.removeAttribute('style');
+    arrow.hidden = true;
+    box.style.bottom = ''; box.style.top = '34%';
+  }
+}
+function showHelp() {
+  const sec = (ic, t, d) => `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`;
+  const body = [
+    sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每 5 秒涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
+    sec('disc', '修炼与突破', '打坐自动涨修为，涨满自动升一层小境界（战力 ×1.5）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫。失败不会死，下次成功率 +12%。在洞府时点画面里的自己能运功吐纳，额外涨修为。'),
+    sec('flag', '三年之约', '开局第 3 年要和退婚的人比武。最右边那格显示还剩几个周天和你的胜算；点开有提高胜算的办法。筑基前老祖会借你 3 倍战力。'),
+    sec('sword', '历练', '点【历练】选地图出发，路上自动打怪，带回灵石、修为、破境丹，有机会掉法宝、功法、灵宠。成功率越绿越稳；越级挑战成功奖励翻倍。每张地图赢 3 次会出现首领。'),
+    sec('build', '洞府', '灵石主要花在这里：聚灵阵加修炼速度，灵田产灵石和灵草，丹炉自动出破境丹并开启炼丹房，洞府加寿元。'),
+    sec('bag', '坊市', '买破境丹、延寿丹；寻宝抽法宝功法；孵灵兽蛋得灵宠。价格随境界上涨。'),
+    sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 周天九宗会武，你代表本宗往上打。'),
+    sec('flag', '天骄论道', '每 12 周天自动举行，按战力挑战天骄榜上的对手，宿敌都在榜上等你。'),
+    sec('disc', '奇遇与人物', '随时会遇到奇遇，按你的选择给奖励、改变人物好感。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),
+    sec('pill', '炼丹', '【洞府】→ 炼丹房，用灵草和天材地宝炼丹：培元、聚灵、延寿、洗髓（提升灵根）、九转金丹（突破必成）。'),
+    sec('life', '寿元与转世', '右上角沙漏是年龄/寿元。突破能大幅延寿；寿元耗尽会坐化，转世后天赋三选一、修炼更快。'),
+    sec('sound', '其他', '右上角【×1】切换速度（×2、×4、暂停），音符按钮切换声音。底部目标栏可以点，告诉你下一步怎么做。'),
+  ].join('');
+  sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
+}
+const GO = { exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank') };
+function showGoal() {
+  const g = L.GOALS[st.goal];
+  if (!g) { sheet({ title: '目标', center: true, body: '<p>大道已成。可以继续在此世逍遥，或去【人物】查看成就。</p>', foot: [{ t: '好', gold: true, fn: closeModal }] }); return; }
+  const go = () => {
+    closeModal();
+    if (g.go === 'cult') { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', text: g.how, btn: '好' }; }
+    else if (g.go === 'sect' && !st.sect) tempHint = { id: 'tmp', target: '#cult', text: '你还没有宗门。突破到筑基期后，宗门会来招揽你。', btn: '好' };
+    else if (GO[g.go]) GO[g.go]();
+  };
+  sheet({ title: '当前目标', center: true,
+    body: `<div class="big">${esc(L.goalText(st, g))}</div><div class="quote">${esc(g.how || '')}</div>${g.rw ? `<p class="muted">完成奖励：灵石 ${fmt(g.rw)}</p>` : ''}`,
+    foot: [{ t: '关闭', alt: true, fn: closeModal }, { t: '带我去', gold: true, fn: go }] });
+}
+$('#goal').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showGoal(); });
+$('#btnHelp').onclick = () => { if (!st || cine) return; ac(); SFX.tap(); showHelp(); };
+
 // ---------- 每周天 ----------
 let monthAcc = 0;
 function onTick() {
+  const xpBefore = st.p.xp, stBefore = st.stones;
   const out = L.tick(st, true);
+  if (!st.exp && !cine && $('#modal').hidden) {
+    const g = L.gain(st), inc = L.income(st);
+    if (st.p.r <= L.MAXR && !L.isReady(st)) floatText(HOMEPOS.x + 14, HOMEPOS.y - D().sit.h + 2, '+' + fmt(g), '#8ff5d0', false, true);
+    floatText(30, 108, '+' + fmt(inc), '#ffe39a', false, true);
+  }
+  void xpBefore; void stBefore;
   if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
-  if (out.choice) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
+  if (out.choice && !(st.guide && !st.guide.done)) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
   if (out.event) {
     const ev = out.event;
     if (ev.big) pushPopup(() => showEvent(ev));
@@ -1284,10 +1563,6 @@ function onTick() {
   if (out.tourney) pushPopup(runTournament);
   if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
-  if (st.tick === 3) tip('exp', '光打坐可攒不下家底。点【历练】出去闯闯，打妖兽、拿灵石，还能捡到法宝功法！');
-  if (st.tick === 8 && st.home.array === 0) tip('home', '灵石够了就去【洞府】升级聚灵阵，修炼更快；灵田每周天都产灵石。');
-  if (st.tick === 10) tip('tour', '每 12 周天举行一届天骄论道，打赢了天骄榜排名飙升。那些看不起你的人，都在榜上等着。');
-  if (L.desperate(st)) tip('life', '寿元将尽！去【坊市】买延寿丹，或者拼一把——寿元将尽时突破有绝境加成。');
   saveLocal();
 }
 
@@ -1296,7 +1571,7 @@ let last = performance.now(), cloudAcc = 0;
 function frame(now) {
   const dt = Math.min(100, now - last); last = now;
   const sp = SPEEDS[speedIdx];
-  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9;
+  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold;
   if (running) {
     L.flow(st, dt * sp / TICK_MS);
     monthAcc += dt * sp;
@@ -1306,6 +1581,7 @@ function frame(now) {
   }
   if (crane) { crane.x += crane.v * dt; if (crane.x > W + 14) crane = null; }
   drawScene(dt);
+  if (st) updateGuide();
   hudTimer += dt;
   if (hudTimer > 200) { hudTimer = 0; updateHUD(); }
   cloudAcc += dt;
@@ -1325,7 +1601,16 @@ function sceneClick(e) {
   }
   if (st.exp) { SFX.tap(); showExp(); return; }
   const S = D().sit;
-  if (Math.abs(x - HOMEPOS.x) < S.w / 2 + 4 && y > HOMEPOS.y - S.h - 14 && y < HOMEPOS.y + 4) { SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showMe(); return; }
+  if (Math.abs(x - HOMEPOS.x) < S.w / 2 + 6 && y > HOMEPOS.y - S.h - 16 && y < HOMEPOS.y + 6) {
+    if (L.isReady(st)) { SFX.tap(); showBreakthrough(); return; }
+    const g = L.tuna(st);
+    if (g > 0) {
+      tone(523 + (L.TUNA_MAX - st.tunaLeft) * 40, 0, 0.08, 'triangle', 0.1);
+      floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0', false, true);
+      for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
+    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, '气息已尽，下个周天再来', '#9d93b8', false, true);
+    return;
+  }
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }
 }
 cvs.addEventListener('click', sceneClick);
@@ -1333,6 +1618,8 @@ $('#cult').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.
 $('#nav').addEventListener('click', e => {
   const b = e.target.closest('button[data-nav]'); if (!b || !st || cine) return;
   ac(); SFX.tap();
+  const lk = navLock(b.dataset.nav);
+  if (lk) { tempHint = { id: 'tmp', target: `[data-nav="${b.dataset.nav}"]`, text: lk, btn: '好' }; return; }
   ({ exp: showExp, home: showHome, sect: showSect, market: showMarket, me: showMe })[b.dataset.nav]();
 });
 $('#btnSpeed').onclick = () => { ac(); speedIdx = (speedIdx + 1) % SPEEDS.length; SFX.tap(); savePref(); updateHUD(); };
@@ -1403,7 +1690,7 @@ function setupForm() {
     monthAcc = 0;
     SFX.gong();
     banner('废柴仙途', '三年之约 · 倒计时');
-    setTimeout(() => tip('start', '先静心打坐。修为会自己涨，小境界自动提升。三年后的落霞论剑，可别给老夫丢人！'), 1800);
+    st.guide = { step: 0, done: false }; st.hintSeen = {};
     saveLocal();
   };
 }
@@ -1423,5 +1710,5 @@ function start(data) {
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, get cine() { return !!cine; } };
+window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth, get cine() { return !!cine; } };
 })();

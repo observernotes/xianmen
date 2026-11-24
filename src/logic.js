@@ -30,12 +30,12 @@ L.fmt = function (n) {
 L.pct = p => Math.round(p * 100) + '%';
 
 // ---------- 数值参数 ----------
-const P = L.P = { needBase: 30, needGrow: 1.55, monBase: 25, monGrow: 1.19, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
+const P = L.P = { needBase: 300, needGrow: 1.55, monBase: 25, monGrow: 1.19, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
 
 // ---------- 静态数据 ----------
 // life: 该境界寿元（年）；mpt: 一个周天流逝的年数
 L.REALMS = [
-  { n: '炼气', robe: ['#5d6f8a', '#7f93ab', '#a9bacb'], trim: '#dfe7ef', rate: 0.92, trib: 0, life: 100, mpt: 1 / 6 },
+  { n: '炼气', robe: ['#5d6f8a', '#7f93ab', '#a9bacb'], trim: '#dfe7ef', rate: 0.92, trib: 0, life: 100, mpt: 1 / 8 },
   { n: '筑基', robe: ['#2f6e4b', '#4f9e68', '#7cc792'], trim: '#c9f0d4', rate: 0.80, trib: 0, life: 200, mpt: 0.5 },
   { n: '金丹', robe: ['#9a6a1c', '#d6a032', '#f2cc6a'], trim: '#fff0bd', rate: 0.70, trib: 3, life: 400, mpt: 1 },
   { n: '元婴', robe: ['#4f3a9e', '#7d5bd6', '#a98af0'], trim: '#e2d8ff', rate: 0.60, trib: 4, life: 800, mpt: 2.5 },
@@ -122,7 +122,7 @@ L.REGIONS = [
   { n: '混沌裂隙', mon: 5, foe: 'snake', fc: ['#2a2a3a', '#0e0e18'], bg: 'chaos', desc: '天地初开时留下的伤痕' },
 ];
 // 推荐战力（个人），由模拟校准
-L.DREC = [20, 200, 2600, 4e4, 4.5e5, 6e6, 9e7, 1e9, 1.3e10, 1.4e11, 1e12];
+L.DREC = [6, 200, 2600, 4e4, 4.5e5, 6e6, 9e7, 1e9, 1.3e10, 1.4e11, 1e12];
 L.DREW = [60, 170, 450, 1200, 3200, 8500, 22000, 58000, 1.5e5, 4e5, 1.1e6];
 
 // 坊市
@@ -228,7 +228,6 @@ L.gain = function (st) {
   if (L.has(st, 'wise')) m *= 1.3;
   m *= L.culMult(st);
   if (p.inj > 0) m *= 0.5;
-  if (st.exp) m *= 0.5;
   return base * m;
 };
 L.power = function (st) {
@@ -245,6 +244,50 @@ L.income = function (st) {
   let s = L.fieldInc(st.home.field) + 3 * Math.pow(2.1, st.p.r) + L.pay(st);
   if (L.has(st, 'koi')) s *= 1.5;
   return s;
+};
+// 数值拆解：给“变强”面板展示每一项数值从哪来
+L.breakdown = function (st) {
+  const p = st.p, i = L.si(p), sc = L.sectOf(st);
+  const cul = [], atk = [], inc = [];
+  const baseCul = L.need(i) / (P.monBase * Math.pow(P.monGrow, i));
+  cul.push(['灵根·' + L.TALENTS[p.t].n, L.TALENTS[p.t].cul, 'talent']);
+  cul.push(['功法·' + (p.a ? p.an : '基础吐纳'), L.ARTS[p.a].m, 'art']);
+  cul.push(['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']);
+  if (st.rebirth) cul.push(['仙缘（第' + (st.rebirth + 1) + '世）', 1 + 0.5 * st.rebirth, '']);
+  if (sc && sc.cul !== 1) cul.push(['宗门·' + sc.n, sc.cul, 'sect']);
+  if (L.has(st, 'wise')) cul.push(['天赋·悟性超群', 1.3, '']);
+  if (st.bonus.cul) cul.push(['机缘加成', 1 + st.bonus.cul, '']);
+  if (L.friend(st, 'su')) cul.push(['知己·' + L.npcName(st, 'su'), 1.1, '']);
+  if (st.daolv) cul.push(['道侣双修', 1.3, '']);
+  for (const b of st.buffs || []) if (b.cul) cul.push(['丹药增益（剩' + b.left + '周天）', b.cul, '']);
+  if (p.inj > 0) cul.push(['负伤（剩' + p.inj + '周天）', 0.5, '']);
+  const baseAtk = P.pw0 * Math.pow(P.pwStage, i) * Math.pow(P.pwRealm, p.r);
+  atk.push(['灵根·' + L.TALENTS[p.t].n, L.TALENTS[p.t].atk, 'talent']);
+  atk.push(['法宝·' + (p.w ? p.wn : '赤手空拳'), L.WEAPONS[p.w].m, 'weapon']);
+  atk.push(['灵宠·' + (p.pet ? p.pet.name : '无'), L.PETS[p.pet ? p.pet.tier : 0].m, 'pet']);
+  if (st.rebirth) atk.push(['仙缘（第' + (st.rebirth + 1) + '世）', 1 + 0.25 * st.rebirth, '']);
+  if (L.has(st, 'sword')) atk.push(['天赋·先天剑骨', 1.5, '']);
+  if (sc && sc.atk !== 1) atk.push(['宗门·' + sc.n, sc.atk, 'sect']);
+  if (st.bonus.atk) atk.push(['机缘加成', 1 + st.bonus.atk, '']);
+  if (L.friend(st, 'ye')) atk.push(['知己·' + L.npcName(st, 'ye'), 1.1, '']);
+  if (L.friend(st, 'chu')) atk.push(['知己·楚狂', 1.15, '']);
+  for (const b of st.buffs || []) if (b.atk) atk.push(['增益（剩' + b.left + '周天）', b.atk, '']);
+  if (p.inj > 0) atk.push(['负伤', 0.6, '']);
+  const koi = L.has(st, 'koi') ? 1.5 : 1;
+  inc.push(['灵田 Lv' + st.home.field, L.fieldInc(st.home.field) * koi, 'field']);
+  inc.push(['境界供奉（' + L.REALMS[Math.min(p.r, 8)].n + '）', 3 * Math.pow(2.1, p.r) * koi, '']);
+  if (st.sect) inc.push(['宗门俸禄·' + L.srankName(st, st.sect.rank), L.pay(st) * koi, 'sect']);
+  return { baseCul, cul, gain: L.gain(st), baseAtk, atk, power: L.power(st), inc, income: L.income(st) };
+};
+L.TUNA_MAX = 12;   // 每周天最多运功次数
+L.tuna = function (st) {
+  if (st.p.r > L.MAXR || st.exp) return 0;
+  st.tunaLeft = st.tunaLeft === undefined ? L.TUNA_MAX : st.tunaLeft;
+  if (st.tunaLeft <= 0) return 0;
+  st.tunaLeft--;
+  const g = L.gain(st) * 0.1;
+  addXp(st, g);
+  return g;
 };
 L.hCost = (k, lv) => { const b = L.HOME.find(x => x.k === k); return Math.floor(b.base * Math.pow(b.grow, lv)); };
 L.btRate = function (st, usePill) {
@@ -288,7 +331,7 @@ L.newState = function (o) {
   o = o || {};
   const female = !!o.female;
   const st = {
-    v: 2, tick: 0, year: 0, stones: 120 + 500 * (o.rebirth || 0), pills: 1, pillProg: 0, lifeBonus: 0, lifePills: {},
+    v: 2, xs: 10, tick: 0, year: 0, stones: 120 + 500 * (o.rebirth || 0), pills: 1, pillProg: 0, lifeBonus: 0, lifePills: {},
     home: { cave: 0, array: 0, field: 0, furnace: 0 },
     exp: null, rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     goal: 0, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {},
@@ -325,30 +368,30 @@ L.log = function (st, text, cls) {
 
 // ---------- 目标 ----------
 L.GOALS = [
-  { t: '修为精进至炼气中期', c: st => L.si(st.p) >= 1, rw: 60 },
-  { t: '将聚灵阵升到 1 级', c: st => st.home.array >= 1, rw: 100 },
-  { t: '外出历练一次', c: st => st.stats.exp >= 1, rw: 150 },
-  { t: '突破至筑基期', c: st => st.p.r >= 1 || st.flags.maxR >= 1, rw: 400 },
-  { t: '三年之约：击败{EX}', c: st => !!st.beaten.mu, rw: 800 },
-  { t: '拜入一方宗门', c: st => !!st.sect, rw: 500 },
-  { t: '晋升真传弟子', c: st => st.sect && st.sect.rank >= 2, rw: 2000 },
-  { t: '结成金丹', c: st => (st.flags.maxR || 0) >= 2, rw: 2500 },
-  { t: '收服一只灵宠', c: st => !!st.p.pet, rw: 3000 },
-  { t: '天骄榜进入前 50', c: st => st.bestRank <= 50, rw: 6000 },
-  { t: '击败天剑宗大师兄赵乾', c: st => !!st.beaten.zhao, rw: 1.2e4 },
-  { t: '修成元婴', c: st => (st.flags.maxR || 0) >= 3, rw: 2e4 },
-  { t: '成为宗门圣子', c: st => st.sect && st.sect.rank >= 3, rw: 5e4 },
-  { t: '踏入化神', c: st => (st.flags.maxR || 0) >= 4, rw: 1e5 },
-  { t: '击败天剑宗圣子楚天阔', c: st => !!st.beaten.chu, rw: 3e5 },
-  { t: '九宗会武中力压天剑宗', c: st => !!st.flags.beatTianjian, rw: 3e5 },
-  { t: '击退来犯的天剑宗', c: st => !!st.flags.warWon, rw: 5e5 },
-  { t: '踏入合体', c: st => (st.flags.maxR || 0) >= 6, rw: 1.5e6 },
-  { t: '执掌宗门，成为宗主', c: st => st.sect && st.sect.rank >= 6, rw: 6e6 },
-  { t: '带领宗门成为天下第一宗', c: st => st.sect && st.sect.best <= 1, rw: 8e6 },
-  { t: '击败魔道圣子血无涯', c: st => !!st.beaten.xue, rw: 4e6 },
-  { t: '登顶天骄榜第一', c: st => st.bestRank <= 1, rw: 1e7 },
-  { t: '踏入渡劫', c: st => (st.flags.maxR || 0) >= 8, rw: 2e7 },
-  { t: '渡过飞升天劫，白日飞升', c: st => st.p.r >= 9, rw: 0 },
+  { t: '外出历练一次', c: st => st.stats.exp >= 1, rw: 150, go: 'exp', how: '点底部【历练】，选“后山野林”，点【御剑出发】。历练几个周天后自动回来，带回灵石和修为。' },
+  { t: '将聚灵阵升到 1 级', c: st => st.home.array >= 1, rw: 100, go: 'home', how: '点底部【洞府】，在“聚灵阵”那一行点升级按钮。聚灵阵越高，修炼越快。' },
+  { t: '修为精进至炼气中期', c: st => L.si(st.p) >= 1, rw: 60, go: 'cult', how: '打坐会自动涨修为。想快点：升级洞府里的聚灵阵，或者在洞府时点画面里的自己运功吐纳。也可以点右上角【×1】加速。' },
+  { t: '突破至筑基期', c: st => st.p.r >= 1 || st.flags.maxR >= 1, rw: 400, go: 'cult', how: '修为到“炼气圆满”时，场景下方的修为条会变成金色，点它，再点【开始突破】。破境丹能提高成功率。' },
+  { t: '三年之约：击败{EX}', c: st => !!st.beaten.mu, rw: 800, go: 'cult', how: '修仙第 3 年自动开打。数值栏最右边一格是倒计时和胜算，点开有老祖锦囊：历练捡法宝、修为升层、突破筑基都能大涨胜算。输了也能在天骄论道里再赢回来。' },
+  { t: '拜入一方宗门', c: st => !!st.sect, rw: 500, go: 'cult', how: '突破到筑基期后，三大宗门会上门招揽，选一个拜入即可。' },
+  { t: '晋升真传弟子', c: st => st.sect && st.sect.rank >= 2, rw: 2000, go: 'sect', how: '历练成功、天骄论道获胜都会给宗门贡献。境界和贡献都够了，点【宗门】里的【晋升】。' },
+  { t: '结成金丹', c: st => (st.flags.maxR || 0) >= 2, rw: 2500, go: 'cult', how: '继续修炼到筑基圆满，点金色修为条突破。从金丹开始要渡雷劫，带上破境丹更稳。' },
+  { t: '收服一只灵宠', c: st => !!st.p.pet, rw: 3000, go: 'market', how: '去【坊市】买“灵兽蛋”孵化，或者多去历练，有机会收服野生灵兽。灵宠能大幅提升战力。' },
+  { t: '天骄榜进入前 50', c: st => st.bestRank <= 50, rw: 6000, go: 'me', how: '每 12 周天一届天骄论道，会自动开打。战力越高排名升得越快：法宝、灵宠、境界、宗门都加战力。' },
+  { t: '击败天剑宗大师兄赵乾', c: st => !!st.beaten.zhao, rw: 1.2e4, go: 'me', how: '赵乾在天骄榜上。排名往上打，论道时就会碰上他。' },
+  { t: '修成元婴', c: st => (st.flags.maxR || 0) >= 3, rw: 2e4, go: 'cult', how: '修为圆满后点金色修为条突破。炼丹房的聚灵丹、培元丹能加快修炼。' },
+  { t: '成为宗门圣子', c: st => st.sect && st.sect.rank >= 3, rw: 5e4, go: 'sect', how: '贡献和境界够了就去【宗门】晋升，原圣子会当众挑战你，打赢就行。' },
+  { t: '踏入化神', c: st => (st.flags.maxR || 0) >= 4, rw: 1e5, go: 'cult', how: '继续修炼、突破。别忘了常去【洞府】升级，去【坊市】寻宝换更好的法宝功法。' },
+  { t: '击败天剑宗圣子楚天阔', c: st => !!st.beaten.chu, rw: 3e5, go: 'me', how: '楚天阔在天骄榜前列，排名打上去，论道时就会遇到他。' },
+  { t: '九宗会武中力压天剑宗', c: st => !!st.flags.beatTianjian, rw: 3e5, go: 'sect', how: '入宗后每 24 周天一届九宗会武，你代表本宗往上打，排到天剑宗前面就算赢。' },
+  { t: '击退来犯的天剑宗', c: st => !!st.flags.warWon, rw: 5e5, go: 'cult', how: '成为真传弟子并修到炼虚期后，天剑宗会来犯，战力够强就能一人退敌。' },
+  { t: '踏入合体', c: st => (st.flags.maxR || 0) >= 6, rw: 1.5e6, go: 'cult', how: '继续修炼、突破。寿元不够时去【坊市】或炼丹房弄延寿丹。' },
+  { t: '执掌宗门，成为宗主', c: st => st.sect && st.sect.rank >= 6, rw: 6e6, go: 'sect', how: '一路晋升：长老、太上长老、宗主。贡献主要来自历练、论道、会武和宗门事件。' },
+  { t: '带领宗门成为天下第一宗', c: st => st.sect && st.sect.best <= 1, rw: 8e6, go: 'sect', how: '九宗会武中一路挑战到第一。你的战力就是宗门的战力。' },
+  { t: '击败魔道圣子血无涯', c: st => !!st.beaten.xue, rw: 4e6, go: 'me', how: '血无涯在天骄榜前几名，排名打上去就会遇到。' },
+  { t: '登顶天骄榜第一', c: st => st.bestRank <= 1, rw: 1e7, go: 'me', how: '在天骄论道里击败榜首云无极。' },
+  { t: '踏入渡劫', c: st => (st.flags.maxR || 0) >= 8, rw: 2e7, go: 'cult', how: '修到大乘圆满后突破。' },
+  { t: '渡过飞升天劫，白日飞升', c: st => st.p.r >= 9, rw: 0, go: 'cult', how: '渡劫圆满后点金色修为条，引动九九天劫。失败不会死，下次成功率更高；九转金丹能保证必成。' },
 ];
 L.goalText = (st, g) => g.t.replace('{EX}', st.exName);
 L.checkGoals = function (st) {
@@ -494,8 +537,11 @@ L.resolveExp = function (st) {
   st.exp = null;
   const k = e.k;
   const ch = L.expChance(st, k);
-  const ok = R() < ch.p;
-  const res = { k, ok, ratio: ch.ratio, p: ch.p, items: [], stones: 0, pills: 0 };
+  const pw0 = L.power(st), gain0 = L.gain(st);
+  // 第一次历练必定成功（老祖暗中护持），免得新手第一步就受挫
+  const first = st.stats.exp === 0;
+  const ok = first || R() < ch.p;
+  const res = { k, ok, ratio: ch.ratio, p: ch.p, items: [], stones: 0, pills: 0, first };
   st.stats.exp++;
   const luck = L.has(st, 'lucky') ? 3 : L.has(st, 'hero') ? 2 : 1;
   if (ok) {
@@ -512,12 +558,13 @@ L.resolveExp = function (st) {
     if (R() < 0.04 + k * 0.006) { res.treasure = 1; st.treasure++; }
     st.regionWins[k] = (st.regionWins[k] || 0) + 1;
     st.stones += res.stones;
-    res.xp = L.gain(st) * 2 * L.REGIONS[k].mon * 0.75; // gain 已按历练减半，这里折回
+    res.xp = L.gain(st) * L.REGIONS[k].mon; // 历练归来的感悟（路上照常修炼）
     addXp(st, res.xp);
     if (R() < 0.6) res.pills++;
     if (k >= 4 && R() < 0.5) res.pills++;
     st.pills += res.pills;
-    if (R() < 0.38) res.items.push(L.giveItem(st, 'w', rollTier(st, 1 + Math.floor(k * 0.62), 7)));
+    if (first && st.p.w === 0) res.items.push(L.giveItem(st, 'w', 1));
+    else if (R() < 0.38) res.items.push(L.giveItem(st, 'w', rollTier(st, 1 + Math.floor(k * 0.62), 7)));
     if (R() < 0.32) res.items.push(L.giveItem(st, 'a', rollTier(st, 1 + Math.floor(k * 0.5), 6)));
     if (R() < 0.12 * luck) res.items.push(L.giveItem(st, 'pet', rollTier(st, 1 + Math.floor(k * 0.5), 6)));
     if (R() < 0.08 * luck) {
@@ -533,24 +580,47 @@ L.resolveExp = function (st) {
     st.p.inj = Math.max(st.p.inj, 3);
     L.log(st, `【${L.REGIONS[k].n}】历练失利，负伤而归`, 'red');
   }
+  res.pw0 = pw0; res.pw1 = L.power(st); res.gain0 = gain0; res.gain1 = L.gain(st);
   L.checkGoals(st);
   return res;
 };
 
 // ---------- 对决 ----------
 L.duelChance = (P1, P2) => clamp(0.5 + 0.55 * Math.log2(P1 / P2), 0.03, 0.97);
-// 三年之约：对手战力（约等于炼气圆满、带一件法器）
-L.pactPower = () => P.pw0 * Math.pow(P.pwStage, 3.4) * 1.3 * 1.7;
+// 三年之约：对手是单灵根、炼气后期、手持法器（10 × 1.5² × 1.3 × 1.7 ≈ 50），再加点心气，记作 60
+L.PACT_YEAR = 3;
+L.PACT_POWER = 60;
+L.PACT_ASSIST = 3;
+L.pactPower = () => L.PACT_POWER;
+// 第一世尚未筑基时，戒中老祖借你一缕神魂之力（明码标价：战力 ×3）
+L.pactAssist = st => (st.rebirth === 0 && st.p.r === 0 ? L.PACT_ASSIST : 1);
+L.pactInfo = function (st) {
+  const mpt = L.REALMS[Math.min(st.p.r, 8)].mpt || 1;
+  const left = Math.max(0, Math.ceil((L.PACT_YEAR - st.year) / mpt - 1e-9));
+  const base = L.power(st), assist = L.pactAssist(st), S = base * assist, Q = L.PACT_POWER;
+  return { left, base, assist, S, Q, p: L.duelChance(S, Q), done: !!st.pact };
+};
+// 下一件大事（三年之约 / 天骄论道 / 九宗会武），给界面倒计时用
+L.nextBig = function (st) {
+  if (!st.pact) { const pi = L.pactInfo(st); return { k: 'pact', n: '三年之约', left: pi.left, info: pi }; }
+  const t = st.tick;
+  let tour = 12 - (t % 12); if (tour === 0) tour = 12;
+  const out = { k: 'tour', n: '天骄论道', left: tour };
+  if (st.sect && st.sect.order) {
+    let m = (6 - (t % 24) + 24) % 24; if (m === 0) m = 24;
+    while (t + m - st.sect.joined < 12) m += 24;
+    if (m < tour) return { k: 'meet', n: '九宗会武', left: m };
+  }
+  return out;
+};
 L.pactDuel = function (st) {
-  let S = L.power(st);
+  const assist = L.pactAssist(st) > 1;
+  const S = L.power(st) * L.pactAssist(st);
   const Q = L.pactPower();
-  // 第一世尚未筑基时，戒中老祖借你一缕神魂之力
-  const assist = st.rebirth === 0 && st.p.r === 0;
-  if (assist) S *= 2.5;
   const p = L.duelChance(S, Q);
   const win = R() < p;
   st.pact = win ? 1 : -1;
-  const res = { S, Q, p, win, assist };
+  const res = { S, Q, p, win, assist, base: S / L.pactAssist(st) };
   if (win) {
     st.beaten.mu = 1;
     res.stones = 600; st.stones += 600;
@@ -829,7 +899,7 @@ L.applyFx = function (st, fx) {
   const out = [];
   if (!fx) return out;
   const p = st.p, f = L.fmt;
-  if (fx.xp) { const g = L.gain(st) * (st.exp ? 2 : 1) * fx.xp; addXp(st, g); out.push('修为 +' + f(g)); }
+  if (fx.xp) { const g = L.gain(st) * fx.xp; addXp(st, g); out.push('修为 +' + f(g)); }
   if (fx.stones) { const v = Math.round(fx.stones * Math.max(L.income(st), 20)); st.stones = Math.max(0, st.stones + v); out.push('灵石 ' + (v >= 0 ? '+' : '') + f(v)); }
   if (fx.pills) { st.pills = Math.max(0, st.pills + fx.pills); out.push('破境丹 ' + (fx.pills > 0 ? '+' : '') + fx.pills); }
   if (fx.herbs) { const v = Math.round(fx.herbs * L.herbScale(st)); st.herbs = Math.max(0, st.herbs + v); out.push('灵草 ' + (v > 0 ? '+' : '') + f(v)); }
@@ -1035,6 +1105,7 @@ L.tick = function (st, cont) {
   const out = { exp: null, event: null, tourney: false, pact: false, death: false, invite: false, war: false };
   if (!cont) L.flow(st, 1);
   st.tick++;
+  st.tunaLeft = L.TUNA_MAX;
   const p = st.p;
   if (p.inj > 0) p.inj--;
   if (st.home.furnace > 0) {
@@ -1060,7 +1131,7 @@ L.tick = function (st, cont) {
     if (x < 0.16 * evMul) out.choice = L.pickEvent(st, 'home');
     else if (!st.exp && x < 0.16 * evMul + 0.04) out.event = L.randomEvent(st);
   }
-  if (!st.pact && st.year >= 3) out.pact = true;
+  if (!st.pact && st.year >= L.PACT_YEAR - 1e-9) out.pact = true;
   if (!st.sect && p.r >= 1 && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 24; }
   if (st.sect) {
     const sc = L.sectOf(st);
@@ -1069,7 +1140,7 @@ L.tick = function (st, cont) {
     if (L.canPromote(st) && !st.flags.promoNote) { st.flags.promoNote = 1; emit('promote', st.sect.rank + 1); }
     if (!L.canPromote(st)) st.flags.promoNote = 0;
   }
-  if (st.tick % 12 === 0 && st.tick >= 12) out.tourney = true;
+  if (st.tick % 12 === 0 && st.tick >= 12 && st.pact && !out.pact) out.tourney = true;
   if (st.sect && st.sect.order && st.tick - st.sect.joined >= 12 && st.tick % 24 === 6) out.meet = true;
   if (p.r <= L.MAXR && p.age >= L.lifespan(st)) out.death = true;
   if (L.desperate(st) && !st.flags.warnLife) { st.flags.warnLife = 1; L.log(st, '寿元将尽！突破时将获得绝境加成', 'red'); }

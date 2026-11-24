@@ -15,6 +15,8 @@ const path = require('path');
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
     X.setSpeed(3);
+    X.st.guide = { step: 99, done: true };
+    setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
     let popups = 0, uiBt = 0;
