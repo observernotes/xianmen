@@ -32,3 +32,14 @@
 - 结为道侣时自动置 `daolv_su` / `daolv_ye`。
 - 长老 id：剑宗 lingxu / tieye / liu；丹霞谷 yun / yaochen / chisong；道宗 xuanwei / shouzhuo / qingxu；魔宗 xuehe / xuesan / youji。
 - 文件头注释里有完整清单；写手校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev2/validate.js（会话临时目录）。
+
+## ev_world_chains.js（灵宠/洞府/历法 42、奇遇链 47 步、主线补充 8，共 97）
+
+- ch_sword 第 5 步就是 ev_realm_rivals.js 的 tianheng_2（已补上 `chain: 'ch_sword', step: 5`）。链事件完成后引擎要自动置 `链短名_步`（如 `sword_5`）。
+- 新增事件 id：story_demon2_b、story_ascend_b（有道侣的版本，按 `daolv` 区分）。
+- 7 个原本在早期地图的链步骤改成了洞府访客事件（ch_map_5、ch_sword_3、ch_sea_2、ch_fox_2～4、ch_fire_4），ch_tianjian_2 也是，避免中期玩家不回老地图导致链卡住。
+- 与其他文件的 flag 约定：ch_tianjian_6 不置 `tiankuo_ally`（由 tiankuo_3 给）；选“私下逼宫”置 `tj_private`，tianheng_2 的文本默认揭露发生在会武——接入时检查一致性。雪团灵狐血脉奖励在 bai_end。
+- `fx.art` 可以是数组（ch_fire_5 同时给焚天诀和血遁）；指向 `x_hongmeng` 时算三片残篇中的一片。
+- 新剧情触发键：`egg`、`pet_runaway`、`pet_fight`、`pet_sick`、`plot_full`、`field_mutant`、`formation_fail`、`forge_fail`、`build:spring`、`build:library`、`pact_eve`、`trib:1`、`demon:1/2/3`、`ascend`；季节值 `spring/summer/autumn/winter`；约 25 个一次性引擎 flag（见文件头）。
+- check_events.js 需要允许同一剧情触发键对应多个事件（realm:6、demon:2、ascend 都是共享的）。
+- 写手校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev3/validate.js（会话临时目录）。

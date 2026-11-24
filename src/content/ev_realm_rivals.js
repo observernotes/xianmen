@@ -500,7 +500,7 @@ const LIST = [
 },
 {
   // 计划列了四种结局，所以是四项；“公之于众”只在旧案链走完（tianjian_6）时出现，平时只见三项。
-  id: 'tianheng_2', where: 'story', trigger: 'realm:7', need: ['st_justice'], speaker: 'elder', title: '了断',
+  id: 'tianheng_2', where: 'story', chain: 'ch_sword', step: 5, trigger: 'realm:7', need: ['st_justice'], speaker: 'elder', title: '了断',
   text: '陆天衡跪在碎碑之间，剑断了，发冠也散了，仰头看你的样子，竟有几分像当年破庙里的你。“师父他……还在戒指里吧？”他笑了笑，“替我问一句，他后悔收我吗？”老祖没有出声。',
   choices: [
     { t: '一剑了断', dao: 'k',
