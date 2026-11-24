@@ -3,21 +3,25 @@
 // ---------- 每周天 ----------
 let monthAcc = 0;
 function onTick() {
-  const xpBefore = st.p.xp, stBefore = st.stones;
   const out = L.tick(st, true);
   if (!st.exp && !cine && $('#modal').hidden) {
     const g = L.gain(st), inc = L.income(st);
     if (st.p.r <= L.MAXR && !L.isReady(st)) floatText(HOMEPOS.x + 14, HOMEPOS.y - D().sit.h + 2, '+' + fmt(g), '#8ff5d0', false, true);
     floatText(30, 108, '+' + fmt(inc), '#ffe39a', false, true);
   }
-  void xpBefore; void stBefore;
   if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
+  // 途中遭遇是要你做决定的，阻塞；引导期间（前两趟）逻辑层本来就不出
   if (out.choice && !(st.guide && !st.guide.done)) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
-  if (out.event) {
-    const ev = out.event;
-    if (ev.big) pushPopup(() => showEvent(ev));
-    else if (ev.pop && !st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 10, ev.pop, ev.cls === 'red' ? '#ff8a8a' : '#ffe39a');
+  // 访客不弹窗：门口出现一个“！”，点它才见（DESIGN D4）
+  if (out.visitor) { SFX.reveal(1); floatText(VISIT_POS.x, VISIT_POS.y - 22, '有人来访', '#ffe39a'); }
+  if (out.visitorGone) floatText(VISIT_POS.x, VISIT_POS.y - 22, '访客走了', '#9d93b8');
+  if (out.retreat) {
+    const r = out.retreat;
+    if (r.kind === 'teach') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '指点完毕 贡献到手', '#8ff5d0');
+    else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
+  if (out.train) pushPopup(showTrain);
+  if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天`);
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
@@ -25,6 +29,19 @@ function onTick() {
   if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
   saveLocal();
+}
+// E17 老祖特训：约战剩余 ≤ 8 周天、胜算 < 60%、未筑基未圆满，第一世只此一次
+function showTrain() {
+  if (!L.canTrain(st)) return;
+  const pi = L.pactInfo(st);
+  sheet({ title: '老祖特训', center: true, noClose: true,
+    body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:56px;height:56px" alt=""><p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
+    foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 周天 · 修炼 ×3`); } closeModal(); } }] });
+}
+function showVisitor() {
+  const ev = L.visitorEvent(st);
+  if (!ev) { st.visitor = null; return; }
+  showChoice(ev);
 }
 
 // ---------- 主循环 ----------
@@ -61,15 +78,17 @@ function sceneClick(e) {
     SFX.coin(); crane = null; return;
   }
   if (st.exp) { SFX.tap(); showExp(); return; }
+  if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 14 && y > VISIT_POS.y - 30 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   const S = D().sit;
   if (Math.abs(x - HOMEPOS.x) < S.w / 2 + 6 && y > HOMEPOS.y - S.h - 16 && y < HOMEPOS.y + 6) {
     if (L.isReady(st)) { SFX.tap(); showBreakthrough(); return; }
+    if (st.retreat) { SFX.tap(); showHome(); return; }
     const g = L.tuna(st);
     if (g > 0) {
-      tone(523 + (L.TUNA_MAX - st.tunaLeft) * 40, 0, 0.08, 'triangle', 0.1);
-      floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0', false, true);
-      for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
-    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, '气息已尽，下个周天再来', '#9d93b8', false, true);
+      tone(784, 0, 0.12, 'triangle', 0.1);
+      floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0');
+      for (let k = 0; k < 16; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
+    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.min(st.tuna || 0, L.TUNA_FULL)}/${L.TUNA_FULL}，在洞府打坐时每周天蓄一格`, '#9d93b8', false, true);
     return;
   }
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }
@@ -93,8 +112,8 @@ window.addEventListener('resize', () => { setFontSize(); fitScene(); });
 function start(data) {
   loadPref();
   setSoundIcon();
-  const saved = (data && data.st && data.st.v === 2) ? data.st : loadLocal();
-  if (saved && saved.v === 2) { loadState(saved); $('#intro').hidden = true; }
+  const saved = (data && saveOk(data.st)) ? data.st : loadLocal();
+  if (saveOk(saved) && loadState(saved)) $('#intro').hidden = true;
   else showIntro();
   updateHUD();
   fitScene();
@@ -104,4 +123,6 @@ function start(data) {
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth, get cine() { return !!cine; } };
+window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

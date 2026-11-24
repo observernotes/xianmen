@@ -59,7 +59,7 @@ function runTournament() {
     if (step === 0) {
       SFX.gong();
       sheet({ title: `第${res.n}届 天骄论道`, center: true, noClose: true,
-        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${res.n === 1 ? '<div class="quote">天骄论道每 12 周天一届，会自动开打：你按战力去挑战榜上的对手，赢了就顶替对方的名次。宿敌们都在榜上。</div>' : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
+        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${res.n === 1 ? `<div class="quote">天骄论道每 ${L.TOUR_EVERY} 周天一届，会自动开打：三场，按战力去挑战榜上的对手，赢了就顶替对方的名次，每场最多上升 ${L.TOUR_STEP} 名。宿敌们都在榜上。</div>` : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
         foot: [{ t: '登台！', gold: true, fn: next }] });
       return;
     }
@@ -69,7 +69,7 @@ function runTournament() {
     const lines = rv.id ? RIVAL_LINES[rv.id] : null;
     duel({
       title: `第 ${step} 战`,
-      right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: res.S, win: rd.win,
+      right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, win: rd.win,
       quote: `${rv.n}：“${lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
       winText: `${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',

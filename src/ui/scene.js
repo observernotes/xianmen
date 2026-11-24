@@ -11,6 +11,7 @@ let T = 0;
 const parts = [];
 let crane = null, craneTimer = 50000;
 const HOMEPOS = { x: 100, y: 136 };   // 主角打坐脚底中心
+const VISIT_POS = { x: 36, y: 138 };  // 访客站的位置（洞府门口，脚底中心）
 let adv = null;
 let wipe = 0;
 let lastMode = 'home';
@@ -58,6 +59,35 @@ function drawMeHome(x, y, realm) {
     R(bx - 3, by, 7, 9, '#3a1a14'); R(bx - 2, by + 1, 5, 7, '#fff6dc'); R(bx, by + 2, 1, 4, '#c8323c'); R(bx, by + 7, 1, 1, '#c8323c'); R(bx - 4, by + 7, 2, 2, '#3a1a14');
   }
 }
+// 吐纳环（DESIGN §3.2）：在洞府打坐时每周天蓄 1/6，蓄满发光，点自己释放。场景内的简画，美术接口到位后可换 ART.drawTunaRing
+function drawTunaRing(x, y) {
+  if (st.p.r > L.MAXR || L.busy(st) || L.isFull(st)) return;
+  const f = Math.min(1, (st.tuna || 0) / L.TUNA_FULL), full = L.tunaReady(st);
+  const rx = 17, ry = 4, n = 40, lit = full ? (Math.sin(T / 160) > 0 ? '#fff1a8' : '#8ff5d0') : '#4ccb9f';
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2 - Math.PI / 2;
+    ctx.globalAlpha = i / n < f ? 0.95 : 0.35;
+    R(Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry), 1, 1, i / n < f ? lit : '#5a5280');
+  }
+  ctx.globalAlpha = 1;
+  if (full && Math.random() < 0.15) { const a = Math.random() * 6.28; parts.push({ x: x + Math.cos(a) * rx, y: y + Math.sin(a) * ry, vx: 0, vy: -0.015, life: 700, max: 700, c: '#fff1a8', s: 1 }); }
+}
+// 闭关：主角身上一层光罩
+function drawRetreatFx(x, y) {
+  if (!st.retreat) return;
+  const S = D().sit, col = st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0';
+  ART.glow(x, y - S.h / 2, Math.round(S.w * 0.75), col, 0.25 + 0.08 * Math.sin(T / 300));
+  if (Math.random() < 0.2) { const a = Math.random() * 6.28, r = 22; parts.push({ x: x + Math.cos(a) * r, y: y - S.h / 2 + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * 0.02, vy: -Math.sin(a) * 0.01, life: 900, max: 900, c: col, s: 1 }); }
+}
+// 访客：门口一个人影，头上一个跳动的“！”（点它见访客）
+function drawVisitor() {
+  if (!st.visitor || st.retreat) return;
+  const x = VISIT_POS.x, y = VISIT_POS.y;
+  R(x - 3, y - 15, 6, 6, '#f2c9a0'); R(x - 3, y - 16, 6, 2, '#2a2230');
+  R(x - 4, y - 9, 8, 9, '#6a5a8a'); R(x - 4, y - 9, 8, 1, '#8a7aa8'); R(x - 3, y, 2, 1, '#1b1326'); R(x + 1, y, 2, 1, '#1b1326');
+  const by = y - 27 + Math.round(Math.abs(Math.sin(T / 260)) * -3);
+  R(x - 4, by, 9, 10, '#1b1326'); R(x - 3, by + 1, 7, 8, st.visitor.left <= 1 ? '#ff8a8a' : '#ffe39a'); R(x, by + 2, 1, 4, '#c8323c'); R(x, by + 7, 1, 1, '#c8323c'); R(x - 1, by + 10, 2, 2, '#1b1326');
+}
 function drawPet(x, y) {
   const p = st.p; if (!p.pet) return;
   const spr = ART.pet(p.pet.tier), P = D().pet;
@@ -99,7 +129,9 @@ function drawHomeScene(dt) {
   const r = ART.drawHome(st, T, OY, parts, { phase: phase() });
   const col = drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
-  if (cine) drawCineTarget(); else drawMeHome(HOMEPOS.x, HOMEPOS.y);
+  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);
+  if (cine) drawCineTarget(); else { drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
+  drawVisitor();
   drawPet(HOMEPOS.x + D().sit.w / 2 + 4, HOMEPOS.y);
   drawCrane();
   drawParts(dt);

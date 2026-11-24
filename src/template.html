@@ -320,6 +320,26 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .ladder div.me { background: var(--gold); }
 .ladder div b { font-weight: normal; width: 3.5em; flex: none; }
 .ladder div span { flex: 1; min-width: 0; }
+/* 阶段一适配：历练确认页的分段按钮、评价印、突破步进器、本趟收获条 */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.segb { border: 0; cursor: pointer; min-height: 44px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  background: var(--paper-lo); color: var(--paper-ink); box-shadow: 0 0 0 2px #b9a77c; }
+.segb b { font-weight: normal; }
+.segb small { color: var(--paper-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.segb.on { background: var(--seal); color: #fff6e6; box-shadow: 0 0 0 2px var(--ink); }
+.segb.on small { color: #ffd8d8; }
+.segb:disabled { opacity: .5; cursor: default; }
+.stamp { display: inline-flex; align-items: center; justify-content: center; width: 2em; height: 2em; color: var(--seal); box-shadow: 0 0 0 2px var(--seal), inset 0 0 0 2px #f7eed6, inset 0 0 0 4px var(--seal); background: #fbf3dc; }
+.stamp.big { font-size: calc(var(--fs) * 2.5); animation: pop .35s steps(6); }
+.stamp.r4 { color: #a8740b; box-shadow: 0 0 0 2px #a8740b, inset 0 0 0 2px #fff6c0, inset 0 0 0 4px #a8740b; background: #fff3c4; }
+.stamp.r3 { color: var(--seal); }
+.stamp.r2 { color: #1d8a63; box-shadow: 0 0 0 2px #1d8a63, inset 0 0 0 2px #f7eed6, inset 0 0 0 4px #1d8a63; }
+.stamp.r1, .stamp.r0 { color: #6a5a4a; box-shadow: 0 0 0 2px #6a5a4a, inset 0 0 0 2px #f7eed6, inset 0 0 0 4px #6a5a4a; }
+.stepper { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; }
+.stepper .btn.sm { min-width: 44px; min-height: 36px; }
+.stepper b { font-weight: normal; min-width: 1.5em; text-align: center; font-size: calc(var(--fs) * 1.5); }
+.sheet.still { animation: none; }
+#haul { position: absolute; left: 4px; right: 4px; top: 12px; padding: 2px 6px; background: rgba(11, 9, 18, .72); color: #ffe39a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 /* 开场 */
 #intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
 #intro .story { max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 14px; cursor: pointer; }
@@ -354,6 +374,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
     <div id="flash"></div>
     <div id="banner"></div>
     <div id="tip" hidden></div>
+    <div id="haul" hidden></div>
   </div>
   <button id="cult" class="pxbox" aria-label="修为">
     <span class="row"><span id="realm">炼气初期</span><span id="xpTxt" class="num"></span></span>
@@ -365,7 +386,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
     <button data-s="inc" aria-label="灵石收入"><span class="k">灵石/周天</span><b id="sInc">+11</b></button>
     <button data-s="big" id="sBigBtn" aria-label="下一件大事"><span class="k" id="sBigK">三年之约</span><b id="sBig">胜算 --</b></button>
   </div>
-  <div id="goal" class="pxbox" role="button" aria-label="当前目标，点击查看做法"><span class="lab">目标</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span><span class="q">？</span></div>
+  <div id="goal" class="pxbox" role="button" aria-label="札记：当前任务，点击查看"><span class="lab">札记</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span><span class="q">？</span></div>
   <div id="feed" class="pxbox"></div>
   <div id="nav">
     <button data-nav="exp"><img class="px" data-icon="sword" alt=""><span>历练</span></button>

@@ -12,13 +12,18 @@ function showSect() {
   const sc = L.sectOf(st), sr = st.sect.rank, nx = L.SRANKS[sr + 1];
   let promo;
   if (nx) {
-    const okR = p.r >= nx.r, okC = st.sect.total >= nx.c;
-    promo = `<div class="card flat"><div class="main"><div>晋升 ${L.srankName(st, sr + 1)}</div>
-      <div class="${okR ? 'jadet' : 'muted'}">${okR ? '✓' : '·'} 境界达到${L.REALMS[nx.r].n}期</div>
-      <div class="${okC ? 'jadet' : 'muted'}">${okC ? '✓' : '·'} 累计贡献 ${fmt(st.sect.total)} / ${fmt(nx.c)}</div>${bar(st.sect.total / nx.c, okC)}
-      ${nx.duel ? `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}</div>` : ''}</div>
+    const needs = L.promoteNeeds(st);
+    promo = `<div class="card flat"><div class="main"><div>晋升 ${L.srankName(st, sr + 1)} <span class="muted">（俸禄 ×${L.SRANKS[sr].pay} → ×${nx.pay}）</span></div>
+      ${needs.map(x => `<div class="${x.ok ? 'jadet' : 'muted'}">${x.ok ? '✓' : '·'} ${esc(x.t)}</div>${x.v !== undefined ? bar(Math.min(1, x.v), x.ok) : ''}`).join('')}
+      ${nx.duel ? `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}（战力 ${fmt(L.heirPower())}，你的胜算 ${L.pct(L.duelChance(L.duelPower(st, { kind: 'heir' }), L.heirPower()))}）</div>` : ''}</div>
       <div class="right"><button class="btn sm ${L.canPromote(st) ? 'gold' : 'alt'}" id="btnPromo" ${L.canPromote(st) ? '' : 'disabled'}>晋升</button></div></div>`;
   } else promo = '<div class="quote">你已是一宗之主，号令一方。</div>';
+  const tasks = (st.sect.tasks || []).map((t, i) => {
+    const can = L.taskCanDeliver(st, t);
+    const btn = t.done ? '<span class="chip ok">已完成</span>' : !t.taken ? `<button class="btn sm gold" data-tk="${i}" ${t.ty === 'teach' && L.busy(st) ? 'disabled' : ''}>接取</button>` : can ? `<button class="btn sm gold" data-td="${i}">交付</button>` : `<span class="chip">进行中${t.need > 1 ? ` ${t.prog}/${t.need}` : ''}</span>`;
+    return `<div class="card flat"><div class="main"><div>${esc(L.taskText(st, t))}</div><div class="goldt">${esc(L.taskReward(st, t))}</div></div><div class="right">${btn}</div></div>`;
+  }).join('');
+  const taskBoard = `<div class="muted">任务板（每届论道后刷新，可以同时接；下次刷新约 ${L.nextTour(st)} 周天后）</div>${tasks || '<p class="muted">这一届的任务都做完了。</p>'}`;
   const vault = L.VAULT.map(v => {
     const c = L.vaultCost(st, v.k), tier = L.vaultTier(st, v.k);
     const desc = v.k === 'vart' ? `${L.ARTS[tier].n}功法 · 修炼×${L.ARTS[tier].m}` : v.k === 'vwep' ? `${L.WEAPONS[tier].n} · 战力×${L.WEAPONS[tier].m}` : v.d;
@@ -31,22 +36,24 @@ function showSect() {
     title: sc.n, sub: `${sc.d} · 宗门加成：${sc.perk}`,
     body: `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
       <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? '，每 6 周天一枚破境丹' : ''}</dd><dt>可用贡献</dt><dd class="num">${fmt(st.sect.pts)}</dd></dl>
-      ${promo}<div class="sep"></div>${nineHTML()}<div class="sep"></div><div class="muted">宗门宝库（用贡献兑换）</div>${vault}
-      <div class="muted">历练成功、天骄论道获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`,
+      ${promo}<div class="sep"></div>${taskBoard}<div class="sep"></div>${nineHTML()}<div class="sep"></div><div class="muted">宗门宝库（用贡献兑换）</div>${vault}
+      <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`,
   });
+  s.querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { if (L.taskTake(st, +b.dataset.tk)) { SFX.tap(); if (st.retreat && st.retreat.kind === 'teach') closeModal(); else showSect(); } });
+  s.querySelectorAll('[data-td]').forEach(b => b.onclick = () => { if (L.taskDeliver(st, +b.dataset.td)) { SFX.coin(); showSect(); } });
   const pb = s.querySelector('#btnPromo');
   if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
   s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, '破境丹 +2', '#ffe39a'); showSect(); } });
 }
 function nineHTML() {
   const pos = L.sectPos(st);
-  const next = 24 - ((st.tick - 6) % 24 + 24) % 24 || 24;
+  const next = L.nextMeet(st);
   const rows = st.sect.order.map((id, i) => {
     const N = L.NINE.find(x => x.id === id), me = id === st.sect.id;
     return `<div class="${me ? 'me' : ''}"><b>第${i + 1}</b><span>${N.n}${me ? '（本宗）' : ` · ${N.champ}`}</span><span class="num">${me ? fmt(L.power(st)) : fmt(L.ninePower(st, i + 1))}</span></div>`;
   }).join('');
   return `<div class="muted">天下九宗（九宗会武每 24 周天一届，你代表本宗出战）</div>
-    <dl class="grid2"><dt>宗门排名</dt><dd>天下第 ${pos} 宗 · 最高第 ${st.sect.best}</dd><dt>灵脉</dt><dd>${st.sect.veins || 0} 条（俸禄 +${(st.sect.veins || 0) * 25}%）</dd><dt>下届会武</dt><dd>约 ${next} 周天后</dd></dl>
+    <dl class="grid2"><dt>宗门排名</dt><dd>天下第 ${pos} 宗 · 最高第 ${st.sect.best}（俸禄 ×${(1 + 0.08 * (9 - pos)).toFixed(2)}）</dd><dt>灵脉</dt><dd>${st.sect.veins || 0} 条（俸禄 +${(st.sect.veins || 0) * 25}%）</dd><dt>下届会武</dt><dd>${next} 周天后</dd></dl>
     <div class="ladder">${rows}</div>`;
 }
 const NINE_LOOK = { kunlun: 'yun', tianjian: 'chu', xuesha: 'xue' };
@@ -70,7 +77,7 @@ function runSectMeet() {
     const tj = rd.foe.id === 'tianjian';
     duel({
       title: `会武 · 对阵${rd.foe.n}`,
-      right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: res.S, win: rd.win,
+      right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, win: rd.win,
       quote: `${rd.foe.champ}：“${rd.foe.line}”`,
       winText: `${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
       loseText: '对方底蕴深厚，下届会武再来！',
@@ -105,7 +112,7 @@ function doPromote() {
     const heir = { n: st.p.look.f ? '原圣女·苏清寒' : '原圣子·萧凌风' };
     duel({
       title: `${title}之争`, intro: `你要晋升${title}的消息传出，原${title}当众拦下：“想坐我的位置？先过我这一关！”`,
-      right: { img: rivalAvImg(heir, 66), name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, win: res.duel.win,
+      right: { img: rivalAvImg(heir, 66), name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, win: res.duel.win,
       quote: `${heir.n}：“一个半路入门的散修，也配当${title}？”`,
       winText: `${esc(heir.n)}面如死灰，长剑落地。全场鸦雀无声，随后掌声雷动！`, loseText: '你惜败一招。来日修为更进一步，再来挑战！',
       done: () => { if (res.ok) celebrate(); else closeModal(); },
@@ -113,29 +120,32 @@ function doPromote() {
   } else celebrate();
 }
 function showInvite() {
+  if (st.sect) return;
+  let sel = 0;
   const s = sheet({
     title: '三宗争徒', center: true, noClose: true,
     body: `<p>筑基消息传出，天下震动！三大宗门的长老同时登门，争相招揽：</p>
-      <div class="cands">${L.SECTS.map((sc, i) => `<div class="cand" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
-      <div id="inv" class="muted center">点选一个宗门</div>
+      <div class="cands">${L.SECTS.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
+      <div id="inv" class="center"></div>
       <div class="quote">戒中老祖：“当年天剑宗把你踢下山，如今人家抢着要你。痛快不痛快？”</div>`,
-    foot: [{ t: '暂不入宗', alt: true, fn: () => { L.log(st, '婉拒了三大宗门的招揽，继续做逍遥散修'); closeModal(); } }, { t: '拜入此宗', gold: true, disabled: true, fn: () => {} }],
+    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 周天后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = L.SECTS[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每周天 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
-  s.querySelectorAll('.cand').forEach(c => c.onclick = () => {
-    const sc = L.SECTS[+c.dataset.i]; SFX.tap();
-    s.querySelectorAll('.cand').forEach(x => x.classList.toggle('sel', x === c));
-    s.querySelector('#inv').textContent = `${sc.n}：${sc.d}。加成：${sc.perk}`;
-    ok.disabled = false;
-    ok.onclick = () => { SFX.win(); L.joinSect(st, sc.id); closeModal(); banner('拜入' + sc.n, '外门弟子'); };
-  });
+  const show = () => {
+    const sc = L.SECTS[sel];
+    s.querySelectorAll('.cand').forEach(x => x.classList.toggle('sel', +x.dataset.i === sel));
+    s.querySelector('#inv').innerHTML = `<b>${sc.n}</b>：${sc.d}。${sc.perk}`;
+    ok.textContent = '拜入' + sc.n;
+  };
+  s.querySelectorAll('.cand').forEach(c => c.onclick = () => { sel = +c.dataset.i; SFX.tap(); show(); });
+  show();
 }
 function runWar() {
   const res = L.sectWar(st);
   const sc = L.sectOf(st);
   duel({
     title: '天剑宗来犯', intro: `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个弃徒！`,
-    right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, win: res.win,
+    right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, win: res.win,
     quote: '天剑宗长老：“交出那个弃徒，饶你们满门不死！”',
     winText: `你一人一剑立于山门之前，剑光过处，天剑宗众人倒飞而出！<br>宗门贡献 +${fmt(res.contrib || 0)}，灵石 +${fmt(res.stones || 0)}`,
     loseText: '宗门众长老联手苦战，方才逼退来敌。天剑宗扬言还会再来……',

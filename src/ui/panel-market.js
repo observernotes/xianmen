@@ -11,7 +11,25 @@ function showMarket() {
     return `<div class="card flat"><div style="flex:none">${iconHTML(ic, 30)}</div><div class="main"><div>${m.n}</div><div class="muted">${m.d}${note}</div></div>
       <div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-k="${m.k}" ${dis ? 'disabled' : ''}>${iconHTML('stone', 12)} ${fmt(c)}</button></div></div>`;
   }).join('');
-  const s = sheet({ title: '坊市', sub: `灵石 ${fmt(st.stones)} · 价格随境界上涨`, body: body + `<div class="muted">当前：法宝 ${p.w ? L.WEAPONS[p.w].n : '无'} · 功法 ${L.ARTS[p.a].n} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}</div>` });
+  let auc = '';
+  if (L.auctionOpen(st)) {
+    auc = `<div class="sep"></div><div class="seal">拍卖会 · 还剩 ${st.auction.until - st.tick} 周天（一口价，通常只买得起一件）</div>` + st.auction.items.map((it, i) => {
+      const dis = it.sold || st.stones < it.price;
+      return `<div class="card flat"><div class="main"><div>${esc(it.n)}${it.tier ? ` <span class="muted">（${it.k === 'w' ? '战力 ×' + L.WEAPONS[it.tier].m : '修炼 ×' + L.ARTS[it.tier].m}）</span>` : ''}</div>${it.sold ? '<div class="muted">已拍下</div>' : ''}</div><div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-au="${i}" ${dis ? 'disabled' : ''}>${iconHTML('stone', 12)} ${fmt(it.price)}</button></div></div>`;
+    }).join('');
+  } else if (L.mr(st) >= 2) {
+    const n = ((L.AUCTION.at - st.tick % L.AUCTION.every) + L.AUCTION.every) % L.AUCTION.every || L.AUCTION.every;
+    auc = `<div class="muted">下一场拍卖会：${n} 周天后</div>`;
+  }
+  const box = L.boxCap(st, 'w');
+  const s = sheet({ title: '坊市', sub: `灵石 ${fmt(st.stones)} · 价格随境界上涨`, body: body + auc + `<div class="muted">当前：法宝 ${p.w ? L.WEAPONS[p.w].n : '无'} · 功法 ${L.ARTS[p.a].n} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}<br>寻宝保底：连续 ${st.boxMiss || 0}/2 次没提升；本境界最高补到 ${L.WEAPONS[box].n} / ${L.ARTS[L.boxCap(st, 'a')].n}</div>` });
+  s.querySelectorAll('button[data-au]').forEach(btn => btn.onclick = () => {
+    const r = L.auctionBuy(st, +btn.dataset.au);
+    if (!r) return;
+    SFX.coin();
+    if (r.it) revealItem(r.it, showMarket);
+    else { floatText(100, 80, '拍下' + r.n, '#ffe39a'); showMarket(); }
+  });
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
     const r = L.buy(st, btn.dataset.k);
     if (!r) return;

@@ -10,7 +10,7 @@ function showAscension() {
       <div class="center big goldt">${esc(p.name)} 白日飞升</div>
       <p class="center">九九天劫散尽，仙门大开。当年被逐出山门、被当众退婚的废柴，踏云而去，位列仙班。</p>
       <dl class="grid2"><dt>修仙</dt><dd>${Math.floor(st.year) + 1} 年 · ${fmt(p.age)} 岁</dd><dt>天骄榜</dt><dd>最高第 ${st.bestRank}</dd><dt>宗门</dt><dd>${st.sect ? L.sectOf(st).n + L.srankName(st, st.sect.rank) : '散修'}</dd></dl>
-      <div class="quote">恭喜通关！转世重修可以带着仙缘开启新的一世：修炼更快，天赋三选一。</div>`,
+      <div class="quote">恭喜通关！转世重修可以开启新的一世：天赋三选一，所有功能直接开放。</div>`,
     foot: [{ t: '留在此世', alt: true, fn: closeModal }, { t: '再入轮回', gold: true, fn: () => rebirthPick() }] });
 }
 function showDeath() {
@@ -29,7 +29,7 @@ function rebirthPick() {
   const s = sheet({ title: `第 ${n + 1} 世 · 选择天赋`, center: true, noClose: true,
     body: `<p>轮回之中，三道命格浮现。选择你下一世的根骨：</p>
       <div class="cands">${cards.map((c, i) => { const T0 = L.TALENTS[c.t]; const tr = L.TRAITS[c.tr[0]]; const beam = T0.c === 'rainbow' ? 'linear-gradient(#ff7a7a,#ffd36b,#7dff9a,#7ad7ff,#c48bff)' : T0.c; return `<div class="cand hide" data-i="${i}"><div class="beam" style="background:${beam}"></div>${talentTag(c.t)}<div class="tr" style="color:var(--text)">${tr.n}</div><div class="tr">${tr.d}</div><div class="cover">？</div></div>`; }).join('')}</div>
-      <p class="muted center">仙缘加身：修炼速度 ×${(1 + 0.5 * n).toFixed(1)}，战力 ×${(1 + 0.25 * n).toFixed(2)}，初始灵石更多</p>`,
+      <p class="muted center">带着前世的见识投胎：所有功能直接开放、不再讲解；历练相性的图鉴跨世保留。</p>`,
     foot: [{ t: '投胎转世', gold: true, disabled: true, fn: () => {} }] });
   const ok = s.querySelector('[data-fi="0"]');
   s.querySelectorAll('.cand').forEach((c, i) => {
@@ -41,7 +41,7 @@ function rebirthPick() {
       ok.disabled = false;
       ok.onclick = () => {
         const old = st, card = cards[i];
-        const ns = L.newState({ name: old.p.name, female: old.p.look.f, rebirth: n, t: card.t, tr: card.tr, lives: old.lives });
+        const ns = L.newState({ name: old.p.name, female: old.p.look.f, rebirth: n, t: card.t, tr: card.tr, lives: old.lives, meta: old.meta, origin: old.origin });
         ns.guide = { step: GUIDE.length, done: true };
         ns.hintSeen = Object.assign({}, old.hintSeen || {}, { pactSoon: 0, afterPact: 0 });
         closeModal();

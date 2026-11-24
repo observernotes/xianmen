@@ -45,7 +45,7 @@ function showMe(tab) {
       if (!L.met(st, id)) return `<div class="card flat" style="opacity:.55"><div class="av" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted)">？</div><div class="main"><div>？？？</div><div class="muted">${N.title} · 尚未相识</div></div></div>`;
       const a = L.aff(st, id);
       const tag = st.daolv === id ? '<span class="chip ok">道侣</span>' : a >= 60 ? '<span class="chip ok">知己</span>' : a >= 30 ? '<span class="chip">熟识</span>' : '<span class="chip">初识</span>';
-      return `<div class="card flat">${npcAvImg(id, 44)}<div class="main"><div class="line"><span>${esc(L.npcName(st, id))}</span>${tag}</div><div class="muted">${N.title}</div>${bar(a / 100, a >= 60)}<div class="${a >= 60 ? 'jadet' : 'muted'}">知己加成：${N.bonus}${N.daolv ? ' · 可结为道侣（双修 修炼×1.3）' : ''}</div></div><div class="right num">${a}</div></div>`;
+      return `<div class="card flat">${npcAvImg(id, 44)}<div class="main"><div class="line"><span>${esc(L.npcName(st, id))}</span>${tag}</div><div class="muted">${N.title}</div>${bar(a / 100, a >= 60)}<div class="${a >= 60 ? 'jadet' : 'muted'}">知己加成：${N.bonus}${N.daolv ? ' · 可结为道侣（双修 修炼×1.25）' : ''}</div></div><div class="right num">${a}</div></div>`;
     }).join('') + '<div class="muted">好感来自奇遇中的选择。好感 60 结为知己获得永久加成；医修与魔门圣女二人中可择一结为道侣。</div>';
   } else if (tab === 'ach') {
     const got = L.ACHS.filter(a => st.ach[a.id]).length;

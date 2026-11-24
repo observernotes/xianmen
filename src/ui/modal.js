@@ -6,7 +6,7 @@ function sheet(o) {
   const m = $('#modal');
   m.classList.toggle('mid', !!o.center);
   const foot = (o.foot || []).map((b, i) => `<button class="btn ${b.alt ? 'alt' : ''} ${b.gold ? 'gold' : ''}" data-fi="${i}" ${b.disabled ? 'disabled' : ''}>${b.t}</button>`).join('');
-  m.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="rod"></div>
+  m.innerHTML = `<div class="sheet${o.still ? ' still' : ''}" role="dialog" aria-modal="true"><div class="rod"></div>
     <header><h2>${o.title}</h2>${o.noClose ? '' : '<button class="close" aria-label="关闭">×</button>'}</header>
     ${o.sub ? `<div class="sub" style="padding:0 12px">${o.sub}</div>` : ''}
     <div class="body">${o.body || ''}</div>
@@ -23,7 +23,7 @@ function closeModal() {
   m.hidden = true; m.innerHTML = '';
   const f = modalOnClose; modalOnClose = null;
   if (f) f();
-  setTimeout(processQueue, 120);
+  setTimeout(processQueue, 400);
   updateHUD();
 }
 function pushPopup(fn) { queue.push(fn); processQueue(); }

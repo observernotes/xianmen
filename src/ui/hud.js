@@ -5,12 +5,17 @@ let feedDirty = true;
 function onHook(type, data) {
   if (!st) return;
   if (type === 'log') feedDirty = true;
-  else if (type === 'stageUp') { if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 6, L.STAGES[st.p.s] + '↑', '#8ff5d0'); SFX.up(); }
+  else if (type === 'stageUp') {
+    const pw1 = L.power(st); lastUp = { pw0: pw1 / Math.pow(L.P.pwStage, data.ups), pw1 };
+    if (!st.exp) { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 6, L.stageName(st.p) + '↑', '#8ff5d0'); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h + 6, `战力 ${fmt(lastUp.pw0)} → ${fmt(pw1)}`, '#ff9a8a', false, true); }
+    SFX.up();
+  }
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-  } else if (type === 'goal') { SFX.goal(); floatText(100, 60, data.rw ? `目标达成 灵石+${fmt(data.rw)}` : '目标达成', '#ffe39a'); }
-  else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', '宗门贡献够了，去【宗门】晋升身份吧！身份越高，俸禄越多，宝库能换的东西越好。'); }
+  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) banner(chn, data.t); }
+  else if (type === 'task') { floatText(100, 64, '宗门任务完成', '#8ff5d0'); }
+  else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
 
 // ---------- HUD ----------
@@ -32,10 +37,16 @@ function updateHUD() {
   const ready = L.isReady(st);
   $('#realm').textContent = L.stageName(p);
   const need = L.pNeed(p);
+  const tags = [];
+  if (p.inj > 0) tags.push(`负伤${p.inj}`);
+  if ((st.buffs || []).some(b => b.cul)) tags.push('丹');
+  const tagTxt = tags.length ? ' · ' + tags.join(' ') : '';
   if (p.r >= 9) $('#xpTxt').textContent = '已证大道';
   else if (ready) $('#xpTxt').textContent = `修为圆满 · 点此冲击${p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n}`;
-  else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n}`;
-  else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}`;
+  else if (L.isFull(st) && st.exp) $('#xpTxt').textContent = '修为已满 · 回洞府后突破';
+  else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
+  else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关'}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
+  else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
   $('#sCul').textContent = '+' + fmt(L.gain(st));
   $('#sAtk').textContent = fmt(L.power(st));
   $('#sInc').textContent = '+' + fmt(L.income(st));
@@ -54,16 +65,20 @@ function updateHUD() {
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
   $('#cult').classList.toggle('away', !!st.exp);
-  const g = L.GOALS[st.goal];
-  $('#goalTxt').textContent = g ? L.goalText(st, g) : '大道已成';
-  $('#goalRw').textContent = g && g.rw ? '灵石+' + fmt(g.rw) : '';
-  setBadge('exp', !st.exp && !ready && p.r < 9 ? '闲' : '');
+  // 札记：当前章第一条没做完的（DESIGN §4.6，数据在 L.CHAPTERS）
+  const qv = L.questView(st), q = qv.first;
+  $('#goalTxt').textContent = q ? (q.main ? '【主线】' : '') + L.questText(st, q) : '大道已成';
+  $('#goalRw').textContent = q ? L.rewardText(st, q.rw) : '';
+  const busy = L.busy(st);
+  setBadge('exp', !busy && !ready && p.r < 9 ? '闲' : '');
   const gd = st.guide && st.guide.done;
-  const rec = !gd || ready || p.r >= 9 ? '' : !st.exp ? 'exp' : st.stones >= L.hCost('array', st.home.array) ? 'home' : '';
+  const canUp = L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]));
+  const rec = !gd || ready || p.r >= 9 || busy ? '' : p.inj > 0 && L.canHeal(st) ? 'home' : L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]) * 3) ? 'home' : 'exp';
   $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
-  setBadge('home', L.HOME.some(b => st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k])) ? '↑' : '');
-  setBadge('sect', L.canPromote(st) ? '升' : '');
-  setBadge('market', L.desperate(st) && (st.lifePills[p.r] || 0) < 3 ? '!' : '');
+  setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : canUp ? '↑' : '');
+  setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : '');
+  setBadge('market', L.auctionOpen(st) ? '拍' : L.desperate(st) && (st.lifePills[p.r] || 0) < 3 ? '!' : '');
+  updateHaul();
   if (feedDirty) renderFeed();
 }
 // 渐进解锁：一开始只给历练、洞府、人物，免得一上来不知道点哪
@@ -84,4 +99,15 @@ function renderFeed() {
   if (!st || cine) return;
   feedDirty = false;
   $('#feed').innerHTML = st.log.slice(0, 8).map(l => `<div class="${esc(l.cls)}"><span>${esc(l.t)}</span>${esc(l.text)}</div>`).join('');
+}
+
+// 历练途中场景顶部的“本趟收获”条（DESIGN §5.3 途中 HUD）：按出发时预掷的结果逐周天累加
+function updateHaul() {
+  const el = $('#haul');
+  if (!el) return;
+  if (!st.exp || cine) { if (!el.hidden) el.hidden = true; return; }
+  const e = st.exp, pv = L.expPreview(st, Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total));
+  const txt = `本趟 · 灵石 +${fmt(pv.stones)} · 灵草 +${fmt(pv.herbs)} · 宝物 ${pv.finds ? pv.finds + '?' : '—'}${pv.xp > 0 ? ' · 感悟 +' + fmt(pv.xp) : ''}`;
+  if (el.textContent !== txt) el.textContent = txt;
+  el.hidden = false;
 }
