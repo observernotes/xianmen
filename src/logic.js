@@ -866,6 +866,8 @@ L.eligible = function (st, ev, where, ctx) {
   if (ev.daolv === false && st.daolv) return false;
   if (where === 'exp' && ev.bg && ctx.bg && !ev.bg.includes(ctx.bg)) return false;
   if (where !== 'story' && st.evLast[ev.id] !== undefined && st.tick - st.evLast[ev.id] < 40) return false;
+  // 一个选项都付不起的奇遇不要弹出来（否则玩家只能干看着）
+  if (where !== 'story' && !ev.choices.some(c => L.costOk(st, c.cost))) return false;
   return true;
 };
 L.pickEvent = function (st, where, ctx) {

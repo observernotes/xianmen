@@ -96,6 +96,7 @@ for (const e of EVENTS) {
   if (typeof e.text === 'string' && len(e.text) > LIM.text) err(id, `text 过长 ${len(e.text)}/${LIM.text}`);
 
   if (!Array.isArray(e.choices) || e.choices.length < 1 || e.choices.length > 3) { err(id, 'choices 需 1~3 个'); continue; }
+  if (!e.choices.some(c => !c.cost)) err(id, '至少要有一个不花钱的选项，否则资源不够时玩家会卡住');
   const allText = [e.text];
   const notFlags = e.not || [];
   const oneShot = e.where === 'story' || e.once === true;

@@ -1114,12 +1114,13 @@ function showChoice(ev) {
     if (c.duel) bits.push('胜算 ' + L.pct(L.duelChance(1, c.duel)));
     else if (c.p !== undefined) bits.push('把握 ' + L.pct(Math.min(0.95, c.p + luck)));
     return `<button class="btn ${i === 0 ? 'gold' : 'alt'}" data-c="${i}" ${can ? '' : 'disabled'}><span>${esc(L.fill(st, c.t))}</span><small>${esc(bits.join(' · '))}</small></button>`;
-  }).join('');
+  }).join('') + (ev.choices.some(c => L.costOk(st, c.cost)) ? '' : '<button class="btn alt" data-leave="1"><span>作罢</span><small>眼下拿不出这些，只好作罢</small></button>');
   const s = sheet({
     title: (ev.where === 'story' ? '<span class="story-tag">主线</span>' : '') + esc(L.fill(st, ev.title)), center: true, noClose: true,
     body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div><div class="choices">${btns}</div>`,
   });
   SFX.reveal(ev.where === 'story' ? 4 : 2);
+  const lv = s.querySelector('[data-leave]'); if (lv) lv.onclick = () => { SFX.tap(); closeModal(); };
   s.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => {
     SFX.tap();
     const res = L.resolveChoice(st, ev, +b.dataset.c);
