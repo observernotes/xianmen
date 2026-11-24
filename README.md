@@ -32,6 +32,19 @@
 
 按默认节奏，第一世约 210～280 周天飞升（1 倍速约 20 分钟的修炼时间，加上奇遇、对决和剧情，一世大约玩 40 分钟以上；可开 2 倍、4 倍速）。
 
+## 安卓
+
+`dist/xiantu.apk` 是离线单机安卓安装包（Android 5.0 及以上），游戏全部内置，不需要联网，存档保存在手机本地。
+
+重新打包：
+
+```
+sudo apt install android-sdk-build-tools android-sdk-platform-23 apksigner zipalign default-jdk
+bash tools/build_apk.sh
+```
+
+签名文件默认是 `android/release.keystore`（不进仓库）。以后更新版本要用同一个签名文件，才能覆盖安装、保留存档。
+
 ## 开发
 
 ```

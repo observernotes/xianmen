@@ -127,7 +127,7 @@ function fitScene() {
   const others = ['#top', '#cult', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0) + 6 * 6 + 16;
   const avail = app.clientHeight - others - 70;
   const w = wrap.clientWidth || 300;
-  const h = Math.max(160, Math.min(215, Math.floor(avail / w * W)));
+  const h = Math.max(160, Math.min(250, Math.floor(avail / w * W)));
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; wrap.style.aspectRatio = `${W} / ${H}`; }
 }
 function phase() { return ((T / 120000) + 0.42) % 1; }
