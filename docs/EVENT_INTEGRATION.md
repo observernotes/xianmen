@@ -2,6 +2,18 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行）
+
+- [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
+- [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
+- [x] `tools/check_events.js` 放开：新键、共享剧情触发键、最多 5 个选项、去掉数量上限；互补条件的选项按 flag 组合枚举检查“总有一个不花钱的可见”；`node tools/check_events.js report` 列出上线 / 闸住数量和闸住最多的键（`report list` 逐条列）。
+- [x] 已登记（引擎现在就支持）：现有全部 fx 与资格字段；`cooldown`、`srankMin`、`rankMax`、`chain`/`step`（完成第 n 步自动置「链短名_n」）、选项级 `need / not / srankMin`（不满足不显示）、`choice.dao`（道心系统上线前只记数 `st.dao`）、`contrib` 可为负（扣可用贡献）、`unflag`；触发键 `beat:*`（首次击败宿敌，同时置 `beat_<id>`）、`srank:*`（晋升）、`pact_eve`（约战前一周天）、`trib:1`（第一次渡雷劫）；结为道侣时置 `daolv_su` / `daolv_ye`。
+- [x] 功法系统登记：`fx.art`（可为数组；`x_hongmeng` / `m_xingdou` 记一片残篇，三片合成）、`fx.mastery`（当前心法熟练 ±n，没装心法时作用于战技）、一次性 flag `combo_hint` / `combo_hint_c18`（揭示共鸣提示）。
+- [x] 重复 id：两位写手都写了 `story_pact_eve / story_trib1 / story_demon1～3 / story_ascend`，保留 `ev_sect_people.js` 版（CONTENT §14.4 记在这一组），`ev_world_chains.js` 的 8 段（含 `_b` 版）删去。
+- [x] 血河老祖的 `mo_xuehe_1` 去掉了 `maxR: 7`（校验的老祖规则不再误伤“血河老祖”）；`mo_xuehe_2`、`mo_xuesan_2` 正文里单写“老祖”，仍保留。
+- [x] 主线给功法（CONTENT §2 的“主”来源）：`story_r3` 得《天剑九式（残）》，`story_r6` 得《玄霄剑典·心卷》；`story_r8` 先给《玄霄剑典·剑卷》（老祖旧剑链终点 `ch_sword_6` 要等器方 `fx.plan`）。
+- 当前上线 165 / 327（基础 122 全部上线；扩展包 43 / 205）。闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`fx.ore`、`elig.theme` …（`report` 有全表）。
+
 ## ev_realm_rivals.js（秘境 16、宿敌与新秀 23、坊市拍卖 6）
 
 - 文件头列出了引擎要设置或读取的所有 flag：首次击败宿敌置 `beat_<rival>`；秘境内的 `run_*`；若干一次性的坊市、突袭 flag。
@@ -16,30 +28,30 @@
   - `sword_slave_saved` 预告了一个“报恩”洞府事件，计划表里没有。
   - tiankuo_2 置 `tk_rubbing`，可作为 ch_tianjian 链的第 2 步。
   - realm_forge 的“熔一件宝”、mkt_black 的“卖因果”在没有可熔/可卖的东西时应隐藏。
-- `tools/check_events.js` 需要放开：新键、同一 `realm:6/7` 触发多个事件、`tianheng_2` 的 4 个选项、旧的事件数量上限。
+- [x] `tools/check_events.js` 需要放开：新键、同一 `realm:6/7` 触发多个事件、`tianheng_2` 的 4 个选项、旧的事件数量上限。
 - 写手的校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev/validate.js（会话临时目录）。
 
 ## ev_sect_people.js（宗门 45、人物委托与终章 26，共 71）
 
-- 选项数超过旧校验上限 3：sect_duty_pick 5 个，sect_candidates / sect_succession 4 个。
+- [x] 选项数超过旧校验上限 3：sect_duty_pick 5 个，sect_candidates / sect_succession 4 个。
 - 长老 `_2` 事件里“帮他”是 75% 成功；访客超时按“置身事外”结算。
 - sect_frame 去掉了“执法人脉 < 40”（没有 favorMax 键）。
 - chu_q1、bai_end 是历练事件（剑冢、狐族秘地），不是访客。
 - 机制替换：ge_end 的“丹方 ≥ 12”改为 50%；ye_q2 信任检定必过；ye_end 的特殊历练改为概率选项；disc_kind 的“仁 +2”只是一个 `dao: 'r'`；ge_q2 对丹霞谷人脉的影响改成 flag。
-- 点名血河老祖的三个魔宗事件带 `maxR: 7`（只是旧的 /老祖/ 规则误伤，接入时可去掉）。
+- [x] 点名血河老祖的三个魔宗事件带 `maxR: 7`（只是旧的 /老祖/ 规则误伤，接入时可去掉）。——`mo_xuehe_1` 已去掉；另两个正文单写“老祖”，保留。
 - CONTENT.md 之外新增的 fx：`toxin`（丹毒）、`busy: n`（占用 n 周天）、`duty: 'dan'|'qi'|'zhan'|'fa'|'wai'`（职司）、`disc: {new|grow|lv|heart|inj|job|out}`（徒弟）；`contrib` 可以为负；选项级 `need`（用于 zhao_owes）；`unkarma: 'any'`。
 - 新剧情触发键：`srank:2`、`sect:heir`、`sect:lord`、`disciple`、`disc:*`、`pact_eve`、`trib:1`、`demon:1`～`demon:3`、`ascend`。`disc:*` 要按每个徒弟各触发一次，而不是每世一次。
-- 结为道侣时自动置 `daolv_su` / `daolv_ye`。
+- [x] 结为道侣时自动置 `daolv_su` / `daolv_ye`。
 - 长老 id：剑宗 lingxu / tieye / liu；丹霞谷 yun / yaochen / chisong；道宗 xuanwei / shouzhuo / qingxu；魔宗 xuehe / xuesan / youji。
 - 文件头注释里有完整清单；写手校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev2/validate.js（会话临时目录）。
 
 ## ev_world_chains.js（灵宠/洞府/历法 42、奇遇链 47 步、主线补充 8，共 97）
 
-- ch_sword 第 5 步就是 ev_realm_rivals.js 的 tianheng_2（已补上 `chain: 'ch_sword', step: 5`）。链事件完成后引擎要自动置 `链短名_步`（如 `sword_5`）。
+- [x] ch_sword 第 5 步就是 ev_realm_rivals.js 的 tianheng_2（已补上 `chain: 'ch_sword', step: 5`）。链事件完成后引擎要自动置 `链短名_步`（如 `sword_5`）。
 - 新增事件 id：story_demon2_b、story_ascend_b（有道侣的版本，按 `daolv` 区分）。
 - 7 个原本在早期地图的链步骤改成了洞府访客事件（ch_map_5、ch_sword_3、ch_sea_2、ch_fox_2～4、ch_fire_4），ch_tianjian_2 也是，避免中期玩家不回老地图导致链卡住。
 - 与其他文件的 flag 约定：ch_tianjian_6 不置 `tiankuo_ally`（由 tiankuo_3 给）；选“私下逼宫”置 `tj_private`，tianheng_2 的文本默认揭露发生在会武——接入时检查一致性。雪团灵狐血脉奖励在 bai_end。
-- `fx.art` 可以是数组（ch_fire_5 同时给焚天诀和血遁）；指向 `x_hongmeng` 时算三片残篇中的一片。
+- [x] `fx.art` 可以是数组（ch_fire_5 同时给焚天诀和血遁）；指向 `x_hongmeng` 时算三片残篇中的一片。
 - 新剧情触发键：`egg`、`pet_runaway`、`pet_fight`、`pet_sick`、`plot_full`、`field_mutant`、`formation_fail`、`forge_fail`、`build:spring`、`build:library`、`pact_eve`、`trib:1`、`demon:1/2/3`、`ascend`；季节值 `spring/summer/autumn/winter`；约 25 个一次性引擎 flag（见文件头）。
-- check_events.js 需要允许同一剧情触发键对应多个事件（realm:6、demon:2、ascend 都是共享的）。
+- [x] check_events.js 需要允许同一剧情触发键对应多个事件（realm:6、demon:2、ascend 都是共享的）。
 - 写手校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev3/validate.js（会话临时目录）。

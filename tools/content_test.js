@@ -1,4 +1,4 @@
-// 内容系统界面测试：奇遇选项、访客、炼丹、首领、会武、宗门任务板、拍卖会、札记、特训、人物分页
+// 内容系统界面测试：奇遇选项、访客、炼丹、首领、会武、宗门任务板、拍卖会、札记、功法（三槽、熟练、共鸣、五行克制、fx.art）、特训、人物分页
 // node tools/content_test.js <输出目录>
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -69,6 +69,94 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 札记
   await page.click('#goal'); await page.waitForTimeout(300); await shot('c13-quests');
+  await close();
+  // ---------- 功法（SYSTEMS §1～§2）----------
+  // 换上一门：列表里写的变化量 = 换上前后的实际差（心法看修炼/周天，战技看战力）
+  await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    for (const id of ['x_houtu', 'x_qingmu', 'z_wuxing', 'z_gengjin', 'z_huichun', 'z_liehuo', 'm_lianxi']) L.giveArt(st, id);
+    L.equipArt(st, 'x_houtu'); L.equipArt(st, 'z_wuxing'); L.equipArt(st, 'm_lianxi'); st.arts.swapAt = -99; st.p.inj = 0; st.exp = null; st.retreat = null;
+    st.meta.combo = {}; st.flags.genCombo = 1;
+  });
+  await page.evaluate(() => window.__xm.showMe('art')); await page.waitForTimeout(300); await shot('c15-arts');
+  const rowDelta = id => page.evaluate(id => { const r = document.querySelector(`#modal [data-art="${id}"] .right`); return r ? r.textContent : ''; }, id);
+  await page.click('#modal [data-slot="0"]'); await page.waitForTimeout(200);
+  const dx = await rowDelta('x_qingmu');
+  const gx = await page.evaluate(() => { const { st, L } = window.__xm; return L.gainBase(st); });
+  await page.click('#modal [data-art="x_qingmu"]'); await page.waitForTimeout(250);
+  const gx1 = await page.evaluate(() => { const { st, L } = window.__xm; return { g: L.gainBase(st), slot: L.artSlots(st)[0], dec: L.fmt1 }; });
+  const shownX = await page.evaluate(([a, b]) => { const v = b - a; return `修炼 ${v > 0 ? '+' : '−'}${window.__xm.L.fmt1(Math.abs(v))}/周天`; }, [gx, gx1.g]);
+  expect(gx1.slot === 'x_qingmu' && dx === shownX, `换心法：列表写 ${dx}，实际 ${shownX}`);
+  await page.click('#modal [data-slot="1"]'); await page.waitForTimeout(200);
+  const dz = await rowDelta('z_gengjin');
+  const pz = await page.evaluate(() => window.__xm.L.power(window.__xm.st));
+  await page.click('#modal [data-art="z_gengjin"]'); await page.waitForTimeout(250);
+  const shownZ = await page.evaluate(p0 => { const { st, L } = window.__xm; const v = L.power(st) - p0; return `战力 ${v > 0 ? '+' : '−'}${L.fmt(Math.abs(v))}`; }, pz);
+  expect(dz === shownZ, `换战技：列表写 ${dz}，实际 ${shownZ}`);
+  // 共鸣：青木长生功 + 回春剑诀 = 生生不息，第一次凑齐弹“共鸣揭晓”并记入 st.meta.combo
+  await page.click('#modal [data-art="z_huichun"]'); await page.waitForTimeout(400); await shot('c16-combo');
+  const cb = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, c: window.__xm.st.meta.combo, on: window.__xm.L.comboOn(window.__xm.st, 'c1'), age: window.__xm.L.ageRate(window.__xm.st) }));
+  expect(cb.t === '共鸣揭晓' && cb.c.c1 === 1 && cb.on, `共鸣「生生不息」揭晓并记入图鉴（${cb.t}）`);
+  expect(Math.abs(cb.age - (1 - 0.08) * 0.9) < 1e-9, `生生不息：寿元流逝 ×${cb.age.toFixed(3)}（青木 −8% × 再 −10%）`);
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(250);
+  // 熟练：门槛 [0,12,36,80,150] × (1 + 0.5 × 阶)，五级；圆满得融会
+  const mast = await page.evaluate(() => {
+    const { st, L } = window.__xm, id = 'x_qingmu', out = [];
+    for (let lv = 0; lv < 5; lv++) { const need = L.artNeed(id, lv); st.arts.own[id] = need; out.push([need, L.artLv(st, id)]); if (lv) { st.arts.own[id] = need - 1; out.push([need - 1, L.artLv(st, id)]); } }
+    st.arts.own[id] = L.artNeed(id, 3) - 1; L.addMastery(st, id, 1);
+    return { out, rong: !!st.arts.rong[id], m: L.artXMult(st) };
+  });
+  const want = [[0, 0], [24, 1], [23, 0], [72, 2], [71, 1], [160, 3], [159, 2], [300, 4], [299, 3]];
+  expect(JSON.stringify(mast.out) === JSON.stringify(want), `熟练门槛（玄阶）：${JSON.stringify(mast.out)}`);
+  expect(mast.rong && Math.abs(mast.m - (1 + 0.35 * 1.3)) < 1e-9, `圆满：融会已记，修炼 ×${mast.m.toFixed(3)}（1 + 0.35 × 1.3）`);
+  await page.evaluate(() => window.__xm.showMe('art')); await page.waitForTimeout(250);
+  expect(await page.evaluate(() => document.querySelector('#modal [data-slot="0"]').textContent.includes('圆满')), '功法页心法槽写着“圆满”');
+  await shot('c17-arts-mastery');
+  await close();
+  // 五行克制：黑风岭属金，木系战技被克 −8；确认页一键换上火系的烈火刀（火克金）→ +8，预计分数 +16
+  const el = await page.evaluate(() => {
+    const { st, L } = window.__xm; st.meta.elem[1] = 1; L.equipArt(st, 'z_huichun');
+    window.__xm.confirmExp(1, 0, 0);
+    const txt = document.querySelector('#expElem').textContent, f0 = L.expForecast(st, 1, 0, 0);
+    const parts = L.expParts(st, 1, 0, 0).extra.filter(x => x[2] === 'elem').map(x => x[1]);
+    return { txt, base: f0.base, parts, btn: (document.querySelector('#expElem [data-swapz]') || {}).textContent || '' };
+  });
+  expect(el.txt.includes('此地（金）克你的木系战技：分数 −8') && el.parts[0] === -8, `被克：${el.txt}（${el.parts}）`);
+  expect(el.btn.includes('烈火刀') && el.btn.includes('+16'), `一键换克制战技：${el.btn}`);
+  await page.waitForTimeout(500); await shot('c18-elem-ke');
+  await page.click('#expElem [data-swapz]'); await page.waitForTimeout(250);
+  const el2 = await page.evaluate(() => { const { st, L } = window.__xm; return { txt: document.querySelector('#expElem').textContent, base: L.expForecast(st, 1, 0, 0).base, pow: L.expParts(st, 1, 0, 0).pow }; });
+  expect(el2.txt.includes('你的火系战技克此地（金）：分数 +8'), `克制：${el2.txt}`);
+  await shot('c19-elem-counter');
+  await close();
+  // 对决：土系战技克慕容（水）×1.15；锦囊列出“换成克制对手的战技”
+  const du = await page.evaluate(() => {
+    const { st, L } = window.__xm; L.equipArt(st, 'z_liehuo');
+    const m0 = L.duelElem(st, L.PACT_FOE).m; L.equipArt(st, 'z_wuxing'); const m1 = L.duelElem(st, L.PACT_FOE).m; L.equipArt(st, 'z_liehuo');
+    return { m0, m1 };
+  });
+  expect(du.m0 === 0.87 && du.m1 === 1.15, `对决：火被水克 ×${du.m0}，土克水 ×${du.m1}`);
+  await page.evaluate(() => { const { st, L } = window.__xm; const s2 = JSON.parse(JSON.stringify(st)); s2.pact = 0; s2.tick = 28; s2.p.r = 0; s2.p.s = 2; s2.flags.maxR = 0; s2.flags.maxI = 2; delete s2.arts.own.z_gengjin; delete s2.arts.own.z_huichun; window.__xm.loadState(s2); window.__xm.showPact(); });
+  await page.waitForTimeout(300); await shot('c20-pact-swap');
+  const tipTxt = await page.evaluate(() => document.querySelector('#modal').textContent);
+  expect(/换成克制对手的战技《五行拳经》（土克水）/.test(tipTxt), '锦囊：换成克制对手的战技《五行拳经》（土克水）');
+  await page.click('#modal [data-go="eqz:z_wuxing"]'); await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.__xm.L.artSlots(window.__xm.st)[1] === 'z_wuxing'), '锦囊一下换上五行拳经');
+  await close();
+  // fx.art 的事件：ch_fire_5「自己炼化」得焚天诀与血遁，结果页单列两门功法
+  await page.evaluate(() => { const { st, L } = window.__xm; delete st.arts.own.z_fentian; delete st.arts.own.m_xuedun; window.__xm.showChoice(L.eventById('ch_fire_5')); });
+  await page.waitForTimeout(300);
+  await page.click('#modal button[data-c="2"]'); await page.waitForTimeout(400); await shot('c21-event-art');
+  const ea = await page.evaluate(() => ({ own: Object.keys(window.__xm.st.arts.own), lines: document.querySelectorAll('#modal .artline').length }));
+  expect(ea.own.includes('z_fentian') && ea.own.includes('m_xuedun') && ea.lines === 2, `fx.art：得焚天诀、血遁，结果页 ${ea.lines} 行功法`);
+  await close();
+  // v3 存档迁移：旧功法阶 → 该阶第一门心法，熟练记小成
+  const mig = await page.evaluate(() => {
+    const { L } = window.__xm; const s = JSON.parse(JSON.stringify(L.newState({ name: '旧档' }))); s.v = 3; delete s.arts; s.p.a = 4; s.p.an = '太乙真经';
+    const ok = window.__xm.loadState(s); const st = window.__xm.st;
+    return { ok, v: st.v, slot: L.artSlots(st)[0], lv: L.artLv(st, L.artSlots(st)[0]), a: st.p.a };
+  });
+  expect(mig.ok && mig.v === 4 && mig.slot === 'x_jiuzhuan' && mig.lv === 1 && mig.a === undefined, `v3 → v4：${JSON.stringify(mig)}`);
   await close();
   // 老祖特训（E17）
   await page.evaluate(() => { const { st, L } = window.__xm; const s2 = L.newState({ name: '特训' }); s2.guide = { step: 99, done: true }; s2.hintSeen = Object.assign({}, st.hintSeen); s2.tick = 30; s2.stats.exp = 3; window.__xm.loadState(s2); });
