@@ -5,10 +5,17 @@
   dist/index.html     完整网页（可直接用浏览器打开 / GitHub Pages）
   dist/artifact.html  不含 <html>/<head> 外壳的版本（发布到 claude.ai Artifact 用）
 依赖：pip install fonttools brotli
+
+源码布局：
+  src/logic/*.js  逻辑模块。顺序以 src/logic.js 里的 MODULES 数组为准（这里直接读它），按顺序原样内联；
+                  每个模块自带一行样板，浏览器里执行即装到 window.L 上。
+  src/ui/*.js     界面片段。共用一个作用域，按下面 UI_PARTS 的顺序拼进同一个 IIFE。
+                  顺序只对“加载时就执行”的语句有要求（const/let 的声明要在被用到之前），函数声明会提升。
 """
 import base64
 import io
 import pathlib
+import re
 
 from fontTools import subset
 from fontTools.ttLib import TTFont
@@ -17,6 +24,48 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 DIST = ROOT / "dist"
 FONT = ROOT / "tools" / "fusion-pixel.ttf"
+
+# 界面片段的拼接顺序（src/ui/<名字>.js）
+UI_PARTS = [
+    "core",          # 工具、全局状态、字号、图标、头像
+    "scene",         # 场景：洞府、历练动画、飘字、横幅
+    "cine",          # 过场：突破 / 天劫 / 飞升
+    "audio",         # 音效与音乐
+    "save",          # 存档与读档（含旧档迁移入口）
+    "hud",           # 逻辑事件与主界面 HUD
+    "modal",         # 弹窗与弹窗队列
+    "panel-bt",      # 突破
+    "panel-exp",     # 历练
+    "panel-home",    # 洞府、闭关、疗伤、炼丹房
+    "panel-market",  # 坊市
+    "panel-sect",    # 宗门
+    "duels",         # 对决、三年之约、天骄论道
+    "events",        # 奇遇
+    "panel-growth",  # 数值拆解、大事锦囊
+    "panel-me",      # 人物
+    "life",          # 飞升、坐化、转世
+    "guide",         # 戒中老祖：引导、提示、指南、札记
+    "intro",         # 开场与起名
+    "boot",          # 每周天、主循环、输入、启动（必须最后）
+]
+
+
+def logic_bundle():
+    entry = (SRC / "logic.js").read_text(encoding="utf-8")
+    m = re.search(r"const MODULES = \[([^\]]*)\]", entry)
+    names = re.findall(r"'([\w-]+)'", m.group(1))
+    parts = []
+    for n in names:
+        parts.append(f"/* ===== src/logic/{n}.js ===== */\n" + (SRC / "logic" / f"{n}.js").read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def ui_bundle():
+    parts = ["/* 废柴仙途 · 界面（src/ui/*.js 按 tools/build.py 的 UI_PARTS 顺序拼接） */\n(function () {\n'use strict';"]
+    for n in UI_PARTS:
+        parts.append(f"/* ===== src/ui/{n}.js ===== */\n" + (SRC / "ui" / f"{n}.js").read_text(encoding="utf-8"))
+    parts.append("})();\n")
+    return "\n".join(parts)
 
 
 def charset(texts):
@@ -65,11 +114,11 @@ def build_font(text):
 
 def main():
     template = (SRC / "template.html").read_text(encoding="utf-8")
-    logic = (SRC / "logic.js").read_text(encoding="utf-8")
+    logic = logic_bundle()
     art = (SRC / "art.js").read_text(encoding="utf-8")
     events_path = SRC / "events.js"
     events = events_path.read_text(encoding="utf-8") if events_path.exists() else ""
-    ui = (SRC / "ui.js").read_text(encoding="utf-8")
+    ui = ui_bundle()
     woff2 = build_font(charset([template, logic, art, ui, events]))
     b64 = base64.b64encode(woff2).decode("ascii")
     page = (

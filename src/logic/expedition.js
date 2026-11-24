@@ -1,0 +1,283 @@
+/* 废柴仙途 · 逻辑模块 expedition：历练（地点×深度×行事、评价预掷、结算）与地图首领
+ * 模块写法见 src/logic.js 顶部说明。 */
+(function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
+'use strict';
+const { R, ri, pick, wpick, clamp, emit } = L.U;
+const P = L.P;
+
+// 历练：地点 k × 深度 d × 行事 a
+L.REGIONS = [
+  { n: '后山野林', mon: 2, foe: 'beast', fc: ['#8a7a66', '#5f5244'], bg: 'forest', desc: '野狼出没，适合初入仙途' },
+  { n: '黑风岭', mon: 2, foe: 'man', fc: ['#4a4a52', '#2c2c34'], bg: 'hill', desc: '一伙劫道的散修匪寇' },
+  { n: '落日古墓', mon: 2, foe: 'man', fc: ['#cfc8b0', '#8f876c'], bg: 'tomb', desc: '筑基老祖的埋骨之地，尸骨成精' },
+  { n: '万妖山脉', mon: 3, foe: 'beast', fc: ['#6a8f3a', '#3f5e22'], bg: 'forest', desc: '妖兽成群，凶险异常' },
+  { n: '血煞秘境', mon: 3, foe: 'man', fc: ['#b0303c', '#6a1820'], bg: 'blood', desc: '魔道遗留的小世界，血气冲天' },
+  { n: '上古剑冢', mon: 3, foe: 'orb', fc: ['#d8f0ff', '#7fb8e0'], bg: 'swords', desc: '万剑埋骨之地，剑灵游荡' },
+  { n: '九幽魔渊', mon: 3, foe: 'man', fc: ['#6a2a8a', '#3a1450'], bg: 'abyss', desc: '深不见底，魔气翻涌' },
+  { n: '东海龙宫', mon: 4, foe: 'snake', fc: ['#3fb0c8', '#1f6e8a'], bg: 'sea', desc: '龙族秘藏，宝光冲霄' },
+  { n: '天外星墟', mon: 4, foe: 'orb', fc: ['#ffe28a', '#c9a032'], bg: 'stars', desc: '破碎星辰的残骸，藏有仙人遗物' },
+  { n: '太古仙府', mon: 4, foe: 'man', fc: ['#e0c070', '#9a7a30'], bg: 'palace', desc: '上古大能的洞府，傀儡守卫森严' },
+  { n: '混沌裂隙', mon: 5, foe: 'snake', fc: ['#2a2a3a', '#0e0e18'], bg: 'chaos', desc: '天地初开时留下的伤痕' },
+];
+L.DEPTHS = ['外围', '腹地', '禁地'];
+// stone/herb/item：灵石、灵草、法宝功法掉率的倍率
+L.APPR = [
+  { k: 'slay', n: '斩妖', stone: 1.3, herb: 1, item: 1, d: '灵石多，归来另得战斗感悟' },
+  { k: 'seek', n: '寻宝', stone: 0.7, herb: 1, item: 2, d: '法宝功法掉率翻倍，天材地宝更多' },
+  { k: 'herb', n: '采药', stone: 0.8, herb: 3, item: 0.5, d: '灵草三倍，风险低，易遇灵兽' },
+];
+// 相性（斩妖/寻宝/采药）：2 = ◎，1 = ○，0 = △。每张图恰好各一个
+L.AFF = [[1, 0, 2], [2, 1, 0], [0, 2, 1], [2, 0, 1], [1, 2, 0], [0, 2, 1], [2, 1, 0], [1, 0, 2], [0, 2, 1], [1, 2, 0], [2, 0, 1]];
+L.AFF_SYM = ['△', '○', '◎'];
+L.RATINGS = ['丁', '丙', '乙', '甲', '天'];
+L.RATE_TH = [48, 66, 88, 105];           // 丙、乙、甲、天 的分数线
+L.RATE_M = [0.15, 0.6, 1.0, 1.5, 2.0];   // 各评价的奖励倍率
+L.ratingOf = s => (s >= L.RATE_TH[3] ? 4 : s >= L.RATE_TH[2] ? 3 : s >= L.RATE_TH[1] ? 2 : s >= L.RATE_TH[0] ? 1 : 0);
+L.rec = (k, d) => 6 * Math.pow(12, k) * Math.pow(2.3, d || 0);
+L.rew = (k, d) => 55 * Math.pow(2.9, k) * Math.pow(1.35, d || 0);
+L.expLen = k => 4 + (k >= 3 ? 1 : 0) + (k >= 7 ? 1 : 0);
+// 地点需要的境界（小层序号）：黑风岭筑基，落日古墓筑基后期，之后每个大境界一张，混沌裂隙要渡劫圆满
+const REG_SI = [0, 4, 6, 8, 12, 16, 20, 24, 28, 32, 35];
+L.regionNeed = k => { const i = REG_SI[k]; return L.REALMS[i >> 2].n + L.STAGES[i & 3]; };
+
+// ---------- 历练 ----------
+L.bestOf = (st, k, d) => (st.best && st.best[k + '_' + d]) || 0;
+// 地点解锁：境界够，且上一张图的外围评价过乙（黑风岭：筑基，或后山野林腹地评价乙）
+L.regionOpen = function (st, k) {
+  if (k <= 0) return true;
+  if (k >= L.REGIONS.length) return false;
+  const i = Math.max(L.si(st.p), st.flags.maxI || 0);
+  if (k === 1) return i >= REG_SI[1] || L.bestOf(st, 0, 1) >= 2;
+  return i >= REG_SI[k] && L.bestOf(st, k - 1, 0) >= 2;
+};
+L.regionLock = function (st, k) {
+  if (L.regionOpen(st, k)) return '';
+  const i = Math.max(L.si(st.p), st.flags.maxI || 0);
+  if (k === 1) return '筑基后开放，或后山野林腹地评价乙';
+  if (i < REG_SI[k]) return `${L.regionNeed(k)}后开放`;
+  return `${L.REGIONS[k - 1].n}外围评价乙后开放`;
+};
+L.depthOpen = (st, k, d) => d <= 0 || L.bestOf(st, k, d - 1) >= 2;
+// 行事：第二趟解锁采药，第四趟解锁寻宝
+L.apprOpen = (st, a) => a === 0 || st.rebirth > 0 || st.stats.exp >= (a === 2 ? 1 : 3);
+L.firstTrip = st => st.rebirth === 0 && st.stats.exp === 0;
+// 第一世第一趟只能去后山野林外围斩妖（保底评价甲、掉一把凡器）
+L.expOpen = function (st, k, d, a) {
+  if (L.firstTrip(st) && (k || d || a)) return false;
+  return L.regionOpen(st, k) && L.depthOpen(st, k, d) && L.apprOpen(st, a);
+};
+L.homeRegion = function (st) { let k = 0; for (let j = 1; j < L.REGIONS.length; j++) if (L.regionOpen(st, j)) k = j; else break; return k; };
+// 相性：太虚剑宗的斩妖高一档
+L.affOf = function (st, k, a) { let v = L.AFF[k][a]; if (a === 0 && st.sect && st.sect.id === 'jian') v = Math.min(2, v + 1); return v; };
+L.affKnown = (st, k, a) => !!(st.meta && st.meta.aff && st.meta.aff[k * 3 + a]);
+L.affSym = (st, k, a) => (L.affKnown(st, k, a) ? L.AFF_SYM[L.affOf(st, k, a)] : '？');
+// 分数里确定的三项：斩获（战力比）、身法（相性，采药 +6）、胆魄（禁地 +3、同伴与称号）
+L.expExtra = () => 0;   // 同伴与称号加成，阶段四接入
+L.expParts = function (st, k, d, a) {
+  const T = L.power(st), rec = L.rec(k, d), ratio = T / rec;
+  return { T, rec, ratio, pow: 70 + 25 * Math.log2(Math.max(ratio, 1e-9)), aff: (L.affOf(st, k, a) - 1) * 12 + (a === 2 ? 6 : 0), guts: (d === 2 ? 3 : 0) + L.expExtra(st, k, d, a) };
+};
+// 出发确认页用：预计评价区间、负伤风险、灵石大约多少。没试过的相性按 ○ 估，并标 unknown
+L.expForecast = function (st, k, d, a) {
+  const pt = L.expParts(st, k, d, a), known = L.affKnown(st, k, a);
+  const base = pt.pow + (known ? pt.aff : (a === 2 ? 6 : 0)) + pt.guts;
+  const first = L.firstTrip(st) && !k && !d && !a;
+  const pGE = th => clamp((base + 12 - th) / 24, 0, 1);
+  const dist = [1 - pGE(L.RATE_TH[0]), pGE(L.RATE_TH[0]) - pGE(L.RATE_TH[1]), pGE(L.RATE_TH[1]) - pGE(L.RATE_TH[2]), pGE(L.RATE_TH[2]) - pGE(L.RATE_TH[3]), pGE(L.RATE_TH[3])];
+  let lo = L.ratingOf(base - 12), hi = L.ratingOf(base + 12 - 1e-9), risk = dist[0], em = 0;
+  if (first) { lo = hi = 3; risk = 0; em = L.RATE_M[3]; }
+  else for (let j = 0; j < 5; j++) em += dist[j] * L.RATE_M[j];
+  const leap = pt.ratio < 0.6;
+  let stones = L.rew(k, d) * em * L.APPR[a].stone * (leap ? (dist[2] + dist[3] + dist[4] > 0 ? 1.5 : 1) : 1);
+  if (L.has(st, 'koi')) stones *= 1.5;
+  if (L.friend(st, 'ye')) stones *= 1.2;
+  return { k, d, a, T: pt.T, rec: pt.rec, ratio: pt.ratio, base, lo, hi, risk, dist, pOk: dist[2] + dist[3] + dist[4], leap, unknown: !known, first,
+    text: lo === hi ? L.RATINGS[lo] : L.RATINGS[lo] + '～' + L.RATINGS[hi], stones: Math.floor(stones), len: L.expLen(k),
+    warnFull: L.isFull(st), warnInj: st.p.inj > 0 ? st.p.inj : 0 };
+};
+// 推荐格：“预计评价至少乙”（负伤风险为 0 且八成以上乙）的最高一格
+L.expBest = function (st, a) {
+  let best = null;
+  for (let k = 0; k < L.REGIONS.length; k++) for (let d = 0; d < 3; d++) {
+    const aa = a === undefined ? 0 : a;
+    if (!L.expOpen(st, k, d, aa)) continue;
+    const f = L.expForecast(st, k, d, aa);
+    if (f.first || (f.risk <= 0 && f.pOk >= 0.8)) { if (!best || L.rew(k, d) > L.rew(best.k, best.d)) best = { k, d, a: aa, f }; }
+  }
+  return best || { k: 0, d: 0, a: 0, f: L.expForecast(st, 0, 0, 0) };
+};
+L.chainOpen = st => st.rebirth > 0 || (st.flags.maxR || 0) >= 2;
+// opt.chain：连续几趟（金丹解锁，最多 3）；opt.escort：护送任务的序号（本趟灵石归宗门，贡献 ×3）
+L.startExp = function (st, k, d, a, opt) {
+  d = d || 0; a = a || 0; opt = opt || {};
+  if (L.busy(st) || st.p.r > L.MAXR || !L.expOpen(st, k, d, a)) return false;
+  const rg = L.REGIONS[k], len = L.expLen(k), pt = L.expParts(st, k, d, a);
+  // 出发时把评价和掉落的随机数都掷好，途中逐步揭示，读档不会变
+  const plan = { pow: pt.pow, aff: pt.aff, guts: pt.guts, ratio: pt.ratio, rnd: -12 + 24 * R(), adj: 0, u: [R(), R(), R(), R(), R(), R(), R()], enc: R() };
+  if (L.firstTrip(st)) { plan.fix = 3; plan.gift = 1; }
+  let chain = 0;
+  if (opt.chain > 1 && L.chainOpen(st)) chain = Math.min(3, Math.floor(opt.chain)) - 1;
+  st.exp = { k, d, a, left: len, total: len, plan, chain };
+  if (opt.escort !== undefined && st.sect && st.sect.tasks) { const t = st.sect.tasks[opt.escort]; if (t && t.ty === 'escort' && t.taken && !t.done && t.k === k) st.exp.escort = opt.escort; }
+  st.lastExp = { k, d, a };
+  st.tuna = 0;
+  if (!opt.quiet) L.log(st, `御剑出发，前往【${rg.n}·${L.DEPTHS[d]}】${L.APPR[a].n}`);
+  return true;
+};
+// 按预掷的随机数算出这一趟的评价与收获（纯计算，不改存档）
+function expCalc(st, e) {
+  const pl = e.plan, k = e.k, d = e.d, a = e.a, A = L.APPR[a], u = pl.u;
+  const score = pl.pow + pl.aff + pl.guts + pl.rnd + (pl.adj || 0);
+  const rating = pl.fix !== undefined ? pl.fix : L.ratingOf(score);
+  const m = L.RATE_M[rating];
+  const leap = pl.ratio < 0.6 && rating >= 2;
+  const o = { k, d, a, score, rating, m, leap, ratio: pl.ratio, parts: { pow: pl.pow, luck: pl.rnd + (pl.adj || 0), aff: pl.aff, guts: pl.guts } };
+  let stones = L.rew(k, d) * m * A.stone * (0.9 + 0.2 * u[0]) * (leap ? 2 : 1);
+  if (L.has(st, 'koi')) stones *= 1.5;
+  if (L.friend(st, 'ye')) stones *= 1.2;
+  if (e.escort !== undefined) stones = 0;
+  o.stones = Math.floor(stones);
+  o.herbs = Math.round((2 + k) * (1 + 0.5 * d) * A.herb * m);
+  o.pills = rating >= 1 && u[1] < 0.4 ? 1 : 0;
+  o.drops = [];
+  if (pl.gift) o.drops.push(['w', 1]);
+  else {
+    if (u[2] < 0.30 * m * A.item) o.drops.push(['w', 1 + Math.floor((3 * k + d) * 0.21) + (u[3] < 0.15 ? 1 : 0)]);
+    if (u[4] < 0.25 * m * A.item) o.drops.push(['a', 1 + Math.floor((3 * k + d) * 0.18)]);
+  }
+  if (rating >= 1 && st.p.r >= 1 && u[5] < 0.06 * (a === 2 ? 2.5 : 1)) o.drops.push(['pet', 1 + Math.floor(k * 0.5)]);
+  o.treasure = rating >= 1 && u[6] < (0.03 + 0.01 * k) * (a === 1 ? (d === 2 ? 4 : 2) : 1) ? 1 : 0;
+  o.contrib = st.sect ? Math.floor(L.contribFor(k) * m * (leap ? 2 : 1) * (e.escort !== undefined ? 3 : 1)) : 0;
+  o.xpTicks = a === 0 ? m : 0;   // 斩妖：归来得 1 周天修为 × 奖励倍率（战斗感悟）
+  return o;
+}
+// 途中 HUD 用：这一趟到目前为止“看得见”的收获
+L.expPreview = function (st, frac) {
+  if (!st.exp) return null;
+  const e = st.exp, o = expCalc(st, e);
+  const f = frac === undefined ? (e.total - e.left) / e.total : frac;
+  return { k: e.k, d: e.d, a: e.a, left: e.left, total: e.total, stones: Math.floor(o.stones * f), herbs: Math.floor(o.herbs * f), finds: Math.floor((o.drops.length + o.treasure + o.pills) * f + 1e-9), xp: L.gainBase(st) * o.xpTicks * f };
+};
+// 撤回：收获减半立即回家
+L.recallExp = function (st) {
+  if (!st.exp) return null;
+  st.exp.recall = 1; st.exp.chain = 0;
+  return L.resolveExp(st);
+};
+L.resolveExp = function (st) {
+  const e = st.exp; if (!e) return null;
+  st.exp = null;
+  const k = e.k, d = e.d, a = e.a;
+  if (!e.plan) return legacyExp(st, e);
+  const pw0 = L.power(st), gain0 = L.gain(st);
+  const res = expCalc(st, e);
+  res.items = []; res.first = !!e.plan.gift; res.ok = res.rating >= 2; res.unlock = [];
+  if (e.recall) { res.recall = true; res.stones = Math.floor(res.stones / 2); res.herbs = Math.floor(res.herbs / 2); res.pills = 0; res.drops = []; res.treasure = 0; res.contrib = Math.floor(res.contrib / 2); res.xpTicks = 0; res.rating = Math.min(res.rating, 1); res.ok = false; res.leap = false; }
+  st.stats.exp++;
+  st.stats[['slayExp', 'seekExp', 'herbExp'][a]] = (st.stats[['slayExp', 'seekExp', 'herbExp'][a]] || 0) + 1;
+  // 相性第一次用才揭晓，记入图鉴（跨世保留）
+  const akey = k * 3 + a;
+  res.affV = L.affOf(st, k, a);
+  if (!st.meta.aff[akey]) { st.meta.aff[akey] = 1; res.affNew = true; }
+  if (!e.recall) {
+    const bkey = k + '_' + d, prev = st.best[bkey] || 0;
+    if (res.rating > prev) st.best[bkey] = res.rating;
+    if (res.rating >= 2 && prev < 2) {
+      if (d < 2) res.unlock.push(`${L.REGIONS[k].n}·${L.DEPTHS[d + 1]} 开放`);
+      else if (!st.bosses[k]) res.unlock.push(`首领【${L.BOSSES[k].n}】现身`);
+      if (d === 0 && k + 1 < L.REGIONS.length && L.regionOpen(st, k + 1) && !(st.flags.regSeen || {})[k + 1]) res.unlock.push(`新地点【${L.REGIONS[k + 1].n}】开放`);
+      if (k === 0 && d === 1 && L.si(st.p) < REG_SI[1]) res.unlock.push('新地点【黑风岭】开放');
+    }
+    // 同一格连续丁等，给老祖的“卡住检测”用
+    const ds = st.flags.dingStreak;
+    if (res.rating === 0) st.flags.dingStreak = { key: bkey, n: ds && ds.key === bkey ? ds.n + 1 : 1 };
+    else st.flags.dingStreak = null;
+  }
+  if (res.ok) { st.stats.expWin++; st.regionWins[k] = (st.regionWins[k] || 0) + 1; }
+  if (res.leap) st.stats.leapWins++;
+  if (res.rating === 0 && !e.recall) st.stats.dings = (st.stats.dings || 0) + 1;
+  if (res.rating === 4) st.stats.tians = (st.stats.tians || 0) + 1;
+  st.stones += res.stones; st.stats.expStones = (st.stats.expStones || 0) + res.stones;
+  st.herbs += res.herbs;
+  st.pills += res.pills;
+  st.treasure += res.treasure;
+  for (const dr of res.drops) { const it = L.giveItem(st, dr[0], dr[1]); if (it.value) st.stats.expStones += it.value; res.items.push(it); }
+  res.xp = L.gainBase(st) * res.xpTicks;
+  if (res.xp > 0) L.addXp(st, res.xp);
+  if (res.contrib) L.addContrib(st, res.contrib);
+  if (res.rating === 0 && !e.recall) { st.p.inj = Math.max(st.p.inj, 3); res.inj = 3; }
+  if (e.encEv) res.enc = true;
+  if (st.sect && !e.recall) {
+    L.taskHit(st, 'exp', t => t.k === k && t.a === a && res.rating >= 2);
+    if (res.leap) L.taskHit(st, 'act', t => t.sub === 'leap');
+    if (e.escort !== undefined && res.rating >= 1) { const t = st.sect.tasks && st.sect.tasks[e.escort]; if (t && t.ty === 'escort' && !t.done) L.taskDone(st, t); res.escort = true; }
+  }
+  const tag = `${L.REGIONS[k].n}·${L.DEPTHS[d]}`;
+  if (e.recall) L.log(st, `【${tag}】中途折返，收获减半`);
+  else L.log(st, `【${tag}】${L.APPR[a].n}归来，评价「${L.RATINGS[res.rating]}」${res.leap ? '（越级）' : ''}，灵石+${L.fmt(res.stones)}${res.inj ? '，负伤 3 周天' : ''}`, res.rating >= 3 ? 'gold' : res.rating >= 2 ? 'jade' : res.rating === 0 ? 'red' : '');
+  res.pw0 = pw0; res.pw1 = L.power(st); res.gain0 = gain0; res.gain1 = L.gain(st);
+  res.chain = e.chain || 0;
+  L.checkQuests(st);
+  return res;
+};
+// 旧版存档里走到一半的历练：按旧规则（成功率 0.75 + 0.3·log2(战力/推荐)）结算一次
+const OLD_DREC = [6, 200, 2600, 4e4, 4.5e5, 6e6, 9e7, 1e9, 1.3e10, 1.4e11, 1e12];
+const OLD_DREW = [60, 170, 450, 1200, 3200, 8500, 22000, 58000, 1.5e5, 4e5, 1.1e6];
+function legacyExp(st, e) {
+  const k = clamp(e.k || 0, 0, 10), ratio = L.power(st) / OLD_DREC[k];
+  const ok = R() < clamp(0.75 + 0.3 * Math.log2(Math.max(ratio, 1e-9)), 0.05, 0.98);
+  const res = { k, d: 0, a: 0, legacy: true, ok, rating: ok ? 2 : 0, m: ok ? 1 : 0.15, score: ok ? 70 : 40, parts: { pow: ok ? 70 : 40, luck: 0, aff: 0, guts: 0 }, items: [], unlock: [], pills: 0, herbs: 0, treasure: 0, contrib: 0, xp: 0, leap: false, ratio, pw0: L.power(st), gain0: L.gain(st) };
+  res.stones = Math.floor(OLD_DREW[k] * (ok ? 0.85 + R() * 0.3 : 0.1));
+  st.stones += res.stones; st.stats.exp++;
+  if (ok) { st.stats.expWin++; st.regionWins[k] = (st.regionWins[k] || 0) + 1; st.best[k + '_0'] = Math.max(st.best[k + '_0'] || 0, 2); }
+  else { st.p.inj = Math.max(st.p.inj, 3); res.inj = 3; }
+  L.log(st, `【${L.REGIONS[k].n}】历练${ok ? '归来' : '失利，负伤而归'}，灵石+${L.fmt(res.stones)}`, ok ? 'jade' : 'red');
+  res.pw1 = L.power(st); res.gain1 = L.gain(st); res.chain = 0;
+  L.checkQuests(st);
+  return res;
+}
+
+// ---------- 地图首领 ----------
+L.BOSSES = [
+  { n: '独眼狼王', line: '嗷呜——！', t: '狼王克星', drop: '狼王獠牙匕' },
+  { n: '黑风寨主雷彪', line: '敢在老子地盘撒野？', t: '黑风克星', drop: '开山宣花斧' },
+  { n: '古墓尸王', line: '……活人的气息……', t: '镇尸道人', drop: '玉棺镇魂钉' },
+  { n: '赤炎猿王', line: '万妖山是俺的山！', t: '万妖山主', drop: '赤炎擎天棍' },
+  { n: '血煞老魔', line: '桀桀桀，又来一个送死的。', t: '诛魔者', drop: '血煞噬魂刃' },
+  { n: '剑冢守墓人', line: '拔剑吧。让老夫看看你的剑。', t: '剑冢新主', drop: '守墓古剑' },
+  { n: '九幽魔将', line: '九幽之下，皆为蝼蚁。', t: '九幽镇魔', drop: '九幽镇魂铃' },
+  { n: '东海蛟皇', line: '人族小儿，也敢闯我龙宫？', t: '屠蛟者', drop: '蛟皇逆鳞盾' },
+  { n: '吞星巨兽', line: '（星辰在它口中碎裂）', t: '摘星客', drop: '吞星之核' },
+  { n: '仙府傀儡王', line: '擅闯仙府者，诛。', t: '仙府之主', drop: '傀儡王天戟' },
+  { n: '混沌魔神残影', line: '……天地未开时，吾已在此。', t: '开天之人', drop: '混沌残刃' },
+];
+// 某张图禁地评价乙以上一次后，首领现身。战力 = 禁地推荐 × 1.6
+L.bossReady = (st, k) => L.bestOf(st, k, 2) >= 2 && !st.bosses[k];
+L.bossPower = k => L.rec(k, 2) * 1.6;
+L.fightBoss = function (st, k) {
+  if (!L.bossReady(st, k) || L.busy(st)) return null;
+  const B = L.BOSSES[k];
+  const S = L.power(st), Q = L.bossPower(k);
+  const p = L.duelChance(S, Q);
+  const win = R() < p;
+  const res = { k, S, Q, p, win, B };
+  if (win) {
+    st.bosses[k] = 1; st.stats.bosses++;
+    const t = k >= 5 ? 2 : 1; st.treasure += t; res.treasure = t;
+    res.stones = Math.floor(L.rew(k, 2) * 3); st.stones += res.stones;
+    res.herbs = Math.round((6 + k * 2) * (1 + st.p.r * 0.5)); st.herbs += res.herbs;
+    const tier = clamp(2 + Math.floor(k * 0.62), 1, 7);
+    if (st.p.w < tier) { st.p.w = tier; st.p.wn = B.drop; res.item = { kind: 'w', tier, name: B.drop, equip: true }; }
+    else { const v = Math.floor(L.rew(k, 2)); st.stones += v; res.item = { kind: 'w', tier, name: B.drop, value: v }; }
+    L.grantTitle(st, B.t);
+    if (st.sect) L.taskHit(st, 'boss', x => x.k === k);
+    L.log(st, `斩杀【${B.n}】！获得称号「${B.t}」`, 'gold');
+    L.fireTrigger(st, 'boss:' + k);
+  } else {
+    st.p.inj = Math.max(st.p.inj, 4);
+    L.log(st, `挑战【${B.n}】失利，重伤而归`, 'red');
+  }
+  L.checkQuests(st);
+  return res;
+};
+});

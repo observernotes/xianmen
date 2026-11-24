@@ -1,0 +1,81 @@
+/* 废柴仙途 · 逻辑模块 tick：时间推进：每周天结算
+ * 模块写法见 src/logic.js 顶部说明。 */
+(function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
+'use strict';
+const { R, ri, pick, wpick, clamp, emit } = L.U;
+const P = L.P;
+
+// ---------- 推进 ----------
+L.flow = function (st, f) {
+  const g = L.gain(st) * f;
+  if (st.retreat) st.retreat.got += g;
+  L.addXp(st, g);
+  st.stones += L.income(st) * f;
+  if (st.p.r <= L.MAXR) st.p.age += L.REALMS[st.p.r].mpt * f;
+  st.year += L.REALMS[Math.min(st.p.r, 8)].mpt * f;
+};
+// 一趟历练中途的遭遇：第 ceil(len/2) 周天，60% 概率，前两趟不触发
+L.ENC_P = 0.6;
+L.tick = function (st, cont) {
+  const out = { exp: null, event: null, tourney: false, pact: false, death: false, invite: false, war: false };
+  if (!cont) L.flow(st, 1);
+  st.tick++;
+  const p = st.p;
+  if (p.inj > 0) p.inj--;
+  // 增益与灵草
+  for (const bf of st.buffs) bf.left--;
+  st.buffs = st.buffs.filter(bf => bf.left > 0);
+  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
+  // 吐纳环：在洞府打坐才蓄
+  if (!L.busy(st) && !L.isFull(st) && p.r <= L.MAXR) st.tuna = Math.min(L.TUNA_FULL, (st.tuna || 0) + 1);
+  const evMul = L.friend(st, 'bai') ? 1.5 : 1;
+  if (st.exp) {
+    const e = st.exp;
+    e.left--;
+    if (e.left > 0 && e.plan && !e.encEv && e.total - e.left === Math.ceil(e.total / 2) && st.stats.exp >= 2 && e.plan.enc < L.ENC_P * evMul) {
+      const ev = L.pickEvent(st, 'exp', { bg: L.REGIONS[e.k].bg });
+      if (ev) { e.encEv = ev.id; e.chain = 0; out.choice = ev; }
+    }
+    if (e.left <= 0) {
+      const r = L.resolveExp(st);
+      // 连续历练：三趟合并成一张结算；丁等、遭遇、修为圆满时中断
+      const sum = st.expSum || { n: 0, stones: 0, herbs: 0, pills: 0, treasure: 0, contrib: 0, xp: 0, items: [], ratings: [] };
+      sum.n++; sum.stones += r.stones; sum.herbs += r.herbs; sum.pills += r.pills; sum.treasure += r.treasure; sum.contrib += r.contrib; sum.xp += r.xp; sum.items = sum.items.concat(r.items); sum.ratings.push(r.rating);
+      if (r.chain > 0 && r.rating > 0 && !r.enc && !L.isFull(st) && L.startExp(st, r.k, r.d, r.a, { chain: r.chain, quiet: true })) st.expSum = sum;
+      else { st.expSum = null; if (sum.n > 1) r.sum = sum; out.exp = r; }
+    }
+  }
+  if (st.retreat) {
+    st.retreat.left--;
+    if (st.retreat.left <= 0) { out.retreat = L.endRetreat(st, true); if (out.retreat.visitor) out.visitor = out.retreat.visitor; }
+  }
+  // 访客：闭关时顺延；新手期等第一次闭关出关（或第 20 周天后）才开始有人上门
+  if (st.visitor) {
+    if (--st.visitor.left <= 0) out.visitorGone = L.visitorLeave(st);
+  } else if (!st.retreat && !out.visitor && (st.rebirth > 0 || st.stats.visits > 0 || st.stats.retreat > 0 || st.tick >= 20) && R() < L.VISIT.p * evMul) {
+    out.visitor = L.spawnVisitor(st);
+  }
+  if (!st.pact && st.tick >= L.PACT_TICK) out.pact = true;
+  if (!out.pact && L.canTrain(st) && !st.flags.trainOffered) { st.flags.trainOffered = 1; out.train = true; }
+  if (!st.sect && p.r >= 1 && st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 12; }
+  if (st.sect) {
+    const sc = L.sectOf(st);
+    if (sc.pill && st.tick % 6 === 0) st.pills++;
+    if (!st.flags.warWon && st.sect.rank >= 2 && p.r >= 5 && st.tick >= (st.flags.war || 0) && !L.busy(st)) { out.war = true; st.flags.war = st.tick + 9999; }
+    if (L.canPromote(st) && !st.flags.promoNote) { st.flags.promoNote = 1; emit('promote', st.sect.rank + 1); }
+    if (!L.canPromote(st)) st.flags.promoNote = 0;
+  }
+  if (st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick % L.TOUR_EVERY === 0) { out.tourney = true; if (st.sect) L.rollTasks(st); }
+  if (st.sect && st.sect.order && st.tick - st.sect.joined >= 12 && st.tick % L.MEET_EVERY === L.MEET_AT) out.meet = true;
+  // 拍卖会
+  if (st.auction && st.tick >= st.auction.until) st.auction = null;
+  if (L.mr(st) >= 2 && p.r <= L.MAXR && st.tick % L.AUCTION.every === L.AUCTION.at) { L.rollAuction(st); out.auction = true; L.log(st, '坊市拍卖会开槌，为期 6 周天', 'gold'); }
+  for (const nw of L.RIVAL_NEWS) if (nw[0] === st.tick && !st.beaten[nw[1]]) L.log(st, nw[2]);
+  if (p.r <= L.MAXR && p.age >= L.lifespan(st)) out.death = true;
+  if (L.desperate(st) && !st.flags.warnLife) { st.flags.warnLife = 1; L.log(st, '寿元将尽！突破时将获得绝境加成', 'red'); }
+  if (!L.desperate(st)) st.flags.warnLife = 0;
+  L.checkQuests(st);
+  L.checkAchs(st);
+  return out;
+};
+});
