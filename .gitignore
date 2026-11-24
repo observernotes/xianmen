@@ -7,3 +7,4 @@ android/release.keystore
 dist/*.idsig
 dist/*.keystore
 .play_tmp*
+.claude/worktrees/
