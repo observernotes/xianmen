@@ -106,7 +106,7 @@ const LIST = [
   text: '轮到你登台讲道。台下黑压压坐满了弟子，前排三把交椅上，三位长老各自端着茶。你知道他们各想听什么，也知道讲了这个，另外两位的茶就该凉了。',
   choices: [
     { t: '讲本门大道',
-      ok: { text: '你从入门那天讲起，讲到本门立派时写下的第一句话。掌门端茶的手停了停，另两位低头喝茶。', fx: { favor: { a: 10, b: -3, c: -3 }, contrib: 2, mastery: 5 } } },
+      ok: { text: '你从入门那天讲起，讲到本门立派时写下的第一句话。居中那位长老端茶的手停了停，另两位低头喝茶。', fx: { favor: { a: 10, b: -3, c: -3 }, contrib: 2, mastery: 5 } } },
     { t: '讲手上功夫',
       ok: { text: '你讲了一个时辰怎么把一件事做熟。散场后有个小弟子追出来问，做了十年还不熟怎么办。你说：“我也是。”', fx: { favor: { a: -3, b: 10, c: -3 }, contrib: 2, herbs: 6 } } },
     { t: '讲世道人心',
@@ -132,7 +132,7 @@ const LIST = [
   text: '圣子之争前夜，三位长老各派人来请：一位在山顶看云，一位在后山干活，一位在灯下翻册子。条件都摆在明处——站过来，往后有人替你说话。你只能去一处，或者哪儿也不去。',
   choices: [
     { t: '去山顶',
-      ok: { text: '山顶风大。掌门只问了一句“想不想要”，你说想。他解下自己的玉佩，系在了你腰上。', fx: { favor: { a: 30, b: -10, c: -10 } } } },
+      ok: { text: '山顶风大。那位长老只问了一句“想不想要”，你说想。他解下自己的玉佩，系在了你腰上。', fx: { favor: { a: 30, b: -10, c: -10 } } } },
     { t: '去后山',
       ok: { text: '那位长老挽着袖子干活，头也不抬：“搭把手。”你们一直干到月上中天，他才开口：“明天我替你说话。”', fx: { favor: { a: -10, b: 30, c: -10 } } } },
     { t: '去灯下',
@@ -429,7 +429,7 @@ const LIST = [
  * 五、宗门 · 血煞魔宗（6）：血河老祖 强者为尊 / 鬼医薛三 毒亦是药 / 幽姬 人心可用
  * ============================================================ */
 {
-  id: 'mo_xuehe_1', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 20], once: true, title: '血令',
+  id: 'mo_xuehe_1', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 20], maxR: 7, once: true, title: '血令',
   text: '血河老祖把一枚血令丢到你脚边：“城南有个叛徒，三年前卷了宗里的丹方跑了。提头来见。”你捡起血令，背面画着人像——是从前总给{ye}留一壶酒的老酒保。',
   choices: [
     { t: '提头来见', duel: 1.0, dao: 'k',
@@ -443,7 +443,7 @@ const LIST = [
   ]
 },
 {
-  id: 'mo_xuehe_2', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 60], srankMin: 2, once: true, title: '分坛',
+  id: 'mo_xuehe_2', where: 'home', visit: true, sect: true, favorMin: ['xuehe', 60], srankMin: 2, maxR: 7, once: true, title: '分坛',
   text: '宗门要拿下正道的一座分坛。血河老祖一掌拍碎了沙盘：“打进去，杀干净。”幽姬拈起沙盘上一面小旗：“里面有三个人是我的。打进去，我的人也死了。”两人都看着你。',
   choices: [
     { t: '打进去', duel: 1.1, dao: 'k',
@@ -471,7 +471,7 @@ const LIST = [
   ]
 },
 {
-  id: 'mo_xuesan_2', where: 'home', visit: true, sect: true, favorMin: ['xuesan', 60], srankMin: 2, once: true, title: '十二个人',
+  id: 'mo_xuesan_2', where: 'home', visit: true, sect: true, favorMin: ['xuesan', 60], srankMin: 2, maxR: 7, once: true, title: '十二个人',
   text: '血牢里关着十二个正道俘虏。薛三要拿去炼药：“活人入药，药效最好。”血河老祖要放回去：“放回去的人比死人有用——他们会怕。”两人在牢门口吵，俘虏在里面听。',
   choices: [
     { t: '交给鬼医', p: 0.75, dao: 'k',
@@ -750,7 +750,7 @@ const LIST = [
 },
 {
   id: 'ye_end', where: 'home', visit: true, npc: 'ye', speaker: 'ye', aff: [90, 100], need: ['fire_5'], not: ['daolv_su'], minR: 5, once: true, weight: 2, title: '十年',
-  text: '圣火熄了，{ye}的火毒跟着去了大半——连同大半寿元。“还剩十年。”{ye}说得轻描淡写，掰着手指算：“够喝三千坛酒，够看十回灯会。”掰到最后一根，没掰下去。',
+  text: '圣火的事了了，{ye}身上的火毒也跟着去了——连同大半寿元。“还剩十年。”{ye}说得轻描淡写，掰着手指算：“够喝三千坛酒，够看十回灯会。”掰到最后一根，没掰下去。',
   choices: [
     { t: '去东海找药', p: 0.5, dao: 'k',
       ok: { text: '你在龙宫宝库前跪了三天，换回一枚续命的蛟珠。{ye}含着珠子骂你傻，骂完把你的手攥得死紧。', fx: { aff: { ye: 15 }, inj: 2, flag: 'ye_life' } },
@@ -794,11 +794,11 @@ const LIST = [
     { t: '拔剑陪他练', duel: 1.0, dao: 'r',
       ok: { text: '你什么也没说，拔剑。他看了你很久，也拔剑。你们练了四个周天，第四天傍晚他忽然说：“那一招，我看清了。”', fx: { busy: 4, aff: { chu: 15 }, mastery: 8, flag: 'chu_q2_done' } },
       fail: { text: '他把三天的憋闷全打在你身上，你被打得爬不起来。他扔了剑，坐在你旁边，终于开口：“谢了。”', fx: { busy: 4, inj: 2, aff: { chu: 18 }, flag: 'chu_q2_done' } } },
-    { t: '骂醒他', p: 0.6, dao: 'k',
-      ok: { text: '“剑脱手就不是剑修了？当年拦我路时，你剑可握得紧。”楚狂猛地抬头，头一回冲你吼：“拔剑！”', fx: { aff: { chu: 12 }, xp: 3, flag: 'chu_q2_done' } },
-      fail: { text: '他听完起身就走，三天后回来，脸上多了道疤：“去剑冢跟碑打了一架。”你没再说什么。', fx: { aff: { chu: 8 }, flag: 'chu_q2_done' } } },
-    { t: '这一剑我讨',
-      ok: { text: '你在论剑帖上给楚天阔留了一行字：下回论道，替楚狂讨那一招。楚狂看见了，骂你多事，转身磨了一夜剑。', fx: { aff: { chu: 10 }, grudge: { chu: 10 }, flag: ['chu_q2_done', 'chu_avenge'] } } }
+    { t: '这一剑我讨', p: 0.7,
+      ok: { text: '你在论剑帖上给楚天阔留了一行字：下回论道，替楚狂讨那一招。楚狂看见了，骂你多事，转身磨了一夜剑。', fx: { aff: { chu: 10 }, grudge: { chu: 10 }, flag: ['chu_q2_done', 'chu_avenge'] } },
+      fail: { text: '天剑宗弟子当着你的面把帖子撕了。楚狂听说后，三天来头一回笑出声：“他们怕了。”', fx: { aff: { chu: 10 }, flag: 'chu_q2_done' } } },
+    { t: '骂醒他', dao: 'k',
+      ok: { text: '“剑脱手就不是剑修了？当年拦我路时，你剑可握得紧。”楚狂猛地抬头，头一回冲你吼：“拔剑！”', fx: { aff: { chu: 12 }, xp: 3, flag: 'chu_q2_done' } } }
   ]
 },
 {
@@ -882,12 +882,12 @@ const LIST = [
   text: '狐族秘地的月亮是青色的。祭坛上，白小九身后已亮起八条尾巴，第九条将出未出。老狐狸说：成了九尾，就得留下守秘地；不成，从此做人。小九回过头，看着你。',
   choices: [
     { t: '成九尾吧',
-      ok: { text: '第九条尾巴亮起时，满山狐火都朝她低了头。小九哭着笑：“我把一缕血脉给了你的狐狸，就当是我陪着你。”', fx: { aff: { bai: 10 }, pet: 'p_hu', flag: ['bai_nine', 'fox_blood'] } } },
+      ok: { text: '第九条尾巴亮起时，满山狐火都朝她低了头。小九哭着笑：“我留一缕血脉化成小狐狸给你，就当是我陪着你。”', fx: { aff: { bai: 10 }, pet: 'p_hu', flag: ['bai_nine', 'fox_blood'] } } },
     { t: '跟我回家', dao: 'r',
       ok: { text: '你伸出手。小九看看第九条尾巴，又看看你的手，扑了过来，八条尾巴“噗”地全收了回去：“回家吃饭！”', fx: { aff: { bai: 15 }, title: '狐狸的家', flag: 'bai_stay' } } },
     { t: '你自己选', p: 0.5, dao: 'w',
       ok: { text: '小九想了很久，走下祭坛：“九尾以后还能成，恩人只有一个。”老狐狸叹着气，把第九尾的灵光封进珠子给了你。', fx: { aff: { bai: 15 }, treasure: 1, flag: 'bai_stay' } },
-      fail: { text: '小九咬着嘴唇转回祭坛。第九条尾巴亮起的那一刻，她冲你喊：“每年月圆，我都去你屋顶上坐着！”', fx: { aff: { bai: 10 }, pet: 'p_hu', flag: ['bai_nine', 'fox_blood'] } } }
+      fail: { text: '小九咬着嘴唇转回祭坛。第九尾亮起时，你脚边多了一只雪团似的小狐。她喊：“每年月圆，我都去看你！”', fx: { aff: { bai: 10 }, pet: 'p_hu', flag: ['bai_nine', 'fox_blood'] } } }
   ]
 },
 

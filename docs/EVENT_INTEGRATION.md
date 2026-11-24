@@ -18,3 +18,17 @@
   - realm_forge 的“熔一件宝”、mkt_black 的“卖因果”在没有可熔/可卖的东西时应隐藏。
 - `tools/check_events.js` 需要放开：新键、同一 `realm:6/7` 触发多个事件、`tianheng_2` 的 4 个选项、旧的事件数量上限。
 - 写手的校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev/validate.js（会话临时目录）。
+
+## ev_sect_people.js（宗门 45、人物委托与终章 26，共 71）
+
+- 选项数超过旧校验上限 3：sect_duty_pick 5 个，sect_candidates / sect_succession 4 个。
+- 长老 `_2` 事件里“帮他”是 75% 成功；访客超时按“置身事外”结算。
+- sect_frame 去掉了“执法人脉 < 40”（没有 favorMax 键）。
+- chu_q1、bai_end 是历练事件（剑冢、狐族秘地），不是访客。
+- 机制替换：ge_end 的“丹方 ≥ 12”改为 50%；ye_q2 信任检定必过；ye_end 的特殊历练改为概率选项；disc_kind 的“仁 +2”只是一个 `dao: 'r'`；ge_q2 对丹霞谷人脉的影响改成 flag。
+- 点名血河老祖的三个魔宗事件带 `maxR: 7`（只是旧的 /老祖/ 规则误伤，接入时可去掉）。
+- CONTENT.md 之外新增的 fx：`toxin`（丹毒）、`busy: n`（占用 n 周天）、`duty: 'dan'|'qi'|'zhan'|'fa'|'wai'`（职司）、`disc: {new|grow|lv|heart|inj|job|out}`（徒弟）；`contrib` 可以为负；选项级 `need`（用于 zhao_owes）；`unkarma: 'any'`。
+- 新剧情触发键：`srank:2`、`sect:heir`、`sect:lord`、`disciple`、`disc:*`、`pact_eve`、`trib:1`、`demon:1`～`demon:3`、`ascend`。`disc:*` 要按每个徒弟各触发一次，而不是每世一次。
+- 结为道侣时自动置 `daolv_su` / `daolv_ye`。
+- 长老 id：剑宗 lingxu / tieye / liu；丹霞谷 yun / yaochen / chisong；道宗 xuanwei / shouzhuo / qingxu；魔宗 xuehe / xuesan / youji。
+- 文件头注释里有完整清单；写手校验脚本：/tmp/claude-0/-home-user-xianmen/9c6ceeed-9bee-5408-804e-0383805fba9d/scratchpad/ev2/validate.js（会话临时目录）。
