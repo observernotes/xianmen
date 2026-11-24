@@ -5,8 +5,10 @@
 // 策略：
 //   guided 空闲就行动；快圆满时留在家；灵石按“聚灵阵 > 灵田 > 丹炉 > 洞府”的折算价升级；每两趟历练闭关一次；
 //          突破带尽量多的丹（最多 3 枚）；地点选“预计评价 ≥ 乙”的最高一格；接宗门任务、吐纳、看访客
-//   lazy   每 12 周天只在前 5 周天出一趟门，每轮只买一样东西，不闭关、不吐纳、不做任务
+//   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
+//          不闭关、不吐纳、不碰新系统；突破最多带 2 枚丹
 //   idle   什么都不做，只在修为圆满时突破
+// 被 require 时导出 { run, L }，可以在别的脚本里换策略或统计（tools/ 之外的分析脚本用）
 const L = require('../src/logic.js');
 const arg = process.argv.slice(2);
 const only = ['guided', 'lazy', 'idle'].includes(arg[0]) ? arg[0] : null;
@@ -100,23 +102,27 @@ function actGuided(st, rec, seed) {
 function actLazy(st, rec) {
   const p = st.p;
   if (p.r > L.MAXR) return;
-  const ph = st.tick % 12;
-  if (ph === 0) st._bought = 0;
-  if (!st._bought) {
-    const r = Math.min(p.r, 8);
-    let did = false;
-    if (L.desperate(st) && L.marketOpen(st, 'life') && st.stones >= L.price(st, 'life')) did = !!L.buy(st, 'life');
-    else if (L.marketOpen(st, 'egg') && !p.pet && st.stones >= L.price(st, 'egg')) did = !!L.buy(st, 'egg');
-    else if ((p.w < Math.min(7, 1 + r) || p.a < Math.min(6, 1 + r)) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * 2) did = !!L.buy(st, 'box');
-    else { const u = cheapestUp(st); if (u && st.stones >= u.c) did = L.upgrade(st, u.k); }
-    if (did) st._bought = 1;
+  const cyc = Math.floor(st.tick / L.TOUR_EVERY);
+  if (st._cyc !== cyc) { st._cyc = cyc; st._trips = 0; }
+  if (st.sect) {
+    if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
+    st.sect.tasks.forEach((t, i) => {
+      if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i);
+      if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i);
+    });
   }
-  if (st.sect && L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
-  if (L.busy(st) || L.isFull(st)) return;
-  if (ph < 5 && st._tripAt !== Math.floor(st.tick / 12)) {
-    const cell = L.expBest(st, 0);
-    if (L.startExp(st, cell.k, cell.d, cell.a)) st._tripAt = Math.floor(st.tick / 12);
-  }
+  if (L.busy(st) || L.isFull(st) || st._trips >= 2) return;
+  // 出门前买一样：寿元告急买延寿丹 > 还没灵宠买蛋 > 寻宝 > 最便宜的洞府升级
+  const r = Math.min(p.r, 8);
+  if (L.desperate(st) && L.marketOpen(st, 'life') && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
+  else if (L.marketOpen(st, 'egg') && !p.pet && st.stones >= L.price(st, 'egg')) L.buy(st, 'egg');
+  else if ((p.w < Math.min(7, 1 + r) || p.a < Math.min(6, 1 + r)) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * 2) L.buy(st, 'box');
+  else { const u = cheapestUp(st); if (u && st.stones >= u.c) L.upgrade(st, u.k); }
+  if (p.inj > 0) return;
+  let a = 0;
+  if (st.sect) st.sect.tasks.forEach(t => { if (t.taken && !t.done && t.ty === 'exp' && L.expOpen(st, t.k, 0, t.a)) a = t.a; });
+  const cell = L.expBest(st, a);
+  if (L.startExp(st, cell.k, cell.d, cell.a)) st._trips++;
 }
 
 function run(strat, seed, trace) {
@@ -233,25 +239,29 @@ function summarize(strat, recs, G) {
   row(strat, '坐化', `${pct(died)}，其中金丹期 ${pct(inJd)}，中位数第 ${dm} 周天（${q(recs.map(x => x.death), 0.1)}～${q(recs.map(x => x.death), 0.9)}）`, '100%，在金丹期，第 230～300 周天', died === 1 && inJd >= 0.95 && within(dm, 230, 300));
 }
 
-if (verbose) {
-  const strat = only || 'guided';
-  const rec = run(strat, seed0, true);
-  const { st, ratio, ...rest } = rec; void st; void ratio;
-  console.log(JSON.stringify(rest));
-} else {
+function main(onlyStrat, n) {
+  rows.length = 0; fails = 0;
   let G = null;
-  for (const strat of only ? [only] : ['guided', 'lazy', 'idle']) {
+  for (const strat of onlyStrat ? [onlyStrat] : ['guided', 'lazy', 'idle']) {
     const recs = [];
-    for (let s = 1; s <= N; s++) recs.push(run(strat, s));
-    if (strat !== 'guided' && !G) { const g = []; for (let s = 1; s <= Math.min(N, 60); s++) g.push(run('guided', s)); G = { durs: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(r => med(g.map(x => (x.realmAt[r + 1] !== undefined ? x.realmAt[r + 1] - (r ? x.realmAt[r] : 0) : undefined)))) }; }
+    for (let s = 1; s <= n; s++) recs.push(run(strat, s));
+    if (strat !== 'guided' && !G) { const g = []; for (let s = 1; s <= Math.min(n, 60); s++) g.push(run('guided', s)); G = { durs: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(r => med(g.map(x => (x.realmAt[r + 1] !== undefined ? x.realmAt[r + 1] - (r ? x.realmAt[r] : 0) : undefined)))) }; }
     const out = summarize(strat, recs, G);
     if (strat === 'guided') G = out;
   }
   const w = [8, 30, 64, 44, 6];
-  const pad = (s, n) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, n - len)); };
-  console.log(`三种策略 × ${N} 个种子（PACT_POWER=${L.PACT_POWER}）`);
+  const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标` : '\n全部达标');
-  process.exitCode = fails ? 1 : 0;
+  return fails;
 }
+
+module.exports = { run, main, L };
+if (require.main !== module) { /* 被 require 时只导出，不跑汇总 */ } else if (verbose) {
+  const strat = only || 'guided';
+  const rec = run(strat, seed0, true);
+  const { st, ratio, ...rest } = rec; void st; void ratio;
+  console.log(JSON.stringify(rest));
+} else process.exitCode = main(only, N) ? 1 : 0;

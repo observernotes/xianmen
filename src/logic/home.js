@@ -5,9 +5,9 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 洞府四项。价格 = base × grow^lv
+// 洞府四项。价格 = base × grow^lv（聚灵阵 40 × 1.62^lv，SYSTEMS §18；原 1.5）
 L.HOME = [
-  { k: 'array', n: '聚灵阵', base: 40, grow: 1.5, max: 30, d: lv => `修炼速度 ×${L.arrayMult(lv).toFixed(2)}` },
+  { k: 'array', n: '聚灵阵', base: 40, grow: 1.62, max: 30, d: lv => `修炼速度 ×${L.arrayMult(lv).toFixed(2)}` },
   { k: 'field', n: '灵田', base: 50, grow: 1.6, max: 30, d: lv => (lv ? `每周天灵石 ${L.fmt(L.fieldInc(lv))}、灵草 ${(L.fieldHerb(lv)).toFixed(1)}` : '开垦后每周天自己长灵石和灵草') },
   { k: 'furnace', n: '丹炉', base: 120, grow: 1.75, max: 20, d: lv => (lv ? `成丹率 ${60 + lv * 3}% · 突破成功率 +${lv}%` : '建成后开启炼丹房，并提升突破成功率') },
   { k: 'cave', n: '洞府', base: 200, grow: 2.2, max: 12, d: lv => `寿元 +${lv * 5}% · 闭关 ×${(2 + 0.05 * lv).toFixed(2)} · ${caveName(lv)}` },
