@@ -107,7 +107,7 @@ function phase() { return ((T / 120000) + 0.42) % 1; }
 function season() { return Math.floor(((st ? st.year : 0) % 1) * 4); }
 function drawArray(x, y) {
   const lv = st.home.array; if (!lv) return null;
-  const rx = 22 + Math.min(lv, 18), ry = Math.round(rx * 0.3);
+  const rx = 22 + Math.min(lv, 12), ry = Math.round(rx * 0.3);
   const col = lv >= 20 ? '#ffd76a' : lv >= 10 ? '#8ff5d0' : '#4ccb9f';
   const pulse = 0.55 + 0.3 * Math.sin(T / 500);
   ctx.globalAlpha = Math.min(1, 0.4 + lv * 0.03) * pulse + 0.15;
@@ -124,18 +124,18 @@ function drawMeHome(x, y, realm) {
   const r = realm !== undefined ? realm : p.r;
   const trim = L.REALMS[Math.min(r, 9)].trim;
   y += r >= 7 ? Math.round(Math.sin(T / 600) * 1.5) - 2 : 0;
-  if (r >= 2) { ctx.globalAlpha = 0.16 + 0.07 * Math.sin(T / 400); disc(x, y - S.h / 2, Math.round(S.w * 0.6) + Math.min(r, 8), trim); ctx.globalAlpha = 1; }
+  if (r >= 2) ART.glow(x, y - S.h / 2, Math.round(S.w * 0.45) + Math.min(r, 8), trim, 0.22 + 0.06 * Math.sin(T / 400));
   const spr = ART.sit(p.look, r, p.inj > 0 ? { gray: true } : null);
   const sx = Math.round(x - S.w / 2), sy = Math.round(y - S.h);
   ctx.drawImage(spr, sx, sy);
   if ((T / 1400 | 0) % 2) ctx.drawImage(spr, 0, 0, S.w, S.split, sx, sy - 1, S.w, S.split); // 呼吸
-  if (r >= 3) { const yy = sy - 8 + Math.round(Math.sin(T / 500) * 1.5); R(x - 1, yy, 3, 2, '#ffe39a'); R(x - 2, yy + 2, 5, 2, trim); R(x - 1, yy + 4, 3, 1, L.REALMS[Math.min(r, 9)].robe[1]); }
+  if (r >= 3) { const yx = x - S.w / 2 - 5, yy = sy + 4 + Math.round(Math.sin(T / 500) * 1.5); R(yx - 1, yy, 3, 2, '#ffe39a'); R(yx - 2, yy + 2, 5, 2, trim); R(yx - 1, yy + 4, 3, 1, L.REALMS[Math.min(r, 9)].robe[1]); }
   if (r >= 4) for (let i = 0; i < 3; i++) { const t = T / 700 + i * 2.09; R(x + Math.cos(t) * (S.w * 0.65) - 1, y - S.h / 2 + Math.sin(t) * 4, 2, 2, trim); }
   if (r >= 8 && Math.random() < 0.04) parts.push({ x: x + (Math.random() - 0.5) * S.w, y: y - Math.random() * S.h, vx: 0, vy: 0, life: 120, max: 120, c: '#ffe766', s: 1 });
   if (p.inj > 0) { R(sx + S.w - 4, sy + 2, 3, 1, '#ff4d4d'); R(sx + S.w - 3, sy + 1, 1, 3, '#ff4d4d'); }
   if (L.isReady(st) && !cine) {
-    const by = sy - 16 + Math.round(Math.abs(Math.sin(T / 250)) * -3);
-    R(x - 3, by, 7, 9, '#1a1424'); R(x - 2, by + 1, 5, 7, '#fff6dc'); R(x, by + 2, 1, 4, '#c8323c'); R(x, by + 7, 1, 1, '#c8323c');
+    const bx = x + S.w / 2 + 3, by = sy + 2 + Math.round(Math.abs(Math.sin(T / 250)) * -3);
+    R(bx - 3, by, 7, 9, '#3a1a14'); R(bx - 2, by + 1, 5, 7, '#fff6dc'); R(bx, by + 2, 1, 4, '#c8323c'); R(bx, by + 7, 1, 1, '#c8323c'); R(bx - 4, by + 7, 2, 2, '#3a1a14');
   }
 }
 function drawPet(x, y) {
@@ -205,7 +205,7 @@ function drawAdvScene(dt) {
   else { R(px - 13, py + 1, 26, 2, '#dfe8f2'); R(px - 13, py + 1, 26, 1, '#ffffff'); R(px - 16, py, 3, 4, '#c8a050'); }
   for (let k = 0; k < 2; k++) parts.push({ x: px - 15, y: py + 1 + k, vx: -0.03, vy: 0, life: 260, max: 260, c: trim, s: 1 });
   ctx.drawImage(ART.standRealm(p.look, p.r, frame), Math.round(px - SD.w / 2), Math.round(py - SD.h + 1));
-  if (p.pet) { const P = D().pet; ctx.drawImage(ART.pet(p.pet.tier), px - 22 - P.w, py - P.h - 8 + Math.round(Math.sin(T / 300) * 3)); }
+  if (p.pet) { const P = D().pet; ctx.drawImage(ART.pet(p.pet.tier), px - 16 - P.w, py - P.h - 8 + Math.round(Math.sin(T / 300) * 3)); }
   adv.spawn -= dt;
   if (adv.spawn <= 0 && adv.foes.length < 3) {
     const foe = rg.foe;
@@ -733,7 +733,7 @@ function showHome() {
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
     if (L.upgrade(st, btn.dataset.k)) {
       SFX.coin();
-      const pos = { cave: [100, 60], array: [100, 128], field: [30, 110], furnace: [166, 116] }[btn.dataset.k];
+      const pos = { cave: [100, 60], array: [100, 128], field: [22, 110], furnace: [166, 112] }[btn.dataset.k];
       floatText(pos[0], pos[1], `Lv${st.home[btn.dataset.k]}`, '#ffe39a');
       showHome();
     }
@@ -1120,7 +1120,7 @@ function sceneClick(e) {
   ac();
   const r = cvs.getBoundingClientRect();
   const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H - OY;
-  if (crane && Math.abs(x - crane.x) < 10 && Math.abs(y - crane.y) < 8) {
+  if (crane && Math.abs(x - crane.x + 3) < 14 && Math.abs(y - crane.y) < 8) {
     if (Math.random() < 0.3) { st.pills++; floatText(crane.x, crane.y, '仙鹤衔丹 破境丹+1', '#ffe39a'); }
     else { const v = Math.floor(L.income(st) * 15 + 60); st.stones += v; floatText(crane.x, crane.y, '仙鹤献瑞 灵石+' + fmt(v), '#ffe39a'); }
     for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28; parts.push({ x: crane.x, y: crane.y, vx: Math.cos(a) * 0.04, vy: Math.sin(a) * 0.04, life: 700, max: 700, c: '#ffe39a', s: 1 }); }
