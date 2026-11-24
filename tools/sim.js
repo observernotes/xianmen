@@ -83,8 +83,9 @@ function actGuided(st, rec, seed) {
   if (L.canTrain(st)) { L.startTrain(st); return; }
   // 快圆满时留在家：圆满前最后一段路，在家比出门再回来快
   const tt = L.ticksToNext(st);
-  if (p.s === 3 && tt <= 3) { if (tt >= 2 && L.canRetreat(st)) L.startRetreat(st); return; }
-  if (p.inj > 0) { if (L.canRetreat(st)) L.startRetreat(st); return; }
+  if (p.s === 3 && tt <= 3) return;
+  // 负伤又没丹可服：在家歇着（带伤出门战力只剩六成，闭关也只有一半效果）
+  if (p.inj > 0) return;
   if ((st._trips || 0) >= 2 && L.canRetreat(st)) { st._trips = 0; L.startRetreat(st); return; }
   // 行事：轮着来，缺灵草多采药；宗门任务点名的优先
   let a = 0;

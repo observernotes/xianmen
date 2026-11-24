@@ -64,8 +64,9 @@ L.auctionOpen = st => !!st.auction && st.tick < st.auction.until;
 L.rollAuction = rollAuction;
 function rollAuction(st) {
   const p = st.p, inc = Math.max(L.income(st), 20), pool = [];
-  if (p.w < 7) pool.push({ k: 'w', tier: p.w + 1, n: L.WEAPONS[p.w + 1].n + '一件', m: 1.2 });
-  if (p.a < 6) pool.push({ k: 'a', tier: p.a + 1, n: L.ARTS[p.a + 1].n + '功法一部', m: 1.2 });
+  // 高一阶的法宝功法，但不超过本境界的寻宝上限（L.boxCap），免得拍卖把装备拉到境界前头
+  if (p.w < L.boxCap(st, 'w')) pool.push({ k: 'w', tier: p.w + 1, n: L.WEAPONS[p.w + 1].n + '一件', m: 1.2 });
+  if (p.a < L.boxCap(st, 'a')) pool.push({ k: 'a', tier: p.a + 1, n: L.ARTS[p.a + 1].n + '功法一部', m: 1.2 });
   pool.push({ k: 'treasure', n: '天材地宝', m: 0.8 });
   if (p.t < L.talentCap(st)) pool.push({ k: 'xisui', n: '洗髓丹', m: 1.5 });
   pool.push({ k: 'pack', n: '九转金丹材料包', m: 1.1 });
