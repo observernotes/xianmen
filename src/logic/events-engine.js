@@ -62,8 +62,9 @@ L.costText = function (st, cost) {
   if (cost.herbs) a.push('灵草 ' + L.fmt(cost.herbs * L.herbScale(st)));
   return a.join('、');
 };
-// 事件里的 xp: N 表示 N × L.EV_XP 个周天的修为（打坐速度，不计闭关、历练的状态）
-L.EV_XP = 1;
+// 事件里的 xp: N 表示 N × L.EV_XP 个周天的修为（打坐速度，不计闭关、历练的状态）。
+// 0.3：途中遭遇（每趟 60%）和访客（每周天 10%）加起来很密，按 1 算时奇遇占了勤快玩家三成修为（tools/sim.js 校准）
+L.EV_XP = 0.3;
 L.applyFx = function (st, fx) {
   const out = [];
   if (!fx) return out;

@@ -5,17 +5,21 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// ---------- 存档迁移（v2 → v3） ----------
-// 缺的字段补默认值；旧数值体系下的修为按比例折算；走到一半的旧历练按旧规则结算一次；st.meta 不存在则新建
+// ---------- 存档迁移（v2 → v3，DESIGN §9） ----------
+// v2 是 main 分支（旧数值体系）的存档，v3 是现在的。读档一律先过 L.migrate：
+// 缺的字段补默认值；旧数值体系下的修为按比例折算；走到一半的旧历练按旧规则结算一次（结果放在 s.migratedExp）；
+// st.meta 不存在则新建。从 v2 迁来的档 s.flags.fromV2 = 1（界面据此跳过新手引导）。返回 null 表示读不了。
+// TODO SYSTEMS §18 第 10 条：功法/法宝/灵宠换成槽位与名册时存档升到 v4，在这里加 v3 → v4 的迁移
 L.SAVE_V = 3;
 L.migrate = function (s) {
-  if (!s || !s.p || !s.home) return null;
-  if (s.v !== 2 && s.v !== 3) return null;
+  if (!s || typeof s !== 'object' || !s.p || !s.home) return null;
+  if (s.v !== 2 && s.v !== L.SAVE_V) return null;
   const old = s.v === 2;
   const p = s.p;
   s.flags = s.flags || {}; s.seenTips = s.seenTips || {}; s.beaten = s.beaten || {}; s.lifePills = s.lifePills || {}; s.lives = s.lives || [];
   s.stats = Object.assign(L.newStats(), s.stats || {});
-  s.meta = s.meta || L.newMeta(); s.meta.aff = s.meta.aff || {}; s.meta.perk = s.meta.perk || {}; s.meta.seen = s.meta.seen || {};
+  s.meta = s.meta || L.newMeta(); for (const k in L.newMeta()) s.meta[k] = s.meta[k] || {};
+  s.home = Object.assign({ cave: 0, array: 0, field: 0, furnace: 0 }, s.home);
   s.quest = s.quest || { done: {} }; s.quest.done = s.quest.done || {};
   s.best = s.best || {}; s.regionWins = s.regionWins || {}; s.bosses = s.bosses || {};
   s.npc = s.npc || {}; s.eflags = s.eflags || {}; s.evDone = s.evDone || {}; s.evLast = s.evLast || {}; s.storyQ = s.storyQ || []; s.buffs = s.buffs || [];
@@ -57,14 +61,16 @@ L.migrate = function (s) {
     // 时间线：新版一个周天流逝的年数变了，别让人一读档就坐化
     if (p.r <= L.MAXR && p.age > L.lifespan(s) * 0.85) p.age = L.lifespan(s) * 0.85;
     if (s.pact && s.rank > 72 && s.beaten.mu) { /* 名次照旧 */ }
-    s.v = 3;
+    s.flags.fromV2 = 1;
+    s.v = L.SAVE_V;
     // 走到一半的旧历练：按旧规则结算一次
     if (s.exp && !s.exp.plan) s.migratedExp = L.resolveExp(s);
     L.log(s, '洞天重整：修为、历练与洞府换了新章法，旧日积累已按比例折算', 'gold');
   }
   if (s.sect) { s.sect.tasks = s.sect.tasks || []; s.sect.build = s.sect.build || { ward: 0, lib: 0, vein: 0 }; }
   if (s.exp && !s.exp.plan) s.exp = null;
-  s.v = 3;
+  if (s.retreat && !(s.retreat.left > 0)) s.retreat = null;
+  s.v = L.SAVE_V;
   return s;
 };
 });

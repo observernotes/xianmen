@@ -6,7 +6,7 @@ const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
 // ---------- 札记：每个大境界一章（一个主线目标 + 一串小任务） ----------
-// c: 完成条件；rw: 奖励 { stones, inc（×当时每周天收入）, pills, herbs, treasure, contrib, title, vault }；go: 界面【前往】去哪
+// off: 依赖还没做的系统，暂不显示也不结算；c: 完成条件；rw: 奖励 { stones, inc（×当时每周天收入）, pills, herbs, treasure, contrib, title, vault }；go: 界面【前往】去哪
 const mr = st => st.flags.maxR || 0;
 L.mr = mr;
 const maxI = st => Math.max(st.flags.maxI || 0, L.si(st.p));
@@ -60,7 +60,8 @@ L.CHAPTERS = [
     main: { t: st => `成为${st.p.look.f ? '圣女' : '圣子'}`, c: srank(3), rw: { inc: 15, vault: 1 }, go: 'sect' },
     tasks: [
       { t: '修成元婴', c: st => mr(st) >= 3, rw: { inc: 10 }, go: 'cult' },
-      { t: '带同伴历练一次', c: st => st.stats.compExp >= 1, rw: { inc: 8 }, go: 'exp' },
+      // TODO DESIGN §7.4：同伴（四心同行）上线、历练结算里累计 st.stats.compExp 后去掉 off
+      { t: '带同伴历练一次', c: st => st.stats.compExp >= 1, rw: { inc: 8 }, go: 'exp', off: true },
       { t: '炼出上品丹', c: st => st.stats.goodPill >= 1, rw: { herbs: 30 }, go: 'home' },
       { t: '天骄榜进入前 20', c: st => st.bestRank <= 20, rw: { inc: 12 }, go: 'me' },
       { t: '结为道侣，或与一人到四心', c: st => !!st.daolv || affMax(st) >= 80, rw: { inc: 12 }, go: 'me' },
@@ -152,7 +153,7 @@ L.checkQuests = function (st) {
   for (let r = 0; r <= top; r++) {
     const ch = L.CHAPTERS[r];
     for (const q of ch.tasks.concat([ch.main])) {
-      if (st.quest.done[q.id] || !q.c(st)) continue;
+      if (q.off || st.quest.done[q.id] || !q.c(st)) continue;
       st.quest.done[q.id] = 1;
       const text = grantReward(st, q.rw);
       emit('quest', { id: q.id, t: L.questText(st, q), rw: text, main: !!q.main, ch: r });
@@ -163,10 +164,11 @@ L.checkQuests = function (st) {
 // 界面用：当前章节、主线、前三条未完成的小任务、以前章节没做完的主线
 L.questView = function (st) {
   const r = Math.min(8, st.p.r), ch = L.CHAPTERS[r], done = (st.quest && st.quest.done) || {};
-  const list = ch.tasks.filter(q => !done[q.id]).slice(0, 3);
+  const live = ch.tasks.filter(q => !q.off);
+  const list = live.filter(q => !done[q.id]).slice(0, 3);
   const old = [];
   for (let j = 0; j < r; j++) if (!done[L.CHAPTERS[j].main.id]) old.push(L.CHAPTERS[j].main);
   const main = done[ch.main.id] ? null : ch.main;
-  return { r, ch, main, list, old, first: list[0] || main || old[0] || null, doneN: ch.tasks.filter(q => done[q.id]).length, total: ch.tasks.length };
+  return { r, ch, main, list, old, first: list[0] || main || old[0] || null, doneN: live.filter(q => done[q.id]).length, total: live.length };
 };
 });

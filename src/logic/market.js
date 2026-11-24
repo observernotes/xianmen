@@ -15,8 +15,10 @@ L.MARKET = [
 L.price = (st, k) => Math.floor(L.MARKET.find(m => m.k === k).base * Math.pow(2.6, Math.min(st.p.r, 8)));
 L.marketOpen = (st, k) => { const m = L.MARKET.find(x => x.k === k); return !m.minR || st.p.r >= m.minR || (st.flags.maxR || 0) >= m.minR; };
 
-// 寻宝保底能补到的最高阶：L.BOX_CAP + 境界（法宝至多 7 阶、功法至多 6 阶）
-L.BOX_CAP = 2;
+// 寻宝保底（和拍卖）能补到的最高阶：L.BOX_CAP + 境界（法宝至多 7 阶、功法至多 6 阶）。
+// v1 写的是 2 + r；寻宝便宜、拍卖每 24 周天一次，按 2 算时功法化神就满、法宝炼虚就满，改 1（tools/sim.js 校准）
+// TODO SYSTEMS §2～§3：功法、法宝改成具体条目与槽位后，寻宝产出改为“按阶抽一门/一件”，保底规则沿用这里的上限
+L.BOX_CAP = 1;
 L.boxCap = (st, kind) => Math.min(kind === 'w' ? 7 : 6, L.BOX_CAP + Math.min(st.p.r, 8));
 L.buy = function (st, k) {
   if (!L.marketOpen(st, k)) return null;
