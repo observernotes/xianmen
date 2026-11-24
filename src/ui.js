@@ -74,6 +74,33 @@ function rivalAvImg(rv, w) {
   const c = ART.avatar(o.look, 0, '#5a3a3a', { robe: o.robe, trim: o.trim, extra: o.extra });
   return `<img class="px" id="vsR" src="${urlOf(c, 'rv|' + rv.n)}" style="${avStyle(c, w)}" alt="">`;
 }
+const NPC_LOOK = {
+  su: f => ({ look: { hair: '#3b2a22', skin: '#f6d3b3', f: f ? 0 : 1 }, robe: ['#b0603a', '#e8905a', '#ffc08a'], trim: '#fff3d8' }),
+  ye: f => ({ look: { hair: '#1a1424', skin: '#f2d2c8', f: f ? 0 : 1 }, robe: ['#2a1630', '#4a2450', '#7a3a7a'], trim: '#e8485a' }),
+  chu: () => ({ look: { hair: '#2a2230', skin: '#e0b088', f: 0 }, robe: ['#3a4250', '#5a6474', '#8a94a4'], trim: '#c8d0dc' }),
+  ge: () => ({ look: { hair: '#dcdce6', skin: '#e8c0a0', f: 0 }, robe: ['#5a4030', '#8a6448', '#b08a68'], trim: '#e8d0a0' }),
+  bai: () => ({ look: { hair: '#f4f0f6', skin: '#fbe2d4', f: 1 }, robe: ['#c87a9a', '#f0a8c4', '#ffd8e8'], trim: '#ffffff' }),
+  mo: () => ({ look: { hair: '#0e0c14', skin: '#d8c0b0', f: 0 }, robe: ['#0e0c14', '#1e1a26', '#34303e'], trim: '#6a5a8a' }),
+};
+function npcAvImg(id, w) {
+  const o = NPC_LOOK[id] ? NPC_LOOK[id](st.p.look.f) : NPC_LOOK.chu();
+  const c = ART.avatar(o.look, 0, '#3a4a6a', { robe: o.robe, trim: o.trim });
+  return `<img class="px" src="${urlOf(c, 'npc|' + id + '|' + st.p.look.f)}" style="${avStyle(c, w)}" alt="">`;
+}
+function bossImg(k, w) {
+  const key = 'boss|' + k;
+  if (!avCache.has(key)) {
+    const rg = L.REGIONS[k];
+    const c = document.createElement('canvas'); c.width = 40; c.height = 40;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.fillStyle = '#3a1a24'; g.fillRect(0, 0, 40, 40);
+    if (rg.foe === 'beast') { const s = ART.wolf(rg.fc); g.drawImage(s, Math.round(20 - s.width / 2), Math.round(34 - s.height)); }
+    else if (rg.foe === 'man') { const s = ART.foeMan(rg.fc, rg.bg); g.drawImage(s, Math.round(20 - s.width / 2), Math.max(0, 40 - s.height)); }
+    else { ART.setCtx(g, 40); g.setTransform(1, 0, 0, 1, 0, 0); if (rg.foe === 'orb') ART.drawOrb(20, 20, 0, rg.fc, false); else ART.drawSnake(6, 22, 0, rg.fc, false); ART.setCtx(ctx, W); }
+    avCache.set(key, c.toDataURL());
+  }
+  return `<img class="px" id="vsR" src="${avCache.get(key)}" style="width:${w}px;height:${w}px" alt="">`;
+}
 function talentTag(t) {
   const T0 = L.TALENTS[t];
   return T0.c === 'rainbow' ? `<span class="tag rainbow">${T0.n}</span>` : `<span class="tag" style="background:${T0.c}">${T0.n}</span>`;
@@ -514,12 +541,14 @@ function onHook(type, data) {
 }
 
 // ---------- HUD ----------
-let hudTimer = 0;
+let hudTimer = 0, achBusy = false;
 function updateHUD() {
   if (!st) return;
   const p = st.p;
-  $('#pName').textContent = p.name + (st.sect ? ' · ' + L.srankName(st, st.sect.rank) : ' · 散修');
-  $('#date').textContent = `修仙第${Math.floor(st.year) + 1}年`;
+  $('#pName').textContent = (st.title ? '「' + st.title + '」' : '') + p.name + (st.sect ? ' · ' + L.srankName(st, st.sect.rank) : '');
+  L.checkAchs(st);
+  if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; banner('成就 · ' + a.n, '称号「' + a.t + '」'); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
+  $('#date').textContent = `第${Math.floor(st.year) + 1}年`;
   $('#vStone').textContent = fmt(st.stones);
   $('#vPill').textContent = st.pills;
   $('#vLife').textContent = p.r >= 9 ? '不朽' : `${Math.floor(p.age)}/${fmt(L.lifespan(st))}`;
@@ -590,7 +619,8 @@ function pushPopup(fn) { queue.push(fn); processQueue(); }
 function processQueue() {
   if (!$('#modal').hidden || cine || !$('#intro').hidden) return;
   const fn = queue.shift();
-  if (fn) fn();
+  if (fn) { fn(); return; }
+  if (st && st.storyQ && st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) showChoice(ev); }
 }
 const bar = (v, gold) => `<div class="bar ${gold ? 'gold' : ''}"><i style="width:${Math.max(0, Math.min(100, v * 100)).toFixed(1)}%"></i></div>`;
 
@@ -613,6 +643,7 @@ function showBreakthrough() {
     const sc = L.sectOf(st); if (sc && sc.bt) bits.push(`${sc.n} +${Math.round(sc.bt * 100)}%`);
     if (L.desperate(st)) bits.push('<span class="seal">绝境 +25%</span>');
     if (pill) bits.push('破境丹 +20%');
+    if (st.flags.sureBt) bits.push('<span class="jadet">九转金丹：必定成功</span>');
     const body = `<div class="row">${myAvImg(66)}<div class="grow">
         <div>${esc(p.name)} · ${L.stageName(p)}</div>
         <div class="big seal">冲击${nxt}</div>
@@ -673,12 +704,30 @@ function showExp() {
     const rg = L.REGIONS[k];
     if (!L.unlocked(st, k)) { if (k === p.r + 3) rows.push(`<div class="card flat" style="opacity:.6"><div class="main"><div>${rg.n}</div><div class="muted">踏入${L.REALMS[Math.max(0, k - 2)].n}期后可前往</div></div><div class="right"><span class="chip">未解锁</span></div></div>`); continue; }
     const ch = L.expChance(st, k);
-    rows.push(`<div class="card" data-k="${k}"><div class="main"><div class="line"><span>${rg.n}</span><span class="muted">${rg.mon} 周天</span></div>
+    if (L.bossReady(st, k)) { const B = L.BOSSES[k], bp = L.duelChance(L.power(st), L.bossPower(k)); rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">首领现身：${B.n}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">击败可得天材地宝、首领掉落【${B.drop}】与称号「${B.t}」</div></div><div class="right">${chipFor(bp)}</div></div>`); }
+    const wins = st.regionWins[k] || 0;
+    const prog = st.bosses[k] ? '<span class="chip ok">首领已斩</span>' : `<span class="chip">探索 ${Math.min(3, wins)}/3</span>`;
+    rows.push(`<div class="card" data-k="${k}"><div class="main"><div class="line"><span>${rg.n}</span><span class="muted">${rg.mon} 周天</span>${prog}</div>
       <div class="muted">${rg.desc}</div><div class="muted num">推荐战力 ${fmt(L.DREC[k])} · 灵石约 ${fmt(L.DREW[k])}</div></div>
       <div class="right">${chipFor(ch.p)}${ch.ratio < 0.6 ? '<span class="seal">越级</span>' : ''}</div></div>`);
   }
   const s = sheet({ title: '外出历练', sub: `你的战力 ${fmt(L.power(st))} · 越级挑战成功奖励翻倍，失败负伤三周天`, body: rows.join('') });
   s.querySelectorAll('.card[data-k]').forEach(c => c.onclick = () => { SFX.tap(); confirmExp(+c.dataset.k); });
+  s.querySelectorAll('.card[data-boss]').forEach(c => c.onclick = () => { SFX.tap(); fightBossUI(+c.dataset.boss); });
+}
+function fightBossUI(k) {
+  const res = L.fightBoss(st, k);
+  if (!res) return;
+  const B = res.B;
+  const it = res.item;
+  duel({
+    title: '首领 · ' + B.n, intro: `【${L.REGIONS[k].n}】深处，${B.n}挡住了去路。`,
+    right: { img: bossImg(k, 66), name: B.n, sub: fmt(res.Q) }, Q: res.Q, S: res.S, win: res.win,
+    quote: `${B.n}：“${B.line}”`,
+    winText: res.win ? `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${it.equip ? '获得' : '已有更好法宝，换得灵石'}【${esc(it.name)}】</span></div>` : '',
+    loseText: '首领太强，重伤而归（负伤 4 周天）。变强之后再来！',
+    done: closeModal,
+  });
 }
 function confirmExp(k) {
   const rg = L.REGIONS[k], ch = L.expChance(st, k);
@@ -706,7 +755,7 @@ function showExpResult(res) {
   const lines = [`<div class="center">${myAvImg(52)}</div>`];
   if (res.ok) {
     lines.push(`<div class="center big ${res.leap ? 'seal' : 'goldt'}">${res.leap ? '越级挑战成功！' : '满载而归'}</div>`);
-    lines.push(`<dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(res.stones)}${res.leap ? '（翻倍）' : ''}</dd><dt>修为</dt><dd class="num">+${fmt(res.xp)}</dd>${res.pills ? `<dt>破境丹</dt><dd>+${res.pills}</dd>` : ''}${res.contrib ? `<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>` : ''}</dl>`);
+    lines.push(`<dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(res.stones)}${res.leap ? '（翻倍）' : ''}</dd><dt>修为</dt><dd class="num">+${fmt(res.xp)}</dd>${res.pills ? `<dt>破境丹</dt><dd>+${res.pills}</dd>` : ''}${res.herbs ? `<dt>灵草</dt><dd class="num">+${fmt(res.herbs)}</dd>` : ''}${res.treasure ? `<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>` : ''}${res.contrib ? `<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>` : ''}</dl>`);
     for (const it of res.items) lines.push(itemLine(it));
     if (res.fortune) lines.push(`<div class="quote seal">奇遇！${esc(res.fortune)}</div>`);
     SFX.coin();
@@ -729,7 +778,9 @@ function showHome() {
       <div class="muted">${b.d(lv)}</div>${max ? '' : `<div class="jadet">下一级：${b.d(lv + 1)}</div>`}</div>
       <div class="right"><button class="btn sm ${st.stones >= c && !max ? 'gold' : 'alt'}" data-k="${b.k}" ${max || st.stones < c ? 'disabled' : ''}>${max ? '已满级' : `${iconHTML('stone', 12)} ${fmt(c)}`}</button></div></div>`;
   }).join('');
-  const s = sheet({ title: '洞府', sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))}`, body });
+  const alch = st.home.furnace ? `<button class="btn gold" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}</button>` : '<div class="muted">建造丹炉后可以炼丹（灵田和历练产出灵草）。</div>';
+  const s = sheet({ title: '洞府', sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))}`, body: alch + body });
+  const ab = s.querySelector('#btnAlch'); if (ab) ab.onclick = () => { SFX.tap(); showAlchemy(); };
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
     if (L.upgrade(st, btn.dataset.k)) {
       SFX.coin();
@@ -955,6 +1006,74 @@ function runTournament() {
   next();
 }
 
+// ---------- 奇遇事件（选项） ----------
+function speakerImg(ev, w) {
+  const spk = ev.speaker || ev.npc;
+  if (spk === 'elder') return `<img class="px" src="${ELDER}" style="width:${w}px;height:${w}px" alt="">`;
+  if (spk && L.NPCS[spk]) return npcAvImg(spk, w);
+  return myAvImg(w);
+}
+function showChoice(ev) {
+  if (!ev || !st) return;
+  const spk = ev.speaker || ev.npc;
+  const who = spk && L.NPCS[spk] ? `<div class="seal">${esc(L.npcName(st, spk))} <span class="muted">${L.NPCS[spk].title}${L.met(st, spk) ? ' · 好感 ' + L.aff(st, spk) : ''}</span></div>` : spk === 'elder' ? '<div class="seal">戒中老祖</div>' : '';
+  const luck = L.choiceLuck(st);
+  const btns = ev.choices.map((c, i) => {
+    const can = L.costOk(st, c.cost);
+    const bits = [];
+    if (c.cost) bits.push(L.costText(st, c.cost));
+    if (c.duel) bits.push('胜算 ' + L.pct(L.duelChance(1, c.duel)));
+    else if (c.p !== undefined) bits.push('把握 ' + L.pct(Math.min(0.95, c.p + luck)));
+    return `<button class="btn ${i === 0 ? 'gold' : 'alt'}" data-c="${i}" ${can ? '' : 'disabled'}><span>${esc(L.fill(st, c.t))}</span><small>${esc(bits.join(' · '))}</small></button>`;
+  }).join('');
+  const s = sheet({
+    title: (ev.where === 'story' ? '<span class="story-tag">主线</span>' : '') + esc(L.fill(st, ev.title)), center: true, noClose: true,
+    body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div><div class="choices">${btns}</div>`,
+  });
+  SFX.reveal(ev.where === 'story' ? 4 : 2);
+  s.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => {
+    SFX.tap();
+    const res = L.resolveChoice(st, ev, +b.dataset.c);
+    if (!res) return;
+    const chips = res.fx.length ? `<div class="fxlist">${res.fx.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '';
+    if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
+    if (res.duel) {
+      duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, win: res.duel.win,
+        winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done: closeModal });
+      return;
+    }
+    if (res.hasRisk) { if (res.ok) SFX.win(); else SFX.fail(); } else SFX.coin();
+    sheet({ title: esc(L.fill(st, ev.title)), center: true, noClose: true,
+      body: `<div class="speaker">${speakerImg(ev, 44)}<p class="grow" style="margin:0">${esc(res.text)}</p></div>${chips}`,
+      foot: [{ t: '继续', gold: true, fn: closeModal }] });
+  });
+}
+
+// ---------- 炼丹 ----------
+function showAlchemy() {
+  const rate = L.alchRate(st);
+  const body = L.RECIPES.map(rc => {
+    const why = L.canCraft(st, rc.k);
+    const cost = `灵草 ${fmt(L.herbCost(st, rc))}${rc.treasure ? ` · 天材地宝 ${rc.treasure}` : ''}`;
+    return `<div class="card flat"><div style="flex:none">${iconHTML('pill', 28)}</div><div class="main"><div>${rc.n}</div><div class="muted">${rc.d}</div><div class="muted">${cost}${why ? ` · <span class="seal">${why}</span>` : ''}</div></div>
+      <div class="right"><button class="btn sm ${why ? 'alt' : 'gold'}" data-r="${rc.k}" ${why ? 'disabled' : ''}>炼制</button></div></div>`;
+  }).join('');
+  const s = sheet({ title: '炼丹房', sub: `灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure} · 成丹率 ${L.pct(rate)}${L.friend(st, 'ge') ? '（葛老指点）' : ''}`, body: body + '<div class="muted">灵田每周天产灵草，历练和奇遇也能得到。天材地宝来自地图首领与稀有机缘。成丹分下、中、上、极品四等。</div>' });
+  s.querySelectorAll('button[data-r]').forEach(b => b.onclick = () => {
+    const res = L.craft(st, b.dataset.r);
+    if (!res) return;
+    SFX.gather();
+    const s2 = sheet({ title: '开炉炼丹', center: true, noClose: true, body: `<div class="center"><div class="clashL" style="display:inline-block">${iconHTML('pill', 56)}</div></div><p class="center muted">丹炉火起，药香弥漫……</p>` });
+    setTimeout(() => {
+      if (!res.ok) { SFX.fail(); sheet({ title: '炸炉了', center: true, body: `<p class="center">轰的一声，${res.n}没炼成，灵草化为飞灰。</p><p class="center muted">提升丹炉等级、与葛老交好，成丹率更高。</p>`, foot: [{ t: '再来', gold: true, fn: showAlchemy }] }); return; }
+      const q = L.QUAL[res.q];
+      if (res.q === 3) { flash(0.6); SFX.reveal(6); banner('丹纹九现', '极品' + res.n); } else SFX.win();
+      sheet({ title: '丹成', center: true, body: `<div class="center">${iconHTML('pill', 44)}</div><div class="center big ${res.q === 3 ? 'goldt' : res.q === 2 ? 'jadet' : ''}">${q.n}${res.n}</div>${res.q === 3 ? '<p class="center seal">丹成之时，九道丹纹浮现，异香百里！</p>' : ''}<div class="fxlist"><span>${esc(res.fx)}</span></div>`, foot: [{ t: '继续炼丹', gold: true, fn: showAlchemy }] });
+    }, 1100);
+    void s2;
+  });
+}
+
 // ---------- 人物 ----------
 function ladderHTML() {
   const rows = [];
@@ -965,12 +1084,16 @@ function ladderHTML() {
   for (const q of [...qs].sort((a, b) => a - b)) { if (q - prev > 1) rows.push('<div class="muted"><b>…</b></div>'); add(q); prev = q; }
   return `<div class="ladder">${rows.join('')}</div>`;
 }
-function showMe() {
+function showMe(tab) {
+  tab = tab || 'attr';
   const p = st.p;
-  const trs = p.tr.map(k => `${L.TRAITS[k].n}<span class="muted">（${L.TRAITS[k].d}）</span>`).join('<br>') || '无';
-  const rivals = L.RIVALS.map(rv => { const name = rv.id === 'mu' ? st.exName : rv.name; return `<div class="row"><span class="grow">${esc(name)} <span class="muted">${rv.title}</span></span>${st.beaten[rv.id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${L.rivalRank(st, rv.id) || '?'}名</span>`}</div>`; }).join('');
-  const body = `<div class="row">${myAvImg(78)}
-      <div class="grow"><div class="big">${esc(p.name)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${talentTag(p.t)}${st.sect ? `<span class="chip">${L.sectOf(st).n}·${L.srankName(st, st.sect.rank)}</span>` : '<span class="chip">散修</span>'}</div>
+  const tabs = [['attr', '属性'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('');
+  let body = '';
+  if (tab === 'attr') {
+    const trs = p.tr.map(k => `${L.TRAITS[k].n}<span class="muted">（${L.TRAITS[k].d}）</span>`).join('<br>') || '无';
+    const buffs = (st.buffs || []).map(b => b.cul ? `修炼×${b.cul}（${b.left}周天）` : `战力×${b.atk}（${b.left}周天）`).join('、');
+    body = `<div class="row">${myAvImg(78)}
+      <div class="grow"><div class="big">${esc(p.name)}</div>${st.title ? `<div class="seal">「${esc(st.title)}」</div>` : ''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${talentTag(p.t)}${st.sect ? `<span class="chip">${L.sectOf(st).n}·${L.srankName(st, st.sect.rank)}</span>` : '<span class="chip">散修</span>'}${st.daolv ? `<span class="chip ok">道侣 ${esc(L.npcName(st, st.daolv))}</span>` : ''}</div>
       <div style="margin-top:4px">${L.stageName(p)}${st.rebirth ? ` · 第 ${st.rebirth + 1} 世` : ''}</div></div></div>
     <dl class="grid2">
       <dt>修为</dt><dd class="num">${fmt(p.xp)} / ${fmt(L.pNeed(p))}</dd>
@@ -981,17 +1104,38 @@ function showMe() {
       <dt>法宝</dt><dd>${p.w ? `${esc(p.wn)}<span class="muted">（${L.WEAPONS[p.w].n} 战力×${L.WEAPONS[p.w].m}）</span>` : '<span class="muted">赤手空拳</span>'}</dd>
       <dt>功法</dt><dd>${p.a ? `《${esc(p.an)}》<span class="muted">（${L.ARTS[p.a].n} 修炼×${L.ARTS[p.a].m}）</span>` : '<span class="muted">基础吐纳</span>'}</dd>
       <dt>灵宠</dt><dd>${p.pet ? `${petImg(p.pet.tier, 26)} ${esc(p.pet.name)}<span class="muted">（${L.PETS[p.pet.tier].n} 战力×${L.PETS[p.pet.tier].m}）</span>` : '<span class="muted">尚无</span>'}</dd>
+      <dt>库存</dt><dd>灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure} · 破境丹 ${st.pills}</dd>
+      ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
+      ${st.bonus.cul || st.bonus.atk ? `<dt>机缘加成</dt><dd>修炼 +${Math.round(st.bonus.cul * 100)}% · 战力 +${Math.round(st.bonus.atk * 100)}%</dd>` : ''}
     </dl>
-    <div class="sep"></div><div class="muted">宿敌</div>${rivals}
-    <div class="sep"></div><div class="muted">天骄榜（每 12 周天举行一届论道）</div>${ladderHTML()}
     ${st.lives.length ? `<div class="sep"></div><div class="muted">前世</div>${st.lives.map((l, i) => `<div>第 ${i + 1} 世 · ${esc(l.name)} · ${l.ascended ? '白日飞升' : L.REALMS[Math.min(l.r, 8)].n + '期坐化'} · ${l.age} 岁</div>`).join('')}` : ''}
     <div class="sep"></div><dl class="grid2"><dt>存档</dt><dd>本机自动保存 · 云存档：${esc(cloudStatus)}</dd></dl>
     <div class="row"><button class="btn sm alt" id="btnReset">重新开始</button></div>
     <div class="muted">字体：Fusion Pixel（TakWolf，SIL OFL 1.1）</div>`;
-  const s = sheet({ title: '人物', body });
-  s.querySelector('#btnReset').onclick = () => sheet({
+  } else if (tab === 'bond') {
+    body = Object.keys(L.NPCS).map(id => {
+      const N = L.NPCS[id];
+      if (!L.met(st, id)) return `<div class="card flat" style="opacity:.55"><div class="av" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted)">？</div><div class="main"><div>？？？</div><div class="muted">${N.title} · 尚未相识</div></div></div>`;
+      const a = L.aff(st, id);
+      const tag = st.daolv === id ? '<span class="chip ok">道侣</span>' : a >= 60 ? '<span class="chip ok">知己</span>' : a >= 30 ? '<span class="chip">熟识</span>' : '<span class="chip">初识</span>';
+      return `<div class="card flat">${npcAvImg(id, 44)}<div class="main"><div class="line"><span>${esc(L.npcName(st, id))}</span>${tag}</div><div class="muted">${N.title}</div>${bar(a / 100, a >= 60)}<div class="${a >= 60 ? 'jadet' : 'muted'}">知己加成：${N.bonus}${N.daolv ? ' · 可结为道侣（双修 修炼×1.3）' : ''}</div></div><div class="right num">${a}</div></div>`;
+    }).join('') + '<div class="muted">好感来自奇遇中的选择。好感 60 结为知己获得永久加成；医修与魔门圣女二人中可择一结为道侣。</div>';
+  } else if (tab === 'ach') {
+    const got = L.ACHS.filter(a => st.ach[a.id]).length;
+    body = `<div class="muted">已达成 ${got} / ${L.ACHS.length} · 点已获得的称号可佩戴</div>` + L.ACHS.map(a => `<div class="ach ${st.ach[a.id] ? '' : 'off'}" data-title="${st.ach[a.id] ? esc(a.t) : ''}"><b>${a.n}<br><span class="muted">${a.d}</span></b><span class="${st.title === a.t ? 'chip ok' : 'chip'}">「${a.t}」</span></div>`).join('')
+      + (st.titles.filter(t => !L.ACHS.some(a => a.t === t)).length ? `<div class="sep"></div><div class="muted">其他称号</div>` + st.titles.filter(t => !L.ACHS.some(a => a.t === t)).map(t => `<div class="ach" data-title="${esc(t)}"><b>${esc(t)}</b><span class="${st.title === t ? 'chip ok' : 'chip'}">${st.title === t ? '佩戴中' : '佩戴'}</span></div>`).join('') : '');
+  } else {
+    const rivals = L.RIVALS.map(rv => { const name = rv.id === 'mu' ? st.exName : rv.name; return `<div class="row"><span class="grow">${esc(name)} <span class="muted">${rv.title}</span></span>${st.beaten[rv.id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${L.rivalRank(st, rv.id) || '?'}名</span>`}</div>`; }).join('');
+    const bosses = L.BOSSES.map((B, k) => `<span class="chip ${st.bosses[k] ? 'ok' : ''}" style="${st.bosses[k] ? '' : 'opacity:.5'}">${B.n}</span>`).join(' ');
+    body = `<div class="muted">宿敌</div>${rivals}<div class="sep"></div><div class="muted">天骄榜（每 12 周天举行一届论道）</div>${ladderHTML()}<div class="sep"></div><div class="muted">地图首领</div><div style="display:flex;flex-wrap:wrap;gap:4px">${bosses}</div>`;
+  }
+  const s = sheet({ title: '人物', body: `<div class="tabs">${tabs}</div>` + body });
+  s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); });
+  s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
+  const rb = s.querySelector('#btnReset');
+  if (rb) rb.onclick = () => sheet({
     title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？这会清除本机与云端存档。</p>',
-    foot: [{ t: '取消', alt: true, fn: showMe }, { t: '确定重来', fn: () => { closeModal(); resetGame(); } }],
+    foot: [{ t: '取消', alt: true, fn: () => showMe() }, { t: '确定重来', fn: () => { closeModal(); resetGame(); } }],
   });
 }
 function resetGame() {
@@ -1077,6 +1221,7 @@ let monthAcc = 0;
 function onTick() {
   const out = L.tick(st, true);
   if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
+  if (out.choice) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
   if (out.event) {
     const ev = out.event;
     if (ev.big) pushPopup(() => showEvent(ev));
@@ -1226,5 +1371,5 @@ function start(data) {
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, get cine() { return !!cine; } };
+window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, get cine() { return !!cine; } };
 })();

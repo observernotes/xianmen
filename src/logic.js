@@ -196,6 +196,7 @@ L.lifespan = function (st) {
   if (p.r >= 9) return Infinity;
   let y = L.REALMS[p.r].life * (1 + 0.05 * st.home.cave);
   if (L.has(st, 'longev')) y *= 1.5;
+  if (L.friend(st, 'mo')) y *= 1.1;
   return y + (st.lifeBonus || 0);
 };
 L.lifeLeft = st => L.lifespan(st) - st.p.age;
@@ -206,6 +207,7 @@ L.gain = function (st) {
   let m = L.TALENTS[p.t].cul * L.ARTS[p.a].m * L.arrayMult(st.home.array) * (1 + 0.5 * st.rebirth);
   const sc = L.sectOf(st); if (sc) m *= sc.cul;
   if (L.has(st, 'wise')) m *= 1.3;
+  m *= L.culMult(st);
   if (p.inj > 0) m *= 0.5;
   if (st.exp) m *= 0.5;
   return base * m;
@@ -216,6 +218,7 @@ L.power = function (st) {
   v *= L.TALENTS[p.t].atk * L.WEAPONS[p.w].m * L.PETS[p.pet ? p.pet.tier : 0].m * (1 + 0.25 * st.rebirth);
   if (L.has(st, 'sword')) v *= 1.5;
   const sc = L.sectOf(st); if (sc) v *= sc.atk;
+  v *= L.atkMult(st);
   if (p.inj > 0) v *= 0.6;
   return v;
 };
@@ -233,6 +236,7 @@ L.btRate = function (st, usePill) {
   if (L.has(st, 'alch')) v += 0.15;
   if (L.desperate(st)) v += 0.25;
   const sc = L.sectOf(st); if (sc) v += sc.bt;
+  if (st.flags.sureBt) v = 1;
   return clamp(v, 0.05, 1);
 };
 L.expChance = function (st, k) {
@@ -269,7 +273,9 @@ L.newState = function (o) {
     home: { cave: 0, array: 0, field: 0, furnace: 0 },
     exp: null, rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     goal: 0, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {},
-    stats: { exp: 0, expWin: 0, bt: 0, events: 0, tour: 0 },
+    stats: { exp: 0, expWin: 0, bt: 0, events: 0, tour: 0, leapWins: 0, crafts: 0, perfect: 0, btFails: 0, bosses: 0, despWin: 0 },
+    npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
+    herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {
       name: o.name || '林逸尘', look: { hair: '#2a2230', skin: '#f2c9a0', f: female ? 1 : 0 },
       t: o.t !== undefined ? o.t : 1, tr: o.tr || ['hero'], r: 0, s: 0, xp: 0, age: 16,
@@ -377,7 +383,7 @@ L.giveItem = function (st, kind, tier) {
   if (kind === 'pet') {
     const T = L.PETS[tier];
     const it = { kind, tier, name: pick(T.names) };
-    if (!p.pet || p.pet.tier < tier) { p.pet = { tier, name: it.name }; it.equip = true; }
+    if (!p.pet || p.pet.tier < tier) { const first = !p.pet; p.pet = { tier, name: it.name }; it.equip = true; if (first) L.fireTrigger(st, 'pet'); }
     else { it.value = Math.floor(L.price(st, 'egg') * 0.3); st.stones += it.value; }
     return it;
   }
@@ -425,6 +431,8 @@ L.breakthrough = function (st, usePill) {
   const rate = L.btRate(st, usePill);
   if (usePill) st.pills--;
   const ok = R() < rate;
+  const sure = !!st.flags.sureBt; st.flags.sureBt = 0;
+  const desp = L.desperate(st);
   const from = p.r;
   const before = L.power(st);
   const res = { ok, from, to: from + 1, rate, usedPill: usePill, before, trib: L.REALMS[Math.min(from + 1, 8)].trib, ascend: from === L.MAXR, lifeBefore: L.lifespan(st) };
@@ -433,12 +441,15 @@ L.breakthrough = function (st, usePill) {
     p.r++; p.s = 0; p.xp = 0; p.fails = 0; st.flags.readyNotified = 0;
     st.flags.maxR = Math.max(st.flags.maxR || 0, p.r);
     if (p.r === 1 && !st.flags.awoke && st.rebirth === 0) { st.flags.awoke = 1; res.awaken = { from: p.t, to: 6 }; p.t = 6; }
+    if (desp) st.stats.despWin++;
+    res.sure = sure;
+    L.fireTrigger(st, 'realm:' + p.r);
     if (p.r >= 9) { res.ascend = true; st.flags.ascended = 1; L.log(st, `★ ${p.name} 渡过九九天劫，白日飞升！`, 'gold'); }
     else L.log(st, `突破成功，踏入${L.REALMS[p.r].n}期！寿元增至 ${L.fmt(L.lifespan(st))} 年`, p.r >= 2 ? 'gold' : 'jade');
     res.after = L.power(st);
     res.lifeAfter = L.lifespan(st);
   } else {
-    p.fails++;
+    p.fails++; st.stats.btFails++;
     if (!L.has(st, 'steady')) { p.xp = Math.floor(L.pNeed(p) * 0.7); p.inj = Math.max(p.inj, 2); }
     else p.xp = Math.floor(L.pNeed(p) * 0.95);
     st.flags.readyNotified = 0;
@@ -472,8 +483,13 @@ L.resolveExp = function (st) {
     res.leap = leap;
     let stones = L.DREW[k] * (0.85 + R() * 0.3);
     if (L.has(st, 'koi')) stones *= 1.5;
-    if (leap) stones *= 2;
+    if (L.friend(st, 'ye')) stones *= 1.2;
+    if (leap) { stones *= 2; st.stats.leapWins++; }
     res.stones = Math.floor(stones);
+    res.herbs = Math.round((1 + k * 0.5) * (0.6 + R() * 0.8) * (1 + st.p.r * 0.5));
+    st.herbs += res.herbs;
+    if (R() < 0.04 + k * 0.006) { res.treasure = 1; st.treasure++; }
+    st.regionWins[k] = (st.regionWins[k] || 0) + 1;
     st.stones += res.stones;
     res.xp = L.gain(st) * 2 * L.REGIONS[k].mon * 0.75; // gain 已按历练减半，这里折回
     addXp(st, res.xp);
@@ -558,6 +574,7 @@ L.tournament = function (st) {
     if (!win) break;
   }
   st.bestRank = Math.min(st.bestRank, st.rank);
+  if (st.rank <= 12) L.fireTrigger(st, 'rank:12');
   res.endRank = st.rank;
   L.log(st, `第${res.n}届天骄论道落幕，${st.p.name}位列天骄榜第 ${st.rank}`, st.rank < res.startRank ? 'gold' : '');
   L.checkGoals(st);
@@ -569,6 +586,7 @@ L.joinSect = function (st, id) {
   const sc = L.SECTS.find(x => x.id === id); if (!sc || st.sect) return false;
   st.sect = { id, rank: 0, total: 0, pts: 0, joined: st.tick };
   L.log(st, `拜入${sc.n}，成为外门弟子`, 'gold');
+  L.fireTrigger(st, 'sect');
   L.checkGoals(st);
   return true;
 };
@@ -663,6 +681,292 @@ L.randomEvent = function (st) {
   return ev;
 };
 
+// ---------- 人物羁绊 ----------
+// 名字是数组时：[主角为男时, 主角为女时]
+L.NPCS = {
+  su: { n: ['苏青瑶', '苏景行'], title: '丹霞谷医修', bonus: '修炼速度 ×1.1', daolv: true },
+  ye: { n: ['夜璃', '夜无殇'], title: '魔门圣宗', bonus: '战力 ×1.1，历练灵石 ×1.2', daolv: true },
+  chu: { n: '楚狂', title: '剑痴散修', bonus: '战力 ×1.15' },
+  ge: { n: '葛老', title: '落魄丹师', bonus: '炼丹成功率 +15%，可炼洗髓丹' },
+  bai: { n: '白小九', title: '化形灵狐', bonus: '奇遇概率 ×1.5' },
+  mo: { n: '墨无痕', title: '神秘黑衣人', bonus: '寿元 ×1.1' },
+};
+L.npcName = (st, id) => { const n = L.NPCS[id] ? L.NPCS[id].n : id; return Array.isArray(n) ? n[st.p.look.f ? 1 : 0] : n; };
+L.aff = (st, id) => (st.npc && st.npc[id]) ? st.npc[id].aff : 0;
+L.met = (st, id) => !!(st.npc && st.npc[id]);
+L.friend = (st, id) => L.aff(st, id) >= 60;
+L.addAff = function (st, id, d) {
+  if (!L.NPCS[id]) return 0;
+  st.npc = st.npc || {};
+  const o = st.npc[id] || (st.npc[id] = { aff: 0 });
+  const before = o.aff;
+  o.aff = clamp(o.aff + d, 0, 100);
+  if (before < 60 && o.aff >= 60 && !o.f60) { o.f60 = 1; L.log(st, `与${L.npcName(st, id)}结为知己：${L.NPCS[id].bonus}`, 'gold'); L.fireTrigger(st, 'npc:' + id + ':60'); }
+  return o.aff - before;
+};
+L.culMult = function (st) {
+  let m = 1 + ((st.bonus && st.bonus.cul) || 0);
+  if (L.friend(st, 'su')) m *= 1.1;
+  if (st.daolv) m *= 1.3;
+  for (const b of st.buffs || []) if (b.cul) m *= b.cul;
+  return m;
+};
+L.atkMult = function (st) {
+  let m = 1 + ((st.bonus && st.bonus.atk) || 0);
+  if (L.friend(st, 'ye')) m *= 1.1;
+  if (L.friend(st, 'chu')) m *= 1.15;
+  for (const b of st.buffs || []) if (b.atk) m *= b.atk;
+  return m;
+};
+
+// ---------- 事件引擎（数据见 events.js） ----------
+L.events = () => (root.EVENTS || (typeof require === 'function' ? (() => { try { return require('./events.js'); } catch (e) { return []; } })() : []));
+L.fill = function (st, text) {
+  const sc = L.sectOf(st);
+  return String(text || '').replace(/\{su\}/g, L.npcName(st, 'su')).replace(/\{ye\}/g, L.npcName(st, 'ye')).replace(/\{ex\}/g, st.exName)
+    .replace(/\{sect\}/g, sc ? sc.n : '宗门').replace(/\{name\}/g, st.p.name);
+};
+function flagOn(st, f) { return !!(st.eflags && st.eflags[f]); }
+L.eligible = function (st, ev, where, ctx) {
+  ctx = ctx || {};
+  if (ev.where !== where) return false;
+  const r = st.p.r;
+  if (where === 'story') { if (ev.trigger !== ctx.trigger) return false; if (st.evDone[ev.id]) return false; }
+  if (ev.once && st.evDone[ev.id]) return false;
+  if (ev.minR !== undefined && r < ev.minR) return false;
+  if (ev.maxR !== undefined && r > ev.maxR) return false;
+  if (ev.need && !ev.need.every(f => flagOn(st, f))) return false;
+  if (ev.not && ev.not.some(f => flagOn(st, f))) return false;
+  if (ev.npc && ev.aff) { const a = L.aff(st, ev.npc); if (a < ev.aff[0] || a > ev.aff[1]) return false; }
+  if (ev.sect === true && !st.sect) return false;
+  if (ev.sect === false && st.sect) return false;
+  if (ev.daolv === true && !st.daolv) return false;
+  if (ev.daolv === false && st.daolv) return false;
+  if (where === 'exp' && ev.bg && ctx.bg && !ev.bg.includes(ctx.bg)) return false;
+  if (where !== 'story' && st.evLast[ev.id] !== undefined && st.tick - st.evLast[ev.id] < 40) return false;
+  return true;
+};
+L.pickEvent = function (st, where, ctx) {
+  const list = L.events().filter(ev => L.eligible(st, ev, where, ctx));
+  if (!list.length) return null;
+  // 尚未出现过的事件优先
+  const fresh = list.filter(ev => st.evLast[ev.id] === undefined);
+  const pool = fresh.length && R() < 0.75 ? fresh : list;
+  return wpick(pool.map(ev => [ev, (ev.weight || 1) * (ev.npc ? 1.3 : 1)]));
+};
+L.fireTrigger = function (st, key) {
+  for (const ev of L.events()) if (ev.where === 'story' && ev.trigger === key && !st.evDone[ev.id] && !st.storyQ.includes(ev.id) && L.eligible(st, ev, 'story', { trigger: key })) st.storyQ.push(ev.id);
+};
+L.eventById = id => L.events().find(e => e.id === id);
+L.herbScale = st => 1 + st.p.r;
+L.costOk = function (st, cost) {
+  if (!cost) return true;
+  if (cost.stones && st.stones < cost.stones * Math.max(L.income(st), 20)) return false;
+  if (cost.pills && st.pills < cost.pills) return false;
+  if (cost.herbs && st.herbs < cost.herbs * L.herbScale(st)) return false;
+  return true;
+};
+L.costText = function (st, cost) {
+  const a = [];
+  if (cost.stones) a.push('灵石 ' + L.fmt(cost.stones * Math.max(L.income(st), 20)));
+  if (cost.pills) a.push('破境丹 ' + cost.pills);
+  if (cost.herbs) a.push('灵草 ' + L.fmt(cost.herbs * L.herbScale(st)));
+  return a.join('、');
+};
+L.applyFx = function (st, fx) {
+  const out = [];
+  if (!fx) return out;
+  const p = st.p, f = L.fmt;
+  if (fx.xp) { const g = L.gain(st) * (st.exp ? 2 : 1) * fx.xp; addXp(st, g); out.push('修为 +' + f(g)); }
+  if (fx.stones) { const v = Math.round(fx.stones * Math.max(L.income(st), 20)); st.stones = Math.max(0, st.stones + v); out.push('灵石 ' + (v >= 0 ? '+' : '') + f(v)); }
+  if (fx.pills) { st.pills = Math.max(0, st.pills + fx.pills); out.push('破境丹 ' + (fx.pills > 0 ? '+' : '') + fx.pills); }
+  if (fx.herbs) { const v = Math.round(fx.herbs * L.herbScale(st)); st.herbs = Math.max(0, st.herbs + v); out.push('灵草 ' + (v > 0 ? '+' : '') + f(v)); }
+  if (fx.treasure) { st.treasure = Math.max(0, st.treasure + fx.treasure); out.push('天材地宝 ' + (fx.treasure > 0 ? '+' : '') + fx.treasure); }
+  if (fx.life && p.r <= L.MAXR) { const v = Math.round(L.REALMS[p.r].life * fx.life / 100); st.lifeBonus += v; out.push('寿元 ' + (v >= 0 ? '+' : '') + f(v) + ' 年'); }
+  if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push('负伤 ' + fx.inj + ' 周天'); }
+  if (fx.item) {
+    const kind = fx.item, up = fx.itemUp || 0;
+    const base = kind === 'w' ? 1 + Math.floor(p.r * 0.75) : kind === 'a' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.6);
+    const it = L.giveItem(st, kind, base + up);
+    const tn = kind === 'w' ? L.WEAPONS[it.tier].n : kind === 'a' ? L.ARTS[it.tier].n : L.PETS[it.tier].n;
+    out.push((it.equip ? '获得' : '得到（已有更好的，换成灵石）') + tn + (kind === 'a' ? '《' + it.name + '》' : '【' + it.name + '】'));
+    out.item = it;
+  }
+  if (fx.aff) for (const id in fx.aff) { const d = L.addAff(st, id, fx.aff[id]); if (d) out.push(`好感 ${L.npcName(st, id)} ${d > 0 ? '+' : ''}${d}`); }
+  if (fx.flag) for (const fl of [].concat(fx.flag)) st.eflags[fl] = 1;
+  if (fx.unflag) for (const fl of [].concat(fx.unflag)) delete st.eflags[fl];
+  if (fx.buff) { st.buffs.push({ cul: fx.buff.cul, atk: fx.buff.atk, left: fx.buff.ticks || 6 }); out.push(fx.buff.cul ? `修炼速度 ×${fx.buff.cul}（${fx.buff.ticks || 6} 周天）` : `战力 ×${fx.buff.atk}（${fx.buff.ticks || 6} 周天）`); }
+  if (fx.cul) { st.bonus.cul += fx.cul; out.push(`永久修炼速度 +${Math.round(fx.cul * 100)}%`); }
+  if (fx.power) { st.bonus.atk += fx.power; out.push(`永久战力 +${Math.round(fx.power * 100)}%`); }
+  if (fx.contrib && st.sect) { const v = L.contribFor(Math.min(10, p.r + 1)) * fx.contrib; st.sect.total += v; st.sect.pts += v; out.push('宗门贡献 +' + f(v)); }
+  if (fx.talent && p.t < 6) { const from = p.t; p.t = Math.min(6, p.t + fx.talent); out.push(`灵根 ${L.TALENTS[from].n} → ${L.TALENTS[p.t].n}`); out.talent = true; }
+  if (fx.trait && L.TRAITS[fx.trait] && !p.tr.includes(fx.trait)) { p.tr.push(fx.trait); out.push('获得天赋【' + L.TRAITS[fx.trait].n + '】'); }
+  if (fx.title) { L.grantTitle(st, fx.title); out.push('获得称号「' + fx.title + '」'); }
+  if (fx.daolv && !st.daolv) { st.daolv = fx.daolv; out.push(`与${L.npcName(st, fx.daolv)}结为道侣：双修，修炼速度 ×1.3`); L.log(st, `与${L.npcName(st, fx.daolv)}结为道侣`, 'gold'); L.fireTrigger(st, 'daolv'); }
+  return out;
+};
+L.choiceLuck = st => (L.has(st, 'lucky') ? 0.1 : 0) + (L.has(st, 'hero') ? 0.05 : 0) + (L.friend(st, 'bai') ? 0.05 : 0);
+L.resolveChoice = function (st, ev, idx) {
+  const ch = ev.choices[idx];
+  if (!ch || !L.costOk(st, ch.cost)) return null;
+  if (ch.cost) L.applyFx(st, { stones: -(ch.cost.stones || 0), pills: -(ch.cost.pills || 0), herbs: -(ch.cost.herbs || 0) });
+  let ok = true, duel = null;
+  if (ch.duel) { const S = L.power(st), Q = S * ch.duel; const p = L.duelChance(S, Q); ok = R() < p; duel = { S, Q, p, win: ok }; }
+  else if (ch.p !== undefined) ok = R() < Math.min(0.95, ch.p + L.choiceLuck(st));
+  const br = ok ? ch.ok : (ch.fail || ch.ok);
+  if (ev.npc) { st.npc = st.npc || {}; if (!st.npc[ev.npc]) st.npc[ev.npc] = { aff: 0 }; }
+  st.evLast[ev.id] = st.tick;
+  if (ev.once || ev.where === 'story') st.evDone[ev.id] = 1;
+  st.stats.events++;
+  const fx = L.applyFx(st, br && br.fx);
+  const text = L.fill(st, br ? br.text : '');
+  L.log(st, `【${L.fill(st, ev.title)}】${text}`.slice(0, 60), ok ? 'jade' : 'red');
+  L.checkGoals(st);
+  return { ok, duel, text, fx, hasRisk: ch.p !== undefined || !!ch.duel };
+};
+
+// ---------- 炼丹 ----------
+L.RECIPES = [
+  { k: 'peiyuan', n: '培元丹', d: '服下立得 4 周天修为', herbs: 10 },
+  { k: 'pojing', n: '破境丹', d: '突破成功率 +20%', herbs: 8 },
+  { k: 'juling', n: '聚灵丹', d: '接下来 6 周天修炼速度 ×1.5', herbs: 16 },
+  { k: 'yanshou', n: '延寿丹', d: '寿元 +8%（与坊市共用每境界三枚上限）', herbs: 12 },
+  { k: 'xisui', n: '洗髓丹', d: '灵根提升一品（需葛老为知己或丹炉 8 级）', herbs: 30, treasure: 1 },
+  { k: 'jiuzhuan', n: '九转金丹', d: '下一次大境界突破必定成功', herbs: 40, treasure: 2, minR: 2 },
+];
+L.QUAL = [{ n: '下品', m: 0.7 }, { n: '中品', m: 1 }, { n: '上品', m: 1.3 }, { n: '极品', m: 1.8 }];
+L.herbCost = (st, rc) => Math.ceil(rc.herbs * L.herbScale(st));
+L.alchRate = st => clamp(0.6 + 0.03 * st.home.furnace + (L.friend(st, 'ge') ? 0.15 : 0) + (L.has(st, 'alch') ? 0.15 : 0), 0.1, 0.97);
+L.canCraft = function (st, k) {
+  const rc = L.RECIPES.find(x => x.k === k);
+  if (!rc || st.home.furnace < 1) return '需要先建丹炉';
+  if (rc.minR && st.p.r < rc.minR) return '金丹期后方可炼制';
+  if (k === 'xisui' && !(L.friend(st, 'ge') || st.home.furnace >= 8)) return '需葛老为知己或丹炉 8 级';
+  if (k === 'xisui' && st.p.t >= 6) return '灵根已至巅峰';
+  if (k === 'yanshou' && (st.lifePills[st.p.r] || 0) >= 3) return '本境界延寿丹已服满';
+  if (k === 'jiuzhuan' && st.flags.sureBt) return '已有一枚九转金丹';
+  if (st.herbs < L.herbCost(st, rc)) return '灵草不足';
+  if ((rc.treasure || 0) > st.treasure) return '天材地宝不足';
+  return '';
+};
+L.craft = function (st, k) {
+  if (L.canCraft(st, k)) return null;
+  const rc = L.RECIPES.find(x => x.k === k), p = st.p;
+  st.herbs -= L.herbCost(st, rc);
+  st.treasure -= rc.treasure || 0;
+  st.stats.crafts++;
+  const res = { k, n: rc.n };
+  if (R() >= L.alchRate(st)) { res.ok = false; L.log(st, `炼制${rc.n}时炸炉了……灵草化为飞灰`, 'red'); return res; }
+  res.ok = true;
+  const pPerfect = 0.05 + st.home.furnace * 0.006 + (L.friend(st, 'ge') ? 0.05 : 0) + (L.has(st, 'alch') ? 0.05 : 0);
+  const x = R();
+  const q = x < pPerfect ? 3 : x < pPerfect + 0.25 ? 2 : x < pPerfect + 0.75 ? 1 : 0;
+  res.q = q; const m = L.QUAL[q].m;
+  if (q === 3) st.stats.perfect++;
+  if (k === 'peiyuan') { const g = L.gain(st) * 4 * m; addXp(st, g); res.fx = '修为 +' + L.fmt(g); }
+  else if (k === 'pojing') { const n = q === 3 ? 2 : 1; st.pills += n; res.fx = '破境丹 +' + n; }
+  else if (k === 'juling') { const t = Math.round(6 * m); const c = q === 3 ? 2 : 1.5; st.buffs.push({ cul: c, left: t }); res.fx = `修炼速度 ×${c}（${t} 周天）`; }
+  else if (k === 'yanshou') { st.lifePills[p.r] = (st.lifePills[p.r] || 0) + 1; const v = Math.round(L.REALMS[p.r].life * 0.08 * m); st.lifeBonus += v; res.fx = `寿元 +${L.fmt(v)} 年`; }
+  else if (k === 'xisui') { const from = p.t; p.t = Math.min(6, p.t + 1); res.fx = `灵根 ${L.TALENTS[from].n} → ${L.TALENTS[p.t].n}`; res.talent = true; if (q === 3) { st.bonus.cul += 0.03; res.fx += '，极品药力再增修炼 3%'; } }
+  else if (k === 'jiuzhuan') { st.flags.sureBt = 1; res.fx = '下一次突破必定成功'; }
+  L.log(st, `丹成！${L.QUAL[q].n}${rc.n}：${res.fx}`, q === 3 ? 'gold' : 'jade');
+  L.checkGoals(st);
+  return res;
+};
+
+// ---------- 地图首领 ----------
+L.BOSSES = [
+  { n: '独眼狼王', line: '嗷呜——！', t: '狼王克星', drop: '狼王獠牙匕' },
+  { n: '黑风寨主雷彪', line: '敢在老子地盘撒野？', t: '黑风克星', drop: '开山宣花斧' },
+  { n: '古墓尸王', line: '……活人的气息……', t: '镇尸道人', drop: '玉棺镇魂钉' },
+  { n: '赤炎猿王', line: '万妖山是俺的山！', t: '万妖山主', drop: '赤炎擎天棍' },
+  { n: '血煞老魔', line: '桀桀桀，又来一个送死的。', t: '诛魔者', drop: '血煞噬魂刃' },
+  { n: '剑冢守墓人', line: '拔剑吧。让老夫看看你的剑。', t: '剑冢新主', drop: '守墓古剑' },
+  { n: '九幽魔将', line: '九幽之下，皆为蝼蚁。', t: '九幽镇魔', drop: '九幽镇魂铃' },
+  { n: '东海蛟皇', line: '人族小儿，也敢闯我龙宫？', t: '屠蛟者', drop: '蛟皇逆鳞盾' },
+  { n: '吞星巨兽', line: '（星辰在它口中碎裂）', t: '摘星客', drop: '吞星之核' },
+  { n: '仙府傀儡王', line: '擅闯仙府者，诛。', t: '仙府之主', drop: '傀儡王天戟' },
+  { n: '混沌魔神残影', line: '……天地未开时，吾已在此。', t: '开天之人', drop: '混沌残刃' },
+];
+L.bossReady = (st, k) => (st.regionWins[k] || 0) >= 3 && !st.bosses[k];
+L.bossPower = k => L.DREC[k] * 2.2;
+L.fightBoss = function (st, k) {
+  if (!L.bossReady(st, k)) return null;
+  const B = L.BOSSES[k];
+  const S = L.power(st), Q = L.bossPower(k);
+  const p = L.duelChance(S, Q);
+  const win = R() < p;
+  const res = { k, S, Q, p, win, B };
+  if (win) {
+    st.bosses[k] = 1; st.stats.bosses++;
+    const t = k >= 5 ? 2 : 1; st.treasure += t; res.treasure = t;
+    res.stones = Math.floor(L.DREW[k] * 3); st.stones += res.stones;
+    res.herbs = Math.round((6 + k * 2) * (1 + st.p.r * 0.5)); st.herbs += res.herbs;
+    const tier = clamp(2 + Math.floor(k * 0.62), 1, 7);
+    if (st.p.w < tier) { st.p.w = tier; st.p.wn = B.drop; res.item = { kind: 'w', tier, name: B.drop, equip: true }; }
+    else { const v = Math.floor(L.DREW[k]); st.stones += v; res.item = { kind: 'w', tier, name: B.drop, value: v }; }
+    L.grantTitle(st, B.t);
+    L.log(st, `斩杀【${B.n}】！获得称号「${B.t}」`, 'gold');
+    L.fireTrigger(st, 'boss:' + k);
+  } else {
+    st.p.inj = Math.max(st.p.inj, 4);
+    L.log(st, `挑战【${B.n}】失利，重伤而归`, 'red');
+  }
+  L.checkGoals(st);
+  return res;
+};
+
+// ---------- 成就与称号 ----------
+L.grantTitle = function (st, t) { if (!st.titles.includes(t)) st.titles.push(t); st.title = t; };
+const mr = st => st.flags.maxR || 0;
+L.ACHS = [
+  { id: 'r1', n: '筑基', d: '突破至筑基期', c: st => mr(st) >= 1, t: '筑基修士' },
+  { id: 'r2', n: '结丹', d: '结成金丹', c: st => mr(st) >= 2, t: '金丹真人' },
+  { id: 'r3', n: '元婴', d: '修成元婴', c: st => mr(st) >= 3, t: '元婴老祖' },
+  { id: 'r4', n: '化神', d: '踏入化神', c: st => mr(st) >= 4, t: '化神尊者' },
+  { id: 'r6', n: '合体', d: '踏入合体', c: st => mr(st) >= 6, t: '合体大能' },
+  { id: 'r7', n: '大乘', d: '踏入大乘', c: st => mr(st) >= 7, t: '大乘真君' },
+  { id: 'r8', n: '渡劫', d: '踏入渡劫', c: st => mr(st) >= 8, t: '渡劫天尊' },
+  { id: 'r9', n: '飞升', d: '白日飞升', c: st => st.p.r >= 9, t: '真仙' },
+  { id: 'pact', n: '莫欺少年穷', d: '赢下三年之约', c: st => !!st.beaten.mu, t: '莫欺少年穷' },
+  { id: 'awake', n: '混沌现世', d: '灵根觉醒为混沌圣体', c: st => st.p.t >= 6, t: '混沌圣体' },
+  { id: 'sect', n: '名门弟子', d: '拜入宗门', c: st => !!st.sect, t: '名门弟子' },
+  { id: 'heir', n: '一代天骄', d: '成为宗门圣子或圣女', c: st => st.sect && st.sect.rank >= 3, t: '宗门圣子' },
+  { id: 'lord', n: '一宗之主', d: '成为宗主', c: st => st.sect && st.sect.rank >= 6, t: '一宗之主' },
+  { id: 'top10', n: '天骄', d: '天骄榜进入前 10', c: st => st.bestRank <= 10, t: '绝代天骄' },
+  { id: 'top1', n: '天下第一', d: '登顶天骄榜', c: st => st.bestRank <= 1, t: '天下第一' },
+  { id: 'zhao', n: '师兄也不过如此', d: '击败赵乾', c: st => !!st.beaten.zhao, t: '弃徒归来' },
+  { id: 'chu', n: '剑压圣子', d: '击败楚天阔', c: st => !!st.beaten.chu, t: '剑压圣子' },
+  { id: 'xue', n: '斩魔', d: '击败血无涯', c: st => !!st.beaten.xue, t: '斩魔圣手' },
+  { id: 'war', n: '一人守山门', d: '击退天剑宗来犯', c: st => !!st.flags.warWon, t: '一剑守山' },
+  { id: 'exp10', n: '行走江湖', d: '历练 10 次', c: st => st.stats.exp >= 10, t: '江湖客' },
+  { id: 'exp50', n: '踏遍山河', d: '历练 50 次', c: st => st.stats.exp >= 50, t: '踏遍山河' },
+  { id: 'leap', n: '越级而战', d: '越级挑战成功', c: st => st.stats.leapWins >= 1, t: '越级而战' },
+  { id: 'pet', n: '灵宠主人', d: '收服一只灵宠', c: st => !!st.p.pet, t: '灵宠之主' },
+  { id: 'dragon', n: '御龙者', d: '拥有太古真灵', c: st => st.p.pet && st.p.pet.tier >= 6, t: '御龙者' },
+  { id: 'craft', n: '丹道入门', d: '第一次炼丹', c: st => st.stats.crafts >= 1, t: '丹道学徒' },
+  { id: 'perfect', n: '丹纹九现', d: '炼出极品丹', c: st => st.stats.perfect >= 1, t: '丹道宗师' },
+  { id: 'boss3', n: '猎首者', d: '击败 3 个地图首领', c: st => st.stats.bosses >= 3, t: '猎首者' },
+  { id: 'bossAll', n: '万界无敌', d: '击败全部 11 个地图首领', c: st => st.stats.bosses >= 11, t: '万界无敌' },
+  { id: 'daolv', n: '神仙眷侣', d: '结为道侣', c: st => !!st.daolv, t: '神仙眷侣' },
+  { id: 'friends', n: '知己满天下', d: '与 3 位 NPC 结为知己', c: st => Object.keys(L.NPCS).filter(id => L.friend(st, id)).length >= 3, t: '知己满天下' },
+  { id: 'chaos', n: '手握至宝', d: '得到混沌至宝', c: st => st.p.w >= 7, t: '至宝之主' },
+  { id: 'fails', n: '屡败屡战', d: '突破失败 5 次', c: st => st.stats.btFails >= 5, t: '屡败屡战' },
+  { id: 'desp', n: '绝境逢生', d: '寿元将尽时突破成功', c: st => st.stats.despWin >= 1, t: '绝境逢生' },
+  { id: 'rebirth', n: '轮回者', d: '转世重修', c: st => st.rebirth >= 1, t: '轮回者' },
+  { id: 'events', n: '机缘深厚', d: '经历 40 次奇遇', c: st => st.stats.events >= 40, t: '机缘深厚' },
+];
+L.checkAchs = function (st) {
+  for (const a of L.ACHS) if (!st.ach[a.id] && a.c(st)) {
+    st.ach[a.id] = 1;
+    L.grantTitle(st, a.t);
+    const rw = Math.floor(Math.max(L.income(st), 20) * 5);
+    st.stones += rw;
+    st.achQ.push({ n: a.n, t: a.t, rw });
+    L.log(st, `【成就】${a.n}：获得称号「${a.t}」，灵石 +${L.fmt(rw)}`, 'gold');
+  }
+};
+
 // ---------- 推进 ----------
 L.flow = function (st, f) {
   addXp(st, L.gain(st) * f);
@@ -680,8 +984,23 @@ L.tick = function (st, cont) {
     st.pillProg += st.home.furnace * 0.025;
     while (st.pillProg >= 1) { st.pillProg -= 1; st.pills++; }
   }
-  if (st.exp) { st.exp.left--; if (st.exp.left <= 0) out.exp = L.resolveExp(st); }
-  else if (st.tick > 3 && R() < 0.08) out.event = L.randomEvent(st);
+  // 增益与灵草
+  for (const bf of st.buffs) bf.left--;
+  st.buffs = st.buffs.filter(bf => bf.left > 0);
+  if (st.home.field > 0) { st.herbProg += 0.08 * st.home.field * (1 + p.r * 0.5); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
+  const evMul = L.friend(st, 'bai') ? 1.5 : 1;
+  if (st.exp) {
+    st.exp.left--;
+    if (st.exp.left <= 0) {
+      const bg = L.REGIONS[st.exp.k].bg;
+      out.exp = L.resolveExp(st);
+      if (out.exp.ok && R() < 0.4 * evMul) out.choice = L.pickEvent(st, 'exp', { bg });
+    }
+  } else if (st.tick > 4) {
+    const x = R();
+    if (x < 0.1 * evMul) out.choice = L.pickEvent(st, 'home');
+    else if (x < 0.1 * evMul + 0.05) out.event = L.randomEvent(st);
+  }
   if (!st.pact && st.year >= 3) out.pact = true;
   if (!st.sect && p.r >= 1 && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 24; }
   if (st.sect) {
@@ -696,6 +1015,7 @@ L.tick = function (st, cont) {
   if (L.desperate(st) && !st.flags.warnLife) { st.flags.warnLife = 1; L.log(st, '寿元将尽！突破时将获得绝境加成', 'red'); }
   if (!L.desperate(st)) st.flags.warnLife = 0;
   L.checkGoals(st);
+  L.checkAchs(st);
   return out;
 };
 

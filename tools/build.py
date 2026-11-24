@@ -67,11 +67,14 @@ def main():
     template = (SRC / "template.html").read_text(encoding="utf-8")
     logic = (SRC / "logic.js").read_text(encoding="utf-8")
     art = (SRC / "art.js").read_text(encoding="utf-8")
+    events_path = SRC / "events.js"
+    events = events_path.read_text(encoding="utf-8") if events_path.exists() else ""
     ui = (SRC / "ui.js").read_text(encoding="utf-8")
-    woff2 = build_font(charset([template, logic, art, ui]))
+    woff2 = build_font(charset([template, logic, art, ui, events]))
     b64 = base64.b64encode(woff2).decode("ascii")
     page = (
         template.replace("/*FONT_B64*/", b64)
+        .replace("/*EVENTS_JS*/", events.replace("</script", "<\\/script"))
         .replace("/*LOGIC_JS*/", logic.replace("</script", "<\\/script"))
         .replace("/*ART_JS*/", art.replace("</script", "<\\/script"))
         .replace("/*UI_JS*/", ui.replace("</script", "<\\/script"))

@@ -26,6 +26,8 @@ const path = require('path');
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
         const cand = document.querySelector('#modal .cand:not(.hide):not(.sel)');
         if (cand && !document.querySelector('#modal .cand.sel')) { cand.click(); await sleep(40); continue; }
+        const chs = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
+        if (chs.length) { popups++; chs[Math.floor(Math.random() * chs.length)].click(); await sleep(60); continue; }
         const btns = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')];
         if (!btns.length) { await sleep(120); continue; }
         popups++;
@@ -49,6 +51,8 @@ const path = require('path');
       if (st.stones > L.price(st, 'box') * 5) L.buy(st, 'box');
       if ((!st.p.pet || st.p.pet.tier < 1 + st.p.r * 0.6) && st.stones > L.price(st, 'egg') * 4) L.buy(st, 'egg');
       if (st.sect && L.canPromote(st)) { X.doPromote(); await drain(); }
+      if (st.home.furnace) { for (const k of ['xisui', 'jiuzhuan', 'juling', 'peiyuan']) if (!L.canCraft(st, k) && (k !== 'jiuzhuan' || st.p.r >= 5) && (k !== 'juling' || !st.buffs.some(b => b.cul))) { L.craft(st, k); break; } }
+      for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7) { X.fightBossUI(k); await drain(); }
       if (!st.exp && !L.isReady(st)) { let k = 0; for (let j = L.REGIONS.length - 1; j >= 0; j--) if (L.unlocked(st, j) && L.expChance(st, j).p >= 0.74) { k = j; break; } L.startExp(st, k); }
       L.flow(st, 1);
       X.onTick();
@@ -56,7 +60,7 @@ const path = require('path');
     }
     await drain();
     const st = X.st;
-    return { tick: st.tick, realm: L.stageName(st.p), age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), goal: st.goal + '/' + L.GOALS.length, popups, titles: Object.keys(seen) };
+    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), goal: st.goal + '/' + L.GOALS.length, popups, titles: Object.keys(seen) };
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });

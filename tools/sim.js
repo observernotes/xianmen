@@ -29,6 +29,15 @@ for (let n = 0; n < 2000; n++) {
     if (L.canPromote(st)) { const r = L.promote(st); if (r && r.ok) mark('S' + st.sect.rank); else if (r && r.duel) mark('duelLost'); }
     for (const k of ['vart', 'vwep']) if (st.sect.pts > L.vaultCost(st, k) * 1.2) L.vaultBuy(st, k);
   }
+  // 炼丹
+  if (st.home.furnace) {
+    if (!L.canCraft(st, 'xisui')) L.craft(st, 'xisui');
+    if (!L.canCraft(st, 'jiuzhuan') && p.r >= 5) L.craft(st, 'jiuzhuan');
+    for (let i = 0; i < 3; i++) { if (!L.canCraft(st, 'juling') && !st.buffs.some(b => b.cul)) L.craft(st, 'juling'); else if (!L.canCraft(st, 'peiyuan') && st.herbs > L.herbCost(st, L.RECIPES[0]) * 3) L.craft(st, 'peiyuan'); }
+    if (L.desperate(st) && !L.canCraft(st, 'yanshou')) L.craft(st, 'yanshou');
+  }
+  // 首领
+  for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7) { const r = L.fightBoss(st, k); if (r && r.win) mark('B' + k); }
   // 历练
   if (!st.exp && !L.isReady(st)) {
     let best = -1;
@@ -37,6 +46,9 @@ for (let n = 0; n < 2000; n++) {
     L.startExp(st, best); mark('D' + best);
   }
   const out = L.tick(st);
+  const pickC = ev => { const ok = ev.choices.map((c, i) => i).filter(i => L.costOk(st, ev.choices[i].cost)); if (ok.length) L.resolveChoice(st, ev, ok[Math.floor(L.rng() * ok.length)]); };
+  if (out.choice) pickC(out.choice);
+  while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) pickC(ev); }
   if (out.invite) { L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]); mark('join'); }
   if (out.pact) { const r = L.pactDuel(st); mark(r.win ? 'pactWin' : 'pactLose'); }
   if (out.war) { const r = L.sectWar(st); mark(r.win ? 'warWin' : 'warLose'); }
@@ -52,3 +64,4 @@ for (let n = 0; n < 2000; n++) {
 }
 if (process.argv[4]) console.log(JSON.stringify(pw));
 console.log(seed, JSON.stringify(ms).replace(/"D\d+":"[^"]*",?/g, ''));
+if (process.argv[5]) console.log('ach', Object.keys(st.ach).length, 'npc', JSON.stringify(st.npc), 'daolv', st.daolv, 'events', st.stats.events, 'crafts', st.stats.crafts, 'bosses', st.stats.bosses, 'treasure', st.treasure, 'herbs', st.herbs, 'bonus', JSON.stringify(st.bonus), 't', st.p.t);
