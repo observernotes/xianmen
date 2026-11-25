@@ -22,6 +22,8 @@ const LIST = [
  *   where: 'market'    坊市 / 拍卖界面里触发，trigger 写时机：
  *     market:restock（换货后掷）、market:buy（买轮换货时掷）、
  *     auction:open（开拍时）、auction:rival（有宿敌在场时）、auction:sell（有闲置好货时）
+ *   choice.foe: 宿敌id | 'rookie'  对决的对手是这位宿敌 / 正在追你的新秀（五行克制、他的法宝都算，rivals2.js 的 L.choiceFoe）
+ *   fx.rookie: 'win' | 'lose' | 'teach'  新秀这一场的结局：打压赢 / 输、指点（rivals2.js 的 L.rookieResolve）
  *   story 新 trigger：beat:yun（首次击败云无极）、war_eve:tianjian（天剑宗来犯前 6 周天）、
  *     rookie:appear / rookie:near / rookie:beaten / rookie:trouble（新秀：出现、追到前 5、
  *     被你击败、被你指点后 24 周天）。new_* 带 once:false：每位新秀各走一遍。
@@ -235,7 +237,7 @@ const LIST = [
   choices: [
     { t: '先联手', dao: 'r',
       ok: { text: '你们背靠背杀穿了这一层，谁也没说话。分开时他别着脸丢下一句：“下一间我探过，干净。”是真的。', fx: { grudge: { zhao: -20 }, flag: 'run_safe' } } },
-    { t: '趁他病', duel: 0.7, dao: 'k',
+    { t: '趁他病', duel: 0.7, foe: 'zhao', dao: 'k',
       ok: { text: '他没想到你真会动手，剑还没举起来就被挑飞了。他的储物袋归了你，里面是他这一路拼命攒的东西。', fx: { stones: 6, ore: 2, item: 'w', grudge: { zhao: 30 } } },
       fail: { text: '伤了的赵乾也还是赵乾。他一脚把你踹出三丈，跟当年一样的脚法：“废物就是废物。”', fx: { hp: -25, grudge: { zhao: 15 } } } },
     { t: '各走各的', dao: 'w',
@@ -324,7 +326,7 @@ const LIST = [
   choices: [
     { t: '挪摊', dao: 'w',
       ok: { text: '你卷起摊布挪去了茅房边上，生意居然更好——排队的人闲着也是闲着。赵乾站在空地上，不知该骂谁。', fx: { stones: 4 } } },
-    { t: '掀他下去', duel: 1.1,
+    { t: '掀他下去', duel: 1.1, foe: 'zhao',
       ok: { text: '你一掌把他的脚从摊布上掀开，连人带四个师弟滚进了隔壁的药汤锅。满市喝彩，你的丹当天卖空。', fx: { stones: 8, xp: 3, grudge: { zhao: 20 } } },
       fail: { text: '他到底是天剑宗大师兄，金气一震就把你拍翻在摊上，丹药滚了一地。他捡起一颗嚼了，吐掉：“难吃。”', fx: { inj: 2, stones: -3 } } },
     { t: '报他师门', p: 0.6, dao: 'k',
@@ -426,7 +428,7 @@ const LIST = [
   id: 'xue_2', where: 'exp', bg: ['blood', 'abyss'], minR: 4, once: true, title: '血池垂钓',
   text: '血池边支着一根钓竿，线垂进血里，线头拴着一个正道弟子，泡得只剩半口气。血无涯坐在小马扎上冲你招手：“来得巧。这条鱼我钓了三天，换你一样东西，就放生。”',
   choices: [
-    { t: '下池救人', duel: 1.3, dao: 'r',
+    { t: '下池救人', duel: 1.3, foe: 'xue', dao: 'r',
       ok: { text: '你一剑斩断钓线，把人从血里捞了出来。血无涯没拦，看着你给那弟子渡气，啧了一声：“正道就是麻烦。”', fx: { xp: 6, grudge: { xue: 20 } } },
       fail: { text: '他一竿子把你抽回岸上，又慢悠悠把人捞出来扔给你：“这么想要，送你。”你们两个都欠了他一回。', fx: { inj: 3, grudge: { xue: 5 } } } },
     { t: '拿剑纹换', dao: 'w',
@@ -529,11 +531,11 @@ const LIST = [
   id: 'new_2', where: 'story', trigger: 'rookie:near', once: false, title: '登门约战',
   text: '那个说要踩着你上去的少年，真的追进了榜前五。他站在你洞府门口，剑横在身前，衣角磨破了，眼睛亮得吓人：“{name}，我来了。三年，我只用了一半。”',
   choices: [
-    { t: '应战', duel: 1.0, dao: 'k',
-      ok: { text: '你赢了，赢得并不轻松。他躺在地上喘了很久，爬起来抹了把脸：“下回。”你忽然很想请他喝碗茶。', fx: { xp: 6 } },
-      fail: { text: '你输了半招。他愣在原地，像没想到真能赢，半天才想起朝你抱拳。榜上，他排到了你前面。', fx: { inj: 2, xp: 2 } } },
+    { t: '应战', duel: 1.0, foe: 'rookie', dao: 'k',
+      ok: { text: '你赢了，赢得并不轻松。他躺在地上喘了很久，爬起来抹了把脸：“下回。”你忽然很想请他喝碗茶。', fx: { xp: 6, rookie: 'win' } },
+      fail: { text: '你输了半招。他愣在原地，像没想到真能赢，半天才想起朝你抱拳。榜上，他排到了你前面。', fx: { inj: 2, xp: 2, rookie: 'lose' } } },
     { t: '指点他三招', dao: 'r',
-      ok: { text: '你没拔剑，折了根树枝跟他拆了三招，三招都点在他最得意的地方。他站了很久，深深一揖：“受教。”', fx: { xp: 3, flag: 'rookie_taught' } } },
+      ok: { text: '你没拔剑，折了根树枝跟他拆了三招，三招都点在他最得意的地方。他站了很久，深深一揖：“受教。”', fx: { xp: 3, flag: 'rookie_taught', rookie: 'teach' } } },
     { t: '闭门不见', dao: 'w',
       ok: { text: '你关上了门。他在外头骂了三天，骂得很有文采，被路过的说书人记成了一本。你从此多了个外号。', fx: { title: '缩头真人' } } }
   ]
