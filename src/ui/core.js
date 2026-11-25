@@ -104,4 +104,8 @@ function talentTag(t) {
   const T0 = L.TALENTS[t];
   return T0.c === 'rainbow' ? `<span class="tag rainbow">${T0.n}</span>` : `<span class="tag" style="background:${T0.c}">${T0.n}</span>`;
 }
-function petImg(tier, w) { const c = ART.pet(tier); return `<img class="px" src="${urlOf(c, 'pet' + tier)}" style="${avStyle(c, w)};vertical-align:middle" alt="">`; }
+// 灵宠头像：传名册里的一只（或掉落卡的 it：{ sp, form, aw }）画 ART.petCard；传数字是旧的阶图
+function petImg(x, w) {
+  if (x && typeof x === 'object' && x.sp) { const c = ART.petCard(x.sp, x.form || 0, x.aw); return `<img class="px" src="${urlOf(c, ['pc', x.sp, x.form || 0, x.aw ? 1 : 0].join('|'))}" style="width:${w}px;height:${w}px;vertical-align:middle" alt="">`; }
+  const c = ART.pet(x); return `<img class="px" src="${urlOf(c, 'pet' + x)}" style="${avStyle(c, w)};vertical-align:middle" alt="">`;
+}

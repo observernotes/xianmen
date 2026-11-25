@@ -20,6 +20,7 @@ function sheet(o) {
   bindEquipButtons(m);   // 掉落卡里的【换上】（panel-arts.js）
   if (oldU.length) gearLeave(oldU, gearUids(m));
   bindGearButtons(m);    // 法宝对比卡（panel-gear.js）
+  bindPetButtons(m);     // 名册满时新灵宠的放生 / 替换（panel-pets.js）
   return m.querySelector('.sheet');
 }
 function closeModal() {

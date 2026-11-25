@@ -13,7 +13,7 @@ function onHook(type, data) {
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) banner(chn, data.t); }
+  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); chapterTip(data.ch); } }
   else if (type === 'task') { floatText(100, 64, '宗门任务完成', '#8ff5d0'); }
   // 功法（arts.js）：有名共鸣第一次凑齐 → 横幅；第一次通用共鸣 → 老祖气泡；熟练升级、融会
   else if (type === 'combo') { const c = L.combo(data.id); banner('共鸣 · ' + c.n, c.d); SFX.reveal(5); }
@@ -21,6 +21,8 @@ function onHook(type, data) {
   else if (type === 'mastery') { if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 18, `《${L.art(data.id).n}》${L.MAST.n[data.lv]}`, '#ffe39a', false, true); }
   else if (type === 'rong') { const A = L.art(data.id), R0 = L.RONG[A.k]; banner('融会贯通', `《${A.n}》圆满：${R0[0] ? '修炼 +' + (R0[0] * 100).toFixed(R0[0] < 0.01 ? 2 : 1) + '%' : ''}${R0[0] && R0[1] ? ' ' : ''}${R0[1] ? '战力 +' + (R0[1] * 100).toFixed(R0[1] < 0.01 ? 2 : 1) + '%' : ''}`); SFX.goal(); }
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
+  // 道心升级、因果（dao.js）：老祖气泡（panel-trib.js）
+  else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
 
@@ -84,7 +86,7 @@ function updateHUD() {
   const canUp = L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]));
   const rec = !gd || ready || p.r >= 9 || busy ? '' : p.inj > 0 && L.canHeal(st) ? 'home' : L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]) * 3) ? 'home' : 'exp';
   $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
-  setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : canUp ? '↑' : '');
+  setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : gd && !busy && (L.petGlowAny(st) || (st.petPend || []).length) ? '宠' : canUp ? '↑' : '');
   setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : '');
   setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
   setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');

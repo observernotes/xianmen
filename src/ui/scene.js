@@ -91,14 +91,7 @@ function drawVisitor() {
   const by = y - 27 + Math.round(Math.abs(Math.sin(T / 260)) * -3);
   R(x - 4, by, 9, 10, '#1b1326'); R(x - 3, by + 1, 7, 8, st.visitor.left <= 1 ? '#ff8a8a' : '#ffe39a'); R(x, by + 2, 1, 4, '#c8323c'); R(x, by + 7, 1, 1, '#c8323c'); R(x - 1, by + 10, 2, 2, '#1b1326');
 }
-function drawPet(x, y) {
-  const p = st.p; if (!p.pet) return;
-  const spr = ART.pet(p.pet.tier), P = D().pet;
-  const hop = Math.abs(Math.sin(T / 700)) > 0.95 ? -1 : 0;
-  ctx.drawImage(spr, Math.round(x), Math.round(y - P.h + hop));
-  if (P.tail) { const c = L.PETS[p.pet.tier].c; for (let k = 0; k < 4; k++) R(x + P.w - 1 + Math.round(Math.sin(T / 300 + k * 0.6)), y - 4 - k, 2, 1, k === 3 ? '#ffffff' : c[1]); }
-  if (p.pet.tier >= 5 && Math.random() < 0.05) parts.push({ x: x + P.w / 2, y: y - P.h, vx: 0, vy: -0.01, life: 800, max: 800, c: L.PETS[p.pet.tier].c[0], s: 1 });
-}
+// 灵宠：出战的在主角身边、干活的在岗位上（panel-pets.js 的 drawPets）
 function drawCrane() {
   if (!crane) return;
   if (ART.drawCrane) { ART.drawCrane(crane.x, crane.y, T); return; }
@@ -135,7 +128,7 @@ function drawHomeScene(dt) {
   if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);
   if (cine) drawCineTarget(); else { drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
   drawVisitor();
-  drawPet(HOMEPOS.x + D().sit.w / 2 + 4, HOMEPOS.y);
+  drawPets();
   drawCrane();
   drawParts(dt);
   const lights = (r.lights || []).slice();
@@ -160,7 +153,7 @@ function drawAdvScene(dt) {
   else { R(px - 13, py + 1, 26, 2, '#dfe8f2'); R(px - 13, py + 1, 26, 1, '#ffffff'); R(px - 16, py, 3, 4, '#c8a050'); }
   for (let k = 0; k < 2; k++) parts.push({ x: px - 15, y: py + 1 + k, vx: -0.03, vy: 0, life: 260, max: 260, c: trim, s: 1 });
   ctx.drawImage(ART.standRealm(p.look, p.r, frame), Math.round(px - SD.w / 2), Math.round(py - SD.h + 1));
-  if (p.pet) { const P = D().pet; ctx.drawImage(ART.pet(p.pet.tier), px - 16 - P.w, py - P.h - 8 + Math.round(Math.sin(T / 300) * 3)); }
+  const op = L.petOut(st); if (op) ctx.drawImage(ART.petSprite(op.sp, op.form || 0, (T / 400 | 0) % 2, op.aw), px - 16 - 32, py - 26 - 8 + Math.round(Math.sin(T / 300) * 3));
   adv.spawn -= dt;
   if (adv.spawn <= 0 && adv.foes.length < 3) {
     const foe = rg.foe;

@@ -19,13 +19,14 @@ const rr = st => Math.min(st.p.r, 8);
 L.MARKET = [
   { k: 'pill', n: '破境丹', d: '突破时服用，每枚成功率 +15%（一次最多三枚）；负伤时可服一枚疗伤', base: 60 },
   { k: 'box', n: '寻宝', d: '随机得到一件法宝或一门具体的功法（已会的熟练 +20）；连续两次没提升，第三次必出更高一阶', base: 150 },
-  { k: 'egg', n: '灵兽蛋', d: '孵化一只灵宠，品阶随机', base: 400, minR: 1 },
+  { k: 'egg', n: '灵兽蛋', d: '孵化一只灵宠，种按蛋的属性随机（每届论道换一种属性）', base: 400, minR: 1 },
   { k: 'life', n: '延寿丹', d: '寿元 +10%，每个大境界最多服用三枚', base: 250, minR: 1 },
   { k: 'ore', n: '灵矿一筐', d: '强化、打造用', base: 50 },
   { k: 'robe', n: '法衣', d: '随机词条，走对比卡', base: 300 },
   { k: 'frag', n: '功法残篇', d: '三片合成一门神阶功法', base: 800 },
   { k: 'plan', n: '器方', d: '化神后器炉按方打造专属法宝', base: 1000 },
   { k: 'token', n: '秘境令', d: '夏季进秘境用，最多持 3 枚（每个夏季另送一枚）', base: 500 },
+  { k: 'feed', n: '兽粮一袋', d: '喂灵宠升级（pets.js）', base: 40 },
 ];
 const MK = {}; for (const M of L.MARKET) MK[M.k] = M;
 L.price = (st, k) => Math.floor(MK[k].base * Math.pow(2.6, rr(st)));
@@ -55,6 +56,7 @@ L.SHELF_POOL = [
   { k: 'box', off: true, w: 2, ok: st => st.stats.exp >= 1, lim: () => 2 },
   { k: 'egg', off: true, w: 1, ok: st => st.rebirth > 0 || mr(st) >= 1, lim: () => 1 },
   { k: 'token', w: 1.5, ok: st => !!L.mjUnlocked && L.mjUnlocked(st) && L.mjTokens(st) < L.MJ.tokenMax, lim: () => 1, lock: '筑基中期后上架' },   // 秘境令（realm.js）
+  { k: 'feed', w: st => (L.petCount(st) ? 4 : 0.5), ok: st => (st.rebirth > 0 || mr(st) >= 1) && L.petCount(st) > 0, lim: () => 3, lock: '有灵宠后上架' },
 ];
 L.restock = function (st, quiet) {
   const m = mk(st);
@@ -78,10 +80,13 @@ function rowName(st, s) {
   if (s.k === 'robe') return `${L.gearTierName('r', s.tier)}法衣`;
   if (s.k === 'frag') return `《${L.art(s.art).n}》残篇`;
   if (s.k === 'plan') return `器方《${L.PLAN[s.plan].n}》`;
+  if (s.k === 'egg') return L.eggName(st);
   return M.n;
 }
 function rowDesc(st, s) {
   if (s.k === 'ore') return `一筐 ${L.fmt(L.oreBasket(st))} · 手里 ${L.fmt(st.ore || 0)}`;
+  if (s.k === 'feed') return `一袋 ${L.feedSack(st)} · 手里 ${L.fmt(st.feed || 0)}`;
+  if (s.k === 'egg') return L.eggDesc(st);
   if (s.k === 'life') return `寿元 +10% · 本境界已服 ${lifeUsed(st)}/3`;
   if (s.k === 'robe') return `现在 ${L.gearTier(st, 'r') ? L.gearTierName('r', L.gearTier(st, 'r')) : '空'}；随机词条，走对比卡`;
   if (s.k === 'frag') return `${(st.arts.frag[s.art] || 0)}/3 片，集齐三片得这门神阶功法`;
@@ -99,7 +104,7 @@ L.shelf = function (st) {
   const m = ensure(st), out = [];
   for (const k of L.SHELF_FIXED) {
     const M = MK[k], lock = M.minR && !(st.rebirth > 0 || mr(st) >= M.minR) ? '筑基后上架' : '';
-    out.push({ i: out.length, k, n: M.n, d: M.d, price: Math.floor(L.price(st, k) * L.buyMult(st, 0)), base: L.price(st, k), lim: Infinity, left: Infinity, off: 0, fixed: true, lock });
+    out.push({ i: out.length, k, n: rowName(st, { k }), d: k === 'egg' ? L.eggDesc(st) : M.d, price: Math.floor(L.price(st, k) * L.buyMult(st, 0)), base: L.price(st, k), lim: Infinity, left: Infinity, off: 0, fixed: true, lock });
   }
   if (!L.shelfOpen(st)) {
     for (let j = 0; j < L.SHELF.rot; j++) out.push({ i: out.length, k: '', n: '轮换货', d: '', lock: '炼气中期开放', left: 0, lim: 0 });
@@ -167,7 +172,8 @@ function giveGood(st, row) {
     st.boxMiss = it.equip || it.better ? 0 : (st.boxMiss || 0) + 1;
     return { k: 'box', it };
   }
-  if (row.k === 'egg') return { k: 'egg', it: L.giveItem(st, 'pet', L.rollTier(st, 1 + Math.floor(r * 0.6), 6)) };
+  if (row.k === 'egg') return { k: 'egg', it: L.petEgg(st, L.eggEl(st), 'shop') };
+  if (row.k === 'feed') { const n = L.feedSack(st); st.feed = (st.feed || 0) + n; L.log(st, `坊市买下兽粮一袋：+${n}`); return { k: 'feed', feed: n }; }
   if (row.k === 'token') { if (!L.mjAddToken(st, 1)) return null; L.log(st, `坊市买下一枚秘境令（${L.mjTokens(st)}/${L.MJ.tokenMax}）`); return { k: 'token' }; }
   return null;
 }
@@ -284,6 +290,7 @@ function rollAuction(st) {
   // 化神起偶有神阶残篇（鸿蒙造化经、周天星斗大法，三片合一）
   const fr = fragIds(st);
   if (p.r >= 4 && fr.length) { const id = pick(fr); pool.push({ k: 'frag', art: id, tier: 6, n: `《${L.art(id).n}》残篇（${(st.arts.frag[id] || 0)}/3）`, m: 1.4 }); }
+  if (L.petCount(st) < L.petCap(st)) { const el = pick(L.PET_EGG_ELS); pool.push({ k: 'egg', el, n: `${L.eggName(st, el)}（品阶高一档）`, m: 1 }); }
   pool.push({ k: 'treasure', n: '天材地宝', m: 0.8 });
   if (p.t < L.talentCap(st)) pool.push({ k: 'xisui', n: '洗髓丹', m: 1.5 });
   pool.push({ k: 'pack', n: '九转金丹材料包', m: 1.1 });
@@ -326,6 +333,7 @@ function giveLot(st, it) {
   if (it.k === 'w' || it.k === 'g') res.it = L.gearDrop(st, it.slot || 'w', it.tier, { src: 'auction' });
   else if (it.k === 'plan') res.planText = L.givePlan(st, it.plan);
   else if (it.k === 'a' || it.k === 'frag') res.it = L.giveArt(st, it.art, { src: 'auction' });
+  else if (it.k === 'egg') res.it = L.petEgg(st, it.el, 'auction', 1);
   else if (it.k === 'treasure') st.treasure++;
   else if (it.k === 'xisui') { const from = st.p.t; st.p.t = Math.min(6, st.p.t + 1); res.talent = [from, st.p.t]; }
   else if (it.k === 'pack') { st.treasure += 2; st.herbs += L.herbCost(st, L.RECIPES.find(x => x.k === 'jiuzhuan')); }

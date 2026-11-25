@@ -7,13 +7,13 @@ function showGrowth(focus) {
   const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return '<span class="muted">未解锁</span>'; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
   const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
-  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
+  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => (L.petCount(st) ? goBtn('兽栏', 'pets') : goBtn('灵兽蛋', 'market')), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
   const tips = {
     talent: '灵根是天生的，炼丹房的洗髓丹能提升一品（需要天材地宝）。',
     art: '功法三槽：心法管修炼、战技管战力与攻击属性、秘术给特效；练久了有熟练，凑对了有共鸣。来自历练、寻宝、宗门宝库、首领与奇遇。',
     array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
     gear: '法宝三槽：兵器管战力，法衣管历练分数与负伤，饰品给修炼、财运、气运或寿元。来自历练掉落、首领、坊市寻宝、宗门宝库；灵矿强化，超出部分每级 +6%。',
-    pet: '灵宠来自坊市灵兽蛋、历练与奇遇。',
+    pet: '出战的灵宠给战力倍率：喂兽粮升级（每级超出部分 +5%），5 级进化、10 级觉醒各升一阶。灵宠来自坊市灵兽蛋、采药偶遇、奇遇与宗门；其余的派去洞府岗位干活。',
     field: `下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石，还产灵草。`,
   };
   const sec = (key, title, total, baseName, base, parts, extra) => `<div class="grow-sec" id="g-${key}"><h3>${title}<span>${total}</span></h3>
@@ -30,7 +30,8 @@ function showGrowth(focus) {
     sec('inc', '灵石收入', '+' + fmt(B.income) + ' /周天', '', 0, B.inc.map(([n, v, k]) => [n, '+' + fmt(v), k]),
       row('历练', '大头', goBtn('去历练', 'exp'), '历练带回的灵石远比每周天收入多。') + (st.sect ? '' : row('宗门俸禄', '未入宗', '', '筑基后拜入宗门，每周天领俸禄。'))),
     `<div class="grow-sec" id="g-bt"><h3>冲击${nxt}成功率<span>${L.pct(bt)}</span></h3>
-      ${L.btParts(st, btn).filter(([k]) => !/^(丹炉|破境丹)/.test(k)).map(([k, v]) => row(k, k === '基础' ? L.pct(v) : '+' + L.pct(v), '', '')).join('')}
+      ${L.btParts(st, btn).filter(([k]) => !/^(丹炉|破境丹)/.test(k)).map(([k, v]) => row(k, k === '基础' ? L.pct(v) : (v < 0 ? '−' : '+') + L.pct(Math.abs(v)), '', '')).join('')}
+      ${L.tribNeeded(st) ? row('护劫手段', `眼下最多 +${L.pct(['fa', 'pet', 'daolv', 'zhen'].reduce((a, k) => { const A = L.aidInfo(st, k); return a + (A.ok ? A.v : 0); }, 0) + L.TRIB.maxPill * L.TRIB.pill)}`, '', `金丹起渡雷劫时用：祭法宝 +${L.pct(L.TRIB.fa)}、灵宠挡劫 +${L.pct(L.TRIB.pet)}、道侣护法 +${L.pct(L.TRIB.daolv)}、渡劫阵（聚灵阵每级 +1%），雷劫中途那一停还能临阵吞丹（每枚 +${L.pct(L.TRIB.pill)}，最多 ${L.TRIB.maxPill} 枚）。`) : ''}
       ${row('丹炉 Lv' + st.home.furnace, '+' + L.pct(st.home.furnace * L.BT.furnace), upBtn('furnace'), `每级突破 +${L.pct(L.BT.furnace)}，还能炼丹。`)}
       ${row('破境丹 ×' + st.pills, `每枚 +${L.pct(L.BT.pill)}`, goBtn('去买', 'market'), `一次最多服 ${L.BT.maxPills} 枚。坊市、历练（${L.pct(L.EXP_PILL)} 掉一枚）、炼丹都能得到；负伤时也能服一枚疗伤。`)}
       ${L.btGuard(st) ? row('老祖护法', '必成', '', '第一世头一回冲击筑基，老祖护法必成。') : ''}</div>`,
@@ -69,7 +70,10 @@ function pactTips() {
   if (wt < L.boxCap(st, 'w')) { const nx = { id: `w${wt + 1}_0`, slot: 'w', t: wt + 1, plus: 0, aff: [] }; out.push({ t: `换一件${L.WEAPONS[wt + 1].n}`, cost: `寻宝 ${fmt(L.price(st, 'box'))} 或历练掉落`, p: with_(L.gearTry(st, nx, () => L.power(st)) / L.power(st)), go: navLock('market') ? 'exp' : 'market' }); }
   const pw = L.gearOpen(st, 'plus') && st.gear.w && L.gearPlusInfo(st, 'w');
   if (pw && !pw.max && !pw.why) out.push({ t: `兵器强化 +${pw.x.plus + 1}：战力 ${fmt(pw.a.p)} → ${fmt(pw.b.p)}`, cost: `灵矿 ${fmt(pw.cost.ore)} · 灵石 ${fmt(pw.cost.stones)} · 成功率 ${L.pct(pw.rate)}`, p: pw.b.pact, go: 'plus:w', btn: '强化', keep: true });
-  if (!p.pet && L.marketOpen(st, 'egg')) out.push({ t: '收一只灵宠', cost: `灵兽蛋 ${fmt(L.price(st, 'egg'))}`, p: with_(L.PETS[1].m), go: 'market' });
+  if (!L.petCount(st) && L.marketOpen(st, 'egg')) out.push({ t: '收一只灵宠', cost: `灵兽蛋 ${fmt(L.price(st, 'egg'))}`, p: with_(L.PETS[1].m), go: 'market' });
+  // 灵宠升到下一级（SYSTEMS §17 锦囊候选）：兽粮够就写一口气喂到下一级的胜算
+  const op = L.petOut(st), oi = st.petOut;
+  if (op && !L.petFeedWhy(st, oi) && (st.feed || 0) >= L.petNeed(op) - op.xp) { const m1 = L.petTry(st, () => { st.pets[oi].lv++; }, () => L.petAtkOf(st, st.pets[oi])); out.push({ t: `灵宠【${L.petName(op)}】升到 Lv${op.lv + 1}`, cost: `兽粮 ${fmt(Math.ceil(L.petNeed(op) - op.xp))}（你有 ${fmt(st.feed)}）`, p: with_(m1 / L.petAtkOf(st, op)), go: 'pets' }); }
   if (L.canRetreat(st) && p.r === 0) { const ri = L.retInfo(st); if (ri.save > 0) out.push({ t: '闭关', cost: ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`, p: pi.p, extra: `本层提前 ${ri.save} 周天`, go: 'home' }); }
   // 换成克制对手的战技（SYSTEMS §17 锦囊候选）：战技即换即生效，点【换上】一下完成
   const sw = zSwapTip(L.PACT_FOE, S => S * pi.assist, pi.Q);

@@ -58,6 +58,9 @@ L.MJ_TYPES = Object.keys(L.MJ_ROOM);
 // 灵宠蛋的种（CONTENT §4）在灵宠名册上线前折成旧的单只灵宠：名字与初阶
 const PET_SP = { p_tu: ['月牙兔', 1], p_hu: ['雪团灵狐', 1], p_que: ['青羽雀', 1], p_xiong: ['铁背熊', 2], p_gui: ['墓穴玄龟', 2], p_hu2: ['赤焰虎', 2], p_fu: ['血瞳蝠', 2], p_sun: ['雷翼隼', 3], p_he: ['冰羽鹤', 3], p_jiao: ['玄水蛟', 4], p_wu: ['金乌雏', 4], p_ze: ['白泽幼兽', 5] };
 L.MJ_PET = PET_SP;
+// 灵宠名册（pets.js）在的时候用它的种表与出战那只；不在时用上面的折算
+const petInfo = id => (L.PET_SP && L.PET_SP[id] ? [L.petFormName(id, 0), L.PET_SP[id].t] : PET_SP[id] || ['灵兽', 1]);
+const curPet = st => { if (L.petOut) { const p = L.petOut(st); return p ? [L.petName(p), L.petTier(p)] : null; } return st.p.pet ? [st.p.pet.name, st.p.pet.tier] : null; };
 const YIN_KEYS = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const yinN = k => (L.YIN_N && L.YIN_N[k]) || k;
 
@@ -128,7 +131,8 @@ const itemTier = (k, kind, up) => 1 + Math.floor((3 * k + 1) * (kind === 'a' ? 0
 L.mjUnkP = function (st) {
   if (L.artOn(st, 'm_tianyan')) return 0;
   const o = L.gearEq(st, 'o'), lt = o && L.gearRKind(o) === 'luck' ? o.t : 0;
-  return Math.max(0, L.MJ.unkP - L.MJ.unkLuck * lt);
+  // 霜月狐（灵宠天赋 realmUnk，pets.js）：“？”门少一半
+  return Math.max(0, L.MJ.unkP - L.MJ.unkLuck * lt) * (L.petTal && L.petTal(st, 'realmUnk') > 0 ? 0.5 : 1);
 };
 // 白小九同行（同伴系统上线前：st.companion === 'bai'；上线后由它提供 L.companionOn）
 L.mjBai = st => (typeof L.companionOn === 'function' ? !!L.companionOn(st, 'bai') : st.companion === 'bai');
@@ -409,7 +413,7 @@ function chestOpts(st, run) {
 function chestDesc(st, o) {
   if (o.k === 'art') { const A = L.art(o.id); o.n = `《${A.n}》`; o.d = `${L.artTierName(A.t)}${L.ART_CAT[A.k]} · ${L.elName(A.el)} · ${A.pool === 'frag' ? `残篇（${(st.arts.frag[o.id] || 0)}/3）· ` : ''}${L.artDesc(st, o.id)}`; }
   else if (o.k === 'plan') { if (L.PLAN[o.id]) { const P = L.PLAN[o.id]; o.n = `器方《${P.n}》`; o.d = `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; } else { o.n = `阵图《${L.ZHENTU[o.id]}》`; o.d = '阵法上线前先收着'; } }
-  else if (o.k === 'pet') { const P = PET_SP[o.id] || ['灵兽', 1]; o.n = `灵宠蛋【${P[0]}】`; o.d = `${L.PETS[P[1]].n}，孵出来就是你的${st.p.pet ? `（现在的${st.p.pet.name}是${L.PETS[st.p.pet.tier].n}）` : ''}`; }
+  else if (o.k === 'pet') { const P = petInfo(o.id), c = curPet(st); o.n = `灵宠蛋【${P[0]}】`; o.d = `${L.PETS[P[1]].n}，孵出来就是你的${c ? `（出战的${c[0]}是${L.PETS[c[1]].n}）` : ''}`; }
   else if (o.k === 'treasure') { o.n = `天材地宝 ×${o.n}`; o.d = `手里 ${st.treasure}，洗髓、九转、重铸都用它`; o.cnt = 2; }
   else if (o.k === 'yin') { o.n = `${yinN(o.id)} ×${o.n}`; o.d = '炼丹、打造用的药引'; o.cnt = 3; }
   else if (o.k === 'stones') { o.v = Math.floor(Math.max(L.income(st), 20) * o.n); o.n = `灵石 ${L.fmt(o.v)}`; o.d = `约 ${15} 个周天的收入`; }
@@ -424,7 +428,7 @@ L.mjChestRec = function (st, opts) {
     if (o.k === 'art' && o.id === 'x_hunyuan') { s = 10; w = '三门功法视为同属性，通用共鸣 +10% 一直在'; }
     else if (o.k === 'art') { const b = L.artBetter(st, o.id); s = b ? 8 : L.art(o.id).pool === 'frag' ? 6 : 5; w = b ? '比你现在装的强，拿了就能换上' : L.art(o.id).pool === 'frag' ? `残篇 ${(st.arts.frag[o.id] || 0)} → ${(st.arts.frag[o.id] || 0) + 1}/3，别处难得` : '秘境独有，别处得不到'; }
     else if (o.k === 'plan') { s = 6; w = '器方阵图只在这里出'; }
-    else if (o.k === 'pet') { const P = PET_SP[o.id] || ['', 1], cur = st.p.pet ? st.p.pet.tier : 0; s = P[1] > cur ? 7 : 2; w = P[1] > cur ? `灵宠 ${L.PETS[cur].n} → ${L.PETS[P[1]].n}：战力 ×${(L.PETS[P[1]].m / L.PETS[cur].m).toFixed(2)}` : ''; }
+    else if (o.k === 'pet') { const P = petInfo(o.id), c = curPet(st), cur = c ? c[1] : 0; s = P[1] > cur ? 7 : 2; w = P[1] > cur ? `灵宠 ${L.PETS[cur].n} → ${L.PETS[P[1]].n}：战力 ×${(L.PETS[P[1]].m / L.PETS[cur].m).toFixed(2)}` : ''; }
     else if (o.k === 'treasure') { s = st.treasure < 3 ? 4 : 3; w = `天材地宝手里只有 ${st.treasure}`; }
     else if (o.k === 'yin') s = 2.5;
     else s = 2;

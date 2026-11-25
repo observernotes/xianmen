@@ -18,8 +18,9 @@ L.tuna = function (st) {
   return g;
 };
 
-// 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，随天劫系统接入）
-// 基础成功率在 L.REALMS[r].rate；后续系统的加成（祭法宝、灵宠挡劫、渡劫阵…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]
+// 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，见 trib.js）
+// 基础成功率在 L.REALMS[r].rate；常驻的加成（道心·稳、心魔劫…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]；
+// 每次渡劫临时选的护劫手段（祭法宝、灵宠挡劫、道侣护法、临阵吞丹、渡劫阵）不在这里，见 trib.js 的 L.tribParts
 L.BT = { pill: 0.15, maxPills: 3, furnace: 0.01, fail: 0.10, desperate: 0.25 };
 L.btPills = (st, n) => (n === true ? Math.min(L.BT.maxPills, st.pills) : clamp(Math.floor(n || 0), 0, Math.min(L.BT.maxPills, st.pills)));
 // 老祖护法：第一世第一次冲击筑基必成
@@ -43,21 +44,32 @@ L.btRate = function (st, n) {
 
 // ---------- 突破 ----------
 // n：服几枚破境丹（0～3；true 表示尽量多）。失败：修为退到 70%，负伤 3 周天，下次 +10%
-L.breakthrough = function (st, n) {
+// 金丹起要渡雷劫（SYSTEMS §9）：界面拆成 L.tribStart（预掷）→ 临场一停 → L.tribFinish（补手段、结算），见 trib.js；
+// 这里一口气走完（sim、旧调用）：opts = { aids: { fa, pet, daolv, zhen } | 'all', extra: { pills, fa, pet, daolv } | 'all' }
+L.breakthrough = function (st, n, opts) {
   if (!L.isReady(st)) return null;
-  const p = st.p;
+  if (L.tribNeeded && L.tribNeeded(st)) {
+    opts = opts || {};
+    if (!L.tribStart(st, Object.assign({}, opts, { pills: n }))) return null;
+    return L.tribFinish(st, opts.extra);
+  }
   n = L.btPills(st, n);
   const guard = L.btGuard(st), sure = !!st.flags.sureBt;
   const rate = L.btRate(st, n);
   if (guard || sure) n = 0;            // 必成的时候不浪费丹药
   st.pills -= n;
   if (st.retreat) st.retreat = null;
-  const ok = R() < rate;
+  return L.btResolve(st, R() < rate, { rate, pills: n, guard, sure });
+};
+// 掷完之后的结算（筑基的一次掷与天劫共用）：成了升境界、觉醒、触发剧情；败了修为退到 70%、负伤 3 周天、下次 +10%
+// o = { rate, pills, guard, sure }
+L.btResolve = function (st, ok, o) {
+  const p = st.p, guard = !!o.guard, sure = !!o.sure, n = o.pills || 0;
   if (!guard && sure) st.flags.sureBt = 0;
   const desp = L.desperate(st);
   const from = p.r;
   const before = L.power(st);
-  const res = { ok, from, to: from + 1, rate, usedPill: n > 0, pills: n, guard, before, trib: L.REALMS[Math.min(from + 1, 8)].trib, ascend: from === L.MAXR, lifeBefore: L.lifespan(st) };
+  const res = { ok, from, to: from + 1, rate: o.rate, usedPill: n > 0, pills: n, guard, before, trib: from >= L.MAXR ? 9 : L.REALMS[Math.min(from + 1, 8)].trib, ascend: from === L.MAXR, lifeBefore: L.lifespan(st) };
   st.stats.bt++;
   if (ok) {
     if (guard) st.flags.guardUsed = 1;

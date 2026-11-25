@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：秘境）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -29,14 +29,32 @@
   - 这一刀放行的 11 个：`mkt_fake`、`mkt_haggle`、`auc_mystery`、`auc_sell`、`season_autumn_harvest`、`season_winter_snow`、`world_lingchao`、`world_dahan`、`world_xianfu`、`world_shanglu`、`world_jiangdao`。
     还闸着、但历法与坊市部分已能结算的：`auc_rival`、`world_liuxing`（等宿敌恩怨 `grudge`）、`mkt_black`（等丹毒、因果）、`world_shouchao`（等兽粮 `feed`）、`world_danhui`（等药引 `yin`）、`world_kuangmai` / `world_mojie` / `world_tongji`（等因果 `karma`）、
     `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
-- [x] 秘境登记（`src/logic/realm.js`，第四刀）：`where: 'realm'`（“奇”房间，`L.pickEvent(st, 'realm', { theme })`）、`elig.theme`（jianqi / baicao / ronghuo / youquan）、`fx.hp`（本局气血 ±n）、`fx.token` / `cost.token`（秘境令）；
+- [x] 灵宠登记（`src/logic/pets.js`）：`fx.pet`（种 id，进名册，满了走放生 / 替换卡）、`fx.feed` 与 `cost.feed`（兽粮，原始数量）、`fx.petHeart`（剧情事件作用于触发它的那只 `st.petFocus`，洞府 / 历练事件作用于出战的，`pet_guard` 作用于巡山的、`home_field_pest` 作用于守田的；`pet_fight` 偏心新来的时老的那只另 −1）、
+  `fx.petForm`（`种_a` / `种_b`；药引、灵矿在选项的 cost 里付，首领材料在这里扣；分支里不是花费的条件——禁地 3 趟、好感、季节、首领材料——没满足时该选项不显示，靠包了一层的 `L.choiceShown`）；
+  `fx.yin` 与 `cost.yin`：**药引系统（SYSTEMS §5）上线前按 gear.js 的口径每枚折灵草 `L.YIN_HERB × (1 + 境界)`**，炼丹那一刀接入真正的药引时重新登记这两个键即可；
+  触发键 `egg`（得蛋，孵蛋事件）、`pet_evolve:<种>`（升到 5 级）、`pet_runaway`（0 心再闲 24 周天）、`pet_fight`（名册 ≥ 2，每届论道后 25%）、`pet_sick`（炼出下品丹时出战灵宠 30% 偷吃）；
+  一次性 flag `hatch_stone` / `hatch_warm` / `hatch_field`（埋进灵田：直接 2 级）/ `pet_release` / `pet_job_pick`（派到推荐的岗）/ `pen_discount`（兽栏建筑上线前：喂养效率 +8%）。
+  数据里写不出来的前提（CONTENT §14.5 的“触发条件”）在 `L.eligible` 外面补：`pet_gift` 出战 ≥ 3 心、`pet_wild_friend` 采药且有出战、`pet_guard` 有巡山、`home_field_pest` 灵田 ≥ 3 级；用到 petHeart / petForm 的事件都要名册里至少一只。
+  这一刀放行的 29 个：`pet_hatch`、`pet_runaway`、`pet_fight`、`pet_sick`、`pet_gift`、`pet_wild_friend`、`pet_guard`、12 个 `pet_evolve_*`、`home_field_pest`、`season_summer_storm`、`world_shouchao`、`world_danhui`、`bai_q1`、`bai_end`、`ch_danjing_3`、`ch_fox_2`、`ch_fire_1`、`ch_star_3`。
+  还闸着、但灵宠部分已能结算的：`season_spring_fair`（等丹毒）、`disc_lazy`（等徒弟）、`dan_yaochen_1/2`（等人脉）、`realm_fire_spirit`、`realm_bees`（等秘境）。
+- [x] 天劫与道心因果登记（`src/logic/trib.js`、`src/logic/dao.js`）：
+  - 剧情触发键 `demon:1～3`（元婴 / 化神 / 合体雷劫之前，界面在准备页点【引动天劫】后先弹，`L.tribPre`）、`ascend`（飞升雷劫之前，来敲门的是道侣 > 好感最高的知己 > 老祖，`L.ascendVisitor`）；`trib:1` 照旧在第一次渡过雷劫后触发。
+    心魔劫的 flag：`demonN_firm` 这一境界的雷劫 +5%，`demonN_waver`（与 `_shaken` 同义）−5%；题目（`L.demonQuestion`）：一 = 本世最早一条没了的因果（没有就是被逐出山门那天），二 = 没选的那位道侣候选（没有道侣是老祖），三 = 陆天衡。
+  - `fx.karma: '因果id'`：记一条因果（当事人与“你做了什么”在 dao.js 的 `L.KARMA`，没登记的按事件人物 / 标题兜底），同时记下当时选的是哪一项（心魔劫题目用）。
+    `fx.unkarma: 'any' | '因果id'`：了结最早的一条 / 指定那条。`choice.dao` 现在真的记道心（5 / 12 / 25 笔各一级，见 SYSTEMS §14），升级时发 `dao` 事件给老祖气泡。
+  - 新资格字段：`karma: n`（事件级：有一条 n 周天前结下、还没了的因果）、`daoMin: { k|w|r: n }`（事件级与选项级：该道心至少 n 笔）；新占位符 `{kwho}` / `{kwhat}`（最早那条没了的因果的当事人 / 做了什么）。`tools/check_events.js` 已认这些键。
+  - 新扩展包 `src/content/ev_karma.js`（寻仇 5 件：旧账上门、冤家路窄、苦主之后、悬赏令、漏雨的屋），全部上线。
+  - 这一刀放行的 15 个：`story_demon1～3`、`story_ascend`、`tianheng_2`、`world_kuangmai`、`world_mojie`、`world_tongji`、`ch_map_2`、`ch_sword_4` 与 ev_karma 的 5 件。
+    还闸着、但因果部分已能结算的：`realm_altar`、`realm_sword_slave`（等秘境）、`zhao_2`、`xue_1`、`xue_2`（等恩怨 `grudge`）、`sect_frame`、`sect_traitor`、`mo_xuehe_1`、`mo_xuesan_2`（等人脉 `favor`）、`ye_q1`（等药引）、`mkt_black`（等丹毒）、`disc_avenge`（等徒弟）。
+  - 写手按“无数据键可表达”改成 `p` 掷骰的道心门槛（drowned 稳 ≥ 5、yun_1 随稳道心…）仍是掷骰；需要时可改写成 `daoMin`。
+- [x] 秘境登记（`src/logic/realm.js`，第六刀）：`where: 'realm'`（“奇”房间，`L.pickEvent(st, 'realm', { theme })`）、`elig.theme`（jianqi / baicao / ronghuo / youquan）、`fx.hp`（本局气血 ±n）、`fx.token` / `cost.token`（秘境令）；
   `run_*` 一次性标记由 fx.flag 的钩子从 `st.eflags` 挪进 `st.run.fl`，出秘境清掉（reveal / elite / reroll / trap_up / herb_gift / maxhp_down / proxy / safe / skip / melt 全部有效）；`xianfu_map` 在仙府那一局用掉（首层门全显）。
   - **能力登记可以限 where**：`L.supportFx(key, { where: ['realm'], … })` 只对这些 where 的事件算支持（events-engine 的闸门认它）。秘境事件用到、但所属系统还没做的键，realm.js 先**只对秘境**登记了一份“先收着”的实现：
-    `fx.yin` / `cost.yin`（`st.yin`）、`fx.karma`（`st.karma`）、`fx.recipe`（`st.recipeNote` 计数）、`fx.feed`（`st.feed`）、`fx.toxin`（`st.toxin`）、`fx.favor`（`st.favor`）、`fx.grudge` / `elig.grudge`（`st.grudge`）、`fx.pet`（灵宠名册上线前折成旧单只灵宠，种记进 `st.mj.eggs`）。
+    `fx.favor`（`st.favor`）、`fx.grudge` / `elig.grudge`（`st.grudge`）、`fx.toxin`（`st.toxin`）、`fx.recipe`（`st.recipeNote` 计数）；合并灵宠与天劫道心后，`fx.yin` / `cost.yin` / `fx.feed` / `fx.pet` 由 pets.js、`fx.karma` 由 dao.js 正式登记（覆盖了秘境里的先收着版本），秘藏的灵宠蛋走 `fx.pet` 进名册。
     这些只在“还没人登记过”时登记；对应系统上线时不带 where 重新登记即覆盖（加载顺序无关），别处用这些键的事件到那时才放行——所以这一刀只多放行了 16 个秘境事件，没有连带放出别的系统的事件。
-  - realm_rival 已上线，但要宿敌恩怨 ≥ 20 才会出现（恩怨系统上线前只有秘境事件改得动 `st.grudge`）。
-- 当前上线 202 / 327（基础 122 全部上线；扩展包 80 / 205；秘境 16 / 16）。
-- 历法那一刀时上线 186 / 327。
+  - realm_rival 已上线，但要宿敌恩怨 ≥ 20 才会出现（恩怨系统上线前只有秘境事件改得动 `st.grudge`）。灵宠天赋 realmUnk（霜月狐）现在是秘境“？”门减半（去掉了秘境上线前折的奇遇把握）。
+- 当前上线 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。

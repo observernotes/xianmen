@@ -124,10 +124,7 @@ function confirmExp(k, d, a, still) {
 function itemLine(it) {
   if (it.kind === 'a') return artLine(it);
   if (it.gear) return gearLine(it);
-  if (it.kind === 'pet') {
-    const T0 = L.PETS[it.tier];
-    return it.equip ? `<div class="quote">${petImg(it.tier, 26)} 收服${T0.n}【${esc(it.name)}】！战力 ×${T0.m}</div>` : `<div class="quote">遇到一只${esc(it.name)}，不如你的灵宠，放它归山，换得灵石 ${fmt(it.value)}</div>`;
-  }
+  if (it.kind === 'pet') return petLine(it);   // panel-pets.js
   return '';
 }
 function deltaHTML(res) {
@@ -158,6 +155,8 @@ function showExpResult(res) {
     if (res.herbs) g.push(`<dt>灵草</dt><dd class="num">+${fmt(res.herbs)}</dd>`);
     if (res.xp > 0) g.push(`<dt>战斗感悟</dt><dd class="num">修为 +${fmt(res.xp)}</dd>`);
     if (res.ore) g.push(`<dt>灵矿</dt><dd class="num">${oreImg(pxs(8, 2))} +${fmt(res.ore)}（共 ${fmt(st.ore)}）</dd>`);
+    if (res.feed) g.push(`<dt>兽粮</dt><dd class="num">${icon16('feed', 1)} +${res.feed}（共 ${fmt(st.feed)}）</dd>`);
+    if (res.pet) g.push(`<dt>灵宠</dt><dd>【${esc(res.pet.name)}】${res.pet.lv1 > res.pet.lv0 ? `<span class="jadet">升到 Lv${res.pet.lv1}</span>` : '经验 +1 成'}${res.pet.deep ? `，禁地 ${res.pet.deep} 趟` : ''}${res.petHerbs ? `，多叼回灵草 ${fmt(res.petHerbs)}` : ''}</dd>`);
     if (res.pills) g.push(`<dt>破境丹</dt><dd>+${res.pills}</dd>`);
     if (res.treasure) g.push(`<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>`);
     if (res.contrib) g.push(`<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>`);

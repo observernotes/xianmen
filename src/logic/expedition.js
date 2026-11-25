@@ -163,6 +163,8 @@ function expCalc(st, e) {
   const o = { k, d, a, score, rating, ratio: pl.ratio, parts: { pow: pl.pow, luck: pl.rnd + (pl.adj || 0), aff: pl.aff, guts: pl.guts } };
   // 六阶法衣：丁等 30% 改判丙（u[8]；旧档没有就从 u[0] 派生一个）
   if (rating === 0) { const u8 = u[8] === undefined ? (u[0] * 977) % 1 : u[8]; if (u8 < L.gearDingSave(st)) { rating = 1; o.robeSave = true; } }
+  // 道心·狂三级：丁等“以伤换命”再战一次（dao.js 的 L.expRefight 按预掷的数重掷运气分），翻到丙以上就算数、换一周天轻伤
+  if (rating === 0 && pl.fix === undefined && L.expRefight) { const r2 = L.expRefight(st, pl, score); if (r2 !== null) { o.refight = r2 > 0 ? 'win' : 'lose'; if (r2 > 0) rating = r2; } }
   const m = L.RATE_M[rating];
   const leap = pl.ratio < ax.leap && rating >= 2;
   Object.assign(o, { rating, m, leap });
@@ -185,6 +187,7 @@ function expCalc(st, e) {
   o.treasure = rating >= 1 && u[6] < (0.03 + 0.01 * k) * (a === 1 ? (d === 2 ? 4 : 2) : 1) * ax.treasure ? cx.treasure : 0;   // 流星雨：天材地宝 ×2
   // 丁等：潜渊（禁地）空手而归、不负伤；血遁不负伤改折寿元；敛息术按 u[7] 躲开
   o.injury = 0;
+  if (o.refight === 'win') o.injury = L.DAO_V.refightInj;
   if (rating === 0) {
     if (ax.c18) { o.qianyuan = true; o.stones = 0; o.herbs = 0; o.ore = 0; o.pills = 0; o.drops = []; o.treasure = 0; o.plan = null; }
     else if (ax.xuedun) o.xuedun = ax.xuedun;
@@ -261,6 +264,7 @@ L.resolveExp = function (st) {
   res.xp = L.gainBase(st) * res.xpTicks;
   if (res.xp > 0) L.addXp(st, res.xp);
   if (res.contrib) L.addContrib(st, res.contrib);
+  if (res.refight === 'win' && res.injury && !e.recall) { st.p.inj = Math.max(st.p.inj, res.injury); res.inj = res.injury; }
   if (res.rating === 0 && !e.recall) {
     if (res.injury) { st.p.inj = Math.max(st.p.inj, res.injury); res.inj = res.injury; }
     if (res.xuedun && st.p.r <= L.MAXR) { const y = L.lifespan(st) * res.xuedun; st.p.age += y; res.lifeCost = y; }

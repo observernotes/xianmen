@@ -1,15 +1,16 @@
-/* 废柴仙途 · 界面片段 panel-bt：突破面板（破境丹步进器）与结果
+/* 废柴仙途 · 界面片段 panel-bt：突破面板（破境丹步进器）与结果；金丹起的天劫准备页、心魔劫、停顿卡在 panel-trib.js
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * 成功率与组成一律取自 L.btRate / L.btParts，失败后果取自 L.BT，所以面板上的数就是实际掷骰用的数。 */
 // ---------- 突破 ----------
 let btPills = null;   // 本次准备服几枚（null：按默认算）
 // 照这一步突破后的寿元（下一境界的寿元上限）
 function nextLife() { const p = st.p; if (p.r >= L.MAXR) return Infinity; return L.lifespan(Object.assign({}, st, { p: Object.assign({}, p, { r: p.r + 1 }) })); }
-// 默认枚数：成功率封顶前能多一枚就多一枚，封顶后不再浪费（老祖护法、九转金丹时为 0）
+// 默认枚数：成功率封顶前能多一枚就多一枚，封顶后不再浪费（老祖护法、九转金丹时为 0）；金丹起算上准备页勾着的护劫手段（panel-trib.js）
 function btDefault() {
   const max = Math.min(L.BT.maxPills, st.pills);
   if (L.btGuard(st) || st.flags.sureBt) return 0;
-  let n = 0; while (n < max && L.btRate(st, n) < 1) n++;
+  const trib = L.tribNeeded(st), aids = trib ? tribAidsSel() : null;
+  let n = 0; while (n < max && (trib ? L.tribRate(st, { pills: n, aids }) : L.btRate(st, n)) < 1) n++;
   return n;
 }
 // 突破后战力大约翻几倍：升一小层 ×1.5、大境界 ×1.8，外加觉醒抬灵根
@@ -21,6 +22,7 @@ function btPowerMult() {
 function showBreakthrough(still) {
   const p = st.p;
   if (!L.isReady(st)) return;
+  if (L.tribNeeded(st)) { showTribPrep(still); return; }   // 金丹起：天劫准备页（护劫手段），panel-trib.js
   const nxt = p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n;
   const trib = p.r >= L.MAXR ? 9 : L.REALMS[p.r + 1].trib;
   const max = Math.min(L.BT.maxPills, st.pills);
@@ -56,7 +58,8 @@ function afterBreakthrough(res) {
     lines.push(`<div class="center big goldt">${L.REALMS[p.r].n}期！</div>`);
     lines.push(`<div class="center num">战力 ${fmt(res.before)} → <span class="seal">${fmt(res.after)}</span>（×${(res.after / res.before).toFixed(1)}）</div>`);
     lines.push(`<div class="center num">寿元 ${fmt(res.lifeBefore)} → <span class="jadet">${fmt(res.lifeAfter)}</span> 年</div>`);
-    if (res.pills) lines.push(`<div class="center muted">服下破境丹 ${res.pills} 枚 · 成功率 ${L.pct(res.rate)}</div>`);
+    if (res.tb) lines.push(tribResultHTML(res));
+    else if (res.pills) lines.push(`<div class="center muted">服下破境丹 ${res.pills} 枚 · 成功率 ${L.pct(res.rate)}</div>`);
     else if (res.guard) lines.push('<div class="center muted">老祖护法，一举功成</div>');
     if (res.carry >= 1) lines.push(`<div class="center muted">圆满后多攒的修为 +${fmt(res.carry)} 带进了新境界</div>`);
     if (res.awaken) {
@@ -66,12 +69,13 @@ function afterBreakthrough(res) {
       lines.push(`<div class="center muted">修炼 ×${T0.cul} → ×${T1.cul}，战力 ×${T0.atk} → ×${T1.atk}</div>`);
       SFX.reveal(6);
     }
-    sheet({ title: '突破成功', center: true, body: lines.join(''), foot: [{ t: '道法自然', gold: true, fn: closeModal }] });
+    sheet({ title: res.tb ? '渡劫成功' : '突破成功', center: true, body: lines.join(''), foot: [{ t: '道法自然', gold: true, fn: closeModal }] });
   } else {
     sheet({
-      title: '突破失败', center: true,
+      title: res.tb ? '渡劫失败' : '突破失败', center: true,
       body: `<div class="center">${myAvImg(78, undefined, 'filter:grayscale(.6)')}</div>
         <p class="center">冲击${res.ascend ? '飞升' : L.REALMS[res.from + 1].n}失败（成功率 ${L.pct(res.rate)}）${L.has(st, 'steady') ? '，好在道心坚定，毫发无伤' : `，修为退到七成，负伤 ${p.inj} 周天`}。</p>
+        ${res.tb ? tribResultHTML(res) : ''}
         <p class="center seal">屡败屡战：下次成功率 +${L.pct(L.BT.fail)}（已累计 ${p.fails} 次）</p>`,
       foot: [{ t: '再接再厉', fn: closeModal }],
     });

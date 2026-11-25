@@ -9,7 +9,9 @@ function showAscension() {
     body: `<div class="center">${myAvImg(66, 9)}</div>
       <div class="center big goldt">${esc(p.name)} 白日飞升</div>
       <p class="center">九九天劫散尽，仙门大开。当年被逐出山门、被当众退婚的废柴，踏云而去，位列仙班。</p>
-      <dl class="grid2"><dt>修仙</dt><dd>${Math.floor(st.year) + 1} 年 · ${fmt(p.age)} 岁</dd><dt>天骄榜</dt><dd>最高第 ${st.bestRank}</dd><dt>宗门</dt><dd>${st.sect ? L.sectOf(st).n + L.srankName(st, st.sect.rank) : '散修'}</dd></dl>
+      <p class="center" id="daoEnding">${esc(L.daoEnding(st))}</p>
+      <dl class="grid2"><dt>修仙</dt><dd>${Math.floor(st.year) + 1} 年 · ${fmt(p.age)} 岁</dd><dt>天骄榜</dt><dd>最高第 ${st.bestRank}</dd><dt>宗门</dt><dd>${st.sect ? L.sectOf(st).n + L.srankName(st, st.sect.rank) : '散修'}</dd>
+        <dt>道基</dt><dd>+${Math.round(L.daoji(st) * 100)}%${st.trib && st.trib.dan ? ' · ' + esc(st.trib.dan) : ''}</dd>${L.karmaOpen(st).length ? `<dt>因果</dt><dd>未了 ${L.karmaOpen(st).length} 条</dd>` : ''}</dl>
       <div class="quote">恭喜通关！转世重修可以开启新的一世：天赋三选一，所有功能直接开放。</div>`,
     foot: [{ t: '留在此世', alt: true, fn: closeModal }, { t: '再入轮回', gold: true, fn: () => rebirthPick() }] });
 }
