@@ -51,3 +51,11 @@
 - 丹药：`ART.icon(丹方 id)` 19 种齐全（新增 liaoshang baoqi bingxin cuiti yanghun leihuo baicao wudao pozhang qingdu dingshen huaxing zhuyan），根基类自动带金托、战斗类带火星；`ART.pillGroup(id)` → 'x'|'z'|'g'，`ART.pillIds()`。
 - `ART.yinCell(a, b, pill, sel)` → 22×22 药引格（a, b = 'f','i','t','w','s' 或 0～4；pill 为空画“？”）。
 - `ART.toxinGourd(frac 0～1)` → 16×16 丹毒葫芦。
+
+## 阶段三·批次六（洞府建筑 / 地块 / 阵法）
+
+- 建筑 id = array field furnace forge pen room library spring vault pavilion portal（`ART.buildingIds`）。`ART.building(id)` → 16×16 图标；`ART.buildingSprite(id, tier 0～2)` → 26×26 小建筑。
+- `ART.drawBuilding(id, lv, x, y, t)` 画进洞府场景：(x, y) 为底边中点，按等级自动分三档，带炉火 / 泉水 / 传送门动画；返回可并入 nightOverlay 的光源或 null。array 与 field 不画（阵法用 drawFormation，田用 drawPlot）。furnace 放到任意地块时，给 drawHome 传 st.home.furnace = 0，免得重复。
+- `ART.homeSlots`：8 个地块的建议坐标（[0] 聚灵阵 = 主角座下，[1] 田区，其余按 y 排序后画）。`ART.plotTile('empty'|'built'|'locked', sel)` → 26×26 地块格。
+- `ART.sigil(id)` → 16×16 阵图，id = f_juling f_shengcai f_hushan f_yangshou f_danhuo f_duanhun f_dujie f_mizong（`ART.sigilIds`、`ART.sigilColor(id)`）。
+- `ART.drawFormation(id, x, y, t, { pending, small, part: 'back'|'front' })` 地面阵法光圈（small = 第二阵位）。
