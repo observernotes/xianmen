@@ -253,7 +253,7 @@ function drawAdvScene(dt) {
   }
   drawParts(dt);
   const e = st.exp;
-  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total); R(70, -OY + 5, 60, 5, '#1b1326'); R(71, -OY + 6, 58 * k, 3, '#f4c542'); R(71, -OY + 6, 58 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(70 + Math.round(60 * i / e.total), -OY + 6, 1, 3, '#1b1326'); }
+  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
 }
 
 // ---------- 主绘制 ----------
