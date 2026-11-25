@@ -6,7 +6,8 @@
  *   固定历（24 周天一个大周期）：论道 t%12 = 0；拍卖会 t%24 = 8 起 6 周天；九宗会武 t%24 = 18；货架与任务板每届论道后刷新；秘境每个夏季开放。
  *   天下大势：每轮 t%12 = 2 掷一次，60% 发生一件（权重见 L.WORLDS），持续 6～10 周天；存在 st.cal = { w 当前大势, prev 上一件, n {id: 本世次数}, seen {季节: 1} }。
  *     一件大势 = { id, at 开始, until 结束（不含）, k 矿脉现世的地图, who / q 通缉令的路人与名次, tourAt 通缉令认到哪届论道, share 灵气潮汐合用, got 仙府秘藏已得 }
- *   历法与大势在筑基后（或转世后）生效（SYSTEMS §0 解锁表“筑基初期：历法与天下大势”）；在那之前场景照样有四季，只是不结算。
+ *   历法与大势在筑基、且三年之约打完后（或转世后）生效（SYSTEMS §0 解锁表“筑基初期：历法与天下大势”；约战前“大事”牌仍是约战锦囊）；
+ *   在那之前场景照样有四季，只是不结算。
  *   各项效果用 stats 的登记（L.addCulMod / L.addIncSrc / L.addExpMod）或下面的 L.cal* 函数接进历练、闭关、炼丹、坊市，界面拆解与结算用同一份。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
@@ -27,7 +28,8 @@ L.season = st => L.seasonOf(st.tick);
 L.seasonKey = st => L.SEASONS[L.season(st)].id;
 // 本季还剩几个周天（含本周天）；下一季从哪个周天开始
 L.seasonLeft = st => { const m = ((st.tick % 12) + 12) % 12; const end = m === 0 ? 0 : Math.ceil(m / 3) * 3; return (end === 0 ? 0 : end - m) + 1; };
-L.calOpen = st => st.rebirth > 0 || mr(st) >= 1;
+// 第一世要筑基、并且三年之约打完（之前“大事”牌还是约战的锦囊，老祖也只顾着约战）；转世后一开始就有
+L.calOpen = st => st.rebirth > 0 || (mr(st) >= 1 && !!st.pact);
 // 周天星斗大法：季节加成翻倍
 L.seasonAmp = st => (L.artOn(st, 'm_xingdou') ? 2 : 1);
 const sOn = (st, k) => L.calOpen(st) && L.season(st) === k;

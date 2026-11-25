@@ -47,7 +47,8 @@ function showMarket(o) {
   o = o || {};
   const p = st.p;
   const mev = L.marketEvent(st);
-  if (mev && !o.noEv) { showChoice(mev, () => showMarket({ noEv: true })); return; }
+  // 处理完（或作罢）就从队里拿掉，接着看下一件；都处理完了才是坊市本身
+  if (mev && !o.noEv) { showChoice(mev, () => { L.marketEventDone(st, mev.id); showMarket(); }); return; }
   const top = o.keep && !$('#modal').hidden && $('#modal .body') ? $('#modal .body').scrollTop : 0;
   const rows = L.shelf(st);
   const cell = row => {
