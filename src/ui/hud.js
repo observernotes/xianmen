@@ -54,7 +54,7 @@ function updateHUD() {
   else if (ready) $('#xpTxt').textContent = `修为圆满 · 点此冲击${p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n}`;
   else if (L.isFull(st) && st.exp) $('#xpTxt').textContent = '修为已满 · 回洞府后突破';
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
-  else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关'}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
+  else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : L.retName(st.retreat)}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
   else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
   $('#sCul').textContent = '+' + fmt(L.gain(st));
   $('#sAtk').textContent = fmt(L.power(st));

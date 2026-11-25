@@ -2,6 +2,8 @@
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 // ---------- 奇遇事件（选项） ----------
 function speakerImg(ev, w) {
+  const hx = typeof sectSpeakerImg === 'function' ? sectSpeakerImg(ev, w) : '';   // 长老、徒弟的事件立绘（panel-disc.js）
+  if (hx) return hx;
   const spk = ev.speaker || ev.npc;
   if (spk === 'elder') return `<img class="px" src="${ELDER}" style="width:${w}px;height:${w}px" alt="">`;
   if (spk && L.NPCS[spk]) return npcAvImg(spk, w);
@@ -12,7 +14,7 @@ function showChoice(ev, back) {
   if (!ev || !st) return;
   const done = back || closeModal;
   const spk = ev.speaker || ev.npc;
-  const who = spk && L.NPCS[spk] ? `<div class="seal">${esc(L.npcName(st, spk))} <span class="muted">${L.NPCS[spk].title}${L.met(st, spk) ? ' · 好感 ' + L.aff(st, spk) : ''}</span></div>` : spk === 'elder' ? '<div class="seal">戒中老祖</div>' : '';
+  const who = spk && L.NPCS[spk] ? `<div class="seal">${esc(L.npcName(st, spk))} <span class="muted">${L.NPCS[spk].title}${L.met(st, spk) ? ' · 好感 ' + L.aff(st, spk) : ''}</span></div>` : spk === 'elder' ? '<div class="seal">戒中老祖</div>' : (typeof sectSpeakerWho === 'function' ? sectSpeakerWho(ev) : '');
   const luck = L.choiceLuck(st);
   // 选项上的 need / not / srankMin 不满足时不显示（L.choiceShown）；按钮的 data-c 仍是原序号
   let first = true;

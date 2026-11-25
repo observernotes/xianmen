@@ -160,6 +160,8 @@ L.startRetreat = function (st, opt) {
   L.log(st, opt.kind === 'train' ? '老祖亲自特训：4 周天，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟 4 周天' : `闭关 ${L.RET.len} 周天，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
   return true;
 };
+// 闭关栏里写的名字（sect2.js 的 'busy'：讲法、传授、事件占住的几个周天，带 label）
+L.retName = r => (!r ? '' : r.kind === 'train' ? '老祖特训' : r.kind === 'teach' ? '指点师弟' : r.kind === 'busy' ? r.label || '有事在身' : '闭关');
 // done = 坐满了；提前出关不退灵石，也没有顿悟
 L.endRetreat = function (st, done) {
   const r = st.retreat; if (!r) return null;

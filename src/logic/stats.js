@@ -26,7 +26,7 @@ L.statusParts = function (st) {
   if (st.exp) a.push(['历练途中', L.expCulMult(st), '']);
   const sw = L.artSwapLeft(st);
   if (sw > 0) a.push(['心法转修（剩' + sw + '周天）', L.SWAP.m, 'art']);
-  if (st.retreat) a.push([(st.retreat.kind === 'train' ? '老祖特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关') + '（剩' + st.retreat.left + '周天）', st.retreat.m, '']);
+  if (st.retreat) a.push([L.retName(st.retreat) + '（剩' + st.retreat.left + '周天）', st.retreat.m, '']);
   if (st.p.inj > 0) a.push(['负伤（剩' + st.p.inj + '周天）', 0.5, '']);
   return a;
 };
