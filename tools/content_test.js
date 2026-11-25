@@ -413,6 +413,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 年历：筑基且约战打完后，“大事”牌点开是年历（24 格时间轴 + 论道 / 拍卖 / 会武 / 秘境 / 大势各一行）；大势小牌在场景右上角
   await page.evaluate(() => { const { st, L } = window.__xm; st.market.evQ = []; st.tick = 158; st.cal.w = { id: 'w_shouchao', at: 158, until: 166 }; L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true; });
+  await page.evaluate(() => { const { st } = window.__xm; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });   // 合并后新增的老祖讲解会盖住小牌：一律算看过
   await page.waitForTimeout(400);
   const tag = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden, txt: el.textContent, w: r.width, h: r.height }; });
   expect(tag.vis && tag.txt.includes('兽潮') && tag.txt.includes('8') && tag.w >= 44 && tag.h >= 44, `大势小牌：${tag.txt}（${Math.round(tag.w)}×${Math.round(tag.h)}）`);
@@ -894,7 +895,8 @@ require('fs').mkdirSync(out, { recursive: true });
     const altar = L.eventById('realm_altar'); run.hp = 50; L.resolveChoice(s, altar, 1); o.altarHp = run.hp;
     run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
     // 恩怨 grudge 随“宿敌与新秀”接入：秘境的 realm_rival 与宿敌那边的 zhao_2 都上线（不再闸着）
-    const z2 = L.eventById('zhao_2'), zs = L.newState({ name: '顶罪' }); zs.p.r = 2; zs.flags.maxR = 2; zs.stats.exp = 5; zs.stats.tour = 1; zs.pact = 1;
+    const z2 = L.eventById('zhao_2'), zs = (() => { const r0 = L.rng; L.rng = Math.random; try { return L.newState({ name: '顶罪' }); } finally { L.rng = r0; } })();   // 这里 L.rng 被钉成常数，newState 取名会死循环：临时换回真随机
+    zs.p.r = 2; zs.flags.maxR = 2; zs.stats.exp = 5; zs.stats.tour = 1; zs.pact = 1;
     const z2no = L.eligible(zs, z2, 'exp', { bg: 'swords' }); zs.eflags.beat_zhao = 1; const z2yes = L.eligible(zs, z2, 'exp', { bg: 'swords' });
     o.gate = { zhao: L.evLive(z2) && !z2no && z2yes, rival: L.evLive(L.eventById('realm_rival')) };
     // 离开：收获全部到手
@@ -1469,6 +1471,7 @@ require('fs').mkdirSync(out, { recursive: true });
     const s = L.newState({ name: '论道客' });
     s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.stats.exp = 20; s.storyQ = []; s.guide = { step: 99, done: true };
     s.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'gearCmp']) s.hintSeen[k] = 1;
+    for (const h of window.__xm.hints) if (!/^rv/.test(h.id)) s.hintSeen[h.id] = 1;   // 别的线新增的讲解一律算看过，免得抢在宿敌的讲解前面
     s.home = { cave: 6, array: 8, field: 6, furnace: 6 };
     const arts = (own, eq) => { for (const id of own) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); };
     // 把对手战力调到和你五五开：tick 只影响宿敌（榜上曲线）
