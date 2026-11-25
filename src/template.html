@@ -331,9 +331,9 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .combo-a { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .combo-x { color: var(--gold); font-size: calc(var(--fs) * 2); }
 /* 法宝（panel-gear.js）：三格 + 每格下【强化】、对比卡、词条记号、器炉 */
-.gslots { align-items: start; }
+.gslots { align-items: stretch; }
 .gcell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.gslot { position: relative; min-height: 150px; }
+.gslot { position: relative; min-height: 150px; flex: 1 1 auto; }
 .gslot .gaffs { justify-content: center; }
 .gfx { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); pointer-events: none; }
 .btn.gplusb { min-height: 48px; width: 100%; padding: 2px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; touch-action: manipulation; user-select: none; -webkit-user-select: none; }

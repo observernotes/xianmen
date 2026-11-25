@@ -56,7 +56,7 @@ function gearCmpHTML(x) {
     ${curLine}
     ${rows.length ? `<dl class="grid2 delta">${rows.join('')}</dl>` : '<div class="muted">数值上和现在的差不多</div>'}
     <div class="gbtns"><button class="btn sm ${D.better ? 'gold' : 'alt'}" data-geq="${x.u}">换上</button><button class="btn sm ${D.better ? 'alt' : 'gold'}" data-gsm="${x.u}">熔炼 ${oreImg(pxs(8, 2))}+${D.smelt}</button>${cur ? `<button class="btn sm alt" data-glk="${x.u}">锁定当前</button>` : ''}</div>
-    <div class="muted fxs">${notes.join(' · ')}${cur ? `；锁定当前：以后低于 ${L.gearTierName(x.slot, cur.t)} 的${L.GEAR_N[x.slot]}直接熔炼、不再弹卡` : ''}</div></div>`;
+    <div class="muted fxs">${notes.join(' · ')}${cur ? `；锁定当前：以后低于 ${cur.t} 阶的${L.GEAR_N[x.slot]}直接熔炼、不再弹卡` : ''}</div></div>`;
 }
 // 掉落一行：待决定的弹对比卡；已经装上 / 自动熔掉的写一句
 function gearLine(it) {
@@ -130,7 +130,7 @@ function showGear(sel, still) {
     det = `<div class="gdet" style="border-left-color:${gTierBorder(x.t)}"><div class="row">${gearImg(x, 3)}<div class="grow"><div class="line">${gTierTag(x.slot, x.t)}<span>${L.GEAR_N[x.slot]}【${esc(B.n)}】${plusTag(x.plus)}</span>${B.el ? elChip(B.el) : ''}</div><div>${esc(L.gearMainText(st, x))}</div>${B.note ? `<div class="jadet">${esc(B.note)}</div>` : ''}${B.xx ? '<div class="jadet">老祖“请出手”：每届论道、会武各 2 次，输掉的一场重来</div>' : ''}</div></div>
       ${gearMsg ? `<div class="quote">${gearMsg}</div>` : ''}${plusLine}
       <div class="muted">词条${B.fixed ? '（固定）' : `（重铸：花天材地宝 1 重抽一条，二选一保留；你有 ${st.treasure}）`}</div>${affRows}
-      <div class="row"><span class="grow muted">${g.lock[gearSel] ? `已锁定：低于${L.gearTierName(gearSel, x.t)}的${L.GEAR_N[gearSel]}直接熔炼、不弹卡` : `锁定当前：以后低于${L.gearTierName(gearSel, x.t)}的${L.GEAR_N[gearSel]}直接熔炼`}</span><button class="btn sm alt eq" data-glock="${gearSel}">${g.lock[gearSel] ? '解锁' : '锁定当前'}</button></div></div>`;
+      <div class="row"><span class="grow muted">${g.lock[gearSel] ? `已锁定：低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼、不弹卡` : `锁定当前：以后低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼`}</span><button class="btn sm alt eq" data-glock="${gearSel}">${g.lock[gearSel] ? '解锁' : '锁定当前'}</button></div></div>`;
   } else if (L.gearOpen(st, gearSel)) det = `<div class="muted">${L.GEAR_N[gearSel]}槽空着：历练（斩妖、寻宝）、坊市寻宝、首领、宗门宝库、奇遇都能得到，得到就直接装上。</div>`;
   else det = `<div class="muted">${L.GEAR_N[gearSel]}槽${L.gearOpenWhy(st, gearSel)}。</div>`;
   // 重铸的二选一
