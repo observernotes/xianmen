@@ -444,7 +444,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // ---------- 灵宠（SYSTEMS §4）：倍率、岗位、喂食与等级、进化分支与发现、好感、旧档迁移、灵宠事件 ----------
   const pt = await page.evaluate(() => {
     const { L } = window.__xm, o = {};
-    const st = L.newState({ name: '灵宠测试' }); st.p.r = 3; st.flags.maxR = 3; st.home = { cave: 4, array: 8, field: 8, furnace: 6 }; st.herbs = 2000; st.stones = 1e6; st.tick = 100;
+    const st = L.newState({ name: '灵宠测试' }); st.p.r = 3; st.flags.maxR = 3; st.home = { cave: 4, array: 8, field: 8, furnace: 6 }; st.herbs = 2000; st.mats.yin.fire = 3; st.stones = 1e6; st.tick = 100;
     const a = L.petGive(st, { sp: 'p_hu2', src: 'shop' }), p = st.pets[0];
     o.first = a.out && a.first && st.storyQ.includes('story_pet');
     o.mult = Math.abs(L.petAtkOf(st, p) - (1 + (L.PETS[2].m - 1) * 1.02)) < 1e-9 && Math.abs(L.atkParts(st).find(x => x[2] === 'pet')[1] - L.petAtkOf(st, p)) < 1e-9;
@@ -502,7 +502,9 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // ---------- 灵田作物与炼丹（SYSTEMS §5、§6.2）----------
   const cr = await page.evaluate(() => {
-    const { L } = window.__xm, o = {}, rng0 = L.rng;
+    const { L } = window.__xm, o = {};
+    // 固定随机数只包住要定成丹品质的那几下（新建存档时取名要真的随机，常数会死循环）
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = () => v; try { return fn(); } finally { L.rng = r0; } };
     const mk = () => { const s = L.newState({ name: '灵田测试' }); s.p.r = 2; s.flags.maxR = 2; s.flags.maxI = 9; s.home = { cave: 2, array: 5, field: 9, furnace: 8 }; s.tick = 100; s.pact = 1; s.stats.exp = 10; return s; };
     const st = mk();
     // 田数 = 1 + floor(灵田等级 / 4)，至多 6 块；新开的田默认灵稻
@@ -538,8 +540,7 @@ require('fs').mkdirSync(out, { recursive: true });
     // 药引丹方：试炼没揭晓的一格（火 + 冰 → 聚灵丹），丹成就揭晓并记进 st.meta.recipe，跨世保留；fx.recipe 'need' / 指定
     st.herbs = 5000; st.treasure = 5; st.mats.yin = { fire: 3, ice: 3, thunder: 2, wood: 2, soul: 2 }; st.toxin = 0;
     o.unknown = L.canCraft(st, 'juling') === '还没试出这一格' && L.trialWhy(st, 'ice', 'fire') === '';
-    L.rng = () => 0.5;
-    const tr = L.trial(st, 'ice', 'fire');
+    const tr = withR(0.5, () => L.trial(st, 'ice', 'fire'));
     o.trial = tr && tr.ok && tr.fresh && tr.k === 'juling' && st.meta.recipe.juling === 1 && st.mats.yin.fire === 2 && st.mats.yin.ice === 2 && st.buffs.some(b => b.src === 'juling');
     o.known = L.recipeKnown(st, 'juling') && L.canCraft(st, 'juling') !== '还没试出这一格';
     o.noStack = /药力还在/.test(L.canCraft(st, 'juling'));
@@ -549,19 +550,19 @@ require('fs').mkdirSync(out, { recursive: true });
     o.secret = /秘方/.test(L.canCraft(st, 'jiuzhuan')) && (L.applyFx(st, { recipe: 'jiuzhuan' }), L.recipeKnown(st, 'jiuzhuan'));
     // 丹毒：中品 +15、上品 +10、极品 +5；过 60 药力减半；会过 100 就不能服；每周天退 2；突破时每枚破境丹 +10；清毒丹 −40
     st.buffs = []; st.toxin = 0; const x0 = st.p.xp + 0; const g = L.gainCalm(st);
-    L.craft(st, 'peiyuan'); o.tox15 = st.toxin === 15 && Math.abs(st.p.xp - x0 - 4 * g) < 1e-6;
-    L.rng = () => 0.3; L.craft(st, 'peiyuan'); o.tox10 = st.toxin === 25;
-    L.rng = () => 0.5; st.toxin = 61; const x1 = st.p.xp; L.craft(st, 'peiyuan'); o.half = st.toxin === 76 && Math.abs(st.p.xp - x1 - 2 * g) < 1e-6;
+    withR(0.5, () => L.craft(st, 'peiyuan')); o.tox15 = st.toxin === 15 && Math.abs(st.p.xp - x0 - 4 * g) < 1e-6;
+    withR(0.3, () => L.craft(st, 'peiyuan')); o.tox10 = st.toxin === 25;
+    st.toxin = 61; const x1 = st.p.xp; withR(0.5, () => L.craft(st, 'peiyuan')); o.half = st.toxin === 76 && Math.abs(st.p.xp - x1 - 2 * g) < 1e-6;
     st.toxin = 86; o.block = /再服就要中毒/.test(L.canCraft(st, 'peiyuan'));
     st.toxin = 30; L.alchTick(st, {}); o.decay = st.toxin === 28;
-    st.toxin = 50; L.craft(st, 'qingdu'); o.qingdu = st.toxin === 10;
+    st.toxin = 50; withR(0.5, () => L.craft(st, 'qingdu')); o.qingdu = st.toxin === 10;
     st.toxin = 0; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 3; const bt = L.breakthrough(st, 2); o.btTox = !!bt && st.toxin === 20;
     // 自动续炼：每 3 周天；修炼类在丹毒会过 60 时跳过
-    const s3 = mk(); s3.herbs = 2000; L.setAuto(s3, 'peiyuan', true); s3.tick = 3; const ob = {}; L.alchTick(s3, ob);
+    const s3 = mk(); s3.herbs = 2000; L.setAuto(s3, 'peiyuan', true); s3.tick = 3; const ob = {}; withR(0.5, () => L.alchTick(s3, ob));
     s3.toxin = 50; s3.tick = 6; const ob2 = {}; L.alchTick(s3, ob2);
     o.auto = ob.brew && ob.brew.length === 1 && ob.brew[0].k === 'peiyuan' && !ob2.brew && /六十/.test(L.autoWhy(s3, 'peiyuan')) && L.setAuto(s3, 'pojing', true) && L.setAuto(s3, 'liaoshang', true) && !L.setAuto(s3, 'juling', true);
     // 战斗类丹：爆气丹 下一场对决战力 ×1.3（约战胜算涨），约战打完就用掉；雷火丹 下一趟历练分数 +10，出发就用掉
-    const s4 = L.newState({ name: '对决' }); s4.tick = 30; s4.home.furnace = 3; s4.dan.bag.baoqi = [1]; s4.dan.bag.leihuo = [1];
+    const s4 = L.newState({ name: '对决' }); s4.tick = 30; s4.p.s = 3; s4.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s4.home.furnace = 3; s4.dan.bag.baoqi = [1]; s4.dan.bag.leihuo = [1];
     const pa = L.pactInfo(s4).p, pw0 = L.duelPower(s4, L.PACT_FOE);
     const tk = L.takePill(s4, 'baoqi');
     o.baoqi = !!tk && Math.abs(L.duelPower(s4, L.PACT_FOE) / pw0 - 1.3) < 1e-9 && L.pactInfo(s4).p > pa && s4.toxin === 15 && L.bagN(s4, 'baoqi') === 0;
@@ -582,9 +583,8 @@ require('fs').mkdirSync(out, { recursive: true });
     const row = L.shelf(s5).find(r => r.k === 'yin'); const so = s5.mats.yin.soul; const b = row && L.shelfBuy(s5, row.i);
     o.shop = !!row && row.n === '魂引一包' && !!b && s5.mats.yin.soul === so + 2;
     // 变种：药引作物成熟时 3% 触发 field_mutant（剧情 home_field_mutant）
-    const s6 = mk(); L.plant(s6, 0, 'fire'); s6.storyQ = []; L.rng = () => 0.01; for (let i = 0; i < 6; i++) { s6.tick++; L.cropTick(s6, {}); }
+    const s6 = mk(); L.plant(s6, 0, 'fire'); s6.storyQ = []; withR(0.01, () => { for (let i = 0; i < 6; i++) { s6.tick++; L.cropTick(s6, {}); } });
     o.mutant = s6.storyQ.includes('home_field_mutant') && s6.crops.mut === 'fire';
-    L.rng = rng0;
     // 旧档：没有 st.crops / mats / dan / toxin / meta.recipe → 田全种灵稻（收入不变）、药引 0、丹毒 0；重复迁移不变
     const od = JSON.parse(JSON.stringify(mk())); delete od.crops; delete od.mats; delete od.dan; delete od.toxin; delete od.meta.recipe; od.home.field = 9;
     const inc0 = L.fieldInc(9); const m1 = L.migrate(od), m2 = L.migrate(JSON.parse(JSON.stringify(m1)));
@@ -596,7 +596,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 锦囊：约战前丹囊里有爆气丹 → “服一枚爆气丹：胜算 p → p'”，点【服】生效
   const jn = await page.evaluate(() => {
     const { L } = window.__xm; const s = L.newState({ name: '锦囊' }); s.tick = 30; s.home.furnace = 3; s.dan.bag.baoqi = [1]; s.guide = { step: 99, done: true }; s.hintSeen = { pactSoon: 1, toxin: 1 }; s.stats.exp = 3;
-    s.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 };   // 兵器已到上限：锦囊里不再有“换一件”
+    s.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s.p.s = 3;   // 兵器已到上限（锦囊里不再有“换一件”）；炼气圆满，胜算不贴着下限
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
     const st = window.__xm.st, p0 = L.pactInfo(st).p;
     st.dan.next.baoqi = 1.3; const p1 = L.pactInfo(st).p; delete st.dan.next.baoqi;

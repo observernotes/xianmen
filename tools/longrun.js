@@ -124,6 +124,24 @@ const path = require('path');
       }
       X.closeModal(); await sleep(450); await drain();
     }
+    // 灵田与炼丹房：每 12 周天点开一块田、一半时候改种列表第一项（老祖推荐的）；药引格里有能试的格子就【试炼】一格
+    async function fieldAlchRound() {
+      const st = X.st;
+      if (L.cropsOpen(st)) {
+        X.showField(Math.floor(Math.random() * L.plotCount(st))); await sleep(40);
+        const b = document.querySelector('#modal [data-crop]:not([disabled])');
+        if (b && Math.random() < 0.5) { b.click(); seen['灵田改种'] = 1; await sleep(40); }
+        X.closeModal(); await sleep(450);
+      }
+      if (st.home.furnace && L.yinOpen(st)) {
+        X.showAlchemy(); await sleep(40);
+        const g = document.querySelector('#modal [data-tab="grid"]'); if (g) { g.click(); await sleep(40); }
+        const c = document.querySelector('#modal .yc.can');
+        if (c) { c.click(); await sleep(40); const t = document.querySelector('#modal #btnTrial:not([disabled])'); if (t) { t.click(); seen['丹方试炼'] = 1; await sleep(1400); } }
+        X.closeModal(); await sleep(450);
+      }
+      await drain();
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (X.cine) { await sleep(120); continue; }
@@ -167,6 +185,7 @@ const path = require('path');
       if (L.petCount(st) && L.marketOpen(st, 'feed') && st.stones > L.price(st, 'feed') * 6) L.buy(st, 'feed');
       if (L.lifeLow(st) && L.marketOpen(st, 'life') && st.stones > L.price(st, 'life')) L.buy(st, 'life');
       if ((n % 6 === 2 || (n % 3 === 0 && L.auctionOpen(st) && L.auctionBidsLeft(st) > 0)) && !X.cine && st.stats.exp >= 1) await marketRound();
+      if (n % 12 === 7 && !X.cine && !modal()) await fieldAlchRound();
       // 大势起了：点右上角的小牌看年历；筑基后每 24 周天点一次“大事”牌
       const tag = document.querySelector('#worldTag:not([hidden])');
       if (tag && tag.offsetParent && st.cal && st.cal.w && st.cal.w.at === st.tick && !X.cine && !modal()) { tag.click(); calOpen++; seen['年历'] = 1; await sleep(60); X.closeModal(); await sleep(450); await drain(); }
