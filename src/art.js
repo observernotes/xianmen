@@ -3207,5 +3207,230 @@ ART.drawRoomFx = function (type, x, y, k) {
   ctx.restore();
 };
 
+// ---------- 四、灵宠 ----------
+// ART.petSprite(sp, form, frame, aw) → 32×28 场景精灵，面朝左，脚底在 y=26（ART.dims.pet2；锚点左下角）。
+//   sp：CONTENT §4 的 id（p_tu p_hu p_que p_xiong p_gui p_hu2 p_fu p_sun p_he p_jiao p_wu p_ze，另有 p_qilin 麒麟幼崽）
+//   form：0 初始 | 1 分支 A | 2 分支 B（也接受 'a' 'b'）；p_hu 另有 3 = 九尾天狐。frame 0/1 两帧呼吸；aw 为真加觉醒光环
+// ART.petCard(sp, form, aw)          → 36×36 卡片像：五行底色 + 精灵（进化形态带星点，觉醒带光环）
+// ART.petName(sp, form) / ART.petList() → 形态名 / [[sp, form, 名, 五行]…] 共 38 个
+// ART.drawEvo(x, y, t, k)            → 进化光效，(x,y) 为灵宠脚底中心；省略 k：可进化时头上冒光（循环）；k 0～1：进化那一下
+// ART.icon('job_field' 守田 | 'job_furnace' 看炉 | 'job_array' 护阵 | 'job_forage' 觅食 | 'job_patrol' 巡山 | 'job_out' 出战)
+ART.dims.pet2 = { w: 32, h: 28, foot: 26 };
+const T3 = c => tone(c, hs(c, 0.66), lerpC(c, '#ffffff', 0.5)), EARIN = '#f7a3bd';
+// 四足：兔、狐、熊、虎、白泽、谛听、麒麟
+function petQuad(b, P, f) {
+  const c = T3(P.c), leg = P.leg || 2, bry = P.bry || 4.5, brx = P.brx || 7, bx = P.bx || 18, by = 27 - leg - bry, hr = P.hr || 5.5, hx = P.hx || 8, hy = Math.round(by - bry * 0.55) + f, tc = T3(P.tc || P.c), tx = bx + brx - 1, tips = [], el = P.el || 6;
+  if (P.pre) P.pre(b, f);
+  b.add(L => {
+    const n = P.tails || 1;
+    if (P.tail === 'puff') L.e(tx + 1.5, by - 1, 2.3, 2.3, tc);
+    else if (P.tail === 'bushy') for (let i = 0; i < n; i++) { const a = -1.15 + (n > 1 ? (i / (n - 1) - 0.5) * (n > 3 ? 2.6 : 1.5) : 0) - f * 0.07, ll = n > 3 ? 9.5 : n > 1 ? 8 : 6.5, ex = tx + Math.cos(a) * ll * 0.8, ey = by - 1 + Math.sin(a) * ll, cc = i % 2 ? T3(lerpC(tc, '#ffffff', 0.45)) : tc; L.l(tx - 1, by - 1, ex, ey, cc, n > 3 ? 2 : 3); L.e(ex + 0.5, ey + 0.5, n > 1 ? 1.8 : 2.4, n > 1 ? 1.8 : 2.4, cc); tips.push([ex, ey]); }
+    else if (P.tail === 'thin') { L.l(tx, by, tx + 3, by - 1, tc, 2); L.l(tx + 3, by - 1, tx + 4 - f, by - 7, tc, 2); tips.push([tx + 4 - f, by - 8]); }
+    else if (P.tail === 'stub') L.e(tx + 1, by - 2, 1.7, 1.7, tc);
+  });
+  if (P.tip) for (const [x, y] of tips) { b.r(Math.round(x), Math.round(y) - 1, 2, 2, P.tip); b.p(Math.round(x), Math.round(y) - 1, lerpC(P.tip, '#ffffff', 0.6)); }
+  for (const x of [bx - brx + 4, bx + brx - 5]) b.r(Math.round(x), Math.round(by + bry - 2), 2, leg + 1, dn(c));
+  if (P.wing) b.add(L => { for (let i = 0; i < 4; i++) L.l(bx - 2 + i, by - bry + 2, bx + 1 + i * 3, by - bry - 7 + i * 2 - f, T3(P.wing), 2); });
+  b.add(L => { L.e(bx, by, brx, bry, c); for (const x of [bx - brx + 1, bx + brx - 2]) L.r(x, Math.round(by + bry - 3), 2, leg + 3, c); L.e(bx - brx + 2.5, by - 0.5, 3.5, bry, c); });
+  if (P.hoof) for (const x of [bx - brx + 1, bx + brx - 2, bx - brx + 4, bx + brx - 5]) b.r(x, 26, 2, 1, P.hoof);
+  if (P.b) b.hl(Math.round(bx - brx + 3), Math.round(bx + brx - 3), Math.round(by + bry - 1), P.b);
+  if (P.stripe) for (let x = bx - brx + 5; x < bx + brx - 1; x += 3) b.l(x, by - bry + 1, x - 1, by + 1, P.stripe);
+  if (P.plate) b.add(L => { L.e(bx + 0.5, by - 1, brx - 0.5, bry - 0.5, T3(P.plate)); L.r(0, Math.round(by), 32, 12, null); });
+  if (P.spike) for (let x = Math.round(bx - brx + 4); x <= bx + brx - 2; x += 3) { b.r(x, Math.round(by - bry - 2), 2, 3, P.spike); b.p(x, Math.round(by - bry - 3), lerpC(P.spike, '#ffffff', 0.6)); }
+  if (P.mane) b.add(L => { L.e(hx + 2.5, hy + 0.5, hr + 1, hr + 1, T3(P.mane)); spikes(L, hx + 2.5, hy + 0.5, hr, hr + 3, 7, P.mane, 2, 0.45 + f * 0.15); });
+  b.add(L => {
+    if (P.ear === 'long') { L.r(hx - 3, Math.round(hy - hr - el + 2), 2, el + 1, c); L.r(hx + 1, Math.round(hy - hr - el + 3), 2, el, c); }
+    else if (P.ear === 'round') { L.e(hx - 3.5, hy - hr + 1.2, 2, 2, c); L.e(hx + 3.5, hy - hr + 1.2, 2, 2, c); }
+    else for (let k = 0; k < (P.el || 4); k++) { const y = Math.round(hy - hr - (P.el || 4) + 2 + k); L.hl(hx - 4, hx - 4 + Math.min(3, k), y, c); L.hl(hx + 3 - Math.min(3, k), hx + 3, y, c); }
+    L.e(hx, hy, hr, hr - 0.6, c);
+  });
+  const ei = P.ei || EARIN, et = Math.round(hy - hr);
+  if (P.ear === 'long') { b.r(hx - 3, et - el + 4, 1, el - 3, ei); b.r(hx + 1, et - el + 5, 1, el - 4, ei); } else if (P.ear !== 'round') { b.p(hx - 3, et, ei); b.p(hx + 2, et, ei); }
+  b.add(L => L.e(hx - 3, hy + 2.2, 2.6, 1.9, T3(P.mz || lerpC(P.c, '#ffffff', 0.7))), { noHi: 1, sep: 0 });
+  b.r(hx - 4, hy - 2, 1, 2, INK); b.r(hx - 1, hy - 2, 2, 2, INK); b.p(hx - 1, hy - 2, '#ffffff'); if (P.eye) { b.p(hx, hy - 1, P.eye); b.p(hx - 4, hy - 1, P.eye); }
+  b.r(hx - 5, hy + 1, 2, 1, P.nose || '#3a2230');
+  if (P.horn) b.add(L => { L.l(hx - 2, et + 1, hx - 3, et - 4, T3(P.horn), 2); if (P.horn2) { L.l(hx + 2, et + 1, hx + 4, et - 4, P.horn, 2); L.p(hx - 5, et - 2, P.horn); L.p(hx + 6, et - 2, P.horn); L.p(hx + 1, et - 3, P.horn); } });
+  if (P.mark) b.r(hx - 2, et + 1, 2, 1, P.mark);
+  if (P.aura) for (const x of [bx - brx, bx + brx - 3]) { b.r(x, 25, 4, 2, P.aura); b.r(x + 1 + f, 23, 2, 2, P.aura); b.p(x + 1, 25, '#fff2a8'); }
+  if (P.post) P.post(b, f, hx, hy, bx, by);
+  return [hx, et - (P.ear === 'long' ? el - 1 : P.horn ? 5 : 3)];
+}
+// 禽：雀、隼、鹤、金乌
+function petBird(b, P, f) {
+  const c = T3(P.c), wc = T3(P.w || hs(P.c, 0.8)), leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), nk = P.neck || 0, hr = P.hr || 3.4, hx = bx - brx + 1 - (nk ? 2 : 0), hy = by - bry + 0.5 - nk + (nk || P.fly ? 0 : f), tcol = T3(P.t || P.w || P.c), tl = P.tl || 4, lc = P.lc || '#e8a040';
+  if (P.pre) P.pre(b, f);
+  if (P.fly || P.span) b.add(L => { for (let i = 0; i < 5; i++) L.l(bx - 1, by - 1, bx - 6 + i * 2, by - bry - 7 + i + f * 3, dn(wc), 2); }, { flat: 1 });
+  b.add(L => { for (let i = 0; i < (P.tn || 2); i++) { if (P.curl) { const y1 = by - 4 - i * 4 + f; L.l(bx + brx - 2, by, bx + brx + 3, y1 + 3, tcol, 2); L.l(bx + brx + 3, y1 + 3, bx + brx + 7, y1, tcol, 2); L.e(bx + brx + 8, y1, 1.6, 1.6, tcol); } else L.l(bx + brx - 2, by + 1, bx + brx - 2 + tl, by + 3 - i * 2, tcol, 2); } });
+  if (P.tip) for (let i = 0; i < (P.tn || 2); i++) P.curl ? b.r(Math.round(bx + brx + 8), Math.round(by - 4 - i * 4 + f), 1, 1, P.tip) : b.p(Math.round(bx + brx - 2 + tl), Math.round(by + 3 - i * 2), P.tip);
+  if (!P.fly) for (let i = 0; i < (P.legs || 2); i++) { const x = Math.round(bx - 2 + i * 3); b.r(x, Math.round(by + bry - 1), 1, leg + 1, lc); b.r(x - 1, 26, 2, 1, lc); }
+  b.add(L => { L.e(bx, by, brx, bry, c); if (nk) L.l(bx - brx + 2, by - 2, hx + 1, hy + 1, c, 3); L.e(hx, hy, hr, hr, c); });
+  if (P.b) b.add(L => L.e(bx - 1.5, by + 1.5, brx - 2, bry - 1.8, T3(P.b)), { noHi: 1, sep: 0 });
+  b.add(L => {
+    if (P.fly || P.span || f) for (let i = 0; i < 5; i++) L.l(bx + 1, by - 1, bx + 3 + i * 2.2, by - bry - (P.span ? 8 : 4) + i * 2 + (P.fly ? f * 4 : 0), wc, 2);
+    else { L.e(bx + 1.5, by + 0.3, brx - 1.5, bry - 1.6, wc); L.l(bx + 2, by + 1, bx + brx + 1, by + 2, wc, 2); }
+  });
+  if (P.edge) for (let i = 0; i < 4; i++) b.p(Math.round(bx + 3 + i * 1.5), Math.round(by + 1 - (P.fly || P.span || f ? i * 1.4 + 2 : 0)), P.edge);
+  const bk = P.bk || '#f4c542', ix = Math.round(hx - hr), iy = Math.round(hy);
+  b.hl(ix - 1 - (P.bl || 0), ix, iy, bk); b.p(ix, iy + 1, hs(bk, 0.7)); if (P.hook) b.p(ix - 1 - (P.bl || 0), iy + 1, bk);
+  b.p(ix + 2, iy - 1, P.eye || INK); if (P.eye) b.p(ix + 2, iy - 2, INK);
+  if (P.crest) { b.r(Math.round(hx) - 1, Math.round(hy - hr) - 1, 3, 1, P.crest); if (P.crest2) { b.p(Math.round(hx) + 1, Math.round(hy - hr) - 2, P.crest); b.p(Math.round(hx) + 2, Math.round(hy - hr) - 3, P.crest); } }
+  if (P.post) P.post(b, f, hx, hy, bx, by);
+  return [Math.round(hx), Math.round(hy - hr) - 2];
+}
+function petTurtle(b, P, f) {
+  const sc = T3(P.c), sk = T3(P.sk || '#9ab078'), hy = 20 + f;
+  if (P.pre) P.pre(b, f);
+  b.add(L => { L.e(6, hy, 3.4, 3, sk); L.r(7, hy, 5, 3, sk); for (const x of [9, 20]) L.r(x, 23, 4, 4, sk); L.l(25, 22, 28, 24, sk, 2); });
+  b.add(L => { L.e(17, 22, 9.5, 9, sc); L.r(0, 23, 32, 6, null); });
+  b.add(L => L.r(8, 22, 19, 2, T3(P.rim || lerpC(P.c, '#f4e08a', 0.5))), { sep: 1 });
+  const D = dn(sc); for (const [x0, y0, x1, y1] of [[13, 15, 12, 21], [21, 15, 22, 21], [13, 15, 21, 15], [10, 18, 12, 18], [22, 18, 25, 18], [17, 14, 17, 15]]) b.l(x0, y0, x1, y1, D);
+  if (P.moss) for (const [x, y] of [[11, 17], [15, 14], [23, 17], [19, 18], [16, 19]]) b.p(x, y, P.moss);
+  b.p(4, hy - 1, INK); b.p(4, hy, P.eye || INK);
+  if (P.post) P.post(b, f, 6, hy);
+  return [6, hy - 5];
+}
+function petBat(b, P, f) {
+  const c = T3(P.c), m = T3(P.w || hs(P.c, 0.8)), big = P.big ? 2 : 0, cy = 13 - f;
+  b.add(L => L.mir(T => { for (let x = 3 - big; x <= 13; x++) { const u = (13 - x) / (10 + big), top = cy - 1 - Math.sin(u * 2.2) * (f ? 2 : 6 + big), hh = 4 + Math.abs(Math.sin(u * 3.14 * 1.5)) * 3 + (1 - u) * 2; for (let y = top; y < top + hh; y++) T.p(x, y, m); } }));
+  b.mir(T => { const tx = 3 - big, ty = Math.round(cy - 1 - Math.sin(2.2) * (f ? 2 : 6 + big)); T.l(13, cy, tx, ty, dn(c)); T.l(13, cy, 8, ty + 7, dn(m)); T.l(13, cy, 5, ty + 5, dn(m)); });
+  b.add(L => { L.e(16, cy + 3, 3.2, 4.2, c); L.e(16, cy - 2, 3.6, 3.2, c); L.mir(T => { for (let k = 0; k < 4 + big; k++) T.hl(12, 12 + Math.min(2, k), cy - 6 - big + k, c); }); });
+  b.mir(T => { T.p(14, cy - 3, INK); T.p(14, cy - 2, P.eye || '#ff3a2a'); T.p(15, cy, '#ffffff'); T.p(13, cy - 5, P.ei || EARIN); });
+  if (P.b) b.r(15, cy + 2, 2, 4, P.b);
+  if (P.post) P.post(b, f, 16, cy);
+  return [16, cy - 8 - big];
+}
+// 蛟：盘身 + 龙首
+function petJiao(b, P, f) {
+  const c = T3(P.c), bel = P.b || lerpC(P.c, '#ffffff', 0.6), pts = [[10, 14], [13, 18], [10, 23], [17, 25], [24, 23], [25, 17], [21, 13], [24, 8], [27, 6 + f]], hy = 11 + f;
+  if (P.wing) b.add(L => { for (let i = 0; i < 5; i++) L.l(17, 14, 14 + i * 3, 3 + i * 1.5 - f, T3(P.wing), 2); });
+  const seg = (L2, r0, col, oy) => { for (let k = 0; k < pts.length - 1; k++) for (let i = 0; i <= 8; i++) { const u = (k + i / 8) / (pts.length - 1), x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * i / 8, y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * i / 8, r = r0 * (1 - u * 0.7); L2.e(x, y + oy, r, r, col); } };
+  b.add(L => { seg(L, 2.9, c, 0); L.e(7, hy, 3.6, 3, c); L.r(2, hy, 5, 3, c); });
+  for (let k = 0; k < 7; k++) { const p = pts[Math.min(6, k)], q2 = pts[Math.min(7, k + 1)]; b.p(Math.round((p[0] + q2[0]) / 2), Math.round((p[1] + q2[1]) / 2 + 1), bel); }
+  if (P.fin) for (const [x, y] of [[13, 15], [11, 20], [18, 22], [26, 20], [23, 14], [22, 10]]) { b.p(x, y - 3, P.fin); b.p(x + 1, y - 2, P.fin); }
+  if (P.spike) for (const [x, y] of [[12, 12], [15, 15], [20, 21], [26, 19], [24, 13], [23, 9]]) { b.r(x, y - 4, 1, 3, P.spike); b.p(x, y - 5, '#ffffff'); }
+  if (P.horn) b.add(L => { L.l(8, hy - 2, 11, hy - 6, T3(P.horn), P.horn2 ? 2 : 1); if (P.horn2) { L.l(6, hy - 3, 7, hy - 7, P.horn, 2); L.p(12, hy - 4, P.horn); } });
+  b.p(5, hy - 1, INK); b.p(5, hy, P.eye || '#f4c542'); b.hl(2, 5, hy + 2, bel); b.p(2, hy, INK);
+  if (P.whisk) { b.l(2, hy + 1, 0, hy + 4, P.whisk); b.l(3, hy + 3, 2, hy + 6, P.whisk); }
+  return [8, hy - 8];
+}
+const moonBack = (b) => b.add(L => { L.e(20, 10, 9, 9, '#fff2a8'); L.e(23, 8, 7.5, 7.5, null); }, { flat: 1 });
+const sunBack = (r, c1, rays) => (b, f) => b.add(L => { L.e(18, 11, r, r, c1); if (rays) spikes(L, 18, 11, r, r + 3 + f, 12, c1, 1, 0.2); }, { flat: 1 });
+const PLAN = { q: petQuad, b: petBird, t: petTurtle, f: petBat, j: petJiao };
+// [名, 五行, 骨架, 参数]；每种三行：初始、分支 A、分支 B
+const PETS2 = {
+  p_tu: [
+    ['月牙兔', 'mu', 'q', { c: '#f2efe6', ear: 'long', tail: 'puff', brx: 5.5, bry: 4.5, hr: 5, bx: 17, leg: 1, eye: '#d8404a', mark: '#f4c542' }],
+    ['捣药玉兔', 'mu', 'q', { c: '#dff2e4', ear: 'long', tail: 'puff', brx: 5.5, bry: 4.5, hr: 5, bx: 18, leg: 1, eye: '#2a8a7a', mark: '#4ccb9f', ei: '#8fe0b8', hx: 10, post: (b, f) => { b.add(L => { L.r(1, 22, 7, 5, STEEL); L.r(0, 21, 9, 2, STEEL); }); b.add(L => L.l(4, 20 - f * 2, 6, 13 - f * 2, WOOD, 2)); b.p(3, 20, '#62d26f'); b.p(5, 20, '#a8e08a'); } }],
+    ['广寒兔', 'mu', 'q', { c: '#dfe8ff', ear: 'long', el: 8, tail: 'puff', brx: 5.5, bry: 4.5, hr: 5, bx: 17, leg: 1, eye: '#4aa8ff', mark: '#7fe0f0', ei: '#b8c8ff', pre: moonBack, post: b => { b.p(27, 20, '#ffffff'); b.p(2, 6, '#ffffff'); } }],
+  ],
+  p_hu: [
+    ['雪团灵狐', 'shui', 'q', { c: '#f4f2fa', tail: 'bushy', brx: 6, bry: 4, hr: 5.2, eye: '#f4a020', tip: '#8fd0ff' }],
+    ['霜月狐', 'shui', 'q', { c: '#cfe4ff', tail: 'bushy', tails: 2, brx: 6.5, bry: 4.2, hr: 5.4, leg: 2, eye: '#4aa8ff', tip: '#7fe0f0', mark: '#4aa8ff', ei: '#7fb8f0', spike: '#b8f0ff' }],
+    ['赤尾狐', 'shui', 'q', { c: '#f8f0e8', tc: '#e8483a', tail: 'bushy', tails: 2, brx: 6.5, bry: 4.2, hr: 5.4, leg: 2, eye: '#d8404a', tip: '#ffd060', mark: '#e8483a', ei: '#e8483a' }],
+    ['九尾天狐', 'shui', 'q', { c: '#f6e7ff', tc: '#e6ccff', tail: 'bushy', tails: 9, brx: 6.5, bry: 4.2, hr: 5.4, leg: 2, bx: 17, eye: '#c27dff', tip: '#ff9ad8', mark: '#ff5aa8', ei: '#ff9ad8' }],
+  ],
+  p_que: [
+    ['青羽雀', 'mu', 'b', { c: '#6fd8b8', w: '#3fa890', b: '#e8fff0', brx: 4.6, bry: 3.8, hr: 3.2, tl: 4 }],
+    ['雷翼隼', 'mu', 'b', { c: '#5a8a9a', w: '#34586e', b: '#d8e8e0', brx: 5.5, bry: 4, hr: 3.2, tl: 5, hook: 1, span: 1, edge: '#f4e04a', eye: '#f4c542', tip: '#f4e04a' }],
+    ['青鸾', 'mu', 'b', { c: '#4ab8d8', w: '#2a7ab0', b: '#d4f4ff', t: '#3fd0b0', brx: 5, bry: 4, hr: 3.2, leg: 4, tn: 3, curl: 1, tip: '#fff2a8', crest: '#f4c542', crest2: 1, bx: 13 }],
+  ],
+  p_xiong: [
+    ['铁背熊', 'jin', 'q', { c: '#8a7262', ear: 'round', tail: 'stub', brx: 8, bry: 6.5, hr: 6, leg: 2, nose: '#2a1a26', plate: '#8a8ea8', mz: '#d8c4a8' }],
+    ['金刚熊', 'jin', 'q', { c: '#6e5244', ear: 'round', tail: 'stub', brx: 8.5, bry: 7, hr: 6.2, leg: 2, nose: '#2a1a26', plate: '#f4c542', mz: '#e8d0a8', mark: '#f4c542', eye: '#f4c542', spike: '#fff2a8' }],
+    ['玄铁熊', 'jin', 'q', { c: '#3e3e52', ear: 'round', tail: 'stub', brx: 8.5, bry: 7, hr: 6.2, leg: 2, nose: '#2a1a26', plate: '#22222e', mz: '#8a8ea8', eye: '#7fe0f0', spike: '#7fe0f0' }],
+  ],
+  p_gui: [
+    ['墓穴玄龟', 'tu', 't', { c: '#8a7a5a', sk: '#a8b080', moss: '#62b25a' }],
+    ['负碑灵龟', 'tu', 't', { c: '#6a6252', sk: '#b8b890', rim: '#c8a84a', eye: '#f4c542', pre: b => { b.add(L => { L.r(13, 2, 9, 13, STEEL); L.r(14, 1, 7, 2, STEEL); }); for (const y of [5, 8, 11]) b.hl(15, 19, y, y === 8 ? '#f4c542' : '#5a6480'); } }],
+    ['玄武幼龟', 'tu', 't', { c: '#2a5a6a', sk: '#6a9a8a', rim: '#7fe0f0', eye: '#7fe0f0', post: (b, f) => { const S = T3('#3a8a5a'); b.add(L => { L.l(24, 16, 27, 11, S, 2); L.l(27, 11, 24, 6 + f, S, 2); L.l(24, 6 + f, 20, 5 + f, S, 2); }); b.p(20, 5 + f, '#f4c542'); b.p(18, 6 + f, '#d8404a'); for (const [x, y] of [[12, 17], [20, 16], [16, 20]]) b.p(x, y, '#b8f0ff'); } }],
+  ],
+  p_hu2: [
+    ['赤焰虎', 'huo', 'q', { c: '#f08a3c', tail: 'thin', brx: 7.5, bry: 4.5, hr: 5.4, leg: 2, el: 3, stripe: '#5a2a1c', tip: '#ffd060', mz: '#fff0dc', b: '#fff0dc', eye: '#f4c542' }],
+    ['炎虎王', 'huo', 'q', { c: '#e8582a', tail: 'thin', brx: 8, bry: 5, hr: 5.8, leg: 3, el: 3, stripe: '#5a1a14', tip: '#fff2a8', mz: '#fff0dc', mane: '#ffb23f', mark: '#5a1a14', aura: '#ff8a2a', eye: '#fff2a8' }],
+    ['雷纹虎', 'huo', 'q', { c: '#f4ecd8', tail: 'thin', brx: 8, bry: 4.8, hr: 5.6, leg: 3, el: 3, stripe: '#8a5ae0', tip: '#c27dff', mz: '#ffffff', eye: '#8a5ae0', mark: '#f4e04a', spike: '#f4e04a' }],
+  ],
+  p_fu: [
+    ['血瞳蝠', 'huo', 'f', { c: '#5a3a52', w: '#8a4a5a' }],
+    ['噬魂蝠王', 'huo', 'f', { c: '#3a1a2a', w: '#a8202a', big: 1, eye: '#fff2a8', post: (b, f, x, y) => { b.mir(T => { T.p(14, y - 9, '#f4c542'); T.p(14, y - 10, '#f4c542'); }); b.p(15, y - 8, '#f4c542'); b.p(16, y - 8, '#f4c542'); for (const [dx, dy] of [[-9, 9], [9, 10], [0, 11]]) b.p(16 + dx, y + dy + f, '#b8c0f0'); } }],
+    ['夜明蝠', 'huo', 'f', { c: '#2a3a6a', w: '#3a5aa0', eye: '#fff2a8', b: '#fff2a8', ei: '#7fe0f0', post: (b, f, x, y) => b.mir(T => { T.p(7, y - 2 - (f ? 0 : 3), '#fff2a8'); T.p(10, y + 1 - (f ? 0 : 2), '#7fe0f0'); T.p(5, y - (f ? 0 : 4), '#ffffff'); }) }],
+  ],
+  p_sun: [
+    ['雷翼隼', 'jin', 'b', { c: '#b8a070', w: '#6a5a48', b: '#f0e4c8', brx: 5.5, bry: 4, hr: 3.2, tl: 5, hook: 1, span: 1, edge: '#f4e04a', eye: '#f4c542' }],
+    ['裂空隼', 'jin', 'b', { c: '#e8f4ff', w: '#7fc8f0', b: '#ffffff', brx: 5.5, bry: 3.6, hr: 3, tl: 7, hook: 1, fly: 1, edge: '#ffffff', eye: '#4aa8ff', tip: '#7fe0f0', post: (b, f, hx, hy, bx, by) => { for (let i = 0; i < 3; i++) b.hl(24 + i, 29, by + 3 + i * 2, i % 2 ? '#d4ecff' : '#7fe0f0'); } }],
+    ['剑羽隼', 'jin', 'b', { c: '#8a94a8', w: '#c8d0e0', b: '#e8eef6', t: '#eef4ff', brx: 5.5, bry: 4, hr: 3.2, tl: 8, tn: 3, hook: 1, span: 1, edge: '#f4c542', eye: '#f4c542', bk: '#c8d0e0' }],
+  ],
+  p_he: [
+    ['冰羽鹤', 'shui', 'b', { c: '#f4f8ff', w: '#a8d0f0', t: '#5a9ad8', brx: 5.5, bry: 3.6, hr: 2.6, leg: 7, neck: 7, bl: 2, crest: '#d8404a', lc: '#5a6480', bx: 17 }],
+    ['玄冰仙鹤', 'shui', 'b', { c: '#bfe4ff', w: '#4a8ad0', t: '#24579a', brx: 5.5, bry: 3.6, hr: 2.6, leg: 7, neck: 7, bl: 2, crest: '#7fe0f0', crest2: 1, lc: '#24579a', bx: 17, tip: '#ffffff', edge: '#ffffff', eye: '#4aa8ff' }],
+    ['松鹤', 'shui', 'b', { c: '#fbfaf4', w: '#f0ece0', t: '#2a2630', brx: 5.5, bry: 3.6, hr: 2.6, leg: 7, neck: 7, bl: 2, crest: '#d8404a', lc: '#3a3440', bx: 17, post: (b, f, hx, hy) => { for (const [x, y] of [[-6, 1], [-7, 0], [-8, 1], [-7, 2], [-9, 0]]) b.p(Math.round(hx) + x, Math.round(hy) + y, x % 2 ? '#2f6e4b' : '#62b25a'); b.r(Math.round(hx), Math.round(hy) + 3, 2, 3, '#2a2630'); } }],
+  ],
+  p_jiao: [
+    ['玄水蛟', 'shui', 'j', { c: '#2a6ab0', fin: '#7fe0f0', horn: '#d4ecff', whisk: '#7fe0f0' }],
+    ['应龙', 'shui', 'j', { c: '#3a8ad8', b: '#fff2a8', fin: '#f4c542', horn: '#f4c542', horn2: 1, whisk: '#f4c542', wing: '#f4e8c0' }],
+    ['冰螭', 'shui', 'j', { c: '#bfe8ff', b: '#ffffff', fin: '#4aa8ff', spike: '#7fe0f0', eye: '#4aa8ff', whisk: '#ffffff' }],
+  ],
+  p_wu: [
+    ['金乌雏', 'huo', 'b', { c: '#f0a82a', w: '#5a3a2a', b: '#fff2a8', brx: 5, bry: 4.6, hr: 3.6, tl: 3, bk: '#d8404a', lc: '#d8404a', eye: '#d8404a' }],
+    ['三足金乌', 'huo', 'b', { c: '#3a2a30', w: '#1e1620', t: '#d8404a', brx: 5.5, bry: 4.2, hr: 3.4, tl: 6, tn: 3, legs: 3, bk: '#f4c542', lc: '#f4c542', eye: '#ff6b3a', edge: '#ff8a2a', tip: '#ffd060', pre: sunBack(8, '#ffb23f', 1) }],
+    ['大日金乌', 'huo', 'b', { c: '#e8483a', w: '#f4c542', t: '#ff8a2a', b: '#ffd89a', brx: 5.5, bry: 4.2, hr: 3.4, tl: 7, tn: 3, legs: 3, bk: '#f4c542', lc: '#f4c542', eye: '#fff2a8', edge: '#fff2a8', crest: '#f4c542', crest2: 1, pre: sunBack(10, '#fff2a8', 1) }],
+  ],
+  p_ze: [
+    ['白泽幼兽', 'tu', 'q', { c: '#f4f4fa', tail: 'bushy', tc: '#a8d8f0', brx: 6.5, bry: 4.5, hr: 5.4, leg: 2, horn: '#f4c542', mane: '#bfe4ff', eye: '#4aa8ff', mark: '#d8404a' }],
+    ['白泽', 'tu', 'q', { c: '#ffffff', tail: 'bushy', tails: 2, tc: '#7fc8f0', brx: 8, bry: 5, hr: 5.8, leg: 3, horn: '#f4c542', horn2: 1, mane: '#8fd0ff', eye: '#f4c542', mark: '#d8404a', tip: '#ffffff', aura: '#8fd0ff', hoof: '#f4c542' }],
+    ['谛听', 'tu', 'q', { c: '#7a7a8e', tail: 'thin', brx: 7.5, bry: 4.8, hr: 5.6, leg: 3, el: 6, horn: '#f4c542', eye: '#f4c542', mz: '#c8c4d8', tip: '#f4c542', stripe: '#4a4a5e', ei: '#c8c4d8', post: (b, f, hx, hy) => { b.hl(hx + 3, hx + 6, hy + 4, '#d8404a'); b.r(hx + 4, hy + 5, 2, 2, '#f4c542'); } }],
+  ],
+  p_qilin: [
+    ['麒麟幼崽', 'tu', 'q', { c: '#f0b429', tail: 'bushy', tc: '#e8483a', brx: 7.5, bry: 4.8, hr: 5.6, leg: 3, horn: '#c8fff0', horn2: 1, mane: '#e8483a', eye: '#2a8a7a', mz: '#fff2a8', b: '#fff2a8', tip: '#ffd060', aura: '#ff8a2a', hoof: '#5a3a26', mark: '#4ccb9f', post: (b, f, hx, hy, bx, by) => { for (let y = by - 3; y <= by + 1; y += 2) for (let x = bx - 3 + (y & 1); x <= bx + 5; x += 3) b.p(Math.round(x), Math.round(y), '#4ccb9f'); } }],
+  ],
+};
+const PFORM = { a: 1, b: 2, A: 1, B: 2 };
+function petSpec(sp, form) { const S = PETS2[sp] || PETS2.p_tu; form = typeof form === 'string' ? PFORM[form] | 0 : form | 0; return S[Math.max(0, Math.min(S.length - 1, form))]; }
+ART.petName = (sp, form) => petSpec(sp, form)[0];
+ART.petList = () => { const o = []; for (const k in PETS2) PETS2[k].forEach((s, i) => o.push([k, i, s[0], s[1]])); return o; };
+ART.petSprite = function (sp, form, frame, aw) {
+  const S = petSpec(sp, form); frame = frame ? 1 : 0;
+  return cached(['pet2', sp, S[0], frame, aw ? 1 : 0].join('|'), () => {
+    const b = new Buf(32, 28), top = PLAN[S[2]](b, S[3], frame);
+    const c = b.cv({ max: 15 });
+    if (aw) on(c, () => { const x = top[0], y = Math.max(1, top[1]); for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; R(x + Math.round(Math.cos(a) * 4), y + Math.round(Math.sin(a) * 1.4), 1, 1, Math.sin(a) > 0.3 ? '#a8742a' : i % 3 ? '#f4c542' : '#fff2a8'); } });
+    return c;
+  });
+};
+const EL_BG = { jin: ['#5a4a1e', '#c8a84a', '#fff2a8'], mu: ['#1e4a34', '#4a9a5a', '#c8f0a8'], shui: ['#16305a', '#3a7ab8', '#bfe4ff'], huo: ['#5a1a1a', '#c8502a', '#ffd89a'], tu: ['#4a3420', '#a8804a', '#f0dcb0'] };
+ART.petCard = function (sp, form, aw) {
+  const S = petSpec(sp, form), fi = PETS2[sp] ? PETS2[sp].indexOf(S) : 0, E = EL_BG[S[1]] || EL_BG.tu;
+  return cached(['petc', sp, S[0], aw ? 1 : 0].join('|'), () => on(mk(36, 36), () => {
+    R(1, 0, 34, 36, INK); R(0, 1, 36, 34, INK);
+    vgrad(1, 1, 34, 27, ramp([E[0], E[1], E[2]], 3)); disc(18, 17, 11, lerpC(E[1], E[2], 0.6)); disc(18, 17, 9, E[2]);
+    R(1, 28, 34, 7, hs(E[0], 0.9)); R(1, 28, 34, 1, E[1]); ellipse(18, 30, 10, 2, E[0]);
+    if (fi) for (const [x, y] of [[5, 6], [30, 9], [8, 22], [29, 21], [26, 4]]) { R(x, y, 1, 1, '#ffffff'); if (fi > 1 || x % 2) { R(x - 1, y, 3, 1, 'rgba(255,255,255,0.6)'); R(x, y - 1, 1, 3, 'rgba(255,255,255,0.6)'); } }
+    ctx.drawImage(ART.petSprite(sp, form, 0, aw), 2, 4);
+    const fc = aw ? '#f4c542' : fi ? '#c8c4d8' : hs(E[1], 0.8); R(1, 1, 34, 1, fc); R(1, 34, 34, 1, hs(fc, 0.7)); R(1, 1, 1, 34, fc); R(34, 1, 1, 34, hs(fc, 0.7));
+  }));
+};
+ART.drawEvo = function (x, y, t, k) {
+  x = Math.round(x); y = Math.round(y); ctx.save();
+  if (k === undefined) {
+    const p = 0.5 + Math.sin(t / 220) * 0.5; glow(x, y - 12, 14, '#fff2a8', 0.25 + p * 0.2);
+    for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8 + t / 700; ctx.globalAlpha = 0.5 + p * 0.5; R(x + Math.cos(a) * 15, y - 1 + Math.sin(a) * 4, 1, 1, i % 2 ? '#f4c542' : '#fff2a8'); }
+    for (let i = 0; i < 5; i++) { const kk = ((t / 26 + i * 9) % 30) / 30, px = x - 10 + (i * 7 % 21); ctx.globalAlpha = 1 - kk; R(px, y - 4 - kk * 26, 1, 3, '#fff2a8'); R(px, y - 5 - kk * 26, 1, 1, '#ffffff'); }
+  } else {
+    k = Math.max(0, Math.min(1, k)); const r = 4 + k * 22;
+    if (k < 0.5) { ctx.globalAlpha = 0.9 * (1 - k * 2); for (let j = -26; j <= 0; j++) R(x - 9 + Math.abs(j + 13) * 0.3, y + j, 18 - Math.abs(j + 13) * 0.6, 1, '#ffffff'); }
+    glow(x, y - 12, 10 + k * 16, '#fff2a8', 0.8 * (1 - k)); ctx.globalAlpha = 1 - k * k;
+    for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; R(x + Math.cos(a) * r, y - 12 + Math.sin(a) * r * 0.75, i % 3 ? 1 : 2, i % 3 ? 1 : 2, i % 2 ? '#f4c542' : '#ffffff'); }
+    for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.3, d = 8 + k * 16, px = Math.round(x + Math.cos(a) * d), py = Math.round(y - 12 + Math.sin(a) * d * 0.8); R(px - 2, py, 5, 1, '#fff2a8'); R(px, py - 2, 1, 5, '#fff2a8'); }
+  }
+  ctx.restore();
+};
+Object.assign(ICONS, {
+  job_field: '.....nnnn/....nnnnnn/...ooeeeeoo/.....eKeK/.....eeee/o.bbbbbbbb.o/oobbbbbbbboo/...bbBBbb/...bbBBbb..l/....o..o..lgl/.l..o..o...g/lgl.o..o.OOOOO/OOOOOOOOOOooo',
+  job_furnace: '.......r/......rmr/.....rmhmr/.....rmhmr/......rmr/.nnnn..y/nNnNnn.ssss/nNnNnNsttttS/nNnNnNstwtSS/.nnnNosttSS/...oO..SSS/..oO..S...S',
+  job_array: '....cccccc/..cc......cc/.c..bbbbbb..c/.c.bwbbbbBB.c/c..bbbbbbBB..c/c..bbbyybBB..c/c..bbbyybBB..c/.c..bbbbBB..c/.c...bbBB...c/..cc..BB..cc/....cccccc',
+  job_forage: '....oooo/...o....o/..o......o/.oooooooooo/.oOoOrrOoOo/.OoOrprrOoO/.oOoOrrgoOo/.OoOoOoglOo/..OoOoOoOo/..oooooooo',
+  job_patrol: '.....o/....ooo/.....O.....s/....yyy...sts/...yhyyY.stttS/...yhyyY.sttSS/...yyyyYsttttSS/....YYY.stttSSS/.....o.sttttSSS/....ooosttttSSSS',
+  job_out: '..r..r..r/..r..r..r....w/.rr.rr.rr...wW/.rR.rR.rR..wW/..R..R..R.wW/.........wW/...rrrr.wW/..rrrrrrW/..rrprrr.y/..rrrrrR/...RRRR',
+});
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -49,3 +49,30 @@ if (sec('g3') && ART.drawRealm) {
   fxc(90, 34, g => { ART.drawQiBar(4, 3, 80, 1, 0); ART.drawQiBar(4, 13, 80, 0.55, 0); ART.drawQiBar(4, 23, 80, 0.2, 0); }, 4, '气血条', '#3a5a7a');
   br();
 }
+
+if (sec('g4') && ART.petSprite) {
+  const z = +(q.get('z') || 4), ELN = { jin: '金', mu: '木', shui: '水', huo: '火', tu: '土' };
+  h('【四 灵宠】ART.petSprite(sp, form, frame, aw) 32×28：两帧（' + z + ' 倍）、原尺寸、剪影、觉醒；ART.petCard 36×36（2 倍）');
+  let last = '';
+  for (const [sp, fi, name, el] of ART.petList()) {
+    if (sp !== last && last) br(); last = sp;
+    const w = document.createElement('span'); w.style.cssText = 'display:inline-block;margin:0 10px 4px 0;white-space:nowrap'; out.appendChild(w);
+    const add = (c, s, l, bg) => w.appendChild(show(c, s, l, bg));
+    const c0 = ART.petSprite(sp, fi, 0);
+    add(c0, z, name + '·' + ELN[el] + ' ' + ncol(c0) + '色', PAPER); add(ART.petSprite(sp, fi, 1), z, sp + ' ' + fi, PANEL);
+    add(c0, 1, '', PAPER); add(c0, 1, '', PANEL); add(sil(c0), 1, '', '#d8d8d8'); add(ART.petSprite(sp, fi, 0, 1), 1, '', PANEL);
+    add(ART.petCard(sp, fi), 2, '', PANEL); if (fi) add(ART.petCard(sp, fi, 1), 2, '觉醒', PANEL);
+  }
+  br(); h('洞府里的大小对照、可进化光效 ART.drawEvo(x, y, t) 与进化瞬间 ART.drawEvo(x, y, t, k)');
+  const T = 1000, P2 = ART.dims.pet2;
+  scene(g => {
+    const r = ART.drawHome({ year: 0.3, home: { cave: 4, field: 6, furnace: 4, array: 5 } }, T, OY, [], { phase: 0.5 });
+    g.drawImage(ART.sit(look, 2), 100 - D.sit.w / 2, 136 - D.sit.h);
+    [['p_hu', 0, 124], ['p_xiong', 1, 150], ['p_he', 0, 60], ['p_jiao', 1, 30]].forEach(([sp, fi, x], i) => { if (i === 1) ART.drawEvo(x + 16, 138, T); g.drawImage(ART.petSprite(sp, fi, 0), x, 138 - P2.foot); });
+    g.drawImage(ART.petSprite('p_fu', 0, 0), 80, 70); ART.nightOverlay(r.sky, OY, 160 + OY, r.lights);
+  }, '洞府');
+  fxc(200, 44, g => [0.1, 0.35, 0.6, 0.9].forEach((k, i) => { g.drawImage(ART.petSprite('p_hu2', 1, 0), 9 + i * 50, 12); ART.drawEvo(25 + i * 50, 38, T, k); }), 3, '进化瞬间 k = 0.1 / 0.35 / 0.6 / 0.9', PANEL);
+  br(); h('岗位图标');
+  [['job_field', '守田'], ['job_furnace', '看炉'], ['job_array', '护阵'], ['job_forage', '觅食'], ['job_patrol', '巡山'], ['job_out', '出战']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
+  br();
+}
