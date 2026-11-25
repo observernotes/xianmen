@@ -157,7 +157,7 @@ function aucGuided(st, rec) {
 }
 // guided 的宗门（SYSTEMS §11）：宝库轮换里功法、更高阶的法宝、器方阵图买得起就换，丹矿缺了补；职司按宗门领；
 //   每届给支持最高、还没到 40 的两位长老送礼（钱够才送）；徒弟：候选里挑灵根最高的，到顶前闭门苦修、到顶了去当值，圆满的功法教给他（你那门到化境），
-//   长老以前金丹就出师，长老起留两个最强的打三人会武
+//   长老以前金丹就出师，长老起留两个最强的打三人会武（太上起给这两个各补教到两门）
 const DUTY_FOR = { jian: 'zhan', dan: 'dan', dao: 'qi', xuesha: 'zhan' };
 function sectGuided(st, rec) {
   for (const c of L.vaultCells(st)) {
@@ -185,7 +185,7 @@ function sectGuided(st, rec) {
     // 长老以前金丹就出师；长老起留两个最强的打三人会武，第三个金丹出师
     const keep = st.sect.rank >= 4 && L.discTop(st, 2).includes(x);
     if (L.discCanGrad(x) && !keep) { const r = L.discAskGrad(st, x.u); if (r && r.ev) L.resolveChoice(st, r.ev, 0); continue; }
-    if (!L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 4) { const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5)); if (id && L.discTeach(st, x.u, id)) return; }
+    if (!L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 4) { const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5 && x.taught.length < 2)); if (id && L.discTeach(st, x.u, id)) return; }
   }
 }
 // guided 的秘境（SYSTEMS §8）：夏天有令、没伤、第一层战斗房掉血不到一半就进；门照老祖的“荐”走，最好的门也会出事 / 气血见底没泉就带着收获走；
