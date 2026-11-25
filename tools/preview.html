@@ -1,6 +1,7 @@
 <!doctype html><meta charset="utf-8"><body style="margin:0;background:#2b3442">
 <!-- 美术预览。默认：阶段二新资产总览（半身像、图标、界面皮肤、印章、对决、首领、过场画）
      ?only=pt|ic|ui|duel|misc|boss|intro 只看一部分；?z=3 半身像放大倍数；?ids=mu,zhao 只看某几位
+     ?only=g1…g10 阶段三各批（法宝 / 历法坊市 / 秘境 / 灵宠 / 灵田炼丹 / 洞府 / 天劫道心 / 宗门 / 人物 / 图鉴轮回），代码在 preview_p3.js
      ?only=old 旧精灵与场景（也可 only=spr|home|adv；?s=3 场景放大倍数；?oy=40 场景加高） -->
 <script src="../src/logic.js"></script><script src="../src/art.js"></script>
 <div id="out"></div>
@@ -156,3 +157,4 @@ if (only === 'old' || only === 'adv') {
   }, R0.n + ' (' + R0.bg + ')'); }
 }
 </script>
+<script src="preview_p3.js"></script>

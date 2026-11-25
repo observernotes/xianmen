@@ -2874,5 +2874,116 @@ ART.extendSides = function (W2) {
   ctx.restore();
 };
 
+// ====================================================================
+// 阶段三新增资产（SYSTEMS v2 / CONTENT v2）。规则同阶段二：INK 描边、左上光源、单图 ≤16 色
+// ====================================================================
+// ---------- 一、法宝 ----------
+// ART.item('r', tier 1～7)            → 16×16 法衣（一阶一形：布袍→道袍→广袖→八卦衣→羽衣→披帛仙衣→混沌）
+// ART.item('o', tier 1～7, kind)      → 16×16 饰品。kind：0|'cul' 修炼（玉佩）1|'gold' 财运（铜钱）2|'luck' 气运（符）3|'life' 寿元（长命锁）
+// ART.item('boss', k 0～10)           → 16×16 首领专属法宝（顺序同 L.BOSSES）
+// ART.affix(name)                     → 8×8 词条小记号；name 为词条中文名（锋锐…养气，克金～克土）或 0～15
+// ART.icon('ore' | 'gscroll')         → 灵矿、器方
+// ART.drawForge(x, y, k, kind)        → 强化特效，画在当前 ctx；k 0～1 进度；kind 'hit' 锤击火星 | 'ok' 成功 | 'fail' 失败
+// 均走 cached()，同参数只画一次
+const EL_C = { jin: '#f4c542', mu: '#62d26f', shui: '#4aa8ff', huo: '#e8483a', tu: '#b98a4c' };
+Object.assign(ICONS, {
+  ore: '....sss/...sttts..c/..sttSttswcC/..stSSttScCd/.sttSttSSCd/.stttttSSSs/sttcttSSttSs/stwcCtSttSSS/sSccCdSSSSS/.SSCdSSSSS/..SSSSSS',
+  gscroll: '.oO........oO/.yynnnnnnnnyy/.yYnnnnsnnnyY/.oOnnnswnnnoO/..nnnnswnnn/..nnnnswnnn/..nnnyyyynn/..nnnnoOnnn/.oOnnnoOnnnoO/.yynnnnnnnnyy/.yYnnnnnnnnyY/.oO........oO',
+  boss0: '.........ww/........wwnw/........wnnW/.......wwnW/.......wnnW/......wwnW/......wnW/..ss.wwW/...sstW/...ost/..oO.ss/.oO/rO',
+  boss1: '....tttt/...twwwwt/.ootwttwtts/..oOtttttSs/...oOtttSS/..twoOtSS/..tttoOS/..sSS.oO/.......oO/....rr..oO/....r....oO/....r.....O',
+  boss2: '...jjjjjjj/...jwjjjjJ/....JJJJJ/.....jjJ/.....jjJ/...nnnnnnN/...nrrrrnN/...nnrrnnN/.....jjJ/.....jjJ/.....jJ/.....jJ/......J',
+  boss3: '.........r.r/........ryyr/.......ryhyyr/........yhyr/........yyR/.......rRy/......rR/.....rR/....rR/...yrR/..yhy/.yhy/..y',
+  boss4: '..........R/........RRr/.......Rrpr/......Rrpr.r/.....Rrpr/....Rrpr.r/...Rrpr/.k.Rrr..r/.kkRr/..kk/.kSkk/kS..k/S',
+  boss5: '.....yy/.....oO/.....oO/..ssssssss/..SgSttSSS/.....tS/....gtS/....ggS/.....tS/.....tSg/.....tS/.....tS/......S',
+  boss6: '.....yy/....y..y/.....yy/....vvvv/...vwvvvV/...vwvvvV/..vvwvvvVV/..vvvvvvVV/.vvvvvvvvVV/.yyhyyyyyYY/.....cc/..c..cC..c',
+  boss7: '.bbbbbbbbbbb/bwwbBbbBbbBB/bwbbbBbbBbBB/bbBbbByBbbBB/bbbBbyhyBbBB/bbBbbByBbbBB/bbbBbbBbbBBB/.bBbbBbbBbB/.bbbBbbBbBB/..bBbbBbBB/...bbBbBB/....bBBB/.....BB',
+  boss8: '......w/..w..VVVV..w/....VvvvvV/...VvvwvvvV/...VvwhwvvV/..wVwhhhwVw/...VvwhwvvV/...VvvwvvVV/....VvvvVV/..w..VVVV..w/......w',
+  boss9: '......w/.....wwt/.s...wt...s/.st..wt..tS/.stt.wt.ttS/..sttwtttS/...ssttSS/.....yY/..rr.oO/..r..oO/.....oO/.....oO/.....oO',
+  boss10: '.........v.w/........vvb/.......vbb/......bbc/.....ccg..c/....cgg/...ggy/.k.gyy/.kkyr/..kk/.kSkk/kS..k/S',
+});
+// 法衣：在 16×16 上按阶叠加
+function robeIcon(t) {
+  const q = QCOL[Math.min(5, t - 1)], c = tone(q, hs(q, 0.62), lerpC(q, '#ffffff', 0.6)), b = new Buf(16, 16), wide = t >= 3;
+  if (t >= 6) b.add(L => L.mir(T => { T.l(1, 9, 0, 5, PINK); T.l(0, 4, 2, 1, PINK); T.l(1, 10, 2, 14, PINK); }), { flat: 1 }); // 披帛
+  if (t === 5 || t === 7) b.add(L => L.mir(T => { T.l(4, 3, 1, 0, WHITE, 2); T.l(3, 4, 0, 3, WHITE); })); // 羽肩
+  b.add(L => { L.r(wide ? 1 : 2, 3, wide ? 14 : 12, 3, c); L.mir(T => T.r(wide ? 1 : 2, 6, 3, wide ? 4 : 2, c)); L.r(5, 3, 6, 7, c); L.sy(10, wide ? '45566' : '44555', c, 8); });
+  b.r(7, 2, 2, 1, '#f6f2fa'); b.p(6, 3, '#f6f2fa'); b.p(9, 3, '#f6f2fa'); b.p(7, 4, '#f6f2fa'); b.p(8, 4, hs(q, 0.62)); b.p(7, 3, '#f2c9a0'); b.p(8, 3, '#f2c9a0');
+  b.hl(5, 10, 9, t >= 4 ? '#f4c542' : t >= 2 ? '#f6f2fa' : '#7a5230'); b.p(8, 9, t >= 4 ? '#d8404a' : '#b98a4c');
+  if (t === 1) { b.r(9, 11, 2, 2, hs(q, 0.62)); b.p(3, 5, hs(q, 0.62)); }
+  if (t >= 2) b.mir(T => T.hl(wide ? 1 : 2, wide ? 3 : 4, wide ? 9 : 7, '#f6f2fa'));
+  if (t >= 3) b.mir(T => { T.p(4, 3, '#f4c542'); T.p(5, 3, '#f4c542'); });
+  if (t >= 4) { b.hl(4, 11, 14, '#f4c542'); b.r(7, 6, 2, 2, '#f6f2fa'); b.p(8, 6, INK); b.p(7, 7, INK); }
+  if (t >= 6) { b.r(7, 6, 2, 2, '#fff2a8'); b.p(7, 5, '#fff2a8'); b.p(8, 8, '#fff2a8'); b.p(6, 7, '#fff2a8'); b.p(9, 6, '#fff2a8'); b.p(7, 12, '#ffffff'); b.p(9, 12, '#ffffff'); }
+  return b;
+}
+// 饰品：四种各一个轮廓，阶数换色并逐级加饰
+const ORN_K = { cul: 0, gold: 1, luck: 2, life: 3 };
+function ornIcon(t, k) {
+  const q = QCOL[Math.min(5, t - 1)], c = tone(q, hs(q, 0.62), lerpC(q, '#ffffff', 0.6)), b = new Buf(16, 16), hi = t >= 4;
+  if (k === 0) { // 玉佩：红绳、环形玉、流苏
+    b.r(7, 0, 2, 3, '#d8404a'); b.add(L => { L.e(8, 7.5, 5.5, 5, c); L.r(7, 6, 2, 3, null); }); b.r(7, 6, 2, 3, null);
+    b.add(L => L.r(7, 12, 2, 4, RED)); b.p(6, 15, '#d8404a'); b.p(9, 15, '#d8404a');
+    if (hi) { b.p(4, 5, '#ffffff'); b.r(6, 3, 4, 1, '#f4c542'); b.r(7, 12, 2, 1, '#f4c542'); }
+  } else if (k === 1) { // 铜钱：圆钱方孔、红绳结
+    b.add(L => { L.e(8, 9, 6, 6, c); L.r(6, 7, 4, 4, null); });
+    b.add(L => { L.r(7, 0, 2, 4, RED); L.r(5, 1, 6, 2, RED); }, { sep: 1 });
+    if (hi) { b.r(5, 6, 6, 1, '#f4c542'); b.r(5, 11, 6, 1, '#a8742a'); b.r(5, 7, 1, 4, '#f4c542'); b.r(10, 7, 1, 4, '#a8742a'); if (t >= 6) { b.p(8, 4, '#fff2a8'); b.p(7, 13, '#fff2a8'); b.p(3, 9, '#fff2a8'); b.p(12, 8, '#fff2a8'); } }
+    else b.p(4, 6, '#ffffff');
+  } else if (k === 2) { // 符：黄纸朱字，下端尖，高阶镶边
+    b.add(L => { L.r(4, 1, 8, 12, hi ? c : '#f4e08a'); L.sy(13, '321', hi ? c : '#f4e08a', 8); });
+    const ink = hi ? '#ffffff' : '#d8404a'; b.hl(6, 9, 3, ink); b.r(7, 4, 2, 7, ink); b.hl(5, 10, 6, ink); b.p(6, 9, ink); b.p(9, 9, ink); b.hl(6, 9, 11, ink);
+    if (!hi) b.r(4, 1, 8, 1, c); else { b.r(4, 1, 8, 1, '#f4c542'); b.p(7, 14, '#f4c542'); b.p(8, 14, '#f4c542'); }
+  } else { // 长命锁：链、如意形锁身、三枚铃
+    b.mir(T => { T.l(7, 0, 3, 4, '#c8c4d8'); T.p(3, 5, '#c8c4d8'); });
+    b.add(L => { L.sy(6, '6777652', c, 8); L.mir(T => T.r(1, 6, 2, 2, c)); });
+    b.r(7, 7, 2, 3, hi ? '#f4c542' : '#ffffff'); b.hl(6, 9, 8, hi ? '#f4c542' : '#ffffff');
+    for (const x of [4, 8, 11]) { b.p(x, 13, '#c8c4d8'); b.r(x - (x === 8 ? 1 : 0), 14, x === 8 ? 2 : 1, 2, '#f4c542'); }
+  }
+  return b;
+}
+function rainbow(b, q) { const rb = ['#ff6b6b', '#ffb23f', '#f4e04a', '#62d26f', '#4aa8ff', '#c27dff'], D = hs(q, 0.62), H = lerpC(q, '#ffffff', 0.6); for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) { const c = b.at(x, y); if (c === q || c === D) b.p(x, y, rb[(x + y) % 6]); else if (c === H) b.p(x, y, '#ffffff'); } return b; }
+{
+  const item0 = ART.item;
+  ART.item = function (kind, tier, sub) {
+    if (kind === 'boss') return ART.icon('boss' + Math.max(0, Math.min(10, tier | 0)));
+    if (kind !== 'r' && kind !== 'o') return item0(kind, tier);
+    tier = Math.max(1, Math.min(7, tier | 0)); const k = kind === 'o' ? (typeof sub === 'string' ? ORN_K[sub] | 0 : (sub | 0) & 3) : 0;
+    return cached('item|' + kind + tier + k, () => { const b = kind === 'r' ? robeIcon(tier) : ornIcon(tier, k); if (tier === 7) rainbow(b, QCOL[5]); return b.cv(); });
+  };
+}
+ART.ornKinds = ['cul', 'gold', 'luck', 'life'];
+// 词条记号 8×8
+const AFFIX = {
+  '锋锐': '....ww/...wwW/..wwW/.wwW/wwW/wW', '嗜血': '..r/..r/.rrr/rprrR/rrrrR/.rRR',
+  '克金': 0, '克木': 0, '克水': 0, '克火': 0, '克土': 0,
+  '藏锋': '....oo/...oO/..oO/.oO/yO/.y', '护主': 'bbbbbb/bwbbBB/bbbbBB/bbbbBB/.bbBB/..BB', '镇劫': 'ssssss/...yy/..yy/.yyyy/...yy/..y',
+  '轻灵': '....ww/..wwwW/.wwwW/.wwW/wWW/s', '聚财': '.yyyy/yhyyyY/yyKKyY/yyKKyY/yyyyYY/.YYYY', '寻珍': '.cccc/cwccCd/cccCCd/.cCCd/..Cd/..d',
+  '采灵': '...ggl/.gglgG/gglgG/ggGG/gG/G', '通灵': '/.vvvv/vwKKwv/vwKKwv/.vvvv', '养气': '.jjjj/j....j/j.jj.j/j.j..j/j..jj/.jj',
+};
+ART.affixNames = () => Object.keys(AFFIX);
+ART.affix = function (name) {
+  if (typeof name === 'number') name = Object.keys(AFFIX)[name];
+  if (!(name in AFFIX)) return null;
+  return cached('affix|' + name, () => {
+    const el = { '金': 'jin', '木': 'mu', '水': 'shui', '火': 'huo', '土': 'tu' }[name[1]];
+    return new Buf(8, 8).m(1, 1, (AFFIX[name] || '.xxxK/xxxKxx/xxKxxx/xKxxxx/Kxxxxx/.xxxx').split('/'), Object.assign({}, IPAL, { x: EL_C[el], K: name[0] === '克' ? '#ffffff' : INK })).cv();
+  });
+};
+ART.drawForge = function (x, y, k, kind) {
+  x = Math.round(x); y = Math.round(y); k = Math.max(0, Math.min(1, k));
+  if (kind === 'ok') {
+    glow(x, y, 6 + k * 12, '#fff2a8', 0.8 * (1 - k)); const r = 3 + k * 13;
+    for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8; R(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.8, 1, 1, i % 2 ? '#f4c542' : '#ffffff'); }
+    for (let i = 0; i < 5; i++) { const a = i * 1.26 - 1.2, d = 5 + k * 12, px = Math.round(x + Math.cos(a) * d), py = Math.round(y + Math.sin(a) * d - k * 4), s = k < 0.7 ? 2 : 1; R(px - s, py, s * 2 + 1, 1, '#fff2a8'); R(px, py - s, 1, s * 2 + 1, '#fff2a8'); R(px, py, 1, 1, '#ffffff'); }
+    if (k < 0.5) { R(x - 3, y - 9 - k * 6, 7, 1, '#62d26f'); R(x, y - 12 - k * 6, 1, 7, '#62d26f'); }
+  } else if (kind === 'fail') {
+    ctx.globalAlpha = 1 - k; for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.4, d = 2 + k * 9; disc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.7 - k * 5, 3 - (k * 2 | 0), i % 2 ? '#928ea8' : '#55506e'); } ctx.globalAlpha = 1;
+    if (k < 0.6) for (const [dx, dy] of [[0, -4], [-1, -3], [1, -2], [0, -1], [-1, 0], [0, 1], [1, 2], [0, 3]]) R(x + dx, y + dy, 1, 1, '#d8404a');
+  } else {
+    if (k < 0.3) { disc(x, y, 2, '#ffffff'); glow(x, y, 7, '#ffb23f', 0.6); }
+    for (let i = 0; i < 9; i++) { const a = -Math.PI * (0.1 + i * 0.1), v = 9 + (i * 7 % 5) * 2, px = x + Math.cos(a) * v * k, py = y + Math.sin(a) * v * k + k * k * 9; R(px, py, 1, k < 0.5 ? 2 : 1, k < 0.35 ? '#ffffff' : k < 0.7 ? '#fff2a8' : '#ff8a3a'); }
+  }
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
