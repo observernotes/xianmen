@@ -141,10 +141,44 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.confirmExp(4, 0, 1)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05b-confirm.png' });
   await close();
   await page.click('#goal'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05c-quests.png' }); await close();
+  // ---------- 天劫（SYSTEMS §9）：准备页（护劫手段）→ 心魔劫 → 落雷与护体条 → 那一停 → 道基印；人物页的道心与因果 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.daolv = 'su'; st.npc.su = { aff: 72, f60: 1 }; st.pills = 10; st.p.inj = 0; st.exp = null; st.retreat = null;
+    for (const h of ['tribPause', 'tribNow']) st.hintSeen[h] = 1;
+    const ev = L.eventById('world_tongji'); if (!L.karmaOpen(st).length) L.addKarma(st, 'tongji', ev, ev.choices[1]);
+    st.dao = { k: 4, w: 9, r: 6 }; document.querySelector('#tip').hidden = true;
+  });
   await page.click('#cult'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/10-bt.png' });
-  await page.click('.foot .btn.gold'); await page.waitForTimeout(2600); await page.screenshot({ path: out + '/11-trib.png' });
-  for (let i = 0; i < 30 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
-  await page.waitForTimeout(300); await page.screenshot({ path: out + '/12-btres.png' }); await close();
+  const prep = await page.evaluate(() => ({ aids: document.querySelectorAll('#modal #tribAids .aid').length, rate: document.querySelector('#btRate').textContent, title: document.querySelector('#modal h2').textContent }));
+  if (prep.aids !== 5 || prep.title !== '境界突破') errors.push('天劫准备页没有五样护劫手段：' + JSON.stringify(prep));
+  lay44(await big44('#modal [data-aid], #modal [data-st], #modal .foot .btn, #modal .close', '天劫准备页'));
+  await page.evaluate(() => document.querySelector('#tribAids').scrollIntoView({ block: 'center' })); await page.waitForTimeout(150); await page.screenshot({ path: out + '/10b-bt-aids.png' });
+  await page.click('.foot .btn.gold'); await page.waitForTimeout(500); await page.screenshot({ path: out + '/10c-demon.png' });
+  const dmn = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, bd: !!document.querySelector('#modal .demonbd'), q: (document.querySelector('#modal .dq') || {}).textContent || '' }));
+  if (!dmn.t.includes('心魔') || !dmn.bd || !dmn.q.includes('没有选')) errors.push('心魔劫卡不对：' + JSON.stringify(dmn));
+  lay44(await big44('#modal .choices .btn', '心魔劫'));
+  await page.click('#modal .choices .btn[data-c="0"]'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/10d-demon-res.png' });
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(2900); await page.screenshot({ path: out + '/11-trib.png' });
+  const cs = await page.evaluate(() => { const c = window.__xm.cineState; return c && { trib: c.trib, idx: c.idx, N: c.N, shield: c.shield }; });
+  if (!cs || !cs.trib || cs.idx < 1) errors.push('雷劫过场没有落雷：' + JSON.stringify(cs));
+  for (let i = 0; i < 50; i++) { if (await page.evaluate(() => !!document.querySelector('#tribPause'))) break; await page.waitForTimeout(200); }
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/11b-trib-pause.png' });
+  const pz = await page.evaluate(() => ({ hint: (document.querySelector('#tribHint') || {}).textContent, bar: !!document.querySelector('#tribPause .shieldimg') }));
+  if (!['大概能过', '悬', '过不了'].includes(pz.hint) || !pz.bar) errors.push('那一停没有护体条与提示：' + JSON.stringify(pz));
+  lay44(await big44('#modal [data-ex], #modal [data-exp], #modal .foot .btn', '那一停'));
+  for (let i = 0; i < 2; i++) { const b = await page.$('#modal [data-exp="1"]:not([disabled])'); if (b) { await b.click(); await page.waitForTimeout(150); } }
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/11c-trib-final.png' });
+  for (let i = 0; i < 40 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/12-btres.png' });
+  const bres = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#tribGrade img'), r: window.__xm.st.p.r }));
+  if (bres.t !== '渡劫成功' || !bres.stamp || bres.r !== 4) errors.push('补满手段后渡劫应成功并盖道基印：' + JSON.stringify(bres));
+  await close();
+  await page.evaluate(() => window.__xm.showMe('dao')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-dao.png' });
+  lay44(await big44('#modal .tabs button, #modal .close', '人物 · 道心'));
+  const dui = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, k: document.querySelectorAll('#modal .krow').length, recs: document.querySelectorAll('#modal .grec').length }));
+  if (dui.rows !== 3 || dui.k < 1 || dui.recs < 1) errors.push('人物 · 道心页缺东西：' + JSON.stringify(dui));
+  await page.evaluate(() => document.querySelector('#karmaBox').scrollIntoView({ block: 'center' })); await page.waitForTimeout(150); await page.screenshot({ path: out + '/25b-dao-karma.png' });
+  await close();
   await page.evaluate(() => { const { st } = window.__xm; st.storyQ = []; st.p.r = 3; st.p.s = 2; st.sect.total = 20000; window.__xm.doPromote(); }); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/13-promo-duel.png' });
   await page.click('.foot .btn:not([disabled])'); await page.waitForTimeout(300); await close();
   await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(1400); await page.screenshot({ path: out + '/14-tour.png' });

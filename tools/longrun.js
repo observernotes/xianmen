@@ -1,6 +1,7 @@
 // 长局测试：机器人通过界面流程玩完一世（到飞升或坐化），检查全程无报错；掉落的法宝对比卡像玩家一样点（更强换上、否则熔炼、偶尔锁定），每 12 周天去法宝页点【强化】；
 // 坊市像玩家一样逛（每 6 周天）：先处理弹出的坊市事件，破境丹多了点【卖一半】，货架上打折的破境丹、轮换的法衣 / 残篇 / 器方买得起就点，拍卖会对想要的拍品点【加价】（宿敌在场点【豪掷】）；
-// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌
+// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌；
+// 天劫：准备页把能用的护劫手段全点上，心魔劫随手选，雷劫中途那一停把能补的手段补上（临阵吞丹点到封顶）再点【继续渡劫】
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -97,8 +98,18 @@ const path = require('path');
       X.closeModal(); await sleep(450);
     }
     const seen = {};
+    // 雷劫中途那一停：能补的全补上，再继续
+    let tribPause = 0;
+    async function pauseCard() {
+      tribPause++; seen['临阵一停'] = 1;
+      for (const b of [...document.querySelectorAll('#modal [data-ex]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(40); }
+      for (let i = 0; i < 2; i++) { const b = document.querySelector('#modal [data-exp="1"]:not([disabled])'); if (b) { b.click(); await sleep(40); } }
+      const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click();
+      await sleep(80);
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
+        if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
         if (X.cine) { await sleep(120); continue; }
         if (!modal()) { await sleep(450); if (!modal() && !X.cine) return; continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
@@ -126,8 +137,16 @@ const path = require('path');
       if (L.isReady(st)) {
         if (st.p.inj > 0) L.heal(st);
         while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) L.buy(st, 'pill');
-        if (uiBt < 6) { uiBt++; X.showBreakthrough(); await sleep(40); document.querySelector('#modal .foot .btn.gold').click(); await drain(); }
-        else L.breakthrough(st, Math.min(3, st.pills));
+        while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) L.buy(st, 'pill');
+        if (uiBt < 6) {
+          uiBt++; X.showBreakthrough(); await sleep(40);
+          for (const b of [...document.querySelectorAll('#modal [data-aid]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(40); }
+          document.querySelector('#modal .foot .btn.gold').click(); await drain();
+        } else {
+          const pre = L.tribPre(st);
+          if (pre) { X.showTribStory(pre, () => X.closeModal()); await sleep(40); await drain(); }
+          L.breakthrough(st, Math.min(3, st.pills), { aids: 'all', extra: 'all' });
+        }
         if (st.p.r >= 9) { await drain(); break; }
       }
       for (let loop = 0; loop < 20; loop++) {

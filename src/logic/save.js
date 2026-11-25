@@ -85,6 +85,8 @@ L.migrate = function (s) {
   const artNote = L.migrateArts(s);
   const gearNote = L.migrateGear(s);
   L.migrateMarket(s);
+  // 天劫（道基、预掷到一半的雷劫）、道心与因果：缺的补默认值，不升存档版本（trib.js / dao.js）
+  L.migrateTrib(s); L.migrateDao(s);
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值

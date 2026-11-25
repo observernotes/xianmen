@@ -1,6 +1,8 @@
 // 内容系统界面测试：奇遇选项、访客、炼丹、首领、会武、宗门任务板、拍卖会、札记、功法（三槽、熟练、共鸣、五行克制、fx.art）、
 // 法宝（对比卡与继承、熔炼与锁定、强化与保底、词条效果、fx.ore / fx.plus、器方打造、v4 → v5 迁移）、特训、人物分页、
-// 历法与坊市（四季效果、天下大势效果与到期、货架轮换与限购、行情卖价、竞价结果与宿敌加成、坊市事件、年历与大势小牌、v5 → v6 迁移）
+// 历法与坊市（四季效果、天下大势效果与到期、货架轮换与限购、行情卖价、竞价结果与宿敌加成、坊市事件、年历与大势小牌、v5 → v6 迁移）、
+// 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
+// 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
 // node tools/content_test.js <输出目录>
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -437,6 +439,190 @@ require('fs').mkdirSync(out, { recursive: true });
   });
   expect(mig6.ok && mig6.v === 6 && mig6.mk && mig6.cal && mig6.ore === undefined && mig6.p === 600 && mig6.res === 'won' && mig6.bids === 0 && mig6.open && mig6.shelf >= 6, `v5 → v6：${JSON.stringify(mig6)}`);
   await close();
+  // ---------- 天劫（SYSTEMS §9）----------
+  const SEEN = ['ready', 'btGo', 'trib', 'tribPause', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life',
+    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction'];
+  await page.evaluate(SEEN => { const { st } = window.__xm; st.guide = { step: 99, done: true }; st.hintSeen = st.hintSeen || {}; for (const k of SEEN) st.hintSeen[k] = 1; document.querySelector('#tip').hidden = true; }, SEEN);
+  // 护劫手段的加成与代价：基础 + 破境丹 + 祭法宝 8% + 道侣 8%；灵宠、渡劫阵没上线时不可用（写明原因），接上钩子就能用
+  const aid = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.p.r = 2; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 8; st.flags.sureBt = 0; st.p.fails = 0; st.trib = L.newTrib(); st.eflags = {}; st.dao = { k: 0, w: 0, r: 0 };
+    st.gear = L.newGear(); L.gearDrop(st, 'w', 3, { base: 'w3_0' }); st.gear.w.plus = 3; st.daolv = 'su'; st.npc.su = { aff: 70, f60: 1 };
+    const parts = L.tribParts(st, { pills: 2, aids: { fa: 1, daolv: 1, pet: 1, zhen: 1 } });
+    const pet0 = L.aidInfo(st, 'pet'), zhen0 = L.aidInfo(st, 'zhen');
+    let rested = 0; L.petCanShield = () => '雪团'; L.petShield = (s, n) => { rested = n; };
+    const pet1 = L.aidInfo(st, 'pet'), r1 = L.tribRate(st, { pills: 0, aids: { pet: 1 } }), r0 = L.tribRate(st, { pills: 0, aids: {} });
+    st.pills = 0; const v = L.tribStart(st, { pills: 0, aids: { pet: 1 } }); st.trib.cur = null; st.pills = 8;
+    delete L.petCanShield; delete L.petShield;
+    return { names: parts.map(x => x[0]).join(','), rate: L.tribRate(st, { pills: 2, aids: { fa: 1, daolv: 1 } }), base: L.REALMS[2].rate, furn: st.home.furnace * L.BT.furnace,
+      pet0: pet0.ok, petWhy: pet0.why, zhen0: zhen0.ok, zhenWhy: zhen0.why, pet1: pet1.ok, petD: Math.round((r1 - r0) * 100), rested, petUsed: !!(v && v.aids.pet), cost: L.aidInfo(st, 'fa').cost };
+  });
+  expect(Math.abs(aid.rate - Math.min(1, aid.base + aid.furn + 0.30 + 0.16)) < 1e-9 && aid.names.includes('祭法宝') && aid.names.includes('道侣护法') && !aid.names.includes('灵宠挡劫') && !aid.names.includes('渡劫阵'),
+    `护劫手段：${aid.names} = ${L_pct(aid.rate)}（基础 ${aid.base} + 丹 30% + 法宝 8% + 道侣 8%）`);
+  expect(!aid.pet0 && /灵宠/.test(aid.petWhy) && !aid.zhen0 && /阵/.test(aid.zhenWhy) && aid.pet1 && aid.petD === 10 && aid.rested === 12 && aid.petUsed && aid.cost.includes('+3 → +2'),
+    `灵宠、渡劫阵未上线时不可用（${aid.petWhy} / ${aid.zhenWhy}），接上钩子灵宠 +${aid.petD}%、休养 ${aid.rested}；祭法宝代价：${aid.cost}`);
+  // 预掷与结果一致：同一个 u，成败 = u < 补完后的成功率；曲线单调下降，败了最后一道打穿；评价按余量；临阵吞丹另算在 3 枚之外、记丹毒
+  const pre = await page.evaluate(() => {
+    const { st, L } = window.__xm, bad = [];
+    let n = 0, ok = 0, extraUp = 0;
+    for (let i = 0; i < 300; i++) {
+      st.p.r = 2 + (i % 6); st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 8; st.p.fails = 0; st.trib.cur = null; st.trib.daoji = 0; st.eflags = {};
+      const v = L.tribStart(st, { pills: i % 4, aids: i % 2 ? { fa: 1 } : {} }), u = st.trib.cur.u, pill0 = st.pills, tox0 = st.trib.toxin;
+      const mono = v.curve.every((x, j) => !j || x <= v.curve[j - 1] + 1e-9);
+      const ex = i % 3 === 0 ? { pills: 2 } : {};
+      const pv = L.tribPreview(st, ex), r = L.tribFinish(st, ex), p1 = r.tb.p1, m = p1 - u;
+      if (pv.ok !== r.ok || pv.grade !== r.tb.grade || pv.p1 !== p1 || JSON.stringify(pv.curve1) !== JSON.stringify(r.tb.curve1)) bad.push('pv' + i);
+      if (r.ok !== (u < p1) || !mono || (r.ok ? r.tb.curve1[v.N] <= 0 : r.tb.curve1[v.N] !== 0) || Math.abs(r.tb.margin - m) > 1e-3 || JSON.stringify(r.tb.curve0) !== JSON.stringify(v.curve)) bad.push(i);
+      if (ex.pills) { if (Math.abs(p1 - Math.min(1, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || st.trib.toxin - tox0 !== 40) bad.push('ex' + i); else extraUp++; }
+      else if (JSON.stringify(r.tb.curve1) !== JSON.stringify(v.curve)) bad.push('c' + i);
+      if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g) bad.push('g' + i); }
+      n++;
+    }
+    return { n, ok, bad: bad.slice(0, 6), extraUp };
+  });
+  expect(!pre.bad.length && pre.ok > 0 && pre.ok < pre.n && pre.extraUp >= 90, `预掷 ${pre.n} 次：成败、曲线、评价与预掷一致（成 ${pre.ok}，临阵吞丹 ${pre.extraUp} 次）${pre.bad.join(',')}`);
+  // 临场提示：八成准；稳·道心三级十成准；提示对的时候红线就是实际落点
+  const hint = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    const run = () => { let right = 0, n = 0, mk = 0; for (let i = 0; i < 1500; i++) { st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 5; st.trib.cur = null; const v = L.tribStart(st, { pills: i % 4 }); n++; if (v.hint.right) { right++; if (Math.abs(v.hint.mark - v.curve[v.N]) < 1e-9) mk++; } st.trib.cur = null; } return { acc: right / n, mk: mk / Math.max(1, right) }; };
+    st.dao = { k: 0, w: 0, r: 0 }; const a = run();
+    st.dao.w = 25; const b = run(); st.dao.w = 0;
+    return { a, b };
+  });
+  expect(Math.abs(hint.a.acc - 0.8) < 0.04 && hint.b.acc === 1 && hint.a.mk === 1, `临场提示准 ${L_pct(hint.a.acc)}（稳三级 ${L_pct(hint.b.acc)}），提示对时红线 = 实际落点`);
+  // 评价 → 道基（修炼、战力同乘），累计上限 24%；金丹那一次定名“N 品金丹”
+  const dj = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.trib = L.newTrib(); st.p.r = 1; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 5; st.flags.sureBt = 0; st.p.fails = 0;
+    const rng = L.rng; L.rng = () => 0.01;   // u 很小：余量大 → 完美
+    const r = L.breakthrough(st, 3, { aids: 'all' });
+    L.rng = rng;
+    const c1 = L.culParts(st).find(x => x[0].startsWith('道基')), a1 = L.atkParts(st).find(x => x[0].startsWith('道基'));
+    st.trib.daoji = 0.23; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 5; L.rng = () => 0.01; const r2 = L.breakthrough(st, 3, { aids: 'all' }); L.rng = rng;
+    return { ok: r.ok, g: r.tb.grade, dan: st.trib.dan, resDan: r.dan, add: r.daoji.add, c1: c1 && c1[1], a1: a1 && a1[1], cap: st.trib.daoji, add2: r2.daoji && r2.daoji.add, capped: r2.daoji && r2.daoji.capped };
+  });
+  expect(dj.ok && dj.g === '完美' && dj.dan === '一品金丹' && dj.resDan === '一品金丹' && Math.abs(dj.add - 0.03) < 1e-9 && Math.abs(dj.c1 - 1.03) < 1e-9 && Math.abs(dj.a1 - 1.03) < 1e-9, `完美 → 道基 +3%（修炼 ×${dj.c1}、战力 ×${dj.a1}），结成「${dj.dan}」`);
+  expect(Math.abs(dj.cap - 0.24) < 1e-9 && Math.abs(dj.add2 - 0.01) < 1e-9 && dj.capped, `道基上限 24%：0.23 + 完美只加到 ${dj.cap}`);
+  // 失败的代价：祭过的兵器强化 −1、道侣好感 −5；修为退到 70%、负伤 3；道侣这一境界不再护法
+  const fl = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.p.r = 4; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 0; st.flags.sureBt = 0; st.p.fails = 0; st.trib.cur = null; st.gear.w.plus = 3; st.daolv = 'su'; st.npc.su = { aff: 70, f60: 1 }; st.trib.daolv = {}; st.p.inj = 0;
+    const rng = L.rng; L.rng = () => 0.999; const r = L.breakthrough(st, 0, { aids: { fa: 1, daolv: 1 } }); L.rng = rng;
+    return { ok: r.ok, plus: st.gear.w.plus, aff: st.npc.su.aff, inj: st.p.inj, costs: r.tb.costs.join('，'), xp: st.p.xp / L.pNeed(st.p), again: L.aidInfo(st, 'daolv').ok };
+  });
+  expect(!fl.ok && fl.plus === 2 && fl.aff === 65 && fl.inj === 3 && Math.abs(fl.xp - 0.7) < 0.02 && !fl.again, `失败：${fl.costs}；修为 ${L_pct(fl.xp)}、负伤 ${fl.inj}；道侣这一境界不再护法`);
+  // 心魔劫（元婴前）：题目取自本世第一条没了的因果；还这么选 +5%；换一种 −5% 且了结那一条
+  const dm = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.p.r = 2; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.trib.cur = null; st.karma = L.newKarma(); delete st.evDone.story_demon1; st.eflags = {};
+    const ev = L.eventById('world_tongji'); L.addKarma(st, 'tongji', ev, ev.choices[1]);
+    const pre = L.tribPre(st), q = L.demonQuestion(st, 1);
+    const snap = JSON.stringify(st);
+    L.resolveChoice(st, pre, 0); const firm = L.btParts(st, 0).find(x => /心魔/.test(x[0]));
+    const s2 = JSON.parse(snap); window.__xm.loadState(s2); const st2 = window.__xm.st;
+    L.resolveChoice(st2, L.eventById('story_demon1'), 1); const waver = L.btParts(st2, 0).find(x => /心魔/.test(x[0]));
+    const q0 = L.demonQuestion(st2, 1).text; st2.daolv = 'ye'; const q2 = L.demonQuestion(st2, 2).text; st2.daolv = null;
+    return { pre: pre && pre.id, q: q.text, firm: firm && firm.join(':'), waver: waver && waver.join(':'), open: L.karmaOpen(st2).length, done: st2.karma.done, q0, q2, q2n: L.demonQuestion(st2, 2).who, q3: L.demonQuestion(st2, 3).who };
+  });
+  expect(dm.pre === 'story_demon1' && dm.q.includes('被冤枉的通缉犯') && dm.q.includes('拿下他领赏') && dm.firm === '心魔劫·道心如一:0.05' && dm.waver === '心魔劫·道心动摇:-0.05' && dm.open === 0 && dm.done === 1,
+    `心魔劫：${dm.q}；还这么选 ${dm.firm}，换一种 ${dm.waver} 且了结（未了 ${dm.open}）`);
+  expect(dm.q0.includes('被逐出山门') && /选了.*没有选/.test(dm.q2) && dm.q2n === '戒中老祖' && dm.q3 === '陆天衡', `心魔题目：没因果 → ${dm.q0.slice(0, 10)}；化神 → ${dm.q2}（没道侣是${dm.q2n}）；合体 → ${dm.q3}`);
+  await page.evaluate(SEEN => { const { st } = window.__xm; st.guide = { step: 99, done: true }; for (const k of SEEN) st.hintSeen[k] = 1; }, SEEN);
+  // ---------- 道心（SYSTEMS §14）：5 / 12 / 25 笔各一级，效果都接上 ----------
+  const dao = await page.evaluate(() => {
+    const { st, L } = window.__xm, out = {};
+    st.dao = { k: 0, w: 0, r: 0 };
+    const lvAt = []; for (let i = 1; i <= 25; i++) { L.addDao(st, 'k', 1); lvAt.push(L.daoLv(st, 'k')); }
+    out.th = [lvAt.indexOf(1) + 1, lvAt.indexOf(2) + 1, lvAt.indexOf(3) + 1].join('/');
+    // 狂：越级 ×2.4、对决下限 8%
+    out.leap = L.leapMult(st) / (2 * L.gearExp(st).leap); out.lo = L.duelP(st, 1, 1e9, {});
+    // 狂三级：丁等以伤换命再战一次（翻到丙以上算数，换一周天轻伤）
+    st.exp = null; st.retreat = null; st.p.inj = 0; st.p.r = 3; st.p.s = 0; st.p.xp = 0;
+    const mk = () => { L.startExp(st, 0, 0, 0); const pl = st.exp.plan; Object.assign(pl, { fix: undefined, gift: undefined, aff: 0, guts: 0, adj: 0, rnd: -12, pow: L.RATE_TH[0] - 3 + 12 }); pl.u[0] = 0.1; pl.u[5] = 0; pl.u[7] = 0.99; pl.u[8] = 0.99; };
+    mk(); const re = L.resolveExp(st); out.refight = re.refight; out.rating = re.rating; out.inj = st.p.inj;
+    st.dao.k = 0; st.p.inj = 0; mk(); const re0 = L.resolveExp(st); out.noRefight = !re0.refight && re0.rating === 0;
+    // 稳：突破 +3%、闭关花费 ×0.85、天劫提示十成准
+    st.flags.retFree = 1; const rc0 = L.retCost(st); st.dao.w = 12; out.bt = (L.btParts(st, 0).find(x => x[0] === '道心·稳') || [])[1]; out.ret = L.retCost(st) / rc0; st.dao.w = 25; out.acc = L.tribHintAcc(st);
+    // 仁：来访的人给好感多 +1；五心只要 90
+    st.dao.r = 5; st.npc.ge = { aff: 10 };
+    L.applyFx(st, { aff: { ge: 5 } }, { ev: { id: 'x', visit: true } }); out.aff = st.npc.ge.aff;
+    L.applyFx(st, { aff: { ge: 5 } }, { ev: { id: 'y' } }); out.aff2 = st.npc.ge.aff;
+    st.npc.ge.aff = 90; out.h0 = L.hearts(st, 'ge'); st.dao.r = 25; out.h1 = L.hearts(st, 'ge'); out.disc = L.daoDiscMult(st);
+    st.dao = { k: 3, w: 9, r: 1 }; out.top = L.daoTop(st); out.end = L.daoEnding(st); out.ch = L.daoChapter(st, 2);
+    return out;
+  });
+  expect(dao.th === '5/12/25', `道心门槛 ${dao.th}`);
+  expect(Math.abs(dao.leap - 1.2) < 1e-9 && Math.abs(dao.lo - 0.08) < 1e-9, `狂：越级 ×${dao.leap}、对决下限 ${L_pct(dao.lo)}`);
+  expect(dao.refight === 'win' && dao.rating === 1 && dao.inj === 1 && dao.noRefight, `狂三级：丁等再战一次 → ${dao.refight}，评价 ${dao.rating}、轻伤 ${dao.inj}；没有狂三级仍是丁（${dao.noRefight}）`);
+  expect(Math.abs(dao.bt - 0.03) < 1e-9 && Math.abs(dao.ret - 0.85) < 0.02 && dao.acc === 1, `稳：突破 +${dao.bt}、闭关 ×${(dao.ret || 0).toFixed(2)}、提示 ${dao.acc}`);
+  expect(dao.aff === 16 && dao.aff2 === 21 && dao.h0 === 4 && dao.h1 === 5 && dao.disc === 1.2, `仁：来访好感 10 → ${dao.aff}（非来访 +5 → ${dao.aff2}），好感 90 时 ${dao.h0} → ${dao.h1} 心，徒弟 ×${dao.disc}`);
+  expect(dao.top === 'w' && dao.end.includes('一步一步') && dao.ch.startsWith('第三章完') && dao.ch.includes('走得稳'), `评语按最高的道心：${dao.ch}`);
+  // ---------- 因果：记一条（带当事人）→ 寻仇事件 → 了结；轮回的业 ----------
+  const km = await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.karma = L.newKarma(); st.tick = 300; st.p.r = 3; st.dao = { k: 0, w: 0, r: 0 }; st.exp = null;
+    const ev = L.eventById('world_tongji'), i = ev.choices.findIndex(c => c.ok.fx && c.ok.fx.karma);
+    const rng = L.rng; L.rng = () => 0.001; const r = L.resolveChoice(st, ev, i); L.rng = rng;
+    const rec = L.karmaOpen(st)[0];
+    const door = L.eventById('karma_door'); delete st.evLast.karma_door; const e0 = L.eligible(st, door, 'home', { visit: true });
+    st.tick = 330; const e1 = L.eligible(st, door, 'home', { visit: true }), txt = L.fill(st, door.text);
+    const kr0 = L.karmaRebirth(st);
+    st.stones = 1e7; L.resolveChoice(st, door, 0);
+    return { fx: r.fx.join('、'), who: rec && rec.who, t: rec && rec.t, e0, e1, txt, mult: kr0.mult, open: L.karmaOpen(st).length, done: st.karma.done,
+      live: ['story_demon1', 'story_demon2', 'story_demon3', 'story_ascend', 'tianheng_2', 'world_tongji', 'karma_door', 'karma_ambush'].filter(id => L.evLive(L.eventById(id))).length };
+  });
+  expect(km.fx.includes('因果 +1') && km.who === '被冤枉的通缉犯' && km.t === '拿下他领赏', `fx.karma：${km.fx}，当事人 ${km.who}`);
+  expect(!km.e0 && km.e1 && km.txt.includes('被冤枉的通缉犯') && Math.abs(km.mult - 0.98) < 1e-9 && km.open === 0 && km.done === 1, `寻仇事件 24 周天后才上门（${km.e0} → ${km.e1}）：${km.txt.slice(0, 26)}…；赔礼了结（未了 ${km.open}，轮回业 ×${km.mult}）`);
+  expect(km.live === 8, `心魔劫、飞升前夜、了断、寻仇等事件上线：${km.live}/8`);
+  // 界面：一件带 fx.karma 的事件，选了之后结果页写“因果 +1”，人物 → 道心里列着
+  await page.evaluate(() => { const { st, L } = window.__xm; st.karma = L.newKarma(); delete st.evLast.world_tongji; L.rng = () => 0.001; window.__xm.showChoice(L.eventById('world_tongji')); });
+  await page.waitForTimeout(300);
+  const kIdx = await page.evaluate(() => window.__xm.L.eventById('world_tongji').choices.findIndex(c => c.ok.fx && c.ok.fx.karma));
+  await page.click(`#modal button[data-c="${kIdx}"]`); await page.waitForTimeout(400);
+  for (let i = 0; i < 12; i++) { const t = await page.evaluate(() => (document.querySelector('#modal .body') || {}).textContent || ''); if (t.includes('因果 +1')) break; await page.waitForTimeout(400); }
+  const kUi = await page.evaluate(() => ({ body: (document.querySelector('#modal .body') || {}).textContent || '', n: window.__xm.L.karmaOpen(window.__xm.st).length }));
+  await page.evaluate(() => { window.__xm.L.rng = Math.random; });
+  expect(kUi.body.includes('因果 +1') && kUi.n === 1, `界面：选了“拿下他领赏”→ 结果页${kUi.body.includes('因果 +1') ? '写了' : '没写'}“因果 +1”，记下 ${kUi.n} 条`);
+  await close();
+  await page.evaluate(() => { const { st } = window.__xm; st.dao = { k: 6, w: 13, r: 2 }; document.querySelector('#tip').hidden = true; window.__xm.showMe('dao'); });
+  await page.waitForTimeout(300); await shot('c30-dao');
+  const daoUi = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, karma: document.querySelectorAll('#modal .krow').length, txt: document.querySelector('#modal .body').textContent, tab: !!document.querySelector('#modal .tabs button.on[data-t="dao"]') }));
+  expect(daoUi.rows === 3 && daoUi.karma >= 1 && daoUi.tab && daoUi.txt.includes('被冤枉的通缉犯') && daoUi.txt.includes('道基') && daoUi.txt.includes('一级'), `人物 → 道心：三条道心、因果 ${daoUi.karma} 条、道基`);
+  await close();
+  // 界面：雷劫中途那一停——提示在三种之内、老祖讲怎么补（时间暂停），补上临阵吞丹成功率上去；结束有道基印
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.trib = L.newTrib(); st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 2; st.p.fails = 0; st.flags.sureBt = 0; st.exp = null; st.retreat = null;
+    st.evDone.story_demon2 = 1; st.hintSeen.tribNow = 0; st.daolv = null; st.p.inj = 0; st.visitor = null; st.storyQ = [];
+  });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.__xm.showBreakthrough()); await page.waitForTimeout(300);
+  await page.evaluate(() => { for (let i = 0; i < 3; i++) { const b = document.querySelector('#btStep [data-st="-1"]'); if (b && !b.disabled) b.click(); } });
+  await page.waitForTimeout(200);
+  await page.click('#modal .foot .btn.gold');
+  for (let i = 0; i < 50; i++) { if (await page.evaluate(() => !!document.querySelector('#tribPause'))) break; await page.waitForTimeout(200); }
+  await page.waitForTimeout(500); await shot('c31-trib-pause');
+  const pzT = await page.evaluate(() => ({ hint: (document.querySelector('#tribHint') || {}).textContent, rate: (document.querySelector('#tpRate') || {}).textContent, g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, p: window.__xm.cineState && window.__xm.cineState.v.p }));
+  expect(['大概能过', '悬', '过不了'].includes(pzT.hint) && pzT.g.includes('那一停') && pzT.g.includes(L_pct(pzT.p)) && pzT.hold, `那一停：提示“${pzT.hint}”，老祖：${pzT.g.slice(0, 34)}（时间暂停 ${pzT.hold}）`);
+  for (let i = 0; i < 3; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(200); }
+  await page.click('#modal [data-exp="1"]'); await page.waitForTimeout(200);
+  const pzT2 = await page.evaluate(() => (document.querySelector('#tpRate') || {}).textContent);
+  expect(pzT2.includes('→'), `补一枚临阵吞丹：成功率 ${pzT2}`);
+  await page.click('#modal .foot .btn.gold');
+  for (let i = 0; i < 50 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
+  await page.waitForTimeout(400); await shot('c32-trib-result');
+  const tr = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#tribGrade img'), txt: document.querySelector('#modal .body').textContent }));
+  expect((tr.t === '渡劫成功' && tr.stamp) || (tr.t === '渡劫失败' && tr.txt.includes('余量')), `渡劫结果：${tr.t}${tr.stamp ? '（道基印）' : ''}`);
+  await close();
+  // 存档迁移（不升版本）：没有天劫 / 道心 / 因果字段的档补默认值；读两遍一样；渡到一半的预掷留着
+  const migT = await page.evaluate(() => {
+    const { L } = window.__xm; const s = JSON.parse(JSON.stringify(L.newState({ name: '旧档' }))); delete s.trib; delete s.karma; delete s.dao;
+    const a = L.migrate(JSON.parse(JSON.stringify(s))), b = L.migrate(JSON.parse(JSON.stringify(a)));
+    const s3 = L.newState({ name: '半途' }); s3.p.r = 2; s3.p.s = 3; s3.p.xp = L.pNeed(s3.p); s3.pills = 3; L.tribStart(s3, { pills: 3 }); const u = s3.trib.cur.u;
+    const c = L.migrate(JSON.parse(JSON.stringify(s3)));
+    return { v: a.v, trib: !!a.trib && a.trib.daoji === 0 && Array.isArray(a.trib.rec), karma: !!a.karma && Array.isArray(a.karma.list), dao: !!a.dao && a.dao.k === 0,
+      same: JSON.stringify([a.trib, a.karma, a.dao]) === JSON.stringify([b.trib, b.karma, b.dao]), cur: !!c.trib.cur && c.trib.cur.u === u };
+  });
+  expect(migT.v === 6 && migT.trib && migT.karma && migT.dao && migT.same && migT.cur, `迁移补上天劫 / 因果 / 道心（版本仍 ${migT.v}，读两遍一样，半途的预掷还在）`);
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await close();
