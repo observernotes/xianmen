@@ -85,7 +85,7 @@ function updateHUD() {
   setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : canUp ? '↑' : '');
   setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : '');
   setBadge('market', L.auctionOpen(st) ? '拍' : L.desperate(st) && (st.lifePills[p.r] || 0) < 3 ? '!' : '');
-  setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.length || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
+  setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
   updateHaul();
   if (feedDirty) renderFeed();
 }

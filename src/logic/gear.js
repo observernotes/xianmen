@@ -290,7 +290,11 @@ L.gearDrop = function (st, slot, tier, ctx) {
   const B = BASE[x.id];
   const it = { kind: x.slot, gear: x, u: x.u, tier: x.t, name: B.n, src: ctx.src || '' };
   slot = x.slot;
-  if (!L.gearOpen(st, slot)) { it.smelt = L.addOre(st, L.gearSmeltOre(x)); it.closed = true; L.log(st, `【${B.n}】（${L.GEAR_N[slot]}槽${L.gearOpenWhy(st, slot)}），先熔成灵矿 +${it.smelt}`); return it; }
+  if (!L.gearOpen(st, slot)) {
+    // 首领专属、器方、镇宗法宝（固定词条、独一份）先收着，槽一开就戴上；随手掉的熔成灵矿
+    if (B.fixed && ON()) { x.hold = true; g.pend.push(x); it.hold = true; L.log(st, `【${B.n}】先收着：${L.GEAR_N[slot]}槽${L.gearOpenWhy(st, slot)}，到时自动戴上`, 'jade'); return it; }
+    it.smelt = L.addOre(st, L.gearSmeltOre(x)); it.closed = true; L.log(st, `【${B.n}】（${L.GEAR_N[slot]}槽${L.gearOpenWhy(st, slot)}），先熔成灵矿 +${it.smelt}`); return it;
+  }
   const cur = g[slot];
   if (!cur) { L.gearEquip(st, x); it.equip = true; L.log(st, `获得${L.gearTierName(slot, x.t)}${L.GEAR_N[slot]}【${B.n}】，已装上`, x.t >= 4 ? 'gold' : 'jade'); emit('gearNew', it); return it; }
   if (g.lock[slot] && x.t < cur.t) { it.smelt = L.addOre(st, L.gearSmeltOre(x)); it.auto = true; L.log(st, `【${B.n}】阶低于锁定的${L.GEAR_N[slot]}，自动熔成灵矿 +${it.smelt}`); return it; }
@@ -302,7 +306,8 @@ L.gearDrop = function (st, slot, tier, ctx) {
   emit('gearNew', it);
   return it;
 };
-L.gearPend = (st, u) => st.gear.pend.find(x => x.u === u) || null;
+L.gearPend = (st, u) => st.gear.pend.find(x => x.u === u && !x.hold) || null;
+L.gearHeld = st => st.gear.pend.filter(x => x.hold);
 // 换上：强化继承一半（向下取整），旧的那件熔成灵矿
 L.gearInherit = (st, x) => { const cur = st.gear[x.slot]; return Math.max(x.plus || 0, cur ? Math.floor((cur.plus || 0) / 2) : 0); };
 L.gearEquip = function (st, x) {
@@ -347,10 +352,11 @@ L.gearDelta = function (st, x) {
 L.gearBetter = (st, x) => L.gearDelta(st, x).better;
 // sim 与“过期没决定的”用：更好就换，否则熔炼
 L.gearAuto = function (st, x) { if (!x) return null; return L.gearDecide(st, x.u, L.gearBetter(st, x) ? 'equip' : 'smelt'); };
-L.gearAutoAll = st => { const out = []; for (const x of st.gear.pend.slice()) out.push(L.gearAuto(st, x)); return out; };
+L.gearAutoAll = st => { const out = []; for (const x of st.gear.pend.slice()) if (!x.hold) out.push(L.gearAuto(st, x)); return out; };
 L.gearItemText = function (st, it) {
   const B = BASE[it.gear.id], nm = `${L.gearTierName(it.kind, it.tier)}${L.GEAR_N[it.kind]}【${B.n}】`;
   if (it.closed) return `${nm}（${L.GEAR_N[it.kind]}槽${L.gearOpenWhy(st, it.kind)}），熔成灵矿 +${it.smelt}`;
+  if (it.hold) return `${nm}先收着（${L.GEAR_N[it.kind]}槽${L.gearOpenWhy(st, it.kind)}，到时自动戴上）`;
   if (it.auto) return `${nm}阶低于锁定的${L.GEAR_N[it.kind]}，自动熔成灵矿 +${it.smelt}`;
   if (it.equip) return `获得${nm}，已装上`;
   return `得到${nm}${it.gear.aff.length ? '（' + it.gear.aff.map(a => L.AFFIX[a].n).join('、') + '）' : ''}${it.better ? '，比身上的强' : ''}`;
@@ -494,9 +500,15 @@ L.giveMat = (st, k, n) => { st.gear.mats[k] = (st.gear.mats[k] || 0) + n; return
 
 // ---------- 每周天：过期没决定的掉落按“更好就换、否则熔炼”结清（正常游玩里对比卡关掉就熔炼，这里只是兜底） ----------
 L.GEAR_PEND_TTL = 40;
+// 收着的（槽没开时得到的首领专属等）：槽一开，空着就直接戴上，否则转成一张普通的对比卡
 L.gearTick = function (st) {
-  const g = st.gear; if (!g || !g.pend.length || st.expSum) return;
-  for (const x of g.pend.slice()) if (st.tick - (x.at || 0) > L.GEAR_PEND_TTL) L.gearAuto(st, x);
+  const g = st.gear; if (!g || !g.pend.length) return;
+  for (const x of g.pend.slice()) if (x.hold && L.gearOpen(st, x.slot)) {
+    delete x.hold; x.at = st.tick;
+    if (!g[x.slot]) { L.gearEquip(st, x); L.log(st, `${L.GEAR_N[x.slot]}槽开了，戴上收着的【${BASE[x.id].n}】`, 'gold'); emit('gearNew', { kind: x.slot, gear: x, equip: true }); }
+  }
+  if (st.expSum) return;
+  for (const x of g.pend.slice()) if (!x.hold && st.tick - (x.at || 0) > L.GEAR_PEND_TTL) L.gearAuto(st, x);
 };
 
 // ---------- 存档迁移（v4 → v5）：旧法宝阶 → 该阶同名兵器 +0 无词条（找不到同名的取该阶第一件）；已斩首领补发材料 ----------

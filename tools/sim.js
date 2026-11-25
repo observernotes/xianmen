@@ -57,6 +57,9 @@ function gearGuided(st) {
     if (!best) break;
     L.gearPlus(st, best.s);
   }
+  // 灵矿不够强化兵器、灵石富余（≥ 一筐价的 4 倍）时，去坊市买一筐
+  const w = L.gearEq(st, 'w');
+  if (w && L.marketOpen(st, 'ore') && L.oreBuyLeft(st) > 0 && (st.ore || 0) < L.gearPlusCost(st, w).ore && st.stones >= L.price(st, 'ore') * 4) L.buy(st, 'ore');
 }
 // SYSTEMS §18 预算量：强化让战力多了多少（各槽强化清零对照）；词条的战力当量（家门地图斩妖时锋锐、克 X 给的分数，每 25 分折战力 ×2）
 function gearShare(st) {

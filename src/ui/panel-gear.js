@@ -64,7 +64,7 @@ function gearLine(it) {
   if (it.pend && L.gearPend(st, x.u)) return gearCmpHTML(x);
   const B = L.gearBase(x.id);
   const head = `${gearImg(x, 2)}<div class="grow"><div class="line">${gTierTag(x.slot, x.t)}<span>${L.GEAR_N[x.slot]}【${esc(B.n)}】${plusTag(x.plus)}</span></div><div class="muted">${esc(L.gearMainText(st, x))}</div>${x.aff.length ? `<div class="gaffs">${affChips(x.aff, !!B.fixed)}</div>` : ''}</div>`;
-  const tail = it.equip ? '<span class="chip ok">已装上</span>' : it.smelt !== undefined ? `<span class="muted">熔成灵矿 +${it.smelt}${it.closed ? `（${L.GEAR_N[x.slot]}槽${L.gearOpenWhy(st, x.slot)}）` : it.auto ? '（已锁定）' : ''}</span>` : st.gear[x.slot] === x ? '<span class="chip ok">已换上</span>' : '<span class="muted">已处理</span>';
+  const tail = it.hold ? `<span class="muted">先收着：${L.GEAR_N[x.slot]}槽${L.gearOpenWhy(st, x.slot)}，到时自动戴上</span>` : it.equip ? '<span class="chip ok">已装上</span>' : it.smelt !== undefined ? `<span class="muted">熔成灵矿 +${it.smelt}${it.closed ? `（${L.GEAR_N[x.slot]}槽${L.gearOpenWhy(st, x.slot)}）` : it.auto ? '（已锁定）' : ''}</span>` : st.gear[x.slot] === x ? '<span class="chip ok">已换上</span>' : '<span class="muted">已处理</span>';
   return `<div class="quote gline"><div class="row">${head}${tail}</div></div>`;
 }
 // 对比卡上的按钮（sheet() 里统一绑定）
@@ -136,7 +136,9 @@ function showGear(sel, still) {
   // 重铸的二选一
   const rf = g.rf;
   const rfCard = rf ? `<div class="gcmp better" id="gRf"><div>重铸【${esc(L.gearBase(st.gear[rf.slot].id).n)}】：二选一保留</div><div class="gbtns"><button class="btn sm alt" data-rfk="0"><span class="gaff">${affImg(rf.old)}${L.AFFIX[rf.old].n}</span> 保留旧的</button><button class="btn sm gold" data-rfk="1"><span class="gaff">${affImg(rf.neu)}${L.AFFIX[rf.neu].n}</span> 换成新的</button></div><div class="muted fxs">旧：${esc(L.AFFIX[rf.old].d)}；新：${esc(L.AFFIX[rf.neu].d)}</div></div>` : '';
-  const pend = g.pend.length ? `<div class="seal">还有 ${g.pend.length} 件新得的法宝没决定（离开这页就熔成灵矿）</div>` + g.pend.map(gearCmpHTML).join('') : '';
+  const open = g.pend.filter(y => !y.hold), held = L.gearHeld(st);
+  const pend = (open.length ? `<div class="seal">还有 ${open.length} 件新得的法宝没决定（离开这页就熔成灵矿）</div>` + open.map(gearCmpHTML).join('') : '')
+    + (held.length ? `<div class="muted">收着：${held.map(y => `【${esc(L.gearBase(y.id).n)}】（${L.GEAR_N[y.slot]}槽${L.gearOpenWhy(st, y.slot)}）`).join('、')}，槽一开自动戴上</div>` : '');
   // 器炉与材料
   const nPlan = Object.keys(g.plans).length, mats = Object.keys(g.mats).filter(k => g.mats[k] > 0).map(k => `${L.BOSS_MAT[k]} ×${g.mats[k]}`).join('、');
   const forge = `<div class="grow-sec"><h3>器方与打造<span>${nPlan} / ${L.PLANS.length} 张</span></h3>
