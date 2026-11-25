@@ -85,6 +85,8 @@ L.tick = function (st, cont) {
   if (st.sect && st.sect.order && st.tick - st.sect.joined >= 12 && st.tick % L.MEET_EVERY === L.MEET_AT) out.meet = true;
   // 宗门加深：宝库轮换、长老的恩惠、圣子 / 宗主之争的前夜、徒弟成长与差事（sect2.js、disciples.js）
   if (L.sectTick) L.sectTick(st, out);
+  // 人物：二心、四心的委托，丹方类委托的进度，双修到时候了（people.js）
+  if (L.peopleTick) L.peopleTick(st, out);
   // 坊市：行情游走（每 6 周天）、货架换货（每届论道）、拍卖散场与开槌（market.js）
   L.marketTick(st, out);
   for (const nw of L.RIVAL_NEWS) if (nw[0] === st.tick && !st.beaten[nw[1]]) L.log(st, nw[2]);

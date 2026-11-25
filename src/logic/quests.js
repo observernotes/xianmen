@@ -68,8 +68,8 @@ L.CHAPTERS = [
     main: { t: st => `成为${st.p.look.f ? '圣女' : '圣子'}`, c: srank(3), rw: { inc: 15, vault: 1 }, go: 'sect' },
     tasks: [
       { t: '修成元婴', c: st => mr(st) >= 3, rw: { inc: 10 }, go: 'cult' },
-      // TODO DESIGN §7.4：同伴（四心同行）上线、历练结算里累计 st.stats.compExp 后去掉 off
-      { t: '带同伴历练一次', c: st => st.stats.compExp >= 1, rw: { inc: 8 }, go: 'exp', off: true },
+      // DESIGN §7.4：同伴（四心同行，people.js）——带着同伴或道侣历练一趟，结算时累计 st.stats.compExp
+      { t: '带同伴历练一次', c: st => st.stats.compExp >= 1, rw: { inc: 8 }, go: 'exp' },
       { t: '炼出上品丹', c: st => st.stats.goodPill >= 1, rw: { herbs: 30 }, go: 'home' },
       { t: '天骄榜进入前 20', c: st => st.bestRank <= 20, rw: { inc: 12 }, go: 'me' },
       { t: '结为道侣，或与一人到四心', c: st => !!st.daolv || affMax(st) >= 80, rw: { inc: 12 }, go: 'me' },

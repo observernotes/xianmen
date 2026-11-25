@@ -48,6 +48,8 @@ function showMe(tab) {
     <div class="sep"></div><dl class="grid2"><dt>存档</dt><dd>本机自动保存 · 云存档：${esc(cloudStatus)}</dd></dl>
     <div class="row"><button class="btn sm alt" id="btnReset">重新开始</button></div>
     <div class="muted">字体：Fusion Pixel（TakWolf，SIL OFL 1.1）</div>`;
+  } else if (tab === 'bond' && typeof bondTabHTML === 'function') {
+    body = bondTabHTML();   // 人物卡：喜好、委托、同伴、道侣（panel-people.js）
   } else if (tab === 'bond') {
     body = Object.keys(L.NPCS).map(id => {
       const N = L.NPCS[id];
@@ -68,6 +70,7 @@ function showMe(tab) {
   }
   const s = sheet({ title: '人物', body: meTabs(tab) + body });
   bindMeTabs(s);
+  if (tab === 'bond' && typeof bindBondTab === 'function') bindBondTab(s);
   if (tab === 'rank') bindRivalList(s);
   const ab = s.querySelector('#btnArts'); if (ab) ab.onclick = () => { SFX.tap(); showArts(0); };
   const pm = s.querySelector('#btnPetsMe'); if (pm) pm.onclick = () => { SFX.tap(); showPets(); };

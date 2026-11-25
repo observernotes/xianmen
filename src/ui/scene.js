@@ -16,14 +16,27 @@ let adv = null;
 let wipe = 0;
 let lastMode = 'home';
 const D = () => ART.dims;
+// 场景按整数倍放大（DESIGN §5.1）：每个逻辑像素 UPX = round(dpr×2) 个设备像素；宽固定 200，屏幕不足时居中裁到最少 180；
+// 高 160～250 自适应，多出的在天空。矮屏（<760）不显示传讯条。
 function fitScene() {
-  const app = $('#app'), wrap = $('#sceneWrap');
-  const others = ['#top', '#cult', '#stats', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0) + 6 * 7 + 16;
-  const avail = app.clientHeight - others - 70;
-  const w = wrap.clientWidth || 300;
-  const h = Math.max(160, Math.min(250, Math.floor(avail / w * W)));
-  if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; wrap.style.aspectRatio = `${W} / ${H}`; }
+  const app = $('#app'), outer = $('#sceneOuter'), wrap = $('#sceneWrap');
+  if (!outer) return;
+  const dpr = window.devicePixelRatio || 1;
+  const short = app.clientHeight < 760;
+  app.classList.toggle('short', short);
+  const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
+  const others = ['#top', '#cult', '#stats', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0);
+  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * (short ? 5 : 6) - (short ? 0 : 52);
+  let n = UPX;
+  const ow = outer.clientWidth || window.innerWidth;
+  while (n > 1 && 180 * n / dpr > ow + 0.5) n--;
+  const h = Math.max(160, Math.min(250, Math.floor(avail * dpr / n)));
+  const u = n / dpr;
+  if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; }
+  wrap.style.width = (W * u) + 'px'; wrap.style.height = (H * u) + 'px';
+  sceneU = u;
 }
+let sceneU = 2;
 function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
@@ -64,8 +77,10 @@ function drawMeHome(x, y, realm) {
   }
 }
 // 吐纳环（DESIGN §3.2）：在洞府打坐时每周天蓄 1/6，蓄满发光，点自己释放。场景内的简画，美术接口到位后可换 ART.drawTunaRing
-function drawTunaRing(x, y) {
+function drawTunaRing(x, y, part) {
   if (st.p.r > L.MAXR || L.busy(st) || L.isFull(st)) return;
+  if (ART.drawTunaRing) { ART.drawTunaRing(x, y, Math.min(1, (st.tuna || 0) / L.TUNA_FULL), T, part); return; }
+  if (part === 'front') return;
   const f = Math.min(1, (st.tuna || 0) / L.TUNA_FULL), full = L.tunaReady(st);
   const rx = 17, ry = 4, n = 40, lit = full ? (Math.sin(T / 160) > 0 ? '#fff1a8' : '#8ff5d0') : '#4ccb9f';
   for (let i = 0; i < n; i++) {
@@ -83,14 +98,35 @@ function drawRetreatFx(x, y) {
   ART.glow(x, y - S.h / 2, Math.round(S.w * 0.75), col, 0.25 + 0.08 * Math.sin(T / 300));
   if (Math.random() < 0.2) { const a = Math.random() * 6.28, r = 22; parts.push({ x: x + Math.cos(a) * r, y: y - S.h / 2 + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * 0.02, vy: -Math.sin(a) * 0.01, life: 900, max: 900, c: col, s: 1 }); }
 }
-// 访客：门口一个人影，头上一个跳动的“！”（点它见访客）
+// 访客：门口一个人（ART.drawVisitor：有半身像的人物画成本人，否则按事件挑凡人 / 修士 / 女修 / 黑衣），头上一个跳动的“！”（点它见访客）
+const VISIT_KINDS = ['mortal', 'cult', 'fem', 'dark'];
+function visitorKind() {
+  const ev = L.visitorEvent(st), who = ev && (ev.npc || ev.speaker);
+  if (who && who !== 'elder' && ART.hasPortrait && ART.hasPortrait(who)) return who;
+  let h = 0; for (const ch of (st.visitor.id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return VISIT_KINDS[h % VISIT_KINDS.length];
+}
 function drawVisitor() {
   if (!st.visitor || st.retreat) return;
   const x = VISIT_POS.x, y = VISIT_POS.y;
+  if (ART.drawVisitor) { try { ART.drawVisitor(x, y, visitorKind(), T, { shake: st.visitor.left <= 1 }); return; } catch (e) { /* 退回简画 */ } }
   R(x - 3, y - 15, 6, 6, '#f2c9a0'); R(x - 3, y - 16, 6, 2, '#2a2230');
   R(x - 4, y - 9, 8, 9, '#6a5a8a'); R(x - 4, y - 9, 8, 1, '#8a7aa8'); R(x - 3, y, 2, 1, '#1b1326'); R(x + 1, y, 2, 1, '#1b1326');
   const by = y - 27 + Math.round(Math.abs(Math.sin(T / 260)) * -3);
   R(x - 4, by, 9, 10, '#1b1326'); R(x - 3, by + 1, 7, 8, st.visitor.left <= 1 ? '#ff8a8a' : '#ffe39a'); R(x, by + 2, 1, 4, '#c8323c'); R(x, by + 7, 1, 1, '#c8323c'); R(x - 1, by + 10, 2, 2, '#1b1326');
+}
+// 戒中老祖说话（提示气泡、引导框）时从戒指里飘出来，停在主角右上方（ART.elderSprite 两帧）
+let elderA = 0;
+function drawElder(dt) {
+  const on = !!st && (!$('#tip').hidden || !$('#guide').hidden) && !cine && !(st.eflags && st.eflags.st_farewell);
+  elderA = Math.max(0, Math.min(1, elderA + (on ? dt : -dt) / 400));
+  if (!elderA || !ART.elderSprite) return;
+  const S = D().sit, x = HOMEPOS.x + S.w / 2 + 10, y = HOMEPOS.y - S.h - 26 + Math.round(Math.sin(T / 500) * 2) + Math.round((1 - elderA) * 10);
+  ctx.globalAlpha = elderA;
+  ART.glow(x + 12, y + 12, 14, '#a6cdee', 0.25 * elderA);
+  ctx.drawImage(ART.elderSprite((T / 600 | 0) % 2), Math.round(x), Math.round(y));
+  ctx.globalAlpha = 1;
+  if (on && Math.random() < 0.05) parts.push({ x: x + 4 + Math.random() * 16, y: y + 24, vx: 0, vy: -0.01, life: 800, max: 800, c: '#c0dcff', s: 1 });
 }
 // 灵宠：出战的在主角身边、干活的在岗位上（panel-pets.js 的 drawPets）
 function drawCrane() {
@@ -129,12 +165,17 @@ function drawHomeScene(dt) {
   const bl = drawBuildings('back');
   const zc = ART.drawFormation ? drawZhen('back') : null, col = ART.drawFormation ? zc : drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
-  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);
-  if (cine) drawCineTarget(); else { drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
+  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y, 'back');
+  const retArt = !!(st.retreat && ART.drawRetreat && !cine && st.retreat.kind !== 'busy' && st.retreat.kind !== 'teach');
+  if (retArt) ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'back');   // 闭关：身后封印石门
+  if (cine) drawCineTarget(); else { if (!retArt) drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
+  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y, 'front');
+  if (retArt) { ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'front'); if (Math.random() < 0.12) { const a = Math.random() * 6.28; parts.push({ x: HOMEPOS.x + Math.cos(a) * 26, y: HOMEPOS.y - 12 + Math.sin(a) * 12, vx: -Math.cos(a) * 0.01, vy: -0.01, life: 900, max: 900, c: st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0', s: 1 }); } }
   if (ART.drawFormation) drawZhen('front');
   bl.push(...drawBuildings('front'));
   drawVisitor();
   drawPets();
+  drawElder(dt);
   drawCrane();
   drawParts(dt);
   const lights = (r.lights || []).slice().concat(bl);
@@ -212,7 +253,7 @@ function drawAdvScene(dt) {
   }
   drawParts(dt);
   const e = st.exp;
-  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total); R(4, -OY + 4, 60, 4, '#1b1326'); R(5, -OY + 5, 58 * k, 2, '#f4c542'); }
+  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
 }
 
 // ---------- 主绘制 ----------
@@ -241,11 +282,37 @@ function floatText(x, y, text, color, big, small) {
   $('#fx').appendChild(el);
   setTimeout(() => el.remove(), 1700);
 }
+function ringBurst(x, y, c, n) {
+  n = n || 28;
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; parts.push({ x: x + Math.cos(a) * 6, y: y - 2 + Math.sin(a) * 2, vx: Math.cos(a) * 0.045, vy: Math.sin(a) * 0.012 - 0.004, life: 650, max: 650, c: i % 3 ? c : '#ffffff', s: 1 }); }
+}
+// 场景顶部的小横幅：一次一条、排队、每条约 1.8 秒（DESIGN §5.2）；同一句话排着的不再重复
+const bannerQ = [];
+let bannerBusy = false;
 function banner(text, sub, color) {
+  const key = text + '|' + (sub || '');
+  if (bannerQ.some(b => b.key === key)) return;
+  bannerQ.push({ key, text, sub, color });
+  if (bannerQ.length > 4) bannerQ.splice(0, bannerQ.length - 4);
+  if (!bannerBusy) nextBanner();
+}
+function nextBanner() {
+  const o = bannerQ.shift();
+  if (!o) { bannerBusy = false; return; }
+  bannerBusy = true;
   const b = $('#banner');
-  b.innerHTML = esc(text) + (sub ? `<small>${esc(sub)}</small>` : '');
-  b.style.color = color || 'var(--gold)';
+  b.innerHTML = '<span>' + esc(o.text) + '</span>' + (o.sub ? `<small>${esc(o.sub)}</small>` : '');
+  b.style.color = o.color || 'var(--gold)';
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  setTimeout(nextBanner, 1800);
+}
+// 场景里盖一枚印章（ART.stamp：天甲乙丙丁胜败完 / 完美上中下），在 (x, y) 逻辑坐标处砸下
+function stampFx(r, x, y) {
+  const c = ART.stamp && ART.stamp(r); if (!c) return;
+  const el = document.createElement('img'); el.className = 'px fxstamp'; el.src = urlOf(c, 'stamp|' + r);
+  const s = pxFit(24, 48); el.style.width = el.style.height = s + 'px';
+  el.style.left = (x / W * 100).toFixed(2) + '%'; el.style.top = ((y + OY) / H * 100).toFixed(2) + '%';
+  $('#fx').appendChild(el); shake(); setTimeout(() => el.remove(), 1500);
 }
 function flash(op) { const f = $('#flash'); f.style.transition = 'none'; f.style.opacity = op || 0.9; requestAnimationFrame(() => { f.style.transition = 'opacity .35s steps(4)'; f.style.opacity = 0; }); }
 function shake() { const w = $('#sceneWrap'); w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake'); }

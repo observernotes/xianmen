@@ -5,7 +5,12 @@
 const RATE_CLS = ['r0', 'r1', 'r2', 'r3', 'r4'];   // 丁丙乙甲天
 function chipFor(p) { return `<span class="chip ${p >= 0.75 ? 'ok' : p >= 0.4 ? 'warn' : 'bad'}">${L.pct(p)}</span>`; }
 function rateChip(f) { return `<span class="chip ${f.lo >= 3 ? 'ok' : f.lo >= 2 ? 'warn' : 'bad'}">${f.text}${f.unknown && !f.first ? '?' : ''}</span>`; }
-function stampHTML(r, big) { return `<span class="stamp ${RATE_CLS[r]}${big ? ' big' : ''}">${L.RATINGS[r]}</span>`; }
+// 评价印：ART.stamp（天甲乙丙丁，24×24 像素印）按整数倍放大；大印带砸下动画
+function stampHTML(r, big) {
+  const c = ART.stamp && ART.stamp(4 - r);
+  if (c) { const s = pxFit(24, big ? 64 : 24); return `<span class="stamp art ${RATE_CLS[r]}${big ? ' big' : ''}"><img class="px stampimg${big ? ' big' : ''}" src="${urlOf(c, 'stamp|' + r)}" style="width:${s}px;height:${s}px" alt=""><i>${L.RATINGS[r]}</i></span>`; }
+  return `<span class="stamp ${RATE_CLS[r]}${big ? ' big' : ''}">${L.RATINGS[r]}</span>`;
+}
 const cellName = (k, d) => `${L.REGIONS[k].n}·${L.DEPTHS[d]}`;
 // 进历练面板时每张图默认选哪一格：上次去过的那一格 > 最高一格“稳拿乙”的深度 > 外围
 function defaultCell(st0, k) {
@@ -110,7 +115,7 @@ function confirmExp(k, d, a, still) {
       <div class="muted">行事 <span class="muted">（斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6）</span></div><div class="seg" id="expAppr">${appr}</div>
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="muted">预计评价</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>${dist}</div>
       <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>灵石</dt><dd class="num">约 ${fmt(f.stones)}${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''}</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
-      ${gearExpLine(k, d, a)}${notes.join('')}${opts.join('')}`,
+      ${gearExpLine(k, d, a)}${typeof compExpLine === 'function' ? compExpLine(k, d, a) : ''}${notes.join('')}${opts.join('')}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: '出发', gold: true, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
@@ -121,6 +126,7 @@ function confirmExp(k, d, a, still) {
   s.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, d, +b.dataset.a, true); });
   s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); confirmExp(k, d, a, true); } });
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
+  if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
 }
 function itemLine(it) {
   if (it.kind === 'a') return artLine(it);
@@ -148,7 +154,7 @@ function showExpResult(res) {
     lines.push(`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里没走完的那趟历练，按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? '，负伤 3 周天' : ''}。</p>`);
   } else {
     const pr = res.parts, sg = v => (v >= 0 ? '+' : '') + Math.round(v);
-    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(52)}<div class="center">${stampHTML(res.rating, true)}<div class="muted">${res.recall ? '中途折返' : '评价'}${res.leap ? ' · <span class="seal">越级</span>' : ''}</div></div></div>`);
+    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(52, undefined, '', res.rating >= 3 ? 'joy' : res.rating <= 0 ? 'sad' : 'n')}<div class="center">${stampHTML(res.rating, true)}<div class="muted">${res.recall ? '中途折返' : '评价'}${res.leap ? ' · <span class="seal">越级</span>' : ''}</div></div></div>`);
     if (!res.first && !res.recall) lines.push(`<div class="center muted num">斩获 ${Math.round(pr.pow)} · 机缘 ${sg(pr.luck)} · 身法 ${sg(pr.aff)} · 胆魄 ${sg(pr.guts)} = <b>${Math.round(res.score)}</b> 分</div><div class="center muted">（丙 ${L.RATE_TH[0]} · 乙 ${L.RATE_TH[1]} · 甲 ${L.RATE_TH[2]} · 天 ${L.RATE_TH[3]}；奖励 ×${res.m}${res.leap ? ' ×2' : ''}）</div>`);
     if (res.affNew) lines.push(`<div class="quote">相性揭晓：【${rg.n}】${L.APPR[res.a].n} ${L.AFF_SYM[res.affV]}${res.affV === 2 ? '——此地正适合！' : res.affV === 0 ? '——此地不宜。' : ''}</div>`);
     const g = [];
@@ -174,6 +180,7 @@ function showExpResult(res) {
     if (res.lifeCost) lines.push(`<p class="center seal">血遁脱身：丁等不负伤，寿元 −${fmt(res.lifeCost)} 年。</p>`);
     if (res.qianyuan) lines.push('<p class="center jadet">潜渊：禁地失手，空手而归，但没有负伤。</p>');
     if (res.healed) lines.push(`<p class="center jadet">回春剑诀：负伤 −${res.healed} 周天。</p>`);
+    if (typeof compResLine === 'function') lines.push(compResLine(res));   // 同行的人、对上的委托（panel-people.js）
   }
   lines.push(deltaHTML(res));
   if (res.rating >= 2) SFX.coin(); else SFX.fail();

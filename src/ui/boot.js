@@ -51,7 +51,7 @@ function showTrain() {
   if (!L.canTrain(st)) return;
   const pi = L.pactInfo(st);
   sheet({ title: '老祖特训', center: true, noClose: true,
-    body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:56px;height:56px" alt=""><p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
+    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
     foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 周天 · 修炼 ×3`); } closeModal(); } }] });
 }
 function showVisitor() {
@@ -96,7 +96,7 @@ function sceneClick(e) {
   }
   if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
   if (st.exp) { SFX.tap(); showExp(); return; }
-  if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 14 && y > VISIT_POS.y - 30 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
+  if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 16 && y > VISIT_POS.y - 58 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;
   if (fieldSceneHit(x, y)) return;
   if (homeSceneHit(x, y)) return;   // 场景里的建筑（panel-home.js）
