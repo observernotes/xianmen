@@ -68,3 +68,10 @@
 - `ART.drawShieldBar(x, y, w, frac, { mark, lag })` 护体条（mark = 预计落点刻线）。
 - `ART.stamp('完美'|'上'|'中'|'下')` 道基品级印（原有 天甲乙丙丁胜败完 不变）。
 - `ART.icon('dao_k'|'dao_w'|'dao_r'|'karma')` 狂 / 稳 / 仁 / 因果。`ART.backdrop('demon')` 心魔劫 200×120 底图。
+
+## 阶段三·批次八（宗门人物）
+
+- `ART.portrait(id, mood, alt)` 新增 id：长老 tieye 铁冶真人 / liu 柳含烟 / yaochen 药尘子 / chisong 赤松客 / shouzhuo 守拙道人 / qingxu 清虚真人 / xuehe 血河老祖 / xue3 鬼医薛三 / youji 幽姬；圣子 xiao 萧凌风（alt = true → 苏清寒）/ hongxiu 丹红袖 / zhibai 陆知白；tianheng 陆天衡。五种表情齐全；`ART.fighter(id, …)` 与 `ART.drawVisitor(…, id)` 也都可用这些 id。
+  注意：CONTENT 事件里鬼医薛三的长老 id 是 `xuesan`，美术 id 是 `xue3`；接入时做一次映射。
+- `ART.portraitGen(seed, { f, realm, temper, kind, robe, trim }, mood)` → 48×48 门人 / 徒弟头像（同 seed 恒定；temper = 0～7 或 '勤勉' '聪慧' '莽' '滑' '痴' '孤傲' '仁厚' '贪玩'，`ART.tempers`；realm 决定道袍色，或直接传 robe: [暗, 中, 亮] 用宗门色；kind: 'rookie' = 新秀外观：金抹额 + 红披领）。
+- 职司图标：`ART.icon('post_dan'|'post_qi'|'post_zhan'|'post_fa'|'post_wai')`。
