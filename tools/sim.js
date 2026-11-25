@@ -57,6 +57,14 @@ function gearGuided(st) {
     if (!best) break;
     L.gearPlus(st, best.s);
   }
+  // 重铸：兵器（非固定词条）没有锋锐时，花多余的天材地宝（留 3 个炼丹）重抽价值最低的一条，新的更好才留
+  const wx = L.gearEq(st, 'w');
+  if (wx && !L.gearBase(wx.id).fixed && st.treasure > 3 && !wx.aff.includes('fengrui') && wx.aff.length) {
+    let worst = 0, wv = Infinity;
+    wx.aff.forEach((a, i) => { wx.aff.splice(i, 1); const v = -L.gearValue(st); wx.aff.splice(i, 0, a); if (v < wv) { wv = v; worst = i; } });
+    const v0 = L.gearValue(st), rf = L.gearReforge(st, 'w', worst);
+    if (rf) { wx.aff[rf.i] = rf.neu; const v1 = L.gearValue(st); wx.aff[rf.i] = rf.old; L.gearReforgeKeep(st, v1 > v0 + 1e-9); }
+  }
   // 灵矿不够强化兵器、灵石富余（≥ 一筐价的 4 倍）时，去坊市买一筐
   const w = L.gearEq(st, 'w');
   if (w && L.marketOpen(st, 'ore') && L.oreBuyLeft(st) > 0 && (st.ore || 0) < L.gearPlusCost(st, w).ore && st.stones >= L.price(st, 'ore') * 4) L.buy(st, 'ore');
@@ -70,7 +78,8 @@ function gearShare(st) {
   const parts = L.expExtraParts(st, L.homeRegion(st), 0, 0);
   const pts = parts.filter(x => /^词条/.test(x[0])).reduce((a, x) => a + x[1], 0);
   const robe = parts.filter(x => /^法衣/.test(x[0])).reduce((a, x) => a + x[1], 0);
-  return { plus: p1 / p0, aff: Math.pow(2, pts / 25), pts, robe, wt: g.w ? g.w.t : 0, wp: g.w ? g.w.plus : 0, rp: g.r ? g.r.plus : 0, op: g.o ? g.o.plus : 0, n: L.gearEqList(st).length };
+  const cul = L.culParts(st).filter(x => x[2] === 'gear').reduce((a, x) => a * x[1], 1);
+  return { plus: p1 / p0, aff: Math.pow(2, pts / 25), pts, robe, cul, wt: g.w ? g.w.t : 0, wp: g.w ? g.w.plus : 0, rp: g.r ? g.r.plus : 0, op: g.o ? g.o.plus : 0, n: L.gearEqList(st).length };
 }
 function rngFor(seed) { let s = (seed * 2654435761) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const UPW = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4 };   // 折算价的权重：越小越优先
@@ -288,6 +297,7 @@ function summarize(strat, recs, G) {
     row(strat, '（参考）约战时装着战技 / 克制慕容', `${pct(frac(recs, x => x.pactZ))} / ${pct(frac(recs, x => x.pactKe))}`, '—');
     const ga = (r, f) => med(recs.map(x => x.gearAt[r] && x.gearAt[r][f]));
     row(strat, '（参考）法宝 筑基末 / 渡劫期 / 飞升', `强化 ×${ga(2, 'plus').toFixed(2)} / ×${ga(8, 'plus').toFixed(2)} / ×${ga(9, 'plus').toFixed(2)}，词条当量 ×${ga(2, 'aff').toFixed(2)} / ×${ga(8, 'aff').toFixed(2)} / ×${ga(9, 'aff').toFixed(2)}`, '§18：强化 ×1.3、词条 ×1.15（后期）');
+    row(strat, '（参考）法宝修炼加成（饰品、养气） 元婴 / 渡劫期', `×${ga(3, 'cul').toFixed(2)} / ×${ga(8, 'cul').toFixed(2)}`, '§18：饰品 +12%');
     row(strat, '（参考）飞升时 兵器阶+强化 / 法衣 / 饰品强化', `${ga(9, 'wt')}+${ga(9, 'wp')} / +${ga(9, 'rp')}（分数 +${ga(9, 'robe').toFixed(1)}） / +${ga(9, 'op')}`, '—');
     return { durs, ascMed };
   }
