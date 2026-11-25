@@ -37,8 +37,13 @@ const path = require('path');
       }
       if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') { await drain(); return; } }
       const st = X.st;
-      if (st.pills >= 9) { const b = document.querySelector('#modal [data-sell="pill:0.5"]:not([disabled])'); if (b) { b.click(); mSell++; seen['行情卖出'] = 1; await sleep(40); } }
-      if (L.sellOpen(st) && st.herbs > 6 * L.herbCost(st, L.RECIPES[0]) && L.sellMult(st, 'herb') >= 1.2) { const b = document.querySelector('#modal [data-sell="herb:0.5"]:not([disabled])'); if (b) { b.click(); mSell++; await sleep(40); } }
+      // 卖：破境丹 6 枚以上、行情不差就卖一半；灵草远多于炼丹所需、行情 ≥ ×1.15 卖一半；筑基后没卖过东西的，挑行情最好的那样试着卖一半
+      const sellClick = async sel => { const b = document.querySelector(`#modal [data-sell="${sel}"]:not([disabled])`); if (b) { b.click(); mSell++; seen['行情卖出'] = 1; await sleep(40); } };
+      if (L.sellOpen(st)) {
+        if (st.pills >= 9 || (st.pills >= 6 && L.sellMult(st, 'pill') >= 1)) await sellClick('pill:0.5');
+        if (st.herbs > 3 * L.herbCost(st, L.RECIPES[0]) && L.sellMult(st, 'herb') >= 1.15) await sellClick('herb:0.5');
+        if (!mSell) { const k = L.SELL_KEYS.filter(x => L.sellHave(st, x) > 0).sort((a, b) => L.sellMult(st, b) - L.sellMult(st, a))[0]; if (k && k !== 'ore') await sellClick(k + ':0.5'); }
+      }
       for (const row of L.shelf(st)) {
         if (row.fixed || L.shelfWhy(st, row)) continue;
         if (!((row.k === 'pill' && st.pills < 3) || ((row.k === 'robe' || row.k === 'frag' || row.k === 'plan') && st.stones > row.price * 2) || (row.k === 'ore' && st.stones > row.price * 6))) continue;
