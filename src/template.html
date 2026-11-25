@@ -330,6 +330,31 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .combo-arts { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .combo-a { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .combo-x { color: var(--gold); font-size: calc(var(--fs) * 2); }
+/* 法宝（panel-gear.js）：三格 + 每格下【强化】、对比卡、词条记号、器炉 */
+.gslots { align-items: start; }
+.gcell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gslot { position: relative; min-height: 150px; }
+.gslot .gaffs { justify-content: center; }
+.gfx { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); pointer-events: none; }
+.btn.gplusb { min-height: 48px; width: 100%; padding: 2px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.btn.gplusb small { white-space: nowrap; opacity: .85; }
+.gplusn { color: #b8741a; margin-left: 2px; }
+.gaffs { display: flex; flex-wrap: wrap; gap: 3px; }
+.gaff { display: inline-flex; align-items: center; gap: 2px; padding: 0 3px; background: #efe0b4; color: #3b2b00; white-space: nowrap; box-shadow: 0 0 0 1px rgba(27, 20, 36, .3); }
+.gaff.fixed { background: #f4c542; }
+.gcmp { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: #f7eed6; border-left: 4px solid #b8b8b8; box-shadow: 0 0 0 2px #b9a77c; margin: 4px 0; }
+.gcmp.better { box-shadow: 0 0 0 2px var(--jade); }
+.gcmp .row { align-items: flex-start; }
+.gcur { display: flex; gap: 6px; align-items: center; color: var(--paper-mute); }
+.gbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.gbtns .btn { min-height: 44px; min-width: 64px; flex: 1 1 auto; }
+.gdet { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: #fff6dc; border-left: 4px solid #b8b8b8; }
+.gdet .row { align-items: center; }
+.garow { display: flex; gap: 6px; align-items: center; min-height: 44px; }
+.gres { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.gline .row, .gdone { align-items: center; }
+.gexp { padding: 2px 6px; }
+.fxs { line-height: 1.35; overflow-wrap: anywhere; }
 .story-tag { display: inline-block; background: var(--seal); color: #fff; padding: 0 6px; margin-right: 6px; }
 .ach { display: flex; gap: 8px; align-items: center; padding: 4px 6px; background: #f7eed6; }
 .ach.off { opacity: .45; }
