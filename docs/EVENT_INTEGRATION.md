@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：洞府地块、建筑与阵法）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -77,7 +77,19 @@
     长老 20 个（24 个里 dan_yun_1、mo_youji_2、mo_xuesan_1 还等丹毒，mo_xuehe_1、mo_xuesan_1 还等丹方）、徒弟 12 个、人物委托 3 个（su_q1、su_q2、bai_q2：fx.busy / fx.favor）。
     还闸着、但宗门部分已能结算的：chu_q2、mo_q1（fx.busy 已登记，等恩怨）、mu_4、xue_1（fx.favor 已登记，等恩怨）。
     与灵田炼丹合并后，等丹毒 / 丹方的 4 个长老事件（dan_yun_1、mo_xuehe_1、mo_xuesan_1、mo_youji_2）也放行了。
-- 当前上线 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- [x] 洞府地块、建筑与阵法登记（`src/logic/home.js`、`src/logic/formation.js`、`src/logic/buildings.js`，第九刀）：
+  - 剧情触发键 `plot_full`（地块满了、又有解锁了没建的建筑，持续 12 周天后，每世一次 → `home_plot_full`）、`build:<建筑>`（建成时；`build:library` 另在藏经阁每次升级时 → `home_library_note`；`build:spring` → `home_spring`）、
+    `formation_fail`（换阵时 5% → `home_formation_fail`）。
+  - 一次性 flag：`tut_rebuild`（界面打开【洞府】、选中等级最低的那块地并摊开【拆除】确认，`st.home.tut`）、`formation_boost`（最近换的那个阵位的阵法，生效后 12 周天效果 ×1.2，`st.home.zboost`）、
+    `formation_redo`（还在布的再多布 3 周天；已经生效的撤了重布 3 周天）、`pen_discount`（**改了**：灵宠那一刀先收着的“喂养 +8%”换成写手原意“下一次兽栏建造 / 升级七折”，`st.home.disc.pen`；nohome2 时仍走灵宠那一刀的旧实现）；
+    常驻 flag `spring_fish`（丹毒每周天多退 0.5，包 `L.toxDecay`）。`home_neighbor`（已上线）补上 CONTENT 的前提“洞府 ≥ 4 级”（包 `L.eligible`）。
+  - fx.aff 钩子接在道心“仁”后面：迎客亭建成后，访客事件（`visit: true`）里给人物的正好感再 +1（`L.visitFavorBonus(st)`，人物线读它）。
+  - `fx.plan` 给 `f_*` 阵图时现在写“【洞府】聚灵阵上布阵：效果”（包 `L.givePlan`），阵图仍记在 `st.gear.zhentu`（法宝那一刀就这么存，story_trib1 的渡劫阵、ch_danjing_5 的丹火阵、秘境剑气的锻魂阵都照旧）。
+    新来源：坊市轮换货“阵图”（生财阵，筑基起，`L.zhenShopOk`）；拍卖（元婴起，迷踪 / 护山 / 养兽里没有的一张，`L.zhenAucLot`）；仙府秘藏（迷踪阵，realm.js 的 `L.mjChestExtra`）；
+    历练（万妖山脉腹地评价乙以上 10% 养兽阵、太古仙府评价乙以上 8% 一张没有的）；葛老三心（丹火阵）。**护山阵的正路是宗门执法长老 40 支持**：宗门线要发时调 `L.zhenGive(st, 'f_hushan')`。
+  - 迷踪阵的“秘境陷阱减半”原来只看有没有阵图（realm.js 的 `L.mjTrapHalf`），现在要布着；传送阵 9 级“秘境不耗周天”走 `L.portalLv`（nohome2 时恒 0）。
+  - 这一刀放行的 4 个：`home_plot_full`、`home_formation_fail`、`home_spring`、`home_library_note`。
+- 当前上线 304 / 332（洞府 +4）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
