@@ -168,3 +168,17 @@ if (sec('g8') && ART.portraitGen) {
   [['post_dan', '丹堂'], ['post_qi', '器堂'], ['post_zhan', '战堂'], ['post_fa', '执法堂'], ['post_wai', '外事堂']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
   br();
 }
+
+if (sec('g9') && ART.portrait && ART.hasPortrait('teaman')) {
+  const z = +(q.get('z') || 3), ids = ['teaman', 'qian', 'lei', 'lixiao', 'yutian'];
+  h('【九 人物与宿敌】卖茶翁与四位出身约战对手：五种表情 + 原尺寸 + 剪影');
+  for (const id of ids) ptBlock(NAMES[id], m => ART.portrait(id, m), z);
+  br(); for (const id of ids) show(ART.fighter(id, 'idle0'), 3, NAMES[id], PANEL);
+  br(); h('新秀 ART.portraitGen(seed, { kind: "rookie", robe: 宗门色 })：金抹额 + 红披领，2 倍；下排第一位的五种表情');
+  const SR = [['#263f7a', '#3f6ec0', '#7aa2e6'], ['#a04424', '#e8743c', '#ffa870'], ['#54288a', '#8a4ec8', '#c27dff'], ['#3e0a14', '#7a1a26', '#b03a40'], ['#a8a4bc', '#eeeaf4', '#ffffff'], ['#2f6e4b', '#4f9a62', '#8ad08a']];
+  for (let s = 0; s < 14; s++) show(ART.portraitGen(900 + s * 13, { kind: 'rookie', f: s % 3 === 1, robe: SR[s % 6], trim: '#f4e8c8' }), 2, '', s % 2 ? PANEL : PAPER);
+  br(); ptBlock('新秀 seed 900', m => ART.portraitGen(900, { kind: 'rookie', robe: SR[0], trim: '#f4e8c8' }, m), z);
+  br(); h('恩怨、委托、喜好标记、礼物补充、新秀的指点 / 打压');
+  [['grudge', '恩怨'], ['quest', '委托'], ['like', '喜欢'], ['dislike', '讨厌'], ['gift', '送礼（已有）'], ['wine', '酒'], ['tea', '茶'], ['spar', '指点'], ['crush', '打压']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
+  br();
+}
