@@ -96,6 +96,7 @@ L.migrate = function (s) {
   if (L.migrateHome) L.migrateHome(s);   // 洞府地块、建筑、阵法（buildings.js，可重复调用，不升版本）
   if (L.migrateRealm) L.migrateRealm(s);   // 秘境：st.run / st.mj / st.meta.mj 缺了补默认（幂等，不升版本）
   if (L.migrateRivals) L.migrateRivals(s);   // 宿敌与新秀：恩怨、新秀、图鉴 st.meta.rival；拍卖加成压回 ×1.3（rivals2.js，幂等，不升版本）
+  if (L.migratePeople) L.migratePeople(s);   // 人物：委托、同伴、双修、送礼图鉴 st.ppl / st.meta.gift（people.js，幂等，不升版本）
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值
@@ -136,6 +137,10 @@ L.migrate = function (s) {
   if (v4) L.log(s, '法宝换了新章法：兵器、法衣、饰品三槽，能强化、带词条' + (gearNote ? '。' + gearNote : ''), 'gold');
   if (petNote) L.log(s, '灵宠换了新章法：名册、岗位、等级与进化。' + petNote, 'gold');
   if (v5 && !old) L.log(s, '坊市换了新章法：货架六格、行情能卖、拍卖会竞价；四季与天下大势也看得见了', 'gold');
+  // 奇遇链进度、图鉴、轮回（chains.js / codex.js / samsara.js，可重复调用，不升版本；图鉴读前面各系统的记录，排最后）
+  if (L.migrateChains) L.migrateChains(s);
+  if (L.migrateSamsara) L.migrateSamsara(s);
+  if (L.migrateCodex) L.migrateCodex(s);
   s.v = L.SAVE_V;
   return s;
 };

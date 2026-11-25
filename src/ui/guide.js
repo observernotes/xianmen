@@ -16,6 +16,8 @@ function tip(key, text) {
 const modalTitle = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent.replace(/^主线/, '').trim() : ''; };
 const modalOpen = () => !$('#modal').hidden;
 const PI = () => L.pactInfo(st);
+// 约战对手的“他 / 她”：出身换了对手（samsara.js 的 L.exTa），弃徒按主角性别（退婚的是慕容雪 / 慕容轩）
+const exTa = () => (L.exTa ? L.exTa(st) : '她');
 const BIG = '#stats button[data-s="big"]';
 const dec = v => L.fmt1(v);   // 100 以下保留一位小数（10.8 不会显示成 10）
 let lastExp = null;
@@ -54,11 +56,11 @@ const HINTS = [
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
       if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个周天</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个周天），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
       const m = muNext();
-      return `输了不丢人，认输才丢人。第 1 届论道第一场就是她，还剩 <b>${m.n} 个周天</b>，到时她战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
+      return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${m.n} 个周天</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
     } },
   { id: 'pactSoon', urgent: true, intro: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 12 && PI().left > 0, target: BIG, btn: '知道了', text: () => {
       const pi = PI(), tips = pactTips();
-      return `还剩 <b>${pi.left} 个周天</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，她 <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
+      return `还剩 <b>${pi.left} 个周天</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，${exTa()} <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
         (tips.length ? '锦囊：' + tips.map(x => `${x.t} → <b>${x.extra ? x.extra : L.pct(x.p)}</b>`).join('；') + '。点这一格看详情。' : '稳了，到时候让全城看看谁是废物。');
     } },
   { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每周天自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个周天</b>回本。`; } },
