@@ -36,3 +36,10 @@
 - `ART.door(type)` → 32×40 门卡，type = fight|elite|chest|spring|event|insight|shop|boss|unk（也接受 战/精/宝/泉/奇/悟/商/守/？，`ART.doorTypes`）。
 - `ART.drawQiBar(x, y, w, frac, t)` 气血条；`ART.drawRoomFx(type, x, y, k 0～1)` 房间结果动画（type 同门卡，另有 'trap'）。
 - `ART.icon('spring'|'wonder'|'skull')`。`ART.duelStages()` 仍只返回原来四个舞台。
+
+## 阶段三·批次四（灵宠）
+
+- `ART.petSprite(sp, form, frame, aw)` → 32×28 精灵，面朝左，脚底 y = 26（`ART.dims.pet2 = {w:32, h:28, foot:26}`）。sp 用 CONTENT §4 的 id：p_tu p_hu p_que p_xiong p_gui p_hu2 p_fu p_sun p_he p_jiao p_wu p_ze，另有 p_qilin。form 0 初始 / 1 分支 A / 2 分支 B（也接受 'a' 'b'；p_hu 的 3 = 九尾天狐）；frame 0/1；aw 为真 = 觉醒光环。
+- `ART.petCard(sp, form, aw)` → 36×36 卡片像。`ART.petName(sp, form)`、`ART.petList()` → [[sp, form, 名, 五行]…]。
+- `ART.drawEvo(x, y, t)` 可进化时的循环光效；`ART.drawEvo(x, y, t, k 0～1)` 进化瞬间（(x, y) 为脚底中心）。
+- 岗位图标：`ART.icon('job_field'|'job_furnace'|'job_array'|'job_forage'|'job_patrol'|'job_out')`。旧 `ART.pet(tier)` 不变。
