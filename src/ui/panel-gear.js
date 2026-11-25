@@ -63,9 +63,9 @@ function gearLine(it) {
   const x = it.gear;
   if (it.pend && L.gearPend(st, x.u)) return gearCmpHTML(x);
   const B = L.gearBase(x.id);
-  const head = `${gearImg(x, 2)}<div class="grow"><div class="line">${gTierTag(x.slot, x.t)}<span>${L.GEAR_N[x.slot]}【${esc(B.n)}】${plusTag(x.plus)}</span></div><div class="muted">${esc(L.gearMainText(st, x))}</div>${x.aff.length ? `<div class="gaffs">${affChips(x.aff, !!B.fixed)}</div>` : ''}</div>`;
+  const head = `<div class="line">${gTierTag(x.slot, x.t)}<span>${L.GEAR_N[x.slot]}【${esc(B.n)}】${plusTag(x.plus)}</span></div><div class="muted">${esc(L.gearMainText(st, x))}</div>${x.aff.length ? `<div class="gaffs">${affChips(x.aff, !!B.fixed)}</div>` : ''}`;
   const tail = it.hold ? `<span class="muted">先收着：${L.GEAR_N[x.slot]}槽${L.gearOpenWhy(st, x.slot)}，到时自动戴上</span>` : it.equip ? '<span class="chip ok">已装上</span>' : it.smelt !== undefined ? `<span class="muted">熔成灵矿 +${it.smelt}${it.closed ? `（${L.GEAR_N[x.slot]}槽${L.gearOpenWhy(st, x.slot)}）` : it.auto ? '（已锁定）' : ''}</span>` : st.gear[x.slot] === x ? '<span class="chip ok">已换上</span>' : '<span class="muted">已处理</span>';
-  return `<div class="quote gline"><div class="row">${head}${tail}</div></div>`;
+  return `<div class="quote gline"><div class="row">${gearImg(x, 2)}<div class="grow">${head}<div>${tail}</div></div></div></div>`;
 }
 // 对比卡上的按钮（sheet() 里统一绑定）
 function bindGearButtons(root) {
