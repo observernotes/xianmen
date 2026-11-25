@@ -19,7 +19,7 @@
  *    用 L.addCulMod / L.addAtkMod（见 stats.js）把自己的倍率接进修炼与战力，不要去改 L.gain / L.power。
  *
  * 加载顺序（也是 tools/build.py 内联进 dist 的顺序，build.py 直接读下面这个数组）：
- *   core 工具·参数·境界表·公式·新档 → stats 倍率汇总 → items 法宝灵宠 → arts 五行与功法 → home 洞府 → npc 羁绊
+ *   core 工具·参数·境界表·公式·新档 → stats 倍率汇总 → items 阶表与发放 → arts 五行与功法 → gear 法宝三槽·强化·词条·打造 → home 洞府 → npc 羁绊
  *   → rivals 天骄榜·对决·约战·论道 → sect 宗门·任务板 → expedition 历练·首领 → cultivation 吐纳·突破·闭关·疗伤
  *   → market 坊市·拍卖 → alchemy 炼丹 → events-engine 奇遇·访客 → quests 札记 → meta 成就·转世 → save 迁移 → tick 推进
  *
@@ -28,7 +28,7 @@
  */
 (function () {
 'use strict';
-const MODULES = ['core', 'stats', 'items', 'arts', 'home', 'npc', 'rivals', 'sect', 'expedition', 'cultivation', 'market', 'alchemy', 'events-engine', 'quests', 'meta', 'save', 'tick'];
+const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'home', 'npc', 'rivals', 'sect', 'expedition', 'cultivation', 'market', 'alchemy', 'events-engine', 'quests', 'meta', 'save', 'tick'];
 if (typeof module === 'object' && module.exports) {
   const L = {};
   for (const m of MODULES) require('./logic/' + m + '.js')(L);
