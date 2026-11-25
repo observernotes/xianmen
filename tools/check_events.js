@@ -29,7 +29,7 @@ const THEMES = ['jianqi', 'baicao', 'ronghuo', 'youquan'];
 const YIN = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const ARTS = L.ARTL ? L.ARTL.map(a => a.id) : null;
 const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices',
-  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin'];
+  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'origin', 'sectId'];
 const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin'];
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein',
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
