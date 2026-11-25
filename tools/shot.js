@@ -256,7 +256,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const { st } = window.__xm; st.toxin = 0; delete st.dan.next.baoqi; });
   await page.evaluate(() => {
     const { st, L } = window.__xm; st.p.inj = 0; st.exp = null; st.retreat = null; st.visitor = null;
-    for (const h of ['cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;
+    for (const h of ['plots', 'cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;
     st.tick = 152; st.stones = 5e5; st.pills = 10; st.herbs = 300; st.ore = 60;
     st.cal.w = { id: 'w_dahan', at: 146, until: 154 }; st.market.idx = { herb: 1.4, ore: 0.8, pill: 1.2 };
     L.restock(st, true); L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true;

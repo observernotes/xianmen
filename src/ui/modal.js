@@ -21,6 +21,8 @@ function sheet(o) {
   if (oldU.length) gearLeave(oldU, gearUids(m));
   bindGearButtons(m);    // 法宝对比卡（panel-gear.js）
   bindPetButtons(m);     // 名册满时新灵宠的放生 / 替换（panel-pets.js）
+  // 分页条放不下时横向滑：把当前页滑到中间，右缘有渐隐提示
+  m.querySelectorAll('.tabs').forEach(t => { if (t.scrollWidth <= t.clientWidth + 1) return; t.classList.add('scroll'); const on = t.querySelector('.on'); if (on) t.scrollLeft = on.offsetLeft - t.offsetLeft - (t.clientWidth - on.offsetWidth) / 2; });
   return m.querySelector('.sheet');
 }
 function closeModal() {

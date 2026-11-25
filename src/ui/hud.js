@@ -7,13 +7,14 @@ function onHook(type, data) {
   if (type === 'log') feedDirty = true;
   else if (type === 'stageUp') {
     const pw1 = L.power(st); lastUp = { pw0: pw1 / Math.pow(L.P.pwStage, data.ups), pw1 };
-    if (!st.exp) { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 6, L.stageName(st.p) + '↑', '#8ff5d0'); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h + 6, `战力 ${fmt(lastUp.pw0)} → ${fmt(pw1)}`, '#ff9a8a', false, true); }
+    if (!st.exp) { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 6, L.stageName(st.p) + '↑', '#8ff5d0'); ringBurst(HOMEPOS.x, HOMEPOS.y, '#8ff5d0'); }
+    banner(L.stageName(st.p), `战力 ${fmt(lastUp.pw0)} → ${fmt(pw1)}`, '#8ff5d0');
     SFX.up();
   }
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); chapterTip(data.ch); } }
+  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); stampFx('完', 100, 70); chapterTip(data.ch); } }
   else if (type === 'task') { floatText(100, 64, '宗门任务完成', '#8ff5d0'); }
   // 功法（arts.js）：有名共鸣第一次凑齐 → 横幅；第一次通用共鸣 → 老祖气泡；熟练升级、融会
   else if (type === 'combo') { const c = L.combo(data.id); banner('共鸣 · ' + c.n, c.d); SFX.reveal(5); }
@@ -29,19 +30,47 @@ function onHook(type, data) {
 }
 
 // ---------- HUD ----------
-let hudTimer = 0, achBusy = false;
+let hudTimer = 0, achBusy = false, dateKey = '';
+// HUD 数值变化：300ms 滚动，增加闪绿、减少闪红（DESIGN §5.1）
+function rollNum(sel, v, f) {
+  const el = $(sel); if (!el) return;
+  f = f || fmt;
+  if (el._v === undefined || !isFinite(el._v) || cine) { el._v = v; el.textContent = f(v); return; }
+  if (el._to === v) return;
+  const from = el._shown !== undefined ? el._shown : el._v, t0 = performance.now();
+  el._to = v; el._v = v;
+  if (Math.abs(v - from) < 1e-9) { el.textContent = f(v); return; }
+  el.classList.remove('nup', 'ndn'); void el.offsetWidth; el.classList.add(v > from ? 'nup' : 'ndn');
+  const step = now => {
+    if (el._to !== v) return;
+    const k = Math.min(1, (now - t0) / 300), x = from + (v - from) * k;
+    el._shown = x; el.textContent = f(k >= 1 ? v : (Math.abs(v) >= 100 ? Math.round(x) : x));
+    if (k < 1) requestAnimationFrame(step); else el._shown = undefined;
+  };
+  requestAnimationFrame(step);
+}
 function updateHUD() {
   if (!st) return;
   const p = st.p;
   $('#pName').textContent = (st.title ? '「' + st.title + '」' : '') + p.name + (st.sect ? ' · ' + L.srankName(st, st.sect.rank) : '');
   L.checkAchs(st);
   if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; banner('成就 · ' + a.n, '称号「' + a.t + '」'); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
-  $('#date').textContent = `第${Math.floor(st.year) + 1}年`;
-  $('#vStone').textContent = fmt(st.stones);
-  $('#vPill').textContent = st.pills;
+  const sz = season();
+  const dk = Math.floor(st.year) + '|' + sz;
+  if (dateKey !== dk) {
+    dateKey = dk;
+    $('#date').textContent = `第${Math.floor(st.year) + 1}年 · ${'春夏秋冬'[sz]}`;
+    if (ART.season) { const ic = $('#seasonIc'), c = ART.season(sz), s2 = pxFit(16, 16); ic.src = urlOf(c, 'season|' + sz); ic.style.width = ic.style.height = s2 + 'px'; }
+    if (ART.seasonColor) $('#sceneTL').style.boxShadow = `0 0 0 2px var(--ink), inset 0 -2px 0 0 ${ART.seasonColor(sz)}`;
+  }
+  rollNum('#vStone', st.stones);
+  rollNum('#vPill', st.pills, v => String(Math.round(v)));
+  const inc = L.income(st);
+  $('#vInc').textContent = inc > 0 ? '+' + fmt(inc) : '';
   $('#vLife').textContent = p.r >= 9 ? '不朽' : `${Math.floor(p.age)}/${fmt(L.lifespan(st))}`;
+  $('#lifeFill').style.width = (p.r >= 9 ? 0 : Math.min(100, p.age / Math.max(1, L.lifespan(st)) * 100)).toFixed(1) + '%';
   $('#lifeBox').classList.toggle('low', p.r <= L.MAXR && L.desperate(st));
-  $('#vRank').textContent = '第' + (rankShown || st.rank);
+  $('#vRank').textContent = '榜第' + (rankShown || st.rank);
   $('#btnSpeed').textContent = SPEEDS[speedIdx] ? '×' + SPEEDS[speedIdx] : '暂停';
   $('#btnSpeed').classList.toggle('on', SPEEDS[speedIdx] === 0);
   const ready = L.isReady(st);
@@ -59,9 +88,9 @@ function updateHUD() {
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
   else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : L.retName(st.retreat)}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
   else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
-  $('#sCul').textContent = '+' + fmt(L.gain(st));
-  $('#sAtk').textContent = fmt(L.power(st));
-  $('#sInc').textContent = '+' + fmt(L.income(st));
+  rollNum('#sCul', L.gain(st), v => '+' + fmt(v));
+  rollNum('#sAtk', L.power(st));
+  rollNum('#sInc', inc, v => '+' + fmt(v));
   const nb = L.nextBig(st), bb = $('#sBig');
   if (nb.k === 'pact') {
     $('#sBigK').textContent = `约战${nb.left}周天`;
@@ -75,7 +104,11 @@ function updateHUD() {
   $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
   updateWorldTag();
   updateToxin();   // 丹毒葫芦（panel-alchemy.js）
-  $$('#nav button').forEach(b => b.classList.toggle('locked', !!navLock(b.dataset.nav)));
+  $$('#nav button').forEach(b => {
+    const lk = !!navLock(b.dataset.nav), was = b.classList.contains('locked');
+    b.classList.toggle('locked', lk);
+    if (was && !lk && st.tick > 0) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
+  });
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
   $('#cult').classList.toggle('away', !!st.exp);

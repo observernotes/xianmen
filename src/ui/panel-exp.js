@@ -5,7 +5,12 @@
 const RATE_CLS = ['r0', 'r1', 'r2', 'r3', 'r4'];   // 丁丙乙甲天
 function chipFor(p) { return `<span class="chip ${p >= 0.75 ? 'ok' : p >= 0.4 ? 'warn' : 'bad'}">${L.pct(p)}</span>`; }
 function rateChip(f) { return `<span class="chip ${f.lo >= 3 ? 'ok' : f.lo >= 2 ? 'warn' : 'bad'}">${f.text}${f.unknown && !f.first ? '?' : ''}</span>`; }
-function stampHTML(r, big) { return `<span class="stamp ${RATE_CLS[r]}${big ? ' big' : ''}">${L.RATINGS[r]}</span>`; }
+// 评价印：ART.stamp（天甲乙丙丁，24×24 像素印）按整数倍放大；大印带砸下动画
+function stampHTML(r, big) {
+  const c = ART.stamp && ART.stamp(4 - r);
+  if (c) { const s = pxFit(24, big ? 64 : 24); return `<span class="stamp art ${RATE_CLS[r]}${big ? ' big' : ''}"><img class="px stampimg${big ? ' big' : ''}" src="${urlOf(c, 'stamp|' + r)}" style="width:${s}px;height:${s}px" alt=""><i>${L.RATINGS[r]}</i></span>`; }
+  return `<span class="stamp ${RATE_CLS[r]}${big ? ' big' : ''}">${L.RATINGS[r]}</span>`;
+}
 const cellName = (k, d) => `${L.REGIONS[k].n}·${L.DEPTHS[d]}`;
 // 进历练面板时每张图默认选哪一格：上次去过的那一格 > 最高一格“稳拿乙”的深度 > 外围
 function defaultCell(st0, k) {
@@ -148,7 +153,7 @@ function showExpResult(res) {
     lines.push(`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里没走完的那趟历练，按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? '，负伤 3 周天' : ''}。</p>`);
   } else {
     const pr = res.parts, sg = v => (v >= 0 ? '+' : '') + Math.round(v);
-    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(52)}<div class="center">${stampHTML(res.rating, true)}<div class="muted">${res.recall ? '中途折返' : '评价'}${res.leap ? ' · <span class="seal">越级</span>' : ''}</div></div></div>`);
+    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(52, undefined, '', res.rating >= 3 ? 'joy' : res.rating <= 0 ? 'sad' : 'n')}<div class="center">${stampHTML(res.rating, true)}<div class="muted">${res.recall ? '中途折返' : '评价'}${res.leap ? ' · <span class="seal">越级</span>' : ''}</div></div></div>`);
     if (!res.first && !res.recall) lines.push(`<div class="center muted num">斩获 ${Math.round(pr.pow)} · 机缘 ${sg(pr.luck)} · 身法 ${sg(pr.aff)} · 胆魄 ${sg(pr.guts)} = <b>${Math.round(res.score)}</b> 分</div><div class="center muted">（丙 ${L.RATE_TH[0]} · 乙 ${L.RATE_TH[1]} · 甲 ${L.RATE_TH[2]} · 天 ${L.RATE_TH[3]}；奖励 ×${res.m}${res.leap ? ' ×2' : ''}）</div>`);
     if (res.affNew) lines.push(`<div class="quote">相性揭晓：【${rg.n}】${L.APPR[res.a].n} ${L.AFF_SYM[res.affV]}${res.affV === 2 ? '——此地正适合！' : res.affV === 0 ? '——此地不宜。' : ''}</div>`);
     const g = [];
