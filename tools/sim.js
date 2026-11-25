@@ -5,6 +5,8 @@
 //   node tools/sim.js all 200 strict  任何一行未达标都返回退出码 1（默认只看三年之约公平这道门槛）
 //   node tools/sim.js all 200 noarts  关掉功法系统的新加成（L.ARTS_ON = false：只剩心法的裸倍率），与默认对照量 SYSTEMS §18 的预算
 //   node tools/sim.js all 200 nogear  关掉法宝系统的新东西（L.GEAR_ON = false：法衣、饰品、强化、词条都没有，只剩兵器的阶倍率）
+//   node tools/sim.js all 200 nocal   关掉四季与天下大势（L.CAL_ON = false）
+//   node tools/sim.js all 200 nomarket guided 不卖行情、不去拍卖、不买轮换货（货架的常驻三格照用），量坊市这一刀对节奏的影响
 // 策略：
 //   guided 空闲就行动；快圆满时留在家；灵石按“聚灵阵 > 灵田 > 丹炉 > 洞府”的折算价升级；每两趟历练闭关一次；
 //          突破带尽量多的丹（最多 3 枚）；地点选“预计评价 ≥ 乙”的最高一格；接宗门任务、吐纳、看访客；
@@ -22,6 +24,8 @@ const L = require('../src/logic.js');
 const arg = process.argv.slice(2);
 if (arg.includes('noarts')) L.ARTS_ON = false;
 if (arg.includes('nogear')) L.GEAR_ON = false;
+if (arg.includes('nocal')) L.CAL_ON = false;
+const MARKET_SIM = !arg.includes('nomarket');
 const only = ['guided', 'lazy', 'idle'].includes(arg[0]) ? arg[0] : null;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
@@ -164,8 +168,8 @@ function actGuided(st, rec, seed) {
   if (L.tunaReady(st)) L.tuna(st);
   artOpt(st);
   // 坊市：行情卖丹卖草、轮换货、拍卖（拍卖差一点钱时这几个周天先不升洞府）
-  marketGuided(st, rec);
-  const keep = aucGuided(st, rec);
+  if (MARKET_SIM) marketGuided(st, rec);
+  const keep = MARKET_SIM ? aucGuided(st, rec) : 0;
   // 灵石：先留够闭关和丹药的钱（拍卖前后再留一笔），其余按折算价升级
   for (let loop = 0; loop < 30; loop++) { const u = cheapestUp(st); if (!u || st.stones - u.c < keep || !L.upgrade(st, u.k)) break; }
   const r = Math.min(p.r, 8);
@@ -389,7 +393,7 @@ function main(onlyStrat, n) {
   }
   const w = [8, 30, 64, 44, 6];
   const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
-  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.ARTS_ON === false ? '，功法系统关' : ''}）`);
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标（其中门槛 ${gateFails} 行）` : '\n全部达标');

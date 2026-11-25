@@ -34,7 +34,8 @@ require('fs').mkdirSync(out, { recursive: true });
     st.pact = 1; st.beaten.mu = 1; st.rank = 30; st.stats.exp = 25; st.stats.tour = 3; st.stats.retreat = 3; st.retreat = null; st.exp = null; st.herbs = 120; st.pills = 3;
     L.joinSect(st, 'dao'); st.sect.total = 3000; st.sect.pts = 900; st.sect.tasks[0].taken = 1;
     st.storyQ = []; st.guide = { step: 99, done: true };
-    for (const h of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge']) st.hintSeen[h] = 1;
+    for (const h of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction']) st.hintSeen[h] = 1;
+    st.market.evQ = [];
     // 法宝：乾坤镜 +3（克木、锋锐）、冰蚕法衣、紫府玉简；灵矿够强化几次
     st.gear = L.newGear(); st.ore = 900; st.treasure = 2;
     L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.w.aff = ['ke_mu', 'fengrui']; st.gear.w.plus = 3;
@@ -91,6 +92,50 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(300); await page.click('#modal button[data-k="box"]'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/08b-box-art.png' });
   const boxArt = await page.evaluate(() => document.querySelector('#modal .artline') && document.querySelector('#modal .artline').textContent);
   if (!boxArt || !boxArt.includes('引气诀')) errors.push('寻宝揭晓卡没写出具体功法：' + boxArt);
+  await close();
+  // ---------- 历法与坊市（SYSTEMS §7、§10）：大势小牌、年历、货架、行情、拍卖竞价；手机上不横向溢出、可点的 ≥ 44 像素 ----------
+  const big44 = (sel, what) => page.evaluate(([sel, what]) => {
+    const body = document.querySelector('#modal .body'), bad = [];
+    for (const el of document.querySelectorAll(sel)) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 44 || r.width < 44)) bad.push(el.textContent.trim().slice(0, 8) + ' ' + Math.round(r.width) + '×' + Math.round(r.height)); }
+    return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad };
+  }, [sel, what]);
+  const lay44 = r => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); };
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.p.inj = 0; st.exp = null; st.retreat = null; st.visitor = null;
+    for (const h of ['cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;
+    st.tick = 152; st.stones = 5e5; st.pills = 10; st.herbs = 300; st.ore = 60;
+    st.cal.w = { id: 'w_dahan', at: 146, until: 154 }; st.market.idx = { herb: 1.4, ore: 0.8, pill: 1.2 };
+    L.restock(st, true); L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true;
+  });
+  for (let i = 0; i < 8; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(150); }   // 老祖还没讲完的先点掉
+  await page.evaluate(() => { document.querySelector('#tip').hidden = true; });
+  await page.waitForTimeout(600); await page.screenshot({ path: out + '/20-world-tag.png' });
+  const wt = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden && r.width > 0, w: r.width, h: r.height, txt: el.textContent }; });
+  if (!wt.vis || wt.w < 44 || wt.h < 44 || !wt.txt.includes('大旱')) errors.push('大势小牌不对：' + JSON.stringify(wt));
+  await page.click('#worldTag'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/21-calendar.png' });
+  const calT = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: (document.querySelector('#calStrip') || {}).naturalWidth, w: (document.querySelector('#calStrip') || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width }));
+  if (calT.t !== '年历' || calT.strip !== 194 || calT.w < 194) errors.push('年历没有打开或时间轴不对：' + JSON.stringify(calT));
+  lay44(await big44('#modal .calgo, #modal .close', '年历'));
+  await close();
+  await page.click('[data-nav="market"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/22-shelf.png' });
+  lay44(await big44('#modal .mbuy, #modal .close', '货架'));
+  const shelfN = await page.evaluate(() => document.querySelectorAll('#modal .shelfrow').length);
+  if (shelfN < 6) errors.push('货架不足 6 格：' + shelfN);
+  await page.evaluate(() => document.querySelector('#mktSell').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/23-sell.png' });
+  lay44(await big44('#modal [data-sell]', '行情'));
+  // 指数 1.4 + 秋 0.2，大旱 ×1.6 → ×2.56
+  const herb0 = await page.evaluate(() => ({ h: window.__xm.st.herbs, s: window.__xm.st.stones, m: window.__xm.L.sellMult(window.__xm.st, 'herb'), txt: document.querySelector('#modal [data-good="herb"]').textContent }));
+  if (Math.abs(herb0.m - 2.56) > 1e-9 || !herb0.txt.includes('灵草 ×2.56') || !herb0.txt.includes('高于平时')) errors.push('行情没写“灵草 ×2.56 ↑ 高于平时”：' + herb0.txt.slice(0, 40));
+  await page.click('#modal [data-sell="herb:0.5"]'); await page.waitForTimeout(300);
+  const herb1 = await page.evaluate(() => ({ h: window.__xm.st.herbs, s: window.__xm.st.stones }));
+  if (herb1.h !== herb0.h - Math.floor(herb0.h / 2) || herb1.s <= herb0.s) errors.push('卖一半没生效：' + JSON.stringify([herb0, herb1]));
+  await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/24-auction.png' });
+  lay44(await big44('#modal .bidb', '拍卖'));
+  const nb = await page.evaluate(() => document.querySelectorAll('#modal .bidb').length);
+  if (nb !== 9) errors.push('三件拍品各三档出价，应有 9 个按钮：' + nb);
+  await page.click('#modal [data-bid="0:2"]'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/24b-auction-bid.png' });
+  const bid = await page.evaluate(() => ({ bids: window.__xm.st.auction.bids, res: window.__xm.st.auction.items[0].res }));
+  if (bid.bids !== 1 || !bid.res) errors.push('豪掷没有出价：' + JSON.stringify(bid));
   await close();
   // 历练确认页（血煞秘境·外围·寻宝）与札记
   await page.evaluate(() => window.__xm.confirmExp(4, 0, 1)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05b-confirm.png' });

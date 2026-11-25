@@ -1,4 +1,6 @@
-// 长局测试：机器人通过界面流程玩完一世（到飞升或坐化），检查全程无报错；掉落的法宝对比卡像玩家一样点（更强换上、否则熔炼、偶尔锁定），每 12 周天去法宝页点【强化】
+// 长局测试：机器人通过界面流程玩完一世（到飞升或坐化），检查全程无报错；掉落的法宝对比卡像玩家一样点（更强换上、否则熔炼、偶尔锁定），每 12 周天去法宝页点【强化】；
+// 坊市像玩家一样逛（每 6 周天）：先处理弹出的坊市事件，破境丹多了点【卖一半】，货架上打折的破境丹、轮换的法衣 / 残篇 / 器方买得起就点，拍卖会对想要的拍品点【加价】（宿敌在场点【豪掷】）；
+// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -20,7 +22,41 @@ const path = require('path');
     setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
-    let popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0;
+    let popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
+    const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
+    // 坊市：先过坊市事件（打开坊市时弹），再卖、买、出价——都点界面上的按钮
+    async function marketRound() {
+      if (X.st.p.r >= 9) return;
+      X.showMarket(); await sleep(40);
+      for (let g = 0; g < 6 && title() && title() !== '坊市'; g++) {
+        const ch = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
+        if (ch.length) { ch[Math.floor(Math.random() * ch.length)].click(); mEv++; seen['坊市事件'] = 1; await sleep(60); continue; }
+        if (X.cine) { await sleep(150); continue; }
+        if (document.querySelector('#modal [data-gcmp]')) { await drainCards(); continue; }
+        const f = document.querySelector('#modal .foot .btn:not([disabled])'); if (f) { f.click(); await sleep(1300); } else break;
+      }
+      if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') { await drain(); return; } }
+      const st = X.st;
+      if (st.pills >= 9) { const b = document.querySelector('#modal [data-sell="pill:0.5"]:not([disabled])'); if (b) { b.click(); mSell++; seen['行情卖出'] = 1; await sleep(40); } }
+      if (L.sellOpen(st) && st.herbs > 6 * L.herbCost(st, L.RECIPES[0]) && L.sellMult(st, 'herb') >= 1.2) { const b = document.querySelector('#modal [data-sell="herb:0.5"]:not([disabled])'); if (b) { b.click(); mSell++; await sleep(40); } }
+      for (const row of L.shelf(st)) {
+        if (row.fixed || L.shelfWhy(st, row)) continue;
+        if (!((row.k === 'pill' && st.pills < 3) || ((row.k === 'robe' || row.k === 'frag' || row.k === 'plan') && st.stones > row.price * 2) || (row.k === 'ore' && st.stones > row.price * 6))) continue;
+        const b = document.querySelector(`#modal [data-buy="${row.i}"]:not([disabled])`); if (!b) continue;
+        b.click(); mBuy++; seen['货架轮换货'] = 1; await sleep(600);
+        break;
+      }
+      if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') { await drain(); return; } }
+      if (L.auctionOpen(st)) for (let i = 0; i < 3 && L.auctionBidsLeft(st) > 0; i++) {
+        const it = st.auction.items[i]; if (it.res) continue;
+        if (!(['g', 'a', 'frag', 'xisui', 'plan'].includes(it.k) || (it.k === 'treasure' && st.treasure < 3))) continue;
+        const b = document.querySelector(`#modal [data-bid="${i}:${it.comp && it.comp.kind !== 'npc' ? 2 : 1}"]:not([disabled])`) || document.querySelector(`#modal [data-bid="${i}:1"]:not([disabled])`);
+        if (!b) continue;
+        b.click(); mBid++; seen['拍卖竞价'] = 1; await sleep(600);
+        if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') break; }
+      }
+      if (title()) X.closeModal(); await sleep(450); await drain();
+    }
     // 法宝页：兵器、法衣、饰品下的【强化】能点就点（每格最多 6 下，像个肯花灵矿的玩家）
     async function gearRound() {
       X.showMe('gear'); await sleep(40);
@@ -96,7 +132,11 @@ const path = require('path');
       if (st.stats.exp >= 1 && st.stones > L.price(st, 'box') * 3) L.buy(st, 'box');
       if (L.marketOpen(st, 'egg') && (!st.p.pet || st.p.pet.tier < 1 + st.p.r * 0.6) && st.stones > L.price(st, 'egg') * 3) L.buy(st, 'egg');
       if (L.lifeLow(st) && L.marketOpen(st, 'life') && st.stones > L.price(st, 'life')) L.buy(st, 'life');
-      if (L.auctionOpen(st)) st.auction.items.forEach((it, i) => { if (!it.sold && st.stones > it.price * 1.5) L.auctionBuy(st, i); });
+      if (n % 6 === 2 && !X.cine && st.stats.exp >= 1) await marketRound();
+      // 大势起了：点右上角的小牌看年历；筑基后每 24 周天点一次“大事”牌
+      const tag = document.querySelector('#worldTag:not([hidden])');
+      if (tag && tag.offsetParent && st.cal && st.cal.w && st.cal.w.at === st.tick && !X.cine && !modal()) { tag.click(); calOpen++; seen['年历'] = 1; await sleep(60); X.closeModal(); await sleep(450); await drain(); }
+      else if (n % 24 === 13 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#stats [data-s="big"]').click(); calOpen++; await sleep(60); if (title() === '年历') { X.closeModal(); await sleep(450); } await drain(); }
       if (st.sect) {
         if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { X.doPromote(); await drain(); }
         st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i); if (L.taskCanDeliver(st, t) && st.pills >= 2) L.taskDeliver(st, i); });
@@ -128,11 +168,13 @@ const path = require('path');
     await drain();
     const st = X.st;
     const qv = L.questView(st);
-    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
+    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
+      market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
+  for (const k of ['行情卖出', '拍卖竞价', '年历']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;
