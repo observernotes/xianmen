@@ -2053,7 +2053,7 @@ require('fs').mkdirSync(out, { recursive: true });
         const tune = q => { s.tick = Math.round((Math.log(L.power(s)) - L.rivalA(q)) / L.RIVAL_SLOPE); };
         if (kind === 'pact') { s.pact = 0; s.beaten = {}; s.tick = 36; }
         else if (kind === 'origin') { s.origin = 'dantong'; s.pact = 0; s.beaten = {}; s.tick = 36; }
-        else if (kind === 'tour') { s.rank = 80; s.pact = -1; tune(72); }
+        else if (kind === 'tour') { s.rank = 80; s.pact = -1; s.p.r = 6; s.flags.maxR = 6; s.rank = 90; tune(80); }   // 数值校准后宿敌会卡位：境界给高一点，才有多场
         else if (kind === 'rookie') { s.rank = 10; s.flags.maxR = 4; s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' }); tune(10); for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); } for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); }
         else if (kind === 'boss') { s.bosses = { 0: 0 }; }
         else if (kind === 'meet' || kind === 'trio' || kind === 'war' || kind === 'promo') { L.joinSect(s, 'dao'); s.sect.total = kind === 'promo' ? 20000 : 3000; s.sect.pts = 900; if (kind === 'trio') { s.sect.rank = 4; s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; L.discTake(s, null, { cat: 'strong', tp: 'mang', t: 4 }); L.discTake(s, null, { cat: 'quiet', tp: 'chi', t: 3 }); s.disc.list.forEach(x => { x.di = 13; }); s.disc.cand = null; } if (kind === 'meet' || kind === 'trio') s.sect.rank = kind === 'trio' ? 6 : 2; if (kind === 'promo') s.sect.rank = 2; }
