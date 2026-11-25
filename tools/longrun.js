@@ -20,7 +20,18 @@ const path = require('path');
     setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
-    let popups = 0, uiBt = 0, uiExp = 0, trips = 0;
+    let popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0;
+    // 每隔一阵打开【人物】→ 功法，三个槽各点一下，有“荐”就点它（两下换上；凑出共鸣时点掉揭晓卡）
+    async function artRound() {
+      X.showMe('art'); await sleep(40);
+      for (const i of [0, 1, 2]) {
+        const slot = document.querySelector(`#modal [data-slot="${i}"]`); if (!slot) break;
+        slot.click(); await sleep(30);
+        const rec = [...document.querySelectorAll('#modal .arow')].find(r => r.querySelector('.chip.ok') && r.querySelector('.chip.ok').textContent === '荐');
+        if (rec) { rec.click(); artPage++; await sleep(40); if (document.querySelector('#modal h2') && document.querySelector('#modal h2').textContent === '共鸣揭晓') { seen['共鸣揭晓'] = 1; document.querySelector('#modal .foot .btn').click(); await sleep(40); } }
+      }
+      X.closeModal(); await sleep(450);
+    }
     const seen = {};
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
@@ -31,6 +42,9 @@ const path = require('path');
         if (cand && !document.querySelector('#modal .cand.sel')) { cand.click(); await sleep(40); continue; }
         const chs = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
         if (chs.length) { popups++; chs[Math.floor(Math.random() * chs.length)].click(); await sleep(60); continue; }
+        // 掉落卡、结算卡上的【换上】照点（像个肯动手的玩家）
+        const eq = document.querySelector('#modal [data-eqart]');
+        if (eq) { eq.click(); artEq++; await sleep(40); continue; }
         const btns = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')];
         if (!btns.length) { await sleep(120); continue; }
         popups++;
@@ -70,6 +84,7 @@ const path = require('path');
       if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7) { X.fightBossUI(k); await drain(); }
       if (st.visitor && !st.retreat && Math.random() < 0.5) { X.showVisitor(); await drain(); }
       if (L.tunaReady(st)) L.tuna(st);
+      if (n % 24 === 5 && !X.cine) await artRound();
       if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
       if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0) {
         if (trips >= 2 && L.canRetreat(st)) { trips = 0; L.startRetreat(st); }
@@ -89,7 +104,7 @@ const path = require('path');
     await drain();
     const st = X.st;
     const qv = L.questView(st);
-    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
+    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });

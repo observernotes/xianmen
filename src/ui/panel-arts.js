@@ -30,6 +30,24 @@ function artDeltaText(id) {
   return `<span class="${v > 0 ? 'jadet' : 'seal'}">战力 ${v > 0 ? '+' : '−'}${fmt(Math.abs(v))}</span>`;
 }
 
+// 有更强的心法 / 战技没换上（【人物】角标“功”、老祖气泡用）：返回 { i, row } 或 null。每周天最多算一次
+let artRecCache = { t: -1, v: null };
+function artRec() {
+  if (!st || !st.arts) return null;
+  const key = st.tick + '|' + Object.keys(st.arts.own).length + '|' + L.artSlots(st).join();
+  if (artRecCache.t === key) return artRecCache.v;
+  let v = null;
+  for (const i of [0, 1]) { if (!L.artSlotOpen(st, i)) continue; const r = L.artList(st, i).find(x => x.rec && x.score >= 1.03); if (r) { v = { i, row: r }; break; } }
+  artRecCache = { t: key, v };
+  return v;
+}
+// 每周天：新出现的“更强的一门”老祖提一句（每门一次，不打断）
+function artRecTip() {
+  const r = artRec();
+  if (!r || L.busy(st)) return;
+  const A = r.row.A, d = r.row.d;
+  tip('artrec_' + r.row.id, r.i === 0 ? `《${A.n}》比你现在的心法强：修炼 +${dec(d.g1 - d.g0)}/周天。去【人物】→ 功法点一下换上。` : `《${A.n}》比你现在的战技强：战力 ${fmt(d.p0)} → ${fmt(d.p1)}。去【人物】→ 功法点一下换上。`);
+}
 // ---------- 功法页 ----------
 let artSel = 0;
 const SLOT_HEAD = ['心法 · 修炼', '战技 · 战力', '秘术 · 特效'];

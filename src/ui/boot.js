@@ -21,6 +21,7 @@ function onTick() {
     else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
   if (out.train) pushPopup(showTrain);
+  if (st.guide && st.guide.done && st.tick % 3 === 0) artRecTip();
   if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天`);
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
