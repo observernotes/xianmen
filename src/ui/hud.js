@@ -13,7 +13,7 @@ function onHook(type, data) {
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) banner(chn, data.t); }
+  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); chapterTip(data.ch); } }
   else if (type === 'task') { floatText(100, 64, '宗门任务完成', '#8ff5d0'); }
   // 功法（arts.js）：有名共鸣第一次凑齐 → 横幅；第一次通用共鸣 → 老祖气泡；熟练升级、融会
   else if (type === 'combo') { const c = L.combo(data.id); banner('共鸣 · ' + c.n, c.d); SFX.reveal(5); }
@@ -22,6 +22,8 @@ function onHook(type, data) {
   else if (type === 'rong') { const A = L.art(data.id), R0 = L.RONG[A.k]; banner('融会贯通', `《${A.n}》圆满：${R0[0] ? '修炼 +' + (R0[0] * 100).toFixed(R0[0] < 0.01 ? 2 : 1) + '%' : ''}${R0[0] && R0[1] ? ' ' : ''}${R0[1] ? '战力 +' + (R0[1] * 100).toFixed(R0[1] < 0.01 ? 2 : 1) + '%' : ''}`); SFX.goal(); }
   else if (type === 'recipe') { const rc = L.RECIPE[data]; if (rc && $('#modal').hidden) banner('丹方 · ' + rc.n, rc.yin ? L.yinText(L.recipeYin(rc)) : ''); }
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
+  // 道心升级、因果（dao.js）：老祖气泡（panel-trib.js）
+  else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
 
@@ -52,6 +54,7 @@ function updateHUD() {
   if (p.r >= 9) $('#xpTxt').textContent = '已证大道';
   else if (ready) $('#xpTxt').textContent = `修为圆满 · 点此冲击${p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n}`;
   else if (L.isFull(st) && st.exp) $('#xpTxt').textContent = '修为已满 · 回洞府后突破';
+  else if (st.run) $('#xpTxt').textContent = `${mjName(st.run)} · 第 ${st.run.floor}/${st.run.floors} 层 · 时间暂停`;
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
   else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关'}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
   else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
@@ -90,10 +93,12 @@ function updateHUD() {
   setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
   setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
   updateHaul();
+  syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
 }
 // 渐进解锁：一开始只给历练、洞府、人物，免得一上来不知道点哪
 function navLock(nav) {
+  if (st && st.run && nav !== 'me') return '人还在秘境里。先点门走下去，或者带着收获离开。';
   if (!st || st.rebirth) return '';
   if (nav === 'market' && st.stats.exp < 1) return '坊市要等你先出去历练一趟、见过世面再说。先点【历练】。';
   if (nav === 'sect' && !st.sect && st.p.r < 1) return '宗门只收筑基修士。修为圆满后突破到筑基，三大宗门会上门抢人。';

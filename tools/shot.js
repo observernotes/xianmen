@@ -34,7 +34,7 @@ require('fs').mkdirSync(out, { recursive: true });
     st.pact = 1; st.beaten.mu = 1; st.rank = 30; st.stats.exp = 25; st.stats.tour = 3; st.stats.retreat = 3; st.retreat = null; st.exp = null; st.herbs = 120; st.pills = 3;
     L.joinSect(st, 'dao'); st.sect.total = 3000; st.sect.pts = 900; st.sect.tasks[0].taken = 1;
     st.storyQ = []; st.guide = { step: 99, done: true };
-    for (const h of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'pet1', 'pet2', 'petEvo']) st.hintSeen[h] = 1;
+    for (const h of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo']) st.hintSeen[h] = 1;
     st.market.evQ = [];
     // 法宝：乾坤镜 +3（克木、锋锐）、冰蚕法衣、紫府玉简；灵矿够强化几次
     st.gear = L.newGear(); st.ore = 900; st.treasure = 2;
@@ -236,14 +236,108 @@ require('fs').mkdirSync(out, { recursive: true });
   const bid = await page.evaluate(() => ({ bids: window.__xm.st.auction.bids, res: window.__xm.st.auction.items[0].res }));
   if (bid.bids !== 1 || !bid.res) errors.push('豪掷没有出价：' + JSON.stringify(bid));
   await close();
+  // ---------- 秘境（SYSTEMS §8）：历练页入口、进入确认、一层的门卡、老祖三句、房间结果、奇遇、行商、秘藏、结算；手机上不溢出、可点的 ≥ 44 像素 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.visitor = null; st.p.inj = 0; st.cal.w = null; st.auction = null;
+    st.tick = 160; st.mj = L.newMj(); st.mj.token = 2; st.mj.giftYr = Math.floor(160 / 12); st.hintSeen.realmOpen = 1; st.storyQ = []; document.querySelector('#tip').hidden = true;
+  });
+  await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-exp-realm.png' });
+  const mjCard = await page.evaluate(() => { const c = document.querySelector('#modal #mjCard'); return c ? c.textContent : ''; });
+  if (!mjCard.includes('秘境') || !mjCard.includes('可进')) errors.push('历练页没有秘境入口：' + mjCard.slice(0, 40));
+  await page.click('#modal #mjCard'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/26-realm-entry.png' });
+  lay44(await big44('#modal .foot .btn, #modal .close', '秘境入口'));
+  const ent = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, chips: document.querySelectorAll('#modal .mjfloor span').length, btn: document.querySelector('#modal .foot .btn.gold') && document.querySelector('#modal .foot .btn.gold').textContent }));
+  if (!/秘境/.test(ent.t) || ent.chips < 6 || !/进入/.test(ent.btn || '')) errors.push('秘境入口页不对：' + JSON.stringify(ent));
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/27-realm-floor.png' });
+  const fl = await page.evaluate(() => { const ds = [...document.querySelectorAll('#realmDoors .mjdoor')]; return { run: !!window.__xm.st.run, tok: window.__xm.st.mj.token, n: ds.length, small: ds.filter(b => { const r = b.getBoundingClientRect(); return r.width < 44 || r.height < 44; }).length, hint: (document.querySelector('#guide:not([hidden]) .gtext') || {}).textContent || '', page: document.documentElement.scrollWidth - window.innerWidth }; });
+  if (!fl.run || fl.tok !== 1 || fl.n < 2) errors.push('进秘境后没有门卡：' + JSON.stringify(fl));
+  if (fl.small) errors.push('秘境门卡不足 44px：' + fl.small);
+  if (fl.page > 0) errors.push('秘境场景横向溢出 ' + fl.page + 'px');
+  if (!/每层.*扇门.*掉 \d+ 气血/.test(fl.hint)) errors.push('老祖第一句没讲门与气血：' + fl.hint.slice(0, 50));
+  for (let i = 0; i < 3; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(250); if (i < 2) await page.screenshot({ path: `${out}/27${'bc'[i]}-realm-elder.png` }); }
+  const seen = await page.evaluate(() => ['realm1', 'realm2', 'realm3'].filter(h => window.__xm.st.hintSeen[h]).length);
+  if (seen !== 3) errors.push('老祖的三句没讲完：' + seen);
+  // 一间战斗房：动画 → 飘字 → 下一层
+  await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'fight', unk: false }, { t: 'spring', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  const hp0 = await page.evaluate(() => window.__xm.st.run.hp);
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(450); await page.screenshot({ path: out + '/28-realm-fight.png' });
+  await page.waitForTimeout(800); await page.screenshot({ path: out + '/29-realm-result.png' });
+  const r1 = await page.evaluate(() => ({ hp: window.__xm.st.run.hp, floor: window.__xm.st.run.floor, loot: window.__xm.st.run.loot.length, floats: [...document.querySelectorAll('#fx .float')].map(e => e.textContent), leave: !!document.querySelector('#realmLeave') }));
+  if (!(r1.hp < hp0) || r1.floor !== 2 || r1.loot < 1 || !r1.floats.some(t => /^−\d+$/.test(t)) || !r1.leave) errors.push('战斗房结果不对：' + JSON.stringify(r1));
+  lay44(await big44('#realmLeave', '秘境离开按钮'));
+  // 奇遇房（where: 'realm' 事件）
+  await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'event', unk: false }, { t: 'chest', unk: true }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/30-realm-event.png' });
+  const evm = await page.evaluate(() => ({ ph: window.__xm.st.run.phase, ev: window.__xm.st.run.ev, t: (document.querySelector('#modal h2') || {}).textContent }));
+  if (evm.ph !== 'event' || !/^realm_/.test(evm.ev || '') || !evm.t) errors.push('奇遇房没有弹出秘境事件：' + JSON.stringify(evm));
+  else { await page.click('#modal .choices button[data-c]:not([disabled])'); await page.waitForTimeout(1500); const b = await page.$('#modal .foot .btn:not([disabled])'); if (b) await b.click(); await page.waitForTimeout(600); }
+  const af = await page.evaluate(() => ({ ph: window.__xm.st.run && window.__xm.st.run.phase, fl: window.__xm.st.run && window.__xm.st.run.floor }));
+  if (af.ph !== 'door') errors.push('奇遇处理完没回到门前：' + JSON.stringify(af));
+  // 行商
+  await page.evaluate(() => { const { st } = window.__xm; st.run.hp = Math.max(st.run.hp, 40); st.run.doors = [{ t: 'shop', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1800); await page.screenshot({ path: out + '/31-realm-shop.png' });
+  lay44(await big44('#modal [data-shop], #modal .foot .btn', '秘境行商'));
+  const shopN = await page.evaluate(() => document.querySelectorAll('#modal [data-shop]').length);
+  if (shopN !== 3) errors.push('行商应有三件货：' + shopN);
+  await page.click('#modal .foot .btn'); await page.waitForTimeout(500);
+  // 气血见底：老祖气泡“该走了”
+  await page.evaluate(() => { const { st } = window.__xm; st.run.hp = 18; st.run.warned = 0; window.__xm_realm.syncRealmUI(true); window.__xm_realm.realmLowTip(); });
+  await page.waitForTimeout(400); await page.screenshot({ path: out + '/32-realm-lowhp.png' });
+  const low = await page.evaluate(() => (document.querySelector('#guide:not([hidden]) .gtext') || {}).textContent || '');
+  if (!/该走了.*\d+.*件/.test(low)) errors.push('低气血没有老祖气泡：' + low.slice(0, 40));
+  { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); } }
+  // 守关 → 秘藏三选一 → 结算
+  await page.evaluate(() => { const { st } = window.__xm; const r = st.run; r.floor = r.floors; r.max = 999; r.hp = 999; r.doors = [{ t: 'boss', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(2300); await page.screenshot({ path: out + '/33-realm-chest.png' });
+  const ch = await page.evaluate(() => ({ t: (document.querySelector('#modal h2') || {}).textContent, n: document.querySelectorAll('#modal [data-chest]').length, rec: document.querySelectorAll('#modal [data-chest] .chip.ok').length }));
+  if (ch.t !== '秘藏' || ch.n !== 3 || ch.rec !== 1) errors.push('秘藏三选一不对：' + JSON.stringify(ch));
+  lay44(await big44('#modal [data-chest]', '秘藏'));
+  await page.click('#modal [data-chest] .chip.ok'); await page.waitForTimeout(600); await page.screenshot({ path: out + '/34-realm-end.png' });
+  const end = await page.evaluate(() => ({ run: window.__xm.st.run, t: (document.querySelector('#modal h2') || {}).textContent, clears: window.__xm.L.mjRec(window.__xm.st).clears, tick: window.__xm.st.tick, title: window.__xm.st.title }));
+  if (end.run || !/打穿/.test(end.t || '') || end.clears < 1 || end.tick !== 163) errors.push('秘境通关结算不对：' + JSON.stringify(end));
+  await close();
   // 历练确认页（血煞秘境·外围·寻宝）与札记
   await page.evaluate(() => window.__xm.confirmExp(4, 0, 1)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05b-confirm.png' });
   await close();
   await page.click('#goal'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05c-quests.png' }); await close();
+  // ---------- 天劫（SYSTEMS §9）：准备页（护劫手段）→ 心魔劫 → 落雷与护体条 → 那一停 → 道基印；人物页的道心与因果 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.daolv = 'su'; st.npc.su = { aff: 72, f60: 1 }; st.pills = 10; st.p.inj = 0; st.exp = null; st.retreat = null;
+    for (const h of ['tribPause', 'tribNow']) st.hintSeen[h] = 1;
+    const ev = L.eventById('world_tongji'); if (!L.karmaOpen(st).length) L.addKarma(st, 'tongji', ev, ev.choices[1]);
+    st.dao = { k: 4, w: 9, r: 6 }; document.querySelector('#tip').hidden = true;
+  });
   await page.click('#cult'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/10-bt.png' });
-  await page.click('.foot .btn.gold'); await page.waitForTimeout(2600); await page.screenshot({ path: out + '/11-trib.png' });
-  for (let i = 0; i < 30 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
-  await page.waitForTimeout(300); await page.screenshot({ path: out + '/12-btres.png' }); await close();
+  const prep = await page.evaluate(() => ({ aids: document.querySelectorAll('#modal #tribAids .aid').length, rate: document.querySelector('#btRate').textContent, title: document.querySelector('#modal h2').textContent }));
+  if (prep.aids !== 5 || prep.title !== '境界突破') errors.push('天劫准备页没有五样护劫手段：' + JSON.stringify(prep));
+  lay44(await big44('#modal [data-aid], #modal [data-st], #modal .foot .btn, #modal .close', '天劫准备页'));
+  await page.evaluate(() => document.querySelector('#tribAids').scrollIntoView({ block: 'center' })); await page.waitForTimeout(150); await page.screenshot({ path: out + '/10b-bt-aids.png' });
+  await page.click('.foot .btn.gold'); await page.waitForTimeout(500); await page.screenshot({ path: out + '/10c-demon.png' });
+  const dmn = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, bd: !!document.querySelector('#modal .demonbd'), q: (document.querySelector('#modal .dq') || {}).textContent || '' }));
+  if (!dmn.t.includes('心魔') || !dmn.bd || !dmn.q.includes('没有选')) errors.push('心魔劫卡不对：' + JSON.stringify(dmn));
+  lay44(await big44('#modal .choices .btn', '心魔劫'));
+  await page.click('#modal .choices .btn[data-c="0"]'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/10d-demon-res.png' });
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(2900); await page.screenshot({ path: out + '/11-trib.png' });
+  const cs = await page.evaluate(() => { const c = window.__xm.cineState; return c && { trib: c.trib, idx: c.idx, N: c.N, shield: c.shield }; });
+  if (!cs || !cs.trib || cs.idx < 1) errors.push('雷劫过场没有落雷：' + JSON.stringify(cs));
+  for (let i = 0; i < 50; i++) { if (await page.evaluate(() => !!document.querySelector('#tribPause'))) break; await page.waitForTimeout(200); }
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/11b-trib-pause.png' });
+  const pz = await page.evaluate(() => ({ hint: (document.querySelector('#tribHint') || {}).textContent, bar: !!document.querySelector('#tribPause .shieldimg') }));
+  if (!['大概能过', '悬', '过不了'].includes(pz.hint) || !pz.bar) errors.push('那一停没有护体条与提示：' + JSON.stringify(pz));
+  lay44(await big44('#modal [data-ex], #modal [data-exp], #modal .foot .btn', '那一停'));
+  for (let i = 0; i < 2; i++) { const b = await page.$('#modal [data-exp="1"]:not([disabled])'); if (b) { await b.click(); await page.waitForTimeout(150); } }
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/11c-trib-final.png' });
+  for (let i = 0; i < 40 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/12-btres.png' });
+  const bres = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#tribGrade img'), r: window.__xm.st.p.r }));
+  if (bres.t !== '渡劫成功' || !bres.stamp || bres.r !== 4) errors.push('补满手段后渡劫应成功并盖道基印：' + JSON.stringify(bres));
+  await close();
+  await page.evaluate(() => window.__xm.showMe('dao')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-dao.png' });
+  lay44(await big44('#modal .tabs button, #modal .close', '人物 · 道心'));
+  const dui = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, k: document.querySelectorAll('#modal .krow').length, recs: document.querySelectorAll('#modal .grec').length }));
+  if (dui.rows !== 3 || dui.k < 1 || dui.recs < 1) errors.push('人物 · 道心页缺东西：' + JSON.stringify(dui));
+  await page.evaluate(() => document.querySelector('#karmaBox').scrollIntoView({ block: 'center' })); await page.waitForTimeout(150); await page.screenshot({ path: out + '/25b-dao-karma.png' });
+  await close();
   await page.evaluate(() => { const { st } = window.__xm; st.storyQ = []; st.p.r = 3; st.p.s = 2; st.sect.total = 20000; window.__xm.doPromote(); }); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/13-promo-duel.png' });
   await page.click('.foot .btn:not([disabled])'); await page.waitForTimeout(300); await close();
   await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(1400); await page.screenshot({ path: out + '/14-tour.png' });

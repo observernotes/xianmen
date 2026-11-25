@@ -29,13 +29,13 @@ const THEMES = ['jianqi', 'baicao', 'ronghuo', 'youquan'];
 const YIN = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const ARTS = L.ARTL ? L.ARTL.map(a => a.id) : null;
 const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices',
-  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown'];
-const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin'];
+  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin'];
+const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin'];
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein',
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
   'toxin', 'plus', 'affix', 'busy', 'duty', 'disc'];
 const COST_KEYS = ['stones', 'pills', 'herbs', 'yin', 'ore', 'feed', 'token'];
-const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name'];
+const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat'];   // kwho / kwhat：最早那条没了的因果（dao.js）
 // 引擎会置上的 flag（不是事件 fx 置的）：首次击败宿敌、结为道侣
 const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye']);
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）
@@ -66,7 +66,7 @@ function checkText(id, s, where) {
   for (const m of s.matchAll(/\{(\w*)\}/g)) if (!PLACEHOLDERS.includes(m[1])) err(id, `${where} 未知占位符 ${m[0]}`);
   if (/[{}]/.test(s.replace(/\{\w+\}/g, ''))) err(id, `${where} 花括号不配对`);
 }
-const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined);
+const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined || c.daoMin);
 
 for (const [f, list] of SOURCES) if (!Array.isArray(list)) { console.error(`${f} 没有导出数组`); process.exit(1); }
 
@@ -118,6 +118,10 @@ for (const e of EVENTS) {
   if ('rankMax' in e && !(isInt(e.rankMax) && e.rankMax >= 1 && e.rankMax <= 100)) err(id, 'rankMax 非法');
   if ('season' in e && !SEASONS.includes(e.season)) err(id, `season 非法：${e.season}`);
   if ('theme' in e && !THEMES.includes(e.theme)) err(id, `theme 非法：${e.theme}`);
+  if ('karma' in e && !(isInt(e.karma) && e.karma > 0)) err(id, 'karma 需为正整数（几周天前结下的因果）');
+  const daoMinBad = v => !v || typeof v !== 'object' || !Object.keys(v).length || Object.keys(v).some(k => !['k', 'w', 'r'].includes(k) || !(isInt(v[k]) && v[k] > 0));
+  if ('daoMin' in e && daoMinBad(e.daoMin)) err(id, 'daoMin 需为 { k|w|r: 正整数 }');
+  for (const [ci, c] of (e.choices || []).entries()) if ('daoMin' in c && daoMinBad(c.daoMin)) err(id, `choice${ci + 1} daoMin 需为 { k|w|r: 正整数 }`);
   if ('theme' in e && e.where !== 'realm') err(id, 'theme 只用于秘境事件');
   if ('world' in e && !(typeof e.world === 'string' && /^w_\w+$/.test(e.world))) err(id, `world 非法：${e.world}`);
   if ('grudge' in e && !(Array.isArray(e.grudge) && e.grudge.length === 3 && RIVALS.includes(e.grudge[0]) && isInt(e.grudge[1]) && isInt(e.grudge[2]) && e.grudge[1] <= e.grudge[2])) err(id, 'grudge 需为 [宿敌id, 最小, 最大]');

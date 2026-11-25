@@ -10,7 +10,7 @@
  *   倍率：1 + (L.PETS[阶].m − 1) × (1 + 5% × (级 − 1)) × (1 + 2% × 心) × 驭兽诀；阶 = 种的初阶 + 进化 1 + 觉醒 1（上限 6）。
  *   每级要兽粮 6 × 1.5^级 × 阶；出战的每趟历练另得一级的 10%。5 级二选一分支进化（条件满足卡片发光），10 级觉醒（天赋 ×1.5、阶 +1、光环）。
  *   好感：出战每 36 周天一心、在岗每 72 周天一心、喂食、事件；连续 24 周天既不出战也没岗位 −1 心；0 心再闲 24 周天叼碗出走（pet_runaway），
- *         事件用过以后再闲 24 周天就真的走了；5 心不会走，并解锁“挡劫”（天劫上线前折突破 +3%）。
+ *         事件用过以后再闲 24 周天就真的走了；5 心不会走，并能“挡劫”：天劫的护劫手段 +10%，挡完休养 12 周天（L.petCanShield / L.petShield，trib.js 调；休养期间出战倍率、岗位、天赋都不算）。
  *   兽粮：斩妖历练（1 + 地图）× 评价倍率、觅食岗位 0.5/周天、坊市轮换货“兽粮一袋”、宗门宝库、奇遇、放生。
  *   药引（SYSTEMS §5，crops.js 的 st.mats.yin）：进化条件里的药引付真的药引；觅食偶尔叼回一枚。守田加灵田作物产量（crops.js 的 L.cropParts）与灵稻的灵石；看炉加成丹率。
  *
@@ -35,7 +35,7 @@ L.PET_TAL = {
   alchUp: { k: 'add', v: 0.06, job: 'furnace', d: v => `看炉成丹率再 +${pc(v)}` },
   ret: { k: 'add', v: 0.2, d: v => `闭关倍率 +${r2(v)}` },
   luck: { k: 'add', v: 0.03, d: v => `奇遇把握 +${pc(v)}` },
-  realmUnk: { k: 'add', v: 0.04, d: v => `秘境“？”门少一半（秘境上线前：奇遇把握 +${pc(v)}）` },
+  realmUnk: { k: 'add', v: 0.04, d: () => '秘境“？”门少一半' },   // realm.js 的 L.mjUnkP 读（有就减半）
   leap: { k: 'mul', v: 1.2, d: v => `越级奖励 +${pc(v - 1)}` },
   herbx: { k: 'add', v: 0.1, d: v => `历练 ${pc(v)} 多带一份灵草` },
   explen: { k: 'flag', v: 1, d: () => '历练时长 −1 周天（最少 2）' },
@@ -44,7 +44,7 @@ L.PET_TAL = {
   robe: { k: 'add', v: 0.3, d: v => `法衣效果 +${pc(v)}（历练分数）` },
   smelt: { k: 'mul', v: 1.5, d: v => `熔炼灵矿 +${pc(v - 1)}` },
   age: { k: 'add', v: 0.04, d: v => `寿元流逝 −${pc(v)}` },
-  tribGuard: { k: 'add', v: 0.05, d: v => `天劫可挡劫（天劫上线前：突破成功率 +${pc(v)}）` },
+  tribGuard: { k: 'add', v: 0.05, d: v => `挡劫不必 5 心，挡劫再 +${pc(v)}（天劫的护劫手段）` },
   injCut2: { k: 'add', v: 2, d: v => `负伤周天 −${Math.round(v)}` },
   slay4: { k: 'add', v: 4, d: v => `斩妖历练分数 +${r2(v)}` },
   boss: { k: 'mul', v: 1.1, d: v => `对首领战力 ×${r2(v)}` },
@@ -66,7 +66,7 @@ L.PET_TAL = {
   baoqi: { k: 'mul', v: 1.5, d: v => `战力增益（爆气、机缘）效果 ×${r2(v)}` },
   reveal: { k: 'flag', v: 1, d: () => '未知的相性、地图属性直接显示' },
   jinang: { k: 'add', v: 0.03, d: v => `锦囊必含最优解（折算：对决胜算 +${pc(v)}）` },
-  demon: { k: 'add', v: 0.05, d: v => `心魔劫提前看到题目（心魔劫上线前：突破成功率 +${pc(v)}）` },
+  demon: { k: 'add', v: 0.05, d: v => `心魔劫那一境界（元婴 / 化神 / 合体前）突破成功率 +${pc(v)}` },
   qilin: { k: 'mul', v: 1.05, d: v => `祥瑞：修炼、灵石收入各 +${pc(v - 1)}` },
 };
 function pc(v) { const x = Math.round(v * 1000) / 10; return (x % 1 ? x.toFixed(1) : x) + '%'; }
@@ -138,7 +138,7 @@ const heartK = p => (ON() ? 1 + L.PET_N.heart * (p.heart || 0) : 1);
 const lvK = (p, step) => (ON() ? 1 + step * (p.lv - 1) : 1);
 // 出战倍率（不在这里乘应龙；见 L.petAtkOf）
 L.petAtkOf = function (st, p) {
-  if (!p) return 1;
+  if (!p || L.petResting(st, p)) return 1;
   const m = L.PETS[L.petTier(p)].m, boost = L.petBoost ? L.petBoost(st) : 1;
   const v = 1 + (m - 1) * lvK(p, L.PET_N.step) * heartK(p) * boost;
   const yl = ON() && L.petTalId(p) === 'atk11' ? talScale(L.PET_TAL.atk11, p) : 1;
@@ -154,7 +154,7 @@ L.petJobV = (p, k) => JOB[k].v * L.petJobK(p, k);
 function jobV(st, k) {
   if (!ON() || !st.pets) return 0;
   const p = st.pets.find(x => x.job === k);
-  if (!p || !JOB[k].need(st)) return 0;
+  if (!p || L.petResting(st, p) || !JOB[k].need(st)) return 0;
   let v = L.petJobV(p, k);
   if (k === 'forage') v *= tv1(st, 'forage2');
   if (k === 'patrol') v = Math.min(0.9, v);
@@ -173,7 +173,7 @@ function tv(st, id) {
   const T = L.PET_TAL[id];
   for (let i = 0; i < st.pets.length; i++) {
     const p = st.pets[i];
-    if (L.petTalId(p) !== id) continue;
+    if (L.petTalId(p) !== id || L.petResting(st, p)) continue;
     if (T.job ? p.job === T.job : i === st.petOut) return talScale(T, p);
   }
   return 0;
@@ -584,20 +584,36 @@ L.addDuelMod('pet', 16, (st, foe) => {
   return a.length ? a : null;
 });
 L.addDuelPMod('pet', 21, st => { const v = tv(st, 'duelP2') + tv(st, 'duelP3') + tv(st, 'jinang'); return v ? { add: v } : null; });
+// 挡劫不在这里：天劫上线后是一样护劫手段（下面的 L.petCanShield / L.petShield，trib.js 的 L.aidInfo('pet')），不再折成常驻的突破加成
 L.addBtMod('pet', 57, st => {
-  const a = [], p = L.petOut(st);
-  const tg = tv(st, 'tribGuard'); if (tg && st.p.r >= 1) a.push(['灵宠·负碑灵龟（挡劫，天劫上线前折算）', tg]);
-  const dm = tv(st, 'demon'); if (dm && st.p.r >= 2) a.push(['灵宠·谛听（心魔，折算）', dm]);
-  if (p && ON() && p.heart >= 5 && st.p.r >= 1) a.push([`灵宠·${L.petName(p)} 五心挡劫（折算）`, 0.03]);
-  return a.length ? a : null;
+  const dm = tv(st, 'demon'); if (dm && L.DEMON_AT && L.DEMON_AT[st.p.r + 1]) return ['灵宠·谛听（心魔劫）', dm];
+  return null;
 });
+// ---------- 天劫：灵宠挡劫（SYSTEMS §9）----------
+// 5 心、没在休养的那只能挡一次天劫（+10%；负碑灵龟的“挡劫”天赋不必 5 心，再加天赋值）；出战的优先，其次心最多的。
+// 挡完休养 12 周天：L.petAtkOf、岗位、天赋都跳过它（无效果）
+L.petResting = (st, p) => !!p && (p.rest || 0) > st.tick;
+function shieldPet(st) {
+  if (!ON() || !st.pets || !st.pets.length || st.p.r < 1) return null;
+  const ok = p => !L.petResting(st, p) && (p.heart >= 5 || L.petTalId(p) === 'tribGuard');
+  const out = L.petOut(st); if (out && ok(out)) return out;
+  return st.pets.filter(ok).sort((a, b) => b.heart - a.heart || b.lv - a.lv)[0] || null;
+}
+L.petCanShield = st => { const p = shieldPet(st); return p ? L.petName(p) : null; };
+L.petShieldBonus = st => { const p = shieldPet(st); return p && L.petTalId(p) === 'tribGuard' ? L.petTalVal(p, 'tribGuard') : 0; };
+L.petShield = function (st, n) {
+  const p = shieldPet(st); if (!p) return null;
+  p.rest = st.tick + n;
+  L.log(st, `【${L.petName(p)}】替你挡下一道雷，休养 ${n} 个周天`, 'jade');
+  return p;
+};
 
 // ---------- 天赋与岗位接进别的系统（包一层） ----------
 const wrap = (name, f) => { const base = L[name]; if (typeof base !== 'function') return; L[name] = f(base); };
 wrap('ageRate', b => st => b(st) * (1 - tv(st, 'age')));
 wrap('alchRate', b => st => clamp(b(st) + jobV(st, 'furnace') + tv(st, 'alchUp'), 0.1, 0.97));
 wrap('retBaseMult', b => st => b(st) + tv(st, 'ret'));
-wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + tv(st, 'realmUnk') + (L.seasonKey(st) === 'winter' ? tv(st, 'winterLuck') : 0));
+wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + (L.seasonKey(st) === 'winter' ? tv(st, 'winterLuck') : 0));
 wrap('leapMult', b => st => b(st) * tv1(st, 'leap'));
 wrap('expLen', b => (k, st) => { const n = b(k, st); return st && tv(st, 'explen') ? Math.max(2, Math.min(n, n - 1)) : n; });
 wrap('gearDingSave', b => st => { const a = b(st), v = Math.min(0.9, tv(st, 'dingSave')); return 1 - (1 - a) * (1 - v); });

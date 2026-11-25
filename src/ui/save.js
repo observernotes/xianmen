@@ -67,5 +67,7 @@ function loadState(s) {
   ART.clearCache(); avCache.clear();
   adv = null; lastMode = st.exp ? 'adv' : 'home';
   renderFeed(); updateHUD();
+  // 渡到一半关了页面：预掷还在 st.trib.cur 里，接着渡（结果不变）
+  if (st.trib && st.trib.cur) { const v = L.tribView(st); if (v) setTimeout(() => { if (!cine && st.trib.cur) startTribCine(v); }, 600); }
   return true;
 }

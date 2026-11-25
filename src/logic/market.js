@@ -25,6 +25,7 @@ L.MARKET = [
   { k: 'robe', n: '法衣', d: '随机词条，走对比卡', base: 300 },
   { k: 'frag', n: '功法残篇', d: '三片合成一门神阶功法', base: 800 },
   { k: 'plan', n: '器方', d: '化神后器炉按方打造专属法宝', base: 1000 },
+  { k: 'token', n: '秘境令', d: '夏季进秘境用，最多持 3 枚（每个夏季另送一枚）', base: 500 },
   { k: 'feed', n: '兽粮一袋', d: '喂灵宠升级（pets.js）', base: 40 },
   { k: 'yin', n: '药引一包', d: '两枚同种药引：炼丹、灵宠进化、打造用（crops.js）', base: 100 },
   { k: 'seed', n: '灵种', d: '一种还没解锁的灵田作物，买下就能种（crops.js）', base: 150 },
@@ -57,10 +58,11 @@ L.SHELF_POOL = [
   { k: 'pill', off: true, w: 2, ok: () => true, lim: () => 3 },
   { k: 'box', off: true, w: 2, ok: st => st.stats.exp >= 1, lim: () => 2 },
   { k: 'egg', off: true, w: 1, ok: st => st.rebirth > 0 || mr(st) >= 1, lim: () => 1 },
+  { k: 'token', w: 1.5, ok: st => !!L.mjUnlocked && L.mjUnlocked(st) && L.mjTokens(st) < L.MJ.tokenMax, lim: () => 1, lock: '筑基中期后上架' },   // 秘境令（realm.js）
   { k: 'feed', w: st => (L.petCount(st) ? 4 : 0.5), ok: st => (st.rebirth > 0 || mr(st) >= 1) && L.petCount(st) > 0, lim: () => 3, lock: '有灵宠后上架' },
   // 药引一包（两枚同种，手里最少的那种更常上）；灵种（下一种没解锁的作物）
   { k: 'yin', w: 3, ok: st => L.yinOpen(st), make: st => ({ yin: wpick(L.YIN_KEYS.map(y => [y, 1 / (1 + L.yinHave(st, y))])) }), lim: () => 2, lock: '筑基中期后上架' },
-  { k: 'seed', w: 1.5, ok: st => st.home.field > 0 && L.cropsOpen(st) && !!L.nextLockedCrop(st), make: st => ({ crop: L.nextLockedCrop(st).id }), lim: () => 1 },
+  { k: 'seed', w: 1.5, ok: st => (st.rebirth > 0 || mr(st) >= 1) && st.home.field > 0 && L.cropsOpen(st) && !!L.nextLockedCrop(st), make: st => ({ crop: L.nextLockedCrop(st).id }), lim: () => 1 },
 ];
 L.restock = function (st, quiet) {
   const m = mk(st);
@@ -99,6 +101,7 @@ function rowDesc(st, s) {
   if (s.k === 'robe') return `现在 ${L.gearTier(st, 'r') ? L.gearTierName('r', L.gearTier(st, 'r')) : '空'}；随机词条，走对比卡`;
   if (s.k === 'frag') return `${(st.arts.frag[s.art] || 0)}/3 片，集齐三片得这门神阶功法`;
   if (s.k === 'plan') { const P = L.PLAN[s.plan]; return `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; }
+  if (s.k === 'token') return `手里 ${L.mjTokens(st)}/${L.MJ.tokenMax} 枚 · 夏季进秘境用`;
   return MK[s.k].d;
 }
 // 买价的组成：折扣、本届九折、商路断绝 +30%
@@ -183,6 +186,7 @@ function giveGood(st, row) {
   if (row.k === 'feed') { const n = L.feedSack(st); st.feed = (st.feed || 0) + n; L.log(st, `坊市买下兽粮一袋：+${n}`); return { k: 'feed', feed: n }; }
   if (row.k === 'yin' && s.yin) { L.addYin(st, s.yin, L.YIN_PACK); L.log(st, `坊市买下${L.YIN_N[s.yin]} ×${L.YIN_PACK}`); return { k: 'yin', yin: s.yin, n: L.YIN_PACK }; }
   if (row.k === 'seed' && s.crop) { if (L.cropOpen(st, s.crop)) return null; L.cropsOf(st).seed[s.crop] = 1; L.log(st, `坊市买下${L.CROP[s.crop].n}的灵种：现在就能种`, 'jade'); return { k: 'seed', crop: s.crop }; }
+  if (row.k === 'token') { if (!L.mjAddToken(st, 1)) return null; L.log(st, `坊市买下一枚秘境令（${L.mjTokens(st)}/${L.MJ.tokenMax}）`); return { k: 'token' }; }
   return null;
 }
 // 买第 i 格（L.shelf 的序号）

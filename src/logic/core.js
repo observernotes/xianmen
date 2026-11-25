@@ -94,18 +94,17 @@ L.SW = [0.19, 0.23, 0.27, 0.31];
 
 // ---------- 静态数据 ----------
 // rate: 冲击下一境界的基础成功率（v1 §3.8）；life: 该境界寿元（年）；mpt: 一个周天流逝的年数（炼气期 12 周天一年）
-// TODO SYSTEMS §9 / §18 第 4 条：天劫的护劫手段（祭法宝、灵宠挡劫、道侣护法、临阵吞丹、渡劫阵）上线时，
-//      把筑基→金丹起的 rate 整体 −0.10（0.50/0.40/0.35/…/0.10），由护劫手段补回；手段用 L.addBtMod 登记。
+// SYSTEMS §18 第 4 条：筑基→金丹起的 rate 整体 −0.10（v1 是 0.60/0.50/…/0.20），由天劫的护劫手段补回（trib.js：祭法宝、灵宠挡劫、道侣护法、临阵吞丹、渡劫阵）
 L.REALMS = [
   { n: '炼气', robe: ['#5d6f8a', '#7f93ab', '#a9bacb'], trim: '#dfe7ef', rate: 0.85, trib: 0, life: 100, mpt: 1 / 12 },
-  { n: '筑基', robe: ['#2f6e4b', '#4f9e68', '#7cc792'], trim: '#c9f0d4', rate: 0.60, trib: 0, life: 200, mpt: 1.6 },
-  { n: '金丹', robe: ['#9a6a1c', '#d6a032', '#f2cc6a'], trim: '#fff0bd', rate: 0.50, trib: 3, life: 400, mpt: 2 },
-  { n: '元婴', robe: ['#4f3a9e', '#7d5bd6', '#a98af0'], trim: '#e2d8ff', rate: 0.45, trib: 4, life: 800, mpt: 3 },
-  { n: '化神', robe: ['#8e2a35', '#c8434e', '#ea7a80'], trim: '#ffd3d5', rate: 0.40, trib: 5, life: 1500, mpt: 5.5 },
-  { n: '炼虚', robe: ['#24579a', '#3c84d6', '#76b0ee'], trim: '#d3e8ff', rate: 0.35, trib: 6, life: 3000, mpt: 11 },
-  { n: '合体', robe: ['#18756c', '#2aa79b', '#5fd3c4'], trim: '#cff8f2', rate: 0.30, trib: 7, life: 6000, mpt: 20 },
-  { n: '大乘', robe: ['#b9b3a5', '#e9e6dc', '#ffffff'], trim: '#ffd76a', rate: 0.25, trib: 8, life: 12000, mpt: 42 },
-  { n: '渡劫', robe: ['#17131f', '#2e2838', '#4a4157'], trim: '#ffcc44', rate: 0.20, trib: 9, life: 24000, mpt: 80 },
+  { n: '筑基', robe: ['#2f6e4b', '#4f9e68', '#7cc792'], trim: '#c9f0d4', rate: 0.50, trib: 0, life: 200, mpt: 1.6 },
+  { n: '金丹', robe: ['#9a6a1c', '#d6a032', '#f2cc6a'], trim: '#fff0bd', rate: 0.40, trib: 3, life: 400, mpt: 2 },
+  { n: '元婴', robe: ['#4f3a9e', '#7d5bd6', '#a98af0'], trim: '#e2d8ff', rate: 0.35, trib: 4, life: 800, mpt: 3 },
+  { n: '化神', robe: ['#8e2a35', '#c8434e', '#ea7a80'], trim: '#ffd3d5', rate: 0.30, trib: 5, life: 1500, mpt: 5.5 },
+  { n: '炼虚', robe: ['#24579a', '#3c84d6', '#76b0ee'], trim: '#d3e8ff', rate: 0.25, trib: 6, life: 3000, mpt: 11 },
+  { n: '合体', robe: ['#18756c', '#2aa79b', '#5fd3c4'], trim: '#cff8f2', rate: 0.20, trib: 7, life: 6000, mpt: 20 },
+  { n: '大乘', robe: ['#b9b3a5', '#e9e6dc', '#ffffff'], trim: '#ffd76a', rate: 0.15, trib: 8, life: 12000, mpt: 42 },
+  { n: '渡劫', robe: ['#17131f', '#2e2838', '#4a4157'], trim: '#ffcc44', rate: 0.10, trib: 9, life: 24000, mpt: 80 },
   { n: '真仙', robe: ['#e8d48a', '#fff4c2', '#ffffff'], trim: '#ffffff', rate: 0, trib: 0, life: Infinity, mpt: 0 },
 ];
 L.STAGES = ['初期', '中期', '后期', '圆满'];
@@ -179,8 +178,8 @@ L.pNeed = p => L.need(L.si(p));
 L.stageName = p => (p.r >= 9 ? '真仙' : L.REALMS[p.r].n + L.STAGES[p.s]);
 // 修为圆满（不管人在哪）；isReady = 圆满且人在洞府，可以冲击大境界
 L.isFull = st => st.p.r <= L.MAXR && st.p.s === 3 && st.p.xp >= L.pNeed(st.p);
-L.isReady = st => !st.exp && L.isFull(st);
-L.busy = st => !!(st.exp || st.retreat);
+L.isReady = st => !st.exp && !st.run && L.isFull(st);
+L.busy = st => !!(st.exp || st.retreat || st.run);   // st.run：人在秘境里（realm.js）
 L.has = (st, k) => st.p.tr.includes(k);
 L.lifespan = function (st) {
   const p = st.p;
@@ -217,7 +216,7 @@ L.newState = function (o) {
     exp: null, retreat: null, visitor: null, auction: null, tuna: 0, boxMiss: 0, lastExp: null, best: {},
     rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     quest: { done: {} }, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {}, origin: o.origin || 'qitu', meta,
-    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {}, cal: L.newCal(), market: L.newMarket(), ...L.newPets(),
+    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {}, cal: L.newCal(), market: L.newMarket(), trib: L.newTrib(), karma: L.newKarma(), dao: { k: 0, w: 0, r: 0 }, ...L.newPets(),
     npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
     herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {

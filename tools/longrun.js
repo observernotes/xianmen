@@ -1,6 +1,9 @@
 // 长局测试：机器人通过界面流程玩完一世（到飞升或坐化），检查全程无报错；掉落的法宝对比卡像玩家一样点（更强换上、否则熔炼、偶尔锁定），每 12 周天去法宝页点【强化】；
 // 坊市像玩家一样逛（每 6 周天）：先处理弹出的坊市事件，破境丹多了点【卖一半】，货架上打折的破境丹、轮换的法衣 / 残篇 / 器方买得起就点，拍卖会对想要的拍品点【加价】（宿敌在场点【豪掷】）；
-// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌；有灵宠后每 12 周天进兽栏：出战最强的、空着的派岗、喂兽粮、发光的点进化、名册满时放生或替换
+// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌；有灵宠后每 12 周天进兽栏：出战最强的、空着的派岗、喂兽粮、发光的点进化、名册满时放生或替换；
+// 天劫：准备页把能用的护劫手段全点上，心魔劫随手选，雷劫中途那一停把能补的手段补上（临阵吞丹点到封顶）再点【继续渡劫】
+// 秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
+// 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -97,6 +100,41 @@ const path = require('path');
       X.closeModal(); await sleep(450);
     }
     const seen = {};
+    let mjRuns = 0, mjClears = 0, mjDoors = 0;
+    async function realmRound(xf) {
+      X.showExp(); await sleep(40);
+      const card = document.querySelector(`#modal [data-mj="${xf ? 1 : 0}"]`);
+      if (!card) { X.closeModal(); await sleep(450); return; }
+      card.click(); await sleep(60);
+      const go = document.querySelector('#modal .foot .btn.gold:not([disabled])');
+      if (!go) { X.closeModal(); await sleep(450); return; }
+      go.click(); await sleep(400);
+      if (!X.st.run) return;
+      mjRuns++; seen['秘境'] = 1;
+      for (let g = 0; g < 120 && X.st.run; g++) {
+        if (modal()) {
+          const ch = document.querySelector('#modal [data-chest] .chip.ok'); if (ch) { ch.click(); mjClears++; await sleep(700); continue; }
+          const chs = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
+          if (chs.length) { chs[Math.floor(Math.random() * chs.length)].click(); seen['秘境奇遇'] = 1; await sleep(1400); continue; }
+          const f = document.querySelector('#modal .foot .btn:not([disabled])'); if (f) { f.click(); await sleep(500); continue; }
+          await sleep(200); continue;
+        }
+        if (window.__xm_realm.mjFx || X.st.run.phase !== 'door') { await sleep(250); continue; }
+        if (L.mjShouldLeave(X.st)) { const b = document.querySelector('#realmLeave'); if (b) { b.click(); await sleep(500); break; } }
+        const d = document.querySelector(`#realmDoors [data-door="${Math.max(0, L.mjDoorRec(X.st))}"]`);
+        if (d) { d.click(); mjDoors++; } await sleep(1100);
+      }
+      await drain();
+    }
+    // 雷劫中途那一停：能补的全补上，再继续
+    let tribPause = 0;
+    async function pauseCard() {
+      tribPause++; seen['临阵一停'] = 1;
+      for (const b of [...document.querySelectorAll('#modal [data-ex]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(40); }
+      for (let i = 0; i < 2; i++) { const b = document.querySelector('#modal [data-exp="1"]:not([disabled])'); if (b) { b.click(); await sleep(40); } }
+      const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click();
+      await sleep(80);
+    }
     // 兽栏：名册满时点【放生】或替换最弱的；出战那只不是最强的就点它【出战】；闲着的点【派岗】→ 推荐的岗；喂兽粮（长按一样，这里点几下）；发光的点【进化】选能选的那支
     async function petRound() {
       const st = X.st;
@@ -144,6 +182,7 @@ const path = require('path');
     }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
+        if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
         if (X.cine) { await sleep(120); continue; }
         if (!modal()) { await sleep(450); if (!modal() && !X.cine) return; continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
@@ -171,8 +210,16 @@ const path = require('path');
       if (L.isReady(st)) {
         if (st.p.inj > 0) L.heal(st);
         while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) L.buy(st, 'pill');
-        if (uiBt < 6) { uiBt++; X.showBreakthrough(); await sleep(40); document.querySelector('#modal .foot .btn.gold').click(); await drain(); }
-        else L.breakthrough(st, Math.min(3, st.pills));
+        while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) L.buy(st, 'pill');
+        if (uiBt < 6) {
+          uiBt++; X.showBreakthrough(); await sleep(40);
+          for (const b of [...document.querySelectorAll('#modal [data-aid]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(40); }
+          document.querySelector('#modal .foot .btn.gold').click(); await drain();
+        } else {
+          const pre = L.tribPre(st);
+          if (pre) { X.showTribStory(pre, () => X.closeModal()); await sleep(40); await drain(); }
+          L.breakthrough(st, Math.min(3, st.pills), { aids: 'all', extra: 'all' });
+        }
         if (st.p.r >= 9) { await drain(); break; }
       }
       for (let loop = 0; loop < 20; loop++) {
@@ -204,6 +251,10 @@ const path = require('path');
       if (n % 12 === 9 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
       if (n % 12 === 3 && !X.cine && (L.petCount(st) || st.petPend.length)) await petRound();
       if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
+      if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !X.cine && !modal()) {
+        if (L.mjCan(st, true)) await realmRound(true);
+        else if (L.mjCan(st) && (mjRuns < 2 || Math.floor(st.tick / 12) % 4 === 0)) await realmRound(false);
+      }
       if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0) {
         if (trips >= 2 && L.canRetreat(st)) { trips = 0; L.startRetreat(st); }
         else {
@@ -225,12 +276,13 @@ const path = require('path');
     return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`,
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
+      mijing: `进 ${mjRuns} 次、通关 ${mjClears} 次、点门 ${mjDoors} 下、最深 ${st.stats.mjDeep || 0} 层、秘境令 ${L.mjTokens(st)}`,
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
   // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
-  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
+  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化', '秘境']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;

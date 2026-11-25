@@ -188,6 +188,8 @@ L.cropTick = function (st, out) {
 // ---------- 存档（可重复调用，不升版本） ----------
 L.migrateCrops = function (s) {
   mats(s);
+  // 秘境先上线时（realm.js 的占位登记）药引收在 st.yin：折进 st.mats.yin
+  if (s.yin && typeof s.yin === 'object') { for (const k of L.YIN_KEYS) if (s.yin[k] > 0) s.mats.yin[k] += Math.floor(s.yin[k]); delete s.yin; }
   L.cropsOf(s);
   if (typeof s.toxin !== 'number' || !isFinite(s.toxin)) s.toxin = 0;
   return '';

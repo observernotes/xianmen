@@ -13,7 +13,7 @@ function petSprImg(p, k) {
   return `<img class="px" src="${urlOf(c, ['ps', p.sp, p.form || 0, p.aw ? 1 : 0].join('|'))}" style="width:${32 * z}px;height:${28 * z}px;flex:none" alt="">`;
 }
 const hearts = p => '<span class="phearts">' + '♥'.repeat(p.heart) + '<i>' + '♥'.repeat(5 - p.heart) + '</i></span>';
-const petRole = (i, p) => (i === st.petOut ? '出战' : p.job ? L.PET_JOB[p.job].n : '闲着');
+const petRole = (i, p) => (L.petResting(st, p) ? `休养 ${p.rest - st.tick} 周天` : i === st.petOut ? '出战' : p.job ? L.PET_JOB[p.job].n : '闲着');   // 挡过天劫的休养中（无效果）
 const petRoleIcon = (i, p) => icon16(i === st.petOut ? 'job_out' : p.job ? L.PET_JOB[p.job].icon : 'feed', 1);
 const petTierTag = t => `<span class="tag" style="background:${['#9aa0a6', '#e6e1d3', '#62d26f', '#4aa8ff', '#c27dff', '#ffcf3f', '#ff7a7a'][Math.min(6, t)]}">${t} 阶</span>`;
 // 一件事做之前 / 之后的数（不改存档）
@@ -93,7 +93,7 @@ function showPets(u, still) {
     const role = out ? `出战：战力倍率 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}${L.petJobMatch(p, p.job) ? '（对口 ×1.5）' : ''}` : '<span class="seal">闲着：连着 24 周天没事干会掉好感</span>';
     const tal = L.PET_TAL[L.petTalId(p)];
     det = `<div class="pdet"><div class="row">${petSprImg(p, 3)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b> ${petTierTag(L.petTier(p))} ${petElChip(S.el)} <span class="chip">${L.PET_TY[S.ty]}</span>${p.aw ? ' <span class="chip warn">觉醒</span>' : ''}</div>
-      <div>${role}</div><div class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</div><div class="muted">好感 ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '，五心挡劫、不会出走' : ''}</div></div></div>
+      <div>${role}</div><div class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</div><div class="muted">好感 ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '，五心能挡天劫（+10%，挡完休养 12 周天）、不会出走' : ''}${L.petResting(st, p) ? `<br><span class="seal">挡过天劫，休养中：还有 ${p.rest - st.tick} 周天，这期间不出力</span>` : ''}</div></div></div>
       ${lvLine}${petMsg ? `<div class="quote">${petMsg}</div>` : ''}${feedNote ? `<div class="muted">${feedNote}</div>` : ''}
       <div class="gbtns pbtns">${outBtn}${jobBtn}${feedBtn}</div>${evo}</div>`;
   } else det = '<div class="muted">还没有灵宠。筑基后坊市有灵兽蛋（每届论道换一种属性），采药历练容易遇到当地的灵兽，奇遇里也有。</div>';

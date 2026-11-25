@@ -11,12 +11,13 @@ function ladderHTML() {
   return `<div class="ladder">${rows.join('')}</div>`;
 }
 // 人物页的分页条（功法页在 panel-arts.js、法宝页在 panel-gear.js，共用这一条）
-function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
+function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['dao', '道心'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
 function bindMeTabs(s) { s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); }); }
 function showMe(tab) {
   tab = tab || 'attr';
   if (tab === 'art') { showArts(); return; }
   if (tab === 'gear') { showGear(); return; }
+  if (tab === 'dao') { showDao(); return; }   // 道心与因果（panel-trib.js）
   const p = st.p;
   let body = '';
   if (tab === 'attr') {
@@ -34,6 +35,7 @@ function showMe(tab) {
       <dt>天赋</dt><dd>${trs}</dd>
       <dt>法宝</dt><dd>${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => { const x = st.gear[s]; return x ? `${L.GEAR_N[s]}【${esc(L.gearBase(x.id).n)}】${x.plus ? '+' + x.plus : ''}<span class="muted">（${esc(L.gearMainText(st, x).split(' · ')[0])}）</span>` : `<span class="muted">${L.GEAR_N[s]}：空</span>`; }).join('<br>')} <button class="btn sm alt eq" id="btnGear">法宝 ▸</button></dd>
       <dt>功法</dt><dd>${L.artSlots(st).map((id, i) => (id ? `${L.ART_CAT[L.ART_SLOTS[i]]}《${esc(L.art(id).n)}》` : '')).filter(Boolean).join('<br>') || '<span class="muted">基础吐纳</span>'} <button class="btn sm alt eq" id="btnArts">功法 ▸</button></dd>
+      <dt>道心</dt><dd>狂 ${L.daoN(st, 'k')} · 稳 ${L.daoN(st, 'w')} · 仁 ${L.daoN(st, 'r')} · 道基 +${Math.round(L.daoji(st) * 100)}%${L.karmaOpen(st).length ? ` · <span class="seal">因果 ${L.karmaOpen(st).length}</span>` : ''} <button class="btn sm alt eq" id="btnDao">道心 ▸</button></dd>
       <dt>灵宠</dt><dd>${L.petOut(st) ? `${petImg(L.petOut(st), 26)} ${esc(L.petName(L.petOut(st)))} Lv${L.petOut(st).lv}<span class="muted">（出战 ×${L.petAtkOf(st, L.petOut(st)).toFixed(2)}）</span>` : `<span class="muted">${L.petCount(st) ? '没有出战的' : '尚无'}</span>`}${L.petCount(st) ? ` <span class="muted">名册 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}</span> <button class="btn sm alt eq" id="btnPetsMe">兽栏 ▸</button>` : ''}</dd>
       <dt>库存</dt><dd>灵草 ${fmt(st.herbs)} · 灵矿 ${fmt(st.ore || 0)} · 天材地宝 ${st.treasure} · 破境丹 ${st.pills}</dd>
       ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
@@ -65,6 +67,7 @@ function showMe(tab) {
   const ab = s.querySelector('#btnArts'); if (ab) ab.onclick = () => { SFX.tap(); showArts(0); };
   const pm = s.querySelector('#btnPetsMe'); if (pm) pm.onclick = () => { SFX.tap(); showPets(); };
   const gb0 = s.querySelector('#btnGear'); if (gb0) gb0.onclick = () => { SFX.tap(); showGear('w'); };
+  const db = s.querySelector('#btnDao'); if (db) db.onclick = () => { SFX.tap(); showDao(); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
   const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
   const rb = s.querySelector('#btnReset');

@@ -6,7 +6,7 @@
  *         葛老、丹经、事件的 fx.recipe（'need' = 随机揭晓一格没试过的；或指定丹方 id）直接告诉你某一格。九转金丹只能靠 fx.recipe 学到。
  *   三类（ART.pillGroup 同）：修 x = 修炼类、战 z = 战斗类（计丹毒）；根 g = 根基类（不计丹毒，有每境界次数上限）。
  *   服用：修炼类与根基类炼成即服；战斗类（爆气、雷火）与疗伤丹收进丹囊 st.dan.bag，到时候再服——爆气丹管下一场对决或下一趟历练，雷火丹管下一趟历练。
- *   丹毒 st.toxin（0～100）：每服一枚修炼 / 战斗类 +15（上品 +10、极品 +5），突破时服的破境丹每枚 +10；每周天 −2（灵泉每级再 −0.5，白鹤类灵宠天赋另加）。
+ *   丹毒 st.toxin（0～100；天劫临阵吞丹也走 L.addToxin，旧档 st.trib.toxin 折进来）：每服一枚修炼 / 战斗类 +15（上品 +10、极品 +5），突破时服的破境丹每枚 +10；每周天 −2（灵泉每级再 −0.5，白鹤类灵宠天赋另加）。
  *         服之前已 > 60：药力减半；服了会超过 100：不能服。
  *   自动续炼：最多勾 3 种，每 3 周天材料够就各炼一炉（修炼类在丹毒会过 60 时跳过，战斗类丹囊里各留 3 枚为止）。
  *   st.dan = { bag { 丹方: [品质…] }, next { baoqi 战力倍率, leihuo 分数, wudao 顿悟倍率, bingxin 突破加成, dingshen 承劫加成 }, cnt { 丹方+境界: 次数 }, auto [丹方…] }
@@ -23,7 +23,8 @@ const ON = () => L.ALCH_ON !== false;
 // ---------- 丹方（CONTENT §5.1） ----------
 // g 类别；herbs 灵草基数（× L.herbScale）；lv 丹炉等级；yin 两味药引；bag 收进丹囊；per 每境界上限；secret 只能由 fx.recipe 学到
 L.RECIPES = [
-  // 培元丹的灵草价由 tools/sim.js 校准（原 10：勤快玩家炼气期四分之一的修为来自培元丹）；丹毒上线后每 7～8 周天才服得起一枚修炼类丹
+  // 培元丹、聚灵丹的灵草价由 tools/sim.js 校准（CONTENT 写 10 / 16：勤快玩家炼气期四分之一的修为来自培元丹、聚灵丹几乎常驻）。
+  // 丹毒上线后试过调回去，但丹毒很少卡住（引导型平均 6～16），聚灵丹的门槛是火引冰引和灵草：16 时引导型聚灵覆盖四成多、飞升快 6%，40 与合并前持平
   { k: 'peiyuan', n: '培元丹', g: 'x', d: '服下立得 4 周天修为', herbs: 24, lv: 1 },
   { k: 'pojing', n: '破境丹', g: 'g', d: '突破时每枚成功率 +15%（一次最多三枚，每枚丹毒 +10）', herbs: 8, lv: 1 },
   { k: 'liaoshang', n: '疗伤丹', g: 'g', d: '收进丹囊；负伤时服一枚立刻痊愈', herbs: 6, lv: 1, bag: 1 },
@@ -32,13 +33,13 @@ L.RECIPES = [
   { k: 'cuiti', n: '淬体丹', g: 'g', yin: ['thunder', 'thunder'], d: '永久战力 +1%（每境界 3 枚）', herbs: 16, lv: 5, per: 3 },
   { k: 'yanshou', n: '延寿丹', g: 'g', yin: ['wood', 'wood'], d: '寿元 +8%（与坊市共用每境界三枚上限）', herbs: 12, lv: 5 },
   { k: 'yanghun', n: '养魂丹', g: 'x', yin: ['soul', 'soul'], d: '装着的三门功法熟练各 +15', herbs: 16, lv: 8 },
-  { k: 'juling', n: '聚灵丹', g: 'x', yin: ['fire', 'ice'], d: '接下来 6 周天修炼速度 ×1.5', herbs: 28, lv: 3 },
+  { k: 'juling', n: '聚灵丹', g: 'x', yin: ['fire', 'ice'], d: '接下来 6 周天修炼速度 ×1.5', herbs: 40, lv: 3 },
   { k: 'leihuo', n: '雷火丹', g: 'z', yin: ['fire', 'thunder'], d: '收进丹囊；服下后下一趟历练分数 +10', herbs: 14, lv: 3, bag: 1 },
   { k: 'baicao', n: '百草丹', g: 'x', yin: ['fire', 'wood'], d: '接下来 6 周天灵田作物产量 ×2', herbs: 10, lv: 3 },
   { k: 'wudao', n: '悟道丹', g: 'x', yin: ['fire', 'soul'], d: '下一次闭关坐满必顿悟，顿悟 ×2', herbs: 20, lv: 8 },
   { k: 'pozhang', n: '破障丹', g: 'g', yin: ['ice', 'thunder'], d: '立得一次“屡败屡战”：突破 +10%（每境界 1 枚）', herbs: 18, lv: 8, per: 1 },
   { k: 'qingdu', n: '清毒丹', g: 'g', yin: ['ice', 'wood'], d: '丹毒 −40', herbs: 8, lv: 3 },
-  { k: 'dingshen', n: '定神丹', g: 'g', yin: ['ice', 'soul'], d: '下一次天劫承劫 +5%（天劫上线前：下一次突破 +5%）', herbs: 18, lv: 8, per: 3 },
+  { k: 'dingshen', n: '定神丹', g: 'g', yin: ['ice', 'soul'], d: '下一次天劫承劫：成功率 +5%', herbs: 18, lv: 8, per: 3 },
   { k: 'huaxing', n: '化形丹', g: 'g', yin: ['thunder', 'wood'], d: '出战的灵宠立升 1 级（每境界 3 枚）', herbs: 14, lv: 5, per: 3 },
   { k: 'xisui', n: '洗髓丹', g: 'g', yin: ['thunder', 'soul'], d: '灵根提升一档，可以比剧情觉醒提前一档（丹炉 8 级或葛老为知己）', herbs: 30, treasure: 1, lv: 8 },
   { k: 'zhuyan', n: '驻颜丹', g: 'g', yin: ['wood', 'soul'], d: '万能礼物：最接近知己的那位好感 +10（每境界 3 枚）', herbs: 12, lv: 5, per: 3 },
@@ -95,7 +96,8 @@ L.toxHalf = st => (st.toxin || 0) > L.TOX.half;
 L.toxFull = (st, add) => (st.toxin || 0) + (add === undefined ? L.TOX.pill : add) > L.TOX.max;
 // 每周天消退：2 + 灵泉 0.5/级（洞府建筑上线后的 st.home.spring）；pets.js 包一层加白鹤类天赋
 L.toxDecay = st => L.TOX.decay + L.TOX.spring * ((st.home && st.home.spring) || 0);
-L.addToxin = function (st, v) {
+// src：来源（'bt' 突破的破境丹、'trib' 天劫临阵吞丹…），只作说明
+L.addToxin = function (st, v, src) {
   const t0 = st.toxin || 0;
   st.toxin = clamp(t0 + v, 0, L.TOX.max);
   if (t0 <= L.TOX.half && st.toxin > L.TOX.half) { L.log(st, `丹毒 ${Math.round(st.toxin)}：过了六十，再服丹药药力减半`, 'red'); emit('toxin', { lv: 1, v: st.toxin }); }
@@ -294,11 +296,11 @@ L.alchTick = function (st, out) {
 // 爆气丹：下一场对决（约战、论道、首领、会武、宗门战、晋升挑战）或下一趟历练战力 ×1.3；雷火丹：下一趟历练分数 +10
 L.addAtkMod('dan_baoqi', 92, st => (L.danNext(st, 'baoqi') ? ['爆气丹（下一场对决或历练）', L.danNext(st, 'baoqi'), 'alch'] : null));
 L.addExpMod('dan_leihuo', 77, st => (L.danNext(st, 'leihuo') ? ['雷火丹', L.danNext(st, 'leihuo'), 'alch'] : null));
-// 冰心丹、定神丹（天劫上线前折突破）：下一次突破
+// 冰心丹、定神丹：下一次突破（金丹起是天劫）的成功率；L.btParts 读它，天劫的 partsOf 也读 L.btParts。冰心丹“心魔劫动摇不扣”：dao / trib 可读 L.danNext(st, 'bingxin')
 L.addBtMod('dan', 58, st => {
   const a = [];
   if (L.danNext(st, 'bingxin')) a.push(['冰心丹', L.danNext(st, 'bingxin')]);
-  if (L.danNext(st, 'dingshen')) a.push(['定神丹（天劫上线前折突破）', L.danNext(st, 'dingshen')]);
+  if (L.danNext(st, 'dingshen')) a.push(['定神丹（承劫）', L.danNext(st, 'dingshen')]);
   return a.length ? a : null;
 });
 const wrap = (name, f) => { const base = L[name]; if (typeof base !== 'function') return; L[name] = f(base); };
@@ -306,10 +308,11 @@ const useUp = (st, ...ks) => { const d = dan(st); for (const k of ks) if (d.next
 for (const fn of ['pactDuel', 'tournament', 'fightBoss', 'sectMeet', 'sectWar']) wrap(fn, b => function (st) { const r = b.apply(this, arguments); if (r) useUp(st, 'baoqi'); return r; });
 wrap('promote', b => function (st) { const r = b.apply(this, arguments); if (r && r.duel) useUp(st, 'baoqi'); return r; });
 wrap('startExp', b => function (st) { const ok = b.apply(this, arguments); if (ok) useUp(st, 'baoqi', 'leihuo'); return ok; });
-// 突破：服的破境丹每枚丹毒 +10；冰心丹、定神丹的药力用掉
-wrap('breakthrough', b => function (st) {
+// 突破：服的破境丹每枚丹毒 +10；冰心丹、定神丹的药力用掉。接在 L.btResolve 上（筑基的一次掷与天劫 L.tribFinish 都走它）；
+// 天劫临场吞的丹（trib.js）自己调 L.addToxin(st, 20, 'trib')
+wrap('btResolve', b => function (st, ok, o) {
   const r = b.apply(this, arguments);
-  if (r) { if (r.pills && ON()) L.addToxin(st, L.TOX.bt * r.pills); useUp(st, 'bingxin', 'dingshen'); }
+  if (r) { const n = (o && o.pills) || 0; if (n && ON()) L.addToxin(st, L.TOX.bt * n, 'bt'); useUp(st, 'bingxin', 'dingshen'); }
   return r;
 });
 // 悟道丹：下一次闭关坐满必顿悟，顿悟 ×2
@@ -348,6 +351,10 @@ L.migrateAlch = function (s) {
   s.dan.auto = s.dan.auto.filter(k => REC[k]).slice(0, L.AUTO.max);
   for (const k of Object.keys(s.dan.bag)) if (!REC[k] || !REC[k].bag || !Array.isArray(s.dan.bag[k])) delete s.dan.bag[k];
   if (typeof s.toxin !== 'number' || !isFinite(s.toxin)) s.toxin = 0;
+  // 秘境先上线时（realm.js 的占位登记）记下的“没见过的丹方”：一张揭晓一格
+  if (s.recipeNote > 0) { for (let i = 0; i < s.recipeNote; i++) L.revealRecipe(s, 'need'); delete s.recipeNote; }
+  // 丹毒上线前天劫临阵吞丹记在 st.trib.toxin（trib.js），折进来
+  if (s.trib && s.trib.toxin > 0) { s.toxin += s.trib.toxin; s.trib.toxin = 0; }
   s.toxin = clamp(s.toxin, 0, L.TOX.max);
 };
 });

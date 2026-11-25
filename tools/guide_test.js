@@ -154,10 +154,16 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#modal .foot .btn'); await drain(); await dismiss(); await drain();
   // 金丹起的突破面板：步进器改成功率
   await ev(() => { const { st, L } = window.__xm; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 3; st.flags.readyNotified = 1; }); await page.waitForTimeout(300); await dismiss();
-  await page.click('#cult'); await page.waitForTimeout(400); await dismiss(); await shot('g26-bt-jindan');
+  await page.click('#cult'); await page.waitForTimeout(400);
+  // 头一回金丹雷劫前老祖讲护劫手段与“那一停”（阻塞，时间暂停），数字与逻辑一致
+  const tg = await gtext(), tgL = await ev(() => { const { st, L } = window.__xm; return { all: L.pct(L.tribRate(st, { pills: Math.min(3, st.pills), aids: 'all' })), base: L.pct(L.REALMS[st.p.r].rate), hold: window.__xm.guideHold }; });
+  check(has(tg, '护劫手段') && has(tg, '祭法宝 +8%') && has(tg, `全用上 ${tgL.all}`) && has(tg, `基础只有 ${tgL.base}`) && tgL.hold, `金丹雷劫讲解：护劫手段、全用上 ${tgL.all}、时间暂停`);
+  await ok(); const tp = await gtext();
+  check(has(tp, '停一下') && has(tp, '80%') && has(tp, '+10%'), `金丹雷劫讲解：那一停、八成准、临阵吞丹 +10%（${tp.slice(0, 30)}）`);
+  await dismiss(); await shot('g26-bt-jindan');
   const st1 = await ev(() => document.querySelector('#btRate').textContent);
   await page.click('#btStep [data-st="-1"]'); await page.waitForTimeout(250);
-  const st2 = await ev(() => ({ ui: document.querySelector('#btRate').textContent, n: +document.querySelector('#btStep b').textContent, L: (() => { const { st, L } = window.__xm; return L.pct(L.btRate(st, +document.querySelector('#btStep b').textContent)); })() }));
+  const st2 = await ev(() => ({ ui: document.querySelector('#btRate').textContent, n: +document.querySelector('#btStep b').textContent, L: (() => { const { st, L } = window.__xm; return L.pct(L.tribRate(st, window.__xm.tribOpts())); })() }));
   check(st1 !== st2.ui && st2.ui === st2.L, `步进器 −1：${st1} → ${st2.ui}（逻辑 ${st2.L}，${st2.n} 枚）`);
   await shot('g27-bt-step');
   await ev(() => window.__xm.closeModal()); await dismiss();
