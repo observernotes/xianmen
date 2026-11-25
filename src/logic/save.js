@@ -13,7 +13,7 @@ const P = L.P;
 // v4 → v5：单一法宝 st.p.w / wn（阶 / 名）换成三槽 st.gear —— 旧法宝阶 → 该阶同名兵器 +0 无词条，已斩首领补发材料与器方（gear.js 的 L.migrateGear）。
 // v5 → v6：坊市换成货架 + 行情 + 拍卖竞价、历法与天下大势上线 —— 新建 st.market（货架下次打开时按本届补货）与 st.cal；
 //   开着的一口价拍卖会换成竞价（起拍价 = 旧价的 12/20，没有竞拍者，本场还能出手两次）；st.gear.oreBuy（旧的每届三筐）去掉（L.migrateMarket）。
-// TODO SYSTEMS §18 第 10 条：灵宠换成名册时存档再升一版，旧灵宠 → 对应阶的基础种
+// 灵宠名册（SYSTEMS §4）：没有 st.pets 的档把旧的 st.p.pet 折成名册（pets.js 的 L.migratePets，可重复调用，不升版本）
 L.SAVE_V = 6;
 L.SAVE_OK = [2, 3, 4, 5, 6];
 L.migrateMarket = function (s) {
@@ -87,6 +87,7 @@ L.migrate = function (s) {
   L.migrateMarket(s);
   // 天劫（道基、预掷到一半的雷劫）、道心与因果：缺的补默认值，不升存档版本（trib.js / dao.js）
   L.migrateTrib(s); L.migrateDao(s);
+  const petNote = L.migratePets(s);
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值
@@ -125,6 +126,7 @@ L.migrate = function (s) {
   if (s.retreat && !(s.retreat.left > 0)) s.retreat = null;
   if (v3 && !old) L.log(s, '功法换了新章法：心法、战技、秘术三槽，练久了有熟练' + (artNote ? '。' + artNote : ''), 'gold');
   if (v4) L.log(s, '法宝换了新章法：兵器、法衣、饰品三槽，能强化、带词条' + (gearNote ? '。' + gearNote : ''), 'gold');
+  if (petNote) L.log(s, '灵宠换了新章法：名册、岗位、等级与进化。' + petNote, 'gold');
   if (v5 && !old) L.log(s, '坊市换了新章法：货架六格、行情能卖、拍卖会竞价；四季与天下大势也看得见了', 'gold');
   s.v = L.SAVE_V;
   return s;

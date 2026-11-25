@@ -216,13 +216,13 @@ L.newState = function (o) {
     exp: null, retreat: null, visitor: null, auction: null, tuna: 0, boxMiss: 0, lastExp: null, best: {},
     rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     quest: { done: {} }, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {}, origin: o.origin || 'qitu', meta,
-    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {}, cal: L.newCal(), market: L.newMarket(), trib: L.newTrib(), karma: L.newKarma(), dao: { k: 0, w: 0, r: 0 },
+    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {}, cal: L.newCal(), market: L.newMarket(), trib: L.newTrib(), karma: L.newKarma(), dao: { k: 0, w: 0, r: 0 }, ...L.newPets(),
     npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
     herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {
       name: o.name || '林逸尘', look: { hair: '#2a2230', skin: '#f2c9a0', f: female ? 1 : 0 },
       t: o.t !== undefined ? o.t : 1, tr: o.tr || ['hero'], r: 0, s: 0, xp: 0, over: 0, age: 16,
-      pet: null, inj: 0, fails: 0,
+      inj: 0, fails: 0,
     },
     exName: female ? '慕容轩' : '慕容雪',
   };

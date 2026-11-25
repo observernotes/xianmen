@@ -9,7 +9,7 @@
  * 预掷存在 st.trib.cur 里：渡到一半读档，接着渡，结果不变。
  *
  * 留给还没做的系统的钩子（有就用，没有就显示“开放后可用”）：
- *   灵宠挡劫  L.petCanShield(st) → 能挡劫的那只（名字或 { name }，没有给 null）；L.petShield(st, 周天) 让它挡劫并休养
+ *   灵宠挡劫  L.petCanShield(st) → 能挡劫的那只（名字，没有给 null）；L.petShield(st, 周天) 让它挡劫并休养；L.petShieldBonus(st) 天赋另加（pets.js 已接上）
  *   渡劫阵    L.formationReady(st, 'f_dujie') → 提前 3 周天布好了没有（阵图记在 st.gear.zhentu.f_dujie，story_trib1 给）
  *   丹毒      L.addToxin(st, n, 'trib')；没有丹毒系统时记在 st.trib.toxin，等丹毒上线时折进去
  */
@@ -64,7 +64,7 @@ L.aidInfo = function (st, k) {
     o.cost = !w ? '' : w.plus > 0 ? `失败时【${wName(w)}】强化 +${w.plus} → +${w.plus - 1}` : `失败时强化 −1（【${wName(w)}】+0，不掉）`;
   } else if (k === 'pet') {
     const who = L.petCanShield ? L.petCanShield(st) : null;
-    o.v = L.TRIB.pet; o.ok = !!who; o.who = who ? petName(who) : '';
+    o.v = L.TRIB.pet + (who && L.petShieldBonus ? L.petShieldBonus(st) : 0); o.ok = !!who; o.who = who ? petName(who) : '';
     o.why = !L.petCanShield ? '灵宠名册开放后可用（要 5 心）' : '没有 5 心、没在休养的灵宠';
     o.cost = `${o.who || '该灵宠'}休养 ${L.TRIB.petRest} 周天`;
   } else if (k === 'daolv') {
@@ -84,13 +84,14 @@ L.aidInfo = function (st, k) {
   }
   return o;
 };
-// 选中的手段 → 只留现在能用、这次还没用过的；'all' = 全部能用的
+// 选中的手段 → 只留现在能用、这次还没用过的；'all' = 全部能用的。值 = 用上那一刻它加多少（灵宠挡劫挡完就去休养，事后重算会变）
 function pickAids(st, want, phase, used) {
   const out = {};
   for (const k of ['fa', 'pet', 'daolv', 'zhen']) {
     if (phase === 'pause' && k === 'zhen') continue;   // 渡劫阵要提前布
     if (used && used[k]) continue;
-    if ((want === 'all' || (want && want[k])) && L.aidInfo(st, k).ok) out[k] = 1;
+    const A = L.aidInfo(st, k);
+    if ((want === 'all' || (want && want[k])) && A.ok) out[k] = A.v;
   }
   return out;
 }
@@ -99,7 +100,7 @@ function partsOf(st, pills, aids, extra) {
   const a = L.btParts(st, 0);
   if (pills) a.splice(1, 0, [`破境丹 ×${pills}`, pills * L.BT.pill]);
   const one = (k, v) => a.push([L.AID_N[k], v]);
-  for (const src of [aids || {}, (extra && extra.aids) || {}]) for (const k of ['fa', 'pet', 'daolv', 'zhen']) if (src[k]) one(k, k === 'zhen' ? L.aidInfo(st, 'zhen').v : L.TRIB[k]);
+  for (const src of [aids || {}, (extra && extra.aids) || {}]) for (const k of ['fa', 'pet', 'daolv', 'zhen']) if (src[k]) one(k, src[k] === 1 && k !== 'zhen' ? L.TRIB[k] : src[k]);
   if (extra && extra.pills) a.push([`${L.AID_N.pill} ×${extra.pills}`, extra.pills * L.TRIB.pill]);
   return a;
 }

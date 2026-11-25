@@ -330,6 +330,39 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .combo-arts { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .combo-a { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .combo-x { color: var(--gold); font-size: calc(var(--fs) * 2); }
+/* 灵宠（panel-pets.js）：兽栏卡片横排、详情、派岗、进化二选一、放生替换 */
+.pcards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pcard { min-height: 128px; min-width: 0; border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }
+.pcard.sel { background: #fff6dc; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.pcard.glow { animation: petGlow 1.2s steps(4) infinite; }
+.pcard.empty { cursor: default; justify-content: center; opacity: .7; }
+.pcard.lock { opacity: .5; }
+.pcard .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard .aempty { color: var(--paper-mute); font-size: calc(var(--fs) * 2); line-height: 1.2; }
+.pcard .muted { line-height: 1.25; overflow-wrap: anywhere; }
+.prole { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+@keyframes petGlow { 50% { box-shadow: 0 0 0 3px #fff2a8, 0 0 0 6px var(--gold); background: #fff6dc; } }
+.phearts { color: #d8404a; letter-spacing: -1px; white-space: nowrap; } .phearts i { font-style: normal; color: #cbb98f; }
+.pdet { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: #fff6dc; border-left: 4px solid var(--jade); }
+.pdet .row { align-items: center; }
+.pbtns .btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; min-height: 52px; flex: 1 1 30%; padding: 2px 4px; }
+.pbtns .btn small { opacity: .85; overflow-wrap: anywhere; }
+.btn.pfeed { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.btn.pglowb { animation: petGlow 1.2s steps(4) infinite; min-height: 44px; }
+.pjobs { display: flex; flex-direction: column; gap: 6px; }
+.pjob { display: flex; gap: 8px; align-items: center; min-height: 52px; border: 0; font: inherit; color: var(--paper-ink); text-align: left; background: #f7eed6; padding: 4px 8px; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }
+.pjob:disabled { cursor: default; opacity: .75; }
+.pjob.cur { box-shadow: 0 0 0 2px var(--jade); opacity: 1; }
+.pjob .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pbrs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pbr { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px 4px; background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; min-width: 0; }
+.pbr.ok { box-shadow: 0 0 0 2px var(--gold); animation: petGlow 1.2s steps(4) infinite; }
+.pbr .btn { min-height: 44px; width: 100%; }
+.pbr .nm { font-size: calc(var(--fs) * 1.15); }
+.psil { filter: brightness(0) opacity(.55); }
+.psilbox { display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; background: #e6dcc0; box-shadow: 0 0 0 2px #b9a77c; }
+.pend { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: #f7eed6; box-shadow: 0 0 0 2px var(--gold); margin: 4px 0; text-align: left; }
+.pend .btn { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
 /* 法宝（panel-gear.js）：三格 + 每格下【强化】、对比卡、词条记号、器炉 */
 .gslots { align-items: stretch; }
 .gcell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

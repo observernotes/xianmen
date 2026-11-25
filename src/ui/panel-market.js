@@ -6,6 +6,8 @@ function goodImg(st0, row) {
   const k = row.k, s = row.s || {};
   if (k === 'ore') return oreImg(pxs(16, 2));
   if (k === 'frag') return icon16('frag', 2);
+  if (k === 'feed') return icon16('feed', 2);
+  if (k === 'egg') { const sp = L.petEggPool(st0, L.eggEl(st0))[0][0]; return petImg({ sp }, 30); }
   if (k === 'plan') return scrollImg(pxs(16, 2));
   if (k === 'robe' && s.tier) { const c = ART.item('r', s.tier), z = pxs(16, 2); return `<img class="px" src="${urlOf(c, 'gear|r|' + s.tier)}" style="width:${z}px;height:${z}px;flex:none" alt="">`; }
   return iconHTML({ pill: 'pill', box: 'bag', egg: 'pet', life: 'life' }[k] || 'bag', 30);
@@ -102,7 +104,7 @@ function showMarket(o) {
     if (!r) return;
     SFX.coin();
     if (r.it) revealItem(r.it, () => showMarket({ keep: true }));
-    else { floatText(100, 80, r.planText || (r.k === 'life' ? `寿元 +${r.add} 年` : r.k === 'ore' ? `灵矿 +${fmt(r.ore)}` : '破境丹 +1'), r.k === 'life' ? '#8ff5d0' : r.k === 'ore' ? '#9fd8ff' : '#ffe39a'); showMarket({ keep: true }); }
+    else { floatText(100, 80, r.planText || (r.k === 'life' ? `寿元 +${r.add} 年` : r.k === 'ore' ? `灵矿 +${fmt(r.ore)}` : r.k === 'feed' ? `兽粮 +${r.feed}` : '破境丹 +1'), r.k === 'life' ? '#8ff5d0' : r.k === 'ore' ? '#9fd8ff' : '#ffe39a'); showMarket({ keep: true }); }
   });
   s.querySelectorAll('button[data-sell]').forEach(btn => btn.onclick = () => {
     const [k, f] = btn.dataset.sell.split(':');
@@ -124,7 +126,7 @@ function revealItem(it, back) {
   const tierOf = it.kind === 'pet' ? it.tier : it.gear ? Math.min(6, it.tier - 1) : it.tier;
   const colors = ['#9aa0a6', '#e6e1d3', '#62d26f', '#4aa8ff', '#c27dff', '#ffcf3f', '#ff7a7a'];
   const col = it.kind === 'a' ? ART.qualityColor(it.tier) : it.gear ? (it.tier >= 7 ? '#c48bff' : ART.qualityColor(it.tier)) : colors[Math.max(0, Math.min(6, tierOf))];
-  const img = it.kind === 'pet' ? petImg(it.tier, 44) : it.kind === 'a' ? artImg(it.art, 3) : it.gear ? gearImg(it.gear, 3) : `<img class="px" src="${iconURL.sword}" style="width:44px;height:44px" alt="">`;
+  const img = it.kind === 'pet' ? petImg(it, 44) : it.kind === 'a' ? artImg(it.art, 3) : it.gear ? gearImg(it.gear, 3) : `<img class="px" src="${iconURL.sword}" style="width:44px;height:44px" alt="">`;
   const src = { vault: '宗门宝库', auction: '拍卖', shop: '坊市', xianfu: '仙府秘藏' }[it.src];
   const s = sheet({
     title: it.kind === 'pet' ? '灵兽破壳' : it.kind === 'a' ? (it.frag && !it.fragDone ? '残篇' : src || '功法') : src || '寻宝', center: true, noClose: true,
