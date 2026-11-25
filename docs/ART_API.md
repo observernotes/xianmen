@@ -75,3 +75,10 @@
   注意：CONTENT 事件里鬼医薛三的长老 id 是 `xuesan`，美术 id 是 `xue3`；接入时做一次映射。
 - `ART.portraitGen(seed, { f, realm, temper, kind, robe, trim }, mood)` → 48×48 门人 / 徒弟头像（同 seed 恒定；temper = 0～7 或 '勤勉' '聪慧' '莽' '滑' '痴' '孤傲' '仁厚' '贪玩'，`ART.tempers`；realm 决定道袍色，或直接传 robe: [暗, 中, 亮] 用宗门色；kind: 'rookie' = 新秀外观：金抹额 + 红披领）。
 - 职司图标：`ART.icon('post_dan'|'post_qi'|'post_zhan'|'post_fa'|'post_wai')`。
+
+## 阶段三·批次九（人物 / 宿敌）
+
+- `ART.portrait` 再增 id：teaman 卖茶翁、qian 钱通、lei 雷豹、lixiao 厉枭、yutian 驭天风（后四位是出身约战的对手；丹红袖用 hongxiu）。
+- 新秀头像：`ART.portraitGen(seed, { kind: 'rookie', f, robe: [暗, 中, 亮], trim }, mood)`。
+- 新图标：`ART.icon('grudge'` 恩怨 | `'quest'` 委托 | `'like'` ♥ | `'dislike'` ✕ | `'wine'` | `'tea'` | `'spar'` 指点 | `'crush'` 打压`)`。
+- CONTENT §12 其余链人物（星墟仙人、龙宫等）没有单独画像，用 portraitGen 或现有访客小人代替。
