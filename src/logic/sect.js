@@ -163,11 +163,12 @@ L.warPower = () => P.pw0 * Math.pow(P.pwStage, 21) * Math.pow(P.pwRealm, 5) * 7 
 L.wardMult = st => Math.pow(1.15, (st.sect && st.sect.build && st.sect.build.ward) || 0);
 L.sectWar = function (st) {
   const foe = { kind: 'war', id: 'tianjian' };
-  const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower();
+  const lead = (L.rivalLeads ? L.rivalLeads(st) : []).find(x => x.nine === 'tianjian');   // 恩怨 ≥ 60 的赵乾 / 楚天阔带头：来敌战力 ×1.1～1.2（rivals2.js）
+  const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower() * (lead ? lead.m : 1);
   const p = L.duelP(st, S, Q, foe);
   if (L.revealFoe) L.revealFoe(st, foe);
   const win = R() < p;
-  const res = { S, Q, p, win };
+  const res = { S, Q, p, win, lead };
   if (win) {
     st.flags.warWon = 1;
     res.contrib = addContrib(st, L.contribFor(L.homeRegion(st)) * 3);

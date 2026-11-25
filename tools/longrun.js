@@ -4,6 +4,7 @@
 // 天劫：准备页把能用的护劫手段全点上，心魔劫随手选，雷劫中途那一停把能补的手段补上（临阵吞丹点到封顶）再点【继续渡劫】
 // 灵田与炼丹房：每 12 周天点开一块田、一半时候改种推荐的作物；药引格里有能试的格子就【试炼】一格
 // 洞府地块与阵法：每 12 周天进【洞府】，有空地就点空地 → 点“荐”的那一样建；要渡劫了点聚灵阵 →【换阵】→ 布渡劫阵，渡完换回聚灵阵
+// 宿敌与新秀：论道前的对决准备页、新秀挑战里有【换上】（换成克他的战技）就先点，再点【登台】/【打压】
 // 秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
 // 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
 // 入宗后每 24 周天进【宗门】：门下收徒、派差事、能出师就出师、偶尔传授；身份页能领职司就领、给长老【送礼】；宝库六格里的功法法宝买得起就换
@@ -28,7 +29,7 @@ const path = require('path');
     setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
-    let petAct = 0, petFeed = 0, popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
+    let zSwap = 0, petAct = 0, petFeed = 0, popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
     const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
     // 坊市：先过坊市事件（打开坊市时弹），再卖、买、出价——都点界面上的按钮
     async function marketRound() {
@@ -240,6 +241,9 @@ const path = require('path');
         const chs = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
         if (chs.length) { popups++; chs[Math.floor(Math.random() * chs.length)].click(); await sleep(60); continue; }
         // 掉落卡、结算卡上的【换上】照点（像个肯动手的玩家）；法宝对比卡按“更强就换”点
+        // 论道前的对决准备 / 新秀挑战：有【换上】（换成克他的战技：胜算 p → p'）就先点
+        const zs = document.querySelector('#modal [data-zswap]');
+        if (zs) { zs.click(); zSwap++; await sleep(40); continue; }
         const eq = document.querySelector('#modal [data-eqart]');
         if (eq) { eq.click(); artEq++; await sleep(40); continue; }
         if (document.querySelector('#modal [data-gcmp]')) { await drainCards(); continue; }
@@ -333,6 +337,7 @@ const path = require('path');
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen),
       mijing: `进 ${mjRuns} 次、通关 ${mjClears} 次、点门 ${mjDoors} 下、最深 ${st.stats.mjDeep || 0} 层、秘境令 ${L.mjTokens(st)}`,
       zongmen: st.sect ? `${L.srankName(st, st.sect.rank)} · 职司 ${L.duty(st) ? L.DUTIES[L.duty(st)].n : '-'} · 长老 ${L.eldersOf(st).map(e => e.n + ' ' + L.favor(st, e.id)).join('、')} · 送礼 ${gifts} 次 · 宝库换 ${vaultN} 件 · 收徒 ${discTaken}（门下 ${st.disc ? st.disc.list.length : 0}、出师 ${st.stats.discGrad || 0}、传授 ${st.stats.discTeach || 0}）· 三人会武 ${st.stats.trioWins || 0}/${st.stats.trioRounds || 0} · 点宗门 ${sectAct} 下` : '-',
+      rivals: `论道前换战技 ${zSwap} 次 / 新秀 ${(st.rv2 && st.rv2.rkN) || 0} 位（打压 ${(st.rv2 && st.rv2.crush) || 0}、指点 ${(st.rv2 && st.rv2.teach) || 0}、输 ${(st.rv2 && st.rv2.lost) || 0}）/ 恩怨 ${JSON.stringify(st.grudge || {})} / 伏击 ${(st.rv2 && st.rv2.ambush) || 0}`,
       dan: `灵田 ${L.plots(st).map(x => L.CROP[x.c].n).join('、')} / 丹方 ${L.recipeCount(st)}/${L.YIN_GRID.length} / 炼丹 ${st.stats.crafts} 炉 / 丹毒 ${Math.round(st.toxin || 0)}` };
   });
   console.log(JSON.stringify(result, null, 1));

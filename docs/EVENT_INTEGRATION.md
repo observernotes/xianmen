@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：洞府地块、建筑与阵法）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：宿敌与新秀；第十刀：洞府地块、建筑与阵法）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -77,7 +77,15 @@
     长老 20 个（24 个里 dan_yun_1、mo_youji_2、mo_xuesan_1 还等丹毒，mo_xuehe_1、mo_xuesan_1 还等丹方）、徒弟 12 个、人物委托 3 个（su_q1、su_q2、bai_q2：fx.busy / fx.favor）。
     还闸着、但宗门部分已能结算的：chu_q2、mo_q1（fx.busy 已登记，等恩怨）、mu_4、xue_1（fx.favor 已登记，等恩怨）。
     与灵田炼丹合并后，等丹毒 / 丹方的 4 个长老事件（dan_yun_1、mo_xuehe_1、mo_xuesan_1、mo_youji_2）也放行了。
-- [x] 洞府地块、建筑与阵法登记（`src/logic/home.js`、`src/logic/formation.js`、`src/logic/buildings.js`，第九刀）：
+- [x] 宿敌与新秀登记（`src/logic/rivals2.js`，第九刀）：
+  - `fx.grudge`（不限 where，覆盖秘境里先收着的版本；键是宿敌 id，或 `rk` = 池子里恩怨最深的那位新秀）、`elig.grudge` = [宿敌id, 最小, 最大]（恩怨 −100～100）、新资格字段 `rkGrudge: n`（池子里有恩怨 ≥ n 的新秀）、新占位符 `{rk}`（那位新秀的名字）。
+  - 选项级 `foe: 宿敌id | 'rookie'`：配 `duel` 用，对手按这位宿敌算五行克制和他的法宝（新秀另用他的真战力，`L.choiceFoe`）；events-engine 的对决、界面的胜算与半身像都读它。已加在 `zhao_1`、`xue_2`、`realm_rival`、`new_2` 和新的伏击事件上。
+  - `fx.rookie: 'win' | 'lose' | 'teach'`：新秀这一场的结局（`new_2` 的应战 / 指点；`L.rookieResolve`）。
+  - 剧情触发键 `rookie:appear / near / beaten / trouble`（新秀出现 / 追到 5 名内 / 被打压之后 / 指点后 24 周天）、`war_eve:tianjian`（头一回满足天剑宗来犯条件时把来犯排到 6 周天后，先发这一封信；`zhao_3` 置的 `raid_intel` 让那一场对决 ×1.3、打完用掉；`tianheng_1` 的 `raid_delay` 把来犯推迟 24 周天）。
+  - 事件置的一次性标记当场生效：`rookie_seen`（new_1 看他一眼：新秀五行显形）、`yun_elem`（yun_1 掀棋盘：云无极五行显形）。恩怨降到 −40 以下时引擎置 `zhao_owes`（赵乾倒戈）。
+  - 新扩展包 `src/content/ev_rivals2.js`（11 个，CONTENT §14.2 的 23 个都已在 ev_realm_rivals.js）：恩怨 ≥ 60 的伏击 `rv_ambush_mu / zhao / chu / xue / yun / rk`，≤ −40 的化敌为友 `zhao_4`、`tiankuo_5`（楚天阔同行 `tiankuo_ally`：斩妖 +6，同伴系统上线后可改由它接管）、`mu_5`、`xue_4`、`yun_4`。
+  - 这一刀放行的 39 个：ev_realm_rivals 的 20 个（`mu_1～4`、`zhao_1～3`、`tiankuo_1～4`、`xue_1`、`xue_2`、`yun_1`、`yun_2`、`new_1～4`、`auc_rival`）、ev_sect_people 的 `chu_q2`、`mo_q1`、ev_world_chains 的 `world_liuxing`、`ch_tianjian_1～4 / 6`，加新的 11 个。
+- [x] 洞府地块、建筑与阵法登记（`src/logic/home.js`、`src/logic/formation.js`、`src/logic/buildings.js`，第十刀）：
   - 剧情触发键 `plot_full`（地块满了、又有解锁了没建的建筑，持续 12 周天后，每世一次 → `home_plot_full`）、`build:<建筑>`（建成时；`build:library` 另在藏经阁每次升级时 → `home_library_note`；`build:spring` → `home_spring`）、
     `formation_fail`（换阵时 5% → `home_formation_fail`）。
   - 一次性 flag：`tut_rebuild`（界面打开【洞府】、选中等级最低的那块地并摊开【拆除】确认，`st.home.tut`）、`formation_boost`（最近换的那个阵位的阵法，生效后 12 周天效果 ×1.2，`st.home.zboost`）、
@@ -89,7 +97,7 @@
     历练（万妖山脉腹地评价乙以上 10% 养兽阵、太古仙府评价乙以上 8% 一张没有的）；葛老三心（丹火阵）。**护山阵的正路是宗门执法长老 40 支持**：宗门线要发时调 `L.zhenGive(st, 'f_hushan')`。
   - 迷踪阵的“秘境陷阱减半”原来只看有没有阵图（realm.js 的 `L.mjTrapHalf`），现在要布着；传送阵 9 级“秘境不耗周天”走 `L.portalLv`（nohome2 时恒 0）。
   - 这一刀放行的 4 个：`home_plot_full`、`home_formation_fail`、`home_spring`、`home_library_note`。
-- 当前上线 304 / 332（洞府 +4）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- 当前上线 343 / 343（洞府 +4：`home_plot_full`、`home_formation_fail`、`home_spring`、`home_library_note`）。宿敌与新秀那一刀 339 / 343（宿敌与新秀 +39，含新增 11 个；还闸着的 4 个等洞府）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。

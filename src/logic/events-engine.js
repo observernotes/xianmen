@@ -8,7 +8,7 @@ const P = L.P;
 // ---------- 事件数据 ----------
 // 浏览器：src/events.js 设 window.EVENTS，src/content/*.js 再 push 进去（tools/build.py 按顺序内联）。
 // node：require src/events.js 与 L.CONTENT_FILES 里的扩展包，拼成一份。
-L.CONTENT_FILES = ['ev_realm_rivals', 'ev_sect_people', 'ev_world_chains', 'ev_karma'];
+L.CONTENT_FILES = ['ev_realm_rivals', 'ev_sect_people', 'ev_world_chains', 'ev_karma', 'ev_rivals2'];
 let nodeEvents = null;
 L.events = function () {
   if (globalThis.EVENTS) return globalThis.EVENTS;
@@ -216,7 +216,12 @@ L.resolveChoice = function (st, ev, idx) {
     for (const k in ch.cost) { const c = L.CAPS.cost[k]; if (c && c.pay) c.pay(st, ch.cost[k]); }
   }
   let ok = true, duel = null;
-  if (ch.duel) { const foe = { kind: 'event', id: ev.id }; const S = L.duelPower(st, foe), Q = L.power(st) * ch.duel; const p = L.duelP(st, S, Q, foe); ok = R() < p; duel = { S, Q, p, win: ok }; }
+  if (ch.duel) {
+    // choice.foe：对手是某位宿敌或正在追你的新秀（五行克制、他的法宝都算上，rivals2.js 的 L.choiceFoe）
+    const cf = L.choiceFoe ? L.choiceFoe(st, ev, ch) : null;
+    const foe = cf ? cf.foe : { kind: 'event', id: ev.id }; const S = L.duelPower(st, foe), Q = cf ? cf.Q : L.power(st) * ch.duel; const p = L.duelP(st, S, Q, foe); ok = R() < p; duel = { S, Q, p, win: ok, foe: cf ? cf.foe : null, n: cf ? cf.n : '' };
+    if (cf && L.revealFoe) L.revealFoe(st, cf.foe);
+  }
   else if (ch.p !== undefined) ok = R() < Math.min(0.95, ch.p + L.choiceLuck(st));
   const br = ok ? ch.ok : (ch.fail || ch.ok);
   if (ev.npc) { st.npc = st.npc || {}; if (!st.npc[ev.npc]) st.npc[ev.npc] = { aff: 0 }; }

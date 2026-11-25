@@ -284,8 +284,10 @@ function rollComp(st, used) {
   const c = [];
   st.ladder.forEach((x, i) => {
     const q = i + 1 < st.rank ? i + 1 : i + 2;
-    if (used.has(x.n) || q >= st.rank) return;
-    if (x.id && !st.beaten[x.id]) c.push([{ kind: 'rival', id: x.id, n: x.n, q }, 3]);
+    if (used.has(x.n)) return;
+    if (x.id && L.rivalBid && L.rivalBid(st, { kind: 'rival', id: x.id })) c.push([{ kind: 'rival', id: x.id, n: x.n, q }, 3]);   // 恩怨 ≥ 60 的宿敌不管名次都来抬价（rivals2.js）
+    else if (q >= st.rank) return;
+    else if (x.id && !st.beaten[x.id]) c.push([{ kind: 'rival', id: x.id, n: x.n, q }, 3]);
     else if (!x.id && q >= st.rank - 20) c.push([{ kind: 'ladder', n: x.n, q }, 0.25]);
   });
   for (const id in L.NPCS) if (L.met(st, id) && !used.has('npc:' + id)) c.push([{ kind: 'npc', id, n: L.npcName(st, id) }, 1]);
@@ -338,13 +340,15 @@ function rollAuction(st) {
 L.bidInfo = function (st, i, t) {
   const A = st.auction, it = A && A.items[i], T = L.AUCTION.tiers[t];
   if (!it || !T) return null;
-  const price = Math.floor(it.price * T.m), p = Math.max(0.05, T.p - (it.comp ? L.AUCTION.compCut : 0));
+  // 恩怨 ≥ 60 的宿敌在场：他抬价，你的出价 ×1.2、拿下概率再 −10%（rivals2.js 的 L.rivalBid）
+  const rb = L.rivalBid ? L.rivalBid(st, it.comp) : null;
+  const price = Math.floor(it.price * T.m * (rb ? rb.m : 1)), p = Math.max(0.05, T.p - (it.comp ? L.AUCTION.compCut : 0) - (rb ? rb.cut : 0));
   let why = '';
   if (!L.auctionOpen(st)) why = '拍卖会已散';
   else if (it.res) why = it.res === 'won' ? '已拍下' : '已落槌';
   else if ((A.bids || 0) >= L.AUCTION.bids) why = `本场已出手 ${L.AUCTION.bids} 次`;
   else if (st.stones < price) why = `还差 ${L.fmt(price - st.stones)} 灵石`;
-  return { price, p, why, T, comp: it.comp };
+  return { price, p, why, T, comp: it.comp, raise: rb };
 };
 function giveLot(st, it) {
   const res = {};
@@ -368,7 +372,7 @@ function compTakes(st, it) {
   if (c.kind !== 'npc') {
     const x = st.ladder.find(y => y.n === c.n);
     if (c.id === 'mu' && st.eflags && st.eflags.mu_overpaid) delete st.eflags.mu_overpaid;   // auc_rival：慕容这场多花了钱，拍到的东西不生效
-    else if (x) { x.pw = (x.pw || 1) * L.AUCTION.boost; x.aucNote = it.n; x.aucN = (x.aucN || 0) + 1; out.boost = true; }
+    else if (x) { const m = L.rivalBoost(st, x, L.AUCTION.boost, `在拍卖会上拍得【${it.n}】`); x.aucNote = it.n; x.aucN = (x.aucN || 0) + 1; out.boost = m > 1; out.m = m; }   // 每人上限 ×1.3（rivals.js）
   }
   L.log(st, `拍卖会：${c.n}拍走了【${it.n}】${out.boost ? `，战力 ×${L.AUCTION.boost}` : ''}`, out.boost ? 'red' : '');
   st.stats.aucLost = (st.stats.aucLost || 0) + 1;
