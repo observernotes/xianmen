@@ -3052,5 +3052,160 @@ ART.calStrip = function (t, marks) {
   });
 };
 
+// ---------- 三、秘境 ----------
+// ART.drawRealm(theme, t, OY)      → 秘境背景，画满 200×(160+OY)，小人脚底 y=128（同对决舞台）。theme：'jin' 剑气 | 'mu' 百草 | 'huo' 熔火 | 'shui' 幽泉（ART.realmThemes）
+// ART.door(type)                   → 32×40 门卡。type：fight 战 | elite 精英 | chest 宝 | spring 泉 | event 奇 | insight 悟 | shop 商 | boss 守关 | unk ？（也接受这几个汉字；ART.doorTypes）
+// ART.drawQiBar(x, y, w, frac, t)  → 气血条（高 7，左端一颗心；低于三成时闪动）
+// ART.drawRoomFx(type, x, y, k)    → 进房间后的小动画，k 0～1；type 同门卡，另有 'trap' 陷阱
+// ART.icon('spring' | 'wonder' | 'skull') 泉、奇、守关的 16×16 记号
+Object.assign(ICONS, {
+  spring: '......c/.....cwc/.....cwc/....cwccC/...cwcccCC/...cwccgCC/..ccccgggCC/..cccccgCCC/...cccCCCC/....CCCCC//.cc..ccc..cc/c..cc...cc..c',
+  wonder: '......v/......v...w/.....vwv/.....vwv/..vvvwwwvvv/vvwwwwwwwwwvv/..vvvwwwvvv/.....vwv/.w...vwv/www...v/.w....v',
+  skull: '.y...yy...y/.yy.yyyy.yy/.yyyyryyyyY/..wwwwwwww/.wwwwwwwwwW/.wKKKwwKKKW/.wKrKwwKrKW/.wwwwKKwwwW/..wwwwwwwW/..wKwKwKwW/...WWWWWW',
+});
+// 洞顶：两端压低成洞口，垂着钟乳
+function caveTop(seed, base, amp, c, rim) {
+  const a = ridgeLine(seed, 200, 0, amp, 6, 1.3), r = seeded(seed), hh = x => Math.round(base - a[x] + Math.max(0, 18 - Math.min(x, 199 - x)) * 2.4);
+  for (let x = 0; x < 200; x++) { const y = hh(x); R(x, -90, 1, 90 + y, c); R(x, y, 1, 1, rim); dR(x, y - 3, 1, 3, rim, 4); }
+  for (let i = 0; i < 11; i++) { const x0 = Math.floor(8 + r() * 184), len = 5 + r() * 15, w = 1 + r() * 2.5, y0 = hh(x0); for (let k = 0; k < len; k++) { const ww = Math.round(w * (1 - k / len)); R(x0 - ww, y0 + k, ww * 2 + 1, 1, c); R(x0 - ww, y0 + k, 1, 1, rim); } }
+}
+function floorLines(y, c) { for (let k = 0; k < 6; k++) R(0, y + 2 + Math.round(k * k * 0.9 + k * 2), 200, 1, c); for (let i = -8; i <= 8; i++) line(100 + i * 14, y + 1, 100 + i * 34, 160, c); }
+Object.assign(STAGES, {
+  // 剑气·金：插满巨剑的石窟，尽头一线金光
+  r_jin: {
+    sky: ['#1a1e3a', '#3a4670', '#8a8aa8', '#e8d8a8', '#fff6d0'],
+    build() {
+      glow(100, 116, 40, '#fff2a8', 0.5);
+      paintRidge(ridgeLine(101, 200, 98, 30, 6, 2.4), 122, '#6a6a90', '#e8d8b0');
+      const far = ['#6a7090', '#8a92b0', '#c8d0e8'], near = ['#3a3e5a', '#6a7090', '#b8c0d8'];
+      for (const [x, l, tl] of [[34, 44, 0.08], [66, 30, -0.1], [128, 34, 0.12], [160, 50, -0.06], [96, 22, 0.02]]) swordProp(x, 122, l, tl, far, ['#8a7a5a', '#c8b078']);
+      caveTop(103, 34, 22, '#1a1830', '#4a4a78');
+      R(0, 122, 200, 38, '#8a8aa2'); R(0, 122, 200, 1, '#d8d8e8'); floorLines(122, '#6e6e88'); dR(0, 122, 200, 5, '#b8b8cc', 6); dR(0, 148, 200, 12, '#4a4a68', 6);
+      ellipse(100, 133, 58, 7, '#a8a08a'); ellipse(100, 133, 54, 6, '#8a8aa2'); for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; R(100 + Math.cos(a) * 44, 133 + Math.sin(a) * 4.5, 2, 1, '#f4c542'); }
+      for (const [x, l, tl] of [[9, 62, 0.1], [24, 34, -0.14], [178, 40, 0.12], [192, 66, -0.08]]) { swordProp(x, 136 + (l > 50 ? 8 : 0), l, tl, near, ['#a8742a', '#f4c542']); ellipse(x, 137 + (l > 50 ? 8 : 0), 5, 1, '#55556e'); }
+    },
+    fx(t) {
+      for (let i = 0; i < 7; i++) { const k = ((t * 0.03 + i * 37) % 150), x = (i * 61 + k * 0.6) % 200, y = 118 - k * 0.6; ctx.globalAlpha = Math.min(1, k / 20) * (1 - k / 150); line(x, y, x + 4, y - 4, i % 2 ? '#fff2a8' : '#ffffff'); } ctx.globalAlpha = 1;
+      glow(100, 120, 24, '#fff2a8', 0.25 + Math.sin(t / 600) * 0.08);
+    },
+  },
+  // 百草·木：垂藤、巨蕈与发光的灵草
+  r_mu: {
+    sky: ['#0e2a2a', '#1e5a4a', '#4a9a6a', '#a8e08a', '#e8ffc0'],
+    build() {
+      paintRidge(ridgeLine(111, 200, 96, 24, 5, 1.4), 122, '#3a8a6a', '#c8f0a8', { trees: '#2a6e5a' });
+      for (const [x, r0] of [[30, 9], [58, 6], [142, 7], [170, 10]]) roundTree(x, 123, r0, ['#2a6a4a', '#3f8a5a', '#7ac870'], '#3a4a44');
+      caveTop(113, 30, 20, '#0e2420', '#3a7a4a');
+      const r = seeded(31); for (let i = 0; i < 16; i++) { const x = Math.floor(6 + r() * 188), l = 14 + r() * 40; for (let k = 0; k < l; k++) { const px = x + Math.round(Math.sin(k / 6 + i) * 1.5); R(px, 20 + k, 1, 1, k % 5 ? '#2f6e4b' : '#62b25a'); if (k % 7 === 3) R(px + (k % 2 ? 1 : -1), 20 + k, 1, 1, '#a8e08a'); } }
+      R(0, 122, 200, 38, '#3a7a4a'); R(0, 122, 200, 1, '#a8e08a'); dR(0, 123, 200, 3, '#62b25a', 8); dR(0, 146, 200, 14, '#1e4a3a', 8);
+      ellipse(100, 133, 70, 7, '#6a6a4a'); ellipse(100, 132, 66, 5, '#8a8658'); dR(34, 130, 132, 6, '#a8a070', 4);
+      for (let i = 0; i < 40; i++) { const x = r() * 200, y = 124 + r() * 34; if (Math.abs(x - 100) < 64 && y > 127 && y < 139) continue; R(x, y, 1, 2, '#62b25a'); if (i % 4 === 0) R(x, y - 1, 1, 1, ['#f7a3bd', '#fff2a8', '#ffffff'][i % 3]); }
+      // 巨蕈与灵芝
+      for (const [x, y, w, c] of [[16, 126, 11, '#d8404a'], [186, 128, 13, '#c27dff'], [40, 146, 8, '#4ccb9f'], [164, 148, 7, '#ffb23f']]) { R(x - 1, y - w + 2, 3, w - 2, '#efe3c4'); R(x + 1, y - w + 2, 1, w - 2, '#c8b48c'); ellipse(x, y - w, w, Math.round(w / 2.4), c); ellipse(x - 1, y - w - 1, w - 2, Math.round(w / 3.4), lerpC(c, '#ffffff', 0.3)); R(x - w, y - w + 1, w * 2 + 1, 1, hs(c, 0.6)); R(x - w / 2, y - w - 1, 2, 1, '#ffffff'); R(x + w / 3, y - w, 1, 1, '#ffffff'); }
+    },
+    fx(t) {
+      for (let i = 0; i < 12; i++) { const x = (i * 53 + Math.sin(t / 900 + i) * 9 + 200) % 200, y = 60 + (i * 17 % 70) + Math.sin(t / 600 + i * 2) * 4, a = 0.5 + Math.sin(t / 250 + i * 1.3) * 0.5; if (a < 0.2) continue; ctx.globalAlpha = a; R(x, y, 1, 1, '#eaffb0'); glow(x, y, 3, '#a8e08a', 0.3 * a); } ctx.globalAlpha = 1;
+      for (const [x, y, c] of [[16, 112, '#ff8a8a'], [186, 112, '#e0b8ff'], [40, 136, '#8ff5d0']]) glow(x, y, 8, c, 0.22 + Math.sin(t / 500 + x) * 0.08);
+    },
+  },
+  // 熔火·火：岩浆河与垂落的火瀑
+  r_huo: {
+    sky: ['#1a0808', '#4a1410', '#a8301a', '#ff7a2a', '#ffd060'],
+    build() {
+      paintRidge(ridgeLine(121, 200, 94, 34, 5, 2.2), 122, '#4a1a1a', '#c8502a');
+      for (const x of [46, 150]) { R(x, 40, 5, 82, '#ff8a2a'); R(x + 1, 40, 2, 82, '#ffd060'); R(x + 4, 40, 1, 82, '#c8401a'); }
+      caveTop(123, 32, 24, '#140a0e', '#8a2a1a');
+      R(0, 122, 200, 38, '#3a2228'); R(0, 122, 200, 1, '#c8502a'); dR(0, 123, 200, 4, '#6a2a24', 8);
+      ellipse(100, 132, 66, 6, '#4a2e34'); ellipse(100, 131, 62, 5, '#5a3a40'); R(60, 129, 30, 1, '#7a5258');
+      R(0, 142, 200, 9, '#ff7a2a'); R(0, 142, 200, 1, '#ffd060'); dR(0, 143, 200, 3, '#ffd060', 6); dR(0, 148, 200, 3, '#c8401a', 8); R(0, 151, 200, 9, '#2a1418'); R(0, 151, 200, 1, '#8a2a1a');
+      const r = seeded(41); for (let i = 0; i < 9; i++) { let x = r() * 200, y = 124 + r() * 4; if (Math.abs(x - 100) < 60) { x = x < 100 ? x - 60 : x + 60; } for (let k = 0; k < 14; k++) { R(x, y, 2, 1, k % 3 ? '#ff8a2a' : '#ffd060'); x += 1 + r() * 2; y += r() < 0.5 ? 1 : 0; if (y > 140) break; } }
+      rock(0, [120, 116, 113, 111, 110, 110, 111, 113, 114, 116, 118, 120, 121], 128, ['#1e1014', '#3a2228', '#5a3a40', '#8a5a58'], 5); rock(184, [121, 118, 115, 112, 110, 109, 109, 110, 112, 114, 116, 117, 119, 120, 121, 122], 130, ['#1e1014', '#3a2228', '#5a3a40', '#8a5a58'], 9);
+    },
+    fx(t) {
+      for (let i = 0; i < 14; i++) { const k = (t * 0.04 + i * 29) % 120, x = (i * 47 + Math.sin(t / 400 + i) * 5 + 200) % 200; ctx.globalAlpha = 1 - k / 120; R(x, 142 - k, 1, i % 3 ? 1 : 2, i % 2 ? '#ffd060' : '#ff8a2a'); } ctx.globalAlpha = 1;
+      for (let x = 0; x < 200; x += 9) R(x + ((t / 140 | 0) + x) % 9, 144 + (x % 3), 3, 1, '#fff2a8');
+      for (const x of [46, 150]) { for (let k = 0; k < 6; k++) R(x + 1 + (k % 2), 40 + ((t / 30 + k * 14) % 82 | 0), 1, 3, '#fff2a8'); glow(x + 2, 122, 9, '#ff8a2a', 0.5); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.06 + 0.03 * Math.sin(t / 420); R(0, -90, 200, 250, '#ff5a1a'); ctx.restore();
+    },
+  },
+  // 幽泉·水：钟乳、晶簇与一泓发光的泉
+  r_shui: {
+    sky: ['#060a20', '#101e48', '#1e4a80', '#3a8ab8', '#8fe0f0'],
+    build() {
+      paintRidge(ridgeLine(131, 200, 98, 26, 5, 1.8), 122, '#1e3a6a', '#5ab0d0');
+      caveTop(133, 36, 26, '#080a1c', '#2a4a88');
+      R(0, 122, 200, 38, '#2a3a60'); R(0, 122, 200, 1, '#6a9ad0'); dR(0, 123, 200, 4, '#3a5a8a', 8); dR(0, 150, 200, 10, '#101830', 8);
+      ellipse(100, 141, 84, 9, '#16305a'); ellipse(100, 140, 80, 8, '#1e5a90'); ellipse(100, 140, 62, 5, '#2a7ab0'); ellipse(96, 139, 30, 2, '#7fe0f0');
+      ellipse(100, 131, 56, 4, '#3a4a72'); ellipse(100, 130, 54, 3, '#4a5e8a');
+      const C = ['#2a6aa8', '#5ab8e8', '#d4f4ff'], C2 = ['#5a3aa8', '#a88af0', '#f0e0ff'];
+      for (const [x, y, hh, c] of [[10, 128, 22, C], [16, 130, 14, C2], [5, 131, 10, C], [22, 132, 8, C], [188, 128, 26, C], [181, 130, 15, C], [195, 131, 12, C2], [174, 132, 7, C2], [62, 123, 7, C], [140, 123, 9, C2]]) crystal(x, y, hh, c);
+      for (const x of [30, 168]) R(x, 44, 3, 80, '#16305a');
+    },
+    fx(t) {
+      for (const x of [30, 168]) { for (let y = 44; y < 124; y++) { const k = ((y * 2 - (t / 45 | 0) * 2 + x) % 9 + 9) % 9; R(x, y, 3, 1, k < 2 ? '#ffffff' : k < 5 ? '#9fcdf0' : '#5a9ad8'); } dR(x - 3, 122, 9, 3, '#ffffff', 8); }
+      for (let i = 0; i < 10; i++) { const k = (t * 0.02 + i * 31) % 90, x = 40 + (i * 37 % 120) + Math.sin(t / 500 + i) * 3; ctx.globalAlpha = 0.7 * (1 - k / 90); R(x, 138 - k, 1, 1, '#d4f4ff'); if (i % 3 === 0) R(x - 1, 139 - k, 3, 1, '#7fe0f0'); } ctx.globalAlpha = 1;
+      for (let i = 0; i < 6; i++) R(60 + ((i * 29 + (t / 160 | 0) * 3) % 80), 138 + (i % 4), 5, 1, '#b8f0ff');
+      glow(100, 138, 34, '#3ab8e8', 0.2 + Math.sin(t / 700) * 0.06); for (const x of [10, 188]) glow(x, 116, 8, '#8fd0ff', 0.3);
+    },
+  },
+});
+ART.duelStages = () => Object.keys(STAGES).filter(k => k[1] !== '_');
+ART.realmThemes = ['jin', 'mu', 'huo', 'shui'];
+ART.drawRealm = (theme, t, OY) => ART.drawDuelStage(STAGES['r_' + theme] ? 'r_' + theme : 'r_jin', t, OY);
+
+const DOORS = {
+  fight: ['#5a1a22', '#d8404a', 'slay'], elite: ['#3a0a14', '#b8202a', 'w_mojie'], chest: ['#6a4a10', '#f4c542', 'seek'], spring: ['#103a5a', '#7fe0f0', 'spring'], event: ['#3a1a5a', '#c27dff', 'wonder'],
+  insight: ['#0e3a34', '#4ccb9f', 'insight'], shop: ['#4a3420', '#e0b878', 'stone'], boss: ['#2a0810', '#ff6b3a', 'skull'], unk: ['#2a2838', '#6e6a88', 'unk'],
+};
+const DOOR_CN = { '战': 'fight', '精': 'elite', '宝': 'chest', '泉': 'spring', '奇': 'event', '悟': 'insight', '商': 'shop', '守': 'boss', '？': 'unk', '?': 'unk' };
+ART.doorTypes = Object.keys(DOORS);
+ART.door = function (type) {
+  type = DOORS[type] ? type : DOOR_CN[String(type)[0]] || 'unk'; const D = DOORS[type];
+  return cached('door|' + type, () => {
+    const b = new Buf(32, 40), big = type === 'boss' || type === 'elite', S = type === 'boss' ? tone('#b8862a', '#6a4a1a', '#f4d86a') : type === 'elite' ? tone('#6a5a72', '#3e3450', '#9a8aa8') : tone('#8a86a0', '#55506e', '#b8b4cc');
+    if (big) b.add(L => L.mir(T => { T.l(6, 5, 2, 0, S, 2); T.l(11, 2, 9, -1, S, 2); }));
+    b.add(L => { L.sy(1, '9bdeeff', S, 16); L.r(1, 8, 30, 29, S); L.r(0, 36, 32, 4, S); });
+    const hw = y => y < 11 ? [5, 7, 8, 9, 9, 10][y - 5] : 10;
+    for (let y = 5; y < 36; y++) for (let x = 16 - hw(y); x < 16 + hw(y); x++) b.p(x, y, BAYER[(x & 3) + (y & 3) * 4] < (y - 12) * 0.6 ? lerpC(D[0], D[1], 0.55) : D[0]);
+    for (let y = 5; y < 36; y++) { b.p(15 - hw(y), y, dn(S)); b.p(16 + hw(y), y, up(S)); } b.hl(11, 20, 4, dn(S));
+    for (const y of [14, 22, 30]) b.mir(T => { T.hl(1, 4, y, dn(S)); }); b.hl(0, 31, 36, up(S)); b.hl(2, 29, 38, dn(S));
+    b.r(14, 1, 4, 3, D[1]); b.p(14, 1, lerpC(D[1], '#ffffff', 0.6)); b.hl(14, 17, 3, hs(D[1], 0.6));
+    if (type === 'unk') for (let i = 0; i < 26; i++) b.p(7 + (i * 7) % 18, 26 + (i * 5) % 9, i % 2 ? '#928ea8' : '#55506e');
+    const c = b.cv(); on(c, () => { glow(16, 30, 9, D[1], 0.35); ctx.drawImage(ART.icon(D[2]), 8, 13); });
+    return c;
+  });
+};
+ART.drawQiBar = function (x, y, w, frac, t) {
+  x = Math.round(x); y = Math.round(y); frac = Math.max(0, Math.min(1, frac)); const low = frac < 0.3, c = low && ((t || 0) / 200 | 0) % 2 ? '#ff8a6a' : low ? '#e8483a' : '#e86a6a', bx = x + 8, bw = w - 8, iw = bw - 2, fw = Math.round(iw * frac);
+  R(bx + 1, y, bw - 2, 7, INK); R(bx, y + 1, bw, 5, INK); R(bx + 1, y + 1, iw, 5, '#3a2030');
+  if (fw > 0) { R(bx + 1, y + 1, fw, 5, c); R(bx + 1, y + 1, fw, 1, lerpC(c, '#ffffff', 0.55)); R(bx + 1, y + 5, fw, 1, hs(c, 0.66)); }
+  for (let k = 1; k < 10; k++) R(bx + 1 + Math.round(iw * k / 10), y + 1, 1, k === 5 ? 5 : 2, 'rgba(27,19,38,0.55)');
+  const hx = x, hy = y; R(hx + 1, hy, 3, 1, INK); R(hx + 5, hy, 3, 1, INK); R(hx, hy + 1, 9, 3, INK); R(hx + 1, hy + 4, 7, 1, INK); R(hx + 2, hy + 5, 5, 1, INK); R(hx + 3, hy + 6, 3, 1, INK); R(hx + 4, hy + 7, 1, 1, INK);
+  R(hx + 1, hy + 1, 3, 1, '#ff8a8a'); R(hx + 5, hy + 1, 3, 1, '#d8404a'); R(hx + 1, hy + 2, 7, 2, '#d8404a'); R(hx + 2, hy + 4, 5, 1, '#d8404a'); R(hx + 3, hy + 5, 3, 1, '#8a1e2e'); R(hx + 4, hy + 6, 1, 1, '#8a1e2e'); R(hx + 2, hy + 2, 1, 1, '#ffffff');
+};
+const ROOMFX = { fight: ['slash', '#ffffff', '#ff9a8a'], elite: ['slash', '#ff8a8a', '#d8404a', 2], boss: ['slash', '#fff2a8', '#ff6b3a', 3], chest: ['burst', '#fff2a8', '#f4c542'], trap: ['spike', '#d8404a', '#8a1e2e'], spring: ['rise', '#d4f4ff', '#7fe0f0'], event: ['ring', '#f0dcff', '#c27dff'], insight: ['ray', '#c8fff0', '#4ccb9f'], shop: ['rise', '#fff2a8', '#f4c542', 1], unk: ['ring', '#c8c4d8', '#928ea8'] };
+ART.drawRoomFx = function (type, x, y, k) {
+  const F = ROOMFX[type] || ROOMFX[DOOR_CN[String(type)[0]]] || ROOMFX.unk, a = F[1], b2 = F[2]; x = Math.round(x); y = Math.round(y); k = Math.max(0, Math.min(1, k));
+  ctx.save();
+  if (F[0] === 'slash') {
+    const n = F[3] || 1; for (let i = 0; i < n; i++) { const kk = Math.max(0, Math.min(1, k * 1.4 - i * 0.2)), s = i % 2 ? -1 : 1, L0 = 16 + n * 2; if (kk <= 0 || kk >= 1) continue; ctx.globalAlpha = 1 - kk * kk;
+      for (let j = 0; j < L0 * Math.min(1, kk * 2.5); j++) { const u = j / L0 - 0.5, px = x + s * u * L0 * 1.3, py = y + u * L0 - Math.sin((u + 0.5) * Math.PI) * 4 + i * 2 - 2, w = Math.round(Math.sin((u + 0.5) * Math.PI) * 3); R(px, py - w / 2, 2, Math.max(1, w), a); R(px, py + w / 2, 2, 1, b2); } }
+    if (n > 2 && k < 0.6) { ctx.globalAlpha = 0.8 - k; const r = 6 + k * 26; for (let i = 0; i < 28; i++) { const an = i * Math.PI / 14; R(x + Math.cos(an) * r, y + Math.sin(an) * r * 0.6, 2, 1, b2); } }
+    if (k < 0.3) ART.drawSpark(x, y, k * 2);
+  } else if (F[0] === 'burst') {
+    glow(x, y, 6 + k * 10, b2, 0.7 * (1 - k)); for (let i = 0; i < 9; i++) { const an = -Math.PI * (0.08 + i * 0.105), v = 12 + (i * 7 % 5) * 3, px = Math.round(x + Math.cos(an) * v * k), py = Math.round(y + Math.sin(an) * v * k + k * k * 8); ctx.globalAlpha = 1 - k * k; R(px - 1, py, 3, 1, i % 2 ? a : b2); R(px, py - 1, 1, 3, i % 2 ? a : b2); }
+  } else if (F[0] === 'spike') {
+    const hh = Math.round(Math.sin(Math.min(1, k * 2) * Math.PI / 2) * 12 * (k > 0.7 ? (1 - k) / 0.3 : 1)); for (let i = -2; i <= 2; i++) { const h2 = hh - Math.abs(i) * 2; for (let j = 0; j < h2; j++) { const w = Math.max(1, Math.round((1 - j / h2) * 4)); R(x + i * 7 - (w >> 1), y - j, w, 1, j > h2 - 4 ? a : '#c8c4d8'); if (w > 1) R(x + i * 7 + (w >> 1), y - j, 1, 1, '#6e6a88'); } } if (k > 0.2 && k < 0.6) for (let i = 0; i < 4; i++) R(x - 8 + i * 6, y - 14 - k * 8, 1, 2, a);
+  } else if (F[0] === 'rise') {
+    for (let i = 0; i < 7; i++) { const kk = (k + i * 0.13) % 1, px = x - 12 + (i * 11 % 25), py = Math.round(y - kk * 26); ctx.globalAlpha = Math.sin(kk * Math.PI); if (F[3]) { R(px - 1, py - 1, 3, 3, b2); R(px, py - 1, 1, 1, a); R(px, py, 1, 1, '#a8742a'); } else { R(px - 2, py, 5, 1, i % 2 ? a : b2); R(px, py - 2, 1, 5, i % 2 ? a : b2); } }
+    ctx.globalAlpha = 0.5 * (1 - k); glow(x, y - 6, 14, b2, 0.4);
+  } else if (F[0] === 'ring') {
+    const r = 4 + k * 12; ctx.globalAlpha = 1 - k * k; for (let i = 0; i < 20; i++) { const an = i * Math.PI / 10 + k * 3; R(x + Math.cos(an) * r, y - 8 + Math.sin(an) * r, i % 5 ? 1 : 2, i % 5 ? 1 : 2, i % 2 ? a : b2); } glow(x, y - 8, 8, b2, 0.5 * (1 - k));
+  } else {
+    ctx.globalAlpha = 1 - k; for (let i = 0; i < 12; i++) { const an = i * Math.PI / 6, r0 = 3 + k * 6, r1 = 6 + k * 16; line(x + Math.cos(an) * r0, y - 10 + Math.sin(an) * r0, x + Math.cos(an) * r1, y - 10 + Math.sin(an) * r1, i % 2 ? a : b2); } disc(x, y - 10, 2, '#ffffff'); glow(x, y - 10, 10, b2, 0.5);
+  }
+  ctx.restore();
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);

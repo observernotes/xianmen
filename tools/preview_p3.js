@@ -30,3 +30,22 @@ if (sec('g2') && ART.calStrip) {
   [['feed', '兽粮'], ['token', '秘境令'], ['yin_f', '火引'], ['yin_i', '冰引'], ['yin_t', '雷引'], ['yin_w', '木引'], ['yin_s', '魂引'], ['frag', '功法残篇'], ['gavel', '拍槌'], ['paddle', '号牌'], ['bid1', '跟一口'], ['bid2', '加价'], ['bid3', '豪掷'], ['up', '涨'], ['down', '跌'], ['flat', '平'], ['sell', '出售']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
   br();
 }
+
+if (sec('g3') && ART.drawRealm) {
+  h('【三 秘境】四个主题背景 ART.drawRealm(theme, t, OY)（带小人、气血条、房间动画）');
+  const T = +(q.get('t') || 1000), FD = ART.dims.fighter, fxs = [['fight', 0.3], ['chest', 0.45], ['spring', 0.4], ['insight', 0.35]];
+  ART.realmThemes.forEach((k, i) => scene(g => {
+    ART.drawRealm(k, T, OY);
+    g.drawImage(ART.fighter({ look: i % 2 ? lookF : look, realm: 2 + i }, 'idle0'), 62 - FD.ax, 128 - FD.ay);
+    ART.drawQiBar(6, 6 - OY, 70, [0.85, 0.55, 0.22, 1][i], T);
+    ART.drawRoomFx(fxs[i][0], 130, 122, fxs[i][1]);
+  }, ['剑气·金', '百草·木', '熔火·火', '幽泉·水'][i] + ' (' + k + ')'));
+  br(); h('门卡 ART.door(type) 32×40（原尺寸 / 3 倍）');
+  const DN = { fight: '战', elite: '精英', chest: '宝', spring: '泉', event: '奇', insight: '悟', shop: '商', boss: '守关', unk: '？' };
+  for (const k of ART.doorTypes) { show(ART.door(k), 1, '', PANEL); show(ART.door(k), 3, DN[k] + ' ' + k, PANEL); }
+  br(); pair(ART.icon('spring'), 'spring', 0); pair(ART.icon('wonder'), 'wonder', 1); pair(ART.icon('skull'), 'skull', 0);
+  br(); h('房间动画 ART.drawRoomFx(type, x, y, k)：进度 0.15 / 0.4 / 0.65 / 0.9；气血条 100% / 55% / 20%');
+  for (const k of ['fight', 'elite', 'boss', 'chest', 'trap', 'spring', 'event', 'insight', 'shop']) fxc(160, 44, g => [0.15, 0.4, 0.65, 0.9].forEach((p, i) => ART.drawRoomFx(k, 20 + i * 40, 32, p)), 2, k, PANEL);
+  fxc(90, 34, g => { ART.drawQiBar(4, 3, 80, 1, 0); ART.drawQiBar(4, 13, 80, 0.55, 0); ART.drawQiBar(4, 23, 80, 0.2, 0); }, 4, '气血条', '#3a5a7a');
+  br();
+}
