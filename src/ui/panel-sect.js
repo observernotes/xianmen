@@ -54,9 +54,12 @@ function sectIdHTML() {
     <div class="right"><button class="btn sm ${!dwhy ? 'gold' : 'alt'} eq" id="btnDuty" ${dwhy ? 'disabled' : ''}>${D ? '换职司' : '选职司'}</button></div></div>`
     : `<div class="muted">职司：真传弟子起可在五堂领一份差事（还差 ${Math.max(0, 2 - sr)} 级身份）</div>`;
   const moTrade = st.sect.id === 'xuesha' ? `<div class="card flat">${icon16('karma', 2)}<div class="main"><div>以因果换贡献</div><div class="muted">手里的因果交给血河老祖，一条换贡献 ${fmt(L.karmaTradeVal(st))}（这笔账也就了了）。未了 ${L.karmaOpen(st).length} 条</div></div><div class="right"><button class="btn sm ${L.karmaTradeWhy(st) ? 'alt' : 'gold'} eq" id="btnKarma" ${L.karmaTradeWhy(st) ? 'disabled' : ''}>交一条</button></div></div>` : '';
+  // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处
+  const B0 = st.sect.build || {};
+  const builds = sr >= 6 ? `<div class="sep"></div><div class="mhead"><span>宗主建设</span><span class="muted">灵石 ${fmt(st.stones)}</span></div>` + L.BUILDS.map(b => { const lv = B0[b.k] || 0, c = L.buildCost(lv), ok = lv < 5 && st.stones >= c; return `<div class="card flat"><div class="main"><div class="line"><span>${b.n}</span><span class="chip">${lv}/5</span></div><div class="muted">${esc(b.d)}</div></div><div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'} eq" data-build="${b.k}" ${ok ? '' : 'disabled'}>${lv >= 5 ? '已满' : '灵石 ' + fmt(c)}</button></div></div>`; }).join('') : '';
   return `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
     <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 周天附一枚` : ''}</dd><dt>贡献</dt><dd class="num">可用 ${fmt(st.sect.pts)} · 累计 ${fmt(st.sect.total)}</dd></dl>
-    ${promo}${duty}${moTrade}
+    ${promo}${duty}${moTrade}${builds}
     <div class="sep"></div><div class="mhead" id="renmai"><span>人脉</span><span class="muted">≥40 小恩惠 · 圣子、宗主要两位 ≥50 · ≥80 绝学</span></div>
     ${L.eldersOf(st).map(elderCard).join('')}
     <div class="muted">支持来自他管的宗门任务（每件 +${L.FAV.task}）、奇遇里的抉择、送礼（每位每届一次）。三位长老理念相冲：讨好一位，常要得罪另一位。</div>
@@ -68,6 +71,7 @@ function bindSectId(s) {
   const db = s.querySelector('#btnDuty'); if (db) db.onclick = () => { SFX.tap(); showDutyPick(); };
   const kb = s.querySelector('#btnKarma'); if (kb) kb.onclick = () => { const r = L.karmaTrade(st); if (!r) return; SFX.coin(); floatText(100, 80, `贡献 +${fmt(r.v)}`, '#ffe39a'); showSect('id'); };
   s.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { const r = L.giftElder(st, b.dataset.gift); if (!r) return; SFX.coin(); floatText(100, 80, `支持 +${r.d}`, '#8ff5d0'); showSect('id'); });
+  s.querySelectorAll('[data-build]').forEach(b => b.onclick = () => { if (!L.sectBuild(st, b.dataset.build)) return; SFX.coin(); showSect('id'); });
 }
 // 职司：五选一（每届会武后可改）
 function showDutyPick() {
