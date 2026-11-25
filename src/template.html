@@ -613,6 +613,18 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
   text-shadow: 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 2px 0 var(--ink), 0 -2px 0 var(--ink); }
 .duel-lab { position: absolute; left: 0; right: 0; text-align: center; color: var(--gold);
   text-shadow: 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink); }
+/* ---- B 线：老祖头像（问老祖）与问答（guide-） ---- */
+.guide-av { position: absolute; right: 4px; bottom: 4px; width: 44px; height: 44px; padding: 0; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  background: rgba(11, 9, 18, .55); box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px #4d4370; }
+.guide-av[hidden] { display: none; }
+.guide-av img { width: 36px; height: 36px; }
+.guide-av.gone img { opacity: .4; }
+.guide-av .guide-dot { display: none; position: absolute; top: -8px; right: -6px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; color: #fff; background: var(--seal); box-shadow: 0 0 0 2px var(--ink); }
+.guide-av.new .guide-dot { display: block; animation: blink 1s steps(2) infinite; }
+.guide-ask .main b { color: var(--seal); font-weight: normal; }
+.guide-ask .right .btn { min-height: 44px; min-width: 64px; }
+.guide-said { color: var(--paper-mute); padding-left: 8px; box-shadow: inset 2px 0 0 0 var(--paper-lo); }
+.guide-said b { font-weight: normal; }
 </style>
 
 <div id="app">

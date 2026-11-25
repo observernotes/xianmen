@@ -1,15 +1,43 @@
 /* 废柴仙途 · 界面片段 guide：戒中老祖：引导、提示、指南、札记
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * 台词按 DESIGN §4.2～§4.3 的编号（E01… / U01… / S02…）。每句里的数字都是当场从逻辑层算的。 */
-// ---------- 戒中老祖提示 ----------
-function tip(key, text) {
+// ---------- 戒中老祖的气泡（非阻塞，DESIGN §4.1 / §4.3） ----------
+// tip(key, text, { big, html })：每个 key 一生一次；进队列，由引导调度（下面 pumpBubble）一条一条放：
+// 每 BUBBLE_GAP 个周天最多一条（big：大事提醒插队），讲解说话时、弹窗开着时先等；冒出来 6 秒后收成头像上的“！”，
+// 点头像（问老祖）能重看最近几条。台词里的数字在冒出来那一刻已经算好；排队超过 15 个周天还没轮上的直接收进“刚才说的”。
+const BUBBLE_GAP = 3, BUBBLE_MS = 6000, bubbleQ = [], bubbleLog = [];
+let bubbleCool = 0, bubbleCur = null, bubbleAt = 0, bubbleUnread = false;
+function tip(key, text, o) {
   if (!st || st.seenTips[key]) return;
   st.seenTips[key] = 1;
+  o = o || {};
+  bubbleQ.push({ key, text: o.html ? text : esc(text), big: !!o.big, tick: st.tick });
+  pumpBubble();
+}
+function pumpBubble() {
+  if (!st) return;
+  const el = $('#tip'), now = performance.now();
+  if (bubbleCur && now - bubbleAt > BUBBLE_MS) { el.hidden = true; bubbleCur = null; }
+  if (bubbleCur || !bubbleQ.length) return;
+  for (let i = bubbleQ.length - 1; i >= 0; i--) if (st.tick - bubbleQ[i].tick > 15 && !bubbleQ[i].big) { bubbleLog.unshift(bubbleQ[i]); bubbleQ.splice(i, 1); bubbleUnread = true; }
+  const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden;
+  const bi = bubbleQ.findIndex(b => b.big);
+  const i = bi >= 0 && !busy ? bi : !busy && !modalOpen() && st.tick >= bubbleCool && performance.now() > guideQuiet ? 0 : -1;
+  if (i < 0 || !bubbleQ[i]) return;
+  const b = bubbleQ.splice(i, 1)[0];
+  if (!b.big) bubbleCool = st.tick + BUBBLE_GAP;
+  showBubble(b);
+}
+function showBubble(b) {
   const el = $('#tip');
   const gone = st.eflags && st.eflags.st_farewell;
-  el.innerHTML = `<img class="px" src="${ELDER}" alt=""${gone ? ' style="opacity:.4"' : ''}><div class="grow"><span class="who">${gone ? '戒中余音' : '戒中老祖'}：</span>${esc(text)}</div><span class="x">×</span>`;
+  el.innerHTML = `<img class="px" src="${ELDER}" alt=""${gone ? ' style="opacity:.4"' : ''}><div class="grow"><span class="who">${gone ? '戒中余音' : '戒中老祖'}：</span>${b.text}</div><span class="x">×</span>`;
   el.hidden = false;
-  el.onclick = () => { el.hidden = true; SFX.tap(); };
+  el.onclick = () => { el.hidden = true; bubbleCur = null; SFX.tap(); };
+  bubbleCur = b; bubbleAt = performance.now();
+  bubbleLog.unshift(b); if (bubbleLog.length > 8) bubbleLog.length = 8;
+  bubbleUnread = true;
+  SFX.tap();
 }
 
 // ---------- 新手引导 ----------
@@ -226,12 +254,53 @@ function artWithout(i, fn) {
   try { return { on, off: fn() }; } finally { a.slot[i] = prev; }
 }
 let activeHint = null, tempHint = null, guideShownId = '', guideHold = false, hintCool = 0;
+// ---------- 引导调度（全局）：同一时刻只说一件事 ----------
+// · 阻塞讲解一次一段；两段不紧急的之间至少隔 GUIDE_GAP 个周天，关掉弹窗 / 讲解之后再静 1.2 秒；
+// · urgent（约战将至、修为圆满、要渡劫、秘境里、天劫一停……）插队，不等周天冷却，只等 0.4 秒；
+// · 就着眼前面板讲的（目标在打开的弹窗里）面板开着才有意义，也不等周天冷却；
+// · bubble: true 的讲解不阻塞，转成气泡（同样受气泡冷却）；
+// · core（DESIGN §4.2 的 E10～E14、U03、U05、U07：新手头一章的固定讲解）只隔 1 个周天、静 0.6 秒，免得错过时机；
+// · 刚读档 / 刚进游戏先静 2.5 秒、1 个周天，免得一进来连弹几段。
+// 别的片段加讲解：HINTS.push(...) 或 registerGuide(list, { before: 'id' })，字段：id、when()、text()、target、btn、until()、urgent、intro、bubble。
+const GUIDE_GAP = 3;
+let hintCoolCore = 0, guideQuiet = 0, guideModalAt = 0, guideFor = null;
+function registerGuide(list, o) {
+  const arr = Array.isArray(list) ? list : [list];
+  const i = o && o.before ? HINTS.findIndex(h => h.id === o.before) : -1;
+  if (i >= 0) HINTS.splice(i, 0, ...arr); else HINTS.push(...arr);
+}
+const hintWhen = h => { try { return !!h.when(); } catch (e) { return false; } };
+const hintInModal = h => { if (h.ctx) return true; const tg = h.target; if (!tg) return false; const el = document.querySelector(tg); return !!(el && el.closest('#modal')); };
+function pickHint() {
+  // calm：弹窗关掉之后过了多久（弹窗开着时就着弹窗讲的不受它限制）
+  const now = performance.now(), calm = modalOpen() ? 1e9 : now - guideModalAt;
+  let ctxH = null, core = null, norm = null;
+  for (const h of HINTS) {
+    if (st.hintSeen[h.id] || (st.run && !/^realm/.test(h.id))) continue;
+    // 紧急的：弹窗里、秘境里的连讲（护劫手段 → 那一停、秘境三句）接着说，不再等；其余等 0.4 秒
+    if (h.urgent) { if ((modalOpen() || st.run || (calm > 400 && now > guideQuiet - 800)) && hintWhen(h)) return h; continue; }
+    if (ctxH && core && norm) continue;
+    if (!hintWhen(h)) continue;
+    if (hintInModal(h)) { if (!ctxH) ctxH = h; } else if (h.core) { if (!core) core = h; } else if (!norm) norm = h;
+  }
+  if (ctxH && now > guideQuiet - 900) return ctxH;
+  if (core && st.tick >= hintCoolCore && calm > 600 && now > guideQuiet - 600) return core;
+  if (norm && st.tick >= hintCool && calm > 1200 && now > guideQuiet) {
+    if (norm.bubble) { st.hintSeen[norm.id] = 1; tip('h_' + norm.id, typeof norm.text === 'function' ? norm.text() : norm.text, { html: true, big: norm.bigBubble }); return null; }
+    return norm;
+  }
+  return null;
+}
 function ensureGuide() {
   if (!st.guide) st.guide = { step: 0, done: st.tick > 3 || st.stats.exp > 0 || st.rebirth > 0 };
   if (!st.hintSeen) st.hintSeen = {};
+  if (guideFor !== st) {   // 新开一局或读档：先静一会儿
+    guideFor = st; activeHint = null; tempHint = null; bubbleQ.length = 0; bubbleCur = null;
+    hintCool = Math.max(hintCool, st.tick + 1); hintCoolCore = st.tick + 1; guideQuiet = performance.now() + 2500; bubbleCool = st.tick + 1;
+  }
 }
 function currentGuide() {
-  if (!st || !$('#intro').hidden || (cine && !cine.paused)) return null;   // 天劫中途那一停（cine.paused）老祖可以说话
+  if (!st || !$('#intro').hidden || (cine && !cine.paused) || duelFx) return null;   // 天劫中途那一停（cine.paused）老祖可以说话；场景里对决时不插嘴
   ensureGuide();
   if (tempHint) return tempHint;
   const g = st.guide;
@@ -246,24 +315,27 @@ function currentGuide() {
     if (g.step >= GUIDE.length) g.done = true;
     else { const s0 = GUIDE[g.step]; return !s0.silent && (!s0.show || s0.show()) ? s0 : null; }
   }
-  if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; }
-  if (activeHint && !activeHint.until && !activeHint.when()) activeHint = null;
+  if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; guideQuiet = performance.now() + 1200; }
+  if (activeHint && !activeHint.until && !hintWhen(activeHint)) activeHint = null;
   if (activeHint && st.run && !/^realm/.test(activeHint.id)) activeHint = null;   // 秘境里只讲秘境的
-  if (!activeHint) activeHint = HINTS.find(h => !st.hintSeen[h.id] && (!st.run || /^realm/.test(h.id)) && (h.urgent || st.tick >= hintCool) && h.when()) || null;
-  if (activeHint && activeHint.until && !activeHint.when() && !activeHint.until()) return null;
+  if (!activeHint) activeHint = pickHint();
+  if (activeHint && activeHint.until && !hintWhen(activeHint) && !activeHint.until()) return null;
   return activeHint;
 }
 function advanceGuide(cur) {
   SFX.tap();
+  guideQuiet = performance.now() + 1200;
   if (cur === tempHint) { tempHint = null; return; }
-  hintCool = st.tick + 2; // 两条提示之间至少隔两个周天，别连珠炮
+  if (!cur.urgent) { hintCool = st.tick + GUIDE_GAP; hintCoolCore = st.tick + 1; }   // 两段不紧急的讲解之间至少隔 GUIDE_GAP 个周天，别连珠炮
   if (GUIDE.includes(cur)) { st.guide.step = GUIDE.indexOf(cur) + 1; return; }
   st.hintSeen[cur.id] = 1; activeHint = null;
 }
 function updateGuide() {
   const el = $('#guide');
+  if (modalOpen()) guideModalAt = performance.now();
   const cur = currentGuide();
   guideHold = false;
+  pumpBubble(); syncElderAv();
   if (!cur) { if (!el.hidden) el.hidden = true; guideShownId = ''; return; }
   const tgt = cur.target ? document.querySelector(cur.target) : null;
   if (cur.target && (!tgt || !tgt.offsetParent)) { el.hidden = true; return; }
