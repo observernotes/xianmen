@@ -30,12 +30,19 @@ function showSect() {
     const why = own ? '<span class="chip ok">已习得</span>' : sr < need ? `<span class="muted">${L.srankName(st, need)}可换</span>` : `<button class="btn sm ${can ? 'gold' : 'alt'} eq" data-va="${A.id}" ${can ? '' : 'disabled'}>贡献 ${fmt(c)}</button>`;
     return `<div class="card flat">${artImg(A.id, 2)}<div class="main"><div class="line"><span>《${esc(A.n)}》</span>${tierTag(A.t)}${elChip(A.el)}<span class="muted">${L.ART_CAT[A.k]}</span></div><div class="muted">${esc(artMain(A.id))}${A.k !== 'm' ? ' · ' + esc(L.artDesc(st, A.id)) : ''}</div></div><div class="right">${why}</div></div>`;
   }).join('');
-  const vault = vArts + L.VAULT.filter(v => v.k !== 'vart').map(v => {
-    const c = L.vaultCost(st, v.k), tier = L.vaultTier(st, v.k);
-    const desc = v.k === 'vwep' ? `${L.WEAPONS[tier].n} · 战力×${L.WEAPONS[tier].m}` : v.d;
-    const owned = v.k === 'vwep' && p.w >= tier;
+  const vault = vArts + L.VAULT.filter(v => v.k !== 'vart' && L.vaultShown(st, v)).map(v => {
+    const c = L.vaultCost(st, v.k);
+    let name = v.n, desc = v.d, img = '', owned = false, lock = '';
+    if (v.k === 'vwep') {
+      const vg = L.vaultGear(st);
+      name = vg.unique ? `镇宗法宝【${vg.n}】` : `宝库${L.GEAR_N.w}（${L.WEAPONS[vg.tier].n}）`;
+      desc = vg.unique ? `${L.GEAR_N[vg.slot]} · ${L.gearTierName(vg.slot, vg.tier)} · 固定词条：${vg.aff.map(a => L.AFFIX[a].n).join('、')}${L.gearBase(vg.base).note ? '；' + L.gearBase(vg.base).note : ''}` : `战力 ×${L.WEAPONS[vg.tier].m}，随机词条（身份每高一级阶 +1）`;
+      img = gearImg(vg.base ? { id: vg.base, slot: vg.slot, t: vg.tier } : { id: `w${vg.tier}_0`, slot: 'w', t: vg.tier }, 2);
+      owned = !L.vaultGearOk(st); if (owned) lock = vg.unique ? `（${L.GEAR_N[vg.slot]}槽${L.gearOpenWhy(st, vg.slot)}）` : '（已有不低于它的兵器）';
+    } else if (v.k === 'vore') { desc = `灵矿 ${fmt(L.vaultOreN(st))}（${v.d}）`; img = oreImg(24); }
+    else if (v.k === 'vplan') { img = scrollImg(); if (st.sect.rank < v.rank) { owned = true; lock = `（${L.srankName(st, v.rank)}可换）`; } }
     const dis = owned || st.sect.pts < c;
-    return `<div class="card flat"><div class="main"><div>${v.n}</div><div class="muted">${desc}${owned ? '（已有更好的）' : ''}</div></div><div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-v="${v.k}" ${dis ? 'disabled' : ''}>贡献 ${fmt(c)}</button></div></div>`;
+    return `<div class="card flat">${img}<div class="main"><div>${esc(name)}</div><div class="muted">${esc(desc)}${lock}</div></div><div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-v="${v.k}" ${dis ? 'disabled' : ''}>贡献 ${fmt(c)}</button></div></div>`;
   }).join('');
   const ranks = L.SRANKS.map((r0, i) => `<span class="chip ${i === sr ? 'ok' : ''}" style="${i > sr ? 'opacity:.5' : ''}">${L.srankName(st, i)}</span>`).join(' ');
   const s = sheet({
@@ -50,7 +57,7 @@ function showSect() {
   const pb = s.querySelector('#btnPromo');
   if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
   s.querySelectorAll('button[data-va]').forEach(btn => btn.onclick = () => { const r = L.vaultBuyArt(st, btn.dataset.va); if (!r) return; SFX.coin(); revealItem(r.it, showSect); });
-  s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, '破境丹 +2', '#ffe39a'); showSect(); } });
+  s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, r.ore ? `灵矿 +${fmt(r.ore)}` : r.planText ? r.planText.slice(0, 12) : '破境丹 +2', '#ffe39a'); showSect(); } });
 }
 function nineHTML() {
   const pos = L.sectPos(st);
@@ -86,7 +93,7 @@ function runSectMeet() {
       title: `会武 · 对阵${rd.foe.n}`,
       right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rd.foe.champ}：“${rd.foe.line}”`,
-      winText: `${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
+      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
       loseText: '对方底蕴深厚，下届会武再来！',
       btn: res.rounds[step] ? '下一场' : '会武落幕',
       done: next,

@@ -34,10 +34,11 @@ function showChoice(ev) {
     SFX.tap();
     const res = L.resolveChoice(st, ev, +b.dataset.c);
     if (!res) return;
-    // 得到的功法单列一行（图标、五行、给什么；更强时带【换上】）
-    const arts = (res.fx.items || (res.fx.item ? [res.fx.item] : [])).filter(it => it && it.kind === 'a');
-    const plain = res.fx.filter(f => !(res.fx.artTexts || []).includes(f));
-    const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('');
+    // 得到的功法、法宝单列一行（功法更强时带【换上】；法宝走对比卡）
+    const items = res.fx.items || (res.fx.item ? [res.fx.item] : []);
+    const arts = items.filter(it => it && it.kind === 'a'), gears = items.filter(it => it && it.gear);
+    const plain = res.fx.filter(f => !(res.fx.artTexts || []).includes(f) && !(res.fx.gearTexts || []).includes(f));
+    const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('') + gears.map(gearLine).join('');
     if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
     if (res.duel) {
       duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,

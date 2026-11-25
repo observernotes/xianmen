@@ -6,6 +6,7 @@ function sheet(o) {
   const m = $('#modal');
   m.classList.toggle('mid', !!o.center);
   const foot = (o.foot || []).map((b, i) => `<button class="btn ${b.alt ? 'alt' : ''} ${b.gold ? 'gold' : ''}" data-fi="${i}" ${b.disabled ? 'disabled' : ''}>${b.t}</button>`).join('');
+  const oldU = m.hidden ? [] : gearUids(m);   // 上一页没决定的法宝对比卡：新页里不再显示的就熔炼（panel-gear.js）
   m.innerHTML = `<div class="sheet${o.still ? ' still' : ''}" role="dialog" aria-modal="true"><div class="rod"></div>
     <header><h2>${o.title}</h2>${o.noClose ? '' : '<button class="close" aria-label="关闭">×</button>'}</header>
     ${o.sub ? `<div class="sub" style="padding:0 12px">${o.sub}</div>` : ''}
@@ -17,11 +18,15 @@ function sheet(o) {
   m.querySelectorAll('[data-fi]').forEach(b => { b.onclick = () => { SFX.tap(); o.foot[+b.dataset.fi].fn(); }; });
   m.onclick = e => { if (e.target === m && !o.noClose) closeModal(); };
   bindEquipButtons(m);   // 掉落卡里的【换上】（panel-arts.js）
+  if (oldU.length) gearLeave(oldU, gearUids(m));
+  bindGearButtons(m);    // 法宝对比卡（panel-gear.js）
   return m.querySelector('.sheet');
 }
 function closeModal() {
   const m = $('#modal');
+  const oldU = m.hidden ? [] : gearUids(m);
   m.hidden = true; m.innerHTML = '';
+  if (oldU.length) gearLeave(oldU);
   const f = modalOnClose; modalOnClose = null;
   if (f) f();
   setTimeout(processQueue, 400);

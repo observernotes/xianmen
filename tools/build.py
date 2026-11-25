@@ -45,6 +45,7 @@ UI_PARTS = [
     "panel-growth",  # 数值拆解、大事锦囊
     "panel-me",      # 人物
     "panel-arts",    # 功法页、五行标记、掉落卡的【换上】
+    "panel-gear",    # 法宝页、对比卡、强化、重铸、器炉打造
     "life",          # 飞升、坐化、转世
     "guide",         # 戒中老祖：引导、提示、指南、札记
     "intro",         # 开场与起名

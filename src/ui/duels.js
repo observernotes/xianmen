@@ -21,6 +21,7 @@ function duel(o) {
     const box = s.querySelector('#vsRes'), btn = s.querySelector('[data-fi="0"]');
     if (!box) return;
     box.innerHTML = o.win ? `<div class="big goldt">胜！</div><div>${o.winText}</div>` : `<div class="big seal">败</div><div>${o.loseText}</div>`;
+    bindEquipButtons(box); bindGearButtons(box);   // 结果里的功法【换上】、法宝对比卡
     if (o.win) SFX.win(); else SFX.fail();
     btn.disabled = false; btn.textContent = o.btn || '继续'; btn.classList.remove('alt'); btn.classList.add('gold');
   }, 1150);
@@ -71,7 +72,7 @@ function runTournament() {
       title: `第 ${step} 战`,
       right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rv.n}：“${lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
-      winText: `${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
+      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',
       btn: res.rounds[step] ? '下一战' : '论道落幕',
       done: () => { if (rd.win && !rd.defend) rankShown = rd.q; next(); },

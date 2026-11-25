@@ -10,12 +10,13 @@ function ladderHTML() {
   for (const q of [...qs].sort((a, b) => a - b)) { if (q - prev > 1) rows.push('<div class="muted"><b>…</b></div>'); add(q); prev = q; }
   return `<div class="ladder">${rows.join('')}</div>`;
 }
-// 人物页的分页条（功法页在 panel-arts.js，共用这一条）
-function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
+// 人物页的分页条（功法页在 panel-arts.js、法宝页在 panel-gear.js，共用这一条）
+function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
 function bindMeTabs(s) { s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); }); }
 function showMe(tab) {
   tab = tab || 'attr';
   if (tab === 'art') { showArts(); return; }
+  if (tab === 'gear') { showGear(); return; }
   const p = st.p;
   let body = '';
   if (tab === 'attr') {
@@ -31,10 +32,10 @@ function showMe(tab) {
       <dt>战力</dt><dd class="num">${fmt(L.power(st))}</dd>
       <dt>寿元</dt><dd class="num ${L.desperate(st) ? 'seal' : ''}">${Math.floor(p.age)} / ${p.r >= 9 ? '∞' : fmt(L.lifespan(st))} 岁</dd>
       <dt>天赋</dt><dd>${trs}</dd>
-      <dt>法宝</dt><dd>${p.w ? `${esc(p.wn)}<span class="muted">（${L.WEAPONS[p.w].n} 战力×${L.WEAPONS[p.w].m}）</span>` : '<span class="muted">赤手空拳</span>'}</dd>
+      <dt>法宝</dt><dd>${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => { const x = st.gear[s]; return x ? `${L.GEAR_N[s]}【${esc(L.gearBase(x.id).n)}】${x.plus ? '+' + x.plus : ''}<span class="muted">（${esc(L.gearMainText(st, x).split(' · ')[0])}）</span>` : `<span class="muted">${L.GEAR_N[s]}：空</span>`; }).join('<br>')} <button class="btn sm alt eq" id="btnGear">法宝 ▸</button></dd>
       <dt>功法</dt><dd>${L.artSlots(st).map((id, i) => (id ? `${L.ART_CAT[L.ART_SLOTS[i]]}《${esc(L.art(id).n)}》` : '')).filter(Boolean).join('<br>') || '<span class="muted">基础吐纳</span>'} <button class="btn sm alt eq" id="btnArts">功法 ▸</button></dd>
       <dt>灵宠</dt><dd>${p.pet ? `${petImg(p.pet.tier, 26)} ${esc(p.pet.name)}<span class="muted">（${L.PETS[p.pet.tier].n} 战力×${L.PETS[p.pet.tier].m}）</span>` : '<span class="muted">尚无</span>'}</dd>
-      <dt>库存</dt><dd>灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure} · 破境丹 ${st.pills}</dd>
+      <dt>库存</dt><dd>灵草 ${fmt(st.herbs)} · 灵矿 ${fmt(st.ore || 0)} · 天材地宝 ${st.treasure} · 破境丹 ${st.pills}</dd>
       ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
       ${st.bonus.cul || st.bonus.atk ? `<dt>机缘加成</dt><dd>修炼 +${Math.round(st.bonus.cul * 100)}% · 战力 +${Math.round(st.bonus.atk * 100)}%</dd>` : ''}
     </dl>
@@ -62,6 +63,7 @@ function showMe(tab) {
   const s = sheet({ title: '人物', body: meTabs(tab) + body });
   bindMeTabs(s);
   const ab = s.querySelector('#btnArts'); if (ab) ab.onclick = () => { SFX.tap(); showArts(0); };
+  const gb0 = s.querySelector('#btnGear'); if (gb0) gb0.onclick = () => { SFX.tap(); showGear('w'); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
   const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
   const rb = s.querySelector('#btnReset');

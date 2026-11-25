@@ -4,17 +4,20 @@
 //   node tools/sim.js guided 1 v 7    种子 7 跑一局，每 12 周天打印一行状态
 //   node tools/sim.js all 200 strict  任何一行未达标都返回退出码 1（默认只看三年之约公平这道门槛）
 //   node tools/sim.js all 200 noarts  关掉功法系统的新加成（L.ARTS_ON = false：只剩心法的裸倍率），与默认对照量 SYSTEMS §18 的预算
+//   node tools/sim.js all 200 nogear  关掉法宝系统的新东西（L.GEAR_ON = false：法衣、饰品、强化、词条都没有，只剩兵器的阶倍率）
 // 策略：
 //   guided 空闲就行动；快圆满时留在家；灵石按“聚灵阵 > 灵田 > 丹炉 > 洞府”的折算价升级；每两趟历练闭关一次；
 //          突破带尽量多的丹（最多 3 枚）；地点选“预计评价 ≥ 乙”的最高一格；接宗门任务、吐纳、看访客；
 //          功法：三槽按 L.artBest 取最优搭配（算上熟练、融会、共鸣），出门前换上克制当地的战技，约战、首领、会武前换上克制对手的
+//          法宝：掉落卡“更好就换、否则熔炼”（L.gearAuto）；灵矿全花在强化上（兵器优先，按“每点灵矿换来多少”挑槽），器方材料够就打
 //   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
-//          不闭关、不吐纳、不碰新系统；突破最多带 2 枚丹；功法只照掉落卡的默认点【换上】（同类更强才换），不凑共鸣、不换克制
+//          不闭关、不吐纳、不碰新系统；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
 //   idle   什么都不做，只在修为圆满时突破
 // 被 require 时导出 { run, L }，可以在别的脚本里换策略或统计（tools/ 之外的分析脚本用）
 const L = require('../src/logic.js');
 const arg = process.argv.slice(2);
 if (arg.includes('noarts')) L.ARTS_ON = false;
+if (arg.includes('nogear')) L.GEAR_ON = false;
 const only = ['guided', 'lazy', 'idle'].includes(arg[0]) ? arg[0] : null;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
@@ -37,6 +40,34 @@ function artLazy(st) {
   if (st._artN === n) return;
   st._artN = n;
   for (const id of Object.keys(st.arts.own)) if (!st._artSeen || !st._artSeen[id]) { (st._artSeen = st._artSeen || {})[id] = 1; if (L.artBetter(st, id)) L.equipArt(st, id); }
+}
+// guided 的法宝：掉落卡更好就换；灵矿按“每点灵矿换来多少”挑槽强化（兵器的战力最值钱，折半算）；器方够材料就打
+function gearGuided(st) {
+  L.gearAutoAll(st);
+  if (L.GEAR_ON === false) return;
+  for (const P of L.PLANS) if (!L.canForge(st, P.id)) { const it = L.forge(st, P.id); if (it && it.pend) L.gearAuto(st, it.gear); }
+  if (!L.gearOpen(st, 'plus')) return;
+  for (let n = 0; n < 30; n++) {
+    let best = null;
+    for (const s of L.GEAR_SLOTS) {
+      const x = L.gearEq(st, s); if (!x || L.gearPlusWhy(st, s)) continue;
+      const c = L.gearPlusCost(st, x).ore * (s === 'w' ? 0.5 : 1) / Math.max(0.3, L.gearPlusRate(st, x));
+      if (!best || c < best.c) best = { s, c };
+    }
+    if (!best) break;
+    L.gearPlus(st, best.s);
+  }
+}
+// SYSTEMS §18 预算量：强化让战力多了多少（各槽强化清零对照）；词条的战力当量（家门地图斩妖时锋锐、克 X 给的分数，每 25 分折战力 ×2）
+function gearShare(st) {
+  const g = st.gear, p1 = L.power(st), saved = L.GEAR_SLOTS.map(s => g[s] && g[s].plus);
+  L.GEAR_SLOTS.forEach(s => { if (g[s]) g[s].plus = 0; });
+  const p0 = L.power(st);
+  L.GEAR_SLOTS.forEach((s, i) => { if (g[s]) g[s].plus = saved[i]; });
+  const parts = L.expExtraParts(st, L.homeRegion(st), 0, 0);
+  const pts = parts.filter(x => /^词条/.test(x[0])).reduce((a, x) => a + x[1], 0);
+  const robe = parts.filter(x => /^法衣/.test(x[0])).reduce((a, x) => a + x[1], 0);
+  return { plus: p1 / p0, aff: Math.pow(2, pts / 25), pts, robe, wt: g.w ? g.w.t : 0, wp: g.w ? g.w.plus : 0, rp: g.r ? g.r.plus : 0, op: g.o ? g.o.plus : 0, n: L.gearEqList(st).length };
 }
 function rngFor(seed) { let s = (seed * 2654435761) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const UPW = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4 };   // 折算价的权重：越小越优先
@@ -70,7 +101,7 @@ function tryBreak(st, rec, strat) {
   const x0 = L.artSlots(st)[0];
   const art = { cul: L.artCulMult(st) / (x0 ? L.ARTS[L.art(x0).t].m : 1), atk: L.artAtkMult(st), combos: Object.keys(st.meta.combo || {}).length };
   const r = L.breakthrough(st, n);
-  if (r && r.ok) { rec.realmAt[r.to] = st.tick; rec.artAt[r.to] = art; }
+  if (r && r.ok) { rec.realmAt[r.to] = st.tick; rec.artAt[r.to] = art; rec.gearAt[r.to] = gearShare(st); }
 }
 
 function actGuided(st, rec, seed) {
@@ -81,15 +112,15 @@ function actGuided(st, rec, seed) {
   // 灵石：先留够闭关和丹药的钱，其余按折算价升级
   for (let loop = 0; loop < 30; loop++) { const u = cheapestUp(st); if (!u || st.stones < u.c || !L.upgrade(st, u.k)) break; }
   const r = Math.min(p.r, 8);
-  const capW = L.boxCap(st, 'w'), capA = L.boxCap(st, 'a');
-  if ((p.w < capW || L.artPity(st, capA) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * (st.boxMiss >= 2 ? 1 : 1.5)) L.buy(st, 'box');
+  const capA = L.boxCap(st, 'a');
+  if ((L.gearPity(st) || L.artPity(st, capA) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * (st.boxMiss >= 2 ? 1 : 1.5)) L.buy(st, 'box');
   if (L.marketOpen(st, 'egg') && (!p.pet || p.pet.tier < Math.min(6, 1 + Math.floor(r * 0.6))) && st.stones >= L.price(st, 'egg') * 1.5) L.buy(st, 'egg');
   if (st.pills < 2 && st.stones >= L.price(st, 'pill') * 3) L.buy(st, 'pill');
   if (L.lifeLow(st) && L.marketOpen(st, 'life') && L.lifeTicks(st) < 60 && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
-  if (L.auctionOpen(st)) st.auction.items.forEach((it, i) => { if (!it.sold && ['w', 'a', 'frag', 'xisui'].includes(it.k) && st.stones >= it.price) L.auctionBuy(st, i); });
+  if (L.auctionOpen(st)) st.auction.items.forEach((it, i) => { if (!it.sold && ['w', 'g', 'a', 'frag', 'xisui', 'plan'].includes(it.k) && st.stones >= it.price) L.auctionBuy(st, i); });
   if (st.sect) {
     if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
-    for (const k of ['vart', 'vwep']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
+    for (const k of ['vart', 'vwep', 'vplan']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
     st.sect.tasks.forEach((t, i) => {
       if (!t.taken && t.ty !== 'teach') L.taskTake(st, i);
       if (L.taskCanDeliver(st, t) && (t.ty === 'herbs' ? st.herbs >= t.n * 1.5 : st.pills >= 3)) L.taskDeliver(st, i);
@@ -143,7 +174,7 @@ function actLazy(st, rec) {
   const r = Math.min(p.r, 8);
   if (L.desperate(st) && L.marketOpen(st, 'life') && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
   else if (L.marketOpen(st, 'egg') && !p.pet && st.stones >= L.price(st, 'egg')) L.buy(st, 'egg');
-  else if ((p.w < Math.min(7, 1 + r) || L.artPity(st, Math.min(6, 1 + r)) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * 2) L.buy(st, 'box');
+  else if ((L.gearPity(st) || L.artPity(st, Math.min(6, 1 + r)) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * 2) L.buy(st, 'box');
   else { const u = cheapestUp(st); if (u && st.stones >= u.c) L.upgrade(st, u.k); }
   if (p.inj > 0) return;
   let a = 0;
@@ -155,15 +186,16 @@ function actLazy(st, rec) {
 function run(strat, seed, trace) {
   L.rng = rngFor(seed);
   const st = L.newState({ name: '测试' });
-  const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false };
+  const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false };
   const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
     tryBreak(st, rec, strat);
-    if (p.r >= 9) { rec.ascend = st.tick; break; }
+    if (p.r >= 9) { rec.ascend = st.tick; rec.gearAt[9] = gearShare(st); break; }
     if (strat === 'guided') actGuided(st, rec, seed);
     else if (strat === 'lazy') actLazy(st, rec);
-    if (strat === 'lazy') artLazy(st);
+    if (strat === 'lazy') { artLazy(st); L.gearAutoAll(st); }
+    if (strat === 'guided') gearGuided(st);
     if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
     if (strat === 'guided' && st.sect && st.tick % L.MEET_EVERY === L.MEET_AT - 1) { const pos = L.sectPos(st); artFor(st, { foe: { kind: 'sect', id: L.nineAt(st, pos === 1 ? 2 : pos - 1).id } }); }
     rec.passive += L.income(st);
@@ -189,7 +221,8 @@ function run(strat, seed, trace) {
     if (out.death) { rec.death = st.tick; rec.deathR = p.r; break; }
     if (trace && st.tick % 12 === 0) {
       const sl = L.artSlots(st).map(id => (id ? L.art(id).n.slice(0, 2) + L.art(id).t + L.MAST.n[L.artLv(st, id)][0] : '-')).join('/');
-      console.log(`t${st.tick} 岁${Math.floor(p.age)}/${Math.floor(L.lifespan(st))} ${L.stageName(p)} 根${p.t} 器${p.w} 功${sl}(${Object.keys(st.arts.own).length}门,共鸣${Object.keys(st.meta.combo).length}) 宠${p.pet ? p.pet.tier : 0} 战力=${L.fmt(L.power(st))} 修炼×${(L.gainBase(st) / L.g0(Math.min(L.si(p), 35))).toFixed(1)} 灵石=${L.fmt(st.stones)} 收入=${L.fmt(L.income(st))} 洞府=${st.home.array}/${st.home.field}/${st.home.furnace}/${st.home.cave} 榜=${st.rank} 宗=${st.sect ? st.sect.rank + '/' + L.fmt(st.sect.total) : '-'} 丹=${st.pills} 草=${Math.floor(st.herbs)} 历练=${st.stats.exp}(${st.lastExp ? st.lastExp.k + '.' + st.lastExp.d : '-'}) 败=${st.stats.btFails}`);
+      const gs = L.GEAR_SLOTS.map(s => (st.gear[s] ? st.gear[s].t + '+' + st.gear[s].plus : '-')).join('/');
+      console.log(`t${st.tick} 岁${Math.floor(p.age)}/${Math.floor(L.lifespan(st))} ${L.stageName(p)} 根${p.t} 器${gs}(矿${L.fmt(st.ore)}) 功${sl}(${Object.keys(st.arts.own).length}门,共鸣${Object.keys(st.meta.combo).length}) 宠${p.pet ? p.pet.tier : 0} 战力=${L.fmt(L.power(st))} 修炼×${(L.gainBase(st) / L.g0(Math.min(L.si(p), 35))).toFixed(1)} 灵石=${L.fmt(st.stones)} 收入=${L.fmt(L.income(st))} 洞府=${st.home.array}/${st.home.field}/${st.home.furnace}/${st.home.cave} 榜=${st.rank} 宗=${st.sect ? st.sect.rank + '/' + L.fmt(st.sect.total) : '-'} 丹=${st.pills} 草=${Math.floor(st.herbs)} 历练=${st.stats.exp}(${st.lastExp ? st.lastExp.k + '.' + st.lastExp.d : '-'}) 败=${st.stats.btFails}`);
     }
   }
   rec.btFails = st.stats.btFails; rec.expStones = st.stats.expStones; rec.endR = st.p.r; rec.endTick = st.tick;
@@ -250,6 +283,9 @@ function summarize(strat, recs, G) {
     const at = (r, f) => med(recs.map(x => x.artAt[r] && x.artAt[r][f]));
     row(strat, '（参考）功法加成 筑基末 / 渡劫期', `修炼 ×${at(2, 'cul').toFixed(2)} / ×${at(8, 'cul').toFixed(2)}，战力 ×${at(2, 'atk').toFixed(2)} / ×${at(8, 'atk').toFixed(2)}，共鸣 ${at(8, 'combos')} 条`, '§18 全部新系统：筑基末 ×1.15 / ×1.5，渡劫 ×2.0 / ×4.5');
     row(strat, '（参考）约战时装着战技 / 克制慕容', `${pct(frac(recs, x => x.pactZ))} / ${pct(frac(recs, x => x.pactKe))}`, '—');
+    const ga = (r, f) => med(recs.map(x => x.gearAt[r] && x.gearAt[r][f]));
+    row(strat, '（参考）法宝 筑基末 / 渡劫期 / 飞升', `强化 ×${ga(2, 'plus').toFixed(2)} / ×${ga(8, 'plus').toFixed(2)} / ×${ga(9, 'plus').toFixed(2)}，词条当量 ×${ga(2, 'aff').toFixed(2)} / ×${ga(8, 'aff').toFixed(2)} / ×${ga(9, 'aff').toFixed(2)}`, '§18：强化 ×1.3、词条 ×1.15（后期）');
+    row(strat, '（参考）飞升时 兵器阶+强化 / 法衣 / 饰品强化', `${ga(9, 'wt')}+${ga(9, 'wp')} / +${ga(9, 'rp')}（分数 +${ga(9, 'robe').toFixed(1)}） / +${ga(9, 'op')}`, '—');
     return { durs, ascMed };
   }
   if (strat === 'lazy') {

@@ -33,8 +33,8 @@ function showExp() {
       continue;
     }
     if (L.bossReady(st, k)) {
-      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe);
-      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">首领现身：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">击败可得天材地宝、首领掉落【${B.drop}】与称号「${B.t}」</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
+      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
+      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战可得首领材料${L.BOSS_MAT[k]} ×1（打造用）与灵石；每 ${L.BOSS_AGAIN} 周天一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
     }
     const c = defaultCell(st, k), f = L.expForecast(st, k, c.d, c.a);
     const bests = [0, 1, 2].map(d => { const b = L.bestOf(st, k, d); return `${L.DEPTHS[d]} ${b ? L.RATINGS[b] : '—'}`; }).join(' · ');
@@ -66,7 +66,8 @@ function fightBossUI(k) {
     title: '首领 · ' + B.n, intro: `【${L.REGIONS[k].n}】深处，${B.n}挡住了去路。`,
     right: { img: bossImg(k, 66), name: B.n, sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
     quote: `${B.n}：“${B.line}”`,
-    winText: res.win ? `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${it.equip ? '获得' : '已有更好法宝，换得灵石'}【${esc(it.name)}】</span></div>${res.art ? artLine(res.art) : ''}` : '',
+    winText: !res.win ? '' : res.again ? `再败${esc(B.n)}！<div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
+      : `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText ? `<span>${esc(res.planText)}</span>` : ''}</div>${it ? gearLine(it) : ''}${res.art ? artLine(res.art) : ''}`,
     loseText: '首领太强，重伤而归（负伤 4 周天）。变强之后再来！',
     done: closeModal,
   });
@@ -107,7 +108,7 @@ function confirmExp(k, d, a, still) {
       <div class="muted">行事 <span class="muted">（斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6）</span></div><div class="seg" id="expAppr">${appr}</div>
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="muted">预计评价</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>${dist}</div>
       <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>灵石</dt><dd class="num">约 ${fmt(f.stones)}${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''}</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
-      ${notes.join('')}${opts.join('')}`,
+      ${gearExpLine(k, d, a)}${notes.join('')}${opts.join('')}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: '出发', gold: true, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
@@ -121,13 +122,12 @@ function confirmExp(k, d, a, still) {
 }
 function itemLine(it) {
   if (it.kind === 'a') return artLine(it);
+  if (it.gear) return gearLine(it);
   if (it.kind === 'pet') {
     const T0 = L.PETS[it.tier];
     return it.equip ? `<div class="quote">${petImg(it.tier, 26)} 收服${T0.n}【${esc(it.name)}】！战力 ×${T0.m}</div>` : `<div class="quote">遇到一只${esc(it.name)}，不如你的灵宠，放它归山，换得灵石 ${fmt(it.value)}</div>`;
   }
-  const nm = `${L.WEAPONS[it.tier].n}【${esc(it.name)}】`;
-  if (!it.equip) return `<div class="quote">得到${nm}，不如身上的，卖得灵石 ${fmt(it.value)}</div>`;
-  return `<div class="quote">获得${nm}！战力 ×${L.WEAPONS[it.tier].m}</div>`;
+  return '';
 }
 function deltaHTML(res) {
   const d = [];
@@ -156,11 +156,15 @@ function showExpResult(res) {
     g.push(`<dt>灵石</dt><dd class="num">+${fmt(res.stones)}${res.leap ? '（越级 ×2）' : ''}${res.escort ? '（护送：灵石归宗门）' : ''}</dd>`);
     if (res.herbs) g.push(`<dt>灵草</dt><dd class="num">+${fmt(res.herbs)}</dd>`);
     if (res.xp > 0) g.push(`<dt>战斗感悟</dt><dd class="num">修为 +${fmt(res.xp)}</dd>`);
+    if (res.ore) g.push(`<dt>灵矿</dt><dd class="num">${oreImg(pxs(8, 2))} +${fmt(res.ore)}（共 ${fmt(st.ore)}）</dd>`);
     if (res.pills) g.push(`<dt>破境丹</dt><dd>+${res.pills}</dd>`);
     if (res.treasure) g.push(`<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>`);
     if (res.contrib) g.push(`<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>`);
     lines.push(`<dl class="grid2">${g.join('')}</dl>`);
     for (const it of res.items) lines.push(itemLine(it));
+    if (res.planText) lines.push(`<div class="quote row">${scrollImg()}<span class="grow">${esc(res.planText)}</span></div>`);
+    if (res.robeSave) lines.push('<p class="center jadet">法衣护体：本是丁等，改判丙等。</p>');
+    if (res.huzhu) lines.push('<p class="center jadet">词条「护主」：丁等，但没有负伤（12 周天后才能再挡一次）。</p>');
     for (const u of res.unlock || []) lines.push(`<div class="quote jadet">${esc(u)}</div>`);
     if (res.sum) lines.push(`<div class="quote">连续 ${res.sum.n} 趟合计：灵石 +${fmt(res.sum.stones)}，灵草 +${fmt(res.sum.herbs)}，破境丹 +${res.sum.pills}，评价 ${res.sum.ratings.map(r => L.RATINGS[r]).join(' ')}</div>`);
     if (res.first) lines.push('<div class="quote">戒中老祖：“第一趟，老夫暗中替你挡了两爪子。以后可得靠你自己了。”</div>');
@@ -184,4 +188,12 @@ function showExpResult(res) {
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
   sheet({ title: `历练归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot });
+}
+// 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价
+function gearExpLine(k, d, a) {
+  const parts = L.expExtraParts(st, k, d, a).filter(x => x[2] === 'gear'), f = L.expForecast(st, k, d, a);
+  const bits = parts.map(x => `${esc(x[0])} +${dec(x[1])}`);
+  if (L.gearAffN(st, 'qingling')) bits.push('轻灵：时长 −1');
+  if (L.gearHuzhuReady(st)) bits.push('护主：这趟丁等不负伤');
+  return `<div class="muted gexp">${oreImg(pxs(8, 2))} 灵矿约 ${fmt(f.ore)}${bits.length ? ' · 法宝：' + bits.join(' · ') : ''}</div>`;
 }

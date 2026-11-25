@@ -7,12 +7,12 @@ function showGrowth(focus) {
   const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return '<span class="muted">未解锁</span>'; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
   const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
-  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), weapon: () => goBtn('去历练', 'exp'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
+  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => goBtn('灵兽蛋', 'market'), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
   const tips = {
     talent: '灵根是天生的，炼丹房的洗髓丹能提升一品（需要天材地宝）。',
     art: '功法三槽：心法管修炼、战技管战力与攻击属性、秘术给特效；练久了有熟练，凑对了有共鸣。来自历练、寻宝、宗门宝库、首领与奇遇。',
     array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
-    weapon: '法宝来自历练掉落、首领、坊市寻宝、宗门宝库。',
+    gear: '法宝三槽：兵器管战力，法衣管历练分数与负伤，饰品给修炼、财运、气运或寿元。来自历练掉落、首领、坊市寻宝、宗门宝库；灵矿强化，超出部分每级 +6%。',
     pet: '灵宠来自坊市灵兽蛋、历练与奇遇。',
     field: `下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石，还产灵草。`,
   };
@@ -62,13 +62,17 @@ function pactTips() {
       : { t: `修到炼气${L.STAGES[p.s + 1]}`, cost: `照现在约 ${n} 周天（闭关更快）`, p: with_(L.P.pwStage), go: L.retOpen(st) ? 'home' : 'exp' });
   }
   if (p.r === 0 && L.isFull(st)) out.push({ t: '突破筑基', cost: L.btGuard(st) ? '老祖护法必成' : '成功率 ' + L.pct(L.btRate(st, Math.min(3, st.pills))), p: with_(btPowerMult(), 1), go: 'cult' });
-  if (p.w < L.boxCap(st, 'w')) out.push({ t: `换一件${L.WEAPONS[p.w + 1].n}`, cost: `寻宝 ${fmt(L.price(st, 'box'))} 或历练掉落`, p: with_(L.WEAPONS[p.w + 1].m / L.WEAPONS[p.w].m), go: navLock('market') ? 'exp' : 'market' });
+  // 法宝（SYSTEMS §3 / §17 锦囊候选）：换一件高一阶的兵器；兵器强化到下一级（一下完成，胜算当场重算）
+  const wt = L.gearTier(st, 'w');
+  if (wt < L.boxCap(st, 'w')) { const nx = { id: `w${wt + 1}_0`, slot: 'w', t: wt + 1, plus: 0, aff: [] }; out.push({ t: `换一件${L.WEAPONS[wt + 1].n}`, cost: `寻宝 ${fmt(L.price(st, 'box'))} 或历练掉落`, p: with_(L.gearTry(st, nx, () => L.power(st)) / L.power(st)), go: navLock('market') ? 'exp' : 'market' }); }
+  const pw = L.gearOpen(st, 'plus') && st.gear.w && L.gearPlusInfo(st, 'w');
+  if (pw && !pw.max && !pw.why) out.push({ t: `兵器强化 +${pw.x.plus + 1}：战力 ${fmt(pw.a.p)} → ${fmt(pw.b.p)}`, cost: `灵矿 ${fmt(pw.cost.ore)} · 灵石 ${fmt(pw.cost.stones)} · 成功率 ${L.pct(pw.rate)}`, p: pw.b.pact, go: 'plus:w', btn: '强化', keep: true });
   if (!p.pet && L.marketOpen(st, 'egg')) out.push({ t: '收一只灵宠', cost: `灵兽蛋 ${fmt(L.price(st, 'egg'))}`, p: with_(L.PETS[1].m), go: 'market' });
   if (L.canRetreat(st) && p.r === 0) { const ri = L.retInfo(st); if (ri.save > 0) out.push({ t: '闭关', cost: ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`, p: pi.p, extra: `本层提前 ${ri.save} 周天`, go: 'home' }); }
   // 换成克制对手的战技（SYSTEMS §17 锦囊候选）：战技即换即生效，点【换上】一下完成
   const sw = zSwapTip(L.PACT_FOE, S => S * pi.assist, pi.Q);
   if (sw) out.push(sw);
-  return out.filter(x => x.p - pi.p >= 0.03 || x.extra).sort((a, b) => b.p - a.p).slice(0, 3);
+  return out.filter(x => x.p - pi.p >= 0.03 || x.extra || (x.keep && x.p > pi.p)).sort((a, b) => b.p - a.p).slice(0, 3);
 }
 // 锦囊里的“换成克制对手的战技”：试遍已有战技，取胜算最高、且至少涨 3% 的一门
 function zSwapTip(foe, scale, Q) {
@@ -104,6 +108,7 @@ function showPact() {
   s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
     const k = b.dataset.go;
     if (k.startsWith('eqz:')) { if (L.equipArt(st, k.slice(4))) { SFX.coin(); showPact(); } return; }
+    if (k.startsWith('plus:')) { const r = doPlus(k.slice(5)); if (r) { floatText(100, 70, r.ok ? `强化 +${r.to}` : '强化失败', r.ok ? '#ffe39a' : '#9d93b8'); showPact(); } return; }
     SFX.tap();
     if (k === 'cult') { closeModal(); if (L.isReady(st)) showBreakthrough(); } else GO[k]();
   });
