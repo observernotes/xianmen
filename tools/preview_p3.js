@@ -182,3 +182,28 @@ if (sec('g9') && ART.portrait && ART.hasPortrait('teaman')) {
   [['grudge', '恩怨'], ['quest', '委托'], ['like', '喜欢'], ['dislike', '讨厌'], ['gift', '送礼（已有）'], ['wine', '酒'], ['tea', '茶'], ['spar', '指点'], ['crush', '打压']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
   br();
 }
+
+if (sec('g10') && ART.origin) {
+  h('【十 图鉴与轮回】图鉴页与收集格（左：原图 4 倍；右：border-image 拉伸，2 倍像素）');
+  for (const k of ['codex', 'codexCell', 'codexCellOff']) {
+    const F = ART.frame(k); show(F.canvas, 4, k, '#444'); const big = k === 'codex';
+    const d = document.createElement('div'); d.style.cssText = `display:inline-block;vertical-align:top;margin:3px 16px 3px 3px;box-sizing:border-box;width:${big ? 240 : 56}px;height:${big ? 110 : 56}px;border:12px solid transparent;border-image:url(${F.url}) ${F.slice} fill / 12px stretch;image-rendering:pixelated;color:${F.ink};font:14px sans-serif;text-align:center;line-height:${big ? 84 : 30}px`;
+    d.textContent = big ? '图鉴 · 功法 12 / 36' : k === 'codexCell' ? '✓' : '？'; out.appendChild(d);
+  }
+  br(); h('分类图标 ART.codexIcon(cat)');
+  const CN = { map: '地点相性', art: '功法', combo: '共鸣', gear: '法宝', pet: '灵宠', pill: '丹方', recipe: '器方', sigil: '阵图', people: '人物喜好', rival: '对手属性', chain: '奇遇链', event: '奇遇', realm: '秘境', ending: '结局' };
+  ART.codexCats.forEach((c, i) => pair(ART.codexIcon(c), c + ' ' + CN[c], i)); pair(ART.icon('codex'), 'codex 图鉴', 1);
+  br(); h('轮回殿节点 ART.samsaraNode(icon, state) 24×24：未解锁 / 可买 / 已点亮（3 倍）；放在轮回殿底图上的示意');
+  const nodes = ['sm_slot', 'sm_roster', 'sm_elem', 'pojing', 'sm_legacy', 'stone', 'life', 'cult', 'atk', 'daoguo'];
+  for (const n of nodes) for (const s of ['locked', 'open', 'done']) show(ART.samsaraNode(n, s), 3, s === 'locked' ? n : '', PANEL);
+  br(); fxc(200, 120, g => { g.drawImage(ART.backdrop('samsara'), 0, 0); g.globalAlpha = 0.55; g.fillStyle = '#0a0818'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1;
+    const P = [[100, 16, 'done'], [64, 44, 'done'], [136, 44, 'open'], [40, 76, 'open'], [88, 76, 'locked'], [136, 76, 'locked'], [172, 76, 'locked']];
+    for (const [a, b2] of [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]]) { g.strokeStyle = P[b2][2] === 'locked' ? '#55506e' : '#f4c542'; g.beginPath(); g.moveTo(P[a][0] + .5, P[a][1] + 12); g.lineTo(P[a][0] + .5, P[a][1] + 20); g.lineTo(P[b2][0] + .5, P[a][1] + 20); g.lineTo(P[b2][0] + .5, P[b2][1]); g.stroke(); }
+    P.forEach(([x, y, s], i) => g.drawImage(ART.samsaraNode(nodes[i], s), x - 12, y - 12 + 12)); }, 3, '节点树示意');
+  br(); h('六个出身 ART.origin(id) 64×40（4 倍 / 原尺寸）');
+  const ON = { qitu: '弃徒', dantong: '丹童', moyi: '魔门遗孤', shoumu: '守墓人之后', sanxiu: '散修丹师', yushou: '御兽遗脉' };
+  for (const id of ART.originIds) { show(ART.origin(id), 4, ON[id] + ' ' + id); show(ART.origin(id), 1, ''); }
+  br(); h('结局底图 ART.backdrop：ascend 飞升 / rest 坐化 / summit 登顶 / hermit 归隐（200×120）');
+  for (const [k, n] of [['ascend', '飞升'], ['rest', '坐化'], ['summit', '登顶'], ['hermit', '归隐']]) show(ART.backdrop(k), SS, k + ' ' + n);
+  br();
+}
