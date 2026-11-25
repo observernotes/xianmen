@@ -33,7 +33,7 @@ function pplCard(id, vis) {
   rows.push(`<div class="line"><span>${esc(L.npcName(st, id))}</span>${tag}${pplHearts(id)}</div>`);
   rows.push(`<div class="muted">${N.title} · ${L.HEART_N[h]}${vis === id ? ' · <b class="seal">正在门口</b>' : ''}</div>`);
   rows.push(`<div class="pbarrow">${bar(a / 100, a >= 60)}<span class="num">${a}/100</span></div>`);
-  rows.push(`<div class="${a >= 60 ? 'jadet' : 'muted'}">${a >= 60 ? '✓' : '·'} 三心知己：${esc(N.bonus)}</div>`);
+  rows.push(`<div class="${a >= 60 ? 'jadet' : 'muted'}">${a >= 60 ? '✓' : '·'} 三心知己：${esc(L.friendText ? L.friendText(st, id) : N.bonus)}</div>`);
   if (on) {
     // 喜好：已知的写名字，没试出来的是“？”
     const K = (L.giftKnown(st).list.find(x => x.id === id) || { cells: [] }).cells;
@@ -155,8 +155,10 @@ function peopleHook(d) {
     floatText(100, 58, `${L.npcName(st, d.id)}托你一件事`, '#ffe39a');
     if (st.hintSeen && st.hintSeen.ppQuest) tip(`pq_${d.id}${d.i}`, `${L.npcName(st, d.id)}托你一件事——「${L.fill(st, Q.t)}」：${L.pqDesc(st, d.id, d.i)}。办成了好感 +${L.PQ_AFF}，还有${Q.rwT}。`);
   } else if (d.k === 'qdone') {
-    if (d.res && !(st.exp || cine)) pushPopup(() => showPqDone(d.res));
-    else if (d.res) banner(`委托完成 · ${L.npcName(st, d.id)}`, `${L.fill(st, d.res.Q.t)}：好感 +${L.PQ_AFF}`);
+    // 历练结算卡上已经有一行、人物卡上交付时当场弹卡；其余（炼丹、首领、秘境、丹方）排队弹一张完成卡
+    if (d.via === 'exp' || d.via === 'give' || !d.res) return;
+    if (cine) banner(`委托完成 · ${L.npcName(st, d.id)}`, `${L.fill(st, d.res.Q.t)}：好感 +${L.PQ_AFF}`);
+    else pushPopup(() => showPqDone(d.res));
   } else if (d.k === 'sx') {
     if (st.hintSeen && st.hintSeen.ppSx) { const sx = L.sxInfo(st); tip('sx_' + L.pplOf(st).sx, `能和${L.npcName(st, d.id)}双修了：${sx.len} 个周天修炼 ×${sx.m.toFixed(2)}，不花灵石${sx.art ? `，还有《${L.art(sx.art).n}》` : ''}。【人物】→ 羁绊。`); }
   }
@@ -198,3 +200,5 @@ const peopleHints = [
     } },
 ];
 HINTS.push(...peopleHints);
+// 测试入口（tools/shot.js、content_test.js 用）
+if (typeof window !== 'undefined') Object.assign(window.__xm_people = {}, { showGift, showPqDone, bondTabHTML, compExpLine, compResLine, peopleGiftBar, peopleBadge, get hints() { return peopleHints; } });

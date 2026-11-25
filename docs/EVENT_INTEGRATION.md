@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：宿敌与新秀；第十刀：人物加深）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -85,7 +85,16 @@
   - 事件置的一次性标记当场生效：`rookie_seen`（new_1 看他一眼：新秀五行显形）、`yun_elem`（yun_1 掀棋盘：云无极五行显形）。恩怨降到 −40 以下时引擎置 `zhao_owes`（赵乾倒戈）。
   - 新扩展包 `src/content/ev_rivals2.js`（11 个，CONTENT §14.2 的 23 个都已在 ev_realm_rivals.js）：恩怨 ≥ 60 的伏击 `rv_ambush_mu / zhao / chu / xue / yun / rk`，≤ −40 的化敌为友 `zhao_4`、`tiankuo_5`（楚天阔同行 `tiankuo_ally`：斩妖 +6，同伴系统上线后可改由它接管）、`mu_5`、`xue_4`、`yun_4`。
   - 这一刀放行的 39 个：ev_realm_rivals 的 20 个（`mu_1～4`、`zhao_1～3`、`tiankuo_1～4`、`xue_1`、`xue_2`、`yun_1`、`yun_2`、`new_1～4`、`auc_rival`）、ev_sect_people 的 `chu_q2`、`mo_q1`、ev_world_chains 的 `world_liuxing`、`ch_tianjian_1～4 / 6`，加新的 11 个。
-- 当前上线 339 / 343（宿敌与新秀 +39，含新增 11 个；还闸着的 4 个等洞府：`build:*`、`plot_full`、`formation_fail`）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- [x] 人物加深登记（`src/logic/people.js`，第十刀）：
+  - 新资格字段 `heart: n`（事件里那位人物 `ev.npc` 至少 n 心，仁三级 90 即五心照算）、`comp: 人物id`（这趟历练同行的是他：同伴位上的人或道侣）；剧情触发键 `shuangxiu:su` / `shuangxiu:ye`（第一次双修）。`tools/check_events.js` 已认这三样。
+  - 来访的人物（门口访客的事件带 `npc`）：事件弹窗里多一个【送礼】（一回来访送一样，不占选项，送完回到事件照常选）。送礼、委托都不是事件键，规则在 people.js。
+  - 新扩展包 `src/content/ev_people2.js`（16 个，id 都以 `pp_` 开头，sim 的 `nopeople2` 时不出）：串门 6（`pp_*_drop`，`heart: 1`、各自成了常客的 flag、冷却 12，给【送礼】一个上门的由头）、
+    同行 6（`pp_*_trip`，`comp`，冷却 30）、第一次双修 2（`pp_sx_su / pp_sx_ye`）、没走的那条路 2（`pp_su_left2 / pp_ye_left2`：su_left / ye_left 之后、元婴以后的余音）。正文避开“他 / 她”（苏、夜随主角性别换人）。
+  - CONTENT §14.4 的 20 个人物委托与终章事件都在 ev_sect_people.js，早已上线（`chu_q2`、`mo_q1` 由宿敌那一刀的 `fx.grudge` 放行）；闸着的事件里没有只差人物系统的，所以这一刀放行数 = 新增的 16 个。
+    这 20 个事件是人物线的剧情（二心 `_q1`、四心 `_q2`、五心 `_end`），本刀的“委托”是另一层：人物卡上二心、四心各一件可做的差事（历练 / 交付 / 炼丹 / 首领 / 秘境，L.PQ），完成 +15 好感与一件东西，两者并行不冲突。
+  - 宿敌线的 `tiankuo_ally`（楚天阔同行，斩妖 +6）接进同伴位：他是第七个同伴人选（`tian`），只在占同伴位时算（包了 `L.rivalAllyOn`），不和别的同伴叠；`nopeople2` 时照宿敌线原样常驻。
+  - 结为道侣仍是 su_5 / ye_5 的 `fx.daolv`（苏、夜互斥由 `daolv: false` 与 `daolv_*` flag 管）；道侣之后每 12 周天的【双修】在人物卡上点。
+- 当前上线 355 / 359（人物加深 +16，都是新增的；还闸着的 4 个等洞府：`build:*`、`plot_full`、`formation_fail`）。宿敌与新秀那一刀 339 / 343（宿敌与新秀 +39，含新增 11 个；还闸着的 4 个等洞府：`build:*`、`plot_full`、`formation_fail`）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。

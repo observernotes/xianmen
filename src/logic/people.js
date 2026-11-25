@@ -278,9 +278,10 @@ L.pqGive = function (st, id, i) {
   if (L.pqGiveWhy(st, id, i)) return null;
   const Q = L.pqDef(id, i), q = qOf(st, id, i);
   GIVE[Q.what].pay(st, q.n);
-  return pqDone(st, id, i);
+  return pqDone(st, id, i, 'give');
 };
-function pqDone(st, id, i) {
+// via：从哪完成的（exp 历练结算卡上已有一行、give 人物卡上当场弹卡；其余由界面排队弹一张完成卡）
+function pqDone(st, id, i, via) {
   const Q = L.pqDef(id, i), q = qOf(st, id, i);
   if (!q || q.s !== 'on') return null;
   q.s = 'done'; q.end = st.tick;
@@ -300,8 +301,8 @@ function pqDone(st, id, i) {
   if (Object.keys(rw).length) { const fx = L.applyFx(st, rw); for (const t of fx) if (!(fx.artTexts || []).includes(t) && !(fx.gearTexts || []).includes(t)) texts.push(t); for (const it of fx.items || []) items.push(it); }
   const line = L.fill(st, Q.done);
   L.log(st, `委托完成「${L.fill(st, Q.t)}」：${line}`.slice(0, 60), 'gold');
-  const res = { id, i, Q, line, texts, items };
-  emit('people', { k: 'qdone', id, i, res });
+  const res = { id, i, Q, line, texts, items, via: via || '' };
+  emit('people', { k: 'qdone', id, i, res, via: via || '' });
   return res;
 }
 L.pqDone = pqDone;
@@ -313,7 +314,7 @@ function pqOnExp(st, res) {
     if (Q.a !== undefined && res.a !== Q.a) continue;
     if (res.rating < (Q.r || 0) || res.d < (Q.d0 || 0)) continue;
     if (Q.home && res.k !== x.q.k) continue;
-    (res.pq = res.pq || []).push(pqDone(st, x.id, x.i));
+    (res.pq = res.pq || []).push(pqDone(st, x.id, x.i, 'exp'));
   }
 }
 function pqOnRecipe(st) {
@@ -445,6 +446,25 @@ wrap('fightBoss', b => function (st, k) {
 });
 // 好感变了：看要不要出新委托（二心、四心）
 wrap('addAff', b => function (st, id, d) { const r = b(st, id, d); if (ON() && L.PQ[id]) pqCheck(st, id); return r; });
+
+// ---------- 知己加成（npc.js 的三项修炼 / 战力倍率） ----------
+// 送礼与委托让三心来得早得多：修炼 / 战力的那三项改成“三心给一半、五心给满”（苏 修炼 ×1.05 → ×1.1、夜 战力 ×1.05 → ×1.1、楚狂 战力 ×1.075 → ×1.15）；
+// nopeople2 时照旧三心给满。其余知己加成（夜的历练灵石、葛老的成丹率、白小九的奇遇、墨无痕的寿元）不变
+L.FRIEND_HALF = true;
+L.FRIEND_PART = 0.5;   // 三心、四心时给满额的几成
+L.FRIEND_YE_STONE = false;   // 夜的历练灵石 ×1.2 是否也按心数折（sim 对照用）
+const FRIEND_FULL = { su: 1.1, ye: 1.1, chu: 1.15 };
+L.friendV = (st, id) => { const full = FRIEND_FULL[id]; return !ON() || !L.FRIEND_HALF || L.hearts(st, id) >= 5 ? full : 1 + (full - 1) * L.FRIEND_PART; };
+wrap('expStoneMult', b => (st, a) => { const v = b(st, a); return L.FRIEND_YE_STONE && ON() && L.friend(st, 'ye') && L.hearts(st, 'ye') < 5 ? v / 1.2 * (1 + 0.2 * L.FRIEND_PART) : v; });
+L.friendText = function (st, id) {
+  const full = FRIEND_FULL[id], N = L.NPCS[id];
+  if (!full || !ON() || !L.FRIEND_HALF) return N.bonus;
+  const k = id === 'su' ? '修炼速度' : '战力', half = 1 + (full - 1) * L.FRIEND_PART, rest = N.bonus.split('，').slice(1).join('，');
+  return `${k} ×${+half.toFixed(3)}（五心 ×${full}）${rest ? '，' + rest : ''}`;
+};
+L.addCulMod('friend_su', 80, st => (L.friend(st, 'su') ? ['知己·' + L.npcName(st, 'su'), L.friendV(st, 'su'), ''] : null));
+L.addAtkMod('friend_ye', 80, st => (L.friend(st, 'ye') ? ['知己·' + L.npcName(st, 'ye'), L.friendV(st, 'ye'), ''] : null));
+L.addAtkMod('friend_chu', 81, st => (L.friend(st, 'chu') ? ['知己·楚狂', L.friendV(st, 'chu'), ''] : null));
 
 // ---------- 道侣与双修 ----------
 // 双修：每 12 周天一次，等同一次不花灵石的闭关；送你对方一门功法（按表的次序，没有的先给；都会了 → 熟练 +20）
