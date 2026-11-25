@@ -1,4 +1,4 @@
-/* 废柴仙途 · 界面片段 duels：对决、三年之约、天骄论道
+/* 废柴仙途 · 界面片段 duels：对决、三年之约、天骄论道（论道前的对决准备与新秀挑战在 panel-rivals.js）
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 // ---------- 对决（通用） ----------
 function duel(o) {
@@ -51,7 +51,9 @@ const RIVAL_LINES = {
   xue: ['正道蝼蚁，也配让本圣子出手？', '此人……不可力敌，撤！'],
   yun: ['我在榜首等你很久了。来吧。', '好剑。天下第一，是你的了。'],
 };
-function runTournament() {
+// 第一场多半碰上宿敌时，先弹对决准备页（panel-rivals.js 的 tourPrep：他的资料、换成 X 战技：胜算 p → p'），点【登台】再开打
+function runTournament() { tourPrep(runTournamentGo); }
+function runTournamentGo() {
   const wq = L.wantedRank(st), ww = L.wanted(st);
   const res = L.tournament(st);
   rankShown = res.startRank;
@@ -72,11 +74,14 @@ function runTournament() {
     if (!rd) { summary(); return; }
     const rv = rd.rv || { n: '无名', s: '' };
     const lines = rv.id ? RIVAL_LINES[rv.id] : null;
+    // 宿敌：半身像；看家战技与法宝已知的写出来；赢了恩怨 +20（rivals2.js）
+    const rk = rv.id ? L.rivalKnow(st, rv.id) : null, RI = rv.id ? L.RIVAL_INFO[rv.id] : null;
+    const rvIntro = rk ? [rk.art ? `看家战技《${esc(L.art(RI.art).n)}》` : '', rk.gear ? `法宝【${esc(RI.gear.n)}】克${L.ELEM[RI.gear.ke]}` : ''].filter(Boolean).join(' · ') : '';
     duel({
-      title: `第 ${step} 战`,
-      right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
+      title: `第 ${step} 战`, intro: rvIntro ? `<span class="muted">${rvIntro}</span>` : '',
+      right: { img: rv.id ? rvPortrait(rv.id, 66, 'ang', true) : rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rv.n}：“${rd.auc ? `上回拍卖会那件【${rd.auc}】，多谢你没跟价。今天就用它送你下台！` : rd.wanted ? '我是冤枉的……可你要拿我领赏，那就来！' : lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
-      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${rd.bounty ? `<div class="goldt">擒下通缉犯，赏金 +${fmt(rd.bounty)}</div>` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
+      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${rd.bounty ? `<div class="goldt">擒下通缉犯，赏金 +${fmt(rd.bounty)}</div>` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}${rd.grudge ? `<div class="seal">与${esc(rv.n)}的恩怨 +${rd.grudge}（${L.grudge(st, rv.id)}）</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',
       btn: res.rounds[step] ? '下一战' : '论道落幕',
       done: () => { if (rd.win && !rd.defend) rankShown = rd.q; next(); },
@@ -88,7 +93,8 @@ function runTournament() {
     if (up > 0) banner(`天骄榜 ↑${up}`, `第 ${res.endRank} 名`);
     sheet({ title: '论道落幕', center: true,
       body: `<div class="center big ${up > 0 ? 'goldt' : ''}">天骄榜第 ${res.endRank}</div><p class="center">${up > 0 ? `排名 ${res.startRank} → ${res.endRank}，上升 ${up} 位！` : res.endRank === 1 ? '稳坐天骄榜第一！' : '排名未变，下届再战。'}</p>
-        ${res.endRank === 1 && res.startRank > 1 ? `<div class="quote">四海天骄俯首，${esc(st.p.name)}，天下第一！</div>` : ''}`,
+        ${res.endRank === 1 && res.startRank > 1 ? `<div class="quote">四海天骄俯首，${esc(st.p.name)}，天下第一！</div>` : ''}
+        ${res.rookie ? `<p class="center ${res.rookie.due ? 'seal' : 'muted'}">新秀${esc(res.rookie.n)}往上追了 ${res.rookie.up} 名（第 ${res.rookie.q}）${res.rookie.due ? '，追到了你身后！' : `，离你还差 ${res.rookie.gap} 名`}</p>` : ''}`,
       foot: [{ t: '回洞府', gold: true, fn: closeModal }] });
   };
   next();

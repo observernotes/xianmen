@@ -13,6 +13,7 @@
 //   node tools/sim.js all 200 nosect2 guided 不送礼、不收徒、不领职司、宝库照旧（人脉的晋升条件仍在），量宗门加深这一刀
 //   node tools/sim.js all 200 nocrops 灵田只种灵稻（L.CROPS_ON = false：等价于作物制之前的被动灵石，没有灵草、灵谷、药引作物）
 //   node tools/sim.js all 200 noalch  关掉药引丹方与丹毒（L.ALCH_ON = false：只剩培元、破境、疗伤三种基础丹）
+//   node tools/sim.js all 200 norivals2 关掉宿敌与新秀这一刀（L.RIVALS2_ON = false：恩怨不驱动伏击 / 抬价 / 带头 / 化敌为友，没有新秀，宿敌不得奇遇、法宝不克你，guided 论道前不按克制换战技）
 // 策略：
 //   guided 空闲就行动；快圆满时留在家；灵石按“聚灵阵 > 灵田 > 丹炉 > 洞府”的折算价升级；每两趟历练闭关一次；
 //          突破带尽量多的丹（最多 3 枚）；金丹起的天劫护劫手段有就全用（祭法宝、道侣、灵宠、渡劫阵；停顿时临阵吞丹补到成功率封顶），
@@ -32,6 +33,8 @@
 //          钱差一点时拍卖那几个周天不升洞府、攒着；坊市事件随手选一个付得起的选项
 //          宗门（SYSTEMS §11）：宝库轮换里功法、更高阶法宝、器方阵图买得起就换；职司按宗门领；每届给支持最高的两位长老送礼；
 //          任务板四类新任务照接（讲法要离圆满还远），炼器、驯兽东西富余才交；徒弟挑灵根最高的收，闭门苦修到顶再去当值，圆满功法教给他，金丹出师
+//          宿敌与新秀（SYSTEMS §13）：论道前看本届第一场会碰上哪位宿敌（L.tourFoe），按胜算换上最好的战技（L.tourSwap：克他的五行、躲开他法宝克的那一系）；
+//          新秀追到身后：先换上对他最好的战技，打压胜算 ≥ 45% 就【打压】，否则【指点】
 //   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
 //          不闭关、不吐纳、不碰新系统（不卖行情、不去拍卖、灵田照默认全种灵稻、不炼丹）；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
 //   idle   什么都不做，只在修为圆满时突破
@@ -46,6 +49,8 @@ if (arg.includes('nodaoji')) L.DAOJI_ON = false;
 if (arg.includes('nopets')) L.PETS_ON = false;
 if (arg.includes('nocrops')) L.CROPS_ON = false;
 if (arg.includes('noalch')) L.ALCH_ON = false;
+if (arg.includes('norivals2')) L.RIVALS2_ON = false;
+const RIV2 = !arg.includes('norivals2');
 const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
@@ -424,7 +429,7 @@ function run(strat, seed, trace) {
   const st = L.newState({ name: '测试' });
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {},
-    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0 };
+    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0 };
   const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
@@ -452,7 +457,18 @@ function run(strat, seed, trace) {
     if (out.pact) { rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win; }
     if (out.invite && strat !== 'idle') L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]);
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
-    if (out.tourney) L.tournament(st);
+    if (out.tourney) {
+      // guided：论道前按克制换战技（第一场的宿敌）；换完下个周天 artOpt 再按平时的最优搭配换回来
+      if (strat === 'guided' && RIV2) { const sw = L.tourSwap(st); if (sw) { rec.rv.swap++; rec.rv.swapGain += sw.p1 - sw.p0; st._artKey = null; } }
+      L.tournament(st);
+    }
+    // 新秀追到身后，强制一战：guided 换上对他最好的战技，胜算 ≥ 45% 打压、否则指点；lazy 一半一半；idle 指点
+    if (out.rookie && L.rookie(st)) {
+      if (strat === 'guided') { const I0 = L.rookieInfo(st), b = L.duelArtBest(st, I0.foe, I0.Q); if (b && !b.same) { L.equipArt(st, b.id); st._artKey = null; } }
+      const I = L.rookieInfo(st), crush = strat === 'guided' ? I.p >= 0.45 : strat === 'lazy' ? L.rng() < 0.5 : false;
+      if (crush) { const r = L.rookieDuel(st); if (r.win) rec.rv.crushWin++; else rec.rv.crushLose++; rec.rv.crushP += r.p; } else { L.rookieResolve(st, 'teach'); rec.rv.teach++; }
+      while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle') L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
+    }
     if (out.meet) L.sectMeet(st);
     for (const id of ['mu', 'zhao', 'chu', 'xue', 'yun']) if (st.beaten[id] && rec.beatAt[id] === undefined) rec.beatAt[id] = st.tick;
     if (st.rank === 1 && rec.rank1 === undefined) rec.rank1 = st.tick;
@@ -477,6 +493,9 @@ function run(strat, seed, trace) {
   rec.fav = st.sect && st.sect.fav ? Object.values(st.sect.fav).sort((a, b) => b - a) : [0, 0, 0]; rec.duty = st.sect ? st.sect.duty : ''; rec.dings = st.stats.dings; rec.st = trace ? st : null;
   rec.recipes = L.recipeCount(st); rec.crafts = st.stats.crafts; rec.talent = st.p.t;
   rec.aucLost = st.stats.aucLost || 0; rec.rivalPw = Math.max(1, ...st.ladder.filter(x => x.id).map(x => x.pw || 1));
+  const R2 = st.rv2 || {};
+  Object.assign(rec.rv, { rkN: R2.rkN || 0, ambush: R2.ambush || 0, qy: R2.qy || 0, gifts: R2.gifts || 0, gMax: Math.max(...Object.values(st.grudge || { x: 0 })), gMin: Math.min(...Object.values(st.grudge || { x: 0 })),
+    hi: Object.values(st.grudge || {}).filter(g => g >= 60).length, lo: Object.values(st.grudge || {}).filter(g => g <= -40).length, ally: st.eflags && st.eflags.tiankuo_ally ? 1 : 0 });
   rec.ratio.sort((a, b) => a - b);
   rec.ratioMed = rec.ratio.length ? rec.ratio[rec.ratio.length >> 1] : 0;
   return rec;
@@ -506,6 +525,13 @@ function tribRows(strat, recs) {
   row(strat, '（参考）每次渡劫用的手段 / 临阵吞丹', `${(recs.reduce((a, x) => a + x.aidN, 0) / Math.max(1, tr)).toFixed(2)} 样 / ${(recs.reduce((a, x) => a + x.extraPills, 0) / Math.max(1, tr)).toFixed(2)} 枚；临场提示准 ${pct(hr)}；丹毒（待接）中位 ${med(recs.map(x => x.toxin))}`, '提示 80%（稳三级 100%）');
   const dm = k => med(recs.map(x => x.dao[k]));
   row(strat, '（参考）道心 狂/稳/仁 · 因果 未了/了结', `${dm('k')} / ${dm('w')} / ${dm('r')} · ${med(recs.map(x => x.karmaOpen))} / ${med(recs.map(x => x.karmaDone))}；心魔劫 ${med(recs.map(x => x.demons))} 次`, '三级门槛 5 / 12 / 25');
+}
+// 宿敌与新秀（SYSTEMS §13）：论道前换战技的次数与胜算涨幅、新秀几位怎么了结、伏击、宿敌奇遇、恩怨分布
+function rvRows(strat, recs) {
+  const m = k => med(recs.map(x => x.rv[k])), sum = k => recs.reduce((a, x) => a + x.rv[k], 0);
+  const sw = sum('swap'), cw = sum('crushWin'), cl = sum('crushLose');
+  row(strat, '（参考）宿敌 论道前换战技 / 胜算涨', `${m('swap')} 次 / +${(100 * sum('swapGain') / Math.max(1, sw)).toFixed(1)} 个百分点（每次）；宿敌奇遇 ${m('qy')} 次；伏击 ${m('ambush')} 次`, '§13：克制约 +10 个百分点');
+  row(strat, '（参考）新秀 出现 / 打压胜·负 / 指点；恩怨', `${m('rkN')} 位 / ${(cw / recs.length).toFixed(1)}·${(cl / recs.length).toFixed(1)}（打压胜算 ${pct(sum('crushP') / Math.max(1, cw + cl))}） / ${(sum('teach') / recs.length).toFixed(1)}；送礼 ${m('gifts')}；恩怨 ≥60 ${(sum('hi') / recs.length).toFixed(1)} 人、≤−40 ${(sum('lo') / recs.length).toFixed(1)} 人，最高 ${m('gMax')} 最低 ${m('gMin')}；楚天阔同行 ${pct(sum('ally') / recs.length)}`, '—');
 }
 function summarize(strat, recs, G) {
   const n = recs.length;
@@ -551,6 +577,7 @@ function summarize(strat, recs, G) {
     // SYSTEMS §8 秘境：一世进几次、怎么出来的、平均走到第几层、带回的灵石占历练收入多少
     const mjs = k => med(recs.map(x => x.mj[k]));
     row(strat, '（参考）秘境 进 / 通关 / 离开 / 出局；平均层；奇遇', `${mjs('runs')} / ${mjs('clear')} / ${mjs('leave')} / ${mjs('wipe')}；${(recs.reduce((a, x) => a + x.mj.deep, 0) / Math.max(1, recs.reduce((a, x) => a + x.mj.runs, 0))).toFixed(1)} 层；${mjs('ev')} 次；灵石占历练 ${pct(med(recs.map(x => x.mj.stones / Math.max(1, x.expStones))))}`, '—');
+    rvRows(strat, recs);
     row(strat, '（参考）拍卖 出价 / 拿下 / 被人拍走；宿敌最高 ×', `${med(recs.map(x => x.bids))} / ${med(recs.map(x => x.aucWon))} / ${med(recs.map(x => x.aucLost))}；×${med(recs.map(x => x.rivalPw)).toFixed(2)}`, '—');
     // SYSTEMS §18 预算：功法系统（心法裸倍率之外的熟练、融会、共鸣、星斗；战技倍率、共鸣、融会）在筑基末、渡劫期的加成
     const at = (r, f) => med(recs.map(x => x.artAt[r] && x.artAt[r][f]));
@@ -579,6 +606,7 @@ function summarize(strat, recs, G) {
     row(strat, '击败赵乾', bz, '≤ 160', bz <= 160);
     const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend));
     row(strat, '天骄榜第一', pct(r1), '0～10%', r1 <= 0.10);
+    rvRows(strat, recs);
     row(strat, '（参考）拍卖被人拍走；宿敌最高 ×', `${med(recs.map(x => x.aucLost))}；×${med(recs.map(x => x.rivalPw)).toFixed(2)}`, '—');
     const bfl = med(recs.map(x => x.btFails));
     row(strat, '（参考）突破失败次数（一世）', `${bfl}（${q(recs.map(x => x.btFails), 0.1)}～${q(recs.map(x => x.btFails), 0.9)}）`, '—');
@@ -607,7 +635,7 @@ function main(onlyStrat, n) {
   }
   const w = [8, 30, 64, 44, 6];
   const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
-  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${L.RIVALS2_ON === false ? '，宿敌与新秀关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标（其中门槛 ${gateFails} 行）` : '\n全部达标');

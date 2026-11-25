@@ -36,6 +36,10 @@ function onTick() {
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
   if (out.tourney) pushPopup(runTournament);
+  // 宿敌与新秀（panel-rivals.js）：新秀出世、追到身后强制一战、指点过的新秀送礼
+  if (out.rookieNew) { banner('新秀出世', `${out.rookieNew.n} · 天骄榜第 ${L.rookieRank(st)}`, '#ffe39a'); SFX.reveal(2); }
+  if (out.rookie) pushPopup(runRookie);
+  if (out.rkGift) floatText(100, 40, `${out.rkGift[0].n}送来${out.rkGift[0].what}`, '#8ff5d0');
   if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
   saveLocal();
@@ -137,6 +141,6 @@ Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, re
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, tribOpts, showField, brewUI, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

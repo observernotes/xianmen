@@ -94,6 +94,7 @@ L.migrate = function (s) {
   // 灵田作物、药引、丹囊与丹毒（crops.js / alchemy.js，可重复调用，不升版本）
   L.migrateAlch(s); L.migrateCrops(s);
   if (L.migrateRealm) L.migrateRealm(s);   // 秘境：st.run / st.mj / st.meta.mj 缺了补默认（幂等，不升版本）
+  if (L.migrateRivals) L.migrateRivals(s);   // 宿敌与新秀：恩怨、新秀、图鉴 st.meta.rival；拍卖加成压回 ×1.3（rivals2.js，幂等，不升版本）
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值
