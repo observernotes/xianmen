@@ -14,9 +14,16 @@ function showIntro() {
     ['一个废柴的逆天仙途，从此开始。', '三年之约、天剑宗、天骄榜、宗门之巅——', '还有那九九天劫之后的，白日飞升。'],
   ];
   let page = 0, typing = null;
+  // 每一页配一格开场画（ART.introPanel 200×120，整数倍放大；屏幕太窄时退一档）
+  const panel = n => {
+    if (!ART.introPanel) return '';
+    const c = ART.introPanel(n), dpr = window.devicePixelRatio || 1, maxW = Math.min(window.innerWidth - 32, 440);
+    let k = Math.max(1, Math.round(dpr * 2)); while (k > 1 && 200 * k / dpr > maxW) k--;
+    return `<img class="px ipanel" src="${urlOf(c, 'intro|' + n)}" style="width:${200 * k / dpr}px;height:${120 * k / dpr}px" alt="">`;
+  };
   const render = () => {
     const ls = lines[page];
-    box.innerHTML = `<div class="story">${page === 0 ? '<h1>废柴仙途</h1>' : ''}${ls.map(() => '<p></p>').join('')}<p class="hint">点击继续 ▸</p></div>`;
+    box.innerHTML = `<div class="story">${page === 0 ? '<h1>废柴仙途</h1>' : ''}${panel(page)}${ls.map(() => '<p></p>').join('')}<div class="ipager">${lines.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}<p class="hint">点击继续 ▸</p></div></div>`;
     const ps = box.querySelectorAll('p:not(.hint)');
     let li = 0, ci = 0;
     clearInterval(typing);
@@ -47,7 +54,10 @@ function setupForm() {
       <div class="muted">操作很简单：打坐自动涨修为 → 点【历练】打怪拿资源 → 升级洞府、买丹药 → 修为条变金时点它突破。</div>
     </div><div class="foot"><button class="btn gold" id="goStart">踏入仙途</button></div><div class="rod"></div></div>`;
   const inN = box.querySelector('#inName');
-  const av = () => { const c = ART.avatar({ hair: '#2a2230', skin: '#f2c9a0', f: female }, 0, '#e6e1d3'); const img = box.querySelector('#setupAv'); img.src = c.toDataURL(); img.style.cssText = avStyle(c, 78); };
+  const av = () => {
+    const look = { hair: '#2a2230', skin: '#f2c9a0', f: female }, c = ART.portraitMe ? ART.portraitMe(look, 0, 'n') : ART.avatar(look, 0, '#e6e1d3');
+    const img = box.querySelector('#setupAv'); img.src = c.toDataURL(); const s2 = pxFit(c.width, 96); img.style.cssText = `width:${s2}px;height:${s2 * c.height / c.width}px`; img.className = 'px pt';
+  };
   av();
   box.querySelector('#rdName').onclick = () => { inN.value = pickName(); SFX.tap(); };
   const setG = f => { female = f; box.querySelector('#gM').className = 'btn sm ' + (f ? 'alt' : 'gold'); box.querySelector('#gF').className = 'btn sm ' + (f ? 'gold' : 'alt'); if ((f ? NAMES_M : NAMES_F).includes(inN.value)) inN.value = pickName(); av(); SFX.tap(); };

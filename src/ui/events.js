@@ -1,13 +1,13 @@
 /* 废柴仙途 · 界面片段 events：奇遇事件
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 // ---------- 奇遇事件（选项） ----------
-function speakerImg(ev, w) {
-  const hx = typeof sectSpeakerImg === 'function' ? sectSpeakerImg(ev, w) : '';   // 长老、徒弟的事件立绘（panel-disc.js）
+function speakerImg(ev, w, mood) {
+  const hx = typeof sectSpeakerImg === 'function' ? sectSpeakerImg(ev, w, mood) : '';   // 长老、徒弟的事件立绘（panel-disc.js）
   if (hx) return hx;
   const spk = ev.speaker || ev.npc;
-  if (spk === 'elder') return `<img class="px" src="${ELDER}" style="width:${w}px;height:${w}px" alt="">`;
-  if (spk && L.NPCS[spk]) return npcAvImg(spk, w);
-  return myAvImg(w);
+  if (spk === 'elder') return elderImg(w, mood);
+  if (spk && L.NPCS[spk]) return npcAvImg(spk, w, mood);
+  return myAvImg(w, undefined, '', mood);
 }
 // back：结果页【继续】之后回到哪（坊市事件回坊市）；省略就关掉弹窗
 function showChoice(ev, back) {
@@ -53,7 +53,7 @@ function showChoice(ev, back) {
     }
     if (res.hasRisk) { if (res.ok) SFX.win(); else SFX.fail(); } else SFX.coin();
     sheet({ title: esc(L.fill(st, ev.title)), center: true, noClose: true,
-      body: `<div class="speaker">${speakerImg(ev, 44)}<p class="grow" style="margin:0">${esc(res.text)}</p></div>${chips}`,
+      body: `<div class="speaker">${speakerImg(ev, 48, res.hasRisk ? (res.ok ? 'joy' : 'sad') : 'n')}<p class="grow" style="margin:0">${esc(res.text)}</p></div>${chips}`,
       foot: [{ t: '继续', gold: true, fn: done }] });
   });
 }
@@ -61,7 +61,7 @@ function showChoice(ev, back) {
 // ---------- 随机事件 ----------
 function showEvent(ev) {
   const title = ev.kind === 'ring' ? '奇遇 · 戒中老祖' : ev.kind === 'beast' ? '灵兽认主' : '奇遇';
-  const img = ev.kind === 'ring' ? `<img class="px" src="${ELDER}" style="width:52px;height:52px" alt="">` : ev.item && ev.item.kind === 'pet' ? petImg(ev.item, 52) : myAvImg(52);
+  const img = ev.kind === 'ring' ? elderImg(52, 'joy') : ev.item && ev.item.kind === 'pet' ? petImg(ev.item, 52) : myAvImg(52, undefined, '', 'joy');
   sheet({ title, center: true, body: `<div class="row">${img}<p class="grow">${esc(ev.text)}</p></div>`, foot: [{ t: '妙啊', gold: true, fn: closeModal }] });
   SFX.reveal(5);
 }
