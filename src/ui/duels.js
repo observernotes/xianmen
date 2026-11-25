@@ -19,6 +19,7 @@ function duel(o) {
   });
   const m = $('#modal');
   m.classList.add('duel-m');
+  { const wr = $('#sceneWrap').getBoundingClientRect(); m.style.setProperty('--dmax', Math.max(150, Math.floor(window.innerHeight - 8 - wr.bottom)) + 'px'); }   // 纸卷最高到场景底边为止，不盖住场景（长台词在纸卷里滚）
   m.onclick = e => { if (e.target === m && !ended) duelSkip(); };   // 点画面任何地方都能跳过
   const foe = o.foe || ftGen(o.right.name);
   duelStage({ stage: o.stage || (st.exp || st.run ? 'wild' : 'town'), L: ftMe(), R: foe, win: o.win, p, S, Q: o.Q, face: o.face, trio: o.trio, foeName: o.right.name,

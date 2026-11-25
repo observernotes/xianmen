@@ -34,9 +34,9 @@ function fitScene() {
   const u = n / dpr;
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; }
   wrap.style.width = (W * u) + 'px'; wrap.style.height = (H * u) + 'px';
-  sceneU = u;
+  sceneU = u; sceneCrop = Math.max(0, Math.floor((W * u - ow) / 2 / u));   // 窄屏上场景左右各被裁掉的逻辑像素（对决的血条、名字要躲开）
 }
-let sceneU = 2;
+let sceneU = 2, sceneCrop = 0;
 function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }

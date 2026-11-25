@@ -730,7 +730,7 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 .zslot.zpend { box-shadow: 0 0 0 2px var(--gold); }
 /* ---- B 线：场景内对决（duel-）。对决时弹窗底透明、纸卷贴底，场景露在上面 ---- */
 #modal.duel-m { background: rgba(8, 6, 14, .12); }
-#modal.duel-m .sheet { max-height: 48%; }
+#modal.duel-m .sheet { max-height: min(48%, var(--dmax, 48%)); }
 #modal.duel-m .sheet .body { gap: 4px; }
 #modal.duel-m .quote { margin: 0; }
 .duel-intro { margin: 0; }
@@ -738,8 +738,8 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 #duelUI { position: absolute; inset: 0; pointer-events: none; }
 .duel-nm { position: absolute; max-width: 46%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff6e6;
   text-shadow: 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink); }
-.duel-nm.l { left: 3%; }
-.duel-nm.r { right: 3%; text-align: right; }
+.duel-nm.l { left: calc(3% + var(--crop, 0%)); }
+.duel-nm.r { right: calc(3% + var(--crop, 0%)); text-align: right; }
 .duel-nm b { font-weight: normal; color: #ff9a8a; }
 .duel-vs { position: absolute; left: 50%; transform: translate(-50%, -50%); font-size: calc(var(--fs) * 2); color: var(--gold);
   text-shadow: 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 2px 0 var(--ink), 0 -2px 0 var(--ink); }

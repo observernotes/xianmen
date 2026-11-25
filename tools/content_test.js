@@ -7,7 +7,7 @@
 // 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
 // 宗门加深（任务板四类、宝库轮换、职司五堂、人脉支持与晋升门槛、送礼、40 / 80 的恩惠、徒弟成长 / 差事 / 传授 / 出师 / 候选、性情事件、三人会武、血煞魔宗、长老事件界面、老祖讲解、迁移）
-// 界面改版 A / B 线（文件末尾那一大段）：主界面布局（Pixel 7 与 360×640）、人物页 8 分页、访客 / 闭关 / 老祖精灵 / 横幅排队 / 评价印、横屏、问老祖、气泡排队与头像“！”、章末卡、registerGuide、札记新任务、十种场景内对决
+// 界面改版 A / B 线（文件末尾那一大段）：主界面布局（Pixel 7 与 360×640）、人物页 8 分页、访客 / 闭关 / 老祖精灵 / 横幅排队 / 评价印、横屏、问老祖、气泡排队与头像“！”、章末卡、registerGuide、札记新任务、十种场景内对决、阶段四美术接线（锁碎裂 / 声音三态 / 速度档 / 掉落翻牌 / 空状态 / 首领十一种 / 九宗代表 / 魔宗演武场 / 戒指爆光）
 // node tools/content_test.js <输出目录>
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -2055,12 +2055,12 @@ require('fs').mkdirSync(out, { recursive: true });
         else if (kind === 'tour') { s.rank = 80; s.pact = -1; tune(72); }
         else if (kind === 'rookie') { s.rank = 10; s.flags.maxR = 4; s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' }); tune(10); for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); } for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); }
         else if (kind === 'boss') { s.bosses = { 0: 0 }; }
-        else if (kind === 'meet' || kind === 'trio' || kind === 'war' || kind === 'promo') { L.joinSect(s, 'dao'); s.sect.total = kind === 'promo' ? 20000 : 3000; s.sect.pts = 900; if (kind === 'trio') { s.sect.rank = 4; s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; L.discTake(s, null, { cat: 'strong', tp: 'mang', t: 4 }); L.discTake(s, null, { cat: 'quiet', tp: 'chi', t: 3 }); s.disc.list.forEach(x => { x.di = 13; }); s.disc.cand = null; } if (kind === 'meet' || kind === 'trio') s.sect.rank = kind === 'trio' ? 6 : 2; }
+        else if (kind === 'meet' || kind === 'trio' || kind === 'war' || kind === 'promo') { L.joinSect(s, 'dao'); s.sect.total = kind === 'promo' ? 20000 : 3000; s.sect.pts = 900; if (kind === 'trio') { s.sect.rank = 4; s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; L.discTake(s, null, { cat: 'strong', tp: 'mang', t: 4 }); L.discTake(s, null, { cat: 'quiet', tp: 'chi', t: 3 }); s.disc.list.forEach(x => { x.di = 13; }); s.disc.cand = null; } if (kind === 'meet' || kind === 'trio') s.sect.rank = kind === 'trio' ? 6 : 2; if (kind === 'promo') s.sect.rank = 2; }
         X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); return kind;
       }, kind);
       const startFn = {
         pact: () => window.__xm.runPact(), origin: () => window.__xm.runPact(), tour: () => window.__xm.runTournament(), rookie: () => window.__xm.runRookie(), boss: () => window.__xm.fightBossUI(0),
-        meet: () => window.__xm.runSectMeet(), trio: () => window.__xm.runSectMeet(), war: () => window.__xm.runWar(), promo: () => { const X = window.__xm; X.st.p.r = 3; X.st.p.s = 2; X.doPromote(); },
+        meet: () => window.__xm.runSectMeet(), trio: () => window.__xm.runSectMeet(), war: () => window.__xm.runWar(), promo: () => { const X = window.__xm, { L } = X; const o = L.promote; L.promote = () => ({ duel: { S: 900, Q: 1000, p: 0.5, win: true } }); X.doPromote(); L.promote = o; },
         event: () => { const X = window.__xm; X.showChoice({ id: 'ui_duel', where: 'home', title: '路遇拦路人', text: '有人拦住了去路。', choices: [{ t: '与之交手', duel: 0.9, ok: { text: '你赢了。', fx: { xp: 5 } }, fail: { text: '你输了。', fx: { inj: 2 } } }] }); setTimeout(() => { const b = document.querySelector('#modal button[data-c="0"]'); if (b) b.click(); }, 300); },
       };
       const D = () => pg.evaluate(() => { const X = window.__xm, d = X.duelFx; const m = document.getElementById('modal'); return { fx: !!d, ended: d && d.ended, modal: !m.hidden, duelM: m.classList.contains('duel-m'), title: (m.querySelector('h2') || {}).textContent || '' }; });
@@ -2109,6 +2109,129 @@ require('fs').mkdirSync(out, { recursive: true });
       const post = await D();
       expect(pre.fx && !post.fx, `对决中途 closeModal 后 duelFx 被清掉（前 ${pre.fx}，后 ${post.fx}）`);
       await closeAll(pg);
+      await ctx.close();
+    }
+
+    // ================= 阶段四美术接线（锁碎裂、声音三态、速度档、掉落翻牌、空状态、首领 / 九宗代表 / 魔宗演武场、戒指爆光）=================
+    {
+      const { ctx, pg } = await fresh(devices['Pixel 7']);
+      const ev = (f, a) => pg.evaluate(f, a);
+      await ev(() => {
+        const { st, L } = window.__xm;
+        st.stones = 5e4; st.p.r = 3; st.p.s = 3; st.p.t = 4; st.flags.awoke = 2; st.flags.maxR = 3; st.tick = 120; st.pact = 1; st.beaten.mu = 1; st.rank = 30; st.stats.exp = 25; st.retreat = null; st.exp = null;
+        st.home = Object.assign(st.home, { cave: 4, array: 9, field: 8, furnace: 5 });
+        for (let k = 0; k <= 4; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
+        L.joinSect(st, 'dao'); st.sect.total = 3000; st.sect.pts = 900; st.market.evQ = []; st.achQ = []; st.storyQ = [];
+        document.getElementById('tip').hidden = true;
+      });
+      await pg.waitForTimeout(600);
+      // 1 底栏解锁：.lkbrk 出现、约 330ms 后撤掉；.unlock 照旧
+      await ev(() => { window.__xm.st.stats.exp = 0; }); await pg.waitForTimeout(700);
+      const lockedBefore = await ev(() => !!document.querySelector('#nav [data-nav="market"] .lock, #nav [data-nav="market"].locked, #nav [data-nav="market"] img[data-lock]') || document.querySelector('#nav [data-nav="market"]').className);
+      await ev(() => { window.__xm.st.stats.exp = 1; });
+      const lk = { seen: false, unlock: false, t0: Date.now(), goneAt: 0, firstAt: 0 };
+      for (let i = 0; i < 40; i++) {
+        const r = await ev(() => ({ brk: !!document.querySelector('#nav button .lkbrk'), un: !!document.querySelector('#nav button.unlock') }));
+        if (r.brk && !lk.seen) { lk.seen = true; lk.firstAt = Date.now() - lk.t0; }
+        if (r.un) lk.unlock = true;
+        if (lk.seen && !r.brk && !lk.goneAt) lk.goneAt = Date.now() - lk.t0;
+        await pg.waitForTimeout(25);
+      }
+      expect(lk.seen && lk.goneAt > 0 && lk.goneAt - lk.firstAt >= 200 && lk.goneAt - lk.firstAt <= 700 && lk.unlock, `阶段四 1 底栏解锁：.lkbrk 出现后约 330ms 撤掉、.unlock 流程照旧：${JSON.stringify(lk)}（解锁前 ${lockedBefore}）`);
+      // 2 声音三态
+      const snd = [];
+      for (let i = 0; i < 3; i++) {
+        snd.push(await ev(() => { const b = document.getElementById('btnSound'), im = b.querySelector('img'); const L = ['声音：音乐与音效', '声音：仅音效', '声音：静音'], k = L.indexOf(b.getAttribute('aria-label')); const want = ['snd_on', 'snd_sfx', 'snd_off'].map(n => window.__xm.ART.icon(n).toDataURL()); return { label: b.getAttribute('aria-label'), idx: k, imgMatch: !!im && k >= 0 && im.src === want[k], distinct: new Set(want).size }; }));
+        await pg.click('#btnSound'); await pg.waitForTimeout(150);
+      }
+      expect(snd.every(x => x.imgMatch && x.distinct === 3) && new Set(snd.map(x => x.idx)).size === 3 && snd.every((x, i) => i === 0 || x.idx === (snd[i - 1].idx + 1) % 3), '阶段四 2 #btnSound 点三次：图标依次 snd_on / snd_sfx / snd_off、aria-label 三种文案：' + JSON.stringify(snd));
+      await pg.click('#btnSound'); await pg.click('#btnSound'); await pg.click('#btnSound');   // 回到起点（点满三下一圈）
+      // 3 速度档
+      await ev(() => window.__xm.setSpeed(0)); await pg.waitForTimeout(400);
+      const spd = [];
+      for (let i = 0; i < 4; i++) {
+        await pg.waitForTimeout(250);
+        spd.push(await ev(() => { const b = document.getElementById('btnSpeed'), r = b.getBoundingClientRect(); return { lab: b.getAttribute('aria-label'), on: b.classList.contains('on'), w: Math.round(r.width), h: Math.round(r.height), img: !!b.querySelector('img') }; }));
+        await pg.click('#btnSpeed');
+      }
+      await ev(() => window.__xm.setSpeed(3)); await pg.waitForTimeout(300);
+      expect(spd.map(x => x.lab).join('|') === ['游戏速度：×1', '游戏速度：×2', '游戏速度：×4', '游戏速度：暂停'].join('|') && spd.map(x => x.on).join() === 'false,false,false,true' && spd.every(x => x.w >= 44 && x.h >= 44 && x.img), '阶段四 3 #btnSpeed 点四次：×1 / ×2 / ×4 / 暂停，暂停时有 .on，按钮 ≥44px、图标是美术：' + JSON.stringify(spd));
+      // 4 掉落翻牌
+      const drop = async (drops, legacy) => {
+        await ev(([drops, legacy]) => {
+          const { st, L } = window.__xm; st.exp = null; window.__xm.closeModal();
+          L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [];
+          for (const [k, t] of drops) res.items.push(L.giveItem(st, k, t, undefined, { k: 0, d: 0, src: 'exp' }));
+          window.__want = Math.max(0, ...res.items.map(it => it.kind === 'a' ? (L.art(it.art) || {}).t : it.gear ? it.gear.t : it.kind === 'pet' ? it.tier : 0).map(t => t ? Math.max(1, Math.min(7, t | 0)) : 0));
+          window.__xm.showExpResult(res);
+        }, [drops, legacy]);
+        await pg.waitForTimeout(700);
+        const r = await ev(() => { const d = document.querySelector('#modal .dflip'), c = document.querySelector('#modal canvas.dflip-beam'); return { has: !!d, tier: c ? c.dataset.tier : null, want: String(window.__want) }; });
+        await closeAll(pg); return r;
+      };
+      const d1 = await drop([['w', 6], ['a', 2]]), d2 = await drop([['a', 2]]), d3 = await drop([['r', 7]]), d4 = await drop([]);
+      expect([d1, d2, d3].every(d => d.has && d.tier === d.want && +d.want >= 2), '阶段四 4 有掉落：#modal .dflip，光柱 data-tier = 掉落里最高品阶（法宝 6 + 功法 2 → 6；功法 2 → 2；法衣 7 → 7 封顶）：' + JSON.stringify([d1, d2, d3]));
+      expect(!d4.has, '阶段四 4 没有掉落：不出现 .dflip：' + JSON.stringify(d4));
+      // 5 空状态
+      const en = async fn => { await ev(fn); await pg.waitForTimeout(400); const r = await ev(() => !!document.querySelector('#modal .empty-note')); await closeAll(pg); return r; };
+      const e1 = await en(() => { const { st } = window.__xm; st.pets = []; st.petOut = -1; st.petPend = []; window.__xm.showPets(); });
+      const e1n = await en(() => { const { st, L } = window.__xm; st.pets = []; st.petOut = -1; st.petPend = []; L.petGive(st, { sp: 'p_tu' }); window.__xm.showPets(); });
+      const e2 = await en(() => { const { st, L } = window.__xm; L.rollVault(st); const V = L.vaultRot(st); if (V) V.slots.forEach(s => { s.sold = s.lim || 1; }); window.__xm.showSect('vault'); });
+      const e2n = await en(() => { const { st, L } = window.__xm; L.rollVault(st); window.__xm.showSect('vault'); });
+      const e3 = await en(() => { const { st, L } = window.__xm; window.__keys = L.BLD_KEYS.slice(); L.BLD_KEYS.splice(0, L.BLD_KEYS.length, 'array'); const pl = L.homePlots(st); const i = pl.findIndex((k, j) => j > 0 && !k); window.__xm.showHome(false, i > 0 ? i : 1); });
+      await ev(() => { const { L } = window.__xm; L.BLD_KEYS.splice(0, L.BLD_KEYS.length, ...window.__keys); });
+      const e3n = await en(() => { const { st, L } = window.__xm; const pl = L.homePlots(st); const i = pl.findIndex((k, j) => j > 0 && !k); window.__xm.showHome(false, i > 0 ? i : 1); });
+      expect(e1 && !e1n && e2 && !e2n && e3 && !e3n, '阶段四 5 .empty-note：没灵宠 / 宝库没得换 / 空地没有可建的 时出现，反之不出现：' + JSON.stringify({ pet: [e1, e1n], vault: [e2, e2n], plot: [e3, e3n] }));
+      // 6 首领 k=0..10：无报错、duelFx 正常结束；7 九宗代表；8 魔宗演武场；9 戒指爆光
+      const wait = async (cond, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(cond)) return true; await pg.waitForTimeout(80); } return false; };
+      const finishDuel = async () => { for (let i = 0; i < 12; i++) { const s = await ev(() => ({ fx: !!window.__xm.duelFx, ended: window.__xm.duelFx && window.__xm.duelFx.ended, modal: !document.getElementById('modal').hidden })); if (!s.fx && !s.modal) return true; if (s.fx && !s.ended) await ev(() => window.__xm.duelSkip()); else await ev(() => { const b = document.querySelector('#modal .foot .btn'); if (b) b.click(); else window.__xm.closeModal(); }); await pg.waitForTimeout(600); } return false; };
+      const bossRes = (k, p, win) => ev(([k, p, win]) => { const { L } = window.__xm; window.__fb = window.__fb || L.fightBoss; L.fightBoss = (st, kk) => ({ B: L.BOSSES[kk], Q: 1000, S: 900, p, win, again: true, mat: 1, stones: 10 }); window.__xm.fightBossUI(k); L.fightBoss = window.__fb; }, [k, p, win]);
+      const nBoss = await ev(() => window.__xm.L.BOSSES.length);
+      for (let k = 0; k < Math.max(11, nBoss); k++) {
+        await closeAll(pg); await bossRes(k, 0.7, true);
+        const started = await wait(() => !!window.__xm.duelFx, 1500);
+        if ([0, 7, 8].includes(k)) { await pg.waitForTimeout(700); await pg.screenshot({ path: U('wire4-boss' + k) }); }
+        const done = started && await finishDuel();
+        expect(started && done, `阶段四 6 首领 k=${k}：duelFx 正常开始并结束（开始 ${started}，结束 ${done}）`);
+      }
+      const meet = id => ev(id => { const { st, L } = window.__xm; window.__sm = window.__sm || L.sectMeet; const foe = L.NINE.find(x => x.id === id); L.sectMeet = () => ({ n: 1, start: 5, end: 4, S: 900, rounds: [{ q: 4, foe, Q: 1000, S: 900, p: 0.6, win: true, contrib: 10, stones: 10 }] }); window.__xm.runSectMeet(); L.sectMeet = window.__sm; }, id);
+      for (const [id, who] of [['wanfa', 'zhuge'], ['jingang', 'huineng'], ['jian', 'jian13'], ['xuesha', null]]) {
+        await closeAll(pg); await meet(id); await pg.waitForTimeout(300);
+        await pg.evaluate(() => { const b = document.querySelector('#modal .foot .btn.gold'); if (b) b.click(); });
+        await wait(() => !!window.__xm.duelFx, 1500);
+        const r = await ev(() => { const d = window.__xm.duelFx; return d ? { stage: d.stage, who: d.bouts[0].R.who && (typeof d.bouts[0].R.who === 'string' ? d.bouts[0].R.who : 'gen'), pt: !!d.bouts[0].R.pt } : null; });
+        if (id === 'xuesha') expect(r && r.stage === 'sect_mo', `阶段四 7 对手 xuesha：duelFx.stage === 'sect_mo'（${JSON.stringify(r)}）`);
+        else expect(r && r.who === who && r.stage !== 'sect_mo', `阶段四 7 会武对手 ${id} 用画像小人 ${who}（${JSON.stringify(r)}）`);
+        await finishDuel();
+      }
+      // 8 来犯 / 晋升之争的舞台
+      await closeAll(pg);
+      await ev(() => { const { L } = window.__xm; const o = L.sectWar; L.sectWar = () => ({ Q: 1000, S: 900, p: 0.5, win: true, contrib: 1, stones: 1 }); window.__xm.runWar(); L.sectWar = o; });
+      await wait(() => !!window.__xm.duelFx, 1500);
+      const war = await ev(() => window.__xm.duelFx && window.__xm.duelFx.stage); await finishDuel();
+      expect(war === 'sect_mo', `阶段四 8 runWar：duelFx.stage === 'sect_mo'（${war}）`);
+      const promoStage = async sect => {
+        await closeAll(pg);
+        await ev(sect => { const X = window.__xm, { L } = X; const s = L.newState({ name: '晋', origin: sect === 'xuesha' ? 'moyi' : undefined }); s.guide = { step: 99, done: true }; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; s.storyQ = []; if (sect === 'xuesha') s.origin = 'moyi'; s.p.r = 3; s.p.s = 2; s.flags.maxR = 3; s.tick = 130; s.pact = 1; s.beaten.mu = 1; s.stats.exp = 20; s.stones = 1e5; s.rank = 50; s.home = { cave: 6, array: 8, field: 8, furnace: 8 }; for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3; L.joinSect(s, sect); s.sect.rank = 2; s.sect.total = 20000; s.sect.pts = 900; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); const o = L.promote; L.promote = () => ({ duel: { S: 900, Q: 1000, p: 0.5, win: true } }); X.doPromote(); L.promote = o; }, sect);   // 晋升要的人脉等条件不好凑：直接给一场晋升之争
+        await wait(() => !!window.__xm.duelFx, 2500);
+        const r = await ev(() => ({ stage: window.__xm.duelFx && window.__xm.duelFx.stage, sect: window.__xm.st.sect && window.__xm.st.sect.id, title: (document.querySelector('#modal h2') || {}).textContent }));
+        await finishDuel(); return r;
+      };
+      const pMo = await promoStage('xuesha'), pDao = await promoStage('dao'), pDan = await promoStage('dan');
+      expect(/之争/.test(pMo.title) && /之争/.test(pDao.title) && pMo.sect === 'xuesha' && pMo.stage === 'sect_mo' && pDao.stage === 'sect' && pDan.stage === 'sect', '阶段四 8 魔宗弟子的晋升之争 sect_mo，其他宗门仍 sect：' + JSON.stringify([pMo, pDao, pDan]));
+      // 9 越级反杀：戒指爆光约 1 秒，无报错；跳过时不播
+      await closeAll(pg);
+      await ev(() => { const A = window.__xm.ART, f = A.drawRingBurst; window.__rb = { n: 0, first: 0, last: 0 }; A.drawRingBurst = function () { const t = performance.now(); if (!window.__rb.n) window.__rb.first = t; window.__rb.last = t; window.__rb.n++; return f.apply(this, arguments); }; });
+      await bossRes(4, 0.3, true);
+      await wait(() => !!window.__xm.duelFx, 1500);
+      await wait(() => window.__xm.duelFx && window.__xm.duelFx.ringT >= 0, 6000);
+      await pg.waitForTimeout(1600);
+      const rb = await ev(() => Object.assign({}, window.__rb)); await finishDuel();
+      expect(rb.n > 0 && rb.last - rb.first >= 800 && rb.last - rb.first <= 1500, `阶段四 9 越级反杀：戒指爆光约 1 秒（${rb.n} 帧，${Math.round(rb.last - rb.first)}ms）`);
+      await ev(() => { window.__rb = { n: 0, first: 0, last: 0 }; });
+      await bossRes(4, 0.3, true); await wait(() => !!window.__xm.duelFx, 1500); await ev(() => window.__xm.duelSkip()); await pg.waitForTimeout(1200);
+      const rb2 = await ev(() => Object.assign({}, window.__rb)); await finishDuel();
+      expect(rb2.n === 0, `阶段四 9 跳过对决时不播戒指爆光（${rb2.n} 帧）`);
       await ctx.close();
     }
   }

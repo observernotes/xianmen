@@ -135,7 +135,7 @@ function drawDuelScene(dt) {
   for (const e of b.ev) {
     if (e.done || d.t < e.t0 + (e.ring ? 0 : (bi ? DUEL.trioHit : DUEL.hit) * 0.45)) continue;
     e.done = true;
-    if (e.ring) { d.ringT = d.t; if (!d.quick) { floatText(DUEL.xL, foot - 46, '戒指发光！', '#ffe39a'); SFX.reveal(3); } continue; }
+    if (e.ring) { if (!d.quick) { d.ringT = d.t; floatText(DUEL.xL, foot - 46, '戒指发光！', '#ffe39a'); SFX.reveal(3); } continue; }
     const tgt = e.by === 'L' ? 'R' : 'L';
     d.hp[tgt] = e[tgt];
     if (e.ko) d.ko = tgt;
@@ -203,8 +203,8 @@ function drawDuelScene(dt) {
   drawParts(dt);
   // 血条（名字与战力是 DOM，见 syncDuelUI）
   if (d.t >= b.t0) {
-    ART.drawHpBar(6, DUEL.barY, 84, d.show.L, { lag: d.lag.L });
-    ART.drawHpBar(110, DUEL.barY, 84, d.show.R, { lag: d.lag.R, right: true });
+    ART.drawHpBar(6 + sceneCrop, DUEL.barY, 84 - sceneCrop, d.show.L, { lag: d.lag.L });   // 窄屏（360 宽）场景两边被裁掉一点：血条往里收
+    ART.drawHpBar(110, DUEL.barY, 84 - sceneCrop, d.show.R, { lag: d.lag.R, right: true });
   }
   // 开场对视：两张半身像从两边推进来
   if (d.face && d.t < d.face) {
@@ -239,11 +239,12 @@ function syncDuelUI() {
   if (!ui) { ui = document.createElement('div'); ui.id = 'duelUI'; wrap.appendChild(ui); }
   const b = d.bouts[Math.max(0, d.bi)], facing = d.face && d.t < d.face * 0.82;
   const nm = s => (s === 'L' ? b.nL : b.nR) || '';
-  const key = [d.bi, facing, H, nm('L'), nm('R')].join('|');
+  const key = [d.bi, facing, H, sceneCrop, nm('L'), nm('R')].join('|');
   if (key === d.uiKey) return;
   d.uiKey = key;
   const pt = y => ((y + OY) / H * 100).toFixed(2) + '%';
   const side = (s, cls) => `<div class="duel-nm ${cls}" style="top:${pt(DUEL.nameY)}">${esc(nm(s))} <b>${b[s === 'L' ? 'S' : 'Q'] ? fmt(b[s === 'L' ? 'S' : 'Q']) : ''}</b></div>`;
+  ui.style.setProperty('--crop', (sceneCrop / W * 100).toFixed(2) + '%');
   ui.innerHTML = side('L', 'l') + side('R', 'r') + (facing ? `<div class="duel-vs" style="top:${pt(DUEL.faceY + 35)}">VS</div>` : '') + (b.label ? `<div class="duel-lab" style="top:${pt(DUEL.labY)}">${esc(b.label)}</div>` : '');
 }
 // 新秀：门人头像做对视，小人按种子换色

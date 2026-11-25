@@ -515,8 +515,10 @@ require('fs').mkdirSync(out, { recursive: true });
   await rvBuild('ambush'); await page.evaluate(() => window.__xm.showChoice(window.__xm.L.eventById('rv_ambush_zhao'))); await page.waitForTimeout(500);
   await page.screenshot({ path: out + '/70-rv-ambush.png' }); await rvLay('伏击事件');
   await rvForce(0.0); await page.click('#modal button[data-c="0"]'); await page.waitForTimeout(600); await page.screenshot({ path: out + '/71-rv-ambush-duel.png' });
-  await page.waitForTimeout(1300); await rvUnforce(); await rvLay('伏击对决结果');
-  if (!(await page.$('#modal #vsR'))) errors.push('伏击对决里没有宿敌半身像 #vsR');
+  // 对决在场景里演：宿敌的半身像是开场对视（duelFx.face > 0，右边是赵乾），纸卷里不再有 #vsR
+  const amb = await page.evaluate(() => { const d = window.__xm.duelFx; return d ? { face: d.face, nR: d.bouts[0].nR } : null; });
+  if (!amb || !(amb.face > 0) || !String(amb.nR).includes('赵乾')) errors.push('伏击对决没有对视（宿敌半身像）：' + JSON.stringify(amb));
+  await page.evaluate(() => window.__xm.duelSkip()); await page.waitForTimeout(900); await rvUnforce(); await rvLay('伏击对决结果');
   await close();
   // 老祖讲解：对决准备页上的克制
   await rvBuild('prep'); await page.evaluate(() => { delete window.__xm.st.hintSeen.rvKezhi; window.__xm.runTournament(); });
@@ -555,6 +557,25 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); await page.screenshot({ path: out + '/19-newlife.png' });
   const meta = await page.evaluate(() => Object.keys(window.__xm.st.meta.aff).length);
   if (meta < 15) errors.push('转世后相性图鉴没有保留（' + meta + '）');
+  // ---------- 界面改版 A / B 线：问老祖、章末卡、场景内对决（纸卷在下、场景在上）、人物页分页；手机上不横向溢出、可点的 ≥ 44 像素 ----------
+  await close(); await page.waitForTimeout(500);
+  await page.evaluate(() => { const { st } = window.__xm; st.guide = { step: 99, done: true }; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.storyQ = []; st.exp = null; st.retreat = null; document.querySelector('#tip').hidden = true; });
+  await page.evaluate(() => window.__xm.showAsk()); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-ask.png' });
+  lay44(await big44('#modal [data-ask], #modal .foot .btn, #modal .close', '问老祖'));
+  await close();
+  await page.evaluate(() => window.__xm.showChapterCard(0)); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-chapter-card.png' });
+  lay44(await big44('#modal .foot .btn', '章末卡'));
+  await close();
+  await page.evaluate(() => window.__xm.runPact()); await page.waitForTimeout(900); await page.screenshot({ path: out + '/ui-duel-pact.png' });
+  const dgap = await page.evaluate(() => { const sh = document.querySelector('#modal.duel-m .sheet'), w = document.getElementById('sceneWrap').getBoundingClientRect(); return sh ? Math.round(sh.getBoundingClientRect().top - w.bottom) : null; });
+  if (dgap === null || dgap < -2) errors.push('对决纸卷盖住了场景（纸卷顶 - 场景底 = ' + dgap + 'px）');
+  lay44(await big44('#modal .foot .btn', '对决纸卷'));
+  await page.mouse.click(200, 300); await page.waitForTimeout(900);   // 点画面跳过
+  if (await page.evaluate(() => !!window.__xm.duelFx && !window.__xm.duelFx.ended)) errors.push('点画面没能跳过对决');
+  await page.screenshot({ path: out + '/ui-duel-pact-end.png' });
+  await close(); await page.evaluate(() => { if (window.__xm.duelFx) window.__xm.closeModal(); }); await page.waitForTimeout(400);
+  for (const t of ['attr', 'art', 'gear', 'dao', 'bond', 'ach', 'codex', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(350); lay44(await big44('#modal .tabs button, #modal .close', '人物页 ' + t)); }
+  await page.screenshot({ path: out + '/ui-me-rank.png' }); await close();
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;
