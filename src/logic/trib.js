@@ -19,7 +19,7 @@ const { R, clamp, emit } = L.U;
 
 // 护劫手段（每次渡劫各限用一次）与评价（SYSTEMS §9 的表）
 L.TRIB = { fa: 0.08, pet: 0.10, daolv: 0.08, pill: 0.10, maxPill: 2, toxin: 20, zhen: 0.01, zhenCap: 0.15, petRest: 12, daolvAff: 5,
-  demon: 0.05, cap: 0.24, acc: 0.8, pass: 0.12 };
+  demon: 0.05, cap: 0.24, acc: 0.8, pass: 0.12, top: 0.65, topFrom: 2 };
 L.TRIB_GRADES = [
   { n: '完美', m: 0.5, d: 0.03, dan: '一品' },
   { n: '上', m: 0.25, d: 0.02, dan: '二品' },
@@ -102,8 +102,14 @@ function partsOf(st, pills, aids, extra) {
   const one = (k, v) => a.push([L.AID_N[k], v]);
   for (const src of [aids || {}, (extra && extra.aids) || {}]) for (const k of ['fa', 'pet', 'daolv', 'zhen']) if (src[k]) one(k, src[k] === 1 && k !== 'zhen' ? L.TRIB[k] : src[k]);
   if (extra && extra.pills) a.push([`${L.AID_N.pill} ×${extra.pills}`, extra.pills * L.TRIB.pill]);
+  // 天劫无十成：各项加起来超过封顶（L.TRIB.top，每败一次 +10%，见 L.tribTop）的部分不算，单列一项让合计与结算一致
+  const top = L.tribTop(st), sum = L.modSum(a);
+  if (sum > top) a.push([`天劫难测（最多 ${L.pct(top)}）`, top - sum]);
   return a;
 }
+// 雷劫成功率的封顶：元婴劫起（金丹期往上冲，r ≥ L.TRIB.topFrom）L.TRIB.top + 屡败屡战（每败一次 +10%，与 L.btParts 里那一项同步），上限 100%；
+// 结丹那一劫（三道雷）不封顶——挂机的也要能结丹（DESIGN §3.12：idle 在金丹期坐化）
+L.tribTop = st => (st.p.r < L.TRIB.topFrom ? 1 : Math.min(1, L.TRIB.top + (st.p.fails || 0) * L.BT.fail));
 const rateOf = (parts, sure) => (sure ? 1 : clamp(L.modSum(parts), 0.05, 1));
 // 准备页用：照这样选，成功率由哪些项组成、合计多少（o = { pills, aids }；还没开渡，破境丹按手里的数截）
 L.tribParts = (st, o) => { o = o || {}; return partsOf(st, L.btPills(st, o.pills), pickAids(st, o.aids, 'pre')); };

@@ -464,11 +464,12 @@ require('fs').mkdirSync(out, { recursive: true });
     const pw0 = L.power(st);
     st.pills = 0; const v = L.tribStart(st, { pills: 0, aids: { pet: 1 } }); const rested = (pp.rest || 0) - st.tick, pwRest = L.power(st) / pw0, again = L.aidInfo(st, 'pet').ok;
     st.trib.cur = null; st.pills = 8; st.pets = []; st.petOut = -1;
-    return { names: parts.map(x => x[0]).join(','), rate: L.tribRate(st, { pills: 2, aids: { fa: 1, daolv: 1 } }), base: L.REALMS[2].rate, furn: st.home.furnace * L.BT.furnace,
+    return { names: parts.map(x => x[0]).join(','), rate: L.tribRate(st, { pills: 2, aids: { fa: 1, daolv: 1 } }), base: L.REALMS[2].rate, furn: st.home.furnace * L.BT.furnace, top: L.tribTop(st),
       pet0: pet0.ok, pet4, petWhy: pet0.why, zhen0: zhen0.ok, zhenWhy: zhen0.why, pet1: pet1.ok, petD: Math.round((r1 - r0) * 100), rested, petUsed: !!(v && v.aids.pet), restOff: pwRest < 0.999 && !again, cost: L.aidInfo(st, 'fa').cost };
   });
-  expect(Math.abs(aid.rate - Math.min(1, aid.base + aid.furn + 0.30 + 0.16)) < 1e-9 && aid.names.includes('祭法宝') && aid.names.includes('道侣护法') && !aid.names.includes('灵宠挡劫') && !aid.names.includes('渡劫阵'),
-    `护劫手段：${aid.names} = ${L_pct(aid.rate)}（基础 ${aid.base} + 丹 30% + 法宝 8% + 道侣 8%）`);
+  // 元婴劫起天劫封顶（L.tribTop：L.TRIB.top + 屡败屡战），超出的部分在拆解里单列“天劫难测”
+  expect(Math.abs(aid.rate - Math.min(aid.top, aid.base + aid.furn + 0.30 + 0.16)) < 1e-9 && aid.top < 1 && aid.names.includes('祭法宝') && aid.names.includes('道侣护法') && !aid.names.includes('灵宠挡劫') && !aid.names.includes('渡劫阵'),
+    `护劫手段：${aid.names} = ${L_pct(aid.rate)}（基础 ${aid.base} + 丹 30% + 法宝 8% + 道侣 8%，封顶 ${L_pct(aid.top)}）`);
   expect(!aid.pet0 && !aid.pet4 && /灵宠/.test(aid.petWhy) && !aid.zhen0 && /阵/.test(aid.zhenWhy) && aid.pet1 && aid.petD === 10 && aid.rested === 12 && aid.petUsed && aid.restOff && aid.cost.includes('+3 → +2'),
     `没有 5 心灵宠、渡劫阵未上线时不可用（${aid.petWhy} / ${aid.zhenWhy}）；5 心灵宠挡劫 +${aid.petD}%、休养 ${aid.rested} 周天（期间不出力 ${aid.restOff}）；祭法宝代价：${aid.cost}`);
   // 预掷与结果一致：同一个 u，成败 = u < 补完后的成功率；曲线单调下降，败了最后一道打穿；评价按余量；临阵吞丹另算在 3 枚之外、记丹毒
