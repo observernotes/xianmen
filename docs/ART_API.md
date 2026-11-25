@@ -59,3 +59,12 @@
 - `ART.homeSlots`：8 个地块的建议坐标（[0] 聚灵阵 = 主角座下，[1] 田区，其余按 y 排序后画）。`ART.plotTile('empty'|'built'|'locked', sel)` → 26×26 地块格。
 - `ART.sigil(id)` → 16×16 阵图，id = f_juling f_shengcai f_hushan f_yangshou f_danhuo f_duanhun f_dujie f_mizong（`ART.sigilIds`、`ART.sigilColor(id)`）。
 - `ART.drawFormation(id, x, y, t, { pending, small, part: 'back'|'front' })` 地面阵法光圈（small = 第二阵位）。
+
+## 阶段三·批次七（天劫 / 道心）
+
+- `ART.drawTribClouds(t, OY, k 0～1)` 劫云（k = 聚拢程度）。
+- `ART.drawTribBolt(x, yTop, yGround, k 0～1, seed, lvl 0～3)` 一道雷：0～0.15 先导、0.15～0.5 主击（带闪屏）、之后余辉；seed 决定折线，lvl 换色 青白 / 金 / 紫 / 赤。
+- `ART.drawShield(x, y, frac, t, hit)` 护体光罩（(x, y) = 人物脚底；frac 越低越红并出裂纹）。
+- `ART.drawShieldBar(x, y, w, frac, { mark, lag })` 护体条（mark = 预计落点刻线）。
+- `ART.stamp('完美'|'上'|'中'|'下')` 道基品级印（原有 天甲乙丙丁胜败完 不变）。
+- `ART.icon('dao_k'|'dao_w'|'dao_r'|'karma')` 狂 / 稳 / 仁 / 因果。`ART.backdrop('demon')` 心魔劫 200×120 底图。
