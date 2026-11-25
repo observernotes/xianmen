@@ -14,7 +14,7 @@ function onHook(type, data) {
   else if (type === 'ready') {
     const nxt = st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n;
     L.log(st, `修为圆满，可冲击${nxt}！`, 'gold');
-  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 64, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); stampFx("完", 100, 70); chapterDone(data.ch); } }   // 主线完成：章末结算卡（guide-ask.js，老祖的章末评语也在卡上）
+  } else if (type === 'quest') { SFX.goal(); const chn = '第' + '一二三四五六七八九'[data.ch] + '章 · 完'; floatText(100, 52, data.main ? chn : '札记 ✓ ' + data.t, '#ffe39a'); if (data.rw) floatText(100, 70, data.rw, '#ffe39a', false, true); if (data.main) { banner(chn, data.t); stampFx("完", 100, 70); chapterDone(data.ch); } }   // 主线完成：章末结算卡（guide-ask.js，老祖的章末评语也在卡上）
   else if (type === 'task') { floatText(100, 64, '宗门任务完成', '#8ff5d0'); }
   // 功法（arts.js）：有名共鸣第一次凑齐 → 横幅；第一次通用共鸣 → 老祖气泡；熟练升级、融会
   else if (type === 'combo') { const c = L.combo(data.id); banner('共鸣 · ' + c.n, c.d); SFX.reveal(5); }
