@@ -514,6 +514,27 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .cands.four { grid-template-columns: repeat(2, 1fr); }
 .trio { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .pjob.dteach .grow b { font-weight: normal; }
+/* 人物（panel-people.js）：人物卡、喜好、委托、同伴、送礼 */
+.card.pcard2 { align-items: flex-start; }
+.pbarrow { display: flex; align-items: center; gap: 6px; } .pbarrow .bar { flex: 1; }
+.pprefs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ppref { padding: 0 4px; background: var(--paper-lo); white-space: nowrap; }
+.ppref.plike { color: #b0303c; } .ppref.phate { color: #4a4458; }
+.pq { display: flex; gap: 6px; align-items: flex-start; background: #efe3c4; padding: 4px 6px; }
+.pq.done { opacity: .7; } .pq.off { background: none; padding: 0 6px; }
+.pq .grow { min-width: 0; overflow-wrap: anywhere; }
+.pq .btn, .pcompr .btn { min-height: 44px; min-width: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.pq .btn small, .pcompr .btn small { opacity: .85; max-width: 90px; overflow-wrap: anywhere; }
+.pcompr { display: flex; gap: 6px; align-items: center; } .pcompr .grow { min-width: 0; overflow-wrap: anywhere; }
+.pmk { display: inline-block; width: 1.4em; text-align: center; flex: none; }
+.pmk.plike { color: #d8404a; } .pmk.phate { color: #4a4458; } .pmk.pmid { color: var(--paper-mute); } .pmk.punk { color: var(--paper-mute); }
+.pgifts { display: flex; flex-direction: column; gap: 6px; }
+.btn.pgiftopt { display: flex; align-items: center; gap: 6px; min-height: 44px; text-align: left; }
+.btn.pgiftopt .grow { min-width: 0; overflow-wrap: anywhere; }
+.pgiftbar { display: flex; }
+.pcompexp { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.pcompexp > span { display: inline-flex; align-items: center; gap: 4px; }
+.pcompexp .btn { margin-left: auto; }
 /* 开场 */
 #intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
 #intro .story { max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 14px; cursor: pointer; }
