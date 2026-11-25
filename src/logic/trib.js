@@ -74,9 +74,9 @@ L.aidInfo = function (st, k) {
     o.cost = st.daolv ? `每境界一次；失败时${L.npcName(st, st.daolv)}好感 −${L.TRIB.daolvAff}` : '每境界一次；失败时道侣好感 −5';
   } else if (k === 'zhen') {
     const has = !!(g.zhentu && g.zhentu.f_dujie);
-    o.v = Math.min(L.TRIB.zhenCap, L.TRIB.zhen * (st.home.array || 0));
+    o.v = L.formationVal ? L.formationVal(st, 'f_dujie') : Math.min(L.TRIB.zhenCap, L.TRIB.zhen * (st.home.array || 0));
     o.ok = has && !!(L.formationReady && L.formationReady(st, 'f_dujie'));
-    o.why = !has ? '尚无渡劫阵图' : '阵法开放后可布阵（需提前 3 周天）';
+    o.why = !has ? '尚无渡劫阵图' : L.formationWhy ? L.formationWhy(st, 'f_dujie') : '阵法开放后可布阵（需提前 3 周天）';
     o.cost = `聚灵阵每级 +1%，上限 +${Math.round(L.TRIB.zhenCap * 100)}%；需提前 3 周天布阵`;
   } else if (k === 'pill') {
     o.v = L.TRIB.pill; o.max = Math.min(L.TRIB.maxPill, st.pills); o.ok = o.max > 0; o.why = '没有破境丹了';

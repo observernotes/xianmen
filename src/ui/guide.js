@@ -16,6 +16,8 @@ function tip(key, text) {
 const modalTitle = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent.replace(/^主线/, '').trim() : ''; };
 const modalOpen = () => !$('#modal').hidden;
 const PI = () => L.pactInfo(st);
+// 约战对手的“他 / 她”：出身换了对手（samsara.js 的 L.exTa），弃徒按主角性别（退婚的是慕容雪 / 慕容轩）
+const exTa = () => (L.exTa ? L.exTa(st) : '她');
 const BIG = '#stats button[data-s="big"]';
 const dec = v => L.fmt1(v);   // 100 以下保留一位小数（10.8 不会显示成 10）
 let lastExp = null;
@@ -54,11 +56,11 @@ const HINTS = [
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
       if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个周天</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个周天），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
       const m = muNext();
-      return `输了不丢人，认输才丢人。第 1 届论道第一场就是她，还剩 <b>${m.n} 个周天</b>，到时她战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
+      return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${m.n} 个周天</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
     } },
   { id: 'pactSoon', urgent: true, intro: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 12 && PI().left > 0, target: BIG, btn: '知道了', text: () => {
       const pi = PI(), tips = pactTips();
-      return `还剩 <b>${pi.left} 个周天</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，她 <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
+      return `还剩 <b>${pi.left} 个周天</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，${exTa()} <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
         (tips.length ? '锦囊：' + tips.map(x => `${x.t} → <b>${x.extra ? x.extra : L.pct(x.p)}</b>`).join('；') + '。点这一格看详情。' : '稳了，到时候让全城看看谁是废物。');
     } },
   { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每周天自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个周天</b>回本。`; } },
@@ -213,6 +215,7 @@ const alchHints = [
     } },
 ];
 HINTS.push(...alchHints);
+HINTS.push(...homeHints);   // 洞府地块与阵法（panel-home.js）
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
 const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
@@ -306,7 +309,8 @@ function showHelp() {
     sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 周天修为。`),
     sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
-    sec('build', '洞府', '聚灵阵加修炼速度，灵田种作物，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。'),
+    sec('build', '洞府', L.home2On() ? `顶部是地块：洞府 0 级 3 块，每扩建一截多一块，12 级 8 块。第一块固定是聚灵阵，其余点空地就能建：灵田、丹炉、器炉、兽栏、静室、藏经阁、灵泉、聚宝阁、迎客亭、传送阵——<b>地块比建筑少</b>，得挑。点一块地看它的等级、升级值多少、功能入口（炼丹房、灵田、打造、灵宠、闭关……）；拆掉退一半本钱，重建从一半等级起。洞府本体加寿元。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。` : '聚灵阵加修炼速度，灵田种作物，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。'),
+    sec('disc', '阵法', `聚灵阵上布一种阵法（炼虚起两种，第二种效果减半），强度随聚灵阵等级。平时布聚灵（修炼）；还有生财、护山、养兽、丹火、锻魂、渡劫、迷踪七张阵图，从坊市、宗门、秘境、奇遇、拍卖得来。换阵不花钱，${L.ZV.switch} 个周天后生效，这期间原来的阵照常管用。要渡劫了提前布渡劫阵（天劫承劫 +1%×聚灵阵等级），大量炼丹前布丹火阵。`),
     sec('build', '灵田', `田数 = 1 + 灵田等级 ÷ ${L.CROP_V.plotEvery}（最多 ${L.CROP_V.plotMax} 块），每块种一种，熟了自动收、接着种。点画面里的田（或【洞府】→ 灵田）改种，【全部】一键改。灵稻结灵石（全种灵稻就是灵田的灵石收入），灵草 3 周天一收，灵谷（筑基）产兽粮，赤炎果、寒霜莲（筑基中期）、惊雷竹、长生藤（金丹）、养魂花（元婴）产五种药引。每种作物有旺季（+50%），每级灵田产量 +${Math.round(L.CROP_V.lvYield * 100)}%。种药引就是放弃那块田的灵石。`),
     sec('disc', '功法与五行', `【人物】→ 功法：三个槽，点槽再点一门就换上。心法管修炼，战技管战力并定攻击属性（炼气后期开），秘术给特效（金丹开）。装着就涨熟练（入门→小成→大成→圆满→化境，倍率的超出部分最多 ×${L.MAST.mult[4]}），圆满留一份融会。两门同属 +${Math.round(L.GEN.two * 100)}%、三门 +${Math.round(L.GEN.three * 100)}%；特定几门凑在一起有名有姓的共鸣，试出来就记进图鉴。五行：金克木、木克土、土克水、水克火、火克金，克制历练分数 +${L.EL_EXP}、对决 ×${L.EL_DUEL[0]}，被克反之。`),
     sec('sword', '法宝', `【人物】→ 法宝：兵器（战力，开局）、法衣（历练分数、少负伤，筑基中期）、饰品（修炼 / 财运 / 气运 / 寿元，元婴）三格。新掉落弹对比卡：【换上】（强化继承一半）或【熔炼】成灵矿（4 × 2^阶），不选就熔炼；【锁定当前】以后更低阶的直接熔炼。每格下【强化】花灵矿和灵石，+0～+9，每级超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%。词条 16 种，天材地宝能重铸一条。化神后器炉用器方打造专属法宝。`),

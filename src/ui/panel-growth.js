@@ -4,7 +4,7 @@
 function showGrowth(focus) {
   const p = st.p, B = L.breakdown(st);
   const mx = v => (v >= 10 ? v.toFixed(0) : v.toFixed(2)).replace(/\.?0+$/, '');
-  const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return '<span class="muted">未解锁</span>'; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
+  const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return `<span class="muted">${esc(L.homeLock(st, k) || '未解锁')}</span>`; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
   const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
   const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => (L.petCount(st) ? goBtn('兽栏', 'pets') : goBtn('灵兽蛋', 'market')), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect'), alch: () => goBtn('炼丹房', 'alch') };
