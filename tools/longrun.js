@@ -23,6 +23,8 @@ const path = require('path');
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(120); }
   await page.click('#goStart');
   await page.waitForTimeout(300);
+  const T0 = Date.now();
+  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => window.__lr || null))); } catch (e) { /* 页面忙时跳过 */ } }, 120000);
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
     X.setSpeed(3);   // 暂停：时间由下面的循环推进
@@ -268,6 +270,7 @@ const path = require('path');
     const W = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4, room: 2.2, vault: 2.4, library: 2.6, forge: 2.6, pen: 3, spring: 3.2, pavilion: 4, portal: 4 };
     let builds = 0, zhenSets = 0;
     for (let n = 0; n < 1600; n++) {
+      window.__lr = { n, tick: X.st.tick, r: X.st.p.r, modal: modal() ? title() : '', cine: !!X.cine };
       const st = X.st;
       if (!st || st.p.r >= 9) break;
       if (L.isReady(st)) {
@@ -390,6 +393,7 @@ const path = require('path');
     res.codexOpen = cxOpen;
     return res;
   });
+  clearInterval(prog);
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
