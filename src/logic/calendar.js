@@ -29,7 +29,9 @@ L.seasonKey = st => L.SEASONS[L.season(st)].id;
 // 本季还剩几个周天（含本周天）；下一季从哪个周天开始
 L.seasonLeft = st => { const m = ((st.tick % 12) + 12) % 12; const end = m === 0 ? 0 : Math.ceil(m / 3) * 3; return (end === 0 ? 0 : end - m) + 1; };
 // 第一世要筑基、并且三年之约打完（之前“大事”牌还是约战的锦囊，老祖也只顾着约战）；转世后一开始就有
-L.calOpen = st => st.rebirth > 0 || (mr(st) >= 1 && !!st.pact);
+// L.CAL_ON = false：四季与大势全关（tools/sim.js 的 nocal 用它量这一刀的影响）
+L.CAL_ON = true;
+L.calOpen = st => L.CAL_ON !== false && (st.rebirth > 0 || (mr(st) >= 1 && !!st.pact));
 // 周天星斗大法：季节加成翻倍
 L.seasonAmp = st => (L.artOn(st, 'm_xingdou') ? 2 : 1);
 const sOn = (st, k) => L.calOpen(st) && L.season(st) === k;
