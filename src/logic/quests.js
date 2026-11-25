@@ -38,7 +38,7 @@ L.CHAPTERS = [
       { t: '拜入一方宗门', c: st => !!st.sect, rw: { stones: 500 }, go: 'sect' },
       { t: '完成 1 个宗门任务', c: st => st.stats.sectTasks >= 1, rw: { contrib: 30 }, go: 'sect' },
       { t: '黑风岭外围评价乙以上', c: bestGE(1, 0, 2), rw: { stones: 300 }, go: 'exp' },
-      { t: '收服一只灵宠', c: st => !!st.p.pet, rw: { stones: 600 }, go: 'market' },
+      { t: '收服一只灵宠', c: st => L.petCount(st) > 0, rw: { stones: 600 }, go: 'market' },
       { t: '炼一炉丹', c: st => st.stats.crafts >= 1, rw: { herbs: 10 }, go: 'home' },
       { id: 'c1_robe', t: '穿上一件法衣', c: st => !!st.gear.r, rw: { stones: 400 }, go: 'gear' },
       { t: '击败独眼狼王', c: st => !!st.bosses[0], rw: { treasure: 1 }, go: 'exp' },

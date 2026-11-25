@@ -34,7 +34,7 @@ function showMe(tab) {
       <dt>天赋</dt><dd>${trs}</dd>
       <dt>法宝</dt><dd>${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => { const x = st.gear[s]; return x ? `${L.GEAR_N[s]}【${esc(L.gearBase(x.id).n)}】${x.plus ? '+' + x.plus : ''}<span class="muted">（${esc(L.gearMainText(st, x).split(' · ')[0])}）</span>` : `<span class="muted">${L.GEAR_N[s]}：空</span>`; }).join('<br>')} <button class="btn sm alt eq" id="btnGear">法宝 ▸</button></dd>
       <dt>功法</dt><dd>${L.artSlots(st).map((id, i) => (id ? `${L.ART_CAT[L.ART_SLOTS[i]]}《${esc(L.art(id).n)}》` : '')).filter(Boolean).join('<br>') || '<span class="muted">基础吐纳</span>'} <button class="btn sm alt eq" id="btnArts">功法 ▸</button></dd>
-      <dt>灵宠</dt><dd>${p.pet ? `${petImg(p.pet.tier, 26)} ${esc(p.pet.name)}<span class="muted">（${L.PETS[p.pet.tier].n} 战力×${L.PETS[p.pet.tier].m}）</span>` : '<span class="muted">尚无</span>'}</dd>
+      <dt>灵宠</dt><dd>${L.petOut(st) ? `${petImg(L.petOut(st), 26)} ${esc(L.petName(L.petOut(st)))} Lv${L.petOut(st).lv}<span class="muted">（出战 ×${L.petAtkOf(st, L.petOut(st)).toFixed(2)}）</span>` : `<span class="muted">${L.petCount(st) ? '没有出战的' : '尚无'}</span>`}${L.petCount(st) ? ` <span class="muted">名册 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}</span> <button class="btn sm alt eq" id="btnPetsMe">兽栏 ▸</button>` : ''}</dd>
       <dt>库存</dt><dd>灵草 ${fmt(st.herbs)} · 灵矿 ${fmt(st.ore || 0)} · 天材地宝 ${st.treasure} · 破境丹 ${st.pills}</dd>
       ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
       ${st.bonus.cul || st.bonus.atk ? `<dt>机缘加成</dt><dd>修炼 +${Math.round(st.bonus.cul * 100)}% · 战力 +${Math.round(st.bonus.atk * 100)}%</dd>` : ''}
@@ -63,6 +63,7 @@ function showMe(tab) {
   const s = sheet({ title: '人物', body: meTabs(tab) + body });
   bindMeTabs(s);
   const ab = s.querySelector('#btnArts'); if (ab) ab.onclick = () => { SFX.tap(); showArts(0); };
+  const pm = s.querySelector('#btnPetsMe'); if (pm) pm.onclick = () => { SFX.tap(); showPets(); };
   const gb0 = s.querySelector('#btnGear'); if (gb0) gb0.onclick = () => { SFX.tap(); showGear('w'); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
   const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
