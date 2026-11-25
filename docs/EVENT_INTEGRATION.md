@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -58,7 +58,26 @@
   剧情触发键 `field_mutant`（药引作物成熟时 3%，记下是哪种作物）；一次性 flag `field_half`（本季灵田产量减半）、`mutant_seed`（变种的那种作物以后 ×1.2）、`seed_early`（下一种没解锁的作物提前能种）。
   这一刀放行的 6 个：`ch_danjing_5`、`ge_end`、`home_field_mutant`、`mkt_black`、`season_spring_fair`、`xue_3`（另有秘境的 `realm_herb_king`、`realm_ghost_market` 从占位换成真的结算）。
   还闸着、但炼丹部分已能结算的：`dan_yun_1`、`mo_xuehe_1`、`mo_xuesan_1`、`mo_youji_2`（等人脉 `favor`）。
-- 当前上线 253 / 332（灵田与炼丹这一刀 +6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- [x] 宗门加深登记（`src/logic/sect2.js`、`src/logic/disciples.js`，第八刀）：
+  - `fx.favor`：键 `a / b / c` = 本宗第 1 / 2 / 3 位长老（L.ELDERS 的顺序），或写具体长老 id（任何一宗的都算合法，不是本宗的就忽略；没入宗整条忽略）；值 ±50 以内，结果 0～100 截断；
+    跨过 40 时给小恩惠、第一次到 80 给绝学。不带 where 重新登记，覆盖了 realm.js 只对秘境登记的“先收着”版本（`st.favor` 不再用）。
+  - `elig.favorMin: [长老id, n]`：身在该长老的宗门且支持 ≥ n（隐含 sect）。鬼医薛三：事件里的长老 id 是 `xuesan`，立绘用美术 id `xue3`（L.ELDERS 里 `img: 'xue3'`）。
+  - `fx.duty`（dan / qi / zhan / fa / wai，设职司，事件里免“会武后才能改”的限制）；`fx.busy: n`（`st.retreat = { kind: 'busy' }`，n 周天不修炼、不能出门；人已在路上或闭关时这一项作废）；
+    `fx.contrib` 负数照旧（扣可用贡献）；`fx.disc`（见下）。
+  - 触发键 `sect:`（`sect:heir`：真传时除人脉以外的晋升条件都够了；`sect:lord`：太上长老时同上；各一次）、`disciple`（收徒当天，每名徒弟一次）、`disc:`（徒弟事件）。
+  - **徒弟事件每名徒弟各走一遍**：`L.discFire(st, key, 徒弟)` 不看 evDone，把事件排进 storyQ，同时在 `st.disc.q` 记下是哪名徒弟；结算时（包了一层的 `L.resolveChoice`）取出来当 `st.disc.focus`，
+    `fx.disc` 作用于它：`new: strong|clever|quiet` 收候选里那一类（没有候选就现生一个；名额满了作罢）/ `grow` 成长永久 + / `lv` 立升 n 小层 / `heart` 情分 ± / `inj` 休养 n 周天 / `job` 差事收益 + /
+    `out` 离开名册（金丹以上算出师：贡献 + 桃李，否则只是走了）。时机：`disc:candidates` 每 24 周天送候选时；`disc:break` 跨大境界；`disc:poach` 小层 ≥ 8；`disc:avenge` 有一条 24 周天以上没了的因果；
+    `disc:graduate` 点【出师】时；其余按性情（莽 / 贪玩 trouble、聪慧 question、滑 steal、痴 obsess、孤傲 pride、仁厚 kind、贪玩 lazy），每名徒弟每周天 1/30，两件之间至少隔 18 周天。
+    `disc_first_day` 的三个基调 flag（disc_strict / disc_warm / disc_wild）落到那名徒弟身上（成长 +5% / 情分 +1 / 差事 +10%）后清掉；`sect_candidates` 选“都不收”清掉这批候选。
+  - 一次性钩子：`vault_tip`（下一届宝库法宝那格高一阶）、`heir_none`（圣子之争的人脉条件换成累计贡献 ×1.2，晋升后清）、`lord_gift`（宗主之争补一票；`lord_vote` / `lord_duel` 只是记录），
+    `rookie_disciple`（new_3 新秀跪门“收下他”：名额有空就收进门下，新秀外观，起点筑基）。`war_feint` 留给宗门战事那一刀。
+  - 数据里写不出来的前提在 `L.eligible` 外面补：`sect_frame` 要执法那位（本宗第 3 位）支持 < 40；血煞魔宗弟子碰不上 `sect_war_xuesha`、`sect_alliance`。
+  - 这一刀放行的 43 个：宗门通用 8 个（sect_duty_pick、sect_junior_duel、sect_frame、sect_lecture、sect_candidates、sect_succession、sect_lord_vote、sect_traitor；sect_vault_new 早已上线）、
+    长老 20 个（24 个里 dan_yun_1、mo_youji_2、mo_xuesan_1 还等丹毒，mo_xuehe_1、mo_xuesan_1 还等丹方）、徒弟 12 个、人物委托 3 个（su_q1、su_q2、bai_q2：fx.busy / fx.favor）。
+    还闸着、但宗门部分已能结算的：chu_q2、mo_q1（fx.busy 已登记，等恩怨）、mu_4、xue_1（fx.favor 已登记，等恩怨）。
+    与灵田炼丹合并后，等丹毒 / 丹方的 4 个长老事件（dan_yun_1、mo_xuehe_1、mo_xuesan_1、mo_youji_2）也放行了。
+- 当前上线 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
@@ -85,7 +104,7 @@
 
 - [x] 选项数超过旧校验上限 3：sect_duty_pick 5 个，sect_candidates / sect_succession 4 个。
 - 长老 `_2` 事件里“帮他”是 75% 成功；访客超时按“置身事外”结算。
-- sect_frame 去掉了“执法人脉 < 40”（没有 favorMax 键）。
+- sect_frame 去掉了“执法人脉 < 40”（没有 favorMax 键）——sect2.js 在 `L.eligible` 外面补回来了（本宗第 3 位长老支持 ≥ 40 时不出）。
 - chu_q1、bai_end 是历练事件（剑冢、狐族秘地），不是访客。
 - 机制替换：ge_end 的“丹方 ≥ 12”改为 50%；ye_q2 信任检定必过；ye_end 的特殊历练改为概率选项；disc_kind 的“仁 +2”只是一个 `dao: 'r'`；ge_q2 对丹霞谷人脉的影响改成 flag。
 - [x] 点名血河老祖的三个魔宗事件带 `maxR: 7`（只是旧的 /老祖/ 规则误伤，接入时可去掉）。——`mo_xuehe_1` 已去掉；另两个正文单写“老祖”，保留。

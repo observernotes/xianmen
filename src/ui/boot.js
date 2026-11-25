@@ -19,6 +19,7 @@ function onTick() {
   if (out.retreat) {
     const r = out.retreat;
     if (r.kind === 'teach') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '指点完毕 贡献到手', '#8ff5d0');
+    else if (r.kind === 'busy') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, r.note || (r.label || '') + '完毕', '#8ff5d0');
     else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
   if (out.train) pushPopup(showTrain);
@@ -136,6 +137,6 @@ Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, re
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, tribOpts, showField, brewUI, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

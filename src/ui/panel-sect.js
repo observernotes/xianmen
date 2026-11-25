@@ -1,7 +1,15 @@
-/* 废柴仙途 · 界面片段 panel-sect：宗门：身份、九宗、会武、晋升、三宗争徒、来犯
+/* 废柴仙途 · 界面片段 panel-sect：宗门四个分页（身份含职司与人脉、任务板、宝库轮换；门下见 panel-disc.js）、九宗、会武（宗主后三人战）、晋升、三宗争徒（血煞魔宗）、来犯
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
-// ---------- 宗门 ----------
-function showSect() {
+// ---------- 宗门：四个分页（身份 / 任务板 / 宝库 / 门下） ----------
+let sectTab = 'id';
+// 长老、圣子的立绘（ART.portrait）、宗门徽记
+function ptImg(id, w, mood, alt) { const c = ART.portrait && ART.portrait(id, mood || 'n', alt); if (!c) return ''; return `<img class="px" src="${urlOf(c, ['pt', id, mood || 'n', alt ? 1 : 0].join('|'))}" style="width:${w}px;height:${w}px;flex:none" alt="">`; }
+function emblemImg(id, k) { const c = ART.emblem && ART.emblem(id); if (!c) return ''; const z = pxs(16, k || 1.5); return `<img class="px" src="${urlOf(c, 'emb|' + id)}" style="width:${z}px;height:${z}px;flex:none;vertical-align:middle" alt="">`; }
+function sectTabs(tab) {
+  const dot = k => ((k === 'disc' && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st)) || (k === 'task' && (st.sect.tasks || []).some(t => L.taskCanDeliver(st, t))) ? ' <b class="seal">！</b>' : '');
+  return '<div class="tabs">' + [['id', '身份'], ['task', '任务板'], ['vault', '宝库'], ['disc', '门下']].map(([k, n]) => `<button data-stab="${k}" class="${k === tab ? 'on' : ''}">${n}${dot(k)}</button>`).join('') + '</div>';
+}
+function showSect(tab) {
   const p = st.p;
   if (!st.sect) {
     sheet({ title: '宗门', body: `<p>你如今是一介散修。当年被天剑宗逐出山门，天下宗门都瞧不上一个杂灵根。</p>
@@ -9,55 +17,108 @@ function showSect() {
       <p class="muted">${p.r >= 1 ? `下一次宗门招揽：约 ${Math.max(0, (st.flags.inviteAt || 0) - st.tick)} 周天后` : '突破至筑基期后，三大宗门会前来招揽。'}</p>` });
     return;
   }
+  tab = tab || sectTab; sectTab = tab;
+  const sc = L.sectOf(st);
+  const body = tab === 'task' ? sectTaskHTML() : tab === 'vault' ? sectVaultHTML() : tab === 'disc' ? discTabHTML() : sectIdHTML();
+  const s = sheet({ title: `${emblemImg(st.sect.id, 1.5)} ${sc.n}`, sub: `${sc.d} · 宗门加成：${sc.perk}`, body: sectTabs(tab) + body });
+  s.querySelectorAll('[data-stab]').forEach(b => b.onclick = () => { SFX.tap(); showSect(b.dataset.stab); });
+  if (tab === 'id') bindSectId(s); else if (tab === 'task') bindSectTask(s); else if (tab === 'vault') bindSectVault(s); else bindDiscTab(s);
+}
+// ---------- 身份：身份阶梯、晋升条件（含三位长老的支持）、职司、人脉、九宗 ----------
+const ACT_N = { leap: '越级', craft: '炼丹', retreat: '闭关' };
+function elderCard(x) {
+  const v = L.favor(st, x.id), g = L.giftInfo(st, x.id), f80 = st.sect.f80 && st.sect.f80[x.id];
+  const tasks = [...new Set(x.tasks.map(k => (k.startsWith('act:') ? ACT_N[k.slice(4)] : L.TASK_N[k])))].join('、');
+  const mark = '<i class="fmark" style="left:40%"></i><i class="fmark promo" style="left:50%"></i><i class="fmark" style="left:80%"></i>';
+  return `<div class="card flat elder" data-elder="${x.id}">${ptImg(x.img, pxs(48, 1), v >= L.FAV.big ? 'joy' : v < 20 ? 'ang' : 'n')}<div class="main">
+    <div class="line"><span>${esc(x.n)}</span><span class="muted">${esc(x.t)}</span><span class="chip">${esc(x.ph)}</span></div>
+    <div class="fbar">${bar(v / 100, v >= L.FAV.promo)}${mark}</div>
+    <div class="line"><span class="num ${v >= L.FAV.promo ? 'jadet' : ''}">支持 ${v}</span><span class="muted">管：${esc(tasks)}</span></div>
+    <div class="${v >= L.FAV.small ? 'jadet' : 'muted'}">${v >= L.FAV.small ? '✓' : '·'} ≥40：${esc(L.elderFavDesc(st, x, 40))}</div>
+    <div class="${f80 ? 'jadet' : 'muted'}">${f80 ? '✓' : '·'} ≥80：${esc(L.elderFavDesc(st, x, 80))}</div>
+    <button class="btn sm ${g && !g.why ? 'gold' : 'alt'} giftb" data-gift="${x.id}" ${g && !g.why ? '' : 'disabled'}><span>送礼 · ${g ? esc(g.text) : ''}</span><small>${g ? (g.why ? esc(g.why) : `支持 +${g.gain}${g.rival ? `，${esc(g.rival.n)} −${L.FAV.rival}` : ''}`) : ''}</small></button></div></div>`;
+}
+function sectIdHTML() {
   const sc = L.sectOf(st), sr = st.sect.rank, nx = L.SRANKS[sr + 1];
   let promo;
   if (nx) {
     const needs = L.promoteNeeds(st);
-    promo = `<div class="card flat"><div class="main"><div>晋升 ${L.srankName(st, sr + 1)} <span class="muted">（俸禄 ×${L.SRANKS[sr].pay} → ×${nx.pay}）</span></div>
-      ${needs.map(x => `<div class="${x.ok ? 'jadet' : 'muted'}">${x.ok ? '✓' : '·'} ${esc(x.t)}</div>${x.v !== undefined ? bar(Math.min(1, x.v), x.ok) : ''}`).join('')}
-      ${nx.duel ? (() => { const foe = { kind: 'heir', sect: st.sect.id }; return `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}（战力 ${fmt(L.heirPower())}${L.foeElKnown(st, foe) ? '，' + L.elName(L.foeEl(foe)) + '系' : ''}，你的胜算 ${L.pct(L.duelP(st, L.duelPower(st, foe), L.heirPower(), foe))}）</div>`; })() : ''}</div>
-      <div class="right"><button class="btn sm ${L.canPromote(st) ? 'gold' : 'alt'}" id="btnPromo" ${L.canPromote(st) ? '' : 'disabled'}>晋升</button></div></div>`;
+    promo = `<div class="card flat" id="promoCard"><div class="main"><div>晋升 ${L.srankName(st, sr + 1)} <span class="muted">（俸禄 ×${L.SRANKS[sr].pay} → ×${nx.pay}）</span></div>
+      ${needs.map(x => `<div class="${x.ok ? 'jadet' : 'muted'}">${x.ok ? '✓' : '·'} ${esc(x.t)}</div>${x.v !== undefined ? bar(Math.min(1, x.v), x.ok) : ''}${x.elders ? `<div class="felders">${L.eldersOf(st).map(e => { const v = L.favor(st, e.id); return `<span class="fel ${v >= L.FAV.promo ? 'ok' : ''}">${ptImg(e.img, pxs(24, 1))}<span>${esc(e.n)}<br><b class="num">${v}</b>/${L.FAV.promo}</span></span>`; }).join('')}</div>` : ''}`).join('')}
+      ${nx.duel ? (() => { const foe = { kind: 'heir', sect: st.sect.id }; return `<div class="seal">需当众击败原${L.srankName(st, sr + 1)}${esc(L.heirName(st))}（战力 ${fmt(L.heirPower())}${L.foeElKnown(st, foe) ? '，' + L.elName(L.foeEl(foe)) + '系' : ''}，你的胜算 ${L.pct(L.duelP(st, L.duelPower(st, foe), L.heirPower(), foe))}）</div>`; })() : ''}</div>
+      <div class="right"><button class="btn sm ${L.canPromote(st) ? 'gold' : 'alt'} eq" id="btnPromo" ${L.canPromote(st) ? '' : 'disabled'}>晋升</button></div></div>`;
   } else promo = '<div class="quote">你已是一宗之主，号令一方。</div>';
-  const tasks = (st.sect.tasks || []).map((t, i) => {
-    const can = L.taskCanDeliver(st, t);
-    const btn = t.done ? '<span class="chip ok">已完成</span>' : !t.taken ? `<button class="btn sm gold" data-tk="${i}" ${t.ty === 'teach' && L.busy(st) ? 'disabled' : ''}>接取</button>` : can ? `<button class="btn sm gold" data-td="${i}">交付</button>` : `<span class="chip">进行中${t.need > 1 ? ` ${t.prog}/${t.need}` : ''}</span>`;
-    return `<div class="card flat"><div class="main"><div>${esc(L.taskText(st, t))}</div><div class="goldt">${esc(L.taskReward(st, t))}</div></div><div class="right">${btn}</div></div>`;
-  }).join('');
-  const taskBoard = `<div class="muted">任务板（每届论道后刷新，可以同时接；下次刷新约 ${L.nextTour(st)} 周天后）</div>${tasks || '<p class="muted">这一届的任务都做完了。</p>'}`;
-  // 宝库：本宗独有的四门功法（按身份开放），镇宗法宝与丹药
-  const vArts = L.vaultArts(st).map(A => {
-    const own = L.artOwned(st, A.id), need = L.vaultArtRank(st, A), c = L.vaultArtCost(st, A), can = !own && sr >= need && st.sect.pts >= c;
-    const why = own ? '<span class="chip ok">已习得</span>' : sr < need ? `<span class="muted">${L.srankName(st, need)}可换</span>` : `<button class="btn sm ${can ? 'gold' : 'alt'} eq" data-va="${A.id}" ${can ? '' : 'disabled'}>贡献 ${fmt(c)}</button>`;
-    return `<div class="card flat">${artImg(A.id, 2)}<div class="main"><div class="line"><span>《${esc(A.n)}》</span>${tierTag(A.t)}${elChip(A.el)}<span class="muted">${L.ART_CAT[A.k]}</span></div><div class="muted">${esc(artMain(A.id))}${A.k !== 'm' ? ' · ' + esc(L.artDesc(st, A.id)) : ''}</div></div><div class="right">${why}</div></div>`;
-  }).join('');
-  const vault = vArts + L.VAULT.filter(v => v.k !== 'vart' && L.vaultShown(st, v)).map(v => {
-    const c = L.vaultCost(st, v.k);
-    let name = v.n, desc = v.d, img = '', owned = false, lock = '';
-    if (v.k === 'vwep') {
-      const vg = L.vaultGear(st);
-      name = vg.unique ? `镇宗法宝【${vg.n}】` : `宝库${L.GEAR_N.w}（${L.WEAPONS[vg.tier].n}）`;
-      desc = vg.unique ? `${L.GEAR_N[vg.slot]} · ${L.gearTierName(vg.slot, vg.tier)} · 固定词条：${vg.aff.map(a => L.AFFIX[a].n).join('、')}${L.gearBase(vg.base).note ? '；' + L.gearBase(vg.base).note : ''}` : `战力 ×${L.WEAPONS[vg.tier].m}，随机词条（身份每高一级阶 +1）`;
-      img = gearImg(vg.base ? { id: vg.base, slot: vg.slot, t: vg.tier } : { id: `w${vg.tier}_0`, slot: 'w', t: vg.tier }, 2);
-      owned = !L.vaultGearOk(st); if (owned) lock = vg.unique ? `（${L.GEAR_N[vg.slot]}槽${L.gearOpenWhy(st, vg.slot)}）` : '（已有不低于它的兵器）';
-    } else if (v.k === 'vore') { desc = `灵矿 ${fmt(L.vaultOreN(st))}（${v.d}）`; img = oreImg(24); }
-    else if (v.k === 'vplan') { img = scrollImg(); if (st.sect.rank < v.rank) { owned = true; lock = `（${L.srankName(st, v.rank)}可换）`; } }
-    const dis = owned || st.sect.pts < c;
-    return `<div class="card flat">${img}<div class="main"><div>${esc(name)}</div><div class="muted">${esc(desc)}${lock}</div></div><div class="right"><button class="btn sm ${dis ? 'alt' : 'gold'}" data-v="${v.k}" ${dis ? 'disabled' : ''}>贡献 ${fmt(c)}</button></div></div>`;
-  }).join('');
   const ranks = L.SRANKS.map((r0, i) => `<span class="chip ${i === sr ? 'ok' : ''}" style="${i > sr ? 'opacity:.5' : ''}">${L.srankName(st, i)}</span>`).join(' ');
-  const s = sheet({
-    title: sc.n, sub: `${sc.d} · 宗门加成：${sc.perk}`,
-    body: `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
-      <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 周天附一枚` : ''}</dd><dt>可用贡献</dt><dd class="num">${fmt(st.sect.pts)}</dd></dl>
-      ${promo}<div class="sep"></div>${taskBoard}<div class="sep"></div>${nineHTML()}<div class="sep"></div><div class="muted">宗门宝库（用贡献兑换）</div>${vault}
-      <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`,
+  const dk = L.duty(st), D = dk && L.DUTIES[dk], dwhy = L.dutyWhy(st);
+  const duty = L.dutyOpen(st) ? `<div class="card flat" id="dutyCard">${icon16(D ? D.icon : 'post_zhan', 2)}<div class="main"><div class="line"><span>职司</span><b>${D ? D.n : '未领'}</b></div><div class="muted">${D ? esc(D.d) : '五堂任选其一：丹堂、器堂、战堂、执法堂、外事堂'}</div>${dwhy && D ? `<div class="muted">${esc(dwhy)}</div>` : ''}</div>
+    <div class="right"><button class="btn sm ${!dwhy ? 'gold' : 'alt'} eq" id="btnDuty" ${dwhy ? 'disabled' : ''}>${D ? '换职司' : '选职司'}</button></div></div>`
+    : `<div class="muted">职司：真传弟子起可在五堂领一份差事（还差 ${Math.max(0, 2 - sr)} 级身份）</div>`;
+  const moTrade = st.sect.id === 'xuesha' ? `<div class="card flat">${icon16('karma', 2)}<div class="main"><div>以因果换贡献</div><div class="muted">手里的因果交给血河老祖，一条换贡献 ${fmt(L.karmaTradeVal(st))}（这笔账也就了了）。未了 ${L.karmaOpen(st).length} 条</div></div><div class="right"><button class="btn sm ${L.karmaTradeWhy(st) ? 'alt' : 'gold'} eq" id="btnKarma" ${L.karmaTradeWhy(st) ? 'disabled' : ''}>交一条</button></div></div>` : '';
+  // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处
+  const B0 = st.sect.build || {};
+  const builds = sr >= 6 ? `<div class="sep"></div><div class="mhead"><span>宗主建设</span><span class="muted">灵石 ${fmt(st.stones)}</span></div>` + L.BUILDS.map(b => { const lv = B0[b.k] || 0, c = L.buildCost(lv), ok = lv < 5 && st.stones >= c; return `<div class="card flat"><div class="main"><div class="line"><span>${b.n}</span><span class="chip">${lv}/5</span></div><div class="muted">${esc(b.d)}</div></div><div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'} eq" data-build="${b.k}" ${ok ? '' : 'disabled'}>${lv >= 5 ? '已满' : '灵石 ' + fmt(c)}</button></div></div>`; }).join('') : '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
+    <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 周天附一枚` : ''}</dd><dt>贡献</dt><dd class="num">可用 ${fmt(st.sect.pts)} · 累计 ${fmt(st.sect.total)}</dd></dl>
+    ${promo}${duty}${moTrade}${builds}
+    <div class="sep"></div><div class="mhead" id="renmai"><span>人脉</span><span class="muted">≥40 小恩惠 · 圣子、宗主要两位 ≥50 · ≥80 绝学</span></div>
+    ${L.eldersOf(st).map(elderCard).join('')}
+    <div class="muted">支持来自他管的宗门任务（每件 +${L.FAV.task}）、奇遇里的抉择、送礼（每位每届一次）。三位长老理念相冲：讨好一位，常要得罪另一位。</div>
+    <div class="sep"></div>${nineHTML()}
+    <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`;
+}
+function bindSectId(s) {
+  const pb = s.querySelector('#btnPromo'); if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
+  const db = s.querySelector('#btnDuty'); if (db) db.onclick = () => { SFX.tap(); showDutyPick(); };
+  const kb = s.querySelector('#btnKarma'); if (kb) kb.onclick = () => { const r = L.karmaTrade(st); if (!r) return; SFX.coin(); floatText(100, 80, `贡献 +${fmt(r.v)}`, '#ffe39a'); showSect('id'); };
+  s.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { const r = L.giftElder(st, b.dataset.gift); if (!r) return; SFX.coin(); floatText(100, 80, `支持 +${r.d}`, '#8ff5d0'); showSect('id'); });
+  s.querySelectorAll('[data-build]').forEach(b => b.onclick = () => { if (!L.sectBuild(st, b.dataset.build)) return; SFX.coin(); showSect('id'); });
+}
+// 职司：五选一（每届会武后可改）
+function showDutyPick() {
+  const cur = L.duty(st);
+  const rows = Object.keys(L.DUTIES).map(k => { const D = L.DUTIES[k]; return `<button class="pjob duty ${k === cur ? 'cur' : ''}" data-duty="${k}" ${k === cur ? 'disabled' : ''}>${icon16(D.icon, 2)}<span class="grow"><b>${D.n}${k === cur ? '（现在）' : ''}</b><span class="muted">${esc(D.d)}</span></span></button>`; }).join('');
+  const s = sheet({ title: '领职司', body: `<p class="muted">真传弟子在五堂领一份差事，每届九宗会武之后可以改。</p><div class="pjobs" id="dutyList">${rows}</div>`, foot: [{ t: '回宗门', alt: true, fn: () => showSect('id') }] });
+  s.querySelectorAll('[data-duty]').forEach(b => b.onclick = () => { const k = b.dataset.duty; if (!L.setDuty(st, k)) return; SFX.win(); banner('职司 · ' + L.DUTIES[k].n, L.DUTIES[k].d); showSect('id'); });
+}
+// ---------- 任务板 ----------
+function sectTaskHTML() {
+  const tasks = (st.sect.tasks || []).map((t, i) => {
+    const can = L.taskCanDeliver(st, t), el = L.elder(L.taskElder(st, t));
+    const busyT = (t.ty === 'teach' || t.ty === 'lecture') && L.busy(st);
+    const btn = t.done ? '<span class="chip ok">已完成</span>' : !t.taken ? `<button class="btn sm gold eq" data-tk="${i}" ${busyT ? 'disabled' : ''}>接取</button>` : can ? `<button class="btn sm gold eq" data-td="${i}">交付</button>` : `<span class="chip">进行中${t.need > 1 ? ` ${t.prog}/${t.need}` : ''}</span>`;
+    return `<div class="card flat">${el ? ptImg(el.img, pxs(32, 1)) : ''}<div class="main"><div>${esc(L.taskText(st, t))}</div><div class="goldt">${esc(L.taskReward(st, t))}</div>${el ? `<div class="muted">${esc(el.n)}管的事：做完支持 +${L.FAV.task}${t.fav ? `（已 +${t.fav.d}）` : ''}</div>` : ''}</div><div class="right">${btn}</div></div>`;
+  }).join('');
+  return `<div class="muted">任务板（每届论道后刷新，可以同时接；下次刷新约 ${L.nextTour(st)} 周天后）</div>${tasks || '<p class="muted">这一届的任务都做完了。</p>'}`;
+}
+function bindSectTask(s) {
+  s.querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { if (L.taskTake(st, +b.dataset.tk)) { SFX.tap(); if (st.retreat && (st.retreat.kind === 'teach' || st.retreat.kind === 'busy')) closeModal(); else showSect('task'); } });
+  s.querySelectorAll('[data-td]').forEach(b => b.onclick = () => { if (L.taskDeliver(st, +b.dataset.td)) { SFX.coin(); showSect('task'); } });
+}
+// ---------- 宝库：6 格轮换，贡献兑换 ----------
+function vaultImg(c) {
+  const s = c.s;
+  if (s.k === 'art') return artImg(s.id, 2);
+  if (s.k === 'gear') { if (s.base) return gearImg({ id: s.base, slot: s.slot, t: s.tier }, 2); const c = ART.item(s.slot, s.tier, s.slot === 'o' ? 0 : undefined), z = pxs(16, 2); return `<img class="px" src="${urlOf(c, 'gear|' + s.slot + s.tier)}" style="width:${z}px;height:${z}px;flex:none" alt="">`; }
+  if (s.k === 'plan') { if (L.PLAN[s.id]) return scrollImg(); const g = ART.sigil && ART.sigil(s.id); return g ? `<img class="px" src="${urlOf(g, 'sig|' + s.id)}" style="width:${pxs(16, 2)}px;height:${pxs(16, 2)}px;flex:none" alt="">` : scrollImg(); }
+  return icon16({ pill: 'pojing', ore: 'ore', herb: 'herb', treasure: 'treasure', feed: 'feed' }[s.k] || 'treasure', 2);
+}
+function sectVaultHTML() {
+  const cells = L.vaultCells(st).map(c => {
+    const lock = !!c.why && (/可换$/.test(c.why) || /槽/.test(c.why)), owned = ['已换完', '已习得', '已有'].includes(c.why), short = /^还差/.test(c.why || '');
+    return `<div class="card flat vcell ${lock ? 'lock' : ''}">${vaultImg(c)}<div class="main"><div class="line"><span>${esc(c.n)}</span>${c.A ? tierTag(c.A.t) + elChip(c.A.el) : ''}${c.s.lim > 1 ? `<span class="muted">余 ${c.left}</span>` : ''}</div>
+      <div class="muted">${c.A ? esc(artMain(c.A.id)) + (c.A.k !== 'm' ? ' · ' + esc(L.artDesc(st, c.A.id)) : '') : esc(c.d)}</div>${lock ? `<div class="seal">${esc(c.why)}</div>` : ''}</div>
+      <div class="right"><button class="btn sm ${c.ok ? 'gold' : 'alt'} eq" data-vr="${c.i}" ${c.ok ? '' : 'disabled'}>${owned ? c.why : `贡献 ${fmt(c.cost)}`}</button>${short ? `<small class="muted">${esc(c.why)}</small>` : ''}</div></div>`;
+  }).join('');
+  return `<div class="mhead"><span>宗门宝库 · ${L.VAULT_ROT.n} 格</span><span class="muted">可用贡献 <b class="num">${fmt(st.sect.pts)}</b> · ${L.vaultRestockIn(st)} 周天后换货</span></div>
+    ${st.sect.freePick > 0 ? `<div class="quote">札记赏你宝库任选一件：功法、法宝这一回不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}<div id="vaultRot">${cells}</div>
+    <div class="muted">每届论道换一批：本宗秘传功法、宝库法宝（够格时是镇宗之宝）、本宗阵图与器方按身份开放，贡献是唯一的货币。</div>`;
+}
+function bindSectVault(s) {
+  s.querySelectorAll('[data-vr]').forEach(b => b.onclick = () => {
+    const r = L.vaultRotBuy(st, +b.dataset.vr); if (!r) return; SFX.coin();
+    if (r.it) revealItem(r.it, () => showSect('vault'));
+    else { floatText(100, 80, r.ore ? `灵矿 +${fmt(r.ore)}` : r.planText ? r.planText.slice(0, 12) : r.n, '#ffe39a'); showSect('vault'); }
   });
-  s.querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { if (L.taskTake(st, +b.dataset.tk)) { SFX.tap(); if (st.retreat && st.retreat.kind === 'teach') closeModal(); else showSect(); } });
-  s.querySelectorAll('[data-td]').forEach(b => b.onclick = () => { if (L.taskDeliver(st, +b.dataset.td)) { SFX.coin(); showSect(); } });
-  const pb = s.querySelector('#btnPromo');
-  if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };
-  s.querySelectorAll('button[data-va]').forEach(btn => btn.onclick = () => { const r = L.vaultBuyArt(st, btn.dataset.va); if (!r) return; SFX.coin(); revealItem(r.it, showSect); });
-  s.querySelectorAll('button[data-v]').forEach(btn => btn.onclick = () => { const r = L.vaultBuy(st, btn.dataset.v); if (!r) return; SFX.coin(); if (r.it) revealItem(r.it, showSect); else { floatText(100, 80, r.ore ? `灵矿 +${fmt(r.ore)}` : r.planText ? r.planText.slice(0, 12) : '破境丹 +2', '#ffe39a'); showSect(); } });
 }
 function nineHTML() {
   const pos = L.sectPos(st);
@@ -81,7 +142,7 @@ function runSectMeet() {
     if (step === 0) {
       SFX.gong();
       sheet({ title: `第${res.n}届 九宗会武`, center: true, noClose: true,
-        body: `<p class="center">天下九宗齐聚问剑台，以武论高下，排定宗门座次！</p><div class="center">${myAvImg(52)}</div><p class="center">你代表 <b>${sc.n}</b> 出战 · 当前天下第 ${res.start} 宗</p>`,
+        body: `<p class="center">天下九宗齐聚问剑台，以武论高下，排定宗门座次！</p><div class="center">${myAvImg(52)}${res.trio ? res.team.map(u => { const x = L.discByU(st, u); return x ? discImg(x, 52) : ''; }).join('') : ''}</div><p class="center">你代表 <b>${sc.n}</b> 出战${res.trio ? `，带着徒弟${res.team.map(u => { const x = L.discByU(st, u); return x ? esc(x.n) : ''; }).join('、')}（三人战，三局两胜）` : ''} · 当前天下第 ${res.start} 宗</p>`,
         foot: [{ t: '为宗门而战！', gold: true, fn: next }] });
       return;
     }
@@ -89,12 +150,14 @@ function runSectMeet() {
     if (!rd) { summary(); return; }
     const look = NINE_LOOK[rd.foe.id];
     const tj = rd.foe.id === 'tianjian';
+    // 宗主之后：三人战（你 + 两名徒弟，三局两胜）
+    const trio = rd.trio ? `<div class="trio">${rd.trio.map(t => `<span class="${t.win ? 'jadet' : 'seal'}">${t.who === 'me' ? '你' : esc(t.n)} ${t.win ? '胜' : '败'}<small class="muted">（${L.pct(t.p)}）</small></span>`).join('')}</div><div class="center">三局${rd.wins}胜</div>` : '';
     duel({
-      title: `会武 · 对阵${rd.foe.n}`,
+      title: `会武 · 对阵${rd.foe.n}${rd.trio ? '（三人战）' : ''}`,
       right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, p: rd.p, win: rd.win,
       quote: `${rd.foe.champ}：“${rd.foe.line}”`,
-      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
-      loseText: '对方底蕴深厚，下届会武再来！',
+      winText: `${trio}${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
+      loseText: `${trio}对方底蕴深厚，下届会武再来！`,
       btn: res.rounds[step] ? '下一场' : '会武落幕',
       done: next,
     });
@@ -123,10 +186,11 @@ function doPromote() {
       foot: [{ t: '谢宗门栽培', gold: true, fn: closeModal }] });
   };
   if (res.duel) {
-    const heir = { n: st.p.look.f ? '原圣女·苏清寒' : '原圣子·萧凌风' };
+    const H = L.SECT_HEIR[st.sect.id] || {}, heir = { n: `原${title}·${L.heirName(st)}` };
+    const himg = H.img && ART.hasPortrait && ART.hasPortrait(H.img) ? ptImg(H.img, 66, 'ang', st.p.look.f && !!H.nf).replace('<img ', '<img id="vsR" ') : rivalAvImg(heir, 66);
     duel({
       title: `${title}之争`, intro: `你要晋升${title}的消息传出，原${title}当众拦下：“想坐我的位置？先过我这一关！”`,
-      right: { img: rivalAvImg(heir, 66), name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
+      right: { img: himg, name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
       quote: `${heir.n}：“一个半路入门的散修，也配当${title}？”`,
       winText: `${esc(heir.n)}面如死灰，长剑落地。全场鸦雀无声，随后掌声雷动！`, loseText: '你惜败一招。来日修为更进一步，再来挑战！',
       done: () => { if (res.ok) celebrate(); else closeModal(); },
@@ -136,17 +200,18 @@ function doPromote() {
 function showInvite() {
   if (st.sect) return;
   let sel = 0;
+  const SC = L.sectsFor(st);
   const s = sheet({
     title: '三宗争徒', center: true, noClose: true,
-    body: `<p>筑基消息传出，天下震动！三大宗门的长老同时登门，争相招揽：</p>
-      <div class="cands">${L.SECTS.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
+    body: `<p>筑基消息传出，天下震动！${SC.length > 3 ? '三大正宗的长老同时登门，血煞魔宗也递来一封血帖' : '三大宗门的长老同时登门'}，争相招揽：</p>
+      <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
       <div class="quote">戒中老祖：“当年天剑宗把你踢下山，如今人家抢着要你。痛快不痛快？”</div>`,
-    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 周天后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = L.SECTS[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每周天 ${fmt(L.pay(st))}`); } }],
+    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 周天后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每周天 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
   const show = () => {
-    const sc = L.SECTS[sel];
+    const sc = SC[sel];
     s.querySelectorAll('.cand').forEach(x => x.classList.toggle('sel', +x.dataset.i === sel));
     s.querySelector('#inv').innerHTML = `<b>${sc.n}</b>：${sc.d}。${sc.perk}`;
     ok.textContent = '拜入' + sc.n;

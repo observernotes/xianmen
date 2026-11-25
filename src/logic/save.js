@@ -88,6 +88,8 @@ L.migrate = function (s) {
   L.migrateMarket(s);
   // 天劫（道基、预掷到一半的雷劫）、道心与因果：缺的补默认值，不升存档版本（trib.js / dao.js）
   L.migrateTrib(s); L.migrateDao(s);
+  // 宗门加深（人脉、职司、宝库轮换）与徒弟：缺的补默认值，可重复调用（sect2.js、disciples.js）
+  if (L.migrateSect2) L.migrateSect2(s);
   const petNote = L.migratePets(s);
   // 灵田作物、药引、丹囊与丹毒（crops.js / alchemy.js，可重复调用，不升版本）
   L.migrateAlch(s); L.migrateCrops(s);

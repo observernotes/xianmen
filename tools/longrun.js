@@ -5,6 +5,7 @@
 // 灵田与炼丹房：每 12 周天点开一块田、一半时候改种推荐的作物；药引格里有能试的格子就【试炼】一格
 // 秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
 // 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
+// 入宗后每 24 周天进【宗门】：门下收徒、派差事、能出师就出师、偶尔传授；身份页能领职司就领、给长老【送礼】；宝库六格里的功法法宝买得起就换
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -163,6 +164,38 @@ const path = require('path');
       }
       X.closeModal(); await sleep(450); await drain();
     }
+    // 宗门（SYSTEMS §11）：门下收徒（候选点第一个）、给徒弟派差事（没到顶闭门苦修、到顶当值）、能出师就点【出师】、偶尔点【传授】；
+    //   身份页给能送的长老【送礼】；宝库六格里买得起的功法、法宝点一下（走揭晓卡 / 对比卡）；能领职司就领
+    let sectAct = 0, discTaken = 0, gifts = 0, vaultN = 0;
+    async function sectRound() {
+      const st = X.st;
+      X.showSect('disc'); await sleep(40);
+      const tk = document.querySelector('#modal [data-dtake]');
+      if (tk) { tk.click(); discTaken++; seen['收徒'] = 1; await sleep(450); await drain(); X.showSect('disc'); await sleep(40); }
+      for (let i = 0; i < (st.disc ? st.disc.list.length : 0); i++) {
+        const c = document.querySelector(`#modal .dcard[data-di="${i}"]`); if (!c) break;
+        c.click(); await sleep(30);
+        const x = st.disc.list[i], want = x.di < L.discMax(st) - 0.3 ? 'cult' : 'duty';
+        const j = document.querySelector(`#modal [data-dj="${want}"]:not([disabled])`); if (j) { j.click(); sectAct++; seen['徒弟差事'] = 1; await sleep(30); }
+        const g = document.querySelector('#modal #discGrad:not([disabled])');
+        if (g && (st.sect.rank < 4 || st.disc.list.length >= 3)) { g.click(); sectAct++; seen['出师'] = 1; await sleep(60); await drain(); X.showSect('disc'); await sleep(40); continue; }
+        const te = document.querySelector('#modal #discTeach:not([disabled])');
+        if (te && !L.busy(st) && Math.random() < 0.3) { te.click(); await sleep(40); const d = document.querySelector('#modal [data-dt]'); if (d) { d.click(); sectAct++; seen['传授'] = 1; await sleep(450); await drain(); } break; }
+      }
+      if (!modal()) { X.showSect('id'); await sleep(40); } else { X.showSect('id'); await sleep(40); }
+      const dk = document.querySelector('#modal #btnDuty:not([disabled])');
+      if (dk && !L.duty(st)) { dk.click(); await sleep(40); const d = document.querySelector('#modal [data-duty]:not([disabled])'); if (d) { d.click(); sectAct++; seen['职司'] = 1; await sleep(60); } X.showSect('id'); await sleep(40); }
+      for (const b of [...document.querySelectorAll('#modal [data-gift]:not([disabled])')].slice(0, 2)) { b.click(); gifts++; seen['宗门送礼'] = 1; await sleep(40); }
+      X.showSect('vault'); await sleep(40);
+      for (let k = 0; k < 2; k++) {
+        const b = [...document.querySelectorAll('#modal [data-vr]:not([disabled])')].find(x => /《|法宝|兵器|法衣|饰品/.test(x.closest('.card').textContent));
+        if (!b) break;
+        b.click(); vaultN++; seen['宗门宝库'] = 1; await sleep(120); await drain();
+        if (!modal()) break;
+        X.showSect('vault'); await sleep(40);
+      }
+      if (modal()) X.closeModal(); await sleep(450); await drain();
+    }
     // 灵田与炼丹房：每 12 周天点开一块田、一半时候改种列表第一项（老祖推荐的）；药引格里有能试的格子就【试炼】一格
     async function fieldAlchRound() {
       const st = X.st;
@@ -251,6 +284,7 @@ const path = require('path');
       if (n % 24 === 5 && !X.cine) await artRound();
       if (n % 12 === 9 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
       if (n % 12 === 3 && !X.cine && (L.petCount(st) || st.petPend.length)) await petRound();
+      if (n % 24 === 17 && !X.cine && st.sect && !modal()) await sectRound();
       if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
       if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !X.cine && !modal()) {
         if (L.mjCan(st, true)) await realmRound(true);
@@ -278,13 +312,14 @@ const path = require('path');
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`,
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen),
       mijing: `进 ${mjRuns} 次、通关 ${mjClears} 次、点门 ${mjDoors} 下、最深 ${st.stats.mjDeep || 0} 层、秘境令 ${L.mjTokens(st)}`,
+      zongmen: st.sect ? `${L.srankName(st, st.sect.rank)} · 职司 ${L.duty(st) ? L.DUTIES[L.duty(st)].n : '-'} · 长老 ${L.eldersOf(st).map(e => e.n + ' ' + L.favor(st, e.id)).join('、')} · 送礼 ${gifts} 次 · 宝库换 ${vaultN} 件 · 收徒 ${discTaken}（门下 ${st.disc ? st.disc.list.length : 0}、出师 ${st.stats.discGrad || 0}、传授 ${st.stats.discTeach || 0}）· 三人会武 ${st.stats.trioWins || 0}/${st.stats.trioRounds || 0} · 点宗门 ${sectAct} 下` : '-',
       dan: `灵田 ${L.plots(st).map(x => L.CROP[x.c].n).join('、')} / 丹方 ${L.recipeCount(st)}/${L.YIN_GRID.length} / 炼丹 ${st.stats.crafts} 炉 / 丹毒 ${Math.round(st.toxin || 0)}` };
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
   // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
-  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化', '秘境']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
+  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化', '秘境', '收徒', '宗门送礼', '宗门宝库']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;

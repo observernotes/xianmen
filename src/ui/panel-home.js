@@ -5,7 +5,7 @@
 const HOME_ICON = { cave: 'build', array: 'stone', field: 'stone', furnace: 'pill' };
 function retreatCard() {
   if (st.retreat) {
-    const r = st.retreat, nm = r.kind === 'train' ? '老祖特训' : r.kind === 'teach' ? '指点师弟' : '闭关';
+    const r = st.retreat, nm = L.retName(r);
     return `<div class="card flat"><div class="main"><div class="line"><span>${nm}中</span><span class="chip ok">修炼 ×${r.m.toFixed(2)}</span></div>${bar((r.total - r.left) / r.total, true)}
       <div class="muted">还剩 ${r.left} 周天 · 已得修为 ${fmt(r.got)}${r.kind === 'ret' ? ' · 坐满出关有机会顿悟' : ''}</div></div>
       <div class="right"><button class="btn sm alt" id="btnRetEnd">提前出关</button></div></div>`;

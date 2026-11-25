@@ -6,6 +6,7 @@
 // 秘境（掉血公式与五行、离开与出局、秘藏、秘境事件与 run_* 标记、送令、迁移、存档续玩）
 // 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
+// 宗门加深（任务板四类、宝库轮换、职司五堂、人脉支持与晋升门槛、送礼、40 / 80 的恩惠、徒弟成长 / 差事 / 传授 / 出师 / 候选、性情事件、三人会武、血煞魔宗、长老事件界面、老祖讲解、迁移）
 // node tools/content_test.js <输出目录>
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -69,6 +70,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 宗门：任务板接取与交付
   await page.evaluate(() => { const { st } = window.__xm; st.sect.tasks = [{ ty: 'herbs', n: 24, need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { pills: 1 } }, { ty: 'pill', n: 1, need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { herbs: 10 } }, { ty: 'act', sub: 'retreat', need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { inc: 3 } }]; st.pills = 3; });
   await page.click('[data-nav="sect"]'); await page.waitForTimeout(300); await shot('c11-sect');
+  await page.click('#modal [data-stab="task"]'); await page.waitForTimeout(300);
   await page.click('#modal [data-tk="0"]'); await page.waitForTimeout(300);
   await page.click('#modal [data-td="0"]'); await page.waitForTimeout(300); await shot('c11b-sect-task');
   expect(await page.evaluate(() => window.__xm.st.sect.tasks[0].done === 1), '宗门任务交付完成');
@@ -108,7 +110,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal [data-art="z_huichun"]'); await page.waitForTimeout(400); await shot('c16-combo');
   const cb = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, c: window.__xm.st.meta.combo, on: window.__xm.L.comboOn(window.__xm.st, 'c1'), age: window.__xm.L.ageRate(window.__xm.st) }));
   expect(cb.t === '共鸣揭晓' && cb.c.c1 === 1 && cb.on, `共鸣「生生不息」揭晓并记入图鉴（${cb.t}）`);
-  expect(Math.abs(cb.age - (1 - 0.08) * 0.9) < 1e-9, `生生不息：寿元流逝 ×${cb.age.toFixed(3)}（青木 −8% × 再 −10%）`);
+  expect(Math.abs(cb.age - (1 - 0.08) * 0.9) < 1e-9, `生生不息：寿元流逝 ×${cb.age.toFixed(3)}（青木 −8% × 再 −10%）` + await page.evaluate(() => JSON.stringify([(window.__xm.st.pets || []).map(p => p.sp + p.lv), window.__xm.st.log.slice(0, 12).map(x => x.text.slice(0, 30))])));
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(250);
   // 熟练：门槛 [0,12,36,80,150] × (1 + 0.5 × 阶)，五级；圆满得融会
   const mast = await page.evaluate(() => {
@@ -703,6 +705,157 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal button[data-c="0"]'); await page.waitForTimeout(400); await shot('c10-pet-evolve-done');
   const pf = await page.evaluate(() => ({ f: window.__xm.st.pets[0].form, n: window.__xm.L.petName(window.__xm.st.pets[0]), k: !!window.__xm.st.meta.petEvo.p_hu2_a }));
   expect(pf.f === 1 && pf.n === '炎虎王' && pf.k, '进化事件生效：' + JSON.stringify(pf));
+  await close();
+  // ---------- 宗门加深（SYSTEMS §11）：任务板四类、宝库轮换、职司、人脉与晋升门槛、徒弟（成长、差事、传授、出师）、三人会武、带 favor 的事件 ----------
+  const sx = await page.evaluate(() => {
+    const { L } = window.__xm, o = {};
+    const mk = (sid, rank, r) => { const st = L.newState({ name: '宗门测试' }); st.p.r = r || 4; st.p.s = 2; st.flags.maxR = st.p.r; st.tick = 240; st.pact = 1; st.stones = 1e7; st.herbs = 900; st.ore = 3000; st.treasure = 6; st.pills = 6; st.home = { cave: 4, array: 8, field: 6, furnace: 6 }; st.stats.exp = 20;
+      for (let k = 0; k <= 5; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
+      L.joinSect(st, sid); st.sect.rank = rank; st.sect.total = 1e6; st.sect.pts = 1e6; st.storyQ = []; return st; };
+    // 任务板：四类新任务能刷出来、文案、交付与完成
+    let st = mk('jian', 2);
+    L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.pend = []; st.gear.w.plus = 2;
+    L.petGive(st, { sp: 'p_hu2', src: 'shop' }); st.feed = 500;
+    for (const id of ['x_houtu']) { L.giveArt(st, id); st.arts.own[id] = L.artNeed(id, 3) + 1; }
+    const seen = new Set(); for (let i = 0; i < 80; i++) { L.rollTasks(st); for (const t of st.sect.tasks) seen.add(t.ty); }
+    o.types = ['forge', 'tame', 'explore', 'lecture'].every(t => seen.has(t));
+    const T = ty => { const t = { ty, need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { inc: 1 } }; L.TASK_X[ty].init(st, t, 50, st.p.r); st.sect.tasks = [t]; L.taskTake(st, 0); return t; };
+    let t = T('forge'); o.forgeText = /炼器：强化一件法宝到 \+3 以上，或上交灵矿/.test(L.taskText(st, t));
+    const fav0 = L.favor(st, 'tieye'); const ore0 = st.ore; o.forgeDeliver = L.taskDeliver(st, 0) && t.done === 1 && st.ore === ore0 - t.n && L.favor(st, 'tieye') === fav0 + L.FAV.task;
+    t = T('forge'); L.rng = () => 0.01; L.gearPlus(st, 'w'); L.rng = Math.random; o.forgePlus = t.done === 1 && st.gear.w.plus === 3;
+    t = T('tame'); const fd0 = st.feed; o.tame = !!t.el && L.taskDeliver(st, 0) && st.feed === fd0 - t.n;
+    // 探秘：秘境开了时是“本季秘境闯过 N 层”（每过一层检查），秘境关掉时改去禁地寻宝
+    t = T('explore'); o.exploreRealm = !!t.realm && t.n >= 2 && /本季秘境闯过/.test(L.taskText(st, t)) && (L.realmFloorHit(st, t.n - 1), !t.done) && (L.realmFloorHit(st, t.n), t.done === 1);
+    L.MJ_ON = false; t = T('explore'); L.MJ_ON = true; o.exploreFallback = !t.realm && L.expOpen(st, t.k, 2, 1) && /禁地寻宝/.test(L.taskText(st, t));
+    t = T('lecture'); o.lectureBusy = !!st.retreat && st.retreat.kind === 'busy' && st.retreat.left === 2 && L.gain(st) === 0;
+    L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = [];
+    const tot0 = st.sect.total; for (let i = 0; i < 2; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); }
+    o.lectureDone = t.done === 1 && st.sect.total >= tot0 + 100 && st.disc.list[0].lp === 1 && !st.retreat;
+    // 宝库轮换：6 格，每届论道换；按身份开放；贡献是唯一的货币；vault_tip 法宝高一阶
+    st = mk('jian', 0);
+    const v0 = L.vaultRot(st), cells = L.vaultCells(st);
+    o.vault6 = v0.slots.length === 6 && cells.some(c => c.k === 'art') && cells.some(c => c.k === 'plan') && cells.some(c => c.k === 'pill');
+    o.vaultLock = cells.some(c => /可换$/.test(c.why || ''));
+    const pc = cells.find(c => c.k === 'pill'), pts0 = st.sect.pts, s0 = st.stones;
+    o.vaultBuy = !!L.vaultRotBuy(st, pc.i) && st.sect.pts === pts0 - pc.cost && st.stones === s0 && L.vaultCell(st, pc.i).left === pc.left - 1;
+    const g0 = cells.find(c => c.k === 'gear').s.tier;
+    st.eflags.vault_tip = 1; st.tick = 252; L.sectTick(st, {});
+    o.vaultRoll = st.sect.vault.at === 252 && st.sect.vault.slots.find(s => s.k === 'gear').tier === g0 + 1 && !st.eflags.vault_tip;
+    // 职司：五堂的效果
+    st = mk('dan', 2);
+    L.gearDrop(st, 'w', 3, { base: 'w3_0' }); st.gear.pend = [];
+    const tryD = (k, fn) => { st.sect.duty = ''; const a = fn(); st.sect.duty = k; const b = fn(); st.sect.duty = ''; return [a, b]; };
+    let ab = tryD('dan', () => L.alchRate(st)); o.dutyDan = Math.abs(ab[1] - Math.min(0.97, ab[0] + 0.08)) < 1e-9;
+    ab = tryD('dan', () => L.sellMult(st, 'pill')); o.dutyDanSell = ab[1] / ab[0] > 1.19 || ab[1] === ab[0];
+    ab = tryD('qi', () => L.gearPlusRate(st, st.gear.w)); o.dutyQi = Math.abs(ab[1] - Math.min(1, ab[0] + 0.08)) < 1e-9;
+    ab = tryD('zhan', () => L.expExtraParts(st, 1, 0, 0).filter(x => /战堂/.test(x[0])).reduce((a, x) => a + x[1], 0)); o.dutyZhan = ab[0] === 0 && ab[1] === 5;
+    ab = tryD('wai', () => L.buyMult(st, 0)); o.dutyWai = Math.abs(ab[1] / ab[0] - 0.9) < 1e-9;
+    ab = tryD('wai', () => L.calVisitMult(st)); o.dutyWaiVisit = Math.abs(ab[1] / ab[0] - 1.15) < 1e-9;
+    o.dutyChange = L.setDuty(st, 'qi') && !!L.dutyWhy(st) && !L.setDuty(st, 'zhan') && (st.sect.meets++, L.setDuty(st, 'zhan')) && L.duty(st) === 'zhan';
+    const pe = L.pickEvent; L.pickEvent = () => L.eventById('re_bandit'); st.visitor = null; st.sect.duty = 'fa'; L.rng = () => 0.1;
+    o.dutyFa = L.spawnVisitor(st) === null && !st.visitor; st.sect.duty = ''; o.dutyFa = o.dutyFa && !!L.spawnVisitor(st); L.pickEvent = pe; L.rng = Math.random; st.visitor = null;
+    // 人脉：支持度的加减、40 / 80 的恩惠、送礼、晋升门槛
+    st = mk('jian', 2, 3);
+    o.favStart = L.eldersOf(st).every(x => L.favor(st, x.id) === L.FAV.start);
+    const g = L.giftInfo(st, 'tieye'), fl0 = L.favor(st, 'lingxu');
+    o.gift = !g.why && !!L.giftElder(st, 'tieye') && L.favor(st, 'tieye') === L.FAV.start + L.FAV.gift && L.favor(st, 'lingxu') === fl0 - L.FAV.rival && !!L.giftInfo(st, 'tieye').why;
+    L.addFavor(st, 'tieye', 40); o.giftCap = /礼只送得到/.test((st.tick += 12, L.giftInfo(st, 'tieye').why));
+    L.gearDrop(st, 'w', 3, { base: 'w3_0' }); st.gear.pend = [];
+    const c0 = L.gearPlusCost(st, st.gear.w).ore; L.addFavor(st, 'tieye', -20); const c1 = L.gearPlusCost(st, st.gear.w).ore; L.addFavor(st, 'tieye', 20);
+    o.fav40 = Math.abs(c0 / c1 - 0.8) < 0.05;
+    const ore1 = st.ore; L.addFavor(st, 'lingxu', 60); st.tick = 264; L.sectTick(st, {}); o.fav40Gift = st.ore === ore1 + 20 * L.oreUnit(st);
+    L.addFavor(st, 'tieye', 100); o.fav80 = L.artOwned(st, 'm_zhujian') && !!st.sect.f80.tieye;
+    o.clamp = L.favor(st, 'tieye') === 100 && L.addFavor(st, 'tieye', 10) === 0;
+    // 晋升：圣子要两位 ≥ 50；谁也不站（heir_none）改成累计贡献多两成
+    st = mk('jian', 2, 3); st.sect.total = L.SRANKS[3].c; st.storyQ = [];
+    const need = () => L.promoteNeeds(st).find(x => x.k === 'elders' || x.k === 'heirNone');
+    o.gate0 = !!need() && !need().ok && !L.canPromote(st);
+    L.sectTick(st, {}); o.heirEve = st.storyQ.includes('sect_succession') && st.sect.heirEv === 1;
+    L.addFavor(st, 'lingxu', 40); L.addFavor(st, 'liu', 40); o.gate2 = need().ok && L.canPromote(st);
+    L.addFavor(st, 'liu', -10); st.eflags.heir_none = 1; o.heirNone = need().k === 'heirNone' && !need().ok && (st.sect.total = Math.ceil(L.SRANKS[3].c * 1.2), need().ok);
+    st.sect.rank = 5; st.p.r = 7; st.sect.total = L.SRANKS[6].c; delete st.eflags.heir_none; L.addFavor(st, 'liu', -40);
+    o.lord1 = !need().ok; st.eflags.lord_gift = 1; o.lordGift = need().ok;
+    // 徒弟：成长公式、闭门苦修、上限、差事、传授、出师
+    st = mk('dao', 4, 4); st.p.s = 3; L.giveArt(st, 'x_houtu'); st.arts.own.x_houtu = L.artNeed('x_houtu', 3) + 1;
+    const d = L.discTake(st, null, { cat: 'quiet', t: 3, tp: 'ren' }); st.storyQ = []; st.disc.q = [];
+    o.discRate = Math.abs(L.discGrowRate(st, d) - 0.02 * 1.25 * L.daoDiscMult(st)) < 1e-12;
+    L.discSetJob(st, d.u, 'cult'); o.discCult = Math.abs(L.discGrowRate(st, d) - 0.02 * 1.25 * 2 * L.daoDiscMult(st)) < 1e-12;
+    st.dao = { k: 0, w: 0, r: 12 }; o.discRen = Math.abs(L.discGrowRate(st, d) - 0.02 * 1.25 * 2 * 1.2) < 1e-12;
+    d.di = L.discMax(st) - 0.001; L.discTick(st, {}); o.discCap = d.di === L.discMax(st) && L.discMax(st) === L.si(st.p) - 4;
+    L.discSetJob(st, d.u, 'duty'); d.di = 5; const t0c = st.sect.total; for (let i = 0; i < 10; i++) L.discTick(st, {}); o.discDuty = st.sect.total - t0c >= Math.floor(10 * L.contribFor(L.homeRegion(st)) * 0.3 * 1.3) - 1;
+    L.discSetJob(st, d.u, 'home'); o.discHome = Math.abs(L.modProd(L.modParts('incMul', st).filter(x => x[2] === 'disc')) - 1.08) < 1e-9;
+    L.discSetJob(st, d.u, 'exp'); const sto = st.stones; for (let i = 0; i < 6; i++) L.discTick(st, {}); o.discExp = st.stones - sto === L.discJobVal(st, d, 'exp').stones;
+    const pw0 = L.discPow(st, d); st.retreat = null; st.exp = null;
+    o.teachStart = L.discTeach(st, d.u, 'x_houtu') && st.retreat.kind === 'busy' && st.retreat.left === L.TEACH_LEN;
+    st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true);
+    o.teachDone = d.taught.includes('x_houtu') && Math.abs(L.discPow(st, d) / pw0 - 1.2) < 1e-9 && L.artLv(st, 'x_houtu') === 4;
+    d.di = 8; const tot1 = st.sect.total, tl0 = st.meta.taoli.n, gc = L.discGradContrib(st, d);
+    const gr = L.discGraduate(st, d.u, 'grad_word'); o.grad = !!gr && st.sect.total === tot1 + gc && st.disc.taoli === 1 && st.meta.taoli.n === tl0 + 1 && !st.disc.list.length && L.discGraduated(st) === 1;
+    // 候选：每 24 周天三个（壮实 / 机灵 / 安静），三选一
+    st.disc.candAt = -999; st.storyQ = []; L.discTick(st, {}); o.cands = st.disc.cand.length === 3 && st.disc.cand.map(c => c.cat).join() === 'strong,clever,quiet' && st.storyQ.includes('sect_candidates');
+    const ev = L.eventById('sect_candidates'); st.storyQ = []; L.resolveChoice(st, ev, 1); o.candEvent = st.disc.list.length === 1 && st.disc.list[0].cat === 'clever' && st.storyQ.includes('disc_first_day');
+    // 性情事件按徒弟各走一遍：莽 → disc:trouble，fx.disc 落在那名徒弟身上
+    st.storyQ = []; st.disc.q = []; const m1 = L.discTake(st, null, { cat: 'strong', tp: 'mang' }); st.storyQ = []; st.disc.q = [];
+    L.discFire(st, 'disc:trouble', m1); const evT = L.eventById('disc_trouble'), g1 = m1.grow;
+    L.resolveChoice(st, evT, 1); o.discEvent = m1.grow === g1 + 0.05 && st.disc.list[0].grow === 0;
+    // 三人会武：宗主 + 两名徒弟，三局两胜
+    st = mk('dao', 6, 7); st.p.s = 2; L.discTake(st, null, { cat: 'strong' }); L.discTake(st, null, { cat: 'quiet' }); st.disc.list.forEach(x => { x.di = 13; }); st.storyQ = [];
+    const mt = L.sectMeet(st);
+    o.trio = !!mt.trio && mt.rounds.length >= 1 && mt.rounds.every(r => r.trio.length === 3 && r.win === (r.trio.filter(x => x.win).length >= 2));
+    // 血煞魔宗：没有门路进不去；夜璃好感 40 以后能进，越级 ×3，因果换贡献
+    st = L.newState({ name: '魔' }); st.p.r = 2; st.pact = 1;
+    o.moGate = !L.joinSect(st, 'xuesha') && L.sectsFor(st).length === 3;
+    st.npc.ye = { aff: 45 }; const lp0 = L.leapMult(st); o.moJoin = L.sectsFor(st).length === 4 && L.joinSect(st, 'xuesha') && Math.abs(L.leapMult(st) / lp0 - 1.5) < 1e-9;
+    L.addKarma(st, 'frame', null, null); const kt = st.sect.total; o.moKarma = !!L.karmaTrade(st) && st.sect.total > kt && !L.karmaOpen(st).length;
+    // 存档：没有人脉 / 职司 / 宝库 / 徒弟字段的档补默认值，读两遍一样
+    const s1 = L.newState({ name: '旧档' }); s1.p.r = 3; L.joinSect(s1, 'dan'); delete s1.sect.fav; delete s1.sect.vault; delete s1.sect.duty; delete s1.disc;
+    const a = L.migrate(JSON.parse(JSON.stringify(s1))), b = L.migrate(JSON.parse(JSON.stringify(a)));
+    o.migrate = a.v === L.SAVE_V && a.sect.fav.yun === L.FAV.start && Array.isArray(a.disc.list) && JSON.stringify([a.sect.fav, a.disc]) === JSON.stringify([b.sect.fav, b.disc]);
+    return o;
+  });
+  for (const k in sx) expect(sx[k], '宗门：' + k);
+  // 界面：带 favor 的长老事件（剑冢取剑）——立绘、支持度、结果页写“人脉 凌虚子 +N”
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.sect = null; st.p.r = 3; st.stones = 1e7; L.joinSect(st, 'jian'); st.sect.rank = 2; st.storyQ = []; st.disc = null; st.retreat = null; st.exp = null;
+    for (const h of window.__xm.hints) st.hintSeen[h.id] = 1;
+    L.addFavor(st, 'lingxu', 15); delete st.evLast.jian_lingxu_1; delete st.evDone.jian_lingxu_1;
+    for (const h of ['duty1', 'renmai1', 'disc1']) st.hintSeen[h] = 1;
+    window.__favEv = L.eligible(st, L.eventById('jian_lingxu_1'), 'home', {}); L.rng = () => 0.01; window.__xm.showChoice(L.eventById('jian_lingxu_1'));
+  });
+  await page.waitForTimeout(300); await shot('c40-elder-event');
+  const fe0 = await page.evaluate(() => ({ el: window.__favEv, who: (document.querySelector('#modal .speaker .seal') || {}).textContent || '', img: !!document.querySelector('#modal .speaker img') }));
+  await page.click('#modal button[data-c="1"]'); await page.waitForTimeout(500);
+  const fe1 = await page.evaluate(() => ({ body: document.querySelector('#modal .body').textContent, v: window.__xm.L.favor(window.__xm.st, 'lingxu') }));
+  await page.evaluate(() => { window.__xm.L.rng = Math.random; });
+  expect(fe0.el && fe0.who.includes('凌虚子') && fe0.who.includes('支持 25') && fe0.img && fe1.body.includes('人脉 凌虚子 +5') && fe1.v === 30, `长老事件：资格 ${fe0.el}，${fe0.who}，结果 ${fe1.v}`);
+  await shot('c41-elder-event-res');
+  await close();
+  // 老祖讲职司、人脉、第一个徒弟（各一次阻塞讲解：时间暂停，数字与逻辑一致）
+  const sHint = async (id, setup) => {
+    await page.evaluate(([id, setup]) => { const { st } = window.__xm; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.exp = null; st.retreat = null; st.visitor = null; st.hintSeen[id] = 0; st.tick += 300; st.storyQ = []; new Function('st', 'L', setup)(st, window.__xm.L); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); document.querySelector('#tip').hidden = true; }, [id, setup]);
+    await page.waitForTimeout(900);
+    const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold }));
+    await shot('c44-hint-' + id);
+    const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
+    return r;
+  };
+  const rm = await sHint('renmai1', 'st.sect.rank = 1;');
+  const rmv = await page.evaluate(() => window.__xm.L.favor(window.__xm.st, 'lingxu'));
+  expect(rm.g.includes('三位长老') && rm.g.includes('凌虚子 ' + rmv) && rm.g.includes('两位 ≥ 50') && rm.hold, `人脉讲解：${rm.g.slice(0, 40)}（暂停 ${rm.hold}）`);
+  const duH = await sHint('duty1', "st.sect.rank = 2; st.sect.duty = ''; L.setDuty(st, 'zhan', true);");
+  expect(duH.g.includes('职司·战堂') && duH.g.includes('斩妖历练分数 +5') && duH.hold, `职司讲解：${duH.g.slice(0, 40)}（暂停 ${duH.hold}）`);
+  const dc = await sHint('disc1', "st.disc = null; L.rollCands(st); st.disc.cand[0].t = 5;");
+  const dcN = await page.evaluate(() => { const c = window.__xm.st.disc.cand[0]; return { n: c.n, g: (0.02 * 1.8).toFixed(3) }; });
+  expect(dc.g.includes(dcN.n) && dc.g.includes('门下') && dc.g.includes(dcN.g) && dc.hold, `第一个徒弟讲解：${dc.g.slice(0, 40)}（暂停 ${dc.hold}）`);
+  await page.click('[data-nav="sect"]'); await page.waitForTimeout(300);
+  await page.click('#modal [data-stab="id"]'); await page.waitForTimeout(300); await shot('c42-sect-id');
+  const tabs = await page.evaluate(() => [...document.querySelectorAll('#modal [data-stab]')].map(b => b.textContent.replace(/！/, '').trim()).join());
+  expect(tabs === '身份,任务板,宝库,门下', '宗门四个分页：' + tabs);
+  const gv = await page.evaluate(() => window.__xm.L.favor(window.__xm.st, 'liu'));
+  await page.click('#modal [data-gift="liu"]'); await page.waitForTimeout(300);
+  expect(await page.evaluate(gv => window.__xm.L.favor(window.__xm.st, 'liu') === gv + window.__xm.L.FAV.gift, gv), '身份页【送礼】：柳含烟支持 +6');
+  await page.click('#modal [data-stab="vault"]'); await page.waitForTimeout(300); await shot('c43-sect-vault');
+  expect(await page.evaluate(() => document.querySelectorAll('#modal [data-vr]').length === 6), '宝库六格');
   await close();
   // ---------- 秘境（SYSTEMS §8）：掉血公式、离开与出局、秘藏、秘境事件、run_* 标记、送令、存档续玩 ----------
   const mj = await page.evaluate(() => {

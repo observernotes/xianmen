@@ -10,6 +10,7 @@
 //   node tools/sim.js all 200 nomarket guided 不卖行情、不去拍卖、不买轮换货（货架的常驻三格照用），量坊市这一刀对节奏的影响
 //   node tools/sim.js all 200 nodaoji  渡劫评价不给道基（L.DAOJI_ON = false），量道基对节奏的影响
 //   node tools/sim.js all 200 nopets  关掉灵宠的新东西（L.PETS_ON = false：只剩种的初阶倍率，没有等级、进化、好感、岗位、天赋）
+//   node tools/sim.js all 200 nosect2 guided 不送礼、不收徒、不领职司、宝库照旧（人脉的晋升条件仍在），量宗门加深这一刀
 //   node tools/sim.js all 200 nocrops 灵田只种灵稻（L.CROPS_ON = false：等价于作物制之前的被动灵石，没有灵草、灵谷、药引作物）
 //   node tools/sim.js all 200 noalch  关掉药引丹方与丹毒（L.ALCH_ON = false：只剩培元、破境、疗伤三种基础丹）
 // 策略：
@@ -29,6 +30,8 @@
 //          行情：破境丹 ≥ 9 枚时卖一半（指数 ≥ 0.9，或 ≥ 11 枚时不看指数），灵草远多于炼丹所需、指数 ≥ 1.2 时卖一半，灵矿不卖（全拿去强化）；
 //          拍卖：想要的拍品（法宝、功法、残篇、洗髓、器方，天材地宝不足 3 个时）按手里的钱出价，宿敌在场的先出、出到豪掷；
 //          钱差一点时拍卖那几个周天不升洞府、攒着；坊市事件随手选一个付得起的选项
+//          宗门（SYSTEMS §11）：宝库轮换里功法、更高阶法宝、器方阵图买得起就换；职司按宗门领；每届给支持最高的两位长老送礼；
+//          任务板四类新任务照接（讲法要离圆满还远），炼器、驯兽东西富余才交；徒弟挑灵根最高的收，闭门苦修到顶再去当值，圆满功法教给他，金丹出师
 //   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
 //          不闭关、不吐纳、不碰新系统（不卖行情、不去拍卖、灵田照默认全种灵稻、不炼丹）；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
 //   idle   什么都不做，只在修为圆满时突破
@@ -44,6 +47,8 @@ if (arg.includes('nopets')) L.PETS_ON = false;
 if (arg.includes('nocrops')) L.CROPS_ON = false;
 if (arg.includes('noalch')) L.ALCH_ON = false;
 const MARKET_SIM = !arg.includes('nomarket');
+// nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
+const SECT2 = !arg.includes('nosect2');
 const only = ['guided', 'lazy', 'idle'].includes(arg[0]) ? arg[0] : null;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
@@ -209,6 +214,39 @@ function aucGuided(st, rec) {
   }
   return saving ? Infinity : 0;
 }
+// guided 的宗门（SYSTEMS §11）：宝库轮换里功法、更高阶的法宝、器方阵图买得起就换，丹矿缺了补；职司按宗门领；
+//   每届给支持最高、还没到 40 的两位长老送礼（钱够才送）；徒弟：候选里挑灵根最高的，到顶前闭门苦修、到顶了去当值，圆满的功法教给他（你那门到化境），
+//   长老以前金丹就出师，长老起留两个最强的打三人会武（太上起给这两个各补教到两门）
+const DUTY_FOR = { jian: 'zhan', dan: 'dan', dao: 'qi', xuesha: 'zhan' };
+function sectGuided(st, rec) {
+  for (const c of L.vaultCells(st)) {
+    if (!c.ok) continue;
+    const s = c.s;
+    const want = s.k === 'art' || s.k === 'plan' || (s.k === 'gear' && (s.unique || L.gearTier(st, s.slot) < s.tier)) || (s.k === 'pill' && st.pills < 3)
+      || (s.k === 'ore' && st.gear.w && (st.ore || 0) < L.gearPlusCost(st, st.gear.w).ore) || (s.k === 'treasure' && st.treasure < 2);
+    if (want) { const r = L.vaultRotBuy(st, c.i); if (r) { rec.vaultBuys++; if (r.it && r.it.gear && r.it.pend) L.gearAuto(st, r.it.gear); } }
+  }
+  if (L.dutyOpen(st) && !L.duty(st)) L.setDuty(st, DUTY_FOR[st.sect.id] || 'zhan');
+  // 送礼：支持最高的两位（每届一次；灵石只花手里一成以内）
+  const es = L.eldersOf(st).slice().sort((a, b) => L.favor(st, b.id) - L.favor(st, a.id)).slice(0, 2);
+  for (const e of es) {
+    const g = L.giftInfo(st, e.id); if (!g || g.why) continue;
+    if ((g.k === 'stones' && g.n > st.stones * 0.1) || (g.k === 'treasure' && st.treasure < 3) || (g.k === 'pills' && st.pills < 4) || (g.k === 'ore' && st.gear.w && (st.ore || 0) - g.n < L.gearPlusCost(st, st.gear.w).ore)) continue;
+    if (L.giftElder(st, e.id)) rec.gifts++;
+  }
+  // 徒弟
+  const D = L.discState(st);
+  if (D.cand && !L.discFull(st)) { const i = D.cand.map((c, j) => [j, c.t]).sort((a, b) => b[1] - a[1])[0][0]; L.discTake(st, i); }
+  const cap = L.discMax(st);
+  for (const x of D.list.slice()) {
+    const job = x.di < cap - 0.3 ? 'cult' : 'duty';
+    if (x.job !== job) L.discSetJob(st, x.u, job);
+    // 长老以前金丹就出师；长老起留两个最强的打三人会武，第三个金丹出师
+    const keep = st.sect.rank >= 4 && L.discTop(st, 2).includes(x);
+    if (L.discCanGrad(x) && !keep) { const r = L.discAskGrad(st, x.u); if (r && r.ev) L.resolveChoice(st, r.ev, 0); continue; }
+    if (!L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 4) { const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5 && x.taught.length < 2)); if (id && L.discTeach(st, x.u, id)) return; }
+  }
+}
 // guided 的秘境（SYSTEMS §8）：夏天有令、没伤、第一层战斗房掉血不到一半就进；门照老祖的“荐”走，最好的门也会出事 / 气血见底没泉就带着收获走；
 //   奇遇随手选一个付得起的；行商气血不到一半买回春散，否则买得起丹 / 法宝 / 功法就买；秘藏拿“荐”的那项。整局之后 3 个周天不动（L.mjCost）
 function mjGuided(st, rec) {
@@ -316,10 +354,14 @@ function actGuided(st, rec, seed) {
   if (L.lifeLow(st) && L.marketOpen(st, 'life') && L.lifeTicks(st) < 60 && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
   if (st.sect) {
     if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
-    for (const k of ['vart', 'vwep', 'vplan']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
+    // 只差人脉的那几个周天（圣子、宗主）
+    if (st.sect.rank === 2 || st.sect.rank === 5) { const nd = L.promoteNeeds(st); if (nd.some(x => x.k === 'elders' && !x.ok) && nd.filter(x => x.k !== 'elders').every(x => x.ok)) rec.favWait[st.sect.rank + 1] = (rec.favWait[st.sect.rank + 1] || 0) + 1; }
+    if (SECT2) sectGuided(st, rec);
+    else for (const k of ['vart', 'vwep', 'vplan']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
     st.sect.tasks.forEach((t, i) => {
-      if (!t.taken && t.ty !== 'teach') L.taskTake(st, i);
-      if (L.taskCanDeliver(st, t) && (t.ty === 'herbs' ? st.herbs >= t.n * 1.5 : st.pills >= 3)) L.taskDeliver(st, i);
+      if (!t.taken && t.ty !== 'teach' && (t.ty !== 'lecture' || (SECT2 && !L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 6))) L.taskTake(st, i);
+      const enough = t.ty === 'herbs' ? st.herbs >= t.n * 1.5 : t.ty === 'pill' ? st.pills >= 3 : t.ty === 'forge' ? (st.ore || 0) >= t.n * 3 : t.ty === 'tame' ? (st.feed || 0) >= t.n * 2 : false;
+      if (L.taskCanDeliver(st, t) && enough) L.taskDeliver(st, i);
     });
     if (st.sect.rank >= 6) for (const b of L.BUILDS) if (st.stones >= L.buildCost(st.sect.build[b.k]) * 1.2) L.sectBuild(st, b.k);
   }
@@ -344,6 +386,7 @@ function actGuided(st, rec, seed) {
   let cell = L.expBest(st, a), escort;
   if (st.sect) st.sect.tasks.forEach((t, i) => {
     if (!t.taken || t.done) return;
+    if (t.ty === 'explore' && !t.realm && L.expOpen(st, t.k, 2, 1)) { const f = L.expForecast(st, t.k, 2, 1); if (f.risk <= 0.05 && f.pOk >= 0.8) cell = { k: t.k, d: 2, a: 1 }; }
     if (t.ty === 'exp') { for (let d = 2; d >= 0; d--) if (L.expOpen(st, t.k, d, t.a)) { const f = L.expForecast(st, t.k, d, t.a); if (f.risk <= 0 && f.pOk >= 0.8) { cell = { k: t.k, d, a: t.a }; break; } } }
     else if (t.ty === 'escort' && n % 3 === 0 && L.expOpen(st, t.k, 0, 0) && L.expForecast(st, t.k, 0, 0).risk <= 0) { cell = { k: t.k, d: 0, a: 0 }; escort = i; }
   });
@@ -358,7 +401,7 @@ function actLazy(st, rec) {
   if (st.sect) {
     if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
     st.sect.tasks.forEach((t, i) => {
-      if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i);
+      if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort' && t.ty !== 'lecture') L.taskTake(st, i);
       if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i);
     });
   }
@@ -380,7 +423,7 @@ function run(strat, seed, trace) {
   L.rng = rngFor(seed);
   const st = L.newState({ name: '测试' });
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
-    tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0,
+    tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {},
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0 };
   const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
   for (let n = 0; n < maxT; n++) {
@@ -429,7 +472,9 @@ function run(strat, seed, trace) {
   }
   rec.btFails = st.stats.btFails; rec.expStones = st.stats.expStones; rec.endR = st.p.r; rec.endTick = st.tick;
   rec.daoji = L.daoji(st); rec.dao = Object.assign({}, st.dao); rec.karmaOpen = L.karmaOpen(st).length; rec.karmaDone = st.karma.done; rec.toxin = st.trib.toxin;
-  rec.sectTasks = st.stats.sectTasks; rec.trips = st.stats.exp; rec.dings = st.stats.dings; rec.st = trace ? st : null;
+  rec.sectTasks = st.stats.sectTasks; rec.trips = st.stats.exp;
+  rec.discTaken = st.stats.discTaken || 0; rec.discGrad = st.stats.discGrad || 0; rec.discTeach = st.stats.discTeach || 0; rec.trioR = st.stats.trioRounds || 0; rec.trioW = st.stats.trioWins || 0;
+  rec.fav = st.sect && st.sect.fav ? Object.values(st.sect.fav).sort((a, b) => b - a) : [0, 0, 0]; rec.duty = st.sect ? st.sect.duty : ''; rec.dings = st.stats.dings; rec.st = trace ? st : null;
   rec.recipes = L.recipeCount(st); rec.crafts = st.stats.crafts; rec.talent = st.p.t;
   rec.aucLost = st.stats.aucLost || 0; rec.rivalPw = Math.max(1, ...st.ladder.filter(x => x.id).map(x => x.pw || 1));
   rec.ratio.sort((a, b) => a - b);
@@ -497,6 +542,10 @@ function summarize(strat, recs, G) {
     const er = med(recs.map(x => x.expStones / Math.max(1, x.passive)));
     row(strat, '历练收入 : 被动收入', er.toFixed(2), '0.8～1.5', within(er, 0.8, 1.5));
     row(strat, '（参考）历练趟数 / 丁等 / 宗门任务', `${med(recs.map(x => x.trips))} / ${med(recs.map(x => x.dings))} / ${med(recs.map(x => x.sectTasks))}`, '—');
+    // SYSTEMS §11：人脉（只差人脉卡住的周天）、宝库轮换、徒弟、三人会武
+    const fw = k => med(recs.map(x => x.favWait[k] || 0));
+    row(strat, '（参考）人脉 卡圣子 / 宗主的周天；一世长老支持', `${fw(3)} / ${fw(6)} 周天；${[0, 1, 2].map(i => med(recs.map(x => x.fav[i]))).join(' / ')}；送礼 ${med(recs.map(x => x.gifts))} 次`, '—');
+    row(strat, '（参考）宝库换 / 收徒 / 传授 / 出师 / 三人会武胜', `${med(recs.map(x => x.vaultBuys))} 件 / ${med(recs.map(x => x.discTaken))} / ${med(recs.map(x => x.discTeach))} / ${med(recs.map(x => x.discGrad))} / ${med(recs.map(x => x.trioW))}/${med(recs.map(x => x.trioR))} 场`, '—');
     // SYSTEMS §7 / §10：天下大势、行情、货架、拍卖用得怎样
     row(strat, '（参考）大势 / 行情卖出 / 轮换货', `${med(recs.map(x => x.worlds))} 件 / ${L.fmt(med(recs.map(x => x.sold)))} 灵石（占历练收入 ${pct(med(recs.map(x => x.sold / Math.max(1, x.expStones))))}） / ${med(recs.map(x => x.shop))} 件`, '—');
     // SYSTEMS §8 秘境：一世进几次、怎么出来的、平均走到第几层、带回的灵石占历练收入多少

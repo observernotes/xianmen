@@ -56,7 +56,7 @@ function updateHUD() {
   else if (L.isFull(st) && st.exp) $('#xpTxt').textContent = '修为已满 · 回洞府后突破';
   else if (st.run) $('#xpTxt').textContent = `${mjName(st.run)} · 第 ${st.run.floor}/${st.run.floors} 层 · 时间暂停`;
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
-  else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : st.retreat.kind === 'teach' ? '指点师弟' : '闭关'}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
+  else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : L.retName(st.retreat)}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
   else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
   $('#sCul').textContent = '+' + fmt(L.gain(st));
   $('#sAtk').textContent = fmt(L.power(st));
@@ -89,7 +89,7 @@ function updateHUD() {
   const rec = !gd || ready || p.r >= 9 || busy ? '' : p.inj > 0 && L.canHeal(st) ? 'home' : L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]) * 3) ? 'home' : 'exp';
   $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
   setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : gd && !busy && (L.petGlowAny(st) || (st.petPend || []).length) ? '宠' : canUp ? '↑' : '');
-  setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : '');
+  setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : st.sect && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st) ? '徒' : '');   // 徒：有拜师的孩子等着（disciples.js）
   setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
   setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
   updateHaul();

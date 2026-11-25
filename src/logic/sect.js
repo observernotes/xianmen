@@ -49,7 +49,7 @@ L.sectPos = st => (st.sect ? st.sect.order.indexOf(st.sect.id) + 1 : 0);
 L.sectPayMult = st => { if (!st.sect || !st.sect.order) return 1; const b = st.sect.build || {}; return (1 + 0.08 * (9 - L.sectPos(st))) * (1 + 0.25 * (st.sect.veins || 0)) * (1 + 0.25 * (b.vein || 0)); };
 L.nineAt = (st, pos) => L.NINE.find(x => x.id === st.sect.order[pos - 1]);
 // 晋升条件：境界、累计贡献（圣子那一级另要当众击败原圣子，见 L.promote）。
-// TODO SYSTEMS §11：人脉（圣子、宗主需两位长老支持 ≥ 50）用 L.addPromoReq 接进来，fn(st, 目标身份序号) → { t, ok } 或 null
+// 其它条件用 L.addPromoReq 接进来，fn(st, 目标身份序号) → { t, ok } 或 null（人脉：圣子、宗主需两位长老支持 ≥ 50，见 sect2.js）
 L.PROMO_REQS = [];
 L.addPromoReq = (id, fn) => { L.PROMO_REQS = L.PROMO_REQS.filter(x => x.id !== id).concat([{ id, fn }]); };
 L.promoteNeeds = function (st) {
@@ -227,6 +227,9 @@ L.rollTasks = function (st) {
   const home = L.homeRegion(st), r = Math.min(st.p.r, 8), std = Math.floor(L.contribFor(home) * L.CONTRIB.task);
   const bossK = []; for (let k = 0; k <= home; k++) if (L.bossReady(st, k)) bossK.push(k);
   const pool = [['exp', 3], ['herbs', 2], ['pill', 2], ['tour', st.pact ? 2 : 0], ['act', 3], ['escort', 1.5], ['teach', 1.5], ['boss', bossK.length ? 2 : 0]].filter(x => x[1] > 0);
+  // 别的模块登记的任务类型（sect2.js：炼器 / 驯兽 / 探秘 / 讲法）：L.TASK_X[ty] = { n, w(st), init(st, t, std, r), text(st, t), … }；L.taskPoolMod(st, pool) 改权重（职司）
+  for (const ty in L.TASK_X) { const w = L.TASK_X[ty].w(st); if (w > 0) pool.push([ty, w]); }
+  if (L.taskPoolMod) L.taskPoolMod(st, pool);
   const tasks = [];
   while (tasks.length < 3 && pool.length) {
     const ty = wpick(pool); pool.splice(pool.findIndex(x => x[0] === ty), 1);
@@ -241,11 +244,11 @@ L.rollTasks = function (st) {
     else if (ty === 'boss') { t.k = pick(bossK); t.rw = Math.floor(std * 1.5); }
     else if (ty === 'teach') t.rw = std * 2;
     else if (ty === 'act') {
-      const fav = { dao: 'retreat', dan: 'craft', jian: 'leap' }[sc.id];
+      const fav = (L.taskActFav && L.taskActFav(st)) || { dao: 'retreat', dan: 'craft', jian: 'leap' }[sc.id] || 'leap';
       t.sub = R() < 0.6 ? fav : pick(['retreat', 'craft', 'leap']);
       if (t.sub === 'craft' && st.home.furnace < 1) t.sub = 'retreat';
       if (t.sub === 'craft') t.need = 2;
-    }
+    } else if (L.TASK_X[ty]) L.TASK_X[ty].init(st, t, std, r);
     t.bonus = pick([{ pills: 1 }, { herbs: 4 * (1 + r) }, { inc: 3 }]);
     tasks.push(t);
   }
@@ -262,9 +265,10 @@ L.taskText = function (st, t) {
     case 'escort': return `护送同门去【${L.REGIONS[t.k].n}】（本趟灵石归宗门，贡献 ×3）`;
     case 'teach': return '指点师弟（4 周天不涨修为，贡献 ×2）';
   }
-  return '';
+  return L.TASK_X[t.ty] ? L.TASK_X[t.ty].text(st, t) : '';
 };
 L.taskReward = (st, t) => (t.ty === 'escort' ? '贡献 ×3（随本趟历练结算）' : '贡献+' + L.fmt(t.rw)) + ' ' + L.rewardText(st, t.bonus);
+L.TASK_X = {};
 function taskDone(st, t) {
   if (t.done) return;
   t.done = 1; t.taken = 1;
@@ -272,6 +276,7 @@ function taskDone(st, t) {
   L.grantReward(st, t.bonus);
   st.stats.sectTasks = (st.stats.sectTasks || 0) + 1;
   L.log(st, `【宗门任务】${L.TASK_N[t.ty]}完成，${L.taskReward(st, t)}`, 'jade');
+  if (L.onTaskDone) L.onTaskDone(st, t);   // 人脉：管这类任务的长老支持 +（sect2.js）
   emit('task', t);
 }
 function taskHit(st, ty, test) {
@@ -285,15 +290,16 @@ L.taskTake = function (st, i) {
   const t = st.sect && st.sect.tasks && st.sect.tasks[i];
   if (!t || t.taken || t.done) return false;
   if (t.ty === 'teach') { if (!L.startRetreat(st, { kind: 'teach', m: 0, task: i })) return false; }
+  const X = L.TASK_X[t.ty]; if (X && X.take && !X.take(st, t, i)) return false;
   t.taken = 1;
   return true;
 };
 // 上交类任务（灵草 / 破境丹）
-L.taskCanDeliver = (st, t) => !!t && t.taken && !t.done && ((t.ty === 'herbs' && st.herbs >= t.n) || (t.ty === 'pill' && st.pills >= t.n));
+L.taskCanDeliver = (st, t) => !!t && t.taken && !t.done && ((t.ty === 'herbs' && st.herbs >= t.n) || (t.ty === 'pill' && st.pills >= t.n) || (!!L.TASK_X[t.ty] && !!L.TASK_X[t.ty].canDeliver && L.TASK_X[t.ty].canDeliver(st, t)));
 L.taskDeliver = function (st, i) {
   const t = st.sect && st.sect.tasks && st.sect.tasks[i];
   if (!L.taskCanDeliver(st, t)) return false;
-  if (t.ty === 'herbs') st.herbs -= t.n; else st.pills -= t.n;
+  if (t.ty === 'herbs') st.herbs -= t.n; else if (t.ty === 'pill') st.pills -= t.n; else L.TASK_X[t.ty].deliver(st, t);
   taskDone(st, t);
   L.checkQuests(st);
   return true;

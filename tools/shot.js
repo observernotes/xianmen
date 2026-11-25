@@ -138,6 +138,61 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(600); await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
   await page.waitForTimeout(1200); await page.screenshot({ path: out + '/29-home-pets.png' });
   await page.evaluate(() => { const { st } = window.__xm; st.pets.splice(3, 1); st.flags.maxR = 3; st.pets.forEach(p => { if (p.job === 'patrol') p.job = ''; }); });
+  // ---------- 宗门（SYSTEMS §11）：四个分页（身份 / 任务板 / 宝库 / 门下）、职司五选一、徒弟卡片与传授、三人会武；手机上不横向溢出、可点的 ≥ 44 像素 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    for (const h of ['duty1', 'renmai1', 'disc1']) st.hintSeen[h] = 1;
+    st.sect.rank = 4; st.sect.total = 2e5; st.sect.pts = 6e4; st.p.r = 4; st.p.s = 1; st.flags.maxR = 4; st.exp = null; st.retreat = null; st.storyQ = [];
+    L.setDuty(st, 'qi', true); L.addFavor(st, 'xuanwei', 42); L.addFavor(st, 'shouzhuo', 28); L.rollTasks(st); L.rollVault(st);
+    st.arts.own.x_houtu = L.artNeed('x_houtu', 3) + 2; st.arts.own.z_hanyue = L.artNeed('z_hanyue', 3) + 1;
+    L.discTake(st, null, { cat: 'strong', tp: 'mang', t: 4 }); L.discTake(st, null, { cat: 'quiet', tp: 'chi', t: 3 });
+    const [a, b] = st.disc.list; a.di = 8.4; a.job = 'cult'; a.taught = ['z_hanyue']; a.heart = 3; b.di = 5.6; b.job = 'duty';
+    st.disc.q = []; st.storyQ = [];
+  });
+  const sectLay = async (what) => petLay(await pet44('#modal [data-stab], #modal [data-gift], #modal [data-vr], #modal [data-tk], #modal [data-td], #modal [data-di], #modal [data-dj], #modal #discTeach, #modal #discGrad, #modal [data-dtake], #modal #discPass, #modal #btnDuty, #modal #btnPromo, #modal [data-duty], #modal [data-dt], #modal .close', what));
+  await page.click('[data-nav="sect"]'); await page.waitForTimeout(250);
+  await page.click('#modal [data-stab="id"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/30-sect-id.png' }); await sectLay('宗门·身份');
+  const idUi = await page.evaluate(() => ({ elders: document.querySelectorAll('#modal .card.elder').length, imgs: document.querySelectorAll('#modal .card.elder img').length, duty: (document.querySelector('#dutyCard') || {}).textContent || '' }));
+  if (idUi.elders !== 3 || idUi.imgs < 3 || !idUi.duty.includes('器堂')) errors.push('宗门·身份页：三位长老立绘与职司不对：' + JSON.stringify(idUi));
+  await page.evaluate(() => document.querySelector('#renmai').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/30b-sect-elders.png' });
+  await page.click('#modal [data-stab="task"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/31-sect-task.png' }); await sectLay('宗门·任务板');
+  await page.click('#modal [data-stab="vault"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/32-sect-vault.png' }); await sectLay('宗门·宝库');
+  const nv = await page.evaluate(() => document.querySelectorAll('#modal [data-vr]').length);
+  if (nv !== 6) errors.push('宝库应有六格：' + nv);
+  await page.click('#modal [data-stab="disc"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/33-sect-disc.png' }); await sectLay('宗门·门下');
+  const dUi = await page.evaluate(() => ({ cards: document.querySelectorAll('#modal .dcard[data-di]').length, glow: document.querySelectorAll('#modal .dcard.glow').length, jobs: document.querySelectorAll('#modal [data-dj]').length }));
+  if (dUi.cards !== 2 || dUi.glow !== 1 || dUi.jobs !== 4) errors.push('门下：两张徒弟卡、一张能出师发光、四样差事：' + JSON.stringify(dUi));
+  await page.evaluate(() => document.querySelector('#modal .ddet').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/33b-disc-detail.png' });
+  await page.click('#modal [data-dj="exp"]'); await page.waitForTimeout(250);
+  if (await page.evaluate(() => window.__xm.st.disc.list[0].job !== 'exp')) errors.push('差事没换成代师历练');
+  await page.click('#modal #discTeach'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/33c-disc-teach.png' }); await sectLay('传授');
+  const tc = await page.evaluate(() => document.querySelectorAll('#modal [data-dt]').length);
+  if (tc !== 2) errors.push('传授：厚土、青木两门可教（寒月已教过）：' + tc);
+  await page.click('#modal [data-dt]'); await page.waitForTimeout(300);
+  const tb = await page.evaluate(() => ({ r: window.__xm.st.retreat && window.__xm.st.retreat.what, l: window.__xm.st.retreat && window.__xm.st.retreat.label }));
+  if (tb.r !== 'teachart') errors.push('点了传授没开始：' + JSON.stringify(tb));
+  await page.waitForTimeout(500); await page.screenshot({ path: out + '/33d-teaching.png' });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true); });
+  // 收徒候选：三个拜师的孩子
+  await page.evaluate(() => { const { st, L } = window.__xm; st.sect.rank = 6; st.p.r = 7; L.rollCands(st); window.__xm.showSect('disc'); });
+  await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#modal .dcands').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/33e-disc-cands.png' }); await sectLay('收徒候选');
+  // 职司五选一
+  await page.evaluate(() => { const { st } = window.__xm; st.sect.dutyMeet = -1; window.__xm.showDutyPick(); }); await page.waitForTimeout(300);
+  await page.screenshot({ path: out + '/34-duty-pick.png' }); await sectLay('职司');
+  const nd = await page.evaluate(() => document.querySelectorAll('#modal [data-duty]').length);
+  if (nd !== 5) errors.push('职司应有五堂：' + nd);
+  await page.click('#modal [data-duty="wai"]'); await page.waitForTimeout(400);
+  if (await page.evaluate(() => window.__xm.L.duty(window.__xm.st) !== 'wai')) errors.push('职司没换成外事堂');
+  await close();
+  // 三人会武（宗主 + 两名徒弟，三局两胜）
+  await page.evaluate(() => { const { st } = window.__xm; st.disc.cand = null; st.disc.list.forEach(x => { x.di = 13; }); st.storyQ = []; window.__xm.runSectMeet(); });
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/35-trio-meet.png' });
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/35b-trio-round.png' });
+  const trio = await page.evaluate(() => document.querySelectorAll('#modal .trio > span').length);
+  if (trio !== 3) errors.push('三人会武的一轮应写三场：' + trio);
+  for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
+  await close();
+  await page.evaluate(() => { const { st } = window.__xm; st.sect.rank = 0; st.sect.total = 3000; st.p.r = 3; st.p.s = 3; st.p.xp = window.__xm.L.pNeed(st.p); st.flags.maxR = 3; st.disc.list = []; st.sect.duty = ''; st.retreat = null; st.storyQ = []; });
   // ---------- 历法与坊市（SYSTEMS §7、§10）：大势小牌、年历、货架、行情、拍卖竞价；手机上不横向溢出、可点的 ≥ 44 像素 ----------
   const big44 = (sel, what) => page.evaluate(([sel, what]) => {
     const body = document.querySelector('#modal .body'), bad = [];
@@ -270,7 +325,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/30-realm-event.png' });
   const evm = await page.evaluate(() => ({ ph: window.__xm.st.run.phase, ev: window.__xm.st.run.ev, t: (document.querySelector('#modal h2') || {}).textContent }));
   if (evm.ph !== 'event' || !/^realm_/.test(evm.ev || '') || !evm.t) errors.push('奇遇房没有弹出秘境事件：' + JSON.stringify(evm));
-  else { await page.click('#modal .choices button[data-c]:not([disabled])'); await page.waitForTimeout(1500); const b = await page.$('#modal .foot .btn:not([disabled])'); if (b) await b.click(); await page.waitForTimeout(600); }
+  // 抽到的奇遇是随机的（生死门这类第一项有把握的，砸了会接着出事）：选项按成功结算，后面的行商、守关才走得下去
+  else { await page.evaluate(() => { window.__xm.L.rng = () => 0.01; }); await page.click('#modal .choices button[data-c]:not([disabled])'); await page.waitForTimeout(1500); await page.evaluate(() => { window.__xm.L.rng = Math.random; }); const b = await page.$('#modal .foot .btn:not([disabled])'); if (b) await b.click(); await page.waitForTimeout(600); }
   const af = await page.evaluate(() => ({ ph: window.__xm.st.run && window.__xm.st.run.phase, fl: window.__xm.st.run && window.__xm.st.run.floor }));
   if (af.ph !== 'door') errors.push('奇遇处理完没回到门前：' + JSON.stringify(af));
   // 行商

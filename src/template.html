@@ -482,6 +482,38 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .lotcomp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .lotres { text-align: center; padding: 4px 0; }
 #haul { position: absolute; left: 4px; right: 4px; top: 12px; padding: 2px 6px; background: rgba(11, 9, 18, .72); color: #ffe39a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+/* 宗门（panel-sect.js / panel-disc.js）：人脉条、长老卡、宝库轮换、职司、门下徒弟卡、三人会武 */
+.card.elder { align-items: flex-start; }
+.fbar { position: relative; margin: 2px 0; }
+.fbar .bar { height: 8px; }
+.fmark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #6a5a4a; pointer-events: none; }
+.fmark.promo { background: var(--seal); }
+.btn.giftb { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; width: 100%; line-height: 1.25; margin-top: 2px; }
+.btn.giftb small { opacity: .85; overflow-wrap: anywhere; }
+.felders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 2px 0; }
+.fel { display: flex; align-items: center; gap: 4px; padding: 2px 4px; background: #efe0b4; line-height: 1.2; min-width: 0; overflow: hidden; }
+.fel.ok { background: #bfe8d0; }
+.card .right .btn.eq, .card .right .btn.sm { min-height: 44px; min-width: 64px; }
+.vcell.lock { opacity: .72; }
+.pjob.duty .grow b { font-weight: normal; }
+.dcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.dcard { min-height: 120px; min-width: 0; border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }
+.dcard.sel { background: #fff6dc; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.dcard.glow { animation: petGlow 1.2s steps(4) infinite; }
+.dcard.empty { cursor: default; justify-content: center; opacity: .7; }
+.dcard.lock { opacity: .5; }
+.dcard .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dcard .aempty { color: var(--paper-mute); font-size: calc(var(--fs) * 2); line-height: 1.2; }
+.dcard .muted { line-height: 1.25; overflow-wrap: anywhere; }
+.djobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.djobs .btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; min-height: 52px; padding: 2px 4px; min-width: 0; }
+.djobs .btn small { opacity: .85; overflow-wrap: anywhere; }
+.ddet .gbtns .btn { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.dcands .dcand { padding: 6px 4px; }
+.dcands .btn { min-height: 44px; width: 100%; margin-top: auto; }
+.cands.four { grid-template-columns: repeat(2, 1fr); }
+.trio { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.pjob.dteach .grow b { font-weight: normal; }
 /* 开场 */
 #intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
 #intro .story { max-width: 400px; width: 100%; display: flex; flex-direction: column; gap: 14px; cursor: pointer; }
