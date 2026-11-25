@@ -103,7 +103,7 @@ L.PET_SP = {
 L.PET_IDS = Object.keys(L.PET_SP);
 // 历练偶遇（采药最容易）：每张图的种（CONTENT §1 的“可遇灵宠”；龙宫的碧波龟按墓穴玄龟算）
 L.PET_MAP = [['p_tu', 'p_hu'], ['p_xiong'], ['p_gui'], ['p_hu2', 'p_que'], ['p_fu'], ['p_sun'], ['p_he'], ['p_jiao', 'p_gui'], ['p_wu'], ['p_ze'], ['p_qilin']];
-const SPN = { p_tu: ['月牙兔', '捣药玉兔', '广寒兔'], p_hu: ['雪团灵狐', '霜月狐', '赤尾狐'], p_que: ['青羽雀', '雷翼隼', '青鸾'], p_xiong: ['铁背熊', '金刚熊', '玄铁熊'], p_gui: ['墓穴玄龟', '负碑灵龟', '玄武幼龟'],
+const SPN = { p_tu: ['月牙兔', '捣药玉兔', '广寒兔'], p_hu: ['雪团灵狐', '霜月狐', '赤尾狐', '九尾天狐'], p_que: ['青羽雀', '雷翼隼', '青鸾'], p_xiong: ['铁背熊', '金刚熊', '玄铁熊'], p_gui: ['墓穴玄龟', '负碑灵龟', '玄武幼龟'],
   p_hu2: ['赤焰虎', '炎虎王', '雷纹虎'], p_fu: ['血瞳蝠', '噬魂蝠王', '夜明蝠'], p_sun: ['雷翼隼', '裂空隼', '剑羽隼'], p_he: ['冰羽鹤', '玄冰仙鹤', '松鹤'], p_jiao: ['玄水蛟', '应龙', '冰螭'],
   p_wu: ['金乌雏', '三足金乌', '大日金乌'], p_ze: ['白泽幼兽', '白泽', '谛听'], p_qilin: ['麒麟幼崽'] };
 L.petFormName = (sp, form) => { const a = SPN[sp] || ['灵宠']; return a[Math.min(a.length - 1, form || 0)]; };
@@ -129,7 +129,8 @@ L.petCap = st => (mr(st) >= 6 ? 4 : mr(st) >= 3 ? 3 : mr(st) >= 2 ? 2 : 1);
 L.petCount = st => (st.pets ? st.pets.length : 0);
 L.petOut = st => (st.pets && st.petOut >= 0 ? st.pets[st.petOut] || null : null);
 L.petJobsOpen = st => st.rebirth > 0 || mr(st) >= 2 || L.petCount(st) >= 2;
-L.petTier = p => (ON() ? clamp(L.PET_SP[p.sp].t + (p.form > 0 ? 1 : 0) + (p.aw ? 1 : 0), 1, 6) : L.PET_SP[p.sp].t);
+// 九尾天狐（p_hu 的第 3 形态，狐族秘地终点 fox_blood 给）：直接 6 阶（CONTENT §6 ch_fox）
+L.petTier = p => (ON() ? clamp(p.form === 3 ? 6 : L.PET_SP[p.sp].t + (p.form > 0 ? 1 : 0) + (p.aw ? 1 : 0), 1, 6) : L.PET_SP[p.sp].t);
 L.petName = p => L.petFormName(p.sp, p.form);
 L.petTalId = p => { const S = L.PET_SP[p.sp]; return p.form === 1 && S.a ? S.a.tal : p.form === 2 && S.b ? S.b.tal : S.tal; };
 L.petNeed = p => Math.round(6 * Math.pow(1.5, p.lv) * L.petTier(p));
@@ -217,7 +218,7 @@ L.migratePets = function (s) {
   }
   for (const p of s.pets) {
     if (!L.PET_SP[p.sp]) p.sp = 'p_tu';
-    p.form = clamp(p.form | 0, 0, hasBranch(p.sp) ? 2 : 0); p.lv = clamp(p.lv | 0 || 1, 1, 10); p.xp = Math.max(0, +p.xp || 0);
+    p.form = clamp(p.form | 0, 0, p.sp === 'p_hu' ? 3 : hasBranch(p.sp) ? 2 : 0); p.lv = clamp(p.lv | 0 || 1, 1, 10); p.xp = Math.max(0, +p.xp || 0);
     p.heart = clamp(p.heart | 0, 0, 5); p.hp = clamp(+p.hp || 0, 0, 0.999); p.job = JOB[p.job] ? p.job : ''; p.aw = p.aw ? 1 : 0; p.idle = Math.max(0, p.idle | 0); p.deep = p.deep && typeof p.deep === 'object' ? p.deep : {};
     if (!p.u) { s.petU++; p.u = s.petU; }
   }
@@ -718,6 +719,13 @@ L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
     if (f === 'pet_release' && i >= 0) { const r = L.petRelease(st, i); if (r) out.push(`放生【${L.petName(r.p)}】，兽粮 +${r.feed}`); }
     if (f === 'pet_job_pick' && i >= 0) { const k = L.petBestJob(st, p, true) || 'forage'; if (L.petJobsOpen(st)) { L.petSetJob(st, i, k); out.push(`【${L.petName(p)}】去${JOB[k].n}了`); } else { L.petSetOut(st, i); out.push(`【${L.petName(p)}】跟着你出战`); } }
     if (f === 'pen_discount') { st.flags.penExtra = 1; out.push('兽栏扩了一间：喂养效率 +8%'); }
+  }
+  // 狐族秘地终点（bai_end 劝她成九尾 / 让她选“成”）：同一条 fx 里先给的那只雪团灵狐（名册满时在待定里）血脉觉醒成九尾天狐（6 阶）
+  if ([].concat(v).includes('fox_blood')) {
+    ensure(st);
+    const all = st.pets.concat(st.petPend || []).filter(p => p.sp === 'p_hu' && !p.form);
+    const p = all.reduce((a, x) => (!a || x.u > a.u ? x : a), null);
+    if (p) { p.form = 3; st.meta.petEvo.p_hu_9 = 1; out.push(`【雪团灵狐】血脉觉醒：九尾天狐（6 阶）`); if (out.item && out.item.kind === 'pet' && out.item.u === p.u) Object.assign(out.item, { form: 3, tier: 6, name: L.petName(p) }); }
   }
 } });
 

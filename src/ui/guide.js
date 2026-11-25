@@ -78,7 +78,7 @@ const HINTS = [
   // 头一回金丹雷劫前（SYSTEMS §9 / §17）：护劫手段 → 那一停（panel-trib.js 的 tribPause）→ 点它
   { id: 'trib', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()) && st.p.r >= 1 && !!document.querySelector('#tribAids'), target: '#tribAids', btn: '知道了', text: () => {
       const fa = L.aidInfo(st, 'fa'), max = Math.min(L.BT.maxPills, st.pills);
-      return `从金丹起要渡雷劫。基础只有 <b>${L.pct(L.REALMS[Math.min(st.p.r, 8)].rate)}</b>，破境丹每枚 +${L.pct(L.BT.pill)}；这些<b>护劫手段</b>各能用一次：${fa.ok ? `祭法宝 <b>+${L.pct(fa.v)}</b>（失败兵器强化 −1）` : `祭法宝 +${L.pct(fa.v)}`}、道侣护法 +${L.pct(L.TRIB.daolv)}。全用上 <b>${L.pct(L.tribRate(st, { pills: max, aids: 'all' }))}</b>。`;
+      return `从金丹起要渡雷劫。基础只有 <b>${L.pct(L.REALMS[Math.min(st.p.r, 8)].rate)}</b>，破境丹每枚 +${L.pct(L.BT.pill)}；这些<b>护劫手段</b>各能用一次：${fa.ok ? `祭法宝 <b>+${L.pct(fa.v)}</b>（失败兵器强化 −1）` : `祭法宝 +${L.pct(fa.v)}`}、道侣护法 +${L.pct(L.TRIB.daolv)}。全用上 <b>${L.pct(L.tribRate(st, { pills: max, aids: 'all' }))}</b>。${L.tribTop(st) < 1 ? `天劫没有十成把握：最多 <b>${L.pct(L.tribTop(st))}</b>，多出来的不算，挑代价小的用；败一次下回 +${L.pct(L.BT.fail)}。` : `元婴劫起天劫就没有十成把握了（最多 ${L.pct(L.TRIB.top)}）。`}`;
     } },
   { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满了！点这个<b>金色的修为条</b>冲击${nextName()}${L.btGuard(st) ? '。头一回老夫护法，<b>必成</b>（100%）' : `，成功率 <b>${L.pct(btShownRate())}</b>`}。`, until: () => /突破|天劫/.test(modalTitle()) || !!cine },
   { id: 'btGo', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: () => `点它。成了之后战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 <b>${fmt(L.lifespan(st))} → ${fmt(nextLife())}</b>。`, until: () => !!cine || !modalOpen() },
@@ -381,7 +381,7 @@ function showHelp() {
   const sec = (ic, t, d) => `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`;
   const body = [
     sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每 5 秒涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
-    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
+    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
     sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 周天修为。`),
     sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),

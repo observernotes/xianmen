@@ -161,6 +161,7 @@ L.tourFoe = function (st) {
   else {
     if (st.pact < 0 && !st.beaten.mu) { const mq = L.rivalRank(st, 'mu'); if (mq && mq < st.rank) q = mq; }
     if (!q) for (let x = st.rank - 1; x >= lim; x--) { const r = L.rivalAt(st, x); if (r && r.id && !st.beaten[r.id] && L.rivalPower(st, x) < S * 1.6) { q = x; break; } }
+    if (!q && L.rivalBlock && L.rivalBlock(st, lim) === st.rank - 1 && !L.rivalRefuses(st, st.rank - 1)) q = st.rank - 1;   // 卡位宿敌就在身前（rivals.js）；差太远他不上台
   }
   const r = q ? L.rivalAt(st, q) : null;
   if (!r || !r.id) return null;
