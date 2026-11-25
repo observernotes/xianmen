@@ -2,6 +2,7 @@
 <!-- 美术预览。默认：阶段二新资产总览（半身像、图标、界面皮肤、印章、对决、首领、过场画）
      ?only=pt|ic|ui|duel|misc|boss|intro 只看一部分；?z=3 半身像放大倍数；?ids=mu,zhao 只看某几位
      ?only=g1…g10 阶段三各批（法宝 / 历法坊市 / 秘境 / 灵宠 / 灵田炼丹 / 洞府 / 天劫道心 / 宗门 / 人物 / 图鉴轮回），代码在 preview_p3.js
+     ?only=g11 阶段四·界面补缺（g11a 图标光柱空状态 / g11b 首领小人 / g11c 九宗代表 / g11d 魔宗演武场与特效），代码在 preview_p4.js
      ?only=old 旧精灵与场景（也可 only=spr|home|adv；?s=3 场景放大倍数；?oy=40 场景加高） -->
 <script src="../src/logic.js"></script><script src="../src/art.js"></script>
 <div id="out"></div>
@@ -68,8 +69,8 @@ if (sec('duel') && ART.drawDuelStage) {
   const T = +(q.get('t') || 1000), who = ['mu', 'tian', 'yun', 'xue'], fr = [['idle0', 'strike'], ['windup', 'idle1'], ['strike', 'hit'], ['idle0', 'down']], FD = ART.dims.fighter;
   ART.duelStages().forEach((k, i) => scene(g => {
     ART.drawDuelStage(k, T, OY);
-    g.drawImage(ART.fighter({ look: i % 2 ? lookF : look, realm: 1 + i * 2 }, fr[i][0]), 62 - FD.ax, 128 - FD.ay);
-    g.drawImage(ART.fighter(who[i], fr[i][1], true), 138 - (FD.w - 1 - FD.ax), 128 - FD.ay);
+    g.drawImage(ART.fighter({ look: i % 2 ? lookF : look, realm: 1 + i * 2 }, fr[i % 4][0]), 62 - FD.ax, 128 - FD.ay);
+    g.drawImage(ART.fighter(who[i % 4], fr[i % 4][1], true), 138 - (FD.w - 1 - FD.ax), 128 - FD.ay);
     ART.drawHpBar(30, 84, 60, 0.8, { lag: 0.9 }); ART.drawHpBar(110, 84, 60, 0.35, { right: true, lag: 0.6 });
     if (i === 2) ART.drawSpark(118, 110, 0.25); if (i === 0) ART.drawSpark(82, 108, 0.6);
   }, k));
@@ -158,3 +159,4 @@ if (only === 'old' || only === 'adv') {
 }
 </script>
 <script src="preview_p3.js"></script>
+<script src="preview_p4.js"></script>

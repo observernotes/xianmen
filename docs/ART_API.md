@@ -92,3 +92,60 @@
 - `ART.backdrop('ascend'|'rest'|'summit'|'hermit')` 结局底图 200×120（chapter / samsara / demon 不变，`ART.backdropKinds()`）。
 
 美术阶段三合计页面 +131 KB。总览：`node tools/preview.js out.png`（单批用 only=g1～g10）。
+
+## 阶段四·界面补缺
+
+预览：`node tools/preview.js out.png only=g11`（分块：g11a 图标 / 光柱 / 空状态，g11b 首领小人，g11c 九宗代表，g11d 魔宗演武场与特效；代码在 tools/preview_p4.js）。以下都是新增接口，旧接口的签名与输出不变。
+
+### 1 锁碎裂（底栏按钮右上角）
+
+- `ART.lockBreak(f)` → 16×16，`f` = 0～3（`ART.lockBreakFrames = 4`）：0 完好（就是 `ART.icon('lock')`）、1 裂开一道缝、2 锁体崩成两半、3 碎屑 + 十字闪光。
+- 用法：解锁时按 0 → 1 → 2 → 3 各约 70～90 毫秒播一遍，播完撤掉；扫光与第 2 帧同时起。位置与原来的锁相同（左上角对齐，不需要偏移）。
+
+### 2 声音三态（顶栏）
+
+- `ART.icon('snd_on')` 全开（喇叭 + 两道声波）、`ART.icon('snd_sfx')` 仅音效（喇叭 + 一道声波 + 金色火花）、`ART.icon('snd_off')` 静音（灰喇叭 + 红叉）。16×16，描边规则同其它 `ART.icon`。
+
+### 3 速度档（场景右上角）
+
+- `ART.icon('spd1')`、`ART.icon('spd2')`、`ART.icon('spd4')` → 16×16 的 “×1 / ×2 / ×4”，配色同 `pause` / `play`（暂停、播放仍用这两个）。
+
+### 4 品阶光柱（结算卡掉落翻牌）
+
+- `ART.dropBeam(tier, frame)` → 24×48 透明底画布。`tier` 1～7（凡 / 法 / 灵 / 宝 / 灵宝 / 仙 / 混沌，七阶为七彩流动），`frame` 0～3 循环（`ART.beamFrames = 4`，建议每帧 100～120 毫秒）。
+- 光柱底心在画布 (12, 44)：把它垫在卡片后面，卡片中心对 x = 12，卡片上沿大约压在 y = 30～34。四阶起带十字星，五阶起光柱更粗，六阶起有两道侧芒。
+- `ART.beamColor(tier)` → 该阶主色（做文字 / 描边用）。
+
+### 5 空状态淡墨小画
+
+- `ART.emptyNote(kind, paper)` → 48×48。`kind`（`ART.emptyKinds`）：`'pet'` 还没有灵宠（空巢、碎蛋壳、一根落羽）、`'vault'` 宝库空（敞开的空箱、蛛网）、`'build'` 能建的都建了（山上层楼、松、朱日、飞鸟）。
+- 默认透明底、浅墨色，直接放进暗色面板的 `.empty-note`（建议 2 倍显示，`image-rendering: pixelated`）；`paper` 为真时带宣纸底、深墨色，用在纸面卡片上。
+
+### 6 首领对决小人
+
+- `ART.bossFighter(k, frame, flip)` → 首领小人。`k` 0～10，顺序同 `ART.boss(k)` / `L.BOSSES`；`frame` 同 `ART.fighter`：`'idle0' 'idle1' 'windup' 'strike' 'hit' 'down'` 或 0～5；默认面朝右，`flip` 为真面朝左。
+- 尺寸：`ART.bossFighterDims(k)` → `{ w, h, ax, ay }`。人形（1 雷彪 / 2 尸王 / 3 猿王 / 4 老魔 / 5 守墓人 / 6 魔将 / 9 傀儡王 / 10 残影）是 48×40、脚底锚点 (21, 39)，与 `ART.dims.fighter` 完全一致，可以直接顶替；兽形（0 独眼狼王 / 7 东海蛟皇 / 8 吞星巨兽）是 64×40、锚点 (28, 39)。`flip` 之后锚点 x = `w - 1 - ax`。
+- 摆放（脚底在 (X, 128)）：`const d = ART.bossFighterDims(k); ctx.drawImage(ART.bossFighter(k, f, flip), X - (flip ? d.w - 1 - d.ax : d.ax), 128 - d.ay)`。
+- 各帧的动作：尸王平举双臂、`idle1` 是原地一跳；狼王 / 蛟皇 / 吞星的 `strike` 会向前探出约 6～9 像素（已在画布之内，不必再加位移）；混沌残影下半身散成烟（半透明抖动）。持械首领的 `strike` 末端自带一道弧光。
+
+### 7 九宗代表
+
+- `ART.portrait(id, mood)` 新增 id：`zhuge` 诸葛千机（万法阁：纶巾、羽扇、山羊胡）、`huineng` 慧能大师（金刚寺：戒疤、白长眉、袈裟佛珠）、`jian13` 剑十三（太虚剑宗：高马尾、白抹额、脸上旧疤、背双剑）。48×48，五种表情 n joy ang shock sad 齐全。
+- `ART.fighter(id, frame, flip)` 同样接受这三个 id（六帧 + stand0 / stand1），`ART.drawVisitor(…, id)` 也可用。
+- `ART.nineChamp(宗门 id)` → 该宗代表的美术 id：kunlun→yun、tianjian→tian、xuesha→xue、wanfa→zhuge、jingang→huineng、jian→jian13、dao→dao、dan→hongxiu、yushou→yutian。注意宗门 id `jian`（太虚剑宗）与人物 id `jian`（凌虚子）重名，所以没有做别名，接线时请走 `ART.nineChamp`。
+
+### 8 魔宗演武场
+
+- `ART.drawDuelStage('sect_mo', t, OY)`：血月、黑色尖山、挂骷髅的魔殿、两盏绿火盆、地上的血纹阵；动效有旗、火焰、火星、殿门红光、阵纹流转与低处紫雾。坐标与其它舞台相同（200×(160+OY)，脚底 y = 128）。
+- `ART.duelStages()` 现在返回 `['town', 'cloud', 'sect', 'wild', 'sect_mo']`。血煞魔宗、天剑宗来犯用它。
+
+### 9 五行招式特效
+
+- `ART.drawElemQi(x, y, el, t, flip)`（画到当前 ctx）：飞行中的五行剑气，(x, y) 为中心，约 22×14，默认朝右、`flip` 朝左；`t` 传毫秒时间，自带抖动 / 拖尾动画。金 = 金色月牙刃，木 = 三片叶刃带藤影，水 = 浪形月牙带水珠，火 = 火球拖火舌，土 = 飞石带碎砾。
+- `ART.drawElemHit(x, y, el, k)`（画到当前 ctx）：命中特效，`k` 0～1 播放进度，约 30×30。金 = 交叉斩痕 + 十字金光，木 = 叶片四散，水 = 水环 + 抛落的水珠，火 = 爆燃后起黑烟，土 = 碎石迸溅 + 尘浪。
+- `el`：`'jin' 'mu' 'shui' 'huo' 'tu'`（`ART.elems`），也接受 金木水火土 或序号 0～4；`ART.elemColor(el)` 取主色。无属性招式仍用原来的 `drawSwordQi` / `drawSpark`。
+
+### 10 戒指爆光（反杀）
+
+- `ART.drawRingBurst(x, y, k)`（画到当前 ctx）：(x, y) 是戒指所在点（主角持剑手附近，约脚底上方 10 像素、身前 9 像素），`k` 0～1。0～0.25 金光向内聚拢，0.25～0.5 炸开（白芯、十二道金芒，前两帧带全屏淡金闪屏），之后光环扩散、金屑上浮的余辉。
+- 按 20 帧播（`ART.ringBurstFrames = 20`，`k = 帧 / 19`，每帧 50 毫秒左右）；最大半径约 40 像素，画在小人之上。
