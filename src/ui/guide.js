@@ -17,7 +17,8 @@ function tip(key, text, o) {
 function pumpBubble() {
   if (!st) return;
   const el = $('#tip'), now = performance.now();
-  if (bubbleCur && now - bubbleAt > BUBBLE_MS) { el.hidden = true; bubbleCur = null; }
+  if (bubbleCur && (now - bubbleAt > BUBBLE_MS || duelFx)) {   // 场景里开打了就把气泡收起来（不然盖住双方名字和血条）
+    el.hidden = true; bubbleCur = null; }
   if (bubbleCur || !bubbleQ.length) return;
   for (let i = bubbleQ.length - 1; i >= 0; i--) if (st.tick - bubbleQ[i].tick > 15 && !bubbleQ[i].big) { bubbleLog.unshift(bubbleQ[i]); bubbleQ.splice(i, 1); bubbleUnread = true; }
   const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden;

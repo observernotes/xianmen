@@ -7,6 +7,7 @@
 // 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
 // 宗门加深（任务板四类、宝库轮换、职司五堂、人脉支持与晋升门槛、送礼、40 / 80 的恩惠、徒弟成长 / 差事 / 传授 / 出师 / 候选、性情事件、三人会武、血煞魔宗、长老事件界面、老祖讲解、迁移）
+// 界面改版 A / B 线（文件末尾那一大段）：主界面布局（Pixel 7 与 360×640）、人物页 8 分页、访客 / 闭关 / 老祖精灵 / 横幅排队 / 评价印、横屏、问老祖、气泡排队与头像“！”、章末卡、registerGuide、札记新任务、十种场景内对决
 // node tools/content_test.js <输出目录>
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -605,7 +606,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
   const gHint = async (id, setup) => {
     await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(2200);   // 上一段讲解点完后静 1.2 秒才轮到下一段（guideQuiet）
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
     const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
     return r;
@@ -959,7 +960,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 老祖讲职司、人脉、第一个徒弟（各一次阻塞讲解：时间暂停，数字与逻辑一致）
   const sHint = async (id, setup) => {
     await page.evaluate(([id, setup]) => { const { st } = window.__xm; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.exp = null; st.retreat = null; st.visitor = null; st.hintSeen[id] = 0; st.tick += 300; st.storyQ = []; new Function('st', 'L', setup)(st, window.__xm.L); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); document.querySelector('#tip').hidden = true; }, [id, setup]);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(2200);   // 上一段讲解点完后静 1.2 秒才轮到下一段（guideQuiet）
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold }));
     await shot('c44-hint-' + id);
     const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
@@ -1672,7 +1673,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(!!(await page.$('#modal #rkSwap')) && rk0.swap === 'z_hanyue', '新秀挑战页有 #rkSwap：换成克他的战技');
   await (await zPage()).click(); await page.waitForTimeout(400);
   expect((await page.evaluate(() => window.__xm.L.artSlots(window.__xm.st)[1])) === 'z_hanyue' && !(await page.$('#modal #rkSwap')) && (await mtitle()) === '新秀挑战', '在新秀挑战里点【换上】后重新渲染');
-  await forceR(0.0); await clickFoot(-1); await page.waitForTimeout(1600); await shot('rv05-crush-win'); await unforceR();
+  await forceR(0.0); await clickFoot(-1); await page.waitForTimeout(500); await page.evaluate(() => window.__xm.duelSkip()); await page.waitForTimeout(800); await shot('rv05-crush-win'); await unforceR();
   const cw = await mtext();
   expect((await mtitle()) === '打压' && cw.includes('胜！') && cw.includes('恩怨 60'), '打压赢：对决结果页写胜、写恩怨 60：' + cw.slice(0, 100));
   await clickFoot(0); await page.waitForTimeout(300);
@@ -1680,7 +1681,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   await rvBuild('rookie');
   await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400);
-  await forceR(0.999999); await clickFoot(-1); await page.waitForTimeout(1600); await shot('rv06-crush-lose'); await unforceR();
+  await forceR(0.999999); await clickFoot(-1); await page.waitForTimeout(500); await page.evaluate(() => window.__xm.duelSkip()); await page.waitForTimeout(800); await shot('rv06-crush-lose'); await unforceR();
   const cl = await mtext();
   expect((await mtitle()) === '打压' && cl.includes('败') && cl.includes('负伤 2 周天'), '打压输：对决结果页写败、负伤 2 周天：' + cl.slice(0, 100));
   await clickFoot(0); await page.waitForTimeout(300);
@@ -1725,9 +1726,9 @@ require('fs').mkdirSync(out, { recursive: true });
   const ax = await mtext();
   expect(am.live && am.ok && ax.includes('胜算 ' + am.p) && ax.includes('缚灵网'), '伏击事件：选项上的胜算与逻辑层一致：' + am.p);
   await forceR(0.0); await page.click('#modal button[data-c="0"]'); await page.waitForTimeout(500); await shot('rv13-ambush-duel');
-  const aimg = await page.evaluate(() => { const i = document.querySelector('#modal #vsR'); return i ? { src: i.src.slice(0, 22), w: i.getBoundingClientRect().width } : null; });
-  await page.waitForTimeout(1300); await unforceR();
-  expect(!!aimg && aimg.src.startsWith('data:image') && aimg.w >= 40 && (await mtext()).includes('赵乾') && (await mtext()).includes('胜！'), '伏击对决：右边是赵乾的半身像，结果写胜：' + JSON.stringify(aimg));
+  const aimg = await page.evaluate(() => { const d = window.__xm.duelFx; return d ? { face: d.face, nR: d.bouts[0].nR } : null; });   // 对决在场景里演：先对视（画布上的半身像），右边的名字是赵乾
+  await page.evaluate(() => window.__xm.duelSkip()); await page.waitForTimeout(900); await unforceR();
+  expect(!!aimg && aimg.face > 0 && aimg.nR.includes('赵乾') && (await mtext()).includes('赵乾') && (await mtext()).includes('胜！'), '伏击对决：右边是赵乾的半身像，结果写胜：' + JSON.stringify(aimg));
   expect(await page.evaluate(() => window.__xm.st.grudge.zhao === 90 && window.__xm.L.rivalKnow(window.__xm.st, 'zhao').art), '伏击赢了：恩怨 +10、记下他的看家战技');
   await close();
   // —— 老祖讲解：rvKezhi（对决准备页出现【换上】）、rvGrudge（恩怨过 60）、rvRookie（新秀出世）。说话时暂停，数字和逻辑层一致
@@ -1761,6 +1762,357 @@ require('fs').mkdirSync(out, { recursive: true });
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await close();
   await page.waitForTimeout(3000); await shot('c08-hud');
+  // ================= 界面改版：A 线（主界面 / 面板 / 美术接入）与 B 线（场景内对决 / 老祖引导） =================
+  {
+    const U = n => `${out}/ui-${n}.png`;
+    const PAGE = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
+    // 新开一页（新上下文），过开场，引导设为 done、提示都标成讲过，免得遮挡
+    const fresh = async ctxOpts => {
+      const ctx = await browser.newContext(ctxOpts), pg = await ctx.newPage();
+      pg.on('pageerror', e => errors.push('pageerror(ui): ' + e.message));
+      pg.on('console', m => { if (m.type() === 'error') errors.push('console(ui): ' + m.text()); });
+      await pg.goto(PAGE); await pg.waitForTimeout(400);
+      for (let i = 0; i < 12; i++) { if (await pg.$('#goStart')) break; await pg.click('#intro .story'); await pg.waitForTimeout(120); }
+      await pg.click('#goStart'); await pg.waitForTimeout(500);
+      await pg.evaluate(() => { const X = window.__xm, { st } = X; X.setSpeed(3); st.guide = { step: 99, done: true }; for (const h of X.hints) st.hintSeen[h.id] = 1; st.storyQ = []; });
+      return { ctx, pg };
+    };
+    const closeAll = async pg => { for (let i = 0; i < 3; i++) { await pg.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await pg.waitForTimeout(450); } };
+    const DEVS = { 'Pixel7': devices['Pixel 7'], '360x640': { viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } };
+
+    // ---- A1 主界面布局：场景整数倍放大、无横向溢出、点击目标 ≥44、矮屏藏传讯条 ----
+    for (const [dn, dev] of Object.entries(DEVS)) {
+      const { ctx, pg } = await fresh(dev);
+      await pg.waitForTimeout(600);
+      const lay = await pg.evaluate(() => {
+        const dpr = window.devicePixelRatio, outer = document.getElementById('sceneOuter'), wrap = document.getElementById('sceneWrap'), app = document.getElementById('app'), feed = document.getElementById('feed');
+        let n = Math.round(dpr * 2); const ow = outer.clientWidth || innerWidth; while (n > 1 && 180 * n / dpr > ow + 0.5) n--;
+        const small = [];
+        for (const el of document.querySelectorAll('#top button, #stats button, #nav button, #goal, #cult, #btnSpeed')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push((el.id || el.dataset.nav || el.dataset.s || el.className) + ' ' + r.width.toFixed(1) + '×' + r.height.toFixed(1)); }
+        return { dpr, want: 200 * n / dpr, got: wrap.getBoundingClientRect().width, over: document.documentElement.scrollWidth - innerWidth, small, ah: app.clientHeight, feedOff: getComputedStyle(feed).display === 'none', vh: innerHeight };
+      });
+      expect(Math.abs(lay.want - lay.got) < 0.6, `主界面(${dn})：#sceneWrap 宽 = 200×round(dpr×2)/dpr（${lay.want.toFixed(2)}，实际 ${lay.got.toFixed(2)}，dpr ${lay.dpr}）`);
+      expect(lay.over <= 0, `主界面(${dn})：页面无横向溢出（${lay.over}px）`);
+      expect(lay.small.length === 0, `主界面(${dn})：#top/#stats/#goal/#nav 里的按钮都 ≥44：${lay.small.join('，')}`);
+      expect(lay.feedOff === (lay.ah < 760), `主界面(${dn})：高度 <760 时 #feed 隐藏（app 高 ${lay.ah}，feed 隐藏 ${lay.feedOff}）`);
+      await pg.screenshot({ path: U('a1-main-' + dn) });
+      // ---- A2 人物页 8 个分页（只在 360 宽跑）----
+      if (dn === '360x640') {
+        for (const t of ['attr', 'art', 'gear', 'dao', 'bond', 'ach', 'codex', 'rank']) {
+          await pg.evaluate(t => window.__xm.showMe(t), t); await pg.waitForTimeout(350);
+          const r = await pg.evaluate(() => {
+            const tabs = document.querySelector('#modal .tabs'); if (!tabs) return { none: 1 };
+            const bs = [...tabs.querySelectorAll('button')], tr = tabs.getBoundingClientRect(), on = tabs.querySelector('button.on'), or = on && on.getBoundingClientRect();
+            const body = document.querySelector('#modal .sheet .body');
+            return { n: bs.length, oneRow: new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))).size === 1, onIn: !!or && or.left >= tr.left - 1 && or.right <= tr.right + 1, bodyOver: body.scrollWidth - body.clientWidth, pageOver: document.documentElement.scrollWidth - innerWidth };
+          });
+          expect(!r.none && r.n === 8 && r.oneRow && r.onIn && r.bodyOver <= 0 && r.pageOver <= 0, `人物页分页 ${t}（360 宽）：8 个按钮一行、当前页在可见范围、不横向溢出：${JSON.stringify(r)}`);
+          if (t === 'attr' || t === 'rank') await pg.screenshot({ path: U('a2-me-' + t) });
+        }
+        await closeAll(pg);
+      }
+      // ---- A9 横屏 839×412 整页可滚动、底栏点得到（只在 Pixel 7 跑）----
+      if (dn === 'Pixel7') {
+        await pg.setViewportSize({ width: 839, height: 412 }); await pg.waitForTimeout(500);
+        const ls = await pg.evaluate(() => { const nav = document.getElementById('nav'), r = nav.getBoundingClientRect(); const sc = document.scrollingElement; return { scrollable: sc.scrollHeight > innerHeight + 1, navBottom: r.bottom, navH: r.height, ov: sc.scrollWidth - innerWidth, appH: document.getElementById('app').scrollHeight, vh: innerHeight }; });
+        await pg.screenshot({ path: U('a9-landscape-top') });
+        await pg.evaluate(() => window.scrollTo(0, 99999)); await pg.waitForTimeout(300);
+        await pg.screenshot({ path: U('a9-landscape-bottom') });
+        const nb = await pg.evaluate(() => { const r = document.querySelector('#nav [data-nav="home"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, inView: r.top >= 0 && r.bottom <= innerHeight + 1, h: r.height }; });
+        expect(nb.inView && nb.h >= 44, `横屏：滚到底后底栏在视口里且 ≥44（${JSON.stringify(nb)}，页面可滚 ${ls.scrollable}，app 高 ${ls.appH} / 视口 ${ls.vh}）`);
+        expect(ls.ov <= 0, `横屏：无横向溢出（${ls.ov}）`);
+        await pg.mouse.click(nb.x, nb.y); await pg.waitForTimeout(500);
+        expect(await pg.evaluate(() => !document.getElementById('modal').hidden && /洞府/.test(document.querySelector('#modal h2').textContent)), '横屏：滚到底点【洞府】能打开洞府');
+        await closeAll(pg);
+      }
+      await ctx.close();
+    }
+
+    // ---- A3 访客 / A4 闭关 / A5 老祖精灵 / A6 横幅排队 / A7 历练结算印（Pixel 7）----
+    {
+      const { ctx, pg } = await fresh(devices['Pixel 7']);
+      await pg.evaluate(() => {
+        const X = window.__xm, A = X.ART; window.__cnt = { visitor: [], retreat: 0, elder: 0 };
+        const dv = A.drawVisitor, dr = A.drawRetreat, de = A.elderSprite;
+        A.drawVisitor = function (x, y, kind) { window.__cnt.visitor.push(kind); return dv.apply(this, arguments); };
+        A.drawRetreat = function () { window.__cnt.retreat++; return dr.apply(this, arguments); };
+        A.elderSprite = function () { window.__cnt.elder++; return de.apply(this, arguments); };
+      });
+      const cnt = async () => pg.evaluate(() => JSON.parse(JSON.stringify(window.__cnt)));
+      const reset = () => pg.evaluate(() => { window.__cnt = { visitor: [], retreat: 0, elder: 0 }; });
+      // A3 访客：半身像人物画本人
+      const vinfo = await pg.evaluate(() => {
+        const X = window.__xm, { st, L } = X; st.exp = null; st.retreat = null;
+        const evs = window.EVENTS || L.EVENTS || [];
+        const ev = evs.find(e => e.npc && e.npc !== 'elder' && X.ART.hasPortrait(e.npc) && e.where === 'home' && L.eventById(e.id));
+        if (!ev) return null;
+        st.visitor = { id: ev.id, left: 6 }; return { id: ev.id, npc: ev.npc };
+      });
+      expect(!!vinfo, 'A3 找得到一个有半身像人物的访客事件');
+      await reset(); await pg.waitForTimeout(500);
+      const c3 = await cnt();
+      expect(vinfo && c3.visitor.length > 0 && c3.visitor.every(k => k === vinfo.npc), `A3 访客：有半身像的人物画本人（${vinfo && vinfo.npc}），画的是 ${[...new Set(c3.visitor)].join(',')}`);
+      // 点“！”气泡区：脚底往上 58 个逻辑像素以内能开；比 58 高很多的地方不开
+      const clickAt = async (lx, ly) => { const p = await pg.evaluate(([lx, ly]) => { const c = document.getElementById('scene'), r = c.getBoundingClientRect(), OY = c.height - 160, u = r.width / 200; return { x: r.left + lx * u, y: r.top + (ly + OY) * u }; }, [lx, ly]); await pg.mouse.click(p.x, p.y); await pg.waitForTimeout(450); };
+      await clickAt(36, 138 - 80);
+      expect(await pg.evaluate(() => document.getElementById('modal').hidden), 'A3 点访客头顶 80 逻辑像素以上的空处：不开访客');
+      await clickAt(36, 138 - 52);   // 在“！”气泡上
+      const vopen = await pg.evaluate(() => ({ open: !document.getElementById('modal').hidden, t: (document.querySelector('#modal h2') || {}).textContent }));
+      expect(vopen.open, 'A3 点“！”气泡区（脚底上 52 个逻辑像素）能打开访客：' + JSON.stringify(vopen));
+      await pg.screenshot({ path: U('a3-visitor-modal') });
+      await closeAll(pg); await pg.evaluate(() => { window.__xm.st.visitor = null; });
+      // A4 闭关：ret / train 画石门，busy / teach 不画
+      for (const [kind, want] of [['ret', true], ['train', true], ['busy', false], ['teach', false]]) {
+        await pg.evaluate(kind => { const { st, L } = window.__xm; st.exp = null; st.visitor = null; st.p.inj = 0; st.retreat = { kind, left: 5, len: 5, tick0: st.tick, total: 5, m: 2, save: 0 }; }, kind);
+        await reset(); await pg.waitForTimeout(450);
+        const c = await cnt();
+        expect((c.retreat > 0) === want, `A4 闭关 kind=${kind}：${want ? '画' : '不画'}石门和光罩（drawRetreat 调了 ${c.retreat} 次）`);
+        if (kind === 'ret') await pg.screenshot({ path: U('a4-retreat') });
+      }
+      await pg.evaluate(() => { window.__xm.st.retreat = null; });
+      // A5 提示气泡出现时有老祖精灵；老祖告别后不再出现
+      await pg.evaluate(() => { const X = window.__xm; X.registerGuide([{ id: 'ui_t_b1', bubble: true, when: () => true, text: '试验气泡一，数字 5。' }]); });
+      await reset();
+      for (let i = 0; i < 10; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }
+      const tipOn = await pg.evaluate(() => !document.getElementById('tip').hidden);
+      await pg.waitForTimeout(500);
+      const c5 = await cnt();
+      expect(tipOn && c5.elder > 0, `A5 提示气泡出现时场景里有老祖精灵（气泡 ${tipOn}，elderSprite 调了 ${c5.elder} 次）`);
+      await pg.screenshot({ path: U('a5-elder-bubble') });
+      await pg.evaluate(() => { document.getElementById('tip').click(); });   // 点掉
+      await pg.waitForTimeout(900);
+      await pg.evaluate(() => { const X = window.__xm; X.st.eflags = X.st.eflags || {}; X.st.eflags.st_farewell = 1; X.registerGuide([{ id: 'ui_t_b2', bubble: true, when: () => true, text: '告别后的气泡，数字 7。' }]); });
+      await reset();
+      for (let i = 0; i < 12; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }
+      const tip2 = await pg.evaluate(() => ({ on: !document.getElementById('tip').hidden, who: (document.querySelector('#tip .who') || {}).textContent }));
+      await reset(); await pg.waitForTimeout(600);
+      const c5b = await cnt();
+      expect(tip2.on && c5b.elder === 0, `A5 老祖告别后（st_farewell）气泡还在（${JSON.stringify(tip2)}）但不再画老祖精灵（elderSprite ${c5b.elder} 次）`);
+      await pg.evaluate(() => { delete window.__xm.st.eflags.st_farewell; document.getElementById('tip').click(); });
+      // A6 横幅排队：同一周天连触 3 条，依次出现不叠
+      await pg.waitForTimeout(500);
+      const seq = await pg.evaluate(async () => {
+        const X = window.__xm, { st } = X, b = document.getElementById('banner'), seen = [];
+        let maxVisible = 0;
+        // 一个周天里连发 3 个札记（完成即发横幅）：成就 / 札记走 banner
+        for (const t of ['甲一', '乙二', '丙三']) X.L.U.emit('quest', { id: 'ui_' + t, t, rw: '', main: true, ch: Math.min(8, st.p.r) });   // 主线完成：横幅 + 章末卡排队
+        X.onTick();
+        const t0 = performance.now();
+        while (performance.now() - t0 < 6500) {
+          const txt = b.textContent;
+          if (b.classList.contains('show') && txt && seen[seen.length - 1] !== txt) seen.push(txt);
+          // 同一时刻 #banner 里只有一条（innerHTML 只有一个 span + 可选 small）
+          maxVisible = Math.max(maxVisible, b.querySelectorAll('span').length);
+          await new Promise(r => setTimeout(r, 40));
+        }
+        return { seen, maxVisible };
+      });
+      expect(seq.seen.length >= 2 && new Set(seq.seen).size === seq.seen.length && seq.maxVisible <= 1, `A6 横幅排队：同周天连发的几条依次出现、不叠：${JSON.stringify(seq)}`);
+      await ctx.close();
+    }
+    // ---- A7 历练结算卡：#modal .stamp 的文字是评价字、里面是 ART.stamp 图片 ----
+    {
+      const { ctx, pg } = await fresh(devices['Pixel 7']);
+      const st7 = null;
+      if (!st7) {
+        await pg.evaluate(() => { const X = window.__xm, { st, L } = X; st.stones = 99999; X.closeModal(); const b = L.expBest(st); L.startExp(st, b.k, b.d, b.a); for (let i = 0; i < 12 && st.exp; i++) { L.flow(st, 1); X.onTick(); } });
+        await pg.waitForTimeout(900);
+      }
+      const s7 = st7 || await pg.evaluate(() => { const s = document.querySelector('#modal .stamp'); return s ? { txt: s.textContent.trim(), img: !!s.querySelector('img.px'), src: s.querySelector('img') ? s.querySelector('img').src.slice(0, 11) : '', w: s.querySelector('img') ? s.querySelector('img').getBoundingClientRect().width : 0 } : null; });
+      expect(!!s7 && /^[天甲乙丙丁]$/.test(s7.txt) && s7.img && s7.src === 'data:image/' && s7.w >= 24, 'A7 历练结算卡：#modal .stamp 文字是评价字、里面是 ART.stamp 图片：' + JSON.stringify(s7));
+      await pg.screenshot({ path: U('a7-exp-result') });
+      await ctx.close();
+    }
+
+    // ---- B：问老祖、气泡排队、章末卡、registerGuide、札记新任务 ----
+    {
+      const { ctx, pg } = await fresh(DEVS['360x640']);
+      const mt = () => pg.evaluate(() => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; });
+      // 问老祖：各阶段三条建议都带数字，按钮 ≥44，360 宽不溢出，【前往】到对的面板
+      const stages = [
+        ['开局', s => {}, null],
+        ['修为圆满', (s, L) => { s.p.s = 3; s.p.xp = L.pNeed(s.p); }, /突破/],
+        ['有访客', (s, L) => { const ev = (window.EVENTS || L.EVENTS || []).find(e => e.where === 'home' && L.eventById(e.id)); if (ev) s.visitor = { id: ev.id, left: 4 }; }, null],
+        ['负伤+灵石多', (s, L) => { s.p.inj = 3; s.stones = 5000; s.pills = 3; s.home.array = 2; }, null],
+        ['筑基入宗', (s, L) => { s.p.r = 1; s.p.s = 1; s.flags.maxR = 1; L.joinSect(s, 'dan'); s.sect.total = 900; s.stones = 3000; }, null],
+        ['金丹闲着', (s, L) => { s.p.r = 2; s.p.s = 1; s.flags.maxR = 2; s.stones = 20000; s.home.array = 4; s.herbs = 80; s.home.furnace = 2; }, null],
+        ['临近约战', (s, L) => { s.tick = 33; }, null],
+      ];
+      for (const [name, set, goRe] of stages) {
+        await closeAll(pg);
+        const info = await pg.evaluate(([set]) => {
+          const X = window.__xm, { L } = X; const s = L.newState({ name: '问' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1;
+          new Function('s', 'L', set)(s, L);
+          X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3);
+          const list = X.askList(); return list.map(x => ({ t: x.t.replace(/<[^>]+>/g, ''), btn: x.btn, go: typeof x.go }));
+        }, ['(' + set.toString() + ')(s, L)']);
+        expect(info.length >= 1 && info.every(x => /\d/.test(x.t) && x.go === 'function'), `问老祖（${name}）：每条建议带数字和【前往】：${JSON.stringify(info.map(x => x.t.slice(0, 24)))}`);
+        await pg.evaluate(() => window.__xm.showAsk()); await pg.waitForTimeout(350);
+        const ui = await pg.evaluate(() => {
+          const bs = [...document.querySelectorAll('#modal [data-ask]')], small = bs.filter(b => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length;
+          const body = document.querySelector('#modal .sheet .body');
+          return { n: bs.length, small, over: body.scrollWidth - body.clientWidth, page: document.documentElement.scrollWidth - innerWidth, foot: [...document.querySelectorAll('#modal .foot .btn')].filter(b => b.getBoundingClientRect().height < 43.5).length };
+        });
+        expect(ui.n === Math.min(3, info.length) && ui.small === 0 && ui.foot === 0 && ui.over <= 0 && ui.page <= 0, `问老祖（${name}，360 宽）：按钮数 = min(3,建议数)、≥44px、不溢出：${JSON.stringify(ui)}`);
+        if (name === '修为圆满' || name === '有访客') await pg.screenshot({ path: U('b-ask-' + name) });
+        if (goRe) { await pg.click('#modal [data-ask="0"]'); await pg.waitForTimeout(450); expect(goRe.test(await mt()), `问老祖（${name}）：第一条【前往】到突破页（实际 ${await mt()}）`); }
+        if (name === '有访客' && info.some(x => x.btn === '去见')) { await pg.click('#modal [data-ask="0"]'); await pg.waitForTimeout(450); expect((await mt()) !== '' && (await mt()) !== '问老祖', `问老祖（有访客）：【去见】打开访客（${await mt()}）`); }
+      }
+      await closeAll(pg);
+      // 气泡排队：3 条同周天触发，按 3 个周天间隔一条条出，不覆盖，6 秒收起，收起后头像出“！”
+      await pg.evaluate(() => { const X = window.__xm, { L } = X; const s = L.newState({ name: '泡' }); s.pact = 1; s.beaten.mu = 1; s.tick = 100; s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3);
+        X.registerGuide([1, 2, 3].map(i => ({ id: 'ui_q' + i, bubble: true, when: () => true, text: `排队气泡第 ${i} 条，数字 ${i}。` }))); });
+      const log = [];
+      const t0 = Date.now(); let lastTxt = '';
+      let nt = 0;
+      while (Date.now() - t0 < 30000) {
+        const doTick = Date.now() - nt >= 2000; if (doTick) nt = Date.now();
+        const s = await pg.evaluate(doTick => { const X = window.__xm; if (!document.getElementById('modal').hidden) X.closeModal(); if (doTick) { X.L.flow(X.st, 1); X.st.visitor = null; X.onTick(); } const tip = document.getElementById('tip'); return { on: !tip.hidden, txt: tip.hidden ? '' : tip.textContent, tick: X.st.tick, bq: X.guideDbg.bubbleQ.length }; }, doTick);
+        if (s.on && s.txt !== lastTxt) { lastTxt = s.txt; log.push({ t: Date.now() - t0, tick: s.tick, txt: s.txt.replace(/\s+/g, '').slice(0, 24) }); }
+        if (!s.on) lastTxt = '';
+        await pg.waitForTimeout(350);
+      }
+      const gaps = log.slice(1).map((x, i) => x.t - log[i].t), tgaps = log.slice(1).map((x, i) => x.tick - log[i].tick);   // 含别的气泡：全部都要不重叠
+      const lq = log.filter(x => /排队气泡第/.test(x.txt)); expect(lq.length === 3 && lq.map(x => x.txt.match(/第(\d)/)[1]).join('') === '123', `气泡排队：3 条依次都出现一次：${JSON.stringify(log)}`);
+      expect(gaps.every(g => g >= 5500) && tgaps.every(g => g >= 3), `气泡排队：每条至少停留约 6 秒、相隔 ≥3 周天，不互相覆盖（间隔 ${gaps.join(',')} ms，${tgaps.join(',')} 周天）`);
+      const dot = await pg.evaluate(() => { const b = document.getElementById('guideAv'); return { has: !!b, hidden: b && b.hidden, nw: b && b.classList.contains('new'), tipHidden: document.getElementById('tip').hidden, logN: window.__xm.bubbleLog.length, dotTxt: b && b.querySelector('.guide-dot') && b.querySelector('.guide-dot').textContent }; });
+      await pg.waitForTimeout(6500);
+      const dot2 = await pg.evaluate(() => { const b = document.getElementById('guideAv'); return { tipHidden: document.getElementById('tip').hidden, nw: b.classList.contains('new'), dotTxt: b.querySelector('.guide-dot').textContent }; });
+      expect(dot2.tipHidden && dot2.nw && dot2.dotTxt === '！' && dot.logN >= 3, `气泡：6 秒后收起，头像出“！”（bubbleLog ${dot.logN} 条）：${JSON.stringify(dot2)}`);
+      await pg.screenshot({ path: U('b-bubble-dot') });
+      await closeAll(pg);
+      const hit = await pg.evaluate(() => { const b = document.getElementById('guideAv'), r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { ok: e === b || b.contains(e), cover: e && (e.id || e.className || e.tagName), rect: [r.left, r.top, r.width, r.height].map(Math.round), modal: !document.getElementById('modal').hidden }; });
+      expect(hit.ok, '头像“！”没被别的东西盖住：' + JSON.stringify(hit));
+      await pg.screenshot({ path: U('b-bubble-dot-hit') });
+      await pg.evaluate(() => { const r = document.getElementById('guideAv').getBoundingClientRect(); window.__avr = r; }); await pg.mouse.click(await pg.evaluate(() => window.__avr.left + window.__avr.width / 2), await pg.evaluate(() => window.__avr.top + window.__avr.height / 2)); await pg.waitForTimeout(400);
+      expect(await pg.evaluate(() => document.querySelector('#modal h2').textContent === '问老祖' && document.querySelectorAll('#modal .guide-said').length >= 3), '点头像 = 问老祖，下面附最近说过的几句气泡');
+      await closeAll(pg);
+      // registerGuide 的 before 能插到指定位置
+      const rg = await pg.evaluate(() => { const X = window.__xm; const first = X.hints[0].id; X.registerGuide([{ id: 'ui_ins', when: () => false, text: 'x' }], { before: first }); X.registerGuide({ id: 'ui_tail', when: () => false, text: 'y' }); const ids = X.hints.map(h => h.id); const i = ids.indexOf('ui_ins'); return { i, nextIsWelcome: ids[i + 1] === first, tail: ids[ids.length - 1] }; });
+      expect(rg.i >= 0 && rg.nextIsWelcome && rg.tail === 'ui_tail', 'registerGuide：before 插到指定讲解之前，不带 before 追加到末尾：' + JSON.stringify(rg));
+      // 章末卡：只在本章主线刚完成时弹
+      const chap = async (setup, wait) => {
+        await closeAll(pg);
+        await pg.evaluate(setup); await pg.waitForTimeout(wait);
+        return pg.evaluate(() => ({ title: document.getElementById('modal').hidden ? '' : document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#modal .duel-ch-stamp'), tip: window.__xm.bubbleLog.length }));
+      };
+      const ch0 = await chap(() => { const X = window.__xm, { L } = X; const s = L.newState({ name: '章' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); X.st.stats.exp = 1; L.checkQuests(X.st); X.onTick(); }, 3000);
+      expect(ch0.title === '', '章末卡：做完的只是小任务（历练一次），不弹章末卡：' + JSON.stringify(ch0));
+      const ch1 = await chap(() => { const X = window.__xm; X.st.beaten.mu = 1; X.L.checkQuests(X.st); X.onTick(); }, 3500);
+      expect(/^第一章/.test(ch1.title) && ch1.stamp, '章末卡：本章主线（赢下三年之约）刚完成时弹出，带“完”印：' + JSON.stringify(ch1));
+      await pg.screenshot({ path: U('b-chapter-card') });
+      await pg.evaluate(() => { const b = document.querySelector('#modal .foot .btn'); if (b) b.click(); }); await pg.waitForTimeout(500);
+      const ch2 = await chap(() => { const X = window.__xm; X.onTick(); }, 2500);
+      expect(ch2.title === '', '章末卡：只弹一次');
+      const ch3 = await chap(() => { const X = window.__xm, { st, L } = X; st.p.r = 3; st.flags.maxR = 3; st.quest.done = {}; st.beaten.mu = 0; X.onTick(); st.beaten.mu = 1; L.checkQuests(st); X.onTick(); }, 3000);
+      expect(ch3.title === '' || !/^第一章/.test(ch3.title), '章末卡：早已过去的章节（元婴期补完第一章主线）不弹卡，只留一句气泡：' + JSON.stringify(ch3));
+      await ctx.close();
+    }
+    // ---- 札记：带自己 id 的新任务可完成、不占序号（旧档记录不错位）----
+    {
+      const q = await page.evaluate(() => {
+        const L = window.__xm.L, bad = [], named = [];
+        const s = L.newState({ name: '札' });
+        L.CHAPTERS.forEach((ch, r) => {
+          const plain = ch.tasks.filter(t => /^c\d_\d+$/.test(t.id)).map(t => t.id), want = plain.map((_, i) => 'c' + r + '_' + i);
+          if (plain.join() !== want.join()) bad.push('第 ' + r + ' 章序号不连续：' + plain.join());
+          ch.tasks.filter(t => !/^c\d_\d+$/.test(t.id)).forEach(t => named.push(t.id));
+        });
+        // 旧档序号：这几条是原来就有的，序号不能因为插了新任务而变
+        const pin = { c0_3: '修到炼气中期', c0_4: '闭关一次', c1_0: '拜入一方宗门', c1_5: '击败独眼狼王', c2_0: '渡过金丹雷劫' };
+        for (const k in pin) { const [r] = k.slice(1).split('_'); const t = L.CHAPTERS[+r].tasks.find(x => x.id === k); if (!t || L.questText(s, t) !== pin[k]) bad.push(k + ' 现在是 ' + (t ? L.questText(s, t) : '无') + '，应为 ' + pin[k]); }
+        // 新任务：干净状态下都不满足；给上对应的统计后满足
+        const fx = { c0_plus: st => { st.stats.plus = 1; }, c1_robe: st => { st.gear.r = { u: 1, id: 'r1_0', slot: 'r', t: 1, plus: 0, aff: [], fail: 0 }; }, c1_plant: st => { st.stats.plant = 1; }, c1_sold: st => { st.stats.sold = 1; }, c1_realm: st => { st.stats.mjRuns = 1; }, c2_zhen: st => { st.stats.zhenSet = 1; }, c2_recipe: st => { st.stats.recipes = 1; }, c2_disc: st => { st.stats.discTaken = 1; }, c3_dao: st => { st.dao = st.dao || {}; st.dao.k = 5; }, c3_evo: st => { st.stats.petEvo = 1; }, c4_forge: st => { st.stats.forged = 1; } };
+        const res = {};
+        for (const id of named) {
+          const t = L.CHAPTERS.flatMap(c => c.tasks).find(x => x.id === id);
+          if (!fx[id]) { res[id] = 'skip'; continue; }
+          const a = L.newState({ name: 'a' }), b = L.newState({ name: 'b' });
+          let before = false, after = false; try { before = !!t.c(a); fx[id](b); after = !!t.c(b); } catch (e) { bad.push(id + ' 报错 ' + e.message); }
+          res[id] = before + '→' + after; if (before || !after) bad.push(id + ' ' + before + '→' + after);
+        }
+        // 旧档读进来：done 里只有旧序号时，完成状态不错位
+        const o = L.newState({ name: 'o' }); o.quest = { done: { c0_3: 1 } }; o.p.r = 0;
+        const v = L.questView(o); if (v.list.some(x => x.id === 'c0_3')) bad.push('旧档 c0_3 已完成却还在清单里');
+        return { bad, named, res };
+      });
+      expect(q.bad.length === 0, '札记：新任务不占序号、旧档不错位、统计满足即完成：' + JSON.stringify(q.bad));
+      expect(q.named.length >= 11, '札记：带自己 id 的新任务 ≥11 条（实际 ' + q.named.length + '）');
+    }
+
+    // ---- B 对决：每种对决演得完、跳得过；纸卷不挡场景、点画面可跳、中途 closeModal 清掉 duelFx ----
+    {
+      const { ctx, pg } = await fresh(devices['Pixel 7']);
+      const build = kind => pg.evaluate(kind => {
+        const X = window.__xm, { L } = X; const s = L.newState({ name: '对决' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1;
+        s.p.r = (kind === 'tour' || kind === 'rookie') ? 4 : 3; s.p.s = (kind === 'tour' || kind === 'rookie') ? 1 : 2; s.stats.tour = 5; s.home = { cave: 6, array: 8, field: 8, furnace: 8 }; s.stones = 1e5; s.tick = 130; s.flags.maxR = 3; s.pact = 1; s.beaten.mu = 1; s.stats.exp = 20; s.rank = 50;
+        for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3;
+        const arts = (own, eq) => { for (const id of own) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); };
+        arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']);
+        const tune = q => { s.tick = Math.round((Math.log(L.power(s)) - L.rivalA(q)) / L.RIVAL_SLOPE); };
+        if (kind === 'pact') { s.pact = 0; s.beaten = {}; s.tick = 36; }
+        else if (kind === 'origin') { s.origin = 'dantong'; s.pact = 0; s.beaten = {}; s.tick = 36; }
+        else if (kind === 'tour') { s.rank = 80; s.pact = -1; tune(72); }
+        else if (kind === 'rookie') { s.rank = 10; s.flags.maxR = 4; s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' }); tune(10); for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); } for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); }
+        else if (kind === 'boss') { s.bosses = { 0: 0 }; }
+        else if (kind === 'meet' || kind === 'trio' || kind === 'war' || kind === 'promo') { L.joinSect(s, 'dao'); s.sect.total = kind === 'promo' ? 20000 : 3000; s.sect.pts = 900; if (kind === 'trio') { s.sect.rank = 4; s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; L.discTake(s, null, { cat: 'strong', tp: 'mang', t: 4 }); L.discTake(s, null, { cat: 'quiet', tp: 'chi', t: 3 }); s.disc.list.forEach(x => { x.di = 13; }); s.disc.cand = null; } if (kind === 'meet' || kind === 'trio') s.sect.rank = kind === 'trio' ? 6 : 2; }
+        X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); return kind;
+      }, kind);
+      const startFn = {
+        pact: () => window.__xm.runPact(), origin: () => window.__xm.runPact(), tour: () => window.__xm.runTournament(), rookie: () => window.__xm.runRookie(), boss: () => window.__xm.fightBossUI(0),
+        meet: () => window.__xm.runSectMeet(), trio: () => window.__xm.runSectMeet(), war: () => window.__xm.runWar(), promo: () => { const X = window.__xm; X.st.p.r = 3; X.st.p.s = 2; X.doPromote(); },
+        event: () => { const X = window.__xm; X.showChoice({ id: 'ui_duel', where: 'home', title: '路遇拦路人', text: '有人拦住了去路。', choices: [{ t: '与之交手', duel: 0.9, ok: { text: '你赢了。', fx: { xp: 5 } }, fail: { text: '你输了。', fx: { inj: 2 } } }] }); setTimeout(() => { const b = document.querySelector('#modal button[data-c="0"]'); if (b) b.click(); }, 300); },
+      };
+      const D = () => pg.evaluate(() => { const X = window.__xm, d = X.duelFx; const m = document.getElementById('modal'); return { fx: !!d, ended: d && d.ended, modal: !m.hidden, duelM: m.classList.contains('duel-m'), title: (m.querySelector('h2') || {}).textContent || '' }; });
+      const sceneClickSkip = async () => { const p = await pg.evaluate(() => { const r = document.getElementById('scene').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.3 }; }); await pg.mouse.click(p.x, p.y); };
+      for (const kind of ['pact', 'origin', 'tour', 'rookie', 'boss', 'meet', 'trio', 'war', 'promo', 'event']) {
+        await closeAll(pg);
+        await build(kind === 'event' ? 'plain' : kind);
+        const trioOn = await pg.evaluate(() => window.__xm.L.trioOn(window.__xm.st));
+        await pg.evaluate(startFn[kind]); await pg.waitForTimeout(500);
+        const titles = [], rounds = { n: 0, layout: [], clickSkipOk: 0 }; let started = false;
+        for (let step = 0; step < 30; step++) {
+          const d = await D();
+          if (d.fx && !d.ended) {
+            started = true; rounds.n++; if (!titles.includes(d.title)) titles.push(d.title);
+            if (rounds.n <= 2 && rounds.n >= 1) {
+              await pg.waitForTimeout(350);   // 纸卷展开动画 0.24 秒内高度被压扁，量按钮要等它完
+              const lay = await pg.evaluate(() => { const sh = document.querySelector('#modal.duel-m .sheet'), w = document.getElementById('sceneWrap').getBoundingClientRect(); if (!sh) return { none: 1 }; const r = sh.getBoundingClientRect(); return { gap: Math.round(r.top - w.bottom), over: document.documentElement.scrollWidth - innerWidth, skipH: Math.round(sh.querySelector('.foot .btn') ? sh.querySelector('.foot .btn').getBoundingClientRect().height : 0) }; });
+              rounds.layout.push(lay);
+              if (rounds.n === 1) await pg.screenshot({ path: U('b-duel-' + kind) });
+            }
+            // 点画面跳过（第一场用点画面，之后用按钮 / duelSkip 交替）
+            if (rounds.n === 1) { await sceneClickSkip(); await pg.waitForTimeout(700); const d2 = await D(); if (!d2.fx || d2.ended) rounds.clickSkipOk++; }
+            else await pg.evaluate(() => window.__xm.duelSkip());
+            await pg.waitForTimeout(500);
+            continue;
+          }
+          if (!d.modal) { if (started) break; await pg.waitForTimeout(300); continue; }
+          if (d.ended) rounds.endedSeen = (rounds.endedSeen || 0) + 1;
+          // 准备页 / 结果页：点最后一个可点的金按钮（或第一个按钮）往下走
+          const clicked = await pg.evaluate(() => { const ch = document.querySelector('#modal .choices .btn:not([disabled])'); if (ch) { ch.click(); return 'choice'; } const g = document.querySelector('#modal .foot .btn.gold:not([disabled])') || document.querySelector('#modal .foot .btn:not([disabled])'); if (g) { g.click(); return g.textContent; } window.__xm.closeModal(); return 'close'; });
+          await pg.waitForTimeout(700);
+        }
+        const end = await D();
+        expect(started, `对决 ${kind}：真的演出了（场景内 duelFx）`);
+        if (!started) continue;
+        expect(!end.fx && !end.modal, `对决 ${kind}：演完后收尾（duelFx 清掉、弹窗关）：${JSON.stringify(end)}，共 ${rounds.n} 场，标题 ${titles.join('/')}`);
+        expect(rounds.layout.every(l => !l.none && l.gap >= -2 && l.over <= 0 && l.skipH >= 44), `对决 ${kind}：纸卷在场景下方不挡画面、无横向溢出、跳过 / 继续按钮 ≥44：${JSON.stringify(rounds.layout)}`);
+        expect(rounds.clickSkipOk === 1, `对决 ${kind}：点画面能跳过（0.7 秒内结束）`);
+        if (kind === 'tour') expect(rounds.n >= 2, `对决 tour：论道多场（${rounds.n} 场）`);
+        if (kind === 'trio') expect(trioOn && titles.some(t => /三人战/.test(t)), `对决 trio：会武三人战（trioOn ${trioOn}，标题 ${titles.join('/')}）`);
+      }
+      // 中途 closeModal：duelFx 被清掉
+      await closeAll(pg); await build('pact'); await pg.evaluate(startFn.pact); await pg.waitForTimeout(600);
+      const pre = await D();
+      await pg.evaluate(() => window.__xm.closeModal()); await pg.waitForTimeout(700);
+      const post = await D();
+      expect(pre.fx && !post.fx, `对决中途 closeModal 后 duelFx 被清掉（前 ${pre.fx}，后 ${post.fx}）`);
+      await closeAll(pg);
+      await ctx.close();
+    }
+  }
+
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;
