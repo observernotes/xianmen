@@ -3945,5 +3945,78 @@ Object.assign(ICONS, {
   post_wai: '..........w/.........wW/.nnnnnnnnwWn/.nNnnnnnwWNn/.nnNnnnwWnnN/.nnnNnwWNnnN/.nnnnNrrnnnN/.nnnnrRRrnnN/.nnnnnrrnnnN/.nNNNNNNNNNN',
 });
 
+// ---------- 九、人物与宿敌 ----------
+// ART.portrait 再增 5 位：teaman 卖茶翁（链 ch_tea）、出身约战对手 qian 钱通 / lei 雷豹 / lixiao 厉枭 / yutian 驭天风
+// 新秀头像：ART.portraitGen(seed, { kind: 'rookie', f, realm | robe }, mood)（见上一节）
+// ART.icon('grudge' 恩怨 | 'quest' 委托 | 'like' 喜欢 ♥ | 'dislike' 讨厌 ✕ | 'wine' 酒 | 'tea' 茶 | 'spar' 指点 | 'crush' 打压)
+Object.assign(PEOPLE, {
+  // 卖茶翁：布头巾、垂到脸颊的白眉、手里一把冒热气的茶壶
+  teaman: {
+    skin: '#e0b48c', hair: '#e8e6ee', shape: 'oval', robe: ['#4a4438', '#7a7262', '#a8a08c'], trim: '#d8d0b8', bust: { sw: 19, inner: '#c8c0a8' }, noGloss: 1,
+    hairX: (L, c) => L.mir(T => T.e(12.5, 24, 2.5, 4, c)),
+    F: { eye: 'o', iris: '#4a3a3a', brow: { c: 0 }, my: 32, eyes: { n: ARC, sad: ['......', '......', 'LLLLL.', '..ii..'] }, mouth: { n: 'smile', joy: 'open', ang: 'flat', shock: 'o', sad: 'line' } },
+    skinX: (b, m, sk) => { b.hl(20, 27, 19, sk.S); b.mir(T => { T.p(14, 28, sk.S); T.l(19, 30, 18, 32, sk.S); }); },
+    post: (b, m, W) => {
+      const C = tone('#6a7a8a', '#3e4a5a', '#9aaaba'), tl = m === 'ang' ? 1 : 0;
+      b.add(L => { L.e(24, 9, 11.5, 7, C); L.r(13, 10, 22, 6, C); L.l(34, 12, 40, 18, C, 3); }); b.hl(13, 34, 15, '#3e4a5a'); b.l(16, 6, 30, 5, '#9aaaba');
+      b.add(L => L.mir(T => { T.l(21, 21 + tl, 16, 21 - tl, W, 2); T.l(15, 22, 13, 29, W); }));
+      b.add(L => L.sy(35, '2221', W));
+      const P = tone('#8a4a36', '#5a2a22', '#c07a5c'); b.add(L => { L.e(8, 41, 5, 4.5, P); L.l(2, 40, 4, 37, P, 2); L.r(6, 35, 4, 2, P); L.l(12, 39, 14, 36, P); L.l(14, 36, 13, 42, P); });
+      b.p(8, 34, '#f4c542'); for (const [x, y] of [[1, 34], [2, 31], [1, 28], [3, 26]]) b.p(x, y, '#f6f2fa');
+    },
+  },
+  // 钱通：坊市恶霸。胖脸、八字胡、金牙、瓜皮帽
+  qian: {
+    skin: '#f0c098', hair: '#2a2230', shape: 'wide', robe: ['#4a2a6a', '#7a4aa0', '#a87ad0'], trim: '#f4c542', bust: { sw: 23, inner: '#f4e08a' },
+    fr: 'gf9876555555', back: (L, c) => L.r(13, 14, 22, 14, c),
+    F: { eye: 'n', iris: '#3a2a2a', brow: { th: 2, len: 5, tilt: 0.3 }, my: 32, eyes: { n: ['......', 'LLLLL.', '..II..'] }, mouth: { n: 'grin', joy: 'open', ang: 'grit', shock: 'o', sad: 'frown' } },
+    skinX: (b, m, sk) => { b.mir(T => { T.l(16, 34, 20, 36, sk.S); T.p(13, 28, sk.m); T.p(14, 28, sk.m); }); if (m === 'n' || m === 'ang') b.p(25, 33, '#f4c542'); },
+    post: (b, m, c) => {
+      const H = tone('#2e2838', '#17131f', '#4a4157'); b.add(L => { L.e(24, 7, 10, 6, H); L.r(14, 7, 20, 4, H); }); b.hl(14, 33, 10, '#f4c542'); b.r(23, 0, 2, 2, '#d8404a'); b.r(22, 5, 4, 3, '#5fd3b0');
+      b.mir(T => { T.hl(19, 22, 30, c); T.p(18, 31, c); T.p(17, 32, c); }); b.add(L => { L.e(24, 44, 3, 3, GOLD); }); b.r(23, 43, 2, 2, '#a8742a'); b.hl(16, 31, 40, '#f4c542');
+    },
+  },
+  // 雷豹：黑风寨少寨主。刺猬头、红抹额、脸上一道疤、兽牙项链
+  lei: {
+    skin: '#d9a47c', hair: '#3a2a22', shape: 'square', robe: ['#3a2a22', '#5e4836', '#8a6c4c'], trim: '#9a3a34', bust: { sw: 21, inner: '#d9a47c' },
+    fr: 'ea7655666789', back: (L, c) => { L.r(13, 12, 22, 18, c); spikes(L, 24, 14, 10, 16, 9, c, 3, Math.PI + 0.2); },
+    mid: b => b.add(L => { for (let i = 0; i < 6; i++) L.e(9 + i * 6, 40 + Math.abs(i - 2.5) * 0.8, 4, 3, '#7a5a40'); }),
+    F: { eye: 'm', iris: '#8a5a1a', brow: { th: 2, tilt: 0.8, len: 6 }, mouth: { n: 'grin', joy: 'open', ang: 'grit', shock: 'o', sad: 'flat' } },
+    skinX: (b, m, sk) => { b.l(15, 20, 20, 30, sk.M); b.l(16, 20, 21, 30, '#8a3040'); },
+    post: b => { b.add(L => { L.r(13, 14, 22, 3, RED); L.l(35, 15, 41, 20, RED, 2); }); b.r(22, 14, 4, 3, '#f4c542'); for (const x of [19, 23, 27]) { b.r(x, 43, 2, 3, '#f6f2fa'); b.p(x, 46, '#b4b0cc'); } },
+  },
+  // 厉枭：血无涯的跟班。兜帽、独眼罩、羽毛领、冷笑
+  lixiao: {
+    skin: '#e0c4b8', hair: '#2a1418', shape: 'sharp', robe: ['#2a0c12', '#5a1a22', '#8a3038'], trim: '#c8a84a', bust: { inner: '#1a0a10', sw: 20 }, noGloss: 1,
+    mid: b => b.add(L => L.mir(T => { for (let i = 0; i < 4; i++) T.l(6 + i * 4, 44, 3 + i * 4, 37 - (i % 2) * 2, '#3a3448', 3); })),
+    F: { eye: 'x', iris: '#f4c542', tail: '#2a1418', brow: { tilt: 0.7, len: 6 }, mouth: { n: 'smirk', joy: 'grin', ang: 'grit', shock: 'o', sad: 'flat' } },
+    skinX: (b, m, sk) => { b.add(L => L.r(26, 23, 7, 5, '#1e1420'), { flat: 1 }); b.l(13, 19, 34, 24, '#1e1420'); b.p(29, 25, '#c8a84a'); b.mir(T => T.l(17, 29, 19, 33, sk.S)); },
+    post: b => { b.add(L => { L.e(24, 19, 16, 18, '#5a1a22'); L.sy(1, '1234', '#5a1a22'); L.e(24, 24, 10.5, 12.5, null); L.r(17, 32, 14, 8, null); }); b.mir(T => { T.p(12, 14, '#c8a84a'); T.p(11, 20, '#c8a84a'); T.p(11, 26, '#c8a84a'); }); },
+  },
+  // 驭天风：御兽山少主。发间翎羽、狼毫肩、肩头一只青雀
+  yutian: {
+    skin: '#f0c8a0', hair: '#4a3020', shape: 'oval', robe: ['#2f6e4b', '#4f9a62', '#8ad08a'], trim: '#f0e8c0',
+    fr: 'jkcba9876656', back: (L, c) => { L.r(14, 22, 20, 14, c); }, hairX: (L, c) => L.e(24, 3.5, 4, 3.2, c),
+    mid: b => b.add(L => { for (let i = 0; i < 4; i++) L.e(4 + i * 4, 41 - i * 1.5, 3.5, 3, tone('#b8b0a0', '#7a7468', '#e8e4d8')); }),
+    F: { eye: 'm', iris: '#3a7a5a', brow: { tilt: 0.4 }, mouth: { n: 'smile', joy: 'grin', ang: 'frown', shock: 'o', sad: 'flat' } },
+    post: b => {
+      b.add(L => { L.l(28, 6, 37, 0, ICE, 2); L.l(27, 7, 34, 2, JADE, 2); }); b.r(21, 6, 6, 2, '#f4c542');
+      const Q = tone('#6fd8b8', '#3fa890', '#c8fff0'); b.add(L => { L.e(40, 33, 4, 3.5, Q); L.e(37.5, 30, 2.6, 2.4, Q); L.l(43, 34, 46, 37, Q, 2); });
+      b.p(36, 30, INK); b.r(34, 31, 2, 1, '#f4c542'); b.hl(21, 26, 42, '#8a5c36'); b.r(23, 43, 2, 3, '#f6f2fa');
+    },
+  },
+});
+Object.assign(FSPEC, { teaman: ['beard'], qian: ['cap'], lei: [], lixiao: ['hat'], yutian: [] });
+Object.assign(ICONS, {
+  grudge: '.r.........w/.rr.......wW/..rr.....wW/...rr...wW/....rr.wW/..m..rwW/.mmm.wWr/.mhm.W.rr/mmhmm...rr/mhhhm.y..rr/mmhmm.yy..r/.mmm...y',
+  quest: '.oO........oO/.nnnnnnnnnnnn/.nNnnnrrnnnnN/..nnnnrrnnnN/..nnnnrrnnnN/..nnnnrrnnnN/..nnnnnnnnnN/..nnnnrrnnnN/.nnnnnnnnnnnn/.nNNNNNNNNNNN/.oO....rr..oO/......rRrR',
+  like: '////...rr.rr/..rprrrrR/..rrrrrrR/...rrrrR/....rrR/.....R',
+  dislike: '///..vv....vv/...vv..vV/....vvvV/....vvV/...vv.vV/..vv...vV/..V.....V',
+  wine: '.....rrr/.....ooo/....oooo/...oonnoo/..oonrrnoo/..oonrrnoO/..oonnnnoO/..ooooooOO/...ooooOO/....OOOO',
+  tea: '.....w..w/....w..w/.....w..w//..jjjjjjjj/.jjwjjjjjJjj/.jjjjjjjjJ.j/.jjjjjjjjJjj/..jjjjjjJJ/...JJJJJJ/.ssssssssss',
+  spar: '......y/.....yhy/......y/.....nnn/....nnnnn..w/....nnnnn.wW/.....nnn.wW/....jjjjwW/...jjjjjW/...jjjjjy/...jjjjj.y/...JJJJJ',
+  crush: '....sssss/...sttttSs/..stttttSSs/..sttttSSSs/...sSSSSSs/.....ss/..r..ss..r/.rr......rr/rr.kkkkkk.rr/...kekeekk/..kkkkkkkk/..KKKKKKKK',
+});
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
