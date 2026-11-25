@@ -93,6 +93,7 @@ L.migrate = function (s) {
   const petNote = L.migratePets(s);
   // 灵田作物、药引、丹囊与丹毒（crops.js / alchemy.js，可重复调用，不升版本）
   L.migrateAlch(s); L.migrateCrops(s);
+  if (L.migrateHome) L.migrateHome(s);   // 洞府地块、建筑、阵法（buildings.js，可重复调用，不升版本）
   if (L.migrateRealm) L.migrateRealm(s);   // 秘境：st.run / st.mj / st.meta.mj 缺了补默认（幂等，不升版本）
   if (L.migrateRivals) L.migrateRivals(s);   // 宿敌与新秀：恩怨、新秀、图鉴 st.meta.rival；拍卖加成压回 ×1.3（rivals2.js，幂等，不升版本）
   if (old) {

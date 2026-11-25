@@ -192,9 +192,9 @@ function seed(st) {
     for (const id in st.gear.plans || {}) if (L.PLAN[id]) c.plan[id] = 1;
     for (const id in st.gear.zhentu || {}) if (L.ZHENTU[id]) c.sigil[id] = 1;
   }
-  // 洞府线的阵法系统上线后，它收着的阵图（st.home.zhentu 或 L.zhentuKnown）也算
+  // 洞府线的阵法系统收着的阵图（st.gear.zhentu，L.zhenOwnList）也算
   if (st.home && st.home.zhentu && typeof st.home.zhentu === 'object') for (const id in st.home.zhentu) if (L.ZHENTU[id]) c.sigil[id] = 1;
-  if (typeof L.zhentuKnown === 'function') for (const id of [].concat(L.zhentuKnown(st) || [])) if (L.ZHENTU[id]) c.sigil[id] = 1;
+  if (typeof L.zhenOwnList === 'function') for (const id of [].concat(L.zhenOwnList(st) || [])) if (L.ZHENTU[id]) c.sigil[id] = 1;   // 洞府线 formation.js
 }
 L.codexSeed = seed;
 L.codexEnding = function (st, ids) { const c = CX(st), fresh = []; for (const id of ids || []) if (L.ENDING[id] && !c.end[id]) { c.end[id] = 1; fresh.push(id); } return fresh; };

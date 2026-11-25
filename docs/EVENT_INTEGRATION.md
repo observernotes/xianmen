@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：宿敌与新秀；第十刀：奇遇链进度、图鉴、轮回与出身）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟；第九刀：宿敌与新秀；第十刀：洞府地块、建筑与阵法；第十一刀：奇遇链进度、图鉴、轮回与出身）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -85,7 +85,19 @@
   - 事件置的一次性标记当场生效：`rookie_seen`（new_1 看他一眼：新秀五行显形）、`yun_elem`（yun_1 掀棋盘：云无极五行显形）。恩怨降到 −40 以下时引擎置 `zhao_owes`（赵乾倒戈）。
   - 新扩展包 `src/content/ev_rivals2.js`（11 个，CONTENT §14.2 的 23 个都已在 ev_realm_rivals.js）：恩怨 ≥ 60 的伏击 `rv_ambush_mu / zhao / chu / xue / yun / rk`，≤ −40 的化敌为友 `zhao_4`、`tiankuo_5`（楚天阔同行 `tiankuo_ally`：斩妖 +6，同伴系统上线后可改由它接管）、`mu_5`、`xue_4`、`yun_4`。
   - 这一刀放行的 39 个：ev_realm_rivals 的 20 个（`mu_1～4`、`zhao_1～3`、`tiankuo_1～4`、`xue_1`、`xue_2`、`yun_1`、`yun_2`、`new_1～4`、`auc_rival`）、ev_sect_people 的 `chu_q2`、`mo_q1`、ev_world_chains 的 `world_liuxing`、`ch_tianjian_1～4 / 6`，加新的 11 个。
-- [x] 奇遇链、图鉴、轮回与出身（`src/logic/chains.js`、`codex.js`、`samsara.js`，第十刀；新扩展包 `src/content/ev_chains2.js`）：
+- [x] 洞府地块、建筑与阵法登记（`src/logic/home.js`、`src/logic/formation.js`、`src/logic/buildings.js`，第十刀）：
+  - 剧情触发键 `plot_full`（地块满了、又有解锁了没建的建筑，持续 12 周天后，每世一次 → `home_plot_full`）、`build:<建筑>`（建成时；`build:library` 另在藏经阁每次升级时 → `home_library_note`；`build:spring` → `home_spring`）、
+    `formation_fail`（换阵时 5% → `home_formation_fail`）。
+  - 一次性 flag：`tut_rebuild`（界面打开【洞府】、选中等级最低的那块地并摊开【拆除】确认，`st.home.tut`）、`formation_boost`（最近换的那个阵位的阵法，生效后 12 周天效果 ×1.2，`st.home.zboost`）、
+    `formation_redo`（还在布的再多布 3 周天；已经生效的撤了重布 3 周天）、`pen_discount`（**改了**：灵宠那一刀先收着的“喂养 +8%”换成写手原意“下一次兽栏建造 / 升级七折”，`st.home.disc.pen`；nohome2 时仍走灵宠那一刀的旧实现）；
+    常驻 flag `spring_fish`（丹毒每周天多退 0.5，包 `L.toxDecay`）。`home_neighbor`（已上线）补上 CONTENT 的前提“洞府 ≥ 4 级”（包 `L.eligible`）。
+  - fx.aff 钩子接在道心“仁”后面：迎客亭建成后，访客事件（`visit: true`）里给人物的正好感再 +1（`L.visitFavorBonus(st)`，人物线读它）。
+  - `fx.plan` 给 `f_*` 阵图时现在写“【洞府】聚灵阵上布阵：效果”（包 `L.givePlan`），阵图仍记在 `st.gear.zhentu`（法宝那一刀就这么存，story_trib1 的渡劫阵、ch_danjing_5 的丹火阵、秘境剑气的锻魂阵都照旧）。
+    新来源：坊市轮换货“阵图”（生财阵，筑基起，`L.zhenShopOk`）；拍卖（元婴起，迷踪 / 护山 / 养兽里没有的一张，`L.zhenAucLot`）；仙府秘藏（迷踪阵，realm.js 的 `L.mjChestExtra`）；
+    历练（万妖山脉腹地评价乙以上 10% 养兽阵、太古仙府评价乙以上 8% 一张没有的）；葛老三心（丹火阵）。**护山阵的正路是宗门执法长老 40 支持**：宗门线要发时调 `L.zhenGive(st, 'f_hushan')`。
+  - 迷踪阵的“秘境陷阱减半”原来只看有没有阵图（realm.js 的 `L.mjTrapHalf`），现在要布着；传送阵 9 级“秘境不耗周天”走 `L.portalLv`（nohome2 时恒 0）。
+  - 这一刀放行的 4 个：`home_plot_full`、`home_formation_fail`、`home_spring`、`home_library_note`。
+- [x] 奇遇链、图鉴、轮回与出身（`src/logic/chains.js`、`codex.js`、`samsara.js`，第十一刀；新扩展包 `src/content/ev_chains2.js`）：
   - **链进度引擎**（chains.js）：`L.chainProgress(st)` 每条链做到第几步、下一步是哪件事、在哪儿（洞府来客 / 某张图的历练途中 / 踏入某境界时）、还差什么条件；`L.chainHint`、`L.chainMaps`（下一步在哪张图，sim 与气泡用）。
     规则：链开了头（或出身自带的那条）、下一步能出、距上一步 ≥ `L.CHAIN_V.due`（8）周天时，访客与途中遭遇有 55% 直接挑它（包了 `L.pickEvent`）；
     第 n 步（n ≥ 2）在上一步做完后不再看 `maxR`（中途升了境界不至于卡死，例如卖茶翁第 2～4 步、老祖旧剑第 6 步）；同一步的几个版本只出一个（做过的那一步不再出）；
@@ -97,7 +109,7 @@
     `story_r6_mo`（《墨家遗书》走完后合体那夜多一段老祖的记忆，需 `mo_memory`）、`origin_pact_eve`（非弃徒出身的约战前夜）、`origin_yushou_dream` / `origin_sanxiu_rent` / `origin_dantong_ash` / `origin_shoumu_gate`（四个出身的开局来客）。
   - 47 步链事件 CONTENT §14.6 原来就全有（ch_sword 第 5 步是 `tianheng_2`），这一刀没有补写缺步；《天剑宗旧案》第 1～4、6 步原来等宿敌恩怨 `fx.grudge`，合并宿敌与新秀后已放行，十条链全部能走。
   - 这一刀“放出”的：上面的 8 个新事件 + 以前一世都出不来的 `tianheng_1`、`tianheng_2`（引擎修复，不改上线计数）。
-- 当前上线 347 / 351（第十刀 +8：ev_chains2.js 全部上线；还闸着的 4 个等洞府：`build:*`、`plot_full`、`formation_fail`）。宿敌与新秀那一刀 339 / 343（宿敌与新秀 +39，含新增 11 个）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- 当前上线 351 / 351（第十一刀 +8：ev_chains2.js 全部上线）。洞府那一刀 343 / 343（洞府 +4：`home_plot_full`、`home_formation_fail`、`home_spring`、`home_library_note`）。宿敌与新秀那一刀 339 / 343（宿敌与新秀 +39，含新增 11 个；还闸着的 4 个等洞府）。宗门加深那一刀 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。

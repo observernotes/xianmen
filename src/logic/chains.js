@@ -185,7 +185,8 @@ function stepDone(st, ev) {
 }
 function finReward(st, id) {
   const F = (L.CHAIN[id] && L.CHAIN[id].fin) || {}, out = [];
-  if (F.plan && L.givePlan) { const t = L.givePlan(st, F.plan); if (t) out.push(t); }
+  // 阵图走洞府线的 L.zhenGive（= L.givePlan，记进 st.gear.zhentu）；没有它时直接 L.givePlan
+  if (F.plan) { const give = /^f_/.test(F.plan) && L.zhenGive ? L.zhenGive : L.givePlan; const t = give ? give(st, F.plan) : ''; if (t) out.push(t); }
   if (F.mat !== undefined && L.giveMat) { L.giveMat(st, F.mat, 1); out.push(`${L.BOSS_MAT[F.mat]} ×1（灵宠进化用）`); }
   if (F.trialHint) { st.meta.trialHint = 1; out.push('卖茶翁的提示：以后选的每条天道试炼道果 +5%'); }
   return out;

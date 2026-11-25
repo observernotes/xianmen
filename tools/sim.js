@@ -10,6 +10,7 @@
 //   node tools/sim.js all 200 nomarket guided 不卖行情、不去拍卖、不买轮换货（货架的常驻三格照用），量坊市这一刀对节奏的影响
 //   node tools/sim.js all 200 nodaoji  渡劫评价不给道基（L.DAOJI_ON = false），量道基对节奏的影响
 //   node tools/sim.js all 200 nopets  关掉灵宠的新东西（L.PETS_ON = false：只剩种的初阶倍率，没有等级、进化、好感、岗位、天赋）
+//   node tools/sim.js all 200 nohome2 回到洞府地块之前（L.HOME2_ON = false：只有聚灵阵、灵田、丹炉、洞府四项，闭关按洞府等级、器炉借丹炉、阵法只有聚灵）
 //   node tools/sim.js all 200 nosect2 guided 不送礼、不收徒、不领职司、宝库照旧（人脉的晋升条件仍在），量宗门加深这一刀
 //   node tools/sim.js all 200 nocrops 灵田只种灵稻（L.CROPS_ON = false：等价于作物制之前的被动灵石，没有灵草、灵谷、药引作物）
 //   node tools/sim.js all 200 noalch  关掉药引丹方与丹毒（L.ALCH_ON = false：只剩培元、破境、疗伤三种基础丹）
@@ -57,6 +58,7 @@ if (arg.includes('noalch')) L.ALCH_ON = false;
 if (arg.includes('nochains')) L.CHAINS_ON = false;
 if (arg.includes('nocodex')) L.CODEX_ON = false;
 const LIFE2 = arg.includes('life2');
+if (arg.includes('nohome2')) L.HOME2_ON = false;
 if (arg.includes('norivals2')) L.RIVALS2_ON = false;
 const RIV2 = !arg.includes('norivals2');
 const MARKET_SIM = !arg.includes('nomarket');
@@ -291,16 +293,38 @@ function mjGuided(st, rec) {
   return true;
 }
 function rngFor(seed) { let s = (seed * 2654435761) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
-const UPW = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4 };   // 折算价的权重：越小越优先
+// 折算价的权重：越小越优先。地块制之后的新建筑（SYSTEMS §6.1）只升已建的，建造另见 buildGuided
+const UPW = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4, room: 2.2, vault: 2.4, library: 2.6, forge: 2.6, pen: 3, spring: 3.2, pavilion: 4, portal: 4 };
 
 function cheapestUp(st) {
   let best = null;
   for (const b of L.HOME) {
-    if (st.home[b.k] >= b.max || !L.homeOpen(st, b.k)) continue;
+    if (st.home[b.k] >= b.max || !L.homeOpen(st, b.k) || !UPW[b.k]) continue;
+    if (b.nu && !st.home[b.k]) continue;
     const c = L.hCost(b.k, st.home[b.k]);
     if (!best || c * UPW[b.k] < best.w) best = { k: b.k, c, w: c * UPW[b.k] };
   }
   return best;
+}
+// guided 的洞府（SYSTEMS §6.1）：空地块按这个顺序建（前一样解锁了没建、钱不够就先攒着）；地块满了不拆
+const BUILD_ORDER = ['field', 'furnace', 'room', 'vault', 'library', 'forge', 'pen', 'spring', 'pavilion', 'portal'];
+function buildGuided(st, keep) {
+  if (!L.home2On() || !L.homePlotFree(st)) return;
+  for (const k of BUILD_ORDER) {
+    if (st.home[k] > 0 || !L.homeUnlocked(st, k)) continue;
+    if (st.stones - L.homeCost(st, k) >= keep) L.build(st, k);
+    return;
+  }
+}
+// guided 的阵法（SYSTEMS §6.3）：平时聚灵；有渡劫阵图、快圆满要渡劫时提前布渡劫阵（突破时等它布好），突破后换回聚灵；
+//   第二阵位（炼虚起）布锻魂 > 生财 > 丹火（有哪张用哪张）
+function zhenGuided(st, rec) {
+  if (!L.zhenOpen(st)) return;
+  const p = st.p, z = L.zhenState(st);
+  const soon = L.tribNeeded(st) && L.zhenOwned(st, 'f_dujie') && p.s === 3 && (L.isFull(st) || L.ticksToNext(st) <= L.ZV.switch + 1);
+  const want = soon ? 'f_dujie' : 'f_juling';
+  if ((z[0].nx || z[0].id) !== want && !L.zhenSetWhy(st, 0, want)) { L.zhenSet(st, 0, want); rec.zhenSet++; }
+  if (L.zhenSlots(st) >= 2 && !z[1].id && !z[1].nx) { const id = ['f_duanhun', 'f_shengcai', 'f_danhuo'].find(x => L.zhenOwned(st, x) && !L.zhenSetWhy(st, 1, x)); if (id) { L.zhenSet(st, 1, id); rec.zhenSet++; } }
 }
 function pickChoice(st, ev) {
   const ok = ev.choices.map((c, i) => i).filter(i => L.costOk(st, ev.choices[i].cost));
@@ -309,6 +333,8 @@ function pickChoice(st, ev) {
 function tryBreak(st, rec, strat) {
   if (!L.isReady(st)) return;
   const p = st.p, trib = L.tribNeeded(st);
+  // guided：渡劫阵在布（还差一两个周天）就等它布好再突破
+  if (strat === 'guided' && trib && L.home2On() && L.zhenWhere(st, 'f_dujie') && !L.formationReady(st, 'f_dujie') && !L.desperate(st)) return;
   if (strat === 'guided') {
     if (p.inj > 0 && st.pills > 0) L.heal(st);
     // 突破最多服 3 枚；金丹起天劫另有临阵吞丹 2 枚（SYSTEMS §9）
@@ -342,7 +368,7 @@ function tryBreak(st, rec, strat) {
     if (strat === 'guided') { ex = { fa: 1, pet: 1, daolv: 1, pills: 0 }; while (ex.pills < v.pillMax && L.tribPeek(st, ex) < 0.995) ex.pills++; }
     rec.tribs++; rec.hints++; if (v.hint.right) rec.hintRight++;
     r = L.tribFinish(st, ex);
-    rec.aidN += Object.keys(r.tb.aids).length + (r.tb.extraPills ? 1 : 0); rec.extraPills += r.tb.extraPills;
+    rec.aidN += Object.keys(r.tb.aids).length + (r.tb.extraPills ? 1 : 0); rec.extraPills += r.tb.extraPills; if (r.tb.aids.zhen) rec.zhenAid++;
     if (r.tb.grade) rec.grades[r.tb.grade] = (rec.grades[r.tb.grade] || 0) + 1;
   } else r = L.breakthrough(st, n);
   if (r && r.ok) { rec.realmAt[r.to] = st.tick; rec.artAt[r.to] = art; rec.gearAt[r.to] = gearShare(st); rec.daojiAt[r.to] = L.daoji(st); rec.petAt[r.to] = petShare(st); }
@@ -358,7 +384,9 @@ function actGuided(st, rec, seed) {
   if (MARKET_SIM) marketGuided(st, rec);
   const keep = MARKET_SIM ? aucGuided(st, rec) : 0;
   // 灵石：先留够闭关和丹药的钱（拍卖前后再留一笔），其余按折算价升级
+  buildGuided(st, keep);
   for (let loop = 0; loop < 30; loop++) { const u = cheapestUp(st); if (!u || st.stones - u.c < keep || !L.upgrade(st, u.k)) break; }
+  zhenGuided(st, rec);
   const r = Math.min(p.r, 8);
   const capA = L.boxCap(st, 'a');
   if ((L.gearPity(st) || L.artPity(st, capA) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * (st.boxMiss >= 2 ? 1 : 1.5)) L.buy(st, 'box');
@@ -449,7 +477,7 @@ function run(strat, seed, trace, opt) {
   const st = opt.st0 || L.newState({ name: '测试' });
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {},
-    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0 };
+    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
   const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
@@ -506,6 +534,7 @@ function run(strat, seed, trace, opt) {
       console.log(`t${st.tick} 岁${Math.floor(p.age)}/${Math.floor(L.lifespan(st))} ${L.stageName(p)} 根${p.t} 器${gs}(矿${L.fmt(st.ore)}) 功${sl}(${Object.keys(st.arts.own).length}门,共鸣${Object.keys(st.meta.combo).length}) 宠${L.petOut(st) ? L.petName(L.petOut(st)) + L.petOut(st).lv : 0}/${L.petCount(st)} 战力=${L.fmt(L.power(st))} 修炼×${(L.gainBase(st) / L.g0(Math.min(L.si(p), 35))).toFixed(1)} 灵石=${L.fmt(st.stones)} 收入=${L.fmt(L.income(st))} 洞府=${st.home.array}/${st.home.field}/${st.home.furnace}/${st.home.cave} 榜=${st.rank} 宗=${st.sect ? st.sect.rank + '/' + L.fmt(st.sect.total) : '-'} 丹=${st.pills} 草=${Math.floor(st.herbs)} 历练=${st.stats.exp}(${st.lastExp ? st.lastExp.k + '.' + st.lastExp.d : '-'}) 败=${st.stats.btFails}`);
     }
   }
+  rec.home = Object.assign({}, st.home); rec.homeN = L.homePlots(st).filter(Boolean).length; rec.zhentu = L.zhenOwnList(st).length;
   rec.btFails = st.stats.btFails; rec.expStones = st.stats.expStones; rec.endR = st.p.r; rec.endTick = st.tick;
   rec.daoji = L.daoji(st); rec.dao = Object.assign({}, st.dao); rec.karmaOpen = L.karmaOpen(st).length; rec.karmaDone = st.karma.done; rec.toxin = st.trib.toxin;
   rec.sectTasks = st.stats.sectTasks; rec.trips = st.stats.exp;
@@ -617,6 +646,10 @@ function summarize(strat, recs, G) {
     row(strat, '（参考）丹毒 平均 / 最高；爆气丹服用；飞升时灵根', `${med(recs.map(x => x.toxSum / Math.max(1, x.ticks))).toFixed(1)} / ${med(recs.map(x => x.toxMax)).toFixed(0)}；${med(recs.map(x => x.baoqi))} 枚；${med(recs.map(x => x.talent))} 档`, '—');
     row(strat, '（参考）奇遇链 走完 / 推进步数 / 为链专程出门', `${med(recs.map(x => x.chainFin))} 条 / ${med(recs.map(x => x.chainSteps))} 步 / ${med(recs.map(x => x.chainTrips))} 趟`, '10 条 48 步');
     row(strat, '（参考）图鉴 完成度 / 见多识广 这一世→下一世 / 格数 / 成组；一世道果（其中图鉴）', `${pct(med(recs.map(x => x.cxPct)))} / +${Math.round(med(recs.map(x => x.cxBonus)) * 100)}%→+${Math.round(med(recs.map(x => x.cxBonusNext)) * 100)}% / ${med(recs.map(x => x.cxCells))} 格 / ${med(recs.map(x => x.cxGrp))} 类；${med(recs.map(x => x.dg))}（${med(recs.map(x => x.dgCodex))}）`, '见多识广上限 +10%');
+    // SYSTEMS §6.1 / §6.3：飞升时（或一世末）洞府地块上的建筑与等级，阵图几张、换阵几次、渡劫阵用了几次
+    const hk = ['field', 'furnace', 'room', 'vault', 'library', 'forge', 'pen', 'spring', 'pavilion', 'portal'], hm = k => med(recs.map(x => x.home[k] || 0));
+    row(strat, '（参考）洞府 地块 / 建筑等级（一世末）', `${med(recs.map(x => x.homeN))} 块（洞府 ${hm('cave')}）；聚灵阵 ${hm('array')} ` + hk.map(k => `${L.HOME_B[k].n} ${hm(k)}`).join(' '), '—');
+    row(strat, '（参考）阵法 阵图 / 换阵 / 渡劫阵护劫', `${med(recs.map(x => x.zhentu))} 张 / ${med(recs.map(x => x.zhenSet))} 次 / ${med(recs.map(x => x.zhenAid))} 次`, '—');
     row(strat, '（参考）飞升时 兵器阶+强化 / 法衣 / 饰品强化', `${ga(9, 'wt')}+${ga(9, 'wp')} / +${ga(9, 'rp')}（分数 +${ga(9, 'robe').toFixed(1)}） / +${ga(9, 'op')}`, '—');
     return { durs, ascMed };
   }
@@ -661,7 +694,7 @@ function main(onlyStrat, n) {
   }
   const w = [8, 30, 64, 44, 6];
   const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
-  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${L.CHAINS_ON === false ? '，奇遇链关' : ''}${L.CODEX_ON === false ? '，图鉴加成关' : ''}${L.RIVALS2_ON === false ? '，宿敌与新秀关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${L.CHAINS_ON === false ? '，奇遇链关' : ''}${L.CODEX_ON === false ? '，图鉴加成关' : ''}${L.RIVALS2_ON === false ? '，宿敌与新秀关' : ''}${L.HOME2_ON === false ? '，洞府回到地块之前' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标（其中门槛 ${gateFails} 行）` : '\n全部达标');
