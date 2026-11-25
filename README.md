@@ -71,7 +71,7 @@ tools/sim.js      数值模拟：node tools/sim.js（三种策略 × 200 种子�
 tools/check_events.js 事件校验；加 report 列出上线 / 闸住的数量与闸住最多的键
 tools/preview.js  美术预览：渲染 tools/preview.html 里的精灵与场景
 tools/shot.js     Playwright 冒烟测试与截图
-tools/longrun.js  机器人通过界面完整玩一世，检查全程无报错
+tools/longrun.js  机器人通过界面完整玩一世（掉落卡点【换上】、每 24 周天在功法页点“荐”），检查全程无报错且飞升
 tools/guide_test.js 按真实玩家的点法走一遍新手引导，逐步截图
 tools/content_test.js 奇遇、炼丹、首领、会武、人物分页的界面测试
 ```
