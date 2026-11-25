@@ -82,3 +82,13 @@
 - 新秀头像：`ART.portraitGen(seed, { kind: 'rookie', f, robe: [暗, 中, 亮], trim }, mood)`。
 - 新图标：`ART.icon('grudge'` 恩怨 | `'quest'` 委托 | `'like'` ♥ | `'dislike'` ✕ | `'wine'` | `'tea'` | `'spar'` 指点 | `'crush'` 打压`)`。
 - CONTENT §12 其余链人物（星墟仙人、龙宫等）没有单独画像，用 portraitGen 或现有访客小人代替。
+
+## 阶段三·批次十（图鉴 / 轮回）
+
+- `ART.frame('codex'|'codexCell'|'codexCellOff')` 图鉴页与收集格（九宫格）。
+- `ART.codexIcon(cat)`，cat = map art combo gear pet pill recipe sigil people rival chain event realm ending（`ART.codexCats`）。
+- `ART.samsaraNode(iconName, 'locked'|'open'|'done')` → 24×24 轮回殿节点（内嵌任意 ART.icon 名）；新增节点图标 sm_slot sm_roster sm_elem sm_legacy，另有图鉴 cx_map cx_combo cx_chain cx_end。
+- `ART.origin(id)` → 64×40 出身小画，id = qitu dantong moyi shoumu sanxiu yushou（`ART.originIds`）。
+- `ART.backdrop('ascend'|'rest'|'summit'|'hermit')` 结局底图 200×120（chapter / samsara / demon 不变，`ART.backdropKinds()`）。
+
+美术阶段三合计页面 +131 KB。总览：`node tools/preview.js out.png`（单批用 only=g1～g10）。
