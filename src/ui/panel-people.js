@@ -12,7 +12,9 @@ function pplImg(id, w, mood) {
 const pplTa = id => (id === 'bai' ? '她' : id === 'su' || id === 'ye' ? (st.p.look.f ? '他' : '她') : '他');
 const pplMood = id => { const a = L.aff(st, id); return st.daolv === id || a >= 80 ? 'joy' : a < 10 ? 'sad' : 'n'; };
 const pplHearts = id => { const h = Math.min(5, L.hearts(st, id)); return '<span class="phearts">' + '♥'.repeat(h) + '<i>' + '♥'.repeat(5 - h) + '</i></span>'; };
-const PMARK = { like: ['♥', 'plike', `+${L.PGIFT_V.like}`], hate: ['✕', 'phate', `${L.PGIFT_V.hate}`], mid: ['·', 'pmid', `+${L.PGIFT_V.mid}`], unk: ['？', 'punk', '没试过'] };
+const PMARK = { like: ['♥', 'plike'], hate: ['✕', 'phate'], mid: ['·', 'pmid'], unk: ['？', 'punk'] };
+// 送礼列表右边写的数：♥ +8、一般 +3、✕ −3（迎客亭再 +1，L.pgiftVal）
+const pmkVal = m => (m === 'unk' ? '没试过' : (L.pgiftVal(st, m) > 0 ? '+' : '') + L.pgiftVal(st, m));
 const pmk = m => `<span class="pmk ${PMARK[m][1]}">${PMARK[m][0]}</span>`;
 // 下一颗心在多少好感、叫什么
 function pplNext(id) { const h = Math.min(5, L.hearts(st, id)); if (h >= 5) return null; const v = h === 4 ? L.heartMax(st) : (h + 1) * 20; return { v, n: L.HEART_N[h + 1] }; }
@@ -82,11 +84,11 @@ function bindBondTab(s) {
 // back：送完【继续】回到哪（来访事件的弹窗，或人物页）
 function showGift(id, back) {
   const opts = L.pgiftOpts(st, id), a = L.aff(st, id), nx = pplNext(id);
-  const rows = opts.map(o => `<button class="btn alt pgiftopt" data-pg="${esc(o.key)}">${pmk(o.mark)}<span class="grow">${esc(o.text)}</span><small class="${o.mark === 'like' ? 'jadet' : o.mark === 'hate' ? 'seal' : 'muted'}">${PMARK[o.mark][2]}</small></button>`).join('')
+  const rows = opts.map(o => `<button class="btn alt pgiftopt" data-pg="${esc(o.key)}">${pmk(o.mark)}<span class="grow">${esc(o.text)}</span><small class="${o.mark === 'like' ? 'jadet' : o.mark === 'hate' ? 'seal' : 'muted'}">${pmkVal(o.mark)}</small></button>`).join('')
     || '<p class="muted">身上没什么拿得出手的。灵草、灵矿、兽粮、丹药、药引、功法抄本都能送。</p>';
   const s = sheet({ title: `送礼 · ${esc(L.npcName(st, id))}`, center: true,
     sub: `好感 ${a}/100 · ${L.HEART_N[Math.min(5, L.hearts(st, id))]}${nx ? ` · 到 ${nx.v} 是${nx.n}` : ''}`,
-    body: `<div class="speaker">${pplImg(id, 44, pplMood(id))}<p class="grow muted" style="margin:0">一回来访送一样：♥ 喜欢 +${L.PGIFT_V.like}、一般 +${L.PGIFT_V.mid}、✕ 讨厌 ${L.PGIFT_V.hate}。没试过的写着“？”。</p></div><div class="pgifts">${rows}</div>`,
+    body: `<div class="speaker">${pplImg(id, 44, pplMood(id))}<p class="grow muted" style="margin:0">一回来访送一样：♥ 喜欢 ${pmkVal('like')}、一般 ${pmkVal('mid')}、✕ 讨厌 ${pmkVal('hate')}${L.visitFavorBonus && L.visitFavorBonus(st) ? '（迎客亭 +' + L.visitFavorBonus(st) + '）' : ''}。没试过的写着“？”。</p></div><div class="pgifts">${rows}</div>`,
     foot: [{ t: '算了', alt: true, fn: back }] });
   s.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => {
     const r = L.pgiftGive(st, id, b.dataset.pg); if (!r) return;
@@ -179,7 +181,7 @@ function daolvReady() { return ['su', 'ye'].filter(id => !st.daolv && L.met(st, 
 const peopleHints = [
   { id: 'ppGift', intro: true, when: () => st.guide && st.guide.done && st.p.r >= 1 && L.PEOPLE2_ON !== false && modalOpen() && !!document.querySelector('#ppGift:not([disabled])') && !!L.pgiftVisitor(st), target: '#ppGift', btn: '好', text: () => {
       const id = L.pgiftVisitor(st), t = giftHintLike(id), a = L.aff(st, id), nx = pplNext(id), ta = pplTa(id);
-      return `${esc(L.npcName(st, id))}来串门，可以<b>【送礼】</b>：身上现有的东西点一样。老夫知道${ta}最喜欢<b>${esc(L.GIFT_TAG_N[t])}</b>，送一份 <b>+${L.PGIFT_V.like}</b> 好感，现在 <b>${a}/100</b>${nx ? `，到 <b>${nx.v}</b> 就是${nx.n}` : ''}。别的一般 +${L.PGIFT_V.mid}，送错了 ${L.PGIFT_V.hate}；试过的记上 ♥ / ✕，下一世还记得。`;
+      return `${esc(L.npcName(st, id))}来串门，可以<b>【送礼】</b>：身上现有的东西点一样。老夫知道${ta}最喜欢<b>${esc(L.GIFT_TAG_N[t])}</b>，送一份 <b>${pmkVal('like')}</b> 好感，现在 <b>${a}/100</b>${nx ? `，到 <b>${nx.v}</b> 就是${nx.n}` : ''}。别的一般 ${pmkVal('mid')}，送错了 ${pmkVal('hate')}；试过的记上 ♥ / ✕，下一世还记得。`;
     } },
   { id: 'ppQuest', intro: true, when: () => pplCalm() && L.pqActive(st).length > 0, target: '[data-nav="me"]', btn: '好', text: () => {
       const x = L.pqActive(st)[0], a = L.aff(st, x.id);

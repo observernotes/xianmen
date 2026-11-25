@@ -561,6 +561,21 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* 洞府地块与阵法（panel-home.js）：2×4 地块网格、选中地块的小面板、阵位卡 */
+.hgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hplot { min-height: 72px; min-width: 0; border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; padding: 3px 1px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }
+.hplot.sel { background: #fff6dc; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.hplot.can { box-shadow: 0 0 0 2px var(--jade); }
+.hplot.sel.can { box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.hplot.over { background: #f0d8c8; }
+.hplot .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hdet { display: flex; flex-direction: column; gap: 4px; }
+.card.hdet { flex-direction: row; }
+.hdet .right .btn, .hdet .hrow .btn, .hfn .btn, .zslot .btn { min-height: 44px; min-width: 64px; }
+.hfn { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.hrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.zline { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.zslot.zpend { box-shadow: 0 0 0 2px var(--gold); }
 </style>
 
 <div id="app">

@@ -28,8 +28,8 @@ function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
 // ART.drawHome 按 st.year 的小数部分画四季：给它一个只改了 year 的视图，让画面的季节对上 L.season；
-// 灵田等级给 0（田改成作物制，由 panel-field.js 的 drawPlots 逐块画 ART.drawPlot）
-function homeView() { return Object.create(st, { year: { value: Math.floor(st.year || 0) + (season() + 0.5) / 4 }, home: { value: Object.assign({}, st.home, { field: 0 }) } }); }
+// 灵田等级给 0（田改成作物制，由 panel-field.js 的 drawPlots 逐块画 ART.drawPlot）；丹炉也给 0（洞府分地块后丹炉和别的建筑一样由 panel-home.js 的 drawBuildings 摆，ART_API 阶段三·批次六）
+function homeView() { return Object.create(st, { year: { value: Math.floor(st.year || 0) + (season() + 0.5) / 4 }, home: { value: Object.assign({}, st.home, { field: 0, furnace: 0 }) } }); }
 function drawArray(x, y) {
   const lv = st.home.array; if (!lv) return null;
   const rx = 22 + Math.min(lv, 12), ry = Math.round(rx * 0.3);
@@ -125,15 +125,19 @@ function seasonFx(night) {
 function drawHomeScene(dt) {
   const r = ART.drawHome(homeView(), T, OY, parts, { phase: phase() });
   drawPlots();
-  const col = drawArray(HOMEPOS.x, HOMEPOS.y - 1);
+  // 洞府建筑（主角身后的先画）与阵法光圈（后半圈在主角身后、前半圈在前）；没有阵法美术时退回原来的聚灵阵圈
+  const bl = drawBuildings('back');
+  const zc = ART.drawFormation ? drawZhen('back') : null, col = ART.drawFormation ? zc : drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
   if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);
   if (cine) drawCineTarget(); else { drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
+  if (ART.drawFormation) drawZhen('front');
+  bl.push(...drawBuildings('front'));
   drawVisitor();
   drawPets();
   drawCrane();
   drawParts(dt);
-  const lights = (r.lights || []).slice();
+  const lights = (r.lights || []).slice().concat(bl);
   if (col) lights.push({ x: HOMEPOS.x, y: HOMEPOS.y - 2, r: 18, c: col, a: 0.35 });
   if (st.p.r >= 2) lights.push({ x: HOMEPOS.x, y: HOMEPOS.y - D().sit.h / 2, r: 14, c: L.REALMS[Math.min(st.p.r, 9)].trim, a: 0.3 });
   for (const p of parts) if (p.fly) lights.push({ x: p.x, y: p.y, r: 2, c: '#e8ff7a', a: 0.5 });

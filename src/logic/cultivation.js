@@ -112,10 +112,10 @@ L.btResolve = function (st, ok, o) {
 // 出关 30% 概率顿悟（玄天道宗 45%），再得 2 周天修为。
 // 闭关疲劳：两趟历练之间连着闭关，从第二次起每次倍率 −0.5（最低 ×1.25）；出门历练一趟就清零（劳逸结合）。
 L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
-// TODO SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”以后移到静室
+// SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”移到静室（home.js 的 L.roomRet；nohome2 时仍按洞府等级）
 // 烈阳诀 +0.2、星河倒悬 +0.125（arts.js 的 L.artRetBonus）
 // 冬 +0.2、星河倒悬冬季再 +0.5、名师讲道 +0.5（calendar.js 的 L.calRetBonus）
-L.retBaseMult = st => 2 + 0.05 * st.home.cave + L.artRetBonus(st) + L.calRetBonus(st);
+L.retBaseMult = st => 2 + (L.roomRet ? L.roomRet(st) : 0.05 * st.home.cave) + L.artRetBonus(st) + L.calRetBonus(st);
 L.retStreak = st => st.flags.retStreak || 0;
 L.retMult = st => Math.max(L.RET.minM, L.retBaseMult(st) - L.RET.fatigue * L.retStreak(st));
 L.retOpen = st => st.rebirth > 0 || Math.max(L.si(st.p), st.flags.maxI || 0) >= 1;

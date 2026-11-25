@@ -91,6 +91,8 @@ L.PGIFT_LINE = {
   mo: ['墨无痕接过去，指腹在上面摩挲了很久：“……多谢。”', '墨无痕收下了，什么也没说。', '墨无痕看着那袋灵石，面巾下的嘴角沉了下去：“我不缺这个。”'],
 };
 const pref = id => L.NPC_PREF[id] || { like: [], hate: '' };
+// 送一样礼的好感：♥ +8 / 一般 +3 / ✕ −3；建了迎客亭（buildings.js 的 L.visitFavorBonus，来访好感 +1）时正的那两档再加上它（只在这里加一次）
+L.pgiftVal = (st, react) => L.PGIFT_V[react] + (react !== 'hate' && L.visitFavorBonus ? L.visitFavorBonus(st) : 0);
 L.pgiftReact = (id, tags) => { const P = pref(id); return tags.includes(P.hate) ? 'hate' : tags.some(t => P.like.includes(t)) ? 'like' : 'mid'; };
 // 这样东西在这位人物那里已知的反应：like / hate / mid（试过，一般）/ unk
 L.pgiftMark = function (st, id, tags) {
@@ -157,7 +159,7 @@ L.pgiftGive = function (st, id, key) {
   if (react === 'hate') K[P.hate] = -1;
   else if (react === 'like') { for (const t of x.tags) if (P.like.includes(t)) K[t] = 1; }
   else for (const t of x.tags) if (K[t] === undefined) K[t] = 0;
-  const a0 = L.aff(st, id), d = L.addAff(st, id, L.PGIFT_V[react]);
+  const a0 = L.aff(st, id), d = L.addAff(st, id, L.pgiftVal(st, react));
   st.visitor.gift = 1;
   const pp = ppl(st); pp.gifts++;
   st.stats.npcGifts = (st.stats.npcGifts || 0) + 1;

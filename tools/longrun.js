@@ -3,6 +3,7 @@
 // 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌；有灵宠后每 12 周天进兽栏：出战最强的、空着的派岗、喂兽粮、发光的点进化、名册满时放生或替换；
 // 天劫：准备页把能用的护劫手段全点上，心魔劫随手选，雷劫中途那一停把能补的手段补上（临阵吞丹点到封顶）再点【继续渡劫】
 // 灵田与炼丹房：每 12 周天点开一块田、一半时候改种推荐的作物；药引格里有能试的格子就【试炼】一格
+// 洞府地块与阵法：每 12 周天进【洞府】，有空地就点空地 → 点“荐”的那一样建；要渡劫了点聚灵阵 →【换阵】→ 布渡劫阵，渡完换回聚灵阵
 // 宿敌与新秀：论道前的对决准备页、新秀挑战里有【换上】（换成克他的战技）就先点，再点【登台】/【打压】
 // 秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
 // 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
@@ -215,6 +216,20 @@ const path = require('path');
       }
       await drain();
     }
+    // 洞府地块与阵法（SYSTEMS §6.1 / §6.3）：空地点开，建列表第一项（老祖推荐的）；阵法页按“荐”布阵（要渡劫了荐渡劫阵，平时荐聚灵）
+    async function homeRound() {
+      const st = X.st;
+      X.showHome(); await sleep(40);
+      const t = document.querySelector('#modal .hplot.can');
+      if (t) { t.click(); await sleep(40); const b = document.querySelector('#modal [data-build]:not([disabled])'); if (b) { b.click(); seen['洞府建造'] = 1; builds++; await sleep(40); } }
+      if (L.zhenOpen(st)) {
+        X.showZhen(); await sleep(40);
+        const rec = document.querySelector('#modal .crow .chip.warn');
+        const row = rec && rec.closest('.crow'), b = row && row.querySelector('[data-zs="0"]:not([disabled])');
+        if (b && b.textContent !== '不换了') { b.click(); seen['换阵'] = 1; zhenSets++; await sleep(40); }
+      }
+      if (modal()) X.closeModal(); await sleep(450); await drain();
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
@@ -241,7 +256,8 @@ const path = require('path');
         await sleep(50);
       }
     }
-    const W = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4 };
+    const W = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4, room: 2.2, vault: 2.4, library: 2.6, forge: 2.6, pen: 3, spring: 3.2, pavilion: 4, portal: 4 };
+    let builds = 0, zhenSets = 0;
     for (let n = 0; n < 1600; n++) {
       const st = X.st;
       if (!st || st.p.r >= 9) break;
@@ -261,7 +277,7 @@ const path = require('path');
         if (st.p.r >= 9) { await drain(); break; }
       }
       for (let loop = 0; loop < 20; loop++) {
-        const opts = L.HOME.filter(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max).map(b => [b.k, L.hCost(b.k, st.home[b.k])]).sort((a, b) => a[1] * W[a[0]] - b[1] * W[b[0]]);
+        const opts = L.HOME.filter(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && W[b.k] && !(b.nu && !st.home[b.k])).map(b => [b.k, L.hCost(b.k, st.home[b.k])]).sort((a, b) => a[1] * W[a[0]] - b[1] * W[b[0]]);
         if (!opts.length || !L.upgrade(st, opts[0][0])) break;
       }
       if (st.pills < 2 && st.stones > L.price(st, 'pill') * 4) L.buy(st, 'pill');
@@ -271,6 +287,10 @@ const path = require('path');
       if (L.lifeLow(st) && L.marketOpen(st, 'life') && st.stones > L.price(st, 'life')) L.buy(st, 'life');
       if ((n % 6 === 2 || (n % 3 === 0 && L.auctionOpen(st) && L.auctionBidsLeft(st) > 0)) && !X.cine && st.stats.exp >= 1) await marketRound();
       if (n % 12 === 7 && !X.cine && !modal()) await fieldAlchRound();
+      // 洞府：每 12 周天一轮；快圆满要渡劫时每周天看一眼阵法（布渡劫阵），刚突破完换回聚灵
+      const zSoon = L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && st.p.s === 3 && !L.zhenWhere(st, 'f_dujie') && (L.isFull(st) || L.ticksToNext(st) <= 5);
+      const zBack = L.zhenOpen(st) && L.zhenState(st)[0].id === 'f_dujie' && !L.zhenState(st)[0].nx && st.p.s < 3;
+      if ((n % 12 === 5 || zSoon || zBack) && L.home2On() && !X.cine && !modal()) await homeRound();
       // 大势起了：点右上角的小牌看年历；筑基后每 24 周天点一次“大事”牌
       const tag = document.querySelector('#worldTag:not([hidden])');
       if (tag && tag.offsetParent && st.cal && st.cal.w && st.cal.w.at === st.tick && !X.cine && !modal()) { tag.click(); calOpen++; seen['年历'] = 1; await sleep(60); X.closeModal(); await sleep(450); await drain(); }
@@ -312,7 +332,7 @@ const path = require('path');
     await drain();
     const st = X.st;
     const qv = L.questView(st);
-    return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
+    return { home: L.homePlots(st).filter(Boolean).map(k => L.HOME_B[k].n + st.home[k]).join(' ') + `；建造 ${builds} 次、换阵 ${zhenSets} 次、阵图 ${L.zhenOwnList(st).length} 张`, npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`,
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen),
       mijing: `进 ${mjRuns} 次、通关 ${mjClears} 次、点门 ${mjDoors} 下、最深 ${st.stats.mjDeep || 0} 层、秘境令 ${L.mjTokens(st)}`,
