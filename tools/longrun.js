@@ -16,7 +16,7 @@ const path = require('path');
   const page = await (await browser.newContext({ viewport: { width: 400, height: 820 } })).newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 3).join('\n')));
-  page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); else if (m.text().startsWith('LR ')) console.log(m.text()); });   // 进度：每 25 个周天一行（周天、境界、已用秒数）
   await page.goto('file://' + path.join(__dirname, '..', 'dist', 'index.html'));
   await page.waitForTimeout(400);
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(120); }
@@ -232,9 +232,10 @@ const path = require('path');
     }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
+        if (guard % 100 === 99) console.log(`LR drain guard=${guard} modal=${modal()} title=${(document.querySelector('#modal h2') || {}).textContent} cine=${!!X.cine} duel=${!!X.duelFx}`);
         if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
         if (X.cine) { await sleep(120); continue; }
-        if (X.duelFx) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
+        if (X.duelFx && !X.duelFx.ended) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
         if (!modal()) { await sleep(450); if (!modal() && !X.cine) return; continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
         const cand = document.querySelector('#modal .cand:not(.hide):not(.sel)');
@@ -249,7 +250,7 @@ const path = require('path');
         if (eq) { eq.click(); artEq++; await sleep(40); continue; }
         if (document.querySelector('#modal [data-gcmp]')) { await drainCards(); continue; }
         const btns = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')];
-        if (!btns.length) { await sleep(120); continue; }
+        if (!btns.length) { if (document.querySelector('#modal .close')) { X.closeModal(); await sleep(450); } else await sleep(120); continue; }   // 没有底部按钮的面板（洞府、历练页）：点右上角关掉，别干等
         popups++;
         // 结算卡上不点“再探一次”，回洞府自己安排
         const back = btns.find(b => b.textContent === '回洞府');
@@ -259,8 +260,10 @@ const path = require('path');
     }
     const W = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4, room: 2.2, vault: 2.4, library: 2.6, forge: 2.6, pen: 3, spring: 3.2, pavilion: 4, portal: 4 };
     let builds = 0, zhenSets = 0;
+    const T0 = Date.now();
     for (let n = 0; n < 1600; n++) {
       const st = X.st;
+      if (n % 25 === 0) console.log(`LR n=${n} tick=${st && st.tick} r=${st && st.p.r} ${Math.round((Date.now() - T0) / 1000)}s duelSkips=${duelSkips} popups=${popups}`);
       if (!st || st.p.r >= 9) break;
       if (L.isReady(st)) {
         if (st.p.inj > 0) L.heal(st);
