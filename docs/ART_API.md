@@ -43,3 +43,11 @@
 - `ART.petCard(sp, form, aw)` → 36×36 卡片像。`ART.petName(sp, form)`、`ART.petList()` → [[sp, form, 名, 五行]…]。
 - `ART.drawEvo(x, y, t)` 可进化时的循环光效；`ART.drawEvo(x, y, t, k 0～1)` 进化瞬间（(x, y) 为脚底中心）。
 - 岗位图标：`ART.icon('job_field'|'job_furnace'|'job_array'|'job_forage'|'job_patrol'|'job_out')`。旧 `ART.pet(tier)` 不变。
+
+## 阶段三·批次五（灵田 / 炼丹）
+
+- 作物 id = herb rice grain fire ice bolt vine soul（`ART.cropIds`，顺序同 SYSTEMS §6.2，也接受序号 0～7）；`ART.crop(id)` → 16×16 图标。
+- `ART.drawPlot(x, y, id, stage 0|1|2, t)` 在当前 ctx 画一块田（垄 18×9；(x, y) 与旧 drawField 的 px, py 同义：第 i 块建议 x = 5 + (i % 2) × 18，y = 112 + (i >> 1) × 12；id 为空画空垄）。旧 drawHome 仍按 st.home.field 自己画田——改成作物制时把 st.home.field 置 0 传入，再逐块调 drawPlot。
+- 丹药：`ART.icon(丹方 id)` 19 种齐全（新增 liaoshang baoqi bingxin cuiti yanghun leihuo baicao wudao pozhang qingdu dingshen huaxing zhuyan），根基类自动带金托、战斗类带火星；`ART.pillGroup(id)` → 'x'|'z'|'g'，`ART.pillIds()`。
+- `ART.yinCell(a, b, pill, sel)` → 22×22 药引格（a, b = 'f','i','t','w','s' 或 0～4；pill 为空画“？”）。
+- `ART.toxinGourd(frac 0～1)` → 16×16 丹毒葫芦。
