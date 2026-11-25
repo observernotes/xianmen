@@ -3533,5 +3533,141 @@ ART.toxinGourd = function (frac) {
   });
 };
 
+// ---------- 六、洞府：建筑、地块、阵法 ----------
+// 建筑 id（ART.buildingIds）：array 聚灵阵 field 灵田 furnace 丹炉 forge 器炉 pen 兽栏 room 静室 library 藏经阁 spring 灵泉 vault 聚宝阁 pavilion 迎客亭 portal 传送阵
+// ART.building(id)                         → 16×16 图标（前三个沿用已有的 array / field / furnace）
+// ART.buildingSprite(id, tier 0～2)        → 26×26 场景小建筑（底边中点为锚点）；array / field 没有（阵法画在地上，田用 drawPlot）
+// ART.drawBuilding(id, lv, x, y, t)        → 画到洞府场景，(x,y) 为底边中点；按等级自动取三档外观并带动画（炉火、泉水、传送门）；返回夜间光源 {x,y,r,c,a} 或 null
+// ART.homeSlots                            → 8 个地块在洞府场景里的建议位置 [{x,y}]（第 0 块是聚灵阵 = 主角座下）
+// ART.plotTile(state, sel)                 → 26×26 地块格：'empty' 空地 | 'built' 已建（上面再叠建筑图标）| 'locked' 未开；sel 金角
+// ART.sigil(id)                            → 16×16 阵图：f_juling f_shengcai f_hushan f_yangshou f_danhuo f_duanhun f_dujie f_mizong（ART.sigilIds）
+// ART.drawFormation(id, x, y, t, o)        → 洞府地面上的阵法光圈，(x,y) 为主角脚底；o = { pending: 布阵中, small: 第二阵位, part: 'back' | 'front' }
+Object.assign(ICONS, {
+  b_forge: '....sss/...sttts..o/....sts..oO/.....oooO/....oO/...oO/.ssssssssss/.sttttttttSs/..SSsttSSS/....sttS/....sttS/...sstSSS/..ssttttSS/..SSSSSSSS',
+  b_pen: '.....gg.gg/....ggggggg/.....ggggg/....gg.g.gg/...ggggggggg/....ggggggg//.o...o...o..o/oooooooooooooo/.o...o...o..o/oooooooooooooo/.o...o...o..o/.O...O...O..O',
+  b_room: '....ssssss/..sstttttSss/.sttSSSSSStS/.stSkkkkkkStS/.stSkkyykkStS/.stSkyhhykStS/.stSkkyykkStS/.stSkkkkkkStS/.stSkjjjjkStS/.stSjjJJjjStS/.stSJJJJJJStS/.SSSSSSSSSSSS',
+  b_lib: '......yy/.....bbbb/...bbbbbbbb/.bbBBBBBBBBbb/...nnnnnnnn/...nNkNNkNn/..bbbbbbbbbb/bbBBBBBBBBBBbb/..nnnnnnnnnn/..nNkNooNkNn/..nNNNooNNNn/.ssssssssssss',
+  b_spring: '...w....w/....w....w/...w....w//...ssssssss/.sstccccccSss/stccwwccccccSs/stcccccwwcccSs/sStccccccccSSs/.sSSccccccSSs/..sSSSSSSSSs/....SSSSSS',
+  b_vault: '......yy/....rrrrrr/..rrRRRRRRrr/rrRRRRRRRRRRrr/..nnnnnnnnnn/..nNyyyyyyNn/..nNyhYYhyNn/..nNyYkkYyNn/..nNyYkkYyNn/..nNyhYYhyNn/..nNyyyyyyNn/.ssssssssssss',
+  b_pav: '......yy/.....gggg/...gggggggg/.ggGGGGGGGGgg/g.GG......GG.g/..rR......rR/..rR..ww..rR/..rR.oooo.rR/..rR.o..o.rR/..rR......rR/.ssssssssssss/.SSSSSSSSSSSS',
+  b_gate: '....vvvvvv/..vvsssssSvv/.vss.cccc.sSv/.vs.cwcccc.Sv/vs.cwcccccc.Sv/vs.ccccwccc.Sv/vs.cccwwccc.Sv/vs.ccccccwc.Sv/.vs.cccccc.Sv/.vsS.cccc.SSv/..vvSSSSSSvv/.ssssssssssss',
+});
+const BLD_ICON = { array: 'array', field: 'field', furnace: 'furnace', forge: 'b_forge', pen: 'b_pen', room: 'b_room', library: 'b_lib', spring: 'b_spring', vault: 'b_vault', pavilion: 'b_pav', portal: 'b_gate' };
+const BLD_MAX = { furnace: 20, forge: 15, pen: 12, room: 12, library: 10, spring: 10, vault: 12, pavilion: 8, portal: 9 };
+ART.buildingIds = Object.keys(BLD_ICON);
+ART.building = id => ART.icon(BLD_ICON[id] || 'cave');
+const STONE3 = [tone('#8a86a0', '#55506e', '#b8b4cc'), tone('#a8a2b4', '#6a6480', '#d4d0e0'), tone('#dcd8e8', '#9a94b0', '#ffffff')], PAPERW = tone('#efe3c4', '#c8b48c', '#fffaf0');
+const peak = (L, cx, y, hw, hh, c) => { for (let k = 0; k < hh; k++) { const w = Math.round(1 + (hw - 1) * Math.pow((k + 1) / hh, 1.4)); L.hl(cx - w, cx + w - 1, y + k, c); } L.p(cx - hw - 1, y + hh - 1, c); L.p(cx + hw, y + hh - 1, c); };
+const BLD = {
+  forge(b, t) {
+    const K = [tone('#8a5a4a', '#5a3430', '#b8826a'), tone('#6a6a82', '#3e3e56', '#9a9ab0'), tone('#c8963a', '#8a5a1e', '#f4d06a')][t];
+    b.add(L => { L.r(3, 12, 13, 12, K); L.e(9.5, 12, 6.5, 4.5, K); L.r(12, 2 - t, 3, 9, K); });
+    b.r(6, 16, 7, 7, '#2a1418'); b.r(7, 15, 5, 1, '#2a1418'); b.r(7, 20, 5, 3, '#ff8a2a'); b.r(8, 19, 3, 2, '#ffd060'); b.hl(12, 14, 3 - t, dn(K)); if (t) b.hl(3, 15, 13, '#f4c542');
+    b.add(L => { L.r(17, 17, 7, 2, STEEL); L.r(16, 17, 2, 1, STEEL); L.r(19, 19, 3, 2, STEEL); L.r(18, 21, 5, 3, STEEL); });
+    if (t > 1) { b.p(13, 0, '#fff2a8'); b.r(20, 14, 2, 3, '#f4c542'); b.l(21, 13, 24, 10, WOOD); }
+  },
+  pen(b, t) {
+    const Wl = [tone('#b98a4c', '#7a5230', '#e0b878'), PAPERW, PAPERW][t], Rf = [tone('#7a5230', '#4a3020', '#a8784a'), RED, JADE][t];
+    b.add(L => L.r(3, 13, 12, 11, Wl)); b.add(L => peak(L, 9, 6, 8, 7, Rf));
+    b.r(7, 17, 4, 7, '#3a2420'); b.r(8, 16, 2, 1, '#3a2420'); for (const [x, y] of [[8, 13], [10, 13], [9, 14], [8, 15], [9, 15], [10, 15]]) b.p(x, y, '#7a5230'); b.p(7, 14, '#7a5230'); b.p(11, 14, '#7a5230');
+    b.add(L => { for (const x of [16, 20, 24]) L.r(x, 16, 1, 8, WOOD); L.r(15, 18, 10, 1, WOOD); L.r(15, 21, 10, 1, WOOD); });
+    if (t) { b.r(8, 4, 2, 2, '#f4c542'); b.p(18, 23, '#62d26f'); b.p(22, 23, '#a8e08a'); } if (t > 1) { b.r(20, 14, 1, 2, '#d8404a'); b.r(21, 14, 2, 1, '#d8404a'); }
+  },
+  room(b, t) {
+    const S = STONE3[t], ac = ['#55506e', '#4ccb9f', '#f4c542'][t];
+    b.add(L => { L.e(13, 14, 11, 10, S); L.r(2, 14, 22, 10, S); L.r(0, 24, 26, 2, null); });
+    for (let y = 12; y < 24; y++) for (let x = 8; x < 18; x++) { const d = Math.hypot(x + 0.5 - 13, (y + 0.5 - 18) * 0.95); if (d < 5 && y < 24) b.p(x, y, d > 4 ? ac : '#2a2238'); }
+    b.r(12, 20, 2, 2, '#ffd88a'); b.p(12, 19, '#fff6d0'); b.r(10, 22, 6, 2, '#8a4ec8'); b.hl(4, 21, 23, dn(S)); for (const [x, y] of [[4, 12], [20, 10], [6, 18], [21, 17]]) b.hl(x, x + 1, y, dn(S));
+    if (t) { b.r(12, 2, 2, 3, ac); b.p(12, 2, '#ffffff'); } if (t > 1) b.mir(T => T.r(3, 20, 2, 4, '#f4c542'));
+  },
+  library(b, t) {
+    const Rf = [tone('#3a4a6a', '#222e50', '#6a7aa0'), tone('#3f6ec0', '#263f7a', '#7aa2e6'), tone('#6a3aa8', '#3e2068', '#a87ae0')][t], n = t ? 3 : 2;
+    for (let k = 0; k < n; k++) { const y = 19 - k * 7, hw = 8 - k * 1.5; b.add(L => L.r(Math.round(13 - hw + 1), y, Math.round(hw * 2 - 2), 5, PAPERW)); b.add(L => peak(L, 13, y - 3, Math.round(hw + 2), 3, Rf)); for (const dx of [-3, 2]) b.r(13 + dx, y + 1, 1, 3, k ? '#7a5230' : '#3a2420'); if (!k) b.r(12, y + 1, 2, 4, '#7a2a22'); }
+    b.r(12, 19 - n * 7 + 1, 2, 3, '#f4c542'); b.hl(4, 21, 24, '#928ea8'); if (t > 1) b.mir(T => { T.p(3, 19, '#d8404a'); T.p(3, 20, '#ffb23f'); });
+  },
+  spring(b, t) {
+    const S = STONE3[t];
+    b.add(L => { L.e(6, 13, 4, 4, S); L.e(19, 11, 5, 6, S); L.e(12, 12, 3, 3, S); });
+    b.add(L => L.e(13, 19, 12, 5.5, S)); for (let y = 15; y < 24; y++) for (let x = 3; x < 23; x++) if (((x + 0.5 - 13) / 9.5) ** 2 + ((y + 0.5 - 19) / 3.6) ** 2 < 1) b.p(x, y, y < 17 ? '#2a8ab0' : '#3fb0d0');
+    b.hl(8, 11, 18, '#d4f4ff'); b.hl(14, 18, 20, '#8fe0f0'); b.hl(6, 9, 21, '#8fe0f0');
+    if (t) { b.r(17, 10, 2, 7, '#d4f4ff'); b.p(18, 12, '#8fe0f0'); b.p(17, 15, '#8fe0f0'); } if (t > 1) { b.r(7, 19, 3, 1, '#62d26f'); b.r(8, 18, 2, 1, '#f7a3bd'); b.p(8, 17, '#ffd6e4'); b.r(4, 9, 2, 2, '#4ccb9f'); }
+  },
+  vault(b, t) {
+    const Rf = [tone('#8a5c36', '#5a3a26', '#b98a4c'), RED, GOLD][t];
+    b.add(L => L.r(3, 13, 20, 11, PAPERW)); b.add(L => { peak(L, 13, 5, 11, 6, Rf); L.r(1, 11, 24, 2, Rf); });
+    b.mir(T => T.r(4, 14, 2, 10, '#a8323c')); b.r(9, 15, 8, 9, '#7a2a22'); b.r(12, 15, 2, 9, '#4f1818');
+    b.add(L => { L.e(13, 18.5, 3, 3, GOLD); }, { sep: 1 }); b.r(12, 18, 2, 2, '#7a2a22'); b.r(12, 3, 2, 2, '#f4c542');
+    if (t) b.mir(T => { T.r(1, 21, 2, 3, '#f4c542'); T.p(1, 20, '#fff2a8'); }); if (t > 1) { b.p(13, 1, '#fff2a8'); b.hl(3, 22, 13, '#d8404a'); }
+  },
+  pavilion(b, t) {
+    const Rf = [tone('#4a7a5a', '#2a4a3a', '#7aa87a'), tone('#2a8a7a', '#1a5a52', '#5fd3b0'), tone('#3f6ec0', '#263f7a', '#7aa2e6')][t];
+    b.add(L => { L.mir(T => T.r(4, 11, 2, 12, RED)); L.r(2, 23, 22, 2, STONE3[1]); });
+    b.add(L => { peak(L, 13, 4, 11, 7, Rf); L.p(0, 9, Rf); L.p(25, 9, Rf); if (t > 1) peak(L, 13, 0, 6, 4, Rf); });
+    b.r(12, t > 1 ? 0 : 2, 2, 2, '#f4c542'); b.add(L => { L.r(10, 19, 6, 1, WOOD); L.r(12, 20, 2, 3, WOOD); }); b.p(11, 18, '#ffffff'); b.p(14, 18, '#ffffff');
+    if (t) b.mir(T => { T.r(7, 11, 1, 2, '#f4c542'); T.r(6, 13, 3, 3, '#e8483a'); T.p(7, 16, '#f4c542'); });
+  },
+  portal(b, t) {
+    const S = STONE3[t], ac = ['#7fe0f0', '#4ccb9f', '#f4c542'][t];
+    b.add(L => { L.e(13, 13, 10.5, 12, S); L.e(13, 13, 7, 8.5, null); L.r(0, 23, 26, 3, null); L.r(2, 22, 22, 3, S); });
+    for (let i = 0; i < 7; i++) { const a = Math.PI + i * Math.PI / 6; b.p(Math.round(13 + Math.cos(a) * 8.8), Math.round(13 + Math.sin(a) * 10.2), ac); }
+    b.hl(5, 20, 23, dn(S)); if (t) { b.r(12, 0, 2, 2, ac); b.mir(T => T.r(2, 20, 2, 2, ac)); }
+  },
+};
+ART.buildingSprite = function (id, tier) {
+  tier = Math.max(0, Math.min(2, tier | 0));
+  if (id === 'furnace') return furnaceSprite(tier);
+  return BLD[id] ? cached('bld|' + id + tier, () => { const b = new Buf(26, 26); BLD[id](b, tier); return b.cv({ max: 15 }); }) : null;
+};
+ART.homeSlots = [{ x: 100, y: 136 }, { x: 22, y: 128 }, { x: 166, y: 133 }, { x: 62, y: 127 }, { x: 138, y: 127 }, { x: 60, y: 152 }, { x: 142, y: 153 }, { x: 186, y: 152 }];
+ART.drawBuilding = function (id, lv, x, y, t) {
+  const mx = BLD_MAX[id] || 12, tier = lv >= mx * 0.66 ? 2 : lv >= mx * 0.33 ? 1 : 0, s = ART.buildingSprite(id, tier); if (!s) return null;
+  x = Math.round(x); y = Math.round(y); t = t || 0;
+  ellipse(x, y, 12, 2, 'rgba(20,14,40,0.25)');
+  if (id === 'furnace') { ctx.drawImage(s, x - 10, y - 15); const fl = (t / 110 | 0) % 4, fc = [['#ff7a2a', '#ffd060'], ['#3ab8ff', '#8fe8ff'], ['#a86aff', '#e0b8ff']][tier]; R(x - 3, y - 2, 6, 2, fc[0]); R(x - 2 + (fl % 2), y - 3, 3, 2, fc[1]); R(x - 4 + fl, y - 3, 1, 1, fc[0]); return { x, y: y - 4, r: 11, c: fc[0], a: 0.55 }; }
+  ctx.drawImage(s, x - 13, y - 25);
+  const fl = (t / 120 | 0) % 4;
+  if (id === 'forge') { R(x - 6 + (fl % 2), y - 6, 3, 2, '#fff2a8'); R(x - 5 + fl % 3, y - 7, 1, 1, '#ffd060'); for (let i = 0; i < 3; i++) { const k = ((t / 70 + i * 9) % 22) | 0; ctx.globalAlpha = 0.5 - k / 44; R(x + Math.round(Math.sin(t / 300 + k * 0.4 + i) * 2), y - 25 - k, 2, 2, '#c8c4d8'); } ctx.globalAlpha = 1; return { x: x - 4, y: y - 4, r: 9, c: '#ff8a2a', a: 0.5 }; }
+  if (id === 'spring') { for (let i = 0; i < 4; i++) R(x - 8 + ((i * 5 + (t / 200 | 0) * 2) % 16), y - 7 + (i % 3) * 2, 3, 1, '#d4f4ff'); for (let i = 0; i < 3; i++) { const k = ((t / 90 + i * 8) % 20) | 0; ctx.globalAlpha = 0.45 - k / 44; R(x - 5 + i * 5 + Math.round(Math.sin(t / 400 + k * 0.5 + i) * 1.5), y - 9 - k, 2, 2, '#ffffff'); } ctx.globalAlpha = 1; return { x, y: y - 6, r: 9, c: '#7fe0f0', a: 0.3 }; }
+  if (id === 'portal') { const c = ['#7fe0f0', '#4ccb9f', '#f4c542'][tier]; ctx.globalAlpha = 0.55; for (let j = -8; j <= 7; j++) { const w = Math.round(Math.sqrt(1 - (j * j) / 72) * 6.5); dR(x - w, y - 12 + j, w * 2, 1, c, 6 + ((j + (t / 150 | 0)) & 3) * 2); } ctx.globalAlpha = 1; for (let i = 0; i < 9; i++) { const a = t / 500 + i * 0.7, r = 1 + i * 0.6; R(x + Math.cos(a) * r, y - 12 + Math.sin(a) * r * 1.2, 1, 1, i % 2 ? '#ffffff' : c); } return { x, y: y - 12, r: 10, c, a: 0.45 }; }
+  if (id === 'room') return { x, y: y - 5, r: 5, c: '#ffcf6a', a: 0.4 };
+  if (id === 'pavilion' && tier) return { x, y: y - 11, r: 8, c: '#ff8a44', a: 0.4 };
+  return null;
+};
+ART.plotTile = function (state, sel) {
+  return cached('plot|' + state + (sel ? 1 : 0), () => on(mk(26, 26), () => {
+    const lk = state === 'locked', bt = state === 'built';
+    R(1, 0, 24, 26, INK); R(0, 1, 26, 24, INK);
+    R(1, 1, 24, 24, lk ? '#3e3a56' : bt ? '#a8a2b4' : '#6e4c36');
+    if (bt) { R(1, 1, 24, 1, '#d4d0e0'); R(1, 1, 1, 24, '#d4d0e0'); R(1, 24, 24, 1, '#6a6480'); R(24, 1, 1, 24, '#6a6480'); for (const [x, y, w] of [[2, 9, 22], [2, 17, 22]]) R(x, y, w, 1, '#8a86a0'); for (const [x, y] of [[9, 2], [17, 2], [5, 10], [13, 10], [21, 10], [9, 18], [17, 18]]) R(x, y, 1, 7, '#8a86a0'); dR(2, 18, 22, 6, '#928ea8', 4); }
+    else if (lk) { dR(1, 1, 24, 24, '#2a2638', 8); for (const [x, y, w] of [[4, 6, 7], [14, 4, 6], [8, 15, 9], [17, 18, 5], [3, 20, 4]]) { R(x, y, w, 3, '#55506e'); R(x, y, w, 1, '#716c8a'); } ctx.drawImage(ART.icon('lock'), 5, 5); }
+    else { for (let k = 0; k < 6; k++) { R(1, 3 + k * 4, 24, 1, '#825c40'); dR(1, 4 + k * 4, 24, 1, '#553a30', 8); } R(1, 1, 24, 1, '#a07a50'); R(1, 24, 24, 1, '#3e2a28'); for (let i = 3; i < 23; i += 4) { R(i, 2, 2, 1, '#efe3c4'); R(i, 23, 2, 1, '#efe3c4'); R(2, i, 1, 2, '#efe3c4'); R(23, i, 1, 2, '#efe3c4'); } R(10, 12, 6, 2, '#efe3c4'); R(12, 10, 2, 6, '#efe3c4'); }
+    if (sel) for (const [x, y, dx, dy] of [[0, 0, 1, 1], [25, 0, -1, 1], [0, 25, 1, -1], [25, 25, -1, -1]]) for (let k = 0; k < 6; k++) { R(x + dx * k, y, 1, 1, '#f4c542'); R(x, y + dy * k, 1, 1, '#f4c542'); R(x + dx * k, y + dy, 1, 1, k ? '#fff2a8' : '#f4c542'); R(x + dx, y + dy * k, 1, 1, k ? '#fff2a8' : '#f4c542'); }
+  }));
+};
+const SIGILS = {
+  f_juling: ['#4ccb9f', 'xxxxxx/x/x.xxx/x.x.x/x.xxx.x/x.....x/.xxxxxx'], f_shengcai: ['#f4c542', '.xxxxxx/x.xxxx.x/x.x..x.x/x.x..x.x/x.xxxx.x/.xxxxxx'], f_hushan: ['#4aa8ff', '...x/..xxx/..xwx/.xxxxx/.xxxxxx/xxxxxxxx/xxxxxxxx'],
+  f_yangshou: ['#62d26f', '.x.xx.x/.x.xx.x//..xxxx/.xxxxxx/.xxxxxx/..x..x'], f_danhuo: ['#e8483a', '...x/...xx/..xxx.x/.xxwxxx/.xwwwxx/.xwwwxx/..xxxx'], f_duanhun: ['#c27dff', '...xx/...xx/...xx/...xx/.xxxxxx/...xx/...xx'],
+  f_dujie: ['#f4e04a', '....xx/...xx/..xx/.xxxxx/...xx/..xx/.xx'], f_mizong: ['#9aa2dc', 'xxxxxx/......x/.xxxx.x/.x....x/.x.xxxx/.x/.xxxxxx'],
+};
+ART.sigilIds = Object.keys(SIGILS);
+ART.sigilColor = id => (SIGILS[id] || SIGILS.f_juling)[0];
+ART.sigil = function (id) {
+  const S = SIGILS[id] || SIGILS['f_' + id]; if (!S) return null;
+  return cached('sigil|' + id, () => { const b = new Buf(16, 16); b.e(8, 8, 7, 7, S[0]); b.e(8, 8, 5.8, 5.8, '#1e1830'); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + 0.4; b.p(Math.round(7.5 + Math.cos(a) * 6.4), Math.round(7.5 + Math.sin(a) * 6.4), '#ffffff'); } b.m(4, 4 + (S[1].split('/').length < 7 ? 1 : 0), S[1].split('/'), { x: S[0], w: '#ffffff' }); return b.cv(); });
+};
+ART.drawFormation = function (id, x, y, t, o) {
+  o = o || {}; x = Math.round(x); y = Math.round(y) - 1; const c = ART.sigilColor(SIGILS[id] ? id : 'f_' + id), hi = lerpC(c, '#ffffff', 0.6), rx = o.small ? 24 : 34, ry = o.small ? 6 : 9, N = 44, pend = o.pending;
+  ctx.save();
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2 + t / 2600 * (o.small ? -1 : 1), s = Math.sin(a); if (o.part === 'back' ? s > 0 : o.part === 'front' ? s <= 0 : false) continue;
+    if (pend && (i + (t / 180 | 0)) % 4 > 1) continue;
+    ctx.globalAlpha = pend ? 0.5 : 0.85; R(x + Math.cos(a) * rx, y + s * ry, 2, 1, i % 11 === 0 ? hi : c);
+    if (!pend && i % 11 === 0) { ctx.globalAlpha = 1; R(x + Math.cos(a) * rx, y + s * ry - 1, 1, 3, hi); R(x + Math.cos(a) * rx - 1, y + s * ry, 3, 1, hi); }
+    if (i % 2 === 0) { ctx.globalAlpha = pend ? 0.25 : 0.5; R(x + Math.cos(-a * 1.0 + 1) * rx * 0.72, y + Math.sin(-a + 1) * ry * 0.72, 1, 1, c); }
+  }
+  if (o.part !== 'back' && !pend) { for (let i = 0; i < 6; i++) { const k = ((t / 60 + i * 11) % 30) / 30, a = i * 1.05 + 0.3; ctx.globalAlpha = (1 - k) * 0.8; R(x + Math.cos(a) * rx * 0.8, y + Math.sin(a) * ry * 0.8 - k * 18, 1, 2, hi); } ctx.globalAlpha = 0.12 + 0.05 * Math.sin(t / 500); ctx.globalCompositeOperation = 'lighter'; ellipse(x, y, rx - 4, ry - 2, c); }
+  ctx.restore();
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
