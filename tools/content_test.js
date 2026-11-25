@@ -1018,8 +1018,8 @@ require('fs').mkdirSync(out, { recursive: true });
     const r5 = L.mjAfterEvent(s); o.afterEv = { ph: run.phase, next: r5 && r5.next };
     const altar = L.eventById('realm_altar'); run.hp = 50; L.resolveChoice(s, altar, 1); o.altarHp = run.hp;
     run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
-    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线，宿敌那边的 zhao_2 还闸着）
-    o.gate = { zhao: L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
+    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线，宿敌合并后 zhao_2 也上线了：grudge 已登记）
+    o.gate = { zhao: !L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
     // 离开：收获全部到手
     o.leave2 = L.mjCanLeave(s); const pend = L.mjPending(s).stones, sb = s.stones, n = run.loot.length; const sum = L.mjLeave(s);
     o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks };
@@ -1062,7 +1062,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(mj.afterEv.ph === 'door', `奇遇处理完回到门前：${JSON.stringify(mj.afterEv)}`);
   expect(mj.altarHp === 60, `fx.hp：续一炷香气血 50 → ${mj.altarHp}`);
   expect(mj.skip[1] === mj.skip[2] && mj.skip[3], `run_skip：第 ${mj.skip[0]} 层 → 第 ${mj.skip[1]} 层（终层前一层 ${mj.skip[2]}），标记不留在 eflags`);
-  expect(mj.gate.zhao && mj.gate.rival, `恩怨只对秘境事件放行：zhao_2 仍闸 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
+  expect(mj.gate.zhao && mj.gate.rival, `恩怨 grudge 已登记：zhao_2 不再闸 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
   expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 3, `带着收获离开：${JSON.stringify(mj.leave)}`);
   expect(mj.wipe.how === 'wipe' && mj.wipe.got === mj.wipe.want && mj.wipe.inj >= 4 && !mj.wipe.run, `重伤出局：灵石留四成 ${mj.wipe.got}/${mj.wipe.want}，负伤 ${mj.wipe.inj}`);
   expect(mj.th3 === 'youquan' && mj.chest.ph === 'chest' && mj.chest.ks.includes('art:x_hunyuan') && mj.chest.ks.length === 3, `秘藏三选一（第三次通关出混元道经）：${JSON.stringify(mj.chest)}`);
