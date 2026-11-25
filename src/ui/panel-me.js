@@ -11,13 +11,14 @@ function ladderHTML() {
   return `<div class="ladder">${rows.join('')}</div>`;
 }
 // 人物页的分页条（功法页在 panel-arts.js、法宝页在 panel-gear.js，共用这一条）
-function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['dao', '道心'], ['bond', '羁绊'], ['ach', '成就'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
+function meTabs(tab) { return '<div class="tabs">' + [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['dao', '道心'], ['bond', '羁绊'], ['ach', '成就'], ['codex', '图鉴'], ['rank', '天骄榜']].map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
 function bindMeTabs(s) { s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); }); }
 function showMe(tab) {
   tab = tab || 'attr';
   if (tab === 'art') { showArts(); return; }
   if (tab === 'gear') { showGear(); return; }
   if (tab === 'dao') { showDao(); return; }   // 道心与因果（panel-trib.js）
+  if (tab === 'codex') { showCodex(); return; }   // 图鉴（panel-codex.js）
   const p = st.p;
   let body = '';
   if (tab === 'attr') {
@@ -41,7 +42,8 @@ function showMe(tab) {
       ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
       ${st.bonus.cul || st.bonus.atk ? `<dt>机缘加成</dt><dd>修炼 +${Math.round(st.bonus.cul * 100)}% · 战力 +${Math.round(st.bonus.atk * 100)}%</dd>` : ''}
     </dl>
-    ${st.lives.length ? `<div class="sep"></div><div class="muted">前世</div>${st.lives.map((l, i) => `<div>第 ${i + 1} 世 · ${esc(l.name)} · ${l.ascended ? '白日飞升' : L.REALMS[Math.min(l.r, 8)].n + '期坐化'} · ${l.age} 岁</div>`).join('')}` : ''}
+    ${st.lives.length ? `<div class="sep"></div><div class="muted">前世</div>${st.lives.map((l, i) => `<div>第 ${i + 1} 世 · ${esc(l.name)}${l.origin && l.origin !== 'qitu' ? '（' + esc(L.ORIGINS[l.origin].n) + '）' : ''} · ${l.ascended ? '白日飞升' : L.REALMS[Math.min(l.r, 8)].n + '期坐化'} · ${l.age} 岁${l.dg ? ` · 道果 ${fmt(l.dg)}` : ''}</div>`).join('')}` : ''}
+    ${lifeRebirthHTML()}
     <div class="sep"></div><dl class="grid2"><dt>存档</dt><dd>本机自动保存 · 云存档：${esc(cloudStatus)}</dd></dl>
     <div class="row"><button class="btn sm alt" id="btnReset">重新开始</button></div>
     <div class="muted">字体：Fusion Pixel（TakWolf，SIL OFL 1.1）</div>`;
@@ -70,6 +72,7 @@ function showMe(tab) {
   const db = s.querySelector('#btnDao'); if (db) db.onclick = () => { SFX.tap(); showDao(); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
   const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
+  bindLifeRebirth(s);   // 再入轮回 / 兵解（life.js）
   const rb = s.querySelector('#btnReset');
   if (rb) rb.onclick = () => sheet({
     title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？这会清除本机与云端存档。</p>',
