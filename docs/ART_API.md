@@ -29,3 +29,10 @@
 - 天下大势：`ART.icon('w_shouchao' … 'w_taiping')`，id 同 CONTENT §8（`ART.worldIds()`）。
 - `ART.icon`：feed 兽粮、token 秘境令、yin_f / yin_i / yin_t / yin_w / yin_s 药引、frag 功法残篇；gavel、paddle、bid1 / bid2 / bid3 三档出价；down 跌、flat 平（涨用已有 up）、sell 出售。
 - `ART.calStrip(t, marks)` → 194×20 年历条：24 格每格宽 8（第 i 格左缘 x = 1 + 8i，第 0 格是当前周天，`ART.dims.cal`），marks = [{at, len, kind: 'dao'|'auc'|'war'|'realm'|'world'}]。
+
+## 阶段三·批次三（秘境）
+
+- `ART.drawRealm(theme, t, OY)` 秘境背景，theme = 'jin'|'mu'|'huo'|'shui'（`ART.realmThemes`），坐标与 `ART.drawDuelStage` 相同（200×(160+OY)，脚底 y = 128，可直接摆 `ART.fighter`）。主题 id 对照：剑气 jianqi→jin、百草 baicao→mu、熔火 ronghuo→huo、幽泉 youquan→shui。
+- `ART.door(type)` → 32×40 门卡，type = fight|elite|chest|spring|event|insight|shop|boss|unk（也接受 战/精/宝/泉/奇/悟/商/守/？，`ART.doorTypes`）。
+- `ART.drawQiBar(x, y, w, frac, t)` 气血条；`ART.drawRoomFx(type, x, y, k 0～1)` 房间结果动画（type 同门卡，另有 'trap'）。
+- `ART.icon('spring'|'wonder'|'skull')`。`ART.duelStages()` 仍只返回原来四个舞台。
