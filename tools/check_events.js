@@ -29,7 +29,7 @@ const THEMES = ['jianqi', 'baicao', 'ronghuo', 'youquan'];
 const YIN = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const ARTS = L.ARTL ? L.ARTL.map(a => a.id) : null;
 const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices',
-  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'rkGrudge', 'origin', 'sectId'];
+  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'rkGrudge', 'origin', 'sectId', 'heart', 'comp'];
 const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin', 'foe'];   // foe：宿敌id | 'rookie'（rivals2.js）
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein',
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
@@ -41,7 +41,7 @@ const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye'
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）
 const TRIGGER_RE = [/^realm:[1-8]$/, /^rank:\d+$/, /^npc:(su|ye|chu|ge|bai|mo):\d+$/, /^boss:(10|[0-9])$/, /^(sect|pet|daolv|disciple|egg|pact_eve|ascend|plot_full|field_mutant|formation_fail|forge_fail)$/,
   /^beat:(mu|zhao|chu|xue|yun)$/, /^war_eve:tianjian$/, /^rookie:(appear|near|beaten|trouble)$/, /^srank:[1-6]$/, /^sect:(heir|lord)$/, /^disc:\w+$/, /^trib:\d$/, /^demon:[1-3]$/,
-  /^pet_(runaway|fight|sick)$/, /^pet_evolve:p_\w+$/, /^build:\w+$/, /^(market|auction):\w+$/];
+  /^pet_(runaway|fight|sick)$/, /^pet_evolve:p_\w+$/, /^build:\w+$/, /^(market|auction):\w+$/, /^shuangxiu:(su|ye)$/];
 const LIM = { title: [2, 8], text: 130, btn: 10, result: 80, fxTitle: [2, 6] };
 
 const errors = [], warns = [];

@@ -99,8 +99,9 @@ L.CODEX = [
     total: () => Object.keys(L.ZHENTU).length, got: st => Object.keys(L.ZHENTU).filter(id => sigilOn(st, id)).length,
     cells: st => [{ g: '', list: Object.keys(L.ZHENTU).map(id => ({ n: sigilOn(st, id) ? L.ZHENTU[id] : '？', on: sigilOn(st, id), sigil: id })) }] },
   { id: 'people', n: '人物喜好', d: '送礼试出来的人物喜好', avail: st => !!gifts(st),
-    total: () => 14, got: st => Math.min(14, (gifts(st) || []).length),
-    cells: st => [{ g: '', list: (gifts(st) || []).map(x => ({ n: typeof x === 'string' ? x : (x && x.n) || '喜好', on: true })).concat(Array.from({ length: Math.max(0, 14 - (gifts(st) || []).length) }, () => ({ n: '？', on: false }))) }] },
+    // 格数：人物线（people.js）导出 L.GIFT_DEX（6 位人物 × 两 ♥ 一 ✕ = 18）；没有时按 SYSTEMS §15 的 14
+    total: () => L.GIFT_DEX || 14, got: st => Math.min(L.GIFT_DEX || 14, (gifts(st) || []).length),
+    cells: st => [{ g: '', list: (gifts(st) || []).map(x => ({ n: typeof x === 'string' ? x : (x && x.n) || '喜好', on: true })).concat(Array.from({ length: Math.max(0, (L.GIFT_DEX || 14) - (gifts(st) || []).length) }, () => ({ n: '？', on: false }))) }] },
   { id: 'rival', n: '对手属性', d: '宿敌的五行、功法、法宝（宿敌线 L.rivalKnown，交过手、打探过才知道），首领的五行',
     total: () => L.RIVALS.length * 3 + L.REGIONS.length, got: st => { let n = 0; for (const x of rivalFacts(st)) n += (x.el ? 1 : 0) + (x.art ? 1 : 0) + (x.gear ? 1 : 0); for (let k = 0; k < L.REGIONS.length; k++) if (st.meta.elem['boss_' + k]) n++; return n; },
     cells: st => { const F = {}; for (const x of rivalFacts(st)) F[x.id] = x; return L.RIVALS.map(r => { const x = F[r.id] || {}; const nm = x.n || (r.id === 'mu' ? st.exName : r.name); return { g: x.id ? nm : '？', list: [['el', '五行'], ['art', '功法'], ['gear', '法宝']].map(([k, t]) => ({ n: x[k] ? t + '·' + (k === 'el' ? (L.elName ? L.elName(x.el) : x.el) : k === 'art' ? (L.art && L.art(x.art) ? L.art(x.art).n : x.art) : x.gear.n) : t + '？', on: !!x[k] })) }; })
