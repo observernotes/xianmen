@@ -2,7 +2,7 @@
  * 模块写法见 src/logic.js 顶部说明。
  *
  *   任务板：sect.js 的 8 类之外再登记 4 类（L.TASK_X）——炼器（强化到 +3 以上一次，或上交灵矿）、驯兽（上交兽粮，或带指定属性的灵宠出战一趟）、
- *           探秘（有秘境时：本季秘境到第 N 层；没有时：去家门口最远一张图的禁地寻宝一趟，评价乙以上）、讲法（以一门圆满功法讲道 2 周天，贡献 ×2，徒弟各得进益）。
+ *           探秘（有秘境时：本季秘境闯过 N 层；没有时：去家门口最远一张图的禁地寻宝一趟，评价乙以上）、讲法（以一门圆满功法讲道 2 周天，贡献 ×2，徒弟各得进益）。
  *   宝库轮换：6 格，每届论道（12 周天）换一次——本宗功法、宝库法宝（够格时先给镇宗法宝）、本宗阵图 / 器方、破境丹、灵矿（或灵草）、再随机一格；
  *           按身份开放（不够格的照样摆着，写“X 可换”），贡献是唯一的货币。管库执事的悄悄话（vault_tip）：下一届法宝那格高一阶。
  *   职司（真传起，选一个，每届会武后可改）：丹堂 / 器堂 / 战堂 / 执法堂 / 外事堂，效果包在炼丹、强化、熔炼、历练、论道、访客、货架、拍卖上。
@@ -64,7 +64,7 @@ L.ELDERS = {
 const ALL_E = {}; for (const sid in L.ELDERS) for (const x of L.ELDERS[sid]) ALL_E[x.id] = Object.assign(x, { sect: sid });
 L.elder = id => ALL_E[id] || null;
 L.eldersOf = st => (st.sect && L.ELDERS[st.sect.id]) || [];
-L.FAV = { start: 10, task: 4, gift: 6, giftBig: 9, giftCap: 40, rival: 2, small: 40, promo: 50, big: 80, max: 100 };
+L.FAV = { start: 10, task: 3, gift: 6, giftBig: 9, giftCap: 40, rival: 2, small: 40, promo: 50, big: 80, max: 100 };
 
 // ---------- 状态（缺的补默认值，可重复调用） ----------
 function ensure(st) {
@@ -367,7 +367,7 @@ L.TASK_X.explore = {
     if (rf) { t.realm = 1; t.n = clamp((rf.floor || 0) + 1, 1, rf.max || 9); t.season = Math.floor(st.tick / 12); }
     else { t.k = deepK(st); t.a = 1; t.rw = Math.floor(t.rw * 1.25); }
   },
-  text: (st, t) => (t.realm ? `探秘：本季秘境走到第 ${t.n} 层` : `探秘：去【${L.REGIONS[t.k].n}】禁地寻宝一趟，评价乙以上`),
+  text: (st, t) => (t.realm ? `探秘：本季秘境闯过 ${t.n} 层` : `探秘：去【${L.REGIONS[t.k].n}】禁地寻宝一趟，评价乙以上`),
 };
 // 讲法：手里有一门圆满（或化境）的功法；接下就开讲，2 周天不修炼、不能出门
 L.LECTURE_LEN = 2;
@@ -391,8 +391,12 @@ wrap('resolveExp', b => st => {
   }
   return res;
 });
-// 秘境那边走到第 n 层时调：L.realmFloorHit(st, n)
+// 秘境（realm.js）：本季主题已走过的最深层数决定 N（至少 2，不超过倒数第二层）；每过一层（L.mjPick 返回 next）检查一次
 L.realmFloorHit = (st, n) => { if (st.sect) L.taskHit(st, 'explore', t => !!t.realm && n >= t.n); };
+if (typeof L.mjPick === 'function' && typeof L.mjUnlocked === 'function') {
+  L.realmTaskFloor = st => (L.MJ_ON !== false && L.mjUnlocked(st) ? { floor: Math.max(1, L.mjThRec(st, L.mjThemeNow(st).id).deep - 1), max: Math.max(1, L.mjFloors(st) - 1) } : null);
+  wrap('mjPick', b => (st, i) => { const res = b(st, i); if (res && res.next) L.realmFloorHit(st, res.next - 1); return res; });
+}
 // 丹堂：任务多半是炼丹
 L.taskActFav = st => (L.duty(st) === 'dan' ? 'craft' : null);
 L.taskPoolMod = (st, pool) => { if (L.duty(st) === 'dan') { const x = pool.find(p => p[0] === 'act'); if (x) x[1] *= 1.6; } };
