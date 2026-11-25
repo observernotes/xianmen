@@ -144,3 +144,27 @@ if (sec('g7') && ART.drawTribBolt) {
   fxc(100, 44, g => { ART.drawShieldBar(6, 5, 88, 1, {}); ART.drawShieldBar(6, 18, 88, 0.5, { mark: 0.2, lag: 0.7 }); ART.drawShieldBar(6, 31, 88, 0.15, { mark: 0 }); }, 4, '护体条', '#3a5a7a');
   br();
 }
+
+Object.assign(NAMES, { tieye: '铁冶真人', liu: '柳含烟', yaochen: '药尘子', chisong: '赤松客', shouzhuo: '守拙道人', qingxu: '清虚真人', xuehe: '血河老祖', xue3: '鬼医薛三', youji: '幽姬', xiao: '萧凌风', xiao2: '苏清寒', hongxiu: '丹红袖', zhibai: '陆知白', tianheng: '陆天衡', teaman: '卖茶翁', qian: '钱通', lei: '雷豹', lixiao: '厉枭', yutian: '驭天风' });
+const P3_IDS = ['tieye', 'liu', 'yaochen', 'chisong', 'shouzhuo', 'qingxu', 'xuehe', 'xue3', 'youji', 'xiao', 'xiao2', 'hongxiu', 'zhibai', 'tianheng'];
+function ptBlock(label, get, z) {
+  const w = document.createElement('span'); w.style.cssText = 'display:inline-block;margin:0 14px 6px 0;white-space:nowrap'; out.appendChild(w);
+  const add = (c, s, l, bg) => w.appendChild(show(c, s, l, bg));
+  ['n', 'joy', 'ang', 'shock', 'sad'].forEach((m, i) => add(get(m), z, i ? '' : label + ' · ' + ncol(get(m)) + ' 色', i % 2 ? PANEL : PAPER));
+  add(get('n'), 1, '', PAPER); add(sil(get('n')), 1, '', '#d8d8d8');
+}
+if (sec('g8') && ART.portraitGen) {
+  const z = +(q.get('z') || 3);
+  h('【八 宗门】长老 9 位、圣子 3 位（+ 苏清寒）、陆天衡：五种表情 + 原尺寸 + 剪影');
+  for (const id of P3_IDS) ptBlock(NAMES[id], m => ART.portrait(id, m), z);
+  br(); h('剪影对照（含阶段二的三位掌门）'); for (const id of ['jian', 'dan', 'dao'].concat(P3_IDS)) show(sil(ART.portrait(id, 'n')), 2, NAMES[id], '#d8d8d8');
+  br(); h('对决小人（idle0）'); for (const id of P3_IDS) show(ART.fighter(id, 'idle0'), 3, NAMES[id], PANEL);
+  br(); h('门人生成 ART.portraitGen(seed, { f, realm, temper })：每行一种性情（勤勉 聪慧 莽 滑 痴 孤傲 仁厚 贪玩），2 倍');
+  ART.tempers.forEach((tp, ti) => { for (let s = 0; s < 14; s++) show(ART.portraitGen(ti * 31 + s * 7 + 1, { f: s % 2, realm: (s + ti) % 6, temper: tp }), 2, s ? '' : tp, s % 2 ? PANEL : PAPER); br(); });
+  h('同一名门人的五种表情、原尺寸名册一排');
+  ptBlock('seed 5 勤勉', m => ART.portraitGen(5, { realm: 1, temper: 0 }, m), z); ptBlock('seed 12 贪玩（女）', m => ART.portraitGen(12, { f: 1, realm: 2, temper: 7 }, m), z);
+  br(); for (let s = 0; s < 30; s++) show(ART.portraitGen(100 + s, { f: s % 3 === 0, realm: s % 5, temper: s % 8 }), 1, '', s % 2 ? PANEL : PAPER);
+  br(); h('职司图标');
+  [['post_dan', '丹堂'], ['post_qi', '器堂'], ['post_zhan', '战堂'], ['post_fa', '执法堂'], ['post_wai', '外事堂']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
+  br();
+}
