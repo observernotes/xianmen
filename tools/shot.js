@@ -188,6 +188,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const { st } = window.__xm; st.disc.cand = null; st.disc.list.forEach(x => { x.di = 13; }); st.storyQ = []; window.__xm.runSectMeet(); });
   await page.waitForTimeout(300); await page.screenshot({ path: out + '/35-trio-meet.png' });
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/35b-trio-round.png' });
+  // 对决在场景里演（duel-scene.js）：三局演完才出结果，没演完先点【跳过】
+  if (await page.evaluate(() => document.querySelector('#modal .foot .btn').textContent === '跳过')) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
   const trio = await page.evaluate(() => document.querySelectorAll('#modal .trio > span').length);
   if (trio !== 3) errors.push('三人会武的一轮应写三场：' + trio);
   for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
@@ -263,9 +265,10 @@ require('fs').mkdirSync(out, { recursive: true });
   });
   for (let i = 0; i < 8; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(150); }   // 老祖还没讲完的先点掉
   await page.evaluate(() => { document.querySelector('#tip').hidden = true; });
-  await page.waitForTimeout(600); await page.screenshot({ path: out + '/20-world-tag.png' });
+  await page.waitForTimeout(600); await page.evaluate(() => { document.querySelector('#tip').hidden = true; }); await page.screenshot({ path: out + '/20-world-tag.png' });
   const wt = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden && r.width > 0, w: r.width, h: r.height, txt: el.textContent }; });
   if (!wt.vis || wt.w < 44 || wt.h < 44 || !wt.txt.includes('大旱')) errors.push('大势小牌不对：' + JSON.stringify(wt));
+  await page.evaluate(() => { document.querySelector('#tip').hidden = true; });   // 气泡排队：等的这 0.6 秒里可能又冒一条（它冒着时大势小牌让位）
   await page.click('#worldTag'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/21-calendar.png' });
   const calT = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: (document.querySelector('#calStrip') || {}).naturalWidth, w: (document.querySelector('#calStrip') || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width }));
   if (calT.t !== '年历' || calT.strip !== 194 || calT.w < 194) errors.push('年历没有打开或时间轴不对：' + JSON.stringify(calT));

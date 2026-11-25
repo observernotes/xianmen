@@ -101,6 +101,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#modal [data-a="2"]'); await page.waitForTimeout(250); await shot('g17-confirm-herb');
   const fc2 = await ev(() => ({ ui: document.querySelector('#expRate').textContent, L: (() => { const { st, L } = window.__xm; return L.expForecast(st, 0, 0, 2).text; })() }));
   check(fc2.ui === fc2.L, `采药预计评价与逻辑一致（${fc2.ui}）`);
+  await dismiss();   // 腹地开了的话，老祖就着确认页讲一句（不等周天冷却）
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300);
   await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); }); await page.waitForTimeout(700);
   await shot('g18-result2');

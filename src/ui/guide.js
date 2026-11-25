@@ -338,7 +338,7 @@ function updateGuide() {
   guideCurShown = cur;
   if (cur && bubbleCur && !cur.silent) { $('#tip').hidden = true; bubbleCur = null; }   // 讲解开口时把正冒着的气泡收进头像（点头像能重看）
   guideHold = false;
-  pumpBubble(); syncElderAv();
+  pumpBubble(); syncElderAv(); chapPump();
   if (!cur) { if (!el.hidden) el.hidden = true; guideShownId = ''; return; }
   const tgt = cur.target ? document.querySelector(cur.target) : null;
   if (cur.target && (!tgt || !tgt.offsetParent)) { el.hidden = true; return; }

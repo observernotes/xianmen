@@ -757,6 +757,14 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 .guide-ask .right .btn { min-height: 44px; min-width: 64px; }
 .guide-said { color: var(--paper-mute); padding-left: 8px; box-shadow: inset 2px 0 0 0 var(--paper-lo); }
 .guide-said b { font-weight: normal; }
+/* ---- B 线：章末结算卡（duel-ch-） ---- */
+.duel-ch-head { position: relative; align-self: center; }
+.duel-ch-head > img:first-child { display: block; width: min(100%, 300px); height: auto; aspect-ratio: 5 / 3; }
+.duel-ch-stamp { position: absolute; right: 6px; bottom: 6px; width: 48px; height: 48px; animation: duelStamp .3s steps(3); }
+@keyframes duelStamp { from { transform: scale(3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.duel-ch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.duel-ch-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; background: #f7eed6; min-width: 0; }
+.duel-ch-cell b { font-weight: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 
 <div id="app">
