@@ -124,8 +124,8 @@ const EVENTS = [
   title: '最后一课',
   text: '劫云压顶之前，老祖的声音轻得像风：“本座这缕残魂，撑到今日已是赚了。九重雷劫的第一道心劫，为师替你挡。”戒指上的锈迹片片剥落，露出温润如新的玉色。',
   choices: [
-    { t: '“师父，别走”', ok: { text: '“头一回叫师父，偏挑这种时候。”老祖笑骂，“破庙那夜捡到你，是本座三千年里最走运的事。去吧，替为师看看天上。”', fx: { xp: 12, buff: { cul: 2, ticks: 12 }, flag: 'st_farewell', title: '玄霄传人', art: 'z_xuanxiao_jian' } } },
-    { t: '磕三个头', ok: { text: '你郑重三拜。戒中再无声息，只余一道剑意静静护在你心口，像一只按在肩头的手。', fx: { xp: 8, power: 0.08, flag: 'st_farewell', title: '玄霄传人', art: 'z_xuanxiao_jian' } } }
+    { t: '“师父，别走”', ok: { text: '“头一回叫师父，偏挑这种时候。”老祖笑骂，“破庙那夜捡到你，是本座三千年里最走运的事。去吧，替为师看看天上。”', fx: { xp: 12, buff: { cul: 2, ticks: 12 }, flag: 'st_farewell', title: '玄霄传人' } } },
+    { t: '磕三个头', ok: { text: '你郑重三拜。戒中再无声息，只余一道剑意静静护在你心口，像一只按在肩头的手。', fx: { xp: 8, power: 0.08, flag: 'st_farewell', title: '玄霄传人' } } }
   ]
 },
 {

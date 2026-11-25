@@ -125,9 +125,11 @@ L.tournament = function (st) {
     const foe = { kind: 'rival', q, id: rv && rv.id, streak: j };
     const Sr = L.duelPower(st, foe);
     const p = L.duelP(st, Sr, Q, foe);
-    const win = R() < p;
+    let win = R() < p, xx = false;
+    // 玄霄在手：老祖“请出手”，每届 2 次，输掉的一场重掷（gear.js）
+    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = R() < p; }
     if (L.revealFoe && rv && rv.id) L.revealFoe(st, foe);
-    const round = { q, rv, P: Q, S: Sr, p, win };
+    const round = { q, rv, P: Q, S: Sr, p, win, xx };
     if (win) {
       st.stats.tourWins = (st.stats.tourWins || 0) + 1;
       if (st.rank === 1) round.defend = true; else st.rank = q;

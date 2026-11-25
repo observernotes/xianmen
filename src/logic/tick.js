@@ -22,8 +22,9 @@ L.tick = function (st, cont) {
   st.tick++;
   const p = st.p;
   if (p.inj > 0) p.inj--;
-  // 功法：熟练、长春功的额外疗伤（arts.js）
+  // 功法：熟练、长春功的额外疗伤（arts.js）；法宝：过期没决定的掉落兜底结清（gear.js）
   L.artTick(st);
+  L.gearTick(st);
   // 增益与灵草
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);

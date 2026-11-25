@@ -87,8 +87,8 @@ L.supportChoice('need'); L.supportChoice('not'); L.supportChoice('srankMin');
 L.supportChoice('dao', { apply: (st, v) => { if (!['k', 'w', 'r'].includes(v)) return; st.dao = st.dao || { k: 0, w: 0, r: 0 }; st.dao[v] = (st.dao[v] || 0) + 1; } });
 for (const k of ['stones', 'pills', 'herbs']) L.supportCost(k);
 for (const k of ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'vein', 'contrib', 'talent', 'trait', 'title', 'daolv']) L.supportFx(k);
-// item：w 法宝 / a 功法（按阶抽一门具体的，见 arts.js）/ pet 灵宠；'need'（最弱槽位的法宝）与 'o' / 'r'（法衣、饰品）等法宝系统
-L.supportFx('item', { ok: v => ['w', 'a', 'pet'].includes(v) });
+// item：a 功法（按阶抽一门具体的，见 arts.js）/ pet 灵宠 / 法宝 w 兵器 · r 法衣 · o 饰品 · need 最弱的一槽（gear.js：空槽直接装上，否则走对比卡）
+L.supportFx('item', { ok: v => ['w', 'a', 'pet', 'need', 'r', 'o'].includes(v) });
 L.supportFx('buff', { ok: v => !!v && (v.cul > 0 || v.atk > 0) });
 
 // ---------- 资格 ----------
@@ -171,10 +171,12 @@ L.applyFx = function (st, fx, ctx) {
   if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push('负伤 ' + fx.inj + ' 周天'); }
   if (fx.item) {
     const kind = fx.item, up = fx.itemUp || 0;
-    const base = kind === 'w' ? 1 + Math.floor(p.r * 0.75) : kind === 'a' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.6);
+    const base = kind === 'a' || kind === 'pet' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.75);
     const it = L.giveItem(st, kind, base + up, undefined, { src: 'event' });
     out.push(L.itemText(st, it));
     if (it.kind === 'a') (out.artTexts = out.artTexts || []).push(out[out.length - 1]);
+    if (it.gear) (out.gearTexts = out.gearTexts || []).push(out[out.length - 1]);
+    (out.items = out.items || []).push(it);
     out.item = it;
   }
   if (fx.aff) for (const id in fx.aff) { const d = L.addAff(st, id, fx.aff[id]); if (d) out.push(`好感 ${L.npcName(st, id)} ${d > 0 ? '+' : ''}${d}`); }
@@ -198,7 +200,8 @@ L.applyFx = function (st, fx, ctx) {
   for (const k in fx) { const c = L.CAPS.fx[k]; if (c && c.apply) c.apply(st, fx[k], out, fx, ctx); }
   return out;
 };
-L.choiceLuck = st => (L.has(st, 'lucky') ? 0.1 : 0) + (L.has(st, 'hero') ? 0.05 : 0) + (L.friend(st, 'bai') ? 0.05 : 0);
+// 奇遇把握：气运之子、主角光环、白小九知己、气运饰品（+1%×阶，gear.js）
+L.choiceLuck = st => (L.has(st, 'lucky') ? 0.1 : 0) + (L.has(st, 'hero') ? 0.05 : 0) + (L.friend(st, 'bai') ? 0.05 : 0) + L.gearLuck(st);
 L.resolveChoice = function (st, ev, idx) {
   const ch = ev.choices[idx];
   if (!ch || !L.choiceShown(st, ch) || !L.costOk(st, ch.cost)) return null;

@@ -92,7 +92,7 @@ L.ARTL = [
   { id: 'z_qingdi', n: '青帝剑', k: 'z', t: 5, el: 'mu', v: 0.15, d: v => `负伤时战力 ×0.6 → ×${n2(Math.min(1, 0.6 + v))}（秘境上线后改为气血上限）`, src: '秘境·百草（暂由五阶掉落）', pool: 'drop' },
   { id: 'z_canghai', n: '沧海无量', k: 'z', t: 5, el: 'shui', v: 0.05, d: v => `论道连胜每场战力 +${pc(v)}`, src: '东海借宝链（暂也由五阶掉落）', pool: 'drop' },
   { id: 'z_tianjian', n: '天剑九式（残）', k: 'z', t: 5, el: 'jin', v: 0.2, d: v => `对天剑宗的人战力 ×${n2(1 + v)}`, src: '主线（元婴“残缺的剑诀”）', pool: 'story' },
-  { id: 'z_xuanxiao_jian', n: '玄霄剑典·剑卷', k: 'z', t: 6, el: 'jin', v: 0.02, d: v => `对决胜算上限 97% → ${pc(Math.min(0.99, 0.97 + v))}`, src: '老祖旧剑链终点（器方系统上线前由渡劫前老祖诀别传授）', pool: 'story' },
+  { id: 'z_xuanxiao_jian', n: '玄霄剑典·剑卷', k: 'z', t: 6, el: 'jin', v: 0.02, d: v => `对决胜算上限 97% → ${pc(Math.min(0.99, 0.97 + v))}`, src: '老祖旧剑链终点（与器方《玄霄》一起传授）', pool: 'story' },
   // 秘术（无裸倍率，只有特效）
   { id: 'm_lianxi', n: '敛息术', k: 'm', t: 1, el: 'shui', v: 0.5, d: v => `负伤风险 −${pc(Math.min(0.9, v))}`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `历练时长 −${Math.round(v)} 周天（最少 3）`, src: '寻宝·历练', pool: 'drop' },
@@ -102,8 +102,7 @@ L.ARTL = [
   { id: 'm_tianyan', n: '天眼通', k: 'm', t: 3, el: 'huo', v: 1, d: () => '历练相性与地图五行不用试就显形（秘境上线后多看一扇门）', src: '秘境·幽泉（暂由三阶掉落）', pool: 'drop' },
   { id: 'm_yushou', n: '驭兽诀', k: 'm', t: 3, el: 'mu', v: 0.2, d: v => `出战灵宠效果 +${pc(v)}，认主概率 ×2`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_danhuo', n: '丹火诀', k: 'm', t: 3, el: 'huo', v: 0.08, d: v => `成丹率 +${pc(v)}，上品以上 +${pc(v * 1.25)}`, src: '丹霞谷宝库（真传）', pool: 'vault', sect: 'dan', rank: 2 },
-  // 法宝强化（SYSTEMS §3）上线前：“强化成功率 +10%”先折成兵器掉率
-  { id: 'm_zhujian', n: '铸剑谱', k: 'm', t: 3, el: 'jin', v: 0.1, d: v => `兵器掉率 +${pc(v)}（强化上线后改为强化成功率）`, src: '太虚剑宗宝库（真传）', pool: 'vault', sect: 'jian', rank: 2 },
+  { id: 'm_zhujian', n: '铸剑谱', k: 'm', t: 3, el: 'jin', v: 0.1, d: v => `法宝强化成功率 +${pc(v)}`, src: '太虚剑宗宝库（真传）', pool: 'vault', sect: 'jian', rank: 2 },
   { id: 'm_fenshen', n: '分身术', k: 'm', t: 4, el: 'shui', v: 0.5, d: v => `闭关时分身去外围历练一趟（收益 ${pc(Math.min(1, v))}）`, src: '玄天道宗宝库（真传）', pool: 'vault', sect: 'dao', rank: 2 },
   { id: 'm_xuedun', n: '血遁', k: 'm', t: 4, el: 'huo', v: 0.01, d: v => `丁等不负伤，改为寿元 −${pc(0.0001 / v)}`, src: '血煞秘境', pool: 'mo' },   // 代价随熟练减轻：1% ÷ 熟练倍数
   // 心魔劫（SYSTEMS §9）上线前：“心魔劫必过”先折成冲击元婴及以上的成功率
@@ -173,9 +172,9 @@ L.COMBOS = [
   { id: 'c2', n: '烈火燎原', a: ['x_lieyang', 'z_liehuo'], d: '斩妖灵石 +20%' },
   { id: 'c3', n: '水火既济', a: ['x_zifu', 'z_canghai'], cul: 0.06, d: '修炼 +6%（丹毒上限 +40 待丹毒系统）' },
   { id: 'c4', n: '剑心通明', a: ['x_jiuzhuan', 'z_wanjian'], atk: 0.10, d: '战力 +10%，对决胜算 +3%' },
-  { id: 'c5', n: '厚德载物', a: ['x_houtu', 'z_hanyue'], d: '历练分数 +3（法衣上线后改为法衣效果 ×1.5）' },
+  { id: 'c5', n: '厚德载物', a: ['x_houtu', 'z_hanyue'], d: '法衣全部效果 ×1.5（历练分数、承劫）' },
   { id: 'c6', n: '一气化三清', a: ['x_taixu', 'm_fenshen'], d: '分身收益 50% → 80%' },
-  { id: 'c7', n: '寻龙点穴', a: ['m_xunlong', 'z_gengjin'], d: '寻宝行事灵石 +25%（灵矿上线后改为灵矿 ×1.5）' },
+  { id: 'c7', n: '寻龙点穴', a: ['m_xunlong', 'z_gengjin'], d: '灵矿所得 ×1.5（历练与奇遇）' },
   { id: 'c8', n: '万兽朝苍', a: ['m_yushou', 'z_qingdi'], d: '灵宠战力加成再 +50%（名册上线后改为可出战两只）' },
   { id: 'c9', n: '丹剑双绝', a: ['m_danhuo', 'z_liehuo'], d: '炼丹 25% 概率不耗灵草（药引上线后改为不耗药引）' },
   { id: 'c10', n: '风行水上', a: ['m_yufeng', 'z_liuyun'], d: '历练时长再 −1（最少 2）' },
@@ -185,7 +184,7 @@ L.COMBOS = [
   { id: 'c14', n: '玄霄真传', a: ['x_xuanxiao_xin', 'z_xuanxiao_jian'], cul: 0.10, atk: 0.20, d: '战力 +20%，修炼 +10%' },
   { id: 'c15', n: '混元一气', a: ['x_hunyuan', 'z_wuxing'], d: '五行拳经按 5 阶计，攻击属性每趟自动取克制方' },
   { id: 'c16', n: '百草回春', a: ['x_changchun', 'm_baicao'], d: '灵田灵草产量 +30%' },
-  { id: 'c17', n: '炉火纯青', a: ['x_lieyang', 'm_danhuo'], fireZ: true, d: '成丹率 +10%（强化成功率 +10% 待法宝强化）' },
+  { id: 'c17', n: '炉火纯青', a: ['x_lieyang', 'm_danhuo'], fireZ: true, d: '成丹率、法宝强化成功率各 +10%' },
   { id: 'c18', n: '潜渊', a: ['x_taixu', 'm_lianxi'], d: '禁地丁等改为空手而归、不负伤' },
 ];
 const COMBO = {};
@@ -285,7 +284,10 @@ L.addAtkMod('art', 15, st => L.artAtkParts(st));
 L.expElem = function (st, k, sl) {
   const me = L.atkEl(st, L.REGIONS[k].el, sl), it = L.REGIONS[k].el;
   if (!me || !it) return { me, it, v: 0 };
-  return { me, it, v: L.elKe(me, it) ? L.EL_EXP : L.elKe(it, me) ? -L.EL_EXP : 0 };
+  const v = L.elKe(me, it) ? L.EL_EXP : L.elKe(it, me) ? -L.EL_EXP : 0;
+  // 法宝词条「藏锋」：被克时不受惩罚（gear.js）
+  if (v < 0 && L.gearAffN && L.gearAffN(st, 'cangfeng')) return { me, it, v: 0, cang: true };
+  return { me, it, v };
 };
 L.addExpMod('elem', 15, (st, k) => {
   const e = L.expElem(st, k);
@@ -295,7 +297,9 @@ L.addExpMod('elem', 15, (st, k) => {
 L.duelElem = function (st, foe, sl) {
   const fe = L.foeEl(foe), me = L.atkEl(st, fe, sl);
   if (!me || !fe) return { me, fe, m: 1 };
-  return { me, fe, m: L.elKe(me, fe) ? L.EL_DUEL[0] : L.elKe(fe, me) ? L.EL_DUEL[1] : 1 };
+  const m = L.elKe(me, fe) ? L.EL_DUEL[0] : L.elKe(fe, me) ? L.EL_DUEL[1] : 1;
+  if (m < 1 && L.gearAffN && L.gearAffN(st, 'cangfeng')) return { me, fe, m: 1, cang: true };
+  return { me, fe, m };
 };
 L.addDuelMod('elem', 10, (st, foe) => {
   const e = L.duelElem(st, foe);
@@ -352,12 +356,11 @@ L.affMult = st => (L.artOn(st, 'm_wangqing') ? 0.7 : 1);
 L.daolvBlocked = st => L.comboOn(st, 'c11');
 // 历练里用到的一整组（L.expCalc、L.expForecast、L.resolveExp 读）
 L.artExp = function (st, k, d, a) {
-  const o = { stone: 1, item: 1, wItem: 1, treasure: 1, herb: 1, pet: 1, leap: 0.6, injAvoid: 0, xuedun: 0, c18: false, injMul: 1, heal: 0, reveal: false };
+  const o = { stone: 1, item: 1, treasure: 1, herb: 1, pet: 1, leap: 0.6, injAvoid: 0, xuedun: 0, c18: false, injMul: 1, heal: 0, reveal: false };
   if (!ON()) return o;
   if (a === 0) o.stone *= 1 + L.artV(st, 'z_liehuo') + (L.comboOn(st, 'c2') ? 0.2 : 0);
-  if (a === 1) { const x = L.artV(st, 'm_xunlong'); o.item *= 1 + x; o.treasure *= 1 + 2 * x; if (L.comboOn(st, 'c7')) o.stone *= 1.25; }
+  if (a === 1) { const x = L.artV(st, 'm_xunlong'); o.item *= 1 + x; o.treasure *= 1 + 2 * x; }
   if (a === 2) o.herb *= 1 + L.artV(st, 'm_baicao');
-  o.wItem = 1 + L.artV(st, 'm_zhujian');
   if (L.artOn(st, 'm_yushou')) o.pet = 2;
   o.leap = 0.6 + L.artV(st, 'z_gengjin');
   o.injAvoid = Math.min(0.9, L.artV(st, 'm_lianxi'));
@@ -368,12 +371,11 @@ L.artExp = function (st, k, d, a) {
   o.reveal = L.artOn(st, 'm_tianyan');
   return o;
 };
-// 历练分数里的功法项：流云剑法 +2、万剑归宗斩妖 +6、厚德载物 +3
+// 历练分数里的功法项：流云剑法 +2、万剑归宗斩妖 +6（厚德载物现在放大法衣，见 gear.js）
 L.addExpMod('art', 16, (st, k, d, a) => {
   const out = [];
   const lv = L.artV(st, 'z_liuyun'); if (lv) out.push(['战技·流云剑法', lv, 'art']);
   const wj = L.artV(st, 'z_wanjian'); if (wj && a === 0) out.push(['战技·万剑归宗', wj, 'art']);
-  if (L.comboOn(st, 'c5')) out.push(['共鸣·厚德载物', 3, 'art']);
   return out.length ? out : null;
 });
 // 历练时长：御风诀 −1（最少 3），风行水上再 −1（最少 2）
@@ -392,7 +394,8 @@ L.probRound = v => Math.floor(v) + (R() < v - Math.floor(v) ? 1 : 0);
 // 装备着的功法每周天 +1（心法在闭关中 +2）；战技每趟斩妖历练另 +2；鸿蒙造化经让全部 ×2；藏经阁每级 +10%
 // TODO SYSTEMS §6.1：洞府藏经阁建成后把等级接进 L.libraryLv，并按级揭示共鸣提示（L.comboHint）
 L.libraryLv = () => 0;
-L.artRate = st => (1 + L.artV(st, 'x_hongmeng')) * (1 + 0.1 * L.libraryLv(st));
+// 法宝词条「通灵」每条 +15%（gear.js）
+L.artRate = st => (1 + L.artV(st, 'x_hongmeng')) * (1 + 0.1 * L.libraryLv(st)) * (1 + (L.gearAffN ? L.AFF_V.tongling * L.gearAffN(st, 'tongling') : 0));
 L.addMastery = function (st, id, n) {
   if (!ART[id] || !L.artOwned(st, id) || !n) return null;
   const lv0 = L.artLv(st, id);

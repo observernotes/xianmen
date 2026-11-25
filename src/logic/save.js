@@ -5,13 +5,15 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// ---------- 存档迁移（v2 → v3 → v4，DESIGN §9、SYSTEMS §18 第 10 条） ----------
-// v2 是 main 分支（旧数值体系）的存档，v3 是功法改三槽之前的，v4 是现在的。读档一律先过 L.migrate：
+// ---------- 存档迁移（v2 → v3 → v4 → v5，DESIGN §9、SYSTEMS §18 第 10 条） ----------
+// v2 是 main 分支（旧数值体系）的存档，v3 是功法改三槽之前的，v4 是法宝改三槽之前的，v5 是现在的。读档一律先过 L.migrate：
 // 缺的字段补默认值；旧数值体系下的修为按比例折算；走到一半的旧历练按旧规则结算一次（结果放在 s.migratedExp）；
 // st.meta 不存在则新建。从 v2 迁来的档 s.flags.fromV2 = 1（界面据此跳过新手引导）。返回 null 表示读不了。
 // v3 → v4：单一功法 st.p.a（阶）换成三槽 st.arts —— 旧功法阶 → 该阶的第一门心法，熟练记小成（L.migrateArts）。
-// TODO SYSTEMS §18 第 10 条：法宝、灵宠换成槽位与名册时存档再升一版，旧法宝阶 → 该阶同名兵器 +0，旧灵宠 → 对应阶的基础种
-L.SAVE_V = 4;
+// v4 → v5：单一法宝 st.p.w / wn（阶 / 名）换成三槽 st.gear —— 旧法宝阶 → 该阶同名兵器 +0 无词条，已斩首领补发材料与器方（gear.js 的 L.migrateGear）。
+// TODO SYSTEMS §18 第 10 条：灵宠换成名册时存档再升一版，旧灵宠 → 对应阶的基础种
+L.SAVE_V = 5;
+L.SAVE_OK = [2, 3, 4, 5];
 L.migrateArts = function (s) {
   const p = s.p, a = s.arts && typeof s.arts === 'object' ? s.arts : L.newArts();
   const d = L.newArts();
@@ -35,8 +37,8 @@ L.migrateArts = function (s) {
 };
 L.migrate = function (s) {
   if (!s || typeof s !== 'object' || !s.p || !s.home) return null;
-  if (s.v !== 2 && s.v !== 3 && s.v !== L.SAVE_V) return null;
-  const old = s.v === 2, v3 = s.v < 4;
+  if (!L.SAVE_OK.includes(s.v)) return null;
+  const old = s.v === 2, v3 = s.v < 4, v4 = s.v < 5;
   const p = s.p;
   s.flags = s.flags || {}; s.seenTips = s.seenTips || {}; s.beaten = s.beaten || {}; s.lifePills = s.lifePills || {}; s.lives = s.lives || [];
   s.stats = Object.assign(L.newStats(), s.stats || {});
@@ -57,6 +59,7 @@ L.migrate = function (s) {
   if (typeof p.fails !== 'number') p.fails = 0;
   p.tr = p.tr || [];
   const artNote = L.migrateArts(s);
+  const gearNote = L.migrateGear(s);
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值
@@ -94,6 +97,7 @@ L.migrate = function (s) {
   if (s.exp && !s.exp.plan) s.exp = null;
   if (s.retreat && !(s.retreat.left > 0)) s.retreat = null;
   if (v3 && !old) L.log(s, '功法换了新章法：心法、战技、秘术三槽，练久了有熟练' + (artNote ? '。' + artNote : ''), 'gold');
+  if (v4) L.log(s, '法宝换了新章法：兵器、法衣、饰品三槽，能强化、带词条' + (gearNote ? '。' + gearNote : ''), 'gold');
   s.v = L.SAVE_V;
   return s;
 };

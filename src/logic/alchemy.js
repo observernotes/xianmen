@@ -44,7 +44,8 @@ L.craft = function (st, k) {
   st.stats.crafts++;
   if (st.sect) L.taskHit(st, 'act', t => t.sub === 'craft');
   const res = { k, n: rc.n, free };
-  if (R() >= L.alchRate(st)) { res.ok = false; L.log(st, `炼制${rc.n}时炸炉了……灵草化为飞灰`, 'red'); return res; }
+  // 丹霞鼎（宗门镇宗法宝，gear.js）：炼丹不炸炉
+  if (R() >= L.alchRate(st) && !L.gearNoBoom(st)) { res.ok = false; L.log(st, `炼制${rc.n}时炸炉了……灵草化为飞灰`, 'red'); return res; }
   res.ok = true;
   const pPerfect = 0.05 + st.home.furnace * 0.006 + (L.friend(st, 'ge') ? 0.05 : 0) + (L.has(st, 'alch') ? 0.05 : 0);
   const pGood = 0.25 + L.artAlchQual(st);   // 丹火诀：上品以上 +10%

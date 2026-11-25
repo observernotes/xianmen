@@ -188,6 +188,7 @@ L.lifespan = function (st) {
   let y = L.REALMS[p.r].life * (1 + 0.05 * st.home.cave);
   if (L.has(st, 'longev')) y *= 1.5;
   if (L.friend(st, 'mo')) y *= 1.1;
+  if (L.gearLifeMult) y *= L.gearLifeMult(st);   // 寿元饰品 +2%×阶（gear.js）
   return y + (st.lifeBonus || 0);
 };
 L.lifeLeft = st => L.lifespan(st) - st.p.age;
@@ -201,7 +202,7 @@ L.rebAtk = st => 1 + 0.10 * perk(st, 'bone');
 
 // ---------- 新档 ----------
 L.newStats = () => ({ exp: 0, expWin: 0, bt: 0, events: 0, tour: 0, tourWins: 0, leapWins: 0, crafts: 0, perfect: 0, goodPill: 0, jiuzhuan: 0, btFails: 0, bosses: 0, despWin: 0,
-  retreat: 0, tuna: 0, visits: 0, herbExp: 0, seekExp: 0, slayExp: 0, sectTasks: 0, auction: 0, meetWins: 0, compExp: 0, dings: 0, tians: 0, expStones: 0 });
+  retreat: 0, tuna: 0, visits: 0, herbExp: 0, seekExp: 0, slayExp: 0, sectTasks: 0, auction: 0, meetWins: 0, compExp: 0, dings: 0, tians: 0, expStones: 0, plus: 0, forged: 0 });
 // st.meta 跨世保留：aff 相性图鉴、perk 轮回殿加成、seen 见过的功能/事件、elem 已知的地图与对手五行、combo 发现过的功法共鸣、chint 共鸣提示
 L.newMeta = () => ({ aff: {}, perk: {}, seen: {}, elem: {}, combo: {}, chint: {} });
 L.newState = function (o) {
@@ -210,18 +211,18 @@ L.newState = function (o) {
   const meta = o.meta || L.newMeta();
   for (const k in L.newMeta()) meta[k] = meta[k] || {};
   const st = {
-    v: L.SAVE_V, tick: 0, year: 0, stones: 20 + 500 * (meta.perk.purse || 0), pills: 0, lifeBonus: 0, lifePills: {},
+    v: L.SAVE_V, tick: 0, year: 0, stones: 20 + 500 * (meta.perk.purse || 0), pills: 0, ore: 0, lifeBonus: 0, lifePills: {},
     home: { cave: 0, array: 0, field: 0, furnace: 0 },
     exp: null, retreat: null, visitor: null, auction: null, tuna: 0, boxMiss: 0, lastExp: null, best: {},
     rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     quest: { done: {} }, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {}, origin: o.origin || 'qitu', meta,
-    stats: L.newStats(), arts: L.newArts(),
+    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {},
     npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
     herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {
       name: o.name || '林逸尘', look: { hair: '#2a2230', skin: '#f2c9a0', f: female ? 1 : 0 },
       t: o.t !== undefined ? o.t : 1, tr: o.tr || ['hero'], r: 0, s: 0, xp: 0, over: 0, age: 16,
-      w: 0, wn: '', pet: null, inj: 0, fails: 0,
+      pet: null, inj: 0, fails: 0,
     },
     exName: female ? '慕容轩' : '慕容雪',
   };

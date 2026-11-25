@@ -66,14 +66,28 @@ L.contribFor = k => Math.floor(L.CONTRIB.base * Math.pow(L.CONTRIB.grow, k));
 function addContrib(st, v) { v = Math.floor(v); if (!st.sect || v <= 0) return 0; st.sect.total += v; st.sect.pts += v; return v; }
 L.addContrib = addContrib;
 // 宗门宝库（贡献兑换）。功法是各宗独有的四门（CONTENT §9，见 arts.js 的 L.vaultArts），按身份开放
+// 法宝（vwep）：身份每高一级阶 +1；够到 5 阶时先给本宗的镇宗法宝（太虚剑 / 丹霞鼎 / 玄天拂尘，固定词条，gear.js 的 L.VAULT_GEAR）
+// 器堂灵矿（vore）；器方（vplan，太虚剑宗长老起换《万剑匣》）
 L.VAULT = [
   { k: 'vart', n: '秘传功法', d: '本宗不传之秘（四门，按身份开放）' },
   { k: 'vwep', n: '镇宗法宝', d: '借出镇宗之宝，归你所有' },
   { k: 'vpill', n: '破境丹 ×2', d: '宗门丹房特供' },
+  { k: 'vore', n: '器堂灵矿', d: '强化、打造用', gear: 'plus' },
+  { k: 'vplan', n: '器方《万剑匣》', d: '剑宗器堂长老的绝学：兵器 5 阶，锋锐、通灵', sect: 'jian', rank: 4, plan: 'g_jianyi' },
 ];
+L.vaultShown = (st, v) => (!v.gear || L.gearOpen(st, v.gear)) && (!v.sect || (st.sect && st.sect.id === v.sect)) && (!v.plan || !L.planOwned(st, v.plan));
+L.vaultGear = function (st) {
+  const tier = L.vaultTier(st, 'vwep'), uid = L.VAULT_GEAR[st.sect.id];
+  if (uid && tier >= 5 && !st.gear.vaultU[st.sect.id]) { const B = L.gearBase(uid); return { base: uid, slot: B.slot, tier: B.t, n: B.n, unique: true, aff: B.fixed }; }
+  return { slot: 'w', tier, n: L.WEAPONS[tier].n + '一件' };
+};
+L.vaultGearOk = st => { const v = L.vaultGear(st); return v.unique ? L.gearOpen(st, v.slot) : L.gearTier(st, 'w') < v.tier; };
+L.vaultOreN = st => 25 * L.oreUnit(st);
 L.vaultTier = (st, k) => { const up = Math.floor(((st.sect.build || {}).lib || 0) / 2); if (k === 'vart') { const A = L.vaultArtNext(st); return A ? A.t : 0; } return k === 'vwep' ? Math.min(7, st.sect.rank + 2 + up) : 0; };
 L.vaultCost = function (st, k) {
   if (k === 'vpill') return Math.floor(15 * Math.pow(2.3, st.p.r));
+  if (k === 'vore') return Math.floor(12 * Math.pow(2.3, st.p.r));
+  if (k === 'vplan') return Math.floor(40 * Math.pow(3.2, 4));
   if (k === 'vart') { const A = L.vaultArtNext(st); return A ? L.vaultArtCost(st, A) : Infinity; }
   if (st.sect.freePick > 0) return 0;   // 札记奖励：宝库任选一件
   return Math.floor((k === 'vart' ? 40 : 60) * Math.pow(3.2, st.sect.rank) * (k === 'vwep' && st.sect.id === 'jian' ? 0.7 : 1));
@@ -132,12 +146,15 @@ L.vaultBuy = function (st, k) {
   const c = L.vaultCost(st, k);
   if (st.sect.pts < c) return null;
   if (k === 'vpill') { st.sect.pts -= c; st.pills += 2; return { k }; }
+  if (k === 'vore') { if (!L.gearOpen(st, 'plus')) return null; st.sect.pts -= c; return { k, ore: L.addOre(st, L.vaultOreN(st)) }; }
+  if (k === 'vplan') { const v = L.VAULT.find(x => x.k === k); if (st.sect.id !== v.sect || st.sect.rank < v.rank || L.planOwned(st, v.plan)) return null; st.sect.pts -= c; return { k, planText: L.givePlan(st, v.plan) }; }
   // 秘传功法：身份够得着的下一门（指定哪一门用 L.vaultBuyArt）
   if (k === 'vart') { const A = L.vaultArtNext(st); return A ? L.vaultBuyArt(st, A.id) : null; }
-  const tier = L.vaultTier(st, k);
-  if (st.p.w >= tier) return null;
+  if (!L.vaultGearOk(st)) return null;
+  const v = L.vaultGear(st);
   if (st.sect.freePick > 0) st.sect.freePick--; else st.sect.pts -= c;
-  const out = { k, it: L.giveItem(st, 'w', tier) };
+  if (v.unique) st.gear.vaultU[st.sect.id] = 1;
+  const out = { k, it: L.gearDrop(st, v.slot, v.tier, { base: v.base, src: 'vault' }) };
   L.checkQuests(st);
   return out;
 };
@@ -180,8 +197,10 @@ L.sectMeet = function (st) {
     const Sr = L.duelPower(st, fo);
     const p = L.duelP(st, Sr, Q, fo);
     if (L.revealFoe) L.revealFoe(st, fo);
-    const win = R() < p;
-    const rd = { q, foe, Q, S: Sr, p, win, defend: pos === 1 };
+    let win = R() < p, xx = false;
+    // 玄霄在手：老祖“请出手”，每届 2 次，输掉的一场重掷（gear.js）
+    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = R() < p; }
+    const rd = { q, foe, Q, S: Sr, p, win, defend: pos === 1, xx };
     if (win) {
       if (pos > 1) { const o = st.sect.order; [o[pos - 1], o[q - 1]] = [o[q - 1], o[pos - 1]]; }
       st.stats.meetWins = (st.stats.meetWins || 0) + 1;

@@ -545,7 +545,9 @@ L.supportFx('plan', { ok: v => asArr(v).length > 0 && asArr(v).every(id => !!L.P
 L.supportFx('gear', { ok: v => !!BASE[v], apply: (st, v, out) => { const it = L.gearDrop(st, BASE[v].slot, BASE[v].t, { base: v, src: 'event' }); out.push(L.gearItemText(st, it)); (out.items = out.items || []).push(it); if (!out.item) out.item = it; } });
 // 强化失败时 10% 触发“炉中异物”（home_forge_boom）；它的 forge_refund2 返还本次强化灵矿 ×2
 L.supportTrigger('forge_fail');
-L.supportFx('flag', { apply: (st, v) => {
-  for (const f of asArr(v)) if (f === 'forge_refund2') { delete st.eflags.forge_refund2; const c = st.gear.last; if (c) L.addOre(st, c.ore * 2); }
+const flagPrev = L.CAPS.fx.flag;   // arts.js 已登记过 flag 的钩子（combo_hint），这里接在它后面
+L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
+  if (flagPrev && flagPrev.apply) flagPrev.apply(st, v, out, fx, ctx);
+  for (const f of asArr(v)) if (f === 'forge_refund2') { delete st.eflags.forge_refund2; const c = st.gear.last; if (c) out.push('灵矿 +' + L.fmt(L.addOre(st, c.ore * 2)) + '（返还这回强化的两倍）'); }
 } });
 });

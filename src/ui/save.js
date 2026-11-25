@@ -1,9 +1,9 @@
 /* 废柴仙途 · 界面片段 save：存档：本机、云端、读档
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 // ---------- 存档 ----------
-// 存档键沿用 v2 时代的名字，这样旧版本的存档能被找到；读进来一律先过 L.migrate（v2 → v3）
+// 存档键沿用 v2 时代的名字，这样旧版本的存档能被找到；读进来一律先过 L.migrate（v2 → … → v5）
 const SAVE_KEY = 'xiantu_save_v2';
-const saveOk = s => !!s && (s.v === 2 || s.v === 3 || s.v === L.SAVE_V);
+const saveOk = s => !!s && L.SAVE_OK.includes(s.v);
 const PREF_KEY = 'xianmen_pref_v1';
 function saveLocal() { if (!st) return; try { st.savedAt = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }

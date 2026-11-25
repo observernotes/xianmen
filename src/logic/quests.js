@@ -29,6 +29,7 @@ L.CHAPTERS = [
       { t: '后山野林腹地评价乙以上', c: bestGE(0, 1, 2), rw: { stones: 200 }, go: 'exp' },
       { t: '吐纳 3 次', c: st => st.stats.tuna >= 3, rw: { stones: 60 }, go: 'cult' },
       { t: '修到炼气圆满', c: fullAt(0), rw: { stones: 200 }, go: 'cult' },
+      { id: 'c0_plus', t: '强化一次兵器', c: st => (st.stats.plus || 0) >= 1, rw: { stones: 100 }, go: 'gear' },
       { t: '突破筑基', c: st => mr(st) >= 1, rw: { stones: 400 }, go: 'cult' },
     ] },
   { n: '入宗', realm: '筑基',
@@ -39,6 +40,7 @@ L.CHAPTERS = [
       { t: '黑风岭外围评价乙以上', c: bestGE(1, 0, 2), rw: { stones: 300 }, go: 'exp' },
       { t: '收服一只灵宠', c: st => !!st.p.pet, rw: { stones: 600 }, go: 'market' },
       { t: '炼一炉丹', c: st => st.stats.crafts >= 1, rw: { herbs: 10 }, go: 'home' },
+      { id: 'c1_robe', t: '穿上一件法衣', c: st => !!st.gear.r, rw: { stones: 400 }, go: 'gear' },
       { t: '击败独眼狼王', c: st => !!st.bosses[0], rw: { treasure: 1 }, go: 'exp' },
       { t: '论道赢一场', c: st => st.stats.tourWins >= 1, rw: { stones: 400 }, go: 'me' },
       { t: '发现 3 个 ◎ 相性', c: st => L.affFound(st) >= 3, rw: { stones: 500 }, go: 'exp' },
@@ -52,7 +54,7 @@ L.CHAPTERS = [
       { t: '与一人结为知己', c: st => affMax(st) >= 60, rw: { inc: 8 }, go: 'me' },
       { t: '在拍卖会买一件', c: st => st.stats.auction >= 1, rw: { pills: 2 }, go: 'market' },
       { t: '九宗会武赢一场', c: st => st.stats.meetWins >= 1, rw: { inc: 10 }, go: 'sect' },
-      { t: '得到一件灵器', c: st => st.p.w >= 3, rw: { inc: 8 }, go: 'market' },
+      { t: '得到一件灵器', c: st => L.gearMaxTier(st) >= 3, rw: { inc: 8 }, go: 'market' },
       { t: '击败两个首领', c: st => st.stats.bosses >= 2, rw: { treasure: 1 }, go: 'exp' },
       { t: '修到金丹圆满', c: fullAt(2), rw: { inc: 12 }, go: 'cult' },
     ] },
@@ -116,7 +118,8 @@ L.CHAPTERS = [
       { t: '修到渡劫圆满', c: fullAt(8), rw: { inc: 30 }, go: 'cult' },
     ] },
 ];
-L.CHAPTERS.forEach((ch, r) => { ch.main.id = 'c' + r + '_m'; ch.main.main = true; ch.main.ch = r; ch.tasks.forEach((t, j) => { t.id = 'c' + r + '_' + j; t.ch = r; }); });
+// 任务 id 按序号（存档里记的就是它）；后来插进去的任务自带 id，不占序号，免得旧档的完成记录错位
+L.CHAPTERS.forEach((ch, r) => { ch.main.id = 'c' + r + '_m'; ch.main.main = true; ch.main.ch = r; let j = 0; ch.tasks.forEach(t => { if (!t.id) t.id = 'c' + r + '_' + (j++); t.ch = r; }); });
 L.questText = (st, q) => (typeof q.t === 'function' ? q.t(st) : q.t).replace('{EX}', st.exName);
 L.rewardText = function (st, rw) {
   const a = [];
