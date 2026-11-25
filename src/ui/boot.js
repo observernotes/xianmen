@@ -43,6 +43,7 @@ function onTick() {
   if (out.rkGift) floatText(100, 40, `${out.rkGift[0].n}送来${out.rkGift[0].what}`, '#8ff5d0');
   if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
+  guideTick();   // 卡住检测与补齐的老祖气泡（guide-ask.js）
   saveLocal();
 }
 // E17 老祖特训：约战剩余 ≤ 8 周天、胜算 < 60%、未筑基未圆满，第一世只此一次
@@ -50,7 +51,7 @@ function showTrain() {
   if (!L.canTrain(st)) return;
   const pi = L.pactInfo(st);
   sheet({ title: '老祖特训', center: true, noClose: true,
-    body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:56px;height:56px" alt=""><p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
+    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
     foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 周天 · 修炼 ×3`); } closeModal(); } }] });
 }
 function showVisitor() {
@@ -84,6 +85,7 @@ function frame(now) {
 function sceneClick(e) {
   if (!st || cine) return;
   ac();
+  if (duelFx) { duelSkip(); return; }   // 对决演出中：点画面跳过
   const r = cvs.getBoundingClientRect();
   const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H - OY;
   if (crane && Math.abs(x - crane.x + 3) < 14 && Math.abs(y - crane.y) < 8) {
@@ -94,7 +96,7 @@ function sceneClick(e) {
   }
   if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
   if (st.exp) { SFX.tap(); showExp(); return; }
-  if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 14 && y > VISIT_POS.y - 30 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
+  if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 16 && y > VISIT_POS.y - 58 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;
   if (fieldSceneHit(x, y)) return;
   if (homeSceneHit(x, y)) return;   // 场景里的建筑（panel-home.js）
@@ -144,5 +146,5 @@ try { window.claude && window.claude.hot && window.claude.hot.snapshot && window
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
-  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
-  get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
+  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, showAsk, askList, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

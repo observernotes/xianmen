@@ -91,7 +91,7 @@ L.rebRoster = (st, k) => (perk(st, 'roster') ? 1 : 0);
 
 // ---------- 轮回殿 ----------
 L.HALL = [
-  { id: 'wis', n: '宿慧', d: '修炼 +15%/级', max: 5, cost: [300, 600, 1000, 1500, 2200], icon: 'cult' },
+  { id: 'wis', n: '宿慧', d: '修炼 +10%/级', max: 5, cost: [300, 600, 1000, 1500, 2200], icon: 'cult' },
   { id: 'bone', n: '根骨', d: '战力 +10%/级', max: 5, cost: [300, 600, 1000, 1500, 2200], icon: 'atk' },
   { id: 'purse', n: '家底', d: '开局灵石 +500/级', max: 3, cost: [200, 200, 200], icon: 'stone' },
   { id: 'relic', n: '前世法宝', d: '开局带一件法器（2 级：灵器）', max: 2, cost: [400, 1200], icon: 'gear' },

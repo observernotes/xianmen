@@ -10,7 +10,8 @@ function btDefault() {
   const max = Math.min(L.BT.maxPills, st.pills);
   if (L.btGuard(st) || st.flags.sureBt) return 0;
   const trib = L.tribNeeded(st), aids = trib ? tribAidsSel() : null;
-  let n = 0; while (n < max && (trib ? L.tribRate(st, { pills: n, aids }) : L.btRate(st, n)) < 1) n++;
+  const rate = k => (trib ? L.tribRate(st, { pills: k, aids }) : L.btRate(st, k));
+  let n = 0; while (n < max && rate(n) < 1 && rate(n + 1) > rate(n) + 1e-9) n++;   // 天劫封顶（L.tribTop）之后多服也不涨
   return n;
 }
 // 突破后战力大约翻几倍：升一小层 ×1.5、大境界 ×1.8，外加觉醒抬灵根
@@ -48,13 +49,14 @@ function showBreakthrough(still) {
     closeModal();
   }
 }
+function btStamp(r) { const c = ART.stamp && ART.stamp(r); if (!c) return ''; const s = pxFit(24, 64); return `<img class="px stampimg big" src="${urlOf(c, 'stamp|' + r)}" style="width:${s}px;height:${s}px" alt="${r}">`; }
 function afterBreakthrough(res) {
   const p = st.p;
   renderFeed();
   if (res.ascend && res.ok) { showAscension(); return; }
   if (res.ok) {
     const lines = [];
-    lines.push(`<div class="center">${myAvImg(78)}</div>`);
+    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(78, undefined, '', 'joy')}${btStamp('完')}</div>`);
     lines.push(`<div class="center big goldt">${L.REALMS[p.r].n}期！</div>`);
     lines.push(`<div class="center num">战力 ${fmt(res.before)} → <span class="seal">${fmt(res.after)}</span>（×${(res.after / res.before).toFixed(1)}）</div>`);
     lines.push(`<div class="center num">寿元 ${fmt(res.lifeBefore)} → <span class="jadet">${fmt(res.lifeAfter)}</span> 年</div>`);
@@ -73,11 +75,11 @@ function afterBreakthrough(res) {
   } else {
     sheet({
       title: res.tb ? '渡劫失败' : '突破失败', center: true,
-      body: `<div class="center">${myAvImg(78, undefined, 'filter:grayscale(.6)')}</div>
+      body: `<div class="row" style="justify-content:center;gap:12px">${myAvImg(78, undefined, 'filter:grayscale(.6)', 'sad')}${btStamp('败')}</div>
         <p class="center">冲击${res.ascend ? '飞升' : L.REALMS[res.from + 1].n}失败（成功率 ${L.pct(res.rate)}）${L.has(st, 'steady') ? '，好在道心坚定，毫发无伤' : `，修为退到七成，负伤 ${p.inj} 周天`}。</p>
         ${res.tb ? tribResultHTML(res) : ''}
         <p class="center seal">屡败屡战：下次成功率 +${L.pct(L.BT.fail)}（已累计 ${p.fails} 次）</p>`,
-      foot: [{ t: '再接再厉', fn: closeModal }],
+      foot: [{ t: '再接再厉', gold: true, fn: closeModal }],
     });
   }
 }
