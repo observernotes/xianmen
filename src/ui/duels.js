@@ -1,30 +1,36 @@
 /* 废柴仙途 · 界面片段 duels：对决、三年之约、天骄论道（论道前的对决准备与新秀挑战在 panel-rivals.js）
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
-// ---------- 对决（通用） ----------
+// ---------- 对决（通用）：在场景里演（duel-scene.js），下方纸卷只留标题、一行台词、胜算和【跳过】 ----------
+// o：title, intro, quote, right{img,name,sub}, S, Q, p, win, winText, loseText, btn, done；
+//   stage（town 落霞城 / cloud 论道台 / sect 演武场 / wild 野外，缺省按在不在历练里选）、foe（对决小人，见 ftRival / ftPeople / ftGen / ftBoss）、face（开场对视）、trio（三人会武）
 function duel(o) {
   const S = o.S || L.power(st);
   const p = o.p !== undefined ? o.p : L.duelChance(S, o.Q);   // 逻辑层掷骰用的胜算（L.duelP，含功法共鸣的上下限）
+  const cont = !!duelFx;
+  let ended = false;
+  const finish = () => { const prev = duelFx; o.done(); if (duelFx === prev) { duelFx = null; syncDuelUI(); } };
   const s = sheet({
-    title: o.title, center: true, noClose: true,
-    body: `${o.intro ? `<p>${o.intro}</p>` : ''}<div class="vs"><div class="side">${myAvImg(66).replace('<img ', '<img id="vsL" ')}<div>${esc(st.p.name)}</div><div class="muted num">${fmt(S)}</div></div>
-      <div class="vsx">VS</div>
-      <div class="side">${o.right.img}<div>${esc(o.right.name)}</div><div class="muted num">${esc(o.right.sub)}</div></div></div>
-      ${o.quote ? `<div class="quote">${esc(o.quote)}</div>` : ''}
-      <div class="muted center">胜算 ${L.pct(p)}</div>
-      <div id="vsRes" class="center" style="min-height:3em"></div>`,
-    foot: [{ t: '……', alt: true, disabled: true, fn: () => o.done() }],
+    title: o.title, noClose: true, still: cont,
+    body: `${o.intro ? `<p class="duel-intro">${o.intro}</p>` : ''}${o.quote ? `<div class="quote">${esc(o.quote)}</div>` : ''}
+      <div class="muted center duel-p">${esc(st.p.name)} ${fmt(S)} · ${esc(o.right.name)} ${fmt(o.Q)} · 胜算 ${L.pct(p)}</div>
+      <div id="vsRes" class="center"></div>`,
+    foot: [{ t: '跳过', alt: true, fn: () => { if (!ended) duelSkip(); else finish(); } }],
+    onClose: () => { duelFx = null; syncDuelUI(); },
   });
-  const l = s.querySelector('#vsL'), r = s.querySelector('#vsR');
-  if (l) l.classList.add('clashL'); if (r) r.classList.add('clashR');
-  let hits = 0; const hi = setInterval(() => { SFX.hit(); if (++hits >= 3) clearInterval(hi); }, 330);
-  setTimeout(() => {
-    const box = s.querySelector('#vsRes'), btn = s.querySelector('[data-fi="0"]');
-    if (!box) return;
-    box.innerHTML = o.win ? `<div class="big goldt">胜！</div><div>${o.winText}</div>` : `<div class="big seal">败</div><div>${o.loseText}</div>`;
-    bindEquipButtons(box); bindGearButtons(box);   // 结果里的功法【换上】、法宝对比卡
-    if (o.win) SFX.win(); else SFX.fail();
-    btn.disabled = false; btn.textContent = o.btn || '继续'; btn.classList.remove('alt'); btn.classList.add('gold');
-  }, 1150);
+  const m = $('#modal');
+  m.classList.add('duel-m');
+  m.onclick = e => { if (e.target === m && !ended) duelSkip(); };   // 点画面任何地方都能跳过
+  const foe = o.foe || ftGen(o.right.name);
+  duelStage({ stage: o.stage || (st.exp || st.run ? 'wild' : 'town'), L: ftMe(), R: foe, win: o.win, p, S, Q: o.Q, face: o.face, trio: o.trio, foeName: o.right.name,
+    onEnd: () => {
+      ended = true;
+      const box = s.querySelector('#vsRes'), btn = s.querySelector('[data-fi="0"]');
+      if (!box || !btn) return;
+      box.innerHTML = o.win ? `<div class="big goldt">胜！</div><div>${o.winText}</div>` : `<div class="big seal">败</div><div>${o.loseText}</div>`;
+      bindEquipButtons(box); bindGearButtons(box);   // 结果里的功法【换上】、法宝对比卡
+      btn.textContent = o.btn || '继续'; btn.classList.remove('alt'); btn.classList.add('gold');
+      const ip = s.querySelector('.duel-intro'); if (ip && o.winText) ip.hidden = true;   // 结果出来后纸卷别太高，把开场白收起来
+    } });
 }
 
 // ---------- 三年之约 ----------
@@ -34,6 +40,7 @@ function runPact() {
   duel({
     title: '三年之约', intro: '三年之期已到。落霞城擂台下人山人海，都来看那个被退婚的“废物”如何收场。' + (res.assist ? `<br><span class="jadet">戒中老祖借你一缕神魂：战力 ${fmt(res.base)} ×${L.PACT_ASSIST} = ${fmt(res.S)}</span>` : ''),
     right: { img: rivalAvImg({ n: ex, id: 'mu' }, 66), name: ex, sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
+    stage: 'town', foe: ftRival('mu'), face: true,
     quote: `${ex}：“三年了，废物终究是废物。现在认输，我还能给你留几分颜面。”`,
     winText: `${res.assist ? '危急关头，戒指中涌出一股浩瀚之力！<br>' : ''}一招落定，${esc(ex)}倒退十余步，满城哗然！<br>“莫欺少年穷！今日之后，你我再无瓜葛。”<br>灵石 +${fmt(res.stones || 0)}`,
     loseText: `${esc(ex)}冷笑离去。你攥紧拳头：天骄榜上，我们再见分晓！`,
@@ -80,6 +87,7 @@ function runTournamentGo() {
     duel({
       title: `第 ${step} 战`, intro: rvIntro ? `<span class="muted">${rvIntro}</span>` : '',
       right: { img: rv.id ? rvPortrait(rv.id, 66, 'ang', true) : rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
+      stage: 'cloud', foe: rv.id ? ftRival(rv.id) : ftGen(rv.n), face: !!rv.id,
       quote: `${rv.n}：“${rd.auc ? `上回拍卖会那件【${rd.auc}】，多谢你没跟价。今天就用它送你下台！` : rd.wanted ? '我是冤枉的……可你要拿我领赏，那就来！' : lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
       winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${rd.bounty ? `<div class="goldt">擒下通缉犯，赏金 +${fmt(rd.bounty)}</div>` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}${rd.grudge ? `<div class="seal">与${esc(rv.n)}的恩怨 +${rd.grudge}（${L.grudge(st, rv.id)}）</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',

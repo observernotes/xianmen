@@ -139,6 +139,7 @@ function runRookie() {
   const crush = () => {
     const rk = L.rookie(st), img = rkPortrait(rk, 66, 'ang', true), res = L.rookieDuel(st);
     duel({ title: '打压', right: { img, name: res.n, sub: `${res.s} · ${fmt(res.Q)}` }, Q: res.Q, S: res.S, p: res.p, win: res.win,
+      stage: 'cloud', foe: ftRookie(rk), face: true,
       quote: `${res.n}：“${L.fill(st, rk.line)}”`,
       winText: `你当着满场看客把他压了下去。<div class="fxlist"><span>${esc(res.text || '')}</span><span>恩怨 ${L.GRUDGE.hi}：他记下了</span></div>`,
       loseText: `你输了半招。他愣了一下，朝你抱拳。<div class="fxlist"><span>天骄榜 → 第 ${st.rank}</span><span>负伤 2 周天</span></div>`, done: closeModal });
