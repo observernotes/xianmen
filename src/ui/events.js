@@ -23,7 +23,8 @@ function showChoice(ev, back) {
     const can = L.costOk(st, c.cost);
     const bits = [];
     if (c.cost) bits.push(L.costText(st, c.cost));
-    if (c.duel) { const foe = { kind: 'event', id: ev.id }; bits.push('胜算 ' + L.pct(L.duelP(st, L.duelPower(st, foe), L.power(st) * c.duel, foe))); }
+    // choice.foe：对手是宿敌或新秀（五行克制、他的法宝都算，rivals2.js 的 L.choiceFoe）
+    if (c.duel) { const cf = L.choiceFoe ? L.choiceFoe(st, ev, c) : null; const foe = cf ? cf.foe : { kind: 'event', id: ev.id }; bits.push('胜算 ' + L.pct(L.duelP(st, L.duelPower(st, foe), cf ? cf.Q : L.power(st) * c.duel, foe))); }
     else if (c.p !== undefined) bits.push('把握 ' + L.pct(Math.min(0.95, c.p + luck)));
     const gold = first; first = false;
     return `<button class="btn ${gold ? 'gold' : 'alt'}" data-c="${i}" ${can ? '' : 'disabled'}><span>${esc(L.fill(st, c.t))}</span><small>${esc(bits.join(' · '))}</small></button>`;
@@ -46,7 +47,8 @@ function showChoice(ev, back) {
     const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('') + gears.map(gearLine).join('') + items.filter(it => it && it.kind === 'pet' && it.pend).map(petLine).join('');
     if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
     if (res.duel) {
-      duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
+      const fi = duelFoeImg(res.duel, 66);   // 宿敌 / 新秀用半身像（panel-rivals.js）
+      duel({ title: L.fill(st, ev.title), right: { img: fi ? fi.img : rivalAvImg({ n: ev.id }, 66), name: fi ? fi.name : '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
         winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done });
       return;
     }

@@ -26,6 +26,9 @@ const wrap = (name, f) => { const base = L[name]; if (typeof base !== 'function'
 L.PEOPLE2_ON = true;
 const ON = () => L.PEOPLE2_ON !== false;
 L.PPL = ['su', 'ye', 'chu', 'ge', 'bai', 'mo'];
+// 同伴位的人选：六位人物，加上化敌为友之后的楚天阔（tian，宿敌线的 tiankuo_ally；DESIGN §7.3“第七位同伴”）
+L.COMP_IDS = L.PPL.concat(['tian']);
+L.compName = (st, id) => (id === 'tian' ? '楚天阔' : L.npcName(st, id));
 L.HEART_N = ['相识', '一心相识', '二心来访', '三心知己', '四心同行', '五心终章'];
 
 // ---------- 状态 ----------
@@ -38,7 +41,7 @@ function ppl(st) {
   for (const k in d) if (p[k] === undefined || (p[k] === null && k !== 'comp')) p[k] = d[k];
   for (const k of ['q', 'ga', 'note']) if (!p[k] || typeof p[k] !== 'object' || Array.isArray(p[k])) p[k] = {};
   for (const k of ['sx', 'sxN', 'gifts', 'qn']) if (typeof p[k] !== 'number' || !isFinite(p[k])) p[k] = d[k];
-  if (p.comp && !L.NPCS[p.comp]) p.comp = null;
+  if (p.comp && !L.COMP_IDS.includes(p.comp)) p.comp = null;
   return p;
 }
 L.pplOf = ppl;
@@ -58,7 +61,7 @@ L.migratePeople = function (s) {
     for (const i of Object.keys(o)) if (!['1', '2'].includes(i) || !o[i] || !['on', 'done'].includes(o[i].s)) delete o[i];
   }
   for (const id of Object.keys(p.ga)) if (!Array.isArray(p.ga[id])) delete p.ga[id];
-  if (s.exp && s.exp.comp && !L.NPCS[s.exp.comp]) delete s.exp.comp;
+  if (s.exp && s.exp.comp && !L.COMP_IDS.includes(s.exp.comp)) delete s.exp.comp;
   if (s.retreat && s.retreat.sx && !L.NPCS[s.retreat.sx]) delete s.retreat.sx;
   if (s.npc && s.p) for (const id of L.PPL) if (s.npc[id]) pqCheck(s, id, true);
 };
@@ -333,12 +336,14 @@ L.COMP = {
   ge: { n: '灵草 ×2', d: '带回的灵草 ×2，采药还多带回一味稀有药引（雷 / 木 / 魂）' },
   bai: { n: '遭遇必出 · 把握 +10%', d: '途中遭遇必出，奇遇把握 +10%；秘境多一扇门' },
   mo: { n: '禁地负伤减半', d: '禁地的负伤风险减半' },
+  tian: { n: '斩妖分数 +6', d: '斩妖时历练分数 +6（宿敌线的“同行·楚天阔”）' },
 };
 L.COMP_V = { ye: 1.2, yeLeap: 1.5, chu: 10, mo: 0.5, bai: 0.1 };
 const daolvOn = (st, id) => !!st.daolv && st.daolv === id && !(L.daolvBlocked && L.daolvBlocked(st));
 // 能不能放进同伴位：四心（仁三级 90 即五心也算）、不是道侣（道侣本来就跟着）
 L.compWhy = function (st, id) {
   if (!ON()) return '还没开放';
+  if (id === 'tian') return st.eflags && st.eflags.tiankuo_ally ? '' : '楚天阔化敌为友之后才肯同行';
   if (!L.NPCS[id] || !L.met(st, id)) return '还不认识';
   if (st.daolv === id) return '道侣本就同行，不占同伴位';
   if (L.hearts(st, id) < 4) return `四心（好感 80）才肯跟你出门，现在 ${L.aff(st, id)}`;
@@ -391,16 +396,18 @@ wrap('startExp', b => function (st, k, d, a, opt) {
 });
 // 结算：苏 / 墨无痕挡伤、葛老灵草与药引；之后看委托
 const RARE_YIN = ['thunder', 'wood', 'soul'];
+// 楚天阔：宿敌线（rivals2.js）的“同行·楚天阔 斩妖 +6”改由同伴位提供——放进同伴位那几趟才算，不和别人叠（nopeople2 时照宿敌线原样常驻）
+wrap('rivalAllyOn', b => (st, id) => b(st, id) && (!ON() || id !== 'chu' || compNow(st) === 'tian'));
 wrap('resolveExp', b => function (st) {
   const e = st.exp;
   if (!e || !ON()) return b(st);
-  const comp = e.comp && L.NPCS[e.comp] ? e.comp : null, inj0 = st.p.inj;
+  const comp = e.comp && L.COMP_IDS.includes(e.comp) ? e.comp : null, inj0 = st.p.inj;
   tripCtx = comp;
   let res;
   try { res = b(st); } finally { tripCtx = undefined; }
   if (!res || res.legacy) return res;
   const on = id => comp === id || daolvOn(st, id);
-  const with_ = L.PPL.filter(on);
+  const with_ = L.COMP_IDS.filter(on);
   if (with_.length) {
     res.comps = with_;
     st.stats.compExp = (st.stats.compExp || 0) + 1;

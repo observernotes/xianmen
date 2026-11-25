@@ -9,3 +9,4 @@ dist/*.keystore
 .play_tmp*
 .claude/worktrees/
 __pycache__/
+Pixel 7/

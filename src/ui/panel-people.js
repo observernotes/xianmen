@@ -20,8 +20,8 @@ function pplNext(id) { const h = Math.min(5, L.hearts(st, id)); if (h >= 5) retu
 // ---------- 【人物】→ 羁绊 ----------
 function bondTabHTML() {
   const vis = L.pgiftVisitor(st), comp = L.comp(st), dex = L.giftKnown(st);
-  const head = L.PEOPLE2_ON === false ? '' : `<div class="mhead"><span>同伴位：${comp ? `${pplImg(comp, pxs(24, 1), 'n')}${esc(L.npcName(st, comp))}（${esc(L.COMP[comp].n)}）` : '空着'}</span><span class="muted">喜好图鉴 ${dex.found}/${dex.total}</span></div>`;
-  return head + Object.keys(L.NPCS).map(id => pplCard(id, vis)).join('')
+  const head = L.PEOPLE2_ON === false ? '' : `<div class="mhead"><span>同伴位：${comp ? `${pplImg(comp, pxs(24, 1), 'n')}${esc(L.compName(st, comp))}（${esc(L.COMP[comp].n)}）` : '空着'}</span><span class="muted">喜好图鉴 ${dex.found}/${dex.total}</span></div>`;
+  return head + Object.keys(L.NPCS).map(id => pplCard(id, vis)).join('') + tianCard()
     + `<div class="muted">好感：奇遇里的抉择、来访时送礼（♥ +${L.PGIFT_V.like}、一般 +${L.PGIFT_V.mid}、✕ ${L.PGIFT_V.hate}）、委托（+${L.PQ_AFF}）。二心来访、三心知己、四心同行（每趟历练、秘境带一位）、五心终章；苏与夜二人中只能与一位结为道侣。试出来的喜好记进图鉴，下一世还在。</div>`;
 }
 function pplCard(id, vis) {
@@ -55,6 +55,13 @@ function pplCard(id, vis) {
     if (vis === id) { const why = L.pgiftWhy(st, id); rows.push(`<button class="btn ${why ? 'alt' : 'gold'} giftb" data-ppgift="${id}" ${why ? 'disabled' : ''}><span>送礼</span><small>${why ? esc(why) : '身上现有的东西点一样'}</small></button>`); }
   } else if (N.daolv) rows.push('<div class="muted">· 可结为道侣（双修 修炼 ×1.25）</div>');
   return `<div class="card flat pcard2" data-pp="${id}">${pplImg(id, pxs(48, 1), pplMood(id))}<div class="main">${rows.join('')}</div></div>`;
+}
+// 化敌为友之后的楚天阔：只有同伴这一行（没有好感、喜好、委托）
+function tianCard() {
+  if (L.PEOPLE2_ON === false || L.compWhy(st, 'tian')) return '';
+  const cur = L.comp(st) === 'tian';
+  return `<div class="card flat pcard2">${pplImg('tian', pxs(48, 1), 'n')}<div class="main"><div class="line"><span>楚天阔</span><span class="chip ok">化敌为友</span></div><div class="muted">天剑宗圣子 · 说过“往后你去哪，我的剑跟着”</div>
+    <div class="pcompr"><span class="grow">同行：${esc(L.COMP.tian.d)}</span><button class="btn sm ${cur ? 'alt' : 'gold'} eq" data-ppcomp="${cur ? '' : 'tian'}">${cur ? '不带了' : '同行'}</button></div></div></div>`;
 }
 function pqRow(id, i) {
   const Q = L.pqDef(id, i), pr = L.pqProg(st, id, i);
@@ -113,17 +120,17 @@ function showPqDone(r, back) {
 // ---------- 历练：确认页的同伴位、结算卡上的同行 ----------
 function compExpLine(k, d, a) {
   if (L.PEOPLE2_ON === false) return '';
-  const cands = L.PPL.filter(id => !L.compWhy(st, id)), list = L.compList(st);
+  const cands = L.COMP_IDS.filter(id => !L.compWhy(st, id)), list = L.compList(st);
   if (!cands.length && !list.length) return '';
-  const bits = list.map(id => `${pplImg(id, pxs(24, 1), 'n')}<span>${st.daolv === id ? '道侣 ' : ''}${esc(L.npcName(st, id))}：${esc(L.COMP[id].n)}</span>`).join('');
+  const bits = list.map(id => `${pplImg(id, pxs(24, 1), 'n')}<span>${st.daolv === id ? '道侣 ' : ''}${esc(L.compName(st, id))}：${esc(L.COMP[id].n)}</span>`).join('');
   return `<div class="pcompexp" id="ppCompExp"><span class="muted">同伴</span>${bits || '<span class="muted">没带人</span>'}${cands.length ? '<button class="btn sm alt eq" id="ppCompSw">换</button>' : ''}</div>`;
 }
 function bindCompExp(s, back) {
   const b = s.querySelector('#ppCompSw'); if (!b) return;
   b.onclick = () => {
     SFX.tap();
-    const cands = L.PPL.filter(id => !L.compWhy(st, id)), cur = L.comp(st);
-    const rows = cands.map(id => `<button class="btn ${id === cur ? 'gold' : 'alt'} pgiftopt" data-cc="${id}">${pplImg(id, pxs(24, 1), 'n')}<span class="grow">${esc(L.npcName(st, id))}</span><small>${esc(L.COMP[id].n)}</small></button>`).join('')
+    const cands = L.COMP_IDS.filter(id => !L.compWhy(st, id)), cur = L.comp(st);
+    const rows = cands.map(id => `<button class="btn ${id === cur ? 'gold' : 'alt'} pgiftopt" data-cc="${id}">${pplImg(id, pxs(24, 1), 'n')}<span class="grow">${esc(L.compName(st, id))}</span><small>${esc(L.COMP[id].n)}</small></button>`).join('')
       + `<button class="btn ${cur ? 'alt' : 'gold'} pgiftopt" data-cc=""><span class="grow">不带人</span></button>`;
     const s2 = sheet({ title: '同伴', center: true, sub: '一趟历练（或一次秘境）带一位；道侣另算，不占这一格', body: `<div class="pgifts">${rows}</div>`, foot: [{ t: '返回', alt: true, fn: back }] });
     s2.querySelectorAll('[data-cc]').forEach(x => x.onclick = () => { SFX.tap(); L.setComp(st, x.dataset.cc || null); back(); });
@@ -131,7 +138,7 @@ function bindCompExp(s, back) {
 }
 function compResLine(res) {
   if (!res.comps || !res.comps.length) return (res.pq || []).filter(Boolean).map(q => `<div class="quote jadet">委托完成「${esc(L.fill(st, q.Q.t))}」：${esc(q.texts.join('、'))}</div>`).join('');
-  const nm = res.comps.map(id => L.npcName(st, id)).join('、');
+  const nm = res.comps.map(id => L.compName(st, id)).join('、');
   const bits = [];
   if (res.compSave) bits.push(`本是负伤而归，${esc(L.npcName(st, res.compSave))}替你挡下了`);
   if (res.compHerbs) bits.push(`葛老多带回灵草 ${fmt(res.compHerbs)}`);
@@ -177,7 +184,7 @@ const peopleHints = [
       return `${esc(L.npcName(st, x.id))}托你一件事——<b>「${esc(L.fill(st, x.Q.t))}」</b>：${esc(L.pqDesc(st, x.id, x.i))}。办成了好感 <b>+${L.PQ_AFF}</b>（现在 ${a}），还有${esc(x.Q.rwT)}。二心、四心各一件，【人物】→ 羁绊里看。`;
     } },
   { id: 'ppComp', intro: true, when: () => pplCalm() && L.PPL.some(id => !L.compWhy(st, id)), target: '[data-nav="exp"]', btn: '好', text: () => {
-      const id = L.comp(st) || L.PPL.find(x => !L.compWhy(st, x)), ta = pplTa(id);
+      const id = L.PPL.includes(L.comp(st)) ? L.comp(st) : L.PPL.find(x => !L.compWhy(st, x)), ta = pplTa(id);
       if (!L.comp(st)) L.setComp(st, id);
       return `${esc(L.npcName(st, id))}到四心了，愿意跟你出门：${ta}在同伴位上，每趟历练、每回秘境都跟着——<b>${esc(L.COMP[id].d)}</b>。一次只带一位，出发页的“同伴”那一行点【换】。`;
     } },

@@ -542,6 +542,22 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 #intro .story .hint { color: var(--muted); animation: blink 1.2s steps(2) infinite; }
 #intro h1 { font-size: calc(var(--fs) * 3); font-weight: normal; margin: 0; color: var(--gold); line-height: 1.2; text-shadow: 3px 3px 0 var(--seal); }
 #intro .setup { max-width: 400px; width: 100%; }
+/* 宿敌与新秀（panel-rivals.js）：宿敌一行（≥ 44px，可点）、恩怨条（−100～100，中线 0，刻线 60 / −40）、新秀一行 */
+.rvrow { display: flex; gap: 8px; align-items: center; width: 100%; min-height: 52px; padding: 6px 8px; border: 0; cursor: pointer; text-align: left; font: inherit; color: var(--paper-ink); background: #f7eed6;
+  box-shadow: 0 -2px 0 0 #b9a77c, 0 2px 0 0 #b9a77c, -2px 0 0 0 #b9a77c, 2px 0 0 0 #b9a77c; }
+.rvrow:active { transform: translateY(1px); }
+.rvrow .rvmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rvrow .line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rvrow .rvgo { flex: none; color: var(--paper-mute); font-size: calc(var(--fs) * 1.5); }
+.rvline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.rvline .grow { flex: 1; min-width: 0; }
+.gbar { position: relative; height: 6px; background: #cbb98f; box-shadow: 0 0 0 1px #a8946a; margin-top: 2px; }
+.gbar i { position: absolute; top: 0; bottom: 0; background: #c9a35a; }
+.gbar i.hi { background: var(--seal); } .gbar i.pos { background: #d88a5a; } .gbar i.neg { background: #7fbf9a; } .gbar i.lo { background: var(--jade); }
+.gbar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #6b5a3a; }
+.gbar b.m60 { left: 80%; } .gbar b.m40 { left: 30%; } .gbar b.m0 { left: 50%; background: #a8946a; }
+#rvSwap .ga .btn, #rkSwap .ga .btn { min-height: 44px; min-width: 64px; }
+.sheet .foot .btn { min-height: 44px; }   /* 弹窗底部的按钮一律 ≥ 44px（宿敌卡、对决准备、新秀挑战都用它） */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
