@@ -210,7 +210,8 @@ const path = require('path');
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
-  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠派岗', '灵宠进化']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
+  // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
+  for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;
