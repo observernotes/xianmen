@@ -13,7 +13,7 @@
  *         宗门当值（每周天贡献 = 一趟乙等历练的 0.3）、闭门苦修（成长 ×2）。
  *   传授：你圆满（或化境）的一门功法传给一个徒弟（每门一次，花 2 周天）：他的战力 ×(1 + 0.2 × 传授数)、成长 +10%；你的这门功法直接升到化境（教学相长）。
  *   战力 = 他那一小层的基础战力 × 1.5 × (1 + 0.2 × 传授数) × (1 + 0.05 × 听过的讲法) × 性情。
- *   出师：小层 ≥ 8（金丹）可【出师】（disc_graduate 辞行事件）：离开名册，给一大笔贡献和一个“桃李”（轮回道果 +20）。
+ *   出师：小层 ≥ 8（金丹）可【出师】（disc_graduate 辞行事件）：离开名册，给一大笔贡献和一个“桃李”（L.discGraduated(st) 本世出师人数，轮回道果由轮回那一刀读）。
  *   性情事件（disc:*）：每名徒弟各走一遍，按性情触发（莽 / 贪玩 闯祸、聪慧 发问、滑 倒卖、痴 走火、孤傲 顶撞、仁厚 散丹、贪玩 偷懒），另有 冲关（跨大境界）、
  *         挖角（小层 ≥ 8）、绑架（你有因果未了）、辞行（出师）；收徒当天的 disc_first_day 定基调（严：成长 +5%、宽：情分 +1、放养：差事 +10%）。
  *   宗主之后的九宗会武改为三人战：你 + 两名最强的徒弟各打一场，三局两胜（对方的两名弟子按你的小层 − 16 算，名次越高越强）。
@@ -47,7 +47,7 @@ L.DISC_JOB = {
   duty: { n: '宗门当值', icon: 'post_fa', d: '每周天贡献 = 一趟乙等历练的 0.3' },
   cult: { n: '闭门苦修', icon: 'job_array', d: '成长 ×2' },
 };
-L.DISC_V = { grow: 0.02, teach: 0.1, teachPow: 0.2, pow: 1.5, lecture: 0.05, expShare: 0.3, expEvery: 6, home: 0.08, duty: 0.3, cult: 2, every: 24, gradDi: 8, gradC: 8, fruit: 20, evP: 1 / 30, evGap: 18 };
+L.DISC_V = { grow: 0.02, teach: 0.1, teachPow: 0.2, pow: 1.5, lecture: 0.05, expShare: 0.3, expEvery: 6, home: 0.08, duty: 0.3, cult: 2, every: 24, gradDi: 8, gradC: 8, evP: 1 / 30, evGap: 18 };
 L.discCap = st => (!st.sect ? 0 : st.sect.rank >= 6 ? 3 : st.sect.rank >= 4 ? 2 : st.sect.rank >= 2 ? 1 : 0);
 L.discOpen = st => L.discCap(st) > 0;
 L.discNextCapRank = st => (!st.sect ? 2 : st.sect.rank < 2 ? 2 : st.sect.rank < 4 ? 4 : st.sect.rank < 6 ? 6 : -1);
@@ -192,8 +192,8 @@ L.discGraduate = function (st, u, how) {
 };
 // 离开名册但不算出师（被挖走、放走）
 function discLeave(st, x) { const d = ensure(st); d.list = d.list.filter(y => y !== x); L.log(st, `${x.n}离开了门下`); }
-// 轮回道果：桃李每人 +20
-wrap('daoFruitParts', b => st => { const a = b(st), n = (st.disc && st.disc.taoli) || 0; if (n) a.push(['桃李', n * L.DISC_V.fruit]); return a; });
+// 本世出师的徒弟数（桃李）。轮回道果的“徒弟出师”由轮回那一刀读它来算（这里不再自己往 L.daoFruitParts 里加，免得算两遍）
+L.discGraduated = st => (st && st.disc && st.disc.taoli) || 0;
 wrap('lifeSummary', b => st => Object.assign(b(st), { taoli: (st.disc && st.disc.taoli) || 0 }));
 
 // ---------- 徒弟事件：每名徒弟各走一遍（不看 evDone） ----------

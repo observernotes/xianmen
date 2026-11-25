@@ -783,7 +783,7 @@ require('fs').mkdirSync(out, { recursive: true });
     st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true);
     o.teachDone = d.taught.includes('x_houtu') && Math.abs(L.discPow(st, d) / pw0 - 1.2) < 1e-9 && L.artLv(st, 'x_houtu') === 4;
     d.di = 8; const tot1 = st.sect.total, tl0 = st.meta.taoli.n, gc = L.discGradContrib(st, d);
-    const gr = L.discGraduate(st, d.u, 'grad_word'); o.grad = !!gr && st.sect.total === tot1 + gc && st.disc.taoli === 1 && st.meta.taoli.n === tl0 + 1 && !st.disc.list.length && L.daoFruitParts(st).some(x => x[0] === '桃李' && x[1] === 20);
+    const gr = L.discGraduate(st, d.u, 'grad_word'); o.grad = !!gr && st.sect.total === tot1 + gc && st.disc.taoli === 1 && st.meta.taoli.n === tl0 + 1 && !st.disc.list.length && L.discGraduated(st) === 1;
     // 候选：每 24 周天三个（壮实 / 机灵 / 安静），三选一
     st.disc.candAt = -999; st.storyQ = []; L.discTick(st, {}); o.cands = st.disc.cand.length === 3 && st.disc.cand.map(c => c.cat).join() === 'strong,clever,quiet' && st.storyQ.includes('sect_candidates');
     const ev = L.eventById('sect_candidates'); st.storyQ = []; L.resolveChoice(st, ev, 1); o.candEvent = st.disc.list.length === 1 && st.disc.list[0].cat === 'clever' && st.storyQ.includes('disc_first_day');
