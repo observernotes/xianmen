@@ -7,14 +7,15 @@ function showGrowth(focus) {
   const upBtn = k => { const b = L.HOME.find(x => x.k === k), lv = st.home[k]; if (!L.homeOpen(st, k)) return '<span class="muted">未解锁</span>'; if (lv >= b.max) return '<span class="muted">满级</span>'; const c = L.hCost(k, lv); return `<button class="btn sm ${st.stones >= c ? 'gold' : 'alt'}" data-up="${k}" ${st.stones >= c ? '' : 'disabled'}>升级 ${fmt(c)}</button>`; };
   const goBtn = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const row = (n, m, act, tip) => `<div class="grow-row"><span class="gn">${esc(n)}</span><span class="gm ${m < 1 ? 'low' : ''}">${typeof m === 'number' ? '×' + mx(m) : m}</span><span class="ga">${act || ''}</span>${tip ? `<span class="tipx">${tip}</span>` : ''}</div>`;
-  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => (L.petCount(st) ? goBtn('兽栏', 'pets') : goBtn('灵兽蛋', 'market')), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect') };
+  const act = { talent: () => goBtn('洗髓丹', 'alch'), art: () => goBtn('功法', 'arts'), array: () => upBtn('array'), gear: () => goBtn('法宝', 'gear'), pet: () => (L.petCount(st) ? goBtn('兽栏', 'pets') : goBtn('灵兽蛋', 'market')), field: () => upBtn('field'), sect: () => goBtn('宗门', 'sect'), alch: () => goBtn('炼丹房', 'alch') };
   const tips = {
     talent: '灵根是天生的，炼丹房的洗髓丹能提升一品（需要天材地宝）。',
     art: '功法三槽：心法管修炼、战技管战力与攻击属性、秘术给特效；练久了有熟练，凑对了有共鸣。来自历练、寻宝、宗门宝库、首领与奇遇。',
     array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
     gear: '法宝三槽：兵器管战力，法衣管历练分数与负伤，饰品给修炼、财运、气运或寿元。来自历练掉落、首领、坊市寻宝、宗门宝库；灵矿强化，超出部分每级 +6%。',
     pet: '出战的灵宠给战力倍率：喂兽粮升级（每级超出部分 +5%），5 级进化、10 级觉醒各升一阶。灵宠来自坊市灵兽蛋、采药偶遇、奇遇与宗门；其余的派去洞府岗位干活。',
-    field: `下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石，还产灵草。`,
+    field: `灵石只来自种灵稻的田（现在 ${L.riceCount(st)}/${L.plotCount(st)} 块）；全种灵稻时下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石。灵草、兽粮、药引看【洞府】→ 灵田。`,
+    alch: '炼丹房的丹药：爆气丹管下一场对决或下一趟历练，聚灵丹管 6 周天修炼。',
   };
   const sec = (key, title, total, baseName, base, parts, extra) => `<div class="grow-sec" id="g-${key}"><h3>${title}<span>${total}</span></h3>
     ${baseName ? row(baseName, fmt(base), '', '') : ''}${parts.map(([n, m, k]) => row(n, m, k && act[k] ? act[k]() : '', k && tips[k] ? tips[k] : '')).join('')}${extra || ''}</div>`;
@@ -69,6 +70,9 @@ function pactTips() {
   if (wt < L.boxCap(st, 'w')) { const nx = { id: `w${wt + 1}_0`, slot: 'w', t: wt + 1, plus: 0, aff: [] }; out.push({ t: `换一件${L.WEAPONS[wt + 1].n}`, cost: `寻宝 ${fmt(L.price(st, 'box'))} 或历练掉落`, p: with_(L.gearTry(st, nx, () => L.power(st)) / L.power(st)), go: navLock('market') ? 'exp' : 'market' }); }
   const pw = L.gearOpen(st, 'plus') && st.gear.w && L.gearPlusInfo(st, 'w');
   if (pw && !pw.max && !pw.why) out.push({ t: `兵器强化 +${pw.x.plus + 1}：战力 ${fmt(pw.a.p)} → ${fmt(pw.b.p)}`, cost: `灵矿 ${fmt(pw.cost.ore)} · 灵石 ${fmt(pw.cost.stones)} · 成功率 ${L.pct(pw.rate)}`, p: pw.b.pact, go: 'plus:w', btn: '强化', keep: true });
+  // 战斗类丹（SYSTEMS §5 / §17 锦囊候选）：丹囊里有爆气丹就“服一枚爆气丹：胜算 p → p'”；没有但炼得出就写炼一枚
+  const bq = baoqiTip(m => with_(m));
+  if (bq) out.push(bq);
   if (!L.petCount(st) && L.marketOpen(st, 'egg')) out.push({ t: '收一只灵宠', cost: `灵兽蛋 ${fmt(L.price(st, 'egg'))}`, p: with_(L.PETS[1].m), go: 'market' });
   // 灵宠升到下一级（SYSTEMS §17 锦囊候选）：兽粮够就写一口气喂到下一级的胜算
   const op = L.petOut(st), oi = st.petOut;
@@ -78,6 +82,14 @@ function pactTips() {
   const sw = zSwapTip(L.PACT_FOE, S => S * pi.assist, pi.Q);
   if (sw) out.push(sw);
   return out.filter(x => x.p - pi.p >= 0.03 || x.extra || (x.keep && x.p > pi.p)).sort((a, b) => b.p - a.p).slice(0, 3);
+}
+// 锦囊里的爆气丹：pf(战力倍率) → 服下之后的胜算
+function baoqiTip(pf) {
+  if (L.danNext(st, 'baoqi')) return null;
+  const d = baoqiDelta(), m = d.pw1 / d.pw0;
+  if (L.bagN(st, 'baoqi')) { const why = L.takeWhy(st, 'baoqi'); return why ? null : { t: '服一枚爆气丹', cost: `丹囊里 ${L.bagN(st, 'baoqi')} 枚 · 丹毒 +${L.TOX.pill}`, p: pf(m), go: 'pill:baoqi', btn: '服', keep: true }; }
+  if (L.recipeKnown(st, 'baoqi') && !L.canCraft(st, 'baoqi')) return { t: '炼一枚爆气丹服下', cost: `火引 ×2 · 灵草 ${fmt(L.herbCost(st, L.RECIPE.baoqi))}`, p: pf(1.3), go: 'alch', btn: '炼丹房', keep: true };
+  return null;
 }
 // 锦囊里的“换成克制对手的战技”：试遍已有战技，取胜算最高、且至少涨 3% 的一门
 function zSwapTip(foe, scale, Q) {
@@ -113,6 +125,7 @@ function showPact() {
   s.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
     const k = b.dataset.go;
     if (k.startsWith('eqz:')) { if (L.equipArt(st, k.slice(4))) { SFX.coin(); showPact(); } return; }
+    if (k.startsWith('pill:')) { const r = L.takePill(st, k.slice(5)); if (r) { SFX.gather(); floatText(100, 70, `服下${r.n}`, '#ffb23f'); showPact(); } return; }
     if (k.startsWith('plus:')) { const r = doPlus(k.slice(5)); if (r) { floatText(100, 70, r.ok ? `强化 +${r.to}` : '强化失败', r.ok ? '#ffe39a' : '#9d93b8'); showPact(); } return; }
     SFX.tap();
     if (k === 'cult') { closeModal(); if (L.isReady(st)) showBreakthrough(); } else GO[k]();

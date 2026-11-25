@@ -24,9 +24,9 @@ function jobEffect(i, k) {
   const mut = () => (k === 'out' ? L.petSetOut(st, i) : L.petSetJob(st, i, k));
   if (k === 'out') { const [a, b] = petDelta(mut, () => L.power(st)); return `战力 ${arrowNum(a, b)}`; }
   if (k === 'array') { const [a, b] = petDelta(mut, () => L.gain(st)); return `修炼 +${arrowNum(a, b, dec)}/周天`; }
-  if (k === 'field') { const [a, b] = petDelta(mut, () => L.income(st)); return `灵石 +${arrowNum(a, b, dec)}/周天，灵草 +${L.pct(L.petTry(st, mut, () => L.petJobVal(st, 'field')))}`; }
+  if (k === 'field') { const [a, b] = petDelta(mut, () => L.income(st)); return `灵石 +${arrowNum(a, b, dec)}/周天，作物产量 +${L.pct(L.petTry(st, mut, () => L.petJobVal(st, 'field')))}`; }
   if (k === 'furnace') { const [a, b] = petDelta(mut, () => L.alchRate(st)); return `成丹率 ${arrowNum(a, b, L.pct)}`; }
-  if (k === 'forage') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'forage')); return `兽粮 +${dec(v)}/周天，偶尔叼回灵矿药草`; }
+  if (k === 'forage') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'forage')); return `兽粮 +${dec(v)}/周天，偶尔叼回灵矿药引`; }
   if (k === 'patrol') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'patrol')); return `坏访客、盗贼 −${L.pct(v)}`; }
   return '';
 }

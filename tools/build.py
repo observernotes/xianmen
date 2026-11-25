@@ -37,7 +37,9 @@ UI_PARTS = [
     "modal",         # 弹窗与弹窗队列
     "panel-bt",      # 突破
     "panel-exp",     # 历练
-    "panel-home",    # 洞府、闭关、疗伤、炼丹房
+    "panel-home",    # 洞府、闭关、疗伤，各建筑的入口
+    "panel-field",   # 灵田：田一排、作物列表（改这一块 / 全部改种）、场景里的田（ART.drawPlot）、收成飘字
+    "panel-alchemy", # 炼丹房：5×5 药引格与试炼、修炼 / 战斗 / 根基三页、续炼、丹囊；状态栏的丹毒葫芦
     "panel-market",  # 坊市
     "panel-sect",    # 宗门
     "duels",         # 对决、三年之约、天骄论道

@@ -26,6 +26,8 @@ L.MARKET = [
   { k: 'frag', n: '功法残篇', d: '三片合成一门神阶功法', base: 800 },
   { k: 'plan', n: '器方', d: '化神后器炉按方打造专属法宝', base: 1000 },
   { k: 'feed', n: '兽粮一袋', d: '喂灵宠升级（pets.js）', base: 40 },
+  { k: 'yin', n: '药引一包', d: '两枚同种药引：炼丹、灵宠进化、打造用（crops.js）', base: 100 },
+  { k: 'seed', n: '灵种', d: '一种还没解锁的灵田作物，买下就能种（crops.js）', base: 150 },
 ];
 const MK = {}; for (const M of L.MARKET) MK[M.k] = M;
 L.price = (st, k) => Math.floor(MK[k].base * Math.pow(2.6, rr(st)));
@@ -33,13 +35,14 @@ L.SHELF_FIXED = ['pill', 'box', 'egg'];
 L.SHELF = { rot: 3, every: 12, urgent: 1.2, haggle: 0.10, fake: 0.05, cut: 0.30, disc: 0.9 };
 // 一筐 = 10 × L.oreUnit（1.5^境界）
 L.ORE_BUY = { n: 10 };
+L.YIN_PACK = 2;   // 药引一包两枚
 L.oreBasket = st => L.ORE_BUY.n * L.oreUnit(st);
 L.newMarket = () => ({ cyc: -1, rot: [], disc: 1, discNext: 0, extra: 0, idx: { herb: 1, ore: 1, pill: 1 }, evQ: [], last: null, urgent: -1, sold: 0 });
 const mk = st => st.market || (st.market = L.newMarket());
 L.shelfOpen = st => st.rebirth > 0 || mi(st) >= 1;   // 炼气中期：轮换货架
 L.restockIn = st => L.SHELF.every - (((st.tick % L.SHELF.every) + L.SHELF.every) % L.SHELF.every);
 
-// ---------- 轮换池（SYSTEMS §10）。等系统接入的：药引 yin、兽粮 feed、秘境令 token、阵图 zhentu（生财阵）、作物种子 seed —— 系统上线时在这里加一行 ----------
+// ---------- 轮换池（SYSTEMS §10）。等系统接入的：秘境令 token、阵图 zhentu（生财阵）—— 系统上线时在这里加一行 ----------
 const lifeUsed = st => st.lifePills[rr(st)] || 0;
 const robeTier = st => L.gearNextTier('r', L.gearTier(st, 'r'), L.boxCap(st, 'w'));
 const fragIds = st => ['x_hongmeng', 'm_xingdou'].filter(id => !L.artOwned(st, id));
@@ -55,6 +58,9 @@ L.SHELF_POOL = [
   { k: 'box', off: true, w: 2, ok: st => st.stats.exp >= 1, lim: () => 2 },
   { k: 'egg', off: true, w: 1, ok: st => st.rebirth > 0 || mr(st) >= 1, lim: () => 1 },
   { k: 'feed', w: st => (L.petCount(st) ? 4 : 0.5), ok: st => (st.rebirth > 0 || mr(st) >= 1) && L.petCount(st) > 0, lim: () => 3, lock: '有灵宠后上架' },
+  // 药引一包（两枚同种，手里最少的那种更常上）；灵种（下一种没解锁的作物）
+  { k: 'yin', w: 3, ok: st => L.yinOpen(st), make: st => ({ yin: wpick(L.YIN_KEYS.map(y => [y, 1 / (1 + L.yinHave(st, y))])) }), lim: () => 2, lock: '筑基中期后上架' },
+  { k: 'seed', w: 1.5, ok: st => st.home.field > 0 && L.cropsOpen(st) && !!L.nextLockedCrop(st), make: st => ({ crop: L.nextLockedCrop(st).id }), lim: () => 1 },
 ];
 L.restock = function (st, quiet) {
   const m = mk(st);
@@ -79,11 +85,15 @@ function rowName(st, s) {
   if (s.k === 'frag') return `《${L.art(s.art).n}》残篇`;
   if (s.k === 'plan') return `器方《${L.PLAN[s.plan].n}》`;
   if (s.k === 'egg') return L.eggName(st);
+  if (s.k === 'yin' && s.yin) return `${L.YIN_N[s.yin]}一包`;
+  if (s.k === 'seed' && s.crop) return `${L.CROP[s.crop].n}灵种`;
   return M.n;
 }
 function rowDesc(st, s) {
   if (s.k === 'ore') return `一筐 ${L.fmt(L.oreBasket(st))} · 手里 ${L.fmt(st.ore || 0)}`;
   if (s.k === 'feed') return `一袋 ${L.feedSack(st)} · 手里 ${L.fmt(st.feed || 0)}`;
+  if (s.k === 'yin' && s.yin) return `${L.YIN_N[s.yin]} ×${L.YIN_PACK} · 手里 ${L.yinHave(st, s.yin)}`;
+  if (s.k === 'seed' && s.crop) { const C = L.CROP[s.crop]; return L.cropOpen(st, s.crop) ? '已经能种了' : `提前解锁（本来${C.lock.replace('解锁', '')}）：${C.cyc} 周天一收，产${L.cropOutN(C)}`; }
   if (s.k === 'egg') return L.eggDesc(st);
   if (s.k === 'life') return `寿元 +10% · 本境界已服 ${lifeUsed(st)}/3`;
   if (s.k === 'robe') return `现在 ${L.gearTier(st, 'r') ? L.gearTierName('r', L.gearTier(st, 'r')) : '空'}；随机词条，走对比卡`;
@@ -171,6 +181,8 @@ function giveGood(st, row) {
   }
   if (row.k === 'egg') return { k: 'egg', it: L.petEgg(st, L.eggEl(st), 'shop') };
   if (row.k === 'feed') { const n = L.feedSack(st); st.feed = (st.feed || 0) + n; L.log(st, `坊市买下兽粮一袋：+${n}`); return { k: 'feed', feed: n }; }
+  if (row.k === 'yin' && s.yin) { L.addYin(st, s.yin, L.YIN_PACK); L.log(st, `坊市买下${L.YIN_N[s.yin]} ×${L.YIN_PACK}`); return { k: 'yin', yin: s.yin, n: L.YIN_PACK }; }
+  if (row.k === 'seed' && s.crop) { if (L.cropOpen(st, s.crop)) return null; L.cropsOf(st).seed[s.crop] = 1; L.log(st, `坊市买下${L.CROP[s.crop].n}的灵种：现在就能种`, 'jade'); return { k: 'seed', crop: s.crop }; }
   return null;
 }
 // 买第 i 格（L.shelf 的序号）

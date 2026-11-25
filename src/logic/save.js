@@ -14,6 +14,7 @@ const P = L.P;
 // v5 → v6：坊市换成货架 + 行情 + 拍卖竞价、历法与天下大势上线 —— 新建 st.market（货架下次打开时按本届补货）与 st.cal；
 //   开着的一口价拍卖会换成竞价（起拍价 = 旧价的 12/20，没有竞拍者，本场还能出手两次）；st.gear.oreBuy（旧的每届三筐）去掉（L.migrateMarket）。
 // 灵宠名册（SYSTEMS §4）：没有 st.pets 的档把旧的 st.p.pet 折成名册（pets.js 的 L.migratePets，可重复调用，不升版本）
+// 灵田作物与炼丹（SYSTEMS §5、§6.2）：没有 st.crops / st.mats / st.dan / st.toxin 的档补上（田全种灵稻，与旧的被动灵石等价；L.migrateCrops / L.migrateAlch，可重复调用，不升版本）
 L.SAVE_V = 6;
 L.SAVE_OK = [2, 3, 4, 5, 6];
 L.migrateMarket = function (s) {
@@ -86,6 +87,8 @@ L.migrate = function (s) {
   const gearNote = L.migrateGear(s);
   L.migrateMarket(s);
   const petNote = L.migratePets(s);
+  // 灵田作物、药引、丹囊与丹毒（crops.js / alchemy.js，可重复调用，不升版本）
+  L.migrateAlch(s); L.migrateCrops(s);
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值

@@ -20,6 +20,7 @@ function onHook(type, data) {
   else if (type === 'comboGen') tip('gen', `${data.same >= 3 ? '三' : '两'}门功法同属${data.el ? L.elName(data.el) : ''}，起了共鸣：修炼、战力各 +${Math.round((data.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%。`);
   else if (type === 'mastery') { if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 18, `《${L.art(data.id).n}》${L.MAST.n[data.lv]}`, '#ffe39a', false, true); }
   else if (type === 'rong') { const A = L.art(data.id), R0 = L.RONG[A.k]; banner('融会贯通', `《${A.n}》圆满：${R0[0] ? '修炼 +' + (R0[0] * 100).toFixed(R0[0] < 0.01 ? 2 : 1) + '%' : ''}${R0[0] && R0[1] ? ' ' : ''}${R0[1] ? '战力 +' + (R0[1] * 100).toFixed(R0[1] < 0.01 ? 2 : 1) + '%' : ''}`); SFX.goal(); }
+  else if (type === 'recipe') { const rc = L.RECIPE[data]; if (rc && $('#modal').hidden) banner('丹方 · ' + rc.n, rc.yin ? L.yinText(L.recipeYin(rc)) : ''); }
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
@@ -69,6 +70,7 @@ function updateHUD() {
   }
   $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
   updateWorldTag();
+  updateToxin();   // 丹毒葫芦（panel-alchemy.js）
   $$('#nav button').forEach(b => b.classList.toggle('locked', !!navLock(b.dataset.nav)));
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);

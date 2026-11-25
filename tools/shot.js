@@ -44,6 +44,8 @@ require('fs').mkdirSync(out, { recursive: true });
     st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
     L.petGive(st, { sp: 'p_hu2', src: 'shop' }); L.petGive(st, { sp: 'p_he' }); L.petGive(st, { sp: 'p_tu' });
     st.pets[0].lv = 5; st.pets[0].heart = 3; st.pets[1].lv = 3; st.herbs = 400; L.petSetJob(st, 1, 'array'); L.petSetJob(st, 2, 'forage');
+    st.mats.yin.fire = 3;   // 赤焰虎进化（炎虎王）要火引 ×3
+    for (const h of ['crops', 'yinGrid', 'toxin']) st.hintSeen[h] = 1;
     L.checkQuests(st); st.achQ = []; st.storyQ = [];
   });
   await close(); await page.waitForTimeout(1200);
@@ -143,6 +145,60 @@ require('fs').mkdirSync(out, { recursive: true });
     return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad };
   }, [sel, what]);
   const lay44 = r => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); };
+  // ---------- 灵田与炼丹（SYSTEMS §5、§6.2）：场景里的田（ART.drawPlot）、灵田面板与作物列表、炼丹房的 5×5 药引格、试炼与丹成、战斗类丹、丹毒葫芦 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.home.field = 16; st.home.furnace = 8; st.p.inj = 0; st.exp = null; st.retreat = null; st.visitor = null; document.querySelector('#tip').hidden = true;
+    ['herb', 'fire', 'ice', 'soul', 'rice'].forEach((c, i) => { L.plant(st, i, c); L.plots(st)[i].g = [2, 5, 1, 3, 0][i]; });
+    st.mats.yin = { fire: 5, ice: 3, thunder: 2, wood: 1, soul: 2 }; st.herbs = 900; st.treasure = 3; st.toxin = 45;
+    st.meta.recipe = { juling: 1, baoqi: 1, qingdu: 1 }; st.dan.bag = { baoqi: [2], liaoshang: [1] }; st.dan.auto = ['juling'];
+  });
+  await page.waitForTimeout(900); await page.screenshot({ path: out + '/30-home-field.png' });
+  const toxB = await page.evaluate(() => { const b = document.querySelector('#toxBox'); const r = b.getBoundingClientRect(); return { vis: !b.hidden && r.width > 0, t: b.textContent, half: b.classList.contains('half') }; });
+  if (!toxB.vis || toxB.t !== '45' || toxB.half) errors.push('状态栏丹毒葫芦不对：' + JSON.stringify(toxB));
+  // 点场景里第 2 块田（赤炎果）→ 灵田面板，选的是那一块
+  await page.evaluate(() => { const c = document.querySelector('#scene'), r = c.getBoundingClientRect(), H = c.height, OY = H - 160; c.dispatchEvent(new MouseEvent('click', { clientX: r.left + (23 + 8) / 200 * r.width, clientY: r.top + (112 + 3 + OY) / H * r.height, bubbles: true })); });
+  await page.waitForTimeout(400); await page.screenshot({ path: out + '/31-field.png' });
+  lay44(await big44('#modal .fplot, #modal [data-crop], #modal .fscope button, #modal .close', '灵田'));
+  const fp = await page.evaluate(() => ({ t: document.querySelector('#modal h2') && document.querySelector('#modal h2').textContent, n: document.querySelectorAll('#modal .fplot').length, sel: [...document.querySelectorAll('#modal .fplot')].findIndex(b => b.classList.contains('sel')), rows: document.querySelectorAll('#modal .crow').length, rec: !!document.querySelector('#modal .crow .chip.warn') }));
+  if (fp.t !== '灵田' || fp.n !== 5 || fp.sel !== 1 || fp.rows !== 8 || !fp.rec) errors.push('点田没打开灵田面板（应 5 块、选第 2 块、8 种作物、有“荐”）：' + JSON.stringify(fp));
+  const inc0 = await page.evaluate(() => window.__xm.L.income(window.__xm.st));
+  await page.click('#modal [data-crop="rice"]'); await page.waitForTimeout(300);
+  const pl = await page.evaluate(() => ({ c: window.__xm.st.crops.plots[1].c, inc: window.__xm.L.income(window.__xm.st), msg: (document.querySelector('#modal .quote') || {}).textContent || '' }));
+  if (pl.c !== 'rice' || !(pl.inc > inc0) || !pl.msg.includes('改种灵稻')) errors.push('改种灵稻没生效：' + JSON.stringify(pl));
+  await page.click('#modal [data-scope="1"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/31b-field-all.png' });
+  await page.click('#modal [data-crop="vine"]'); await page.waitForTimeout(300);
+  if (await page.evaluate(() => !window.__xm.st.crops.plots.every(x => x.c === 'vine'))) errors.push('【全部改种】长生藤没生效');
+  await page.evaluate(() => { const { st, L } = window.__xm; ['herb', 'fire', 'ice', 'soul', 'rice'].forEach((c, i) => L.plant(st, i, c)); });
+  await close();
+  // 炼丹房：5×5 药引格（15 格，已揭晓 3 格），修炼 / 战斗 / 根基三页，续炼勾着聚灵丹
+  await page.evaluate(() => window.__xm.showAlchemy()); await page.waitForTimeout(300);
+  await page.click('#modal .atabs [data-tab="grid"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/32-alchemy.png' });
+  lay44(await big44('#modal .yc[data-cell], #modal button[data-r], #modal [data-auto], #modal [data-take], #modal .atabs button, #modal .close', '炼丹房'));
+  const ag = await page.evaluate(() => ({ cells: document.querySelectorAll('#modal .yc[data-cell]').length, can: document.querySelectorAll('#modal .yc.can').length, tabs: [...document.querySelectorAll('#modal .atabs button')].map(b => b.textContent), auto: !!document.querySelector('#modal [data-auto="juling"].on') }));
+  if (ag.cells !== 15 || ag.tabs.length !== 4) errors.push('炼丹房的药引格 / 分页 / 续炼不对：' + JSON.stringify(ag));
+  // 点“火引 + 魂引”（没揭晓）→【试炼】→ 丹成揭晓悟道丹（成丹固定：R = 0.3）
+  await page.click('#modal [data-cell="fire|soul"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/32b-cell.png' });
+  await page.evaluate(() => { window.__rng0 = window.__xm.L.rng; window.__xm.L.rng = () => 0.3; });
+  await page.click('#modal #btnTrial'); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/32c-trial.png' });
+  await page.evaluate(() => { window.__xm.L.rng = window.__rng0; });
+  const tr = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, k: !!window.__xm.st.meta.recipe.wudao, y: window.__xm.st.mats.yin }));
+  if (tr.t !== '试出新丹方' || !tr.k || tr.y.fire !== 4 || tr.y.soul !== 1) errors.push('试炼没揭晓悟道丹：' + JSON.stringify(tr));
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300);
+  await page.click('#modal .atabs [data-tab="z"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/32d-battle.png' });
+  lay44(await big44('#modal button[data-r], #modal [data-auto], #modal [data-take]', '炼丹房·战斗'));
+  const pw0 = await page.evaluate(() => window.__xm.L.power(window.__xm.st));
+  await page.click('#modal [data-take="baoqi"]'); await page.waitForTimeout(300);
+  const bq = await page.evaluate(() => ({ n: window.__xm.L.danNext(window.__xm.st, 'baoqi'), pw: window.__xm.L.power(window.__xm.st), tox: window.__xm.st.toxin, msg: (document.querySelector('#modal .quote') || {}).textContent || '' }));
+  if (!(Math.abs(bq.n - 1.39) < 1e-9) || Math.abs(bq.pw / pw0 - 1.39) > 1e-6 || bq.tox !== 65 || !bq.msg.includes('服下上品爆气丹')) errors.push('服爆气丹不对（上品 ×1.39、丹毒 55 → 65）：' + JSON.stringify(bq));
+  await page.click('#modal .atabs [data-tab="x"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/32e-cul.png' });
+  if (await page.evaluate(() => !document.querySelector('#modal [data-auto="juling"].on'))) errors.push('修炼页的聚灵丹没显示“续炼中”');
+  await page.click('#modal .atabs [data-tab="g"]'); await page.waitForTimeout(250); await page.screenshot({ path: out + '/32f-root.png' });
+  await close();
+  await page.evaluate(() => { const { st } = window.__xm; st.toxin = 72; }); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/33-toxin.png', clip: { x: 0, y: 0, width: 390, height: 80 } });
+  if (await page.evaluate(() => !document.querySelector('#toxBox').classList.contains('half'))) errors.push('丹毒过 60 葫芦没变色');
+  await page.evaluate(() => { const { st } = window.__xm; st.toxin = 0; delete st.dan.next.baoqi; });
   await page.evaluate(() => {
     const { st, L } = window.__xm; st.p.inj = 0; st.exp = null; st.retreat = null; st.visitor = null;
     for (const h of ['cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;

@@ -1,4 +1,4 @@
-/* 废柴仙途 · 界面片段 panel-home：洞府（闭关、服丹疗伤、四项设施）与炼丹房
+/* 废柴仙途 · 界面片段 panel-home：洞府（闭关、服丹疗伤、四项设施；炼丹房、灵田、兽栏、器炉的入口）
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * 闭关的花费、倍率、疲劳、多得多少修为都取自 L.retInfo；设施的“值不值”取自 L.upInfo。 */
 // ---------- 洞府 ----------
@@ -21,10 +21,11 @@ function retreatCard() {
 }
 function healCard() {
   if (!(st.p.inj > 0)) return '';
-  const ok = L.canHeal(st);
-  // TODO SYSTEMS §5：疗伤丹上线后这里优先用疗伤丹，破境丹作兜底（L.heal 里改）
-  return `<div class="card flat" style="box-shadow:0 0 0 2px var(--seal)"><div style="flex:none">${iconHTML('pill', 30)}</div><div class="main"><div class="seal">负伤：还剩 ${st.p.inj} 周天</div>
-    <div class="muted">战力 ×0.6、修炼 ×0.5。服一枚破境丹立刻痊愈（你有 ${st.pills} 枚）${ok ? '' : `；坊市 ${fmt(L.price(st, 'pill'))} 灵石一枚`}</div></div>
+  // 先用丹囊里的疗伤丹，没有再用破境丹（alchemy.js 的 L.heal）
+  const ok = L.canHeal(st), w = L.healWith(st), nl = L.bagN(st, 'liaoshang');
+  const how = w === 'liaoshang' ? `服一枚疗伤丹立刻痊愈（丹囊里 ${nl} 枚）` : `服一枚破境丹立刻痊愈（你有 ${st.pills} 枚${st.home.furnace ? `；疗伤丹 ${fmt(L.herbCost(st, L.RECIPE.liaoshang))} 灵草一炉，省下破境丹` : ''}）`;
+  return `<div class="card flat" style="box-shadow:0 0 0 2px var(--seal)"><div style="flex:none">${pillImg(w === 'liaoshang' ? 'liaoshang' : 'pojing', 2)}</div><div class="main"><div class="seal">负伤：还剩 ${st.p.inj} 周天</div>
+    <div class="muted">战力 ×0.6、修炼 ×0.5。${how}${ok ? '' : `；坊市 ${fmt(L.price(st, 'pill'))} 灵石一枚`}</div></div>
     <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnHeal" ${ok ? '' : 'disabled'}>服丹疗伤</button></div></div>`;
 }
 function showHome(still) {
@@ -37,16 +38,19 @@ function showHome(still) {
       <div class="muted">${b.d(lv)}</div>${u.max ? '' : `<div class="jadet">→ ${b.d(lv + 1)}</div><div class="muted">${esc(u.note)}</div>`}${!u.max && !can ? `<div class="muted">还差 ${fmt(u.cost - st.stones)} 灵石</div>` : ''}</div>
       <div class="right"><button class="btn sm ${can ? 'gold' : 'alt'}" data-k="${b.k}" ${can ? '' : 'disabled'}>${u.max ? '已满级' : `${iconHTML('stone', 12)} ${fmt(u.cost)}`}</button></div></div>`;
   }).join('');
-  const alch = (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}</button>` : '')
+  const tox = L.toxinOn(st) ? ` · 丹毒 ${Math.round(st.toxin || 0)}` : '', auto = L.danOf(st).auto.length;
+  const alch = (L.plotCount(st) ? `<button class="btn alt" id="btnField">灵田 · ${L.plotCount(st)} 块 · ${L.plots(st).map(x => L.CROP[x.c].n).filter((n, i, a) => a.indexOf(n) === i).join('、')}${L.yinTotal(st) ? ` · 药引 ${L.yinTotal(st)}` : ''}</button>` : '')
+    + (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}${tox}${auto ? ` · 续炼 ${auto} 种` : ''}</button>` : '')
     + (L.petCount(st) || (st.petPend || []).length ? `<button class="btn ${L.petGlowAny(st) || (st.petPend || []).length ? 'gold' : 'alt'}" id="btnPets">兽栏 · 灵宠 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}${L.petGlowAny(st) ? ' · 能进化' : (st.petPend || []).length ? ' · 有新灵宠' : ''}</button>` : '')
     + (L.gearOpen(st, 'forge') || Object.keys(st.gear.plans).length ? `<button class="btn alt" id="btnForgeH">器炉 · 打造 · 器方 ${Object.keys(st.gear.plans).length} 张 · 灵矿 ${fmt(st.ore || 0)}</button>` : '');
   const s = sheet({ title: '洞府', still, sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))} · 修炼 +${dec(L.gain(st))}/周天`, body: healCard() + retreatCard() + alch + '<div class="sep"></div>' + rows });
   const ab = s.querySelector('#btnAlch'); if (ab) ab.onclick = () => { SFX.tap(); showAlchemy(); };
+  const fb = s.querySelector('#btnField'); if (fb) fb.onclick = () => { SFX.tap(); showField(); };
   const pb = s.querySelector('#btnPets'); if (pb) pb.onclick = () => { SFX.tap(); showPets(); };
   const fh = s.querySelector('#btnForgeH'); if (fh) fh.onclick = () => { SFX.tap(); showForge(); };
   const rb = s.querySelector('#btnRet'); if (rb) rb.onclick = () => { if (L.startRetreat(st)) { SFX.gather(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, `闭关 ×${st.retreat.m.toFixed(2)}`, '#8ff5d0'); closeModal(); } };
   const re = s.querySelector('#btnRetEnd'); if (re) re.onclick = () => { const r = L.endRetreat(st, false); if (r) { SFX.tap(); showHome(true); } };
-  const hb = s.querySelector('#btnHeal'); if (hb) hb.onclick = () => { if (L.heal(st)) { SFX.coin(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '伤势痊愈', '#8ff5d0'); showHome(true); } };
+  const hb = s.querySelector('#btnHeal'); if (hb) hb.onclick = () => { const w = L.healWith(st); if (L.heal(st)) { SFX.coin(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, (w === 'liaoshang' ? '疗伤丹 ' : '') + '伤势痊愈', '#8ff5d0'); showHome(true); } };
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
     if (L.upgrade(st, btn.dataset.k)) {
       SFX.coin();
@@ -57,27 +61,4 @@ function showHome(still) {
   });
 }
 
-// ---------- 炼丹 ----------
-function showAlchemy() {
-  const rate = L.alchRate(st);
-  const body = L.RECIPES.map(rc => {
-    const why = L.canCraft(st, rc.k);
-    const cost = `灵草 ${fmt(L.herbCost(st, rc))}${rc.treasure ? ` · 天材地宝 ${rc.treasure}` : ''}`;
-    return `<div class="card flat"><div style="flex:none">${iconHTML('pill', 28)}</div><div class="main"><div>${rc.n}</div><div class="muted">${rc.d}</div><div class="muted">${cost}${why ? ` · <span class="seal">${why}</span>` : ''}</div></div>
-      <div class="right"><button class="btn sm ${why ? 'alt' : 'gold'}" data-r="${rc.k}" ${why ? 'disabled' : ''}>炼制</button></div></div>`;
-  }).join('');
-  const s = sheet({ title: '炼丹房', sub: `灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure} · 成丹率 ${L.pct(rate)}${L.friend(st, 'ge') ? '（葛老指点）' : ''}`, body: body + '<div class="muted">灵田每周天产灵草，历练（尤其采药）和奇遇也能得到。天材地宝来自地图首领与稀有机缘。成丹分下、中、上、极品四等，炸炉只亏灵草。</div>' });
-  s.querySelectorAll('button[data-r]').forEach(b => b.onclick = () => {
-    const res = L.craft(st, b.dataset.r);
-    if (!res) return;
-    SFX.gather();
-    const s2 = sheet({ title: '开炉炼丹', center: true, noClose: true, body: `<div class="center"><div class="clashL" style="display:inline-block">${iconHTML('pill', 56)}</div></div><p class="center muted">丹炉火起，药香弥漫……</p>` });
-    setTimeout(() => {
-      if (!res.ok) { SFX.fail(); sheet({ title: '炸炉了', center: true, body: `<p class="center">轰的一声，${res.n}没炼成，灵草化为飞灰。</p><p class="center muted">提升丹炉等级（每级 +3%）、与葛老交好，成丹率更高。</p>`, foot: [{ t: '再来', gold: true, fn: showAlchemy }] }); return; }
-      const q = L.QUAL[res.q];
-      if (res.q === 3) { flash(0.6); SFX.reveal(6); banner('丹纹九现', '极品' + res.n); } else SFX.win();
-      sheet({ title: '丹成', center: true, body: `<div class="center">${iconHTML('pill', 44)}</div><div class="center big ${res.q === 3 ? 'goldt' : res.q === 2 ? 'jadet' : ''}">${q.n}${res.n}</div>${res.q === 3 ? '<p class="center seal">丹成之时，九道丹纹浮现，异香百里！</p>' : ''}<div class="fxlist"><span>${esc(res.fx)}</span></div>`, foot: [{ t: '继续炼丹', gold: true, fn: showAlchemy }] });
-    }, 1100);
-    void s2;
-  });
-}
+// 炼丹房在 panel-alchemy.js，灵田在 panel-field.js

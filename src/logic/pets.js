@@ -12,12 +12,12 @@
  *   好感：出战每 36 周天一心、在岗每 72 周天一心、喂食、事件；连续 24 周天既不出战也没岗位 −1 心；0 心再闲 24 周天叼碗出走（pet_runaway），
  *         事件用过以后再闲 24 周天就真的走了；5 心不会走，并解锁“挡劫”（天劫上线前折突破 +3%）。
  *   兽粮：斩妖历练（1 + 地图）× 评价倍率、觅食岗位 0.5/周天、坊市轮换货“兽粮一袋”、宗门宝库、奇遇、放生。
- *   药引（SYSTEMS §5）上线前：进化条件、事件里的药引按 gear.js 的口径折成灵草（每枚 L.YIN_HERB ×(1 + 境界)）。
+ *   药引（SYSTEMS §5，crops.js 的 st.mats.yin）：进化条件里的药引付真的药引；觅食偶尔叼回一枚。守田加灵田作物产量（crops.js 的 L.cropParts）与灵稻的灵石；看炉加成丹率。
  *
  * 接入点（本模块加载时包一层，别的模块不用改）：items 的 L.giveItem / L.itemText 的灵宠分支在 items.js 里转到这里；
  *   L.resolveExp（出战经验、斩妖兽粮、禁地趟数、青羽雀）、L.craft（下品丹 → pet_sick）、L.eligible / L.choiceShown（灵宠事件的前提、进化分支的条件）、
  *   L.spawnVisitor（巡山）、L.ageRate、L.alchRate、L.retBaseMult、L.choiceLuck、L.leapMult、L.expLen、L.gearDingSave、L.gearInjCut、L.expStoneMult、
- *   L.lifespan、L.affKnown、L.elemKnown、L.expElem、L.duelElem、L.gearAffN、L.addAff、L.addMastery、L.gearSmeltOre、L.fieldHerbMult、L.vaultCost / L.vaultBuy（天赋与岗位）。
+ *   L.lifespan、L.affKnown、L.elemKnown、L.expElem、L.duelElem、L.gearAffN、L.addAff、L.addMastery、L.gearSmeltOre、L.toxDecay、L.vaultCost / L.vaultBuy（天赋与岗位）。
  *   tick.js 每周天调 L.petTick；save.js 调 L.migratePets（没有 st.pets 时把旧的 st.p.pet 折成名册，可重复调用）；market.js 的灵兽蛋与“兽粮一袋”调 L.petEgg / L.feedSack。
  *   L.PETS_ON = false（sim 的 nopets）：只剩种的初阶倍率，没有等级、进化、好感、岗位与天赋，量 SYSTEMS §18 的预算。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -56,7 +56,7 @@ L.PET_TAL = {
   duelP3: { k: 'add', v: 0.03, d: v => `先手：对决胜算 +${pc(v)}` },
   affixW: { k: 'mul', v: 1.3, d: v => `兵器词条效果 ×${r2(v)}` },
   cul4: { k: 'mul', v: 1.04, d: v => `修炼 +${pc(v - 1)}` },
-  toxin: { k: 'add', v: 1, d: v => `丹毒消退 +${Math.round(v)}（丹毒上线前：负伤周天 −${Math.round(v)}）` },
+  toxin: { k: 'add', v: 1, d: v => `丹毒每周天多退 ${Math.round(v)}` },
   life5: { k: 'mul', v: 1.05, d: v => `寿元 +${pc(v - 1)}` },
   waterMap: { k: 'add', v: 8, d: v => `水属性地图历练分数 +${r2(v)}` },
   atk11: { k: 'mul', v: 1.1, d: v => `出战战力倍率再 ×${r2(v)}` },
@@ -115,7 +115,7 @@ const hasBranch = sp => !!L.PET_SP[sp].a;
 L.PET_JOBS = [
   { k: 'array', n: '护阵', ty: 'hu', icon: 'job_array', v: 0.05, need: st => st.home.array >= 1, lock: '先升聚灵阵', d: v => `修炼 +${pc(v)}` },
   { k: 'forage', n: '觅食', ty: 'xun', icon: 'job_forage', v: 0.5, need: () => true, d: v => `兽粮 +${r2(v)}/周天，偶尔叼回灵矿或药引` },
-  { k: 'field', n: '守田', ty: 'xun', icon: 'job_field', v: 0.15, need: st => st.home.field >= 1, lock: '先开灵田', d: v => `灵田灵石与灵草 +${pc(v)}` },
+  { k: 'field', n: '守田', ty: 'xun', icon: 'job_field', v: 0.15, need: st => st.home.field >= 1, lock: '先开灵田', d: v => `灵田作物产量与灵稻灵石 +${pc(v)}` },
   { k: 'furnace', n: '看炉', ty: 'ling', icon: 'job_furnace', v: 0.06, need: st => st.home.furnace >= 1, lock: '先建丹炉', d: v => `成丹率 +${pc(v)}` },
   { k: 'patrol', n: '巡山', ty: 'zhan', icon: 'job_patrol', v: 0.5, need: () => true, d: v => `坏访客、盗贼 −${pc(Math.min(0.9, v))}` },
 ];
@@ -410,12 +410,11 @@ L.petFeed = function (st, i) {
 };
 
 // ---------- 进化（5 级二选一）与觉醒（10 级） ----------
-L.yinHerbs = (st, y) => { let n = 0; for (const k in y || {}) n += y[k]; return n * L.YIN_HERB * (1 + rr(st)); };
 const SEASON_N = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 // 一个分支的条件：每项 { t 文字, ok, cost 是否要花 }
 L.petBranchNeeds = function (st, p, b) {
   const S = L.PET_SP[p.sp], B = S[b === 1 ? 'a' : 'b'], c = B.c, out = [];
-  if (c.yin) { const h = L.yinHerbs(st, c.yin); out.push({ t: `喂${Object.keys(c.yin).map(y => L.YIN_N[y] + ' ×' + c.yin[y]).join('、')}（药引上线前折灵草 ${L.fmt(h)}）`, ok: st.herbs >= h, cost: 1, have: st.herbs, need: h }); }
+  if (c.yin) for (const y in c.yin) out.push({ t: `喂${L.YIN_N[y]} ×${c.yin[y]}`, ok: L.yinHave(st, y) >= c.yin[y], cost: 1, have: L.yinHave(st, y), need: c.yin[y] });
   if (c.ore) { const n = c.ore * L.oreUnit(st); out.push({ t: `喂灵矿 ${L.fmt(n)}`, ok: (st.ore || 0) >= n, cost: 1, have: st.ore || 0, need: n }); }
   if (c.mat !== undefined) out.push({ t: `${L.BOSS_MAT[c.mat]} ×1（${L.BOSSES[c.mat].n}掉落）`, ok: ((st.gear && st.gear.mats[c.mat]) || 0) >= 1, cost: 1, have: (st.gear && st.gear.mats[c.mat]) || 0, need: 1 });
   if (c.deep !== undefined) out.push({ t: `带它去${L.REGIONS[c.deep].n}禁地 3 趟（出战时）`, ok: (p.deep[c.deep] || 0) >= 3, have: p.deep[c.deep] || 0, need: 3 });
@@ -436,7 +435,7 @@ L.petGlow = (st, p) => L.petCanAwake(p) || (L.petCanEvo(p) && (L.petBranchOk(st,
 L.petGlowAny = st => (st.pets || []).some(p => L.petGlow(st, p));
 function payBranch(st, p, b, only) {
   const c = L.PET_SP[p.sp][b === 1 ? 'a' : 'b'].c;
-  if (!only && c.yin) st.herbs -= L.yinHerbs(st, c.yin);
+  if (!only && c.yin) L.yinPay(st, c.yin);
   if (!only && c.ore) st.ore -= c.ore * L.oreUnit(st);
   if (c.mat !== undefined && st.gear) st.gear.mats[c.mat] = Math.max(0, (st.gear.mats[c.mat] || 0) - 1);
 }
@@ -505,7 +504,7 @@ L.petTick = function (st, out) {
     if (R() < N.forageFind * L.petJobK(L.petJobHolder(st, 'forage'), 'forage')) {
       const fp = L.petJobHolder(st, 'forage');
       if (R() < 0.5) { const n = L.addOre(st, L.oreUnit(st)); L.log(st, `觅食的【${L.petName(fp)}】叼回一块灵矿：+${n}`); }
-      else { const h = L.yinHerbs(st, { wood: 1 }); st.herbs += h; L.log(st, `觅食的【${L.petName(fp)}】叼回一株药草：灵草 +${L.fmt(h)}`); }
+      else { const y = pick(L.YIN_KEYS); L.addYin(st, y, 1); L.log(st, `觅食的【${L.petName(fp)}】叼回一枚${L.YIN_N[y]}`); }
     }
   }
   // 名册 ≥ 2：两只争窝（pet_fight，每届论道后 25%）
@@ -541,8 +540,8 @@ L.resolveExp = function (st) {
 
 // ---------- 剧情触发：下品丹 → pet_sick ----------
 const craft0 = L.craft;
-L.craft = function (st, k) {
-  const res = craft0(st, k);
+L.craft = function (st, k, opt) {
+  const res = craft0(st, k, opt);
   if (res && res.ok && res.q === 0 && L.petOut(st) && !st.evDone.pet_sick && R() < L.PET_N.sick) { st.petFocus = L.petOut(st).u; L.fireTrigger(st, 'pet_sick'); }
   return res;
 };
@@ -568,7 +567,8 @@ L.addCulMod('petTal', 81, st => {
   const ql = tv(st, 'qilin'); if (ql) a.push(['灵宠·麒麟（祥瑞）', ql, 'pet']);
   return a.length ? a : null;
 });
-L.addIncSrc('petField', 11, st => { const v = jobV(st, 'field'); return v && st.home.field ? [`灵宠守田·${L.petName(L.petJobHolder(st, 'field'))}`, L.fieldInc(st.home.field) * v, 'petjob'] : null; });
+// 守田：灵稻的灵石 +v（只算种灵稻的几块，crops.js 的 L.fieldStoneInc）；别的作物的产量 +v 在 crops.js 的 L.cropParts
+L.addIncSrc('petField', 11, st => { const v = jobV(st, 'field'); return v && st.home.field && L.riceCount(st) ? [`灵宠守田·${L.petName(L.petJobHolder(st, 'field'))}`, L.fieldStoneInc(st) * v, 'petjob'] : null; });
 L.addIncMul('petTal', 46, st => { const ql = tv(st, 'qilin'); return ql ? ['灵宠·麒麟（祥瑞）', ql, 'pet'] : null; });
 L.addExpMod('pet', 18, (st, k, d, a) => {
   const out = [], p = L.petOut(st); if (!p) return null;
@@ -601,7 +601,8 @@ wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + tv(st, 'realmUnk') + (L.s
 wrap('leapMult', b => st => b(st) * tv1(st, 'leap'));
 wrap('expLen', b => (k, st) => { const n = b(k, st); return st && tv(st, 'explen') ? Math.max(2, Math.min(n, n - 1)) : n; });
 wrap('gearDingSave', b => st => { const a = b(st), v = Math.min(0.9, tv(st, 'dingSave')); return 1 - (1 - a) * (1 - v); });
-wrap('gearInjCut', b => st => b(st) + Math.round(tv(st, 'injCut2') + tv(st, 'toxin')));
+wrap('gearInjCut', b => st => b(st) + Math.round(tv(st, 'injCut2')));
+wrap('toxDecay', b => st => b(st) + tv(st, 'toxin'));
 wrap('expStoneMult', b => (st, a) => b(st, a) * tv1(st, 'expStone'));
 wrap('lifespan', b => st => { const y = b(st); return isFinite(y) ? y * tv1(st, 'life5') : y; });
 wrap('affKnown', b => (st, k, a) => b(st, k, a) || !!tv(st, 'reveal'));
@@ -617,7 +618,6 @@ wrap('gearAffN', b => (st, id) => {
 wrap('addAff', b => (st, id, d) => b(st, id, d > 0 ? d + Math.round(tv(st, 'visitAff')) : d));
 wrap('addMastery', b => (st, id, n) => { const z = st.arts && st.arts.slot && st.arts.slot[1]; return b(st, id, z && id === z && n > 0 ? n * tv1(st, 'zhanMast') : n); });
 wrap('gearSmeltOre', b => x => { const v = b(x); return curSt ? v * tv1(curSt, 'smelt') : v; });
-wrap('fieldHerbMult', b => st => b(st) * (1 + jobV(st, 'field')));
 // 巡山：坏访客、盗贼来的时候，巡山的灵宠按概率把人轰走（换一位来）
 L.PET_BAD = ['re_bandit', 'home_challenger', 'sect_spy', 'world_lingchao', 'bai_1', 'sect_merchant_war'];
 L.petBadVisitor = ev => !!ev && (L.PET_BAD.includes(ev.id) || /贼|劫|盗|踢馆|细作|勒索/.test(ev.title || ''));
@@ -688,10 +688,7 @@ L.supportFx('petForm', { ok: v => !!parseForm(v), apply: (st, v, out) => {
   out.push(`【${r.from}】进化成【${r.to}】：${r.tal}`);
   out.petEvo = r;
 } });
-const YK = ['fire', 'ice', 'thunder', 'wood', 'soul'];
-const yinOk = v => !!v && typeof v === 'object' && Object.keys(v).length > 0 && Object.keys(v).every(k => YK.includes(k) && Number.isInteger(v[k]) && v[k] > 0);
-L.supportFx('yin', { ok: yinOk, apply: (st, v, out) => { const h = L.yinHerbs(st, v); st.herbs += h; out.push(`${Object.keys(v).map(y => L.YIN_N[y] + ' ×' + v[y]).join('、')}（药引上线前折灵草 +${L.fmt(h)}）`); } });
-L.supportCost('yin', { ok: (st, v) => st.herbs >= L.yinHerbs(st, v), pay: (st, v) => { st.herbs = Math.max(0, st.herbs - L.yinHerbs(st, v)); }, text: (st, v) => `${Object.keys(v).map(y => L.YIN_N[y] + ' ×' + v[y]).join('、')}（折灵草 ${L.fmt(L.yinHerbs(st, v))}）` });
+// fx.yin / cost.yin（药引）在 crops.js 登记
 for (const t of ['egg', 'pet_runaway', 'pet_fight', 'pet_sick', 'pet_evolve:']) L.supportTrigger(t);
 // 一次性钩子 flag：hatch_stone 当场孵出 / hatch_warm（心已 +1）/ hatch_field 埋进灵田（地气养过：直接 2 级）/ pet_release 放生 / pet_job_pick 派个岗 / pen_discount 兽栏扩建（喂养 +8%）
 const flagPrev = L.CAPS.fx.flag;
@@ -737,7 +734,7 @@ L.petAuto = function (st, o) {
   if (L.petJobsOpen(st)) st.pets.forEach((p, i) => { if (i !== st.petOut && !p.job) { const k = L.petBestJob(st, p); if (k) L.petSetJob(st, i, k); } });
   st.pets.forEach((p, i) => {
     if (L.petCanAwake(p)) L.petAwake(st, i);
-    if (L.petCanEvo(p)) for (const br of [1, 2]) if (L.petBranchOk(st, p, br) && (!o.herbKeep || !L.PET_SP[p.sp][br === 1 ? 'a' : 'b'].c.yin || st.herbs - L.yinHerbs(st, L.PET_SP[p.sp][br === 1 ? 'a' : 'b'].c.yin) >= o.herbKeep)) { L.petEvolve(st, i, br); break; }
+    if (L.petCanEvo(p)) for (const br of [1, 2]) if (L.petBranchOk(st, p, br)) { L.petEvolve(st, i, br); break; }
   });
   if (o.feed !== false) {
     const order = st.pets.map((p, i) => i).sort((x, y) => (y === st.petOut) - (x === st.petOut));
