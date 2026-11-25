@@ -605,7 +605,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
   const gHint = async (id, setup) => {
-    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen.plots = 1; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
+    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.hintSeen[id] = 0; st.tick += 60;   // 别的讲解先标成讲过、越过两条提示之间的冷却
+    st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
     await page.waitForTimeout(900);
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
     const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
