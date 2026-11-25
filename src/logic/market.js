@@ -25,6 +25,7 @@ L.MARKET = [
   { k: 'robe', n: '法衣', d: '随机词条，走对比卡', base: 300 },
   { k: 'frag', n: '功法残篇', d: '三片合成一门神阶功法', base: 800 },
   { k: 'plan', n: '器方', d: '化神后器炉按方打造专属法宝', base: 1000 },
+  { k: 'token', n: '秘境令', d: '夏季进秘境用，最多持 3 枚（每个夏季另送一枚）', base: 500 },
 ];
 const MK = {}; for (const M of L.MARKET) MK[M.k] = M;
 L.price = (st, k) => Math.floor(MK[k].base * Math.pow(2.6, rr(st)));
@@ -53,6 +54,7 @@ L.SHELF_POOL = [
   { k: 'pill', off: true, w: 2, ok: () => true, lim: () => 3 },
   { k: 'box', off: true, w: 2, ok: st => st.stats.exp >= 1, lim: () => 2 },
   { k: 'egg', off: true, w: 1, ok: st => st.rebirth > 0 || mr(st) >= 1, lim: () => 1 },
+  { k: 'token', w: 1.5, ok: st => !!L.mjUnlocked && L.mjUnlocked(st) && L.mjTokens(st) < L.MJ.tokenMax, lim: () => 1, lock: '筑基中期后上架' },   // 秘境令（realm.js）
 ];
 L.restock = function (st, quiet) {
   const m = mk(st);
@@ -84,6 +86,7 @@ function rowDesc(st, s) {
   if (s.k === 'robe') return `现在 ${L.gearTier(st, 'r') ? L.gearTierName('r', L.gearTier(st, 'r')) : '空'}；随机词条，走对比卡`;
   if (s.k === 'frag') return `${(st.arts.frag[s.art] || 0)}/3 片，集齐三片得这门神阶功法`;
   if (s.k === 'plan') { const P = L.PLAN[s.plan]; return `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; }
+  if (s.k === 'token') return `手里 ${L.mjTokens(st)}/${L.MJ.tokenMax} 枚 · 夏季进秘境用`;
   return MK[s.k].d;
 }
 // 买价的组成：折扣、本届九折、商路断绝 +30%
@@ -165,6 +168,7 @@ function giveGood(st, row) {
     return { k: 'box', it };
   }
   if (row.k === 'egg') return { k: 'egg', it: L.giveItem(st, 'pet', L.rollTier(st, 1 + Math.floor(r * 0.6), 6)) };
+  if (row.k === 'token') { if (!L.mjAddToken(st, 1)) return null; L.log(st, `坊市买下一枚秘境令（${L.mjTokens(st)}/${L.MJ.tokenMax}）`); return { k: 'token' }; }
   return null;
 }
 // 买第 i 格（L.shelf 的序号）

@@ -33,6 +33,8 @@ const EV_BASE = ['id', 'where', 'title', 'text', 'choices', 'speaker', 'weight',
 const CH_BASE = ['t', 'cost', 'p', 'duel', 'ok', 'fail'];
 const triggerOk = t => { const C = L.CAPS.trigger; if (C[t]) return true; const i = t.indexOf(':'); return i > 0 && !!C[t.slice(0, i + 1)]; };
 const triggerKey = t => { const i = t.indexOf(':'); return i > 0 ? t.slice(0, i + 1) + '*' : t; };
+// 登记时可带 where: ['realm']：只对这些 where 的事件算支持（realm.js 给秘境事件先收着别的系统的键，别处的事件仍闸着）
+const scoped = (c, ev) => !!c.where && !c.where.includes(ev.where);
 // 返回这条事件缺的能力（空数组 = 可以上线），形如 'fx.grudge'、'elig.favorMin'、'trigger.rookie:*'、'fx.item=need'
 function gate(ev) {
   const C = L.CAPS, miss = new Set();
@@ -41,20 +43,20 @@ function gate(ev) {
   for (const k of Object.keys(ev)) {
     if (EV_BASE.includes(k)) continue;
     const c = C.elig[k];
-    if (!c) miss.add('elig.' + k); else if (c.ok && !c.ok(ev[k], ev)) miss.add('elig.' + k + '=' + ev[k]);
+    if (!c || scoped(c, ev)) miss.add('elig.' + k); else if (c.ok && !c.ok(ev[k], ev)) miss.add('elig.' + k + '=' + ev[k]);
   }
   for (const ch of ev.choices || []) {
     for (const k of Object.keys(ch)) {
       if (CH_BASE.includes(k)) continue;
       if (!C.choice[k]) miss.add('choice.' + k);
     }
-    for (const k of Object.keys(ch.cost || {})) if (!C.cost[k]) miss.add('cost.' + k);
+    for (const k of Object.keys(ch.cost || {})) if (!C.cost[k] || scoped(C.cost[k], ev)) miss.add('cost.' + k);
     for (const b of ['ok', 'fail']) {
       const fx = ch[b] && ch[b].fx;
       if (!fx) continue;
       for (const k of Object.keys(fx)) {
         const c = C.fx[k];
-        if (!c) miss.add('fx.' + k);
+        if (!c || scoped(c, ev)) miss.add('fx.' + k);
         else if (c.ok && !c.ok(fx[k], fx)) miss.add('fx.' + k + '=' + (typeof fx[k] === 'object' ? JSON.stringify(fx[k]).slice(0, 24) : fx[k]));
       }
     }

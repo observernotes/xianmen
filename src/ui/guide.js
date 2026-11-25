@@ -167,6 +167,7 @@ const calHints = [
     } },
 ];
 HINTS.push(...calHints);
+HINTS.push(...realmHints);   // 秘境：开了提醒一次、第一次进去讲三句（panel-realm.js）
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
 const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
@@ -199,7 +200,8 @@ function currentGuide() {
   }
   if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; }
   if (activeHint && !activeHint.until && !activeHint.when()) activeHint = null;
-  if (!activeHint) activeHint = HINTS.find(h => !st.hintSeen[h.id] && (h.urgent || st.tick >= hintCool) && h.when()) || null;
+  if (activeHint && st.run && !/^realm/.test(activeHint.id)) activeHint = null;   // 秘境里只讲秘境的
+  if (!activeHint) activeHint = HINTS.find(h => !st.hintSeen[h.id] && (!st.run || /^realm/.test(h.id)) && (h.urgent || st.tick >= hintCool) && h.when()) || null;
   if (activeHint && activeHint.until && !activeHint.when() && !activeHint.until()) return null;
   return activeHint;
 }
@@ -274,6 +276,7 @@ function showHelp() {
   sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
 }
 const GO = {
+  realm: () => showRealm(),
   exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
   cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };

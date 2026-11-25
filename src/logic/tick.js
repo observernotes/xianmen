@@ -27,6 +27,8 @@ L.tick = function (st, cont) {
   L.gearTick(st);
   // 历法：大势到期 / 每轮 t%12 = 2 掷新的一件、换季（calendar.js）
   L.calTick(st, out);
+  // 秘境：每个夏季头一个周天送一枚秘境令（realm.js）
+  if (L.mjTick) L.mjTick(st, out);
   // 增益与灵草
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);

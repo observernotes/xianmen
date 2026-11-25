@@ -7,6 +7,7 @@ function goodImg(st0, row) {
   if (k === 'ore') return oreImg(pxs(16, 2));
   if (k === 'frag') return icon16('frag', 2);
   if (k === 'plan') return scrollImg(pxs(16, 2));
+  if (k === 'token') return icon16('token', 2);
   if (k === 'robe' && s.tier) { const c = ART.item('r', s.tier), z = pxs(16, 2); return `<img class="px" src="${urlOf(c, 'gear|r|' + s.tier)}" style="width:${z}px;height:${z}px;flex:none" alt="">`; }
   return iconHTML({ pill: 'pill', box: 'bag', egg: 'pet', life: 'life' }[k] || 'bag', 30);
 }

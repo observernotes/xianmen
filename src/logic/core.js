@@ -179,8 +179,8 @@ L.pNeed = p => L.need(L.si(p));
 L.stageName = p => (p.r >= 9 ? '真仙' : L.REALMS[p.r].n + L.STAGES[p.s]);
 // 修为圆满（不管人在哪）；isReady = 圆满且人在洞府，可以冲击大境界
 L.isFull = st => st.p.r <= L.MAXR && st.p.s === 3 && st.p.xp >= L.pNeed(st.p);
-L.isReady = st => !st.exp && L.isFull(st);
-L.busy = st => !!(st.exp || st.retreat);
+L.isReady = st => !st.exp && !st.run && L.isFull(st);
+L.busy = st => !!(st.exp || st.retreat || st.run);   // st.run：人在秘境里（realm.js）
 L.has = (st, k) => st.p.tr.includes(k);
 L.lifespan = function (st) {
   const p = st.p;

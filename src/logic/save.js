@@ -85,6 +85,7 @@ L.migrate = function (s) {
   const artNote = L.migrateArts(s);
   const gearNote = L.migrateGear(s);
   L.migrateMarket(s);
+  if (L.migrateRealm) L.migrateRealm(s);   // 秘境：st.run / st.mj / st.meta.mj 缺了补默认（幂等，不升版本）
   if (old) {
     const st = s;
     // 修为：旧需求 300 × 1.55^i（更早的档还要 ×10），按进度比例折成新数值

@@ -43,7 +43,8 @@ function showExp() {
       <div class="muted">${rg.desc}</div><div class="muted num">推荐战力 ${fmt(L.rec(k, 0))} / ${fmt(L.rec(k, 1))} / ${fmt(L.rec(k, 2))}</div><div class="muted">最高评价：${bests}</div></div>
       <div class="right">${rateChip(f)}<span class="muted">${L.DEPTHS[c.d]}·${L.APPR[c.a].n}</span></div></div>`);
   }
-  const s = sheet({ title: '外出历练', sub: `你的战力 ${fmt(L.power(st))} · 历练途中修炼 ×0.5 · 评价丁等负伤 3 周天`, body: rows.reverse().join('') });
+  const s = sheet({ title: '外出历练', sub: `你的战力 ${fmt(L.power(st))} · 历练途中修炼 ×0.5 · 评价丁等负伤 3 周天`, body: realmExpCard() + rows.reverse().join('') });
+  bindRealmCard(s);   // 秘境一格（panel-realm.js）
   s.querySelectorAll('.card[data-k]').forEach(c => c.onclick = () => { SFX.tap(); const k = +c.dataset.k, dc = defaultCell(st, k); confirmExp(k, dc.d, dc.a); });
   s.querySelectorAll('.card[data-boss]').forEach(c => c.onclick = () => { SFX.tap(); fightBossUI(+c.dataset.boss); });
 }
