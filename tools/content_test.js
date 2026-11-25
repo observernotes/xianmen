@@ -413,6 +413,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 年历：筑基且约战打完后，“大事”牌点开是年历（24 格时间轴 + 论道 / 拍卖 / 会武 / 秘境 / 大势各一行）；大势小牌在场景右上角
   await page.evaluate(() => { const { st, L } = window.__xm; st.market.evQ = []; st.tick = 158; st.cal.w = { id: 'w_shouchao', at: 158, until: 166 }; L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true; });
+  await page.evaluate(() => { const { st } = window.__xm; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });   // 合并后新增的老祖讲解会盖住小牌：一律算看过
   await page.waitForTimeout(400);
   const tag = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden, txt: el.textContent, w: r.width, h: r.height }; });
   expect(tag.vis && tag.txt.includes('兽潮') && tag.txt.includes('8') && tag.w >= 44 && tag.h >= 44, `大势小牌：${tag.txt}（${Math.round(tag.w)}×${Math.round(tag.h)}）`);
@@ -893,8 +894,11 @@ require('fs').mkdirSync(out, { recursive: true });
     const r5 = L.mjAfterEvent(s); o.afterEv = { ph: run.phase, next: r5 && r5.next };
     const altar = L.eventById('realm_altar'); run.hp = 50; L.resolveChoice(s, altar, 1); o.altarHp = run.hp;
     run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
-    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线，宿敌那边的 zhao_2 还闸着）
-    o.gate = { zhao: L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
+    // 恩怨 grudge 随“宿敌与新秀”接入：秘境的 realm_rival 与宿敌那边的 zhao_2 都上线（不再闸着）
+    const z2 = L.eventById('zhao_2'), zs = (() => { const r0 = L.rng; L.rng = Math.random; try { return L.newState({ name: '顶罪' }); } finally { L.rng = r0; } })();   // 这里 L.rng 被钉成常数，newState 取名会死循环：临时换回真随机
+    zs.p.r = 2; zs.flags.maxR = 2; zs.stats.exp = 5; zs.stats.tour = 1; zs.pact = 1;
+    const z2no = L.eligible(zs, z2, 'exp', { bg: 'swords' }); zs.eflags.beat_zhao = 1; const z2yes = L.eligible(zs, z2, 'exp', { bg: 'swords' });
+    o.gate = { zhao: L.evLive(z2) && !z2no && z2yes, rival: L.evLive(L.eventById('realm_rival')) };
     // 离开：收获全部到手
     o.leave2 = L.mjCanLeave(s); const pend = L.mjPending(s).stones, sb = s.stones, n = run.loot.length; const sum = L.mjLeave(s);
     o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks };
@@ -937,7 +941,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(mj.afterEv.ph === 'door', `奇遇处理完回到门前：${JSON.stringify(mj.afterEv)}`);
   expect(mj.altarHp === 60, `fx.hp：续一炷香气血 50 → ${mj.altarHp}`);
   expect(mj.skip[1] === mj.skip[2] && mj.skip[3], `run_skip：第 ${mj.skip[0]} 层 → 第 ${mj.skip[1]} 层（终层前一层 ${mj.skip[2]}），标记不留在 eflags`);
-  expect(mj.gate.zhao && mj.gate.rival, `恩怨只对秘境事件放行：zhao_2 仍闸 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
+  expect(mj.gate.zhao && mj.gate.rival, `恩怨接入后 zhao_2 上线且只在击败赵乾（beat_zhao）后才出、realm_rival 上线：zhao_2 ${mj.gate.zhao}、realm_rival ${mj.gate.rival}`);
   expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 3, `带着收获离开：${JSON.stringify(mj.leave)}`);
   expect(mj.wipe.how === 'wipe' && mj.wipe.got === mj.wipe.want && mj.wipe.inj >= 4 && !mj.wipe.run, `重伤出局：灵石留四成 ${mj.wipe.got}/${mj.wipe.want}，负伤 ${mj.wipe.inj}`);
   expect(mj.th3 === 'youquan' && mj.chest.ph === 'chest' && mj.chest.ks.includes('art:x_hunyuan') && mj.chest.ks.length === 3, `秘藏三选一（第三次通关出混元道经）：${JSON.stringify(mj.chest)}`);
@@ -1092,6 +1096,542 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(th.vis && th.hold && th.txt.includes('丹毒 25') && th.txt.includes('过 60'), '老祖的丹毒讲解：' + JSON.stringify(th));
   await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); window.__xm.setSpeed(3); });
   await page.waitForTimeout(300);
+  // ---------- 宿敌与新秀（逻辑层）：恩怨上下限与阈值、fx / elig、永久系数封顶、抬价与带头、论道前的对手与论道第一场一致、换战技（五行克制 +11 个百分点）、
+  // 法宝克、图鉴、新秀出现 / 追赶 / 打压 / 指点 / 看一眼 / 送礼、norivals2、迁移、来犯前夜（zhao_3、raid_intel、raid_delay）。检查体在 tools/ 外无副本，这里每段 evaluate 自成一体 ----------
+  const rvL1 = await page.evaluate(() => {
+    const { L } = window.__xm; const o = {};
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
+    const clone = x => JSON.parse(JSON.stringify(x));
+    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    // 把榜单排成“你在第 rank 名”：榜上 99 个、不含你
+    // ---------- 1. 恩怨 ----------
+    {
+      const s = mk(); const r = () => s.rv2;
+      o.gCapHi = L.addGrudge(s, 'mu', 500) === 100 && s.grudge.mu === 100 && L.addGrudge(s, 'mu', 5) === 0;
+      o.gCapLo = L.addGrudge(s, 'mu', -1000) === -200 && s.grudge.mu === -100 && L.addGrudge(s, 'mu', -5) === 0;
+      const t = mk(); t.grudge.zhao = 40; t.tick = 310;
+      L.addGrudge(t, 'zhao', 19); const before = t.rv2.g60.zhao;
+      L.addGrudge(t, 'zhao', 1); const at60 = t.rv2.g60.zhao;
+      t.tick = 400; L.addGrudge(t, 'zhao', -50); L.addGrudge(t, 'zhao', 50);
+      o.g60 = before === undefined && at60 === 310 && t.rv2.g60.zhao === 310 && t.grudge.zhao === 60;   // 59 不记、60 记、第二次跨过不改第一次的周天
+      const u = mk(); L.addGrudge(u, 'zhao', -39); const n39 = !!u.eflags.zhao_owes; L.addGrudge(u, 'zhao', -1);
+      const v = mk(); L.addGrudge(v, 'mu', -40); const w = mk(); L.addGrudge(w, 'chu', -60);
+      o.zhaoOwes = !n39 && u.grudge.zhao === -40 && !!u.eflags.zhao_owes && u.rv2.gLo.zhao === 300 && !v.eflags.zhao_owes && !w.eflags.zhao_owes && v.rv2.gLo.mu === 300;
+      // fx.grudge：rk 键作用于池子里恩怨最深的那位
+      const p = mk(); p.rv2.pool = [{ id: 'rkA', n: '甲', s: '青玄剑宗', el: 'huo', g: 60 }, { id: 'rkB', n: '乙', s: '赤霄剑宗', el: 'mu', g: 80 }];
+      L.applyFx(p, { grudge: { rk: -30 } });
+      const g1 = p.rv2.pool.map(x => x.g).join(','); L.applyFx(p, { grudge: { rk: -30 } });
+      o.fxRk = g1 === '60,50' && p.rv2.pool.map(x => x.g).join(',') === '30,50';
+      const e = mk(); let thrown = false; try { L.applyFx(e, { grudge: { rk: 10 } }); } catch (x) { thrown = true; }
+      o.fxRkEmpty = !thrown && !e.rv2.pool.length;
+      o.fxRival = (() => { const q = mk(); L.applyFx(q, { grudge: { chu: 30, xue: -10 } }); return q.grudge.chu === 30 && q.grudge.xue === -10; })();
+      // elig.grudge 是闭区间
+      const ev = L.eventById('rv_ambush_mu'), ev2 = L.eventById('zhao_4'), res = {};
+      const q = mk();
+      for (const g of [59, 60, 100]) { q.grudge.mu = g; res['a' + g] = L.eligible(q, ev, 'exp', {}); }
+      for (const g of [-39, -40, -100]) { q.grudge.zhao = g; res['b' + g] = L.eligible(q, ev2, 'home', { visit: true }); }
+      o.eligGrudge = L.evLive(ev) && L.evLive(ev2) && !res.a59 && res.a60 && res.a100 && !res['b-39'] && res['b-40'] && res['b-100'];
+      L.RIVALS2_ON = false; q.grudge.mu = 80; const off = L.eligible(q, ev, 'exp', {}); L.RIVALS2_ON = true;
+      o.eligOff = !off && L.eligible(q, ev, 'exp', {});
+    }
+    // ---------- 1b. 永久系数封顶、抬价、带头 ----------
+    {
+      const x = { n: '甲', id: 'zhao', pw: 1 }; let last = 1;
+      for (let i = 0; i < 12; i++) last = L.rivalBoost(mk(), x, 1.05);
+      const capped = x.pw, again = L.rivalBoost(mk(), x, 1.05), big = { id: 'mu', n: '乙', pw: 1.2 }, rb = L.rivalBoost(mk(), big, 3);
+      o.boostCap = Math.abs(capped - 1.3) < 1e-9 && again === 1 && x.pw === capped && Math.abs(big.pw - 1.3) < 1e-9 && Math.abs(rb - 1.3 / 1.2) < 1e-6 && L.rivalBoost(mk(), { pw: 1 }, 0) === 1 && L.rivalBoost(mk(), null, 2) === 1;
+      const s = mk(), comp = id => ({ kind: 'rival', id });
+      s.grudge.mu = 59; s.grudge.zhao = 60; s.grudge.chu = -50;
+      const b59 = L.rivalBid(s, comp('mu')), b60 = L.rivalBid(s, comp('zhao')), bn = L.rivalBid(s, comp('chu')), bnpc = L.rivalBid(s, { kind: 'npc', id: 'su' });
+      s.grudge.mu = 90; const hot = L.rivalBid(s, comp('mu')); s.eflags.mu_clear = 1; const clear = L.rivalBid(s, comp('mu')); delete s.eflags.mu_clear; s.eflags.mu_friend = 1; const fr = L.rivalBid(s, comp('mu'));
+      s.grudge.zhao = 90; const zh = L.rivalBid(s, comp('zhao'));   // 和解标记只对慕容
+      L.RIVALS2_ON = false; const off = L.rivalBid(s, comp('zhao')); L.RIVALS2_ON = true;
+      o.bid = !b59 && !!b60 && b60.m === 1.2 && b60.cut === 0.1 && !bn && !bnpc && !!hot && !clear && !fr && !!zh && !off;
+      // 带头：按恩怨降序，m 在 1.1～1.2
+      const t = mk(); t.grudge.mu = 70; t.grudge.zhao = 100; t.grudge.chu = 59; t.grudge.xue = 60; t.rv2.pool = [{ id: 'rkA', n: '甲', s: '青玄剑宗', el: 'huo', g: 80 }, { id: 'rkB', n: '乙', s: '赤霄剑宗', el: 'mu', g: 59 }];
+      const lead = L.rivalLeads(t);
+      o.leads = lead.map(x => x.id).join() === 'zhao,rkA,mu,xue' && lead.every(x => x.m >= 1.1 && x.m <= 1.2) && lead[0].m === 1.2 && lead[3].m === 1.1 && lead[1].rookie === true && lead[0].nine === 'tianjian' && lead[2].nine === '' && lead.every((x, i) => !i || lead[i - 1].g >= x.g);
+    }
+    return o;
+  });
+  for (const k in rvL1) expect(rvL1[k], '宿敌与新秀（恩怨、永久系数、抬价与带头）：' + k);
+  const rvL2 = await page.evaluate(() => {
+    const { L } = window.__xm; const o = {};
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
+    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const arts = (s, ids, eq) => { for (const id of ids) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); return s; };
+    // ---------- 2. 论道前的对手与论道第一场一致 ----------
+    {
+      // 前方 15 名内有没打赢过的宿敌：赵乾在 45，你在 50
+      const cases = [];
+      const a = mk({ rank: 50 }); a.beaten.mu = 1; cases.push(['near', a, 'zhao', 45]);
+      const b = mk({ rank: 80, pact: -1 }); cases.push(['pact', b, 'mu', 72]);   // 三年之约输了：第一场固定是退婚的那位
+      const c = mk({ rank: 1 }); cases.push(['top', c, 'yun', 2]);                // 榜首：打第 2 名
+      const d = mk({ rank: 50 }); d.beaten.zhao = 1; d.beaten.mu = 1; const none = L.tourFoe(d);   // 打赢过了：没有宿敌
+      const e = mk({ rank: 20, tick: 120 }); e.beaten.mu = 1; cases.push(['chu', e, 'chu', 12]);
+      for (const [k, s, id, q] of cases) {
+        const tf = L.tourFoe(s);
+        const S = L.power(s);
+        // 战力 ≥ 宿敌的 1/1.6 才会选他：tourFoe 与 tournament 用同一条线
+        const ok0 = !!tf && tf.id === id && tf.q === q && tf.foe.id === id && tf.foe.q === q && tf.Q === L.rivalPower(s, q);
+        const res = withR(0.99, () => L.tournament(s));
+        const r0 = res.rounds[0];
+        o['tourFoe_' + k] = ok0 && r0.q === q && r0.rv && r0.rv.id === id && Math.abs(r0.P - tf.Q) / tf.Q < 1e-9;
+      }
+      // 约战输了：赵乾排在前方 15 名内更近的位置，第一场也固定是慕容（退婚那位）
+      const pz = mk({ rank: 80, pact: -1 }); const zi = pz.ladder.findIndex(x => x.id === 'zhao'); [pz.ladder[zi], pz.ladder[75]] = [pz.ladder[75], pz.ladder[zi]];
+      const pzf = L.tourFoe(pz), pzr = withR(0.99, () => L.tournament(pz)).rounds[0];
+      o.tourFoePact2 = L.rivalRank(pz, 'zhao') === 76 && pzf.id === 'mu' && pzr.rv.id === 'mu' && pzr.q === pzf.q;
+      o.tourFoeNone = none === null;
+      o.tourFoeNoPact = mk({ rank: 50, pact: 0 }).pact === 0 && L.tourFoe(mk({ rank: 50, pact: 0 })) === null;
+      // 打不过（战力 ≥ 你的 1.6 倍）的宿敌不选：两边都不选他
+      const f = mk({ rank: 50 }); f.beaten.mu = 1; L.rivalBoost(f, f.ladder.find(x => x.id === 'zhao'), 1.3); f.tick = 2000;
+      const tf = L.tourFoe(f), r = withR(0.99, () => L.tournament(f)).rounds[0];
+      o.tourFoeFar = L.rivalPower(f, 45) >= L.power(f) * 1.6 && tf === null && !(r.rv && r.rv.id === 'zhao');
+    }
+    // ---------- 2b. 换战技：五行克制与法宝 ----------
+    {
+      // 对慕容（水）：火被水克（×0.87）、木 / 金中性、土克水（×1.15）
+      const s = arts(mk({ rank: 80, pact: -1 }), ['z_liehuo', 'z_liuyun', 'z_hanyue', 'z_gengjin'], ['z_liehuo']);
+      const tf = L.tourFoe(s), foe = tf.foe;
+      const b = L.duelArtBest(s, foe, L.duelPower(s, { kind: 'rival', id: 'mu', el: '' }));
+      o.artBest = tf.id === 'mu' && b.id === 'z_hanyue' && b.cur === 'z_liehuo' && !b.same && b.ke === true && b.ke0 === true && b.fe === 'shui' && b.me0 === 'huo' && b.me === 'tu' && b.p1 > b.p0;
+      // 中性换克制约 +11 个百分点（0.55 × log2 1.15）：同阶的金（对水中性）→ 土（克水），对手战力调成五五开（对手只给五行，不带法宝）
+      const fe = { kind: 'rival', el: 'shui' };
+      const n = arts(mk({ rank: 80, pact: -1 }), ['z_gengjin', 'z_hanyue'], ['z_gengjin']);
+      const bn = L.duelArtBest(n, fe, L.duelPower(n, fe));
+      o.artNeutral = bn.id === 'z_hanyue' && Math.abs(bn.p0 - 0.5) < 1e-6 && Math.abs((bn.p1 - bn.p0) - 0.55 * Math.log2(1.15)) < 0.005 && Math.abs(bn.p1 - bn.p0 - 0.11) < 0.005 && !bn.ke0 && bn.ke;
+      o.artSame = L.duelArtBest(arts(mk({ rank: 80, pact: -1 }), ['z_hanyue'], ['z_hanyue']), fe, 1e5).same === true;
+      // L.tourSwap：换上最好的（装备生效），再来一次不用换；norivals2 就不换。把慕容的战力调到和你五五开，胜算才不贴着上下限
+      const w = arts(mk({ rank: 80, pact: -1 }), ['z_liehuo', 'z_hanyue'], ['z_liehuo']);
+      w.tick = Math.round((Math.log(L.power(w)) - L.rivalA(72)) / L.RIVAL_SLOPE);
+      const pw = L.tourFoe(w).foe, pBefore = L.duelP(w, L.duelPower(w, pw), L.tourFoe(w).Q, pw);
+      L.RIVALS2_ON = false; const off = L.tourSwap(w); const stay = L.artSlots(w)[1] === 'z_liehuo'; L.RIVALS2_ON = true;
+      const sw = L.tourSwap(w), again = L.tourSwap(w), pAfter = L.duelP(w, L.duelPower(w, pw), L.tourFoe(w).Q, pw);
+      o.tourSwap = pBefore > 0.03 && pBefore < 0.8 && off === null && stay && !!sw && sw.id === 'z_hanyue' && L.artSlots(w)[1] === 'z_hanyue' && Math.abs(sw.p1 - pAfter) < 1e-9 && pAfter - pBefore > 0.15 && again === null && !!sw.tf && sw.tf.id === 'mu';
+      const nf = arts(mk({ rank: 50, beaten: { mu: 1, zhao: 1 } }), ['z_liehuo', 'z_hanyue'], ['z_liehuo']);
+      o.tourSwapNoFoe = L.tourFoe(nf) === null && L.tourSwap(nf) === null && L.artSlots(nf)[1] === 'z_liehuo';
+      // 法宝克：慕容的霜华簪克金，赵乾的镇岳剑克土；克你的攻击属性时他 ×1.1（你这边 ÷1.1）
+      const g = arts(mk(), ['z_gengjin', 'z_hanyue', 'z_liehuo'], ['z_gengjin']);
+      const mu = { kind: 'rival', id: 'mu' }, zhao = { kind: 'rival', id: 'zhao' };
+      const hMuJin = L.rivalGearHit(g, mu);
+      const pJin = L.duelPower(g, mu); L.equipArt(g, 'z_liehuo'); const pHuo = L.duelPower(g, mu), hMuHuo = L.rivalGearHit(g, mu);
+      L.equipArt(g, 'z_hanyue'); const hZhaoTu = L.rivalGearHit(g, zhao), hMuTu = L.rivalGearHit(g, mu);
+      L.RIVALS2_ON = false; const hOff = L.rivalGearHit(g, zhao); L.RIVALS2_ON = true;
+      o.gearHit = !!hMuJin && hMuJin.n === '霜华簪' && hMuJin.ke === 'jin' && hMuHuo === null && !!hZhaoTu && hZhaoTu.n === '镇岳剑' && hMuTu === null && hOff === null
+        && L.rivalGearHit(g, null) === null && L.rivalGearHit(g, { kind: 'boss', k: 0 }) === null;
+      // 金 vs 水中性、火 vs 水被克：金（被法宝克）÷1.1 → 不是土的 1.15，所以算上法宝金比火也只差一点：duelPower(金) × 1.1 ≈ 中性值
+      const g2 = arts(mk(), ['z_gengjin'], ['z_gengjin']);   // 金战技：对水中性，撞上慕容的霜华簪（克金）
+      const pNeutral = L.duelPower(g2, { kind: 'rival', el: 'shui' }); L.equipArt(g2, 'z_gengjin'); const pJin2 = L.duelPower(g2, mu);
+      o.gearMult = Math.abs(pJin2 / pNeutral - 1 / 1.1) < 1e-6 && pJin === pJin2;
+    }
+    // ---------- 3. 交手知道战技、击败知道法宝 ----------
+    {
+      const s = mk({ rank: 50 });
+      const k0 = L.rivalKnow(s, 'zhao'), list0 = L.rivalKnown(s).map(x => x.id);
+      L.revealFoe(s, { kind: 'rival', id: 'zhao' });
+      const k1 = L.rivalKnow(s, 'zhao'), l1 = L.rivalKnown(s).find(x => x.id === 'zhao');
+      L.markBeat(s, 'zhao');
+      const k2 = L.rivalKnow(s, 'zhao'), l2 = L.rivalKnown(s).find(x => x.id === 'zhao');
+      o.know = !k0.el && !k0.art && !k0.gear && !list0.includes('zhao') && k1.el && k1.art && !k1.gear && l1.art === 'z_gengjin' && l1.gear === null && l1.el === 'jin'
+        && k2.gear && l2.gear && l2.gear.n === '镇岳剑' && l2.gear.ke === 'tu' && !L.rivalKnow(s, 'chu').art && !L.rivalKnown(s).some(x => x.id === 'chu');
+      o.beatFlag = s.eflags.beat_zhao === 1 && (L.markBeat(s, 'zhao'), s.eflags.beat_zhao === 1) && s.meta.rival.zhao.gear === 1;
+      // 论道里赢下一场：记图鉴、恩怨 +20
+      const t = mk({ rank: 50 }); t.beaten.mu = 1; const g0 = t.grudge.zhao;
+      const r = withR(0.01, () => L.tournament(t)), rd = r.rounds[0];
+      o.tourBeat = rd.win && rd.rv.id === 'zhao' && rd.first === true && t.grudge.zhao === g0 + 20 && rd.grudge === 20 && L.rivalKnow(t, 'zhao').gear && L.rivalKnow(t, 'zhao').art;
+      // 三年之约赢了：慕容恩怨 +20、图鉴齐
+      const p = mk({ pact: 0, tick: L.PACT_TICK, rank: 100 }); p.p.r = 0; p.p.s = 3; const pr = withR(0.01, () => L.pactDuel(p));
+      o.pactBeat = pr.win && p.grudge.mu === 20 && L.rivalKnow(p, 'mu').gear && L.rivalKnow(p, 'mu').art && p.eflags.beat_mu === 1;
+    }
+    return o;
+  });
+  for (const k in rvL2) expect(rvL2[k], '宿敌与新秀（论道前的对手、换战技、法宝克、图鉴）：' + k);
+  const rvL3 = await page.evaluate(() => {
+    const { L } = window.__xm; const o = {};
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
+    const clone = x => JSON.parse(JSON.stringify(x));
+    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const rkIdx = s => s.ladder.findIndex(x => x.rk);
+    // 把时间推到新秀出现：第一次进 rivalTick 排日子（+6 周天），到点出现
+    const spawn = (s) => { const log = []; for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; const out = {}; L.rivalTick(s, out); log.push(out); } return log; };
+    // ---------- 4. 新秀 ----------
+    {
+      const s = mk({ rank: 10 }); s.p.r = 3;
+      for (let i = 0; i < 12; i++) { s.tick++; L.rivalTick(s, {}); }
+      o.rkNotBefore = !s.rv2.rk && s.rv2.rkN === 0;   // 元婴不出
+      const t = mk({ rank: 10 }); let when = -1;
+      for (let i = 1; i <= 10 && !t.rv2.rk; i++) { t.tick++; const out = {}; L.rivalTick(t, out); if (t.rv2.rk) when = i; }
+      const rk = t.rv2.rk;
+      o.rkSpawn = when === 7 && !!rk && rk.id === 'rk1' && rkIdx(t) >= 0 && t.ladder.length === 99 && L.rookieRank(t) === 30 && t.ladder[rkIdx(t)].rk === 'rk1' && t.rv2.rkN === 1 && L.rookie(t) === rk
+        && t.storyQ.includes('new_1') && t.ladder.filter(x => x.id).length === 5 && new Set(t.ladder.map(x => x.n)).size === 99 && !t.ladder.some(x => x.n === t.p.name);
+      o.rkNew1 = t.storyQ.filter(x => x === 'new_1').length === 1 && L.fill(t, '{rk}') === rk.n;
+      // 你在第 81 名以后：新秀出现在第 100 名；榜首：第 21 名
+      const b = mk({ rank: 85 }); spawn(b); const top = mk({ rank: 1 }); spawn(top);
+      o.rkEdge = L.rookieRank(b) === 100 && b.ladder.length === 99 && L.rookieRank(top) === 21 && top.ladder.length === 99;
+      // 每届论道追 8 名：你第 10、他第 30：22 → 14（离你只差 4 名，上门下战书 new_2）→ 追到你身后
+      const c = mk({ rank: 10 }); spawn(c); c.storyQ = [];
+      const q0 = L.rookieRank(c), t1 = L.rookieTour(c, 5e4), q1 = L.rookieRank(c);
+      const hasN2 = c.storyQ.includes('new_2');
+      const t2 = L.rookieTour(c, 5e4), q2 = L.rookieRank(c);
+      const t3 = L.rookieTour(c, 5e4), q3 = L.rookieRank(c);
+      o.rkClimb = q0 === 30 && q1 === 22 && t1.up === 8 && t1.gap === 12 && !hasN2 && q2 === 14 && t2.near === true && c.storyQ.includes('new_2') && q3 === 11 && t3.due === true && c.rv2.rk.due === 1 && c.ladder.length === 99
+        && c.storyQ.filter(x => x === 'new_2').length === 1;
+      // 追到离你 5 名以内才上门下战书（差 6 名不算）
+      const nb = rank => { const x = mk({ rank: 10 }); spawn(x); x.rank = rank; x.storyQ = []; const r = L.rookieTour(x, 5e4); return [r.gap, !!r.near, x.storyQ.includes('new_2')]; };
+      o.rkNear = nb(17).join() === '5,true,true' && nb(16).join() === '6,false,false';
+      // 到你身后时 out.rookie 出现；秘境（st.run）、历练、闭关中途不弹，等回来再弹
+      const d = mk({ rank: 5 }); spawn(d); for (let i = 0; i < 3; i++) L.rookieTour(d, 5e4);
+      const prev = d.tick; const res = {};
+      for (const [k, f] of [['run', () => { d.run = {}; }], ['exp', () => { d.exp = {}; }], ['retreat', () => { d.retreat = {}; }]]) { f(); const out = {}; d.tick++; L.rivalTick(d, out); res[k] = !!out.rookie; d.run = null; d.exp = null; d.retreat = null; }
+      const outOk = {}; d.tick++; L.rivalTick(d, outOk);
+      o.rkDue = d.rv2.rk.due === 1 && !res.run && !res.exp && !res.retreat && outOk.rookie === true;
+      // 拿论道带的：每届追一次、参照战力记下你的战力
+      const e = mk({ rank: 40 }); spawn(e); const jr = L.rookieRank(e); const tr = withR(0.99, () => L.tournament(e));
+      o.rkViaTour = !!tr.rookie && tr.rookie.n === e.rv2.rk.n && tr.rookie.up === 8 && L.rookieRank(e) === jr - 8 && e.rv2.refP === tr.S && e.rv2.rk.climbs === 1;
+      // 新秀不参与论道前的榜单浮动：把八次交换全对准他和他的邻居，他的位置只由“追 8 名”决定
+      const f = mk({ rank: 40 }); spawn(f); const j0 = rkIdx(f); const seq = []; for (let i = 0; i < 8; i++) seq.push(((i % 2 ? j0 : j0 - 1) + 0.5) / 98);
+      let k = 0; const trf = withR(() => (k < 8 ? seq[k++] : 0.99), () => L.tournament(f));
+      o.rkNoDrift = k >= 8 && rkIdx(f) === j0 - 8 && trf.rookie.up === 8;
+      // 战力：参照战力 × 追了几届，一直是个真威胁
+      const g = mk({ rank: 40 }); spawn(g); g.rv2.refP = 1e6; const p0 = L.rookiePower(g); g.rv2.rk.climbs = 3; const p3 = L.rookiePower(g);
+      o.rkPower = p0 >= 0.45 * 1e6 - 1 && p3 >= g.rv2.rk.f * 1e6 - 1 && p3 > p0 && L.rivalPower(g, L.rookieRank(g)) === p3;
+    }
+    return o;
+  });
+  for (const k in rvL3) expect(rvL3[k], '宿敌与新秀（新秀的出现与追赶）：' + k);
+  const rvL4 = await page.evaluate(() => {
+    const { L } = window.__xm; const o = {};
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
+    const clone = x => JSON.parse(JSON.stringify(x));
+    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const spawn = (s) => { for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); } return s.rv2.rk; };
+    // 追到你身后、手里有一把带词条的兵器，新秀法宝上的词条由 aff 指定
+    const due = (aff, mine) => {
+      const s = mk({ rank: 10 }); s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' }); s.gear.w.aff = (mine || []).slice();
+      spawn(s); for (let i = 0; i < 3; i++) L.rookieTour(s, 5e4);
+      s.rv2.rk.gear.aff = aff; s.storyQ = []; return s;
+    };
+    // ---------- 打压：赢 ----------
+    {
+      const s = due('fengrui', ['ke_mu']), rk = s.rv2.rk, name = rk.n, id = rk.id, rank0 = s.rank, ore0 = s.ore || 0;
+      const res = L.rookieResolve(s, 'crush', true), w = L.gearEq(s, 'w');
+      o.crushWin = res.win && res.aff === 'fengrui' && w.aff.join() === 'ke_mu,fengrui' && s.rv2.rk === null && s.rv2.pool.length === 1 && s.rv2.pool[0].id === id && s.rv2.pool[0].g === 60 && s.rv2.pool[0].n === name
+        && s.rank === rank0 && !s.ladder.some(x => x.rk) && s.ladder.some(x => x.n === name) && s.storyQ.includes('new_3') && s.rv2.crush === 1 && (s.ore || 0) === ore0 && s.rv2.rkNext >= s.tick + L.ROOKIE.after;
+      o.crushPool = L.grudge(s, id) === 60 && L.rivalLeads(s).some(x => x.id === id && x.rookie) && L.addGrudge(s, id, -30) === -30 && L.grudge(s, id) === 30 && L.rivalLeads(s).every(x => x.id !== id) && s.ladder.length === 99;
+      // 兵器满三条：改给灵矿；克 X 冲突：改给灵矿；已经有这条：改给灵矿
+      for (const [k, aff, mine] of [['full', 'fengrui', ['ke_mu', 'zhongji', 'fengrui2']], ['conf', 'ke_tu', ['ke_mu']], ['dup', 'fengrui', ['fengrui']]]) {
+        const q = due(aff, mine.map(x => (L.AFFIX[x] ? x : 'zhongji'))), ore = q.ore || 0, before = q.gear.w.aff.slice();
+        const r = L.rookieResolve(q, 'crush', true);
+        o['crushOre_' + k] = r.aff === '' && r.ore > 0 && q.ore === ore + r.ore && q.gear.w.aff.join() === before.join() && /熔了得灵矿/.test(r.text);
+      }
+      // 没有兵器也不报错，改给灵矿
+      const n = due('fengrui', []); n.gear.w = null; const nr = (() => { try { return L.rookieResolve(n, 'crush', true); } catch (e) { return { err: e.message }; } })();
+      o.crushNoWeapon = !nr.err && nr.aff === '' && nr.ore > 0;
+    }
+    // ---------- 打压：输 ----------
+    {
+      const s = due('fengrui'), rk = s.rv2.rk, name = rk.n, rank0 = s.rank; s.p.inj = 0;
+      const res = L.rookieResolve(s, 'crush', false), i = s.ladder.findIndex(x => x.n === name);
+      o.crushLose = !res.win && s.rank === rank0 + 1 && L.rivalAt(s, rank0) && L.rivalAt(s, rank0).n === name && i === rank0 - 1 && s.p.inj >= 2 && s.rv2.rk === null && s.rv2.lost === 1 && !s.rv2.pool.length && s.ladder.length === 99 && !s.ladder.some(x => x.rk) && !s.storyQ.includes('new_3');
+      // 榜上第 100 名时输了：名次不超过 100
+      const t = due('fengrui'); t.rank = 100; t.ladder.splice(t.rank - 1, 0, t.ladder.pop()); const r2 = L.rookieResolve(t, 'crush', false);
+      o.crushLoseCap = t.rank === 100 && r2 && t.ladder.length === 99;
+    }
+    // ---------- 指点 ----------
+    {
+      const s = due('fengrui'), rk = s.rv2.rk, name = rk.n, t0 = s.tick;
+      const res = L.rookieResolve(s, 'teach');
+      o.teach = res.how === 'teach' && s.rv2.friends.length === 1 && s.rv2.friends[0].n === name && s.rv2.friends[0].at === t0 && s.eflags.rookie_taught === 1 && s.rv2.trouble === t0 + 24 && s.rv2.rk === null && s.rv2.teach === 1 && !s.rv2.pool.length && s.rank === 10 && !s.ladder.some(x => x.rk);
+      // 24 周天后闯祸（new_4）：之前没有
+      let early = false; for (let i = 0; i < 23; i++) { s.tick++; L.rivalTick(s, {}); if (s.storyQ.includes('new_4')) early = true; }
+      s.tick++; L.rivalTick(s, {});
+      o.teachTrouble = !early && s.storyQ.includes('new_4') && s.rv2.trouble === null;
+      // 送礼：每 24 周天（t % 24 = 3）、满 24 周天后、15%：rng 0 就送，0.99 不送
+      const g = due('fengrui'); L.rookieResolve(g, 'teach'); g.tick = 24 * 20 + 3; g.rv2.friends[0].at = g.tick - 24;
+      const no = {}; g.stones = 0; withR(0.99, () => L.rivalTick(g, no));
+      const yes = {}; withR(0.0, () => L.rivalTick(g, yes));
+      const fresh = due('fengrui'); L.rookieResolve(fresh, 'teach'); fresh.tick = 24 * 21 + 3; fresh.rv2.friends[0].at = fresh.tick - 5; const young = {}; withR(0.0, () => L.rivalTick(fresh, young));
+      const wrongTick = due('fengrui'); L.rookieResolve(wrongTick, 'teach'); wrongTick.tick = 24 * 22 + 4; wrongTick.rv2.friends[0].at = 0; const wt = {}; withR(0.0, () => L.rivalTick(wrongTick, wt));
+      o.teachGift = !no.rkGift && !!yes.rkGift && yes.rkGift.length === 1 && g.rv2.gifts === 1 && g.rv2.friends[0].gifts === 1 && !young.rkGift && !wt.rkGift;
+      // 朋友最多记 4 位，满了挤掉最早的
+      const h = mk({ rank: 10 }); for (let i = 0; i < 6; i++) { h.ladder.splice(0, 1); h.rv2.rk = null; h.rv2.rkN = i; spawn(h); L.rookieResolve(h, 'teach'); h.rv2.rkNext = 0; }
+      o.teachMax = h.rv2.friends.length === L.ROOKIE.friendsMax;
+    }
+    // ---------- 看一眼：五行显形 ----------
+    {
+      const s = due('fengrui'), rk = s.rv2.rk;
+      const k0 = L.foeElKnown(s, L.rookieFoe(s)); const ev = L.eventById('new_1');
+      L.resolveChoice(s, ev, 1);
+      const k1 = L.foeElKnown(s, L.rookieFoe(s));
+      o.rkSeen = !k0 && k1 && rk.known === 1 && !s.eflags.rookie_seen;
+      const t = due('fengrui'); L.revealFoe(t, L.rookieFoe(t));   // 交过手也知道
+      o.rkRevealFight = L.foeElKnown(t, L.rookieFoe(t)) === true;
+      // 打压的对决：L.rookieDuel 一场定胜负，进池子 / 挤到前面二选一；对手战力 = L.rookiePower
+      const d = due('fengrui'), I = L.rookieInfo(d), rank0 = d.rank;
+      o.rkInfo = I.q === rank0 + 1 && I.gap === 1 && I.Q === L.rookiePower(d) && I.p > 0 && I.p < 1 && I.known === false;
+      const win = withR(0.0, () => L.rookieDuel(d));
+      const e = due('fengrui'); e.p.inj = 0; const lose = withR(0.999999, () => L.rookieDuel(e));
+      o.rkDuel = win.win === true && d.rv2.pool.length === 1 && !!win.text && lose.win === false && e.rank === rank0 + 1 && L.rookie(e) === null && L.foeElKnown(d, { kind: 'rookie' }) === false;
+    }
+    // ---------- norivals2：没有新秀、不抬价、不带头 ----------
+    {
+      L.RIVALS2_ON = false;
+      try {
+        const s = mk({ rank: 10 }); s.grudge.zhao = 90; s.grudge.mu = 80; s.eflags.zhao_owes = 1;
+        for (let i = 0; i < 30; i++) { s.tick++; L.rivalTick(s, {}); }
+        o.off = !s.rv2.rk && s.rv2.rkN === 0 && !s.ladder.some(x => x.rk) && L.rivalBid(s, { kind: 'rival', id: 'zhao' }) === null && L.rivalLeads(s).length === 0 && L.rookie(s) === null && !L.eligible(s, L.eventById('rv_ambush_zhao'), 'exp', {})
+          && L.rivalGearHit(s, { kind: 'rival', id: 'mu' }) === null && L.tourSwap(s) === null;
+        const q = mk({ rank: 10 }); q.rv2.refP = 0; const x = q.ladder.find(y => y.id === 'zhao'); q.tick = 18; withR(0, () => { for (let i = 0; i < 12; i++) { q.tick++; L.rivalTick(q, {}); } });
+        o.offQy = (x.pw || 1) === 1 && q.rv2.qy === 0;
+      } finally { L.RIVALS2_ON = true; }
+      // 打开：宿敌的奇遇（t%12 = 6、12%）×1.05；没打赢过的才有
+      const q = mk({ rank: 10 }); const x = q.ladder.find(y => y.id === 'zhao'); const y = q.ladder.find(y => y.id === 'chu'); q.beaten.chu = 1; q.tick = 17;
+      withR(0.0, () => { q.tick++; L.rivalTick(q, {}); });
+      o.qy = Math.abs(x.pw - 1.05) < 1e-9 && (y.pw || 1) === 1 && q.rv2.qy >= 1 && q.tick % 12 === 6;
+    }
+    return o;
+  });
+  for (const k in rvL4) expect(rvL4[k], '宿敌与新秀（新秀的结局、指点、看一眼、norivals2、宿敌奇遇）：' + k);
+  const rvL5 = await page.evaluate(() => {
+    const { L } = window.__xm; const o = {};
+    const clone = x => JSON.parse(JSON.stringify(x));
+    const mk = (o2) => { const s = L.newState({ name: '迁移测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    // ---------- 5. 迁移 ----------
+    {
+      // 旧档：没有 grudge / rv2 / meta.rival
+      const old = clone(mk({ rank: 50 })); delete old.grudge; delete old.rv2; delete old.meta.rival;
+      const m1 = L.migrateRivals(old) || old;
+      o.migEmpty = ['mu', 'zhao', 'chu', 'xue', 'yun'].every(id => old.grudge[id] === 0) && !!old.rv2 && old.rv2.rk === null && Array.isArray(old.rv2.pool) && Array.isArray(old.rv2.friends) && typeof old.rv2.g60 === 'object' && old.rv2.rkN === 0 && !!old.meta.rival && typeof old.meta.rival === 'object';
+      // 秘境里先存下的恩怨（0～100）保留；越界的夹回来；不是数的清成 0
+      const r = clone(mk()); r.grudge = { mu: 35, zhao: 100, chu: 250, xue: 'x', yun: -400 }; delete r.rv2; L.migrateRivals(r);
+      o.migGrudge = r.grudge.mu === 35 && r.grudge.zhao === 100 && r.grudge.chu === 100 && r.grudge.xue === 0 && r.grudge.yun === -100;
+      // 已击败 → 图鉴补记战技与法宝；只交过手（meta.elem）→ 只补战技；已有的不丢
+      const k = clone(mk()); k.beaten = { zhao: 2, mu: 1 }; k.meta.elem = { rv_chu: 1 }; k.meta.rival = { xue: { art: 1 } }; L.migrateRivals(k);
+      const mr = k.meta.rival;
+      o.migKnow = mr.zhao.art === 1 && mr.zhao.gear === 1 && mr.mu.gear === 1 && mr.chu.art === 1 && !mr.chu.gear && mr.xue.art === 1 && !mr.yun;
+      // pw > 1.3 压回 1.3；没有 pw 的不动
+      const p = clone(mk()); p.ladder.find(x => x.id === 'zhao').pw = 1.62; p.ladder.find(x => x.id === 'chu').pw = 1.12; L.migrateRivals(p);
+      o.migPw = p.ladder.find(x => x.id === 'zhao').pw === 1.3 && p.ladder.find(x => x.id === 'chu').pw === 1.12 && p.ladder.find(x => x.id === 'mu').pw === undefined;
+      // 榜上孤立的 rk 标记清掉；他还在的保留；rv2.rk 在榜上找不着：作罢
+      const q = mk({ rank: 10 }); for (let i = 0; i < 8 && !q.rv2.rk; i++) { q.tick++; L.rivalTick(q, {}); }
+      const s = clone(q); s.ladder[3].rk = 'rk9'; s.ladder[4].rk = 'rk7'; L.migrateRivals(s);
+      o.migRk = s.ladder.filter(x => x.rk).length === 1 && s.ladder.filter(x => x.rk === 'rk1').length === 1 && !!s.rv2.rk && s.rv2.rk.id === 'rk1' && s.ladder[3].rk === undefined;
+      const t = clone(q); const idx = t.ladder.findIndex(x => x.rk); delete t.ladder[idx].rk; L.migrateRivals(t);
+      o.migRkLost = t.rv2.rk === null && !t.ladder.some(x => x.rk);
+      const u = clone(q); u.rv2.pool = [{ id: 'a', n: '甲', s: 'x', g: 400 }, null, { id: 'b' }, { id: 'c', n: '丙', s: 'y', g: 'abc' }]; L.migrateRivals(u);
+      o.migPool = u.rv2.pool.length === 2 && u.rv2.pool[0].g === 100 && u.rv2.pool[1].g === 0;
+      // 迁移两遍结果一致；走完整的 L.migrate 也一样（读档路径）
+      const a = clone(old), b = clone(old); L.migrateRivals(a); L.migrateRivals(b); L.migrateRivals(b);
+      o.migTwice = JSON.stringify(a) === JSON.stringify(b);
+      const full = clone(mk({ rank: 30 })); delete full.grudge; delete full.rv2; full.ladder.find(x => x.id === 'xue').pw = 2; const f1 = L.migrate(clone(full)), f2 = L.migrate(clone(f1));
+      o.migLoad = !!f1 && f1.grudge.mu === 0 && !!f1.rv2 && f1.ladder.find(x => x.id === 'xue').pw === 1.3 && JSON.stringify(f1.grudge) === JSON.stringify(f2.grudge) && JSON.stringify(f1.rv2) === JSON.stringify(f2.rv2) && JSON.stringify(f1.meta.rival) === JSON.stringify(f2.meta.rival);
+    }
+    // ---------- 6. 来犯前夜 ----------
+    {
+      const sect = (rank, r) => { const s = mk({ rank: 20 }); s.p.r = r; s.flags.maxR = r; L.joinSect(s, 'dao'); s.sect.rank = rank; return s; };
+      // 宗门身份 ≥ 2 且到炼虚：来犯排到 6 周天后，并触发 zhao_3（需要 zhao_owes）
+      const s = sect(2, 5); s.eflags.zhao_owes = 1; s.storyQ = []; s.tick = 400; delete s.flags.war; L.rivalTick(s, {});
+      o.eve = s.flags.warEve === 400 && s.flags.war === 406 && s.storyQ.includes('zhao_3');
+      const s2 = sect(2, 5); s2.tick = 400; delete s2.flags.war; s2.storyQ = []; L.rivalTick(s2, {});
+      o.eveNoOwes = s2.flags.war === 406 && !s2.storyQ.includes('zhao_3');
+      const s3 = sect(1, 5); L.rivalTick(s3, {}); const s4 = sect(2, 4); L.rivalTick(s4, {}); const s5 = sect(2, 5); s5.flags.warWon = 1; L.rivalTick(s5, {});
+      o.eveGate = !s3.flags.warEve && !s4.flags.warEve && !s5.flags.warEve;
+      const s6 = sect(2, 5); s6.tick = 400; s6.flags.war = 500; L.rivalTick(s6, {});   // 已经排了更晚的日子：不提前
+      o.eveKeep = s6.flags.warEve === 400 && s6.flags.war === 500;
+      s.tick = 401; s.storyQ = []; L.rivalTick(s, {}); o.eveOnce = s.flags.war === 406 && !s.storyQ.includes('zhao_3');
+      // raid_delay 推迟 24 周天（只一次，用掉就清）
+      const d = sect(2, 5); d.tick = 410; d.flags.warEve = 1; d.flags.war = 410; d.eflags.raid_delay = 1; L.rivalTick(d, {});
+      const d1 = d.flags.war; L.rivalTick(d, {});
+      o.delay = d1 === 434 && d.flags.war === 434 && !d.eflags.raid_delay;
+      const dw = sect(2, 5); dw.flags.warEve = 1; dw.flags.warWon = 1; dw.flags.war = 410; dw.eflags.raid_delay = 1; L.rivalTick(dw, {});
+      o.delayWon = dw.flags.war === 410 && !dw.eflags.raid_delay;
+      // raid_intel：天剑宗来犯战力 ×1.3，打完清掉（不论胜负）；别的对决不吃
+      const w = sect(2, 5), war = { kind: 'war', id: 'tianjian' };
+      const base = L.duelPower(w, war); w.eflags.raid_intel = 1; const boosted = L.duelPower(w, war), other = L.duelPower(w, { kind: 'boss', k: 0 });
+      delete w.eflags.raid_intel; const other0 = L.duelPower(w, { kind: 'boss', k: 0 }); w.eflags.raid_intel = 1;
+      const rs = L.sectWar(w);
+      o.intel = Math.abs(boosted / base - 1.3) < 1e-9 && other === other0 && !w.eflags.raid_intel && rs.S > 0;
+      const wl = sect(2, 5); wl.eflags.raid_intel = 1; const rl = (() => { const r0 = L.rng; L.rng = () => 0.9999; try { return L.sectWar(wl); } finally { L.rng = r0; } })();
+      o.intelLose = !rl.win && !wl.eflags.raid_intel;
+      // 恩怨 ≥ 60 的赵乾带头：来敌战力 ×1.1～1.2
+      const wz = sect(2, 5); wz.grudge.zhao = 100; const lz = L.sectWar(wz), wn = sect(2, 5), ln = L.sectWar(wn);
+      o.leadWar = !!lz.lead && lz.lead.id === 'zhao' && Math.abs(lz.Q / ln.Q - 1.2) < 1e-9 && !ln.lead;
+    }
+    return o;
+  });
+  for (const k in rvL5) expect(rvL5[k], '宿敌与新秀（迁移与来犯前夜）：' + k);
+  {   // 块作用域：下面的局部名不和前文的变量冲突
+  // ---------- 宿敌与新秀（界面）：论道前的对决准备页（有 / 没有【换上】、法宝未知时不点名）、换上后重新渲染、新秀挑战（指点 / 打压 / 胜负）、
+  // 天骄榜的宿敌行与宿敌卡（未知 / 已知）、伏击对决的半身像、老祖三次讲解（数字与逻辑层一致）、norivals2 ----------
+  // 造一个局面载入：kind = prep 慕容（约战输了）/ prepZhao 赵乾 / none 没有宿敌可打 / rookie 新秀追到身后 / list 榜上有新秀 / ambush 赵乾恩怨 80
+  const rvBuild = kind => page.evaluate(kind => {
+    const { L } = window.__xm;
+    const m0 = document.getElementById('modal'); m0.hidden = true; m0.innerHTML = '';   // 上一页关掉后弹窗里的旧节点还在（#rvSwap 会让 rvKezhi 的 when 继续为真）：清干净
+    const s = L.newState({ name: '论道客' });
+    s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.stats.exp = 20; s.storyQ = []; s.guide = { step: 99, done: true };
+    s.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'gearCmp']) s.hintSeen[k] = 1;
+    for (const h of window.__xm.hints) if (!/^rv/.test(h.id)) s.hintSeen[h.id] = 1;   // 别的线新增的讲解一律算看过，免得抢在宿敌的讲解前面
+    s.home = { cave: 6, array: 8, field: 6, furnace: 6 };
+    const arts = (own, eq) => { for (const id of own) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); };
+    // 把对手战力调到和你五五开：tick 只影响宿敌（榜上曲线）
+    const tune = q => { s.tick = Math.round((Math.log(L.power(s)) - L.rivalA(q)) / L.RIVAL_SLOPE); };
+    if (kind === 'prep') { s.rank = 80; s.pact = -1; arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']); tune(72); }
+    else if (kind === 'prepZhao') { s.rank = 50; s.beaten.mu = 1; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); tune(45); }
+    else if (kind === 'none') { s.rank = 50; s.beaten = { mu: 1, zhao: 1, chu: 1, xue: 1, yun: 1 }; arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']); }
+    else if (kind === 'rookie' || kind === 'list') {
+      s.rank = 10; arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']); s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' });
+      tune(10);   // 榜上第 10 名的战力和你差不多，新秀（第 11 名）才是个真对手
+      for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); }
+      if (kind === 'rookie') { for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); s.rv2.rk.el = 'shui'; s.rv2.rk.known = 1; }
+      s.storyQ = [];
+    } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
+    window.__xm.loadState(JSON.parse(JSON.stringify(s)));
+    window.__xm.setSpeed(3);
+    return { kind };
+  }, kind);
+  const mtitle = () => page.evaluate(() => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; });
+  const mtext = () => page.evaluate(() => { const m = document.querySelector('#modal:not([hidden]) .sheet'); return m ? m.textContent : ''; });
+  const feet = () => page.evaluate(() => [...document.querySelectorAll('#modal:not([hidden]) .foot .btn')].map(b => b.textContent.trim()));
+  const clickFoot = async i => { await page.evaluate(i => { const b = document.querySelectorAll('#modal:not([hidden]) .foot .btn'); b[i < 0 ? b.length - 1 : i].click(); }, i); await page.waitForTimeout(350); };
+  const forceR = v => page.evaluate(v => { window.__xm.L.rng0 = window.__xm.L.rng0 || window.__xm.L.rng; window.__xm.L.rng = () => v; }, v);
+  const unforceR = () => page.evaluate(() => { const L = window.__xm.L; if (L.rng0) { L.rng = L.rng0; L.rng0 = null; } });
+  const zPage = async () => { const sw = await page.$('#modal #rvSwap [data-zswap], #modal #rkSwap [data-zswap]'); return sw; };
+  // —— 论道前：慕容，有【换上】（火被水克 → 土）
+  await rvBuild('prep');
+  const pp0 = await page.evaluate(() => { const { st, L } = window.__xm; const tf = L.tourFoe(st), b = L.duelArtBest(st, tf.foe, tf.Q); return { id: tf.id, p0: L.pct(b.p0), p1: L.pct(b.p1), to: b.id, n: st.stats.tour }; });
+  await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(400); await shot('rv01-prep-swap');
+  const t1 = await mtitle(), x1 = await mtext(), f1 = await feet();
+  expect(pp0.id === 'mu' && t1 === '论道 · 对决准备' && f1.length === 1 && f1[0] === '登台', '论道前先弹对决准备页，只有一个【登台】：' + JSON.stringify([t1, f1]));
+  expect(!!(await page.$('#modal #rvSwap')) && x1.includes(`胜算 ${pp0.p0} → ${pp0.p1}`) && x1.includes('撼岳拳'), '准备页有【换上】一行，胜算 p → p\' 与逻辑层一致：' + pp0.p0 + ' → ' + pp0.p1);
+  expect(!x1.includes('霜华簪') && !x1.includes('克金'), '慕容的法宝没见过：准备页不点出法宝名');
+  await (await zPage()).click(); await page.waitForTimeout(400); await shot('rv02-prep-swapped');
+  const x2 = await mtext();
+  expect(await page.evaluate(() => window.__xm.L.artSlots(window.__xm.st)[1]) === 'z_hanyue' && !(await page.$('#modal #rvSwap')) && (await mtitle()) === '论道 · 对决准备' && x2.includes('你的战技正克他'), '点【换上】后装上了克他的战技、准备页重新渲染（换上那一行没了）');
+  await clickFoot(0); await page.waitForTimeout(300);
+  const t3 = await mtitle(), x3 = await mtext();
+  expect(/^第\d+届 天骄论道$/.test(t3) && x3.includes('天下天骄齐聚论道台'), '点【登台】进入论道：' + t3);
+  expect(await page.evaluate(n => window.__xm.st.stats.tour === n + 1, pp0.n), '登台才开打：论道届数 +1');
+  await clickFoot(0);   // 登台！
+  for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
+  await close();
+  // —— 论道前：赵乾，法宝没见过 / 见过
+  for (const known of [false, true]) {
+    await rvBuild('prepZhao');
+    if (known) await page.evaluate(() => { const { st } = window.__xm; st.meta.rival.zhao = { art: 1, gear: 1 }; st.meta.elem.rv_zhao = 1; });
+    await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(400); await shot('rv03-prepZhao-' + (known ? 'known' : 'unknown'));
+    const x = await mtext(), has = await page.evaluate(() => !!document.querySelector('#modal #rvSwap'));
+    if (known) expect(x.includes('镇岳剑') && x.includes('克土') && has, '赵乾的法宝见过：准备页写出【镇岳剑】克土：' + x.slice(0, 120));
+    else expect(!x.includes('镇岳剑') && !x.includes('克土') && has && x.includes('？'), '赵乾的法宝没见过：不点法宝名，只写换上之后胜算：' + x.slice(0, 120));
+    await close();
+  }
+  // —— 论道前：没有宿敌可打 → 不弹准备页，直接是论道开场
+  await rvBuild('none');
+  await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(400);
+  expect(/^第\d+届 天骄论道$/.test(await mtitle()) && !(await page.evaluate(() => window.__xm.L.tourFoe(window.__xm.st))), '没有宿敌可打时不弹准备页');
+  await close();
+  // —— norivals2：不弹准备页
+  await rvBuild('prep');
+  await page.evaluate(() => { window.__xm.L.RIVALS2_ON = false; });
+  await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(400);
+  const noPrep = (await mtitle()) !== '论道 · 对决准备';
+  await page.evaluate(() => { window.__xm.L.RIVALS2_ON = true; });
+  expect(noPrep || (await page.evaluate(() => !!window.__xm.L.tourFoe(window.__xm.st))), 'norivals2 下的论道不会卡在准备页');
+  await close();
+  // —— 新秀挑战：有【换上】；【指点】【打压】；打压的胜 / 败
+  await rvBuild('rookie');
+  const rk0 = await page.evaluate(() => { const { st, L } = window.__xm; const I = L.rookieInfo(st), b = L.duelArtBest(st, I.foe, I.Q); return { n: I.rk.n, p: L.pct(I.p), q: I.q, rank: st.rank, swap: b.same ? '' : b.id }; });
+  await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400); await shot('rv04-rookie');
+  const rf = await feet(), rt = await mtitle(), rx = await mtext();
+  expect(rt === '新秀挑战' && rf.join() === '指点,打压' && rx.includes(rk0.n) && rx.includes(rk0.p), '新秀挑战页：标题、两个按钮（最后一个是【打压】）、胜算与逻辑层一致：' + JSON.stringify([rt, rf, rk0]));
+  expect(!!(await page.$('#modal #rkSwap')) && rk0.swap === 'z_hanyue', '新秀挑战页有 #rkSwap：换成克他的战技');
+  await (await zPage()).click(); await page.waitForTimeout(400);
+  expect((await page.evaluate(() => window.__xm.L.artSlots(window.__xm.st)[1])) === 'z_hanyue' && !(await page.$('#modal #rkSwap')) && (await mtitle()) === '新秀挑战', '在新秀挑战里点【换上】后重新渲染');
+  await forceR(0.0); await clickFoot(-1); await page.waitForTimeout(1600); await shot('rv05-crush-win'); await unforceR();
+  const cw = await mtext();
+  expect((await mtitle()) === '打压' && cw.includes('胜！') && cw.includes('恩怨 60'), '打压赢：对决结果页写胜、写恩怨 60：' + cw.slice(0, 100));
+  await clickFoot(0); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => { const { st, L } = window.__xm; return !L.rookie(st) && st.rv2.pool.length === 1 && st.rv2.crush === 1 && !st.ladder.some(x => x.rk); }), '打压赢之后：新秀进池子、榜上去掉新秀标记');
+  await close();
+  await rvBuild('rookie');
+  await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400);
+  await forceR(0.999999); await clickFoot(-1); await page.waitForTimeout(1600); await shot('rv06-crush-lose'); await unforceR();
+  const cl = await mtext();
+  expect((await mtitle()) === '打压' && cl.includes('败') && cl.includes('负伤 2 周天'), '打压输：对决结果页写败、负伤 2 周天：' + cl.slice(0, 100));
+  await clickFoot(0); await page.waitForTimeout(300);
+  expect(await page.evaluate(n => { const { st, L } = window.__xm; return st.rank === n + 1 && !L.rookie(st) && st.p.inj >= 2 && L.rivalAt(st, n) && !L.rivalAt(st, n).id; }, rk0.rank), '打压输之后：名次 +1、他排到你前面、负伤');
+  await close();
+  await rvBuild('rookie');
+  await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400); await clickFoot(0); await page.waitForTimeout(400); await shot('rv07-teach');
+  expect((await mtitle()) === '指点' && (await feet()).join() === '继续', '指点：一页文字、一个【继续】');
+  await clickFoot(0);
+  expect(await page.evaluate(() => { const { st, L } = window.__xm; return !L.rookie(st) && st.rv2.friends.length === 1 && st.eflags.rookie_taught === 1; }), '指点之后：他进友人名册');
+  await close();
+  // 还没追到身后时 runRookie 什么都不弹
+  await rvBuild('list');
+  await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => document.getElementById('modal').hidden), '新秀还没追到身后：runRookie 不弹');
+  // —— 天骄榜：宿敌一行一张，有新秀时也列出；宿敌卡未知 / 已知
+  await page.evaluate(() => window.__xm.showMe('rank')); await page.waitForTimeout(400); await shot('rv08-rank');
+  const lst = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, txt: document.querySelector('#modal .sheet').textContent, n: window.__xm.L.rookie(window.__xm.st).n }));
+  expect(lst.rv === 5 && lst.rk === 1 && lst.txt.includes(lst.n) && lst.txt.includes('新秀'), '天骄榜：宿敌一行一张（5 张），新秀也列出：' + JSON.stringify([lst.rv, lst.rk]));
+  await page.click('#modal .rvrow[data-rv="zhao"]'); await page.waitForTimeout(350); await shot('rv09-card-unknown');
+  const cu = await mtext();
+  expect((await mtitle()) === '宿敌' && cu.includes('赵乾') && cu.includes('？') && !cu.includes('镇岳剑') && !cu.includes('庚金指'), '宿敌卡（没交过手）：战技与法宝写“？”：' + cu.slice(0, 120));
+  await clickFoot(0); await page.waitForTimeout(300);
+  expect((await mtitle()) !== '宿敌' && (await page.evaluate(() => !!document.querySelector('#modal .rvrow'))), '宿敌卡【返回】回到天骄榜');
+  await page.evaluate(() => { const { st, L } = window.__xm; L.revealFoe(st, { kind: 'rival', id: 'zhao' }); L.markBeat(st, 'zhao'); st.beaten.zhao = 1; window.__xm.showRivalCard('zhao'); }); await page.waitForTimeout(350); await shot('rv10-card-known');
+  const ck = await mtext();
+  expect(ck.includes('庚金指') && ck.includes('镇岳剑') && ck.includes('克土') && ck.includes('已击败'), '宿敌卡（击败过）：战技、法宝、已击败都写出来：' + ck.slice(0, 160));
+  await close();
+  await page.evaluate(() => window.__xm.showMe('rank')); await page.waitForTimeout(300);
+  await page.click('#modal .rvrow[data-rk]'); await page.waitForTimeout(350); await shot('rv11-rookie-card');
+  const kc = await mtext(), kn = await page.evaluate(() => window.__xm.L.rookie(window.__xm.st).n);
+  expect((await mtitle()) === '新秀' && kc.includes(kn) && kc.includes('每届论道追 8 名') && kc.includes('？'), '新秀卡：名字、追赶速度、没看过的五行写“？”：' + kc.slice(0, 120));
+  await close();
+  // norivals2：天骄榜还是五行宿敌，没有新秀行；不报错
+  await page.evaluate(() => { window.__xm.L.RIVALS2_ON = false; window.__xm.showMe('rank'); }); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => document.querySelectorAll('#modal .rvrow[data-rv]').length === 5 && document.querySelectorAll('#modal .rvrow[data-rk]').length === 0), 'norivals2：天骄榜没有新秀行');
+  await page.evaluate(() => { window.__xm.L.RIVALS2_ON = true; }); await close();
+  // —— 伏击：事件对决用宿敌半身像，胜算含五行与他的法宝
+  await rvBuild('ambush');
+  const am = await page.evaluate(() => { const { st, L } = window.__xm; const ev = L.eventById('rv_ambush_zhao'); const foe = { kind: 'rival', id: 'zhao' }; window.__xm.showChoice(ev); return { p: L.pct(L.duelP(st, L.duelPower(st, foe), L.power(st) * 1.1, foe)), live: L.evLive(ev), ok: L.eligible(st, ev, 'exp', {}) }; });
+  await page.waitForTimeout(350); await shot('rv12-ambush');
+  const ax = await mtext();
+  expect(am.live && am.ok && ax.includes('胜算 ' + am.p) && ax.includes('缚灵网'), '伏击事件：选项上的胜算与逻辑层一致：' + am.p);
+  await forceR(0.0); await page.click('#modal button[data-c="0"]'); await page.waitForTimeout(500); await shot('rv13-ambush-duel');
+  const aimg = await page.evaluate(() => { const i = document.querySelector('#modal #vsR'); return i ? { src: i.src.slice(0, 22), w: i.getBoundingClientRect().width } : null; });
+  await page.waitForTimeout(1300); await unforceR();
+  expect(!!aimg && aimg.src.startsWith('data:image') && aimg.w >= 40 && (await mtext()).includes('赵乾') && (await mtext()).includes('胜！'), '伏击对决：右边是赵乾的半身像，结果写胜：' + JSON.stringify(aimg));
+  expect(await page.evaluate(() => window.__xm.st.grudge.zhao === 90 && window.__xm.L.rivalKnow(window.__xm.st, 'zhao').art), '伏击赢了：恩怨 +10、记下他的看家战技');
+  await close();
+  // —— 老祖讲解：rvKezhi（对决准备页出现【换上】）、rvGrudge（恩怨过 60）、rvRookie（新秀出世）。说话时暂停，数字和逻辑层一致
+  const guideAt = async id => { for (let i = 0; i < 12; i++) { await page.waitForTimeout(250); if ((await page.evaluate(() => window.__xm.guideDbg.active)) === id) return true; await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; }, id); } return false; };
+  // 非 urgent 的讲解要 st.tick ≥ hintCool（上一条说完后隔两个周天，模块级变量，换局面不清）：把周天拨过去
+  const guideCool = () => page.evaluate(() => { const { st } = window.__xm; st.tick = Math.max(st.tick, window.__xm.guideDbg.hintCool + 1); });
+  const guideOff = () => page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
+  await rvBuild('prep'); await page.evaluate(() => { const { st } = window.__xm; delete st.hintSeen.rvKezhi; window.__xm.runTournament(); });
+  const gk = await page.evaluate(() => { const { st, L } = window.__xm; const tf = L.tourFoe(st), b = L.duelArtBest(st, tf.foe, tf.Q); return { p0: L.pct(b.p0), p1: L.pct(b.p1), n: L.art(b.id).n }; });
+  expect(await guideAt('rvKezhi'), '老祖：对决准备页出现【换上】时讲克制（rvKezhi）');
+  await page.waitForTimeout(300); await shot('rv14-guide-kezhi');
+  const gt = await page.evaluate(() => ({ vis: !document.querySelector('#guide').hidden, txt: document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold }));
+  expect(gt.vis && gt.hold && gt.txt.includes(gk.p0) && gt.txt.includes(gk.p1) && gt.txt.includes(gk.n) && gt.txt.includes('×0.87') && gt.txt.includes('×1.15'), '老祖的克制讲解数字对：' + gt.txt);
+  await guideOff(); await close();
+  await rvBuild('list'); await page.evaluate(() => { const { st, L } = window.__xm; st.rv2.rk = null; st.ladder.forEach(x => { delete x.rk; }); st.hintSeen.rvRookie = 1; delete st.hintSeen.rvGrudge; L.addGrudge(st, 'zhao', 75); });
+  await guideCool();
+  expect(await guideAt('rvGrudge'), '老祖：恩怨过 60 讲伏击、抬价、带头（rvGrudge）');
+  await page.waitForTimeout(300); await shot('rv15-guide-grudge');
+  const gg = await page.evaluate(() => ({ txt: document.querySelector('#guide .gtext').textContent, g: window.__xm.L.grudge(window.__xm.st, 'zhao'), hold: window.__xm.guideHold }));
+  expect(gg.hold && gg.txt.includes('赵乾') && gg.txt.includes('恩怨 ' + gg.g) && gg.txt.includes('×1.2') && gg.txt.includes('−10%'), '老祖的恩怨讲解数字对：' + gg.txt);
+  await guideOff();
+  await rvBuild('list'); await page.evaluate(() => { const { st } = window.__xm; st.hintSeen.rvGrudge = 1; delete st.hintSeen.rvRookie; });
+  await guideCool();
+  expect(await guideAt('rvRookie'), '老祖：新秀出世讲追赶（rvRookie）');
+  await page.waitForTimeout(300); await shot('rv16-guide-rookie');
+  const gr = await page.evaluate(() => { const { st, L } = window.__xm; const I = L.rookieInfo(st); return { txt: document.querySelector('#guide .gtext').textContent, n: I.rk.n, q: I.q, Q: L.fmt(I.Q), S: L.fmt(L.power(st)), hold: window.__xm.guideHold }; });
+  expect(gr.hold && gr.txt.includes(gr.n) && gr.txt.includes(String(gr.q)) && gr.txt.includes(gr.Q) && gr.txt.includes(gr.S) && gr.txt.includes('8'), '老祖的新秀讲解数字对（名次、他的战力、你的战力）：' + gr.txt);
+  await guideOff(); await page.waitForTimeout(200); await close();
+  }
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await close();
