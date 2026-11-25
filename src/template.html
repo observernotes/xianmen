@@ -765,6 +765,25 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 .duel-ch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .duel-ch-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; background: #f7eed6; min-width: 0; }
 .duel-ch-cell b { font-weight: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ---- 阶段四·界面补缺（ART_API 阶段四 1～5） ---- */
+/* 底栏解锁：锁按 ART.lockBreak 四帧碎掉（hud.js lockBreakFx），扫光推迟到第 2 帧起 */
+#nav button .lkbrk { position: absolute; right: 6px; top: 6px; width: 16px; height: 16px; pointer-events: none; z-index: 1; }
+#nav button.unlock::before { animation-delay: .16s; animation-fill-mode: both; }
+/* 速度档图标（hud.js setSpeedIcon） */
+.sbtn img { display: block; }
+/* 结算卡掉落翻牌：品阶光柱（ART.dropBeam）+ 翻开的卡（panel-exp.js dropFlipHTML） */
+.dflip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px; margin: 4px auto; width: min(100%, 160px); background: #1b1326; box-shadow: 0 0 0 2px var(--ink); }
+.dflip-box { position: relative; }
+.dflip-beam { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.dflip-card { position: absolute; perspective: 200px; }
+.dflip-card > i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.dflip-back { background: repeating-linear-gradient(45deg, #5a2a3a 0 3px, #3a1a28 3px 6px); box-shadow: inset 0 0 0 2px #c9a35a; animation: dflipA .4s steps(4) forwards; }
+.dflip-front { background: #2a2340; box-shadow: inset 0 0 0 2px var(--bc, #c9a35a), 0 0 0 1px var(--ink); transform: scaleX(0); animation: dflipB .4s steps(4) forwards; }
+@keyframes dflipA { 0%, 30% { transform: scaleX(1); } 60%, 100% { transform: scaleX(0); } }
+@keyframes dflipB { 0%, 60% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+.dflip-t { font-size: var(--fs); text-shadow: 1px 1px 0 var(--ink); }
+.dflip-t small { color: var(--text); opacity: .75; }
+.empty-note img { opacity: .9; }
 </style>
 
 <div id="app">

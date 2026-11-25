@@ -134,6 +134,44 @@ function itemLine(it) {
   if (it.kind === 'pet') return petLine(it);   // panel-pets.js
   return '';
 }
+// 掉落翻牌（ART_API 阶段四 4）：按这趟最高品阶的掉落立一道 ART.dropBeam 光柱，卡背翻过来露出那件东西的图标
+// 品阶 1～7：功法 L.art().t、法宝 gear.t、灵宠 tier；光柱 24×48 按整数倍放大，底心 (12, 44)，卡片上沿压在 y = 30
+function dropTop(items) {
+  let top = null;
+  for (const it of items || []) {
+    const t = it.kind === 'a' ? (L.art(it.art) || {}).t : it.gear ? it.gear.t : it.kind === 'pet' ? it.tier : 0;
+    if (t && (!top || t > top.t)) top = { it, t: Math.max(1, Math.min(7, t | 0)) };
+  }
+  return top;
+}
+function dropFlipHTML(items) {
+  const top = ART.dropBeam && dropTop(items);
+  if (!top) return '';
+  const it = top.it, n = items.filter(x => x && (x.kind === 'a' || x.gear || x.kind === 'pet')).length;
+  const W0 = pxFit(24, 48), z = W0 / 24, col = ART.beamColor(top.t);
+  const ic = it.kind === 'a' ? artImg(it.art, 2) : it.gear ? gearImg(it.gear, 2) : petCardImg(it.sp, 0, 0, 1);
+  const tn = it.kind === 'a' ? L.artTierName(top.t) : it.gear ? L.gearTierName(it.gear.slot, top.t) : top.t + ' 阶';
+  return `<div class="dflip" aria-hidden="true"><div class="dflip-box" style="width:${W0}px;height:${Math.round(52 * z)}px">
+    <canvas class="px dflip-beam" width="24" height="48" data-tier="${top.t}" style="width:${W0}px;height:${W0 * 2}px"></canvas>
+    <div class="dflip-card" style="left:${Math.round(2 * z)}px;top:${Math.round(30 * z)}px;width:${Math.round(20 * z)}px;height:${Math.round(20 * z)}px;--bc:${col}"><i class="dflip-back"></i><i class="dflip-front">${ic}</i></div></div>
+    <div class="dflip-t" style="color:${col}">${esc(tn)}${n > 1 ? ` <small>等 ${n} 件</small>` : ''}</div></div>`;
+}
+// 光柱逐帧（ART.beamFrames 帧 × 110 毫秒循环），卡片翻开（约 0.4 秒）之后才亮；结算卡关掉就停
+function dropFlipRun(root) {
+  const cv = root && root.querySelector('.dflip-beam');
+  if (!cv) return;
+  const g = cv.getContext('2d'), tier = +cv.dataset.tier, n = ART.beamFrames || 4, t0 = performance.now();
+  let f = 0;
+  const step = () => {
+    if (!cv.isConnected) return;
+    const k = Math.min(1, Math.max(0, (performance.now() - t0 - 300) / 250));
+    g.clearRect(0, 0, 24, 48);
+    if (k > 0) { g.globalAlpha = k; g.drawImage(ART.dropBeam(tier, f % n), 0, 0); g.globalAlpha = 1; }
+    f++;
+    setTimeout(step, 110);
+  };
+  step();
+}
 function deltaHTML(res) {
   const d = [];
   const arrow = (a, b) => (b > a ? '<span class="jadet">▲</span>' : '<span class="seal">▼</span>');
@@ -168,6 +206,7 @@ function showExpResult(res) {
     if (res.treasure) g.push(`<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>`);
     if (res.contrib) g.push(`<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>`);
     lines.push(`<dl class="grid2">${g.join('')}</dl>`);
+    lines.push(dropFlipHTML(res.items));
     for (const it of res.items) lines.push(itemLine(it));
     if (res.planText) lines.push(`<div class="quote row">${scrollImg()}<span class="grow">${esc(res.planText)}</span></div>`);
     if (res.robeSave) lines.push('<p class="center jadet">法衣护体：本是丁等，改判丙等。</p>');
@@ -195,7 +234,7 @@ function showExpResult(res) {
     else if (!res.legacy && L.expOpen(st, res.k, res.d, res.a) && !L.busy(st)) foot.push({ t: '再探一次', gold: true, fn: () => { closeModal(); if (L.startExp(st, res.k, res.d, res.a)) SFX.coin(); } });
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
-  sheet({ title: `历练归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot });
+  dropFlipRun(sheet({ title: `历练归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot }));
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价
 function gearExpLine(k, d, a) {

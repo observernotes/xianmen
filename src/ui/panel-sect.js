@@ -103,14 +103,15 @@ function vaultImg(c) {
   return icon16({ pill: 'pojing', ore: 'ore', herb: 'herb', treasure: 'treasure', feed: 'feed' }[s.k] || 'treasure', 2);
 }
 function sectVaultHTML() {
-  const cells = L.vaultCells(st).map(c => {
+  const VC = L.vaultCells(st), vaultEmpty = !VC.length || VC.every(c => c.left <= 0 || ['已习得', '已有'].includes(c.why));   // 空状态：没货，或者这一批能换的都换完了 / 都有了
+  const cells = VC.map(c => {
     const lock = !!c.why && (/可换$/.test(c.why) || /槽/.test(c.why)), owned = ['已换完', '已习得', '已有'].includes(c.why), short = /^还差/.test(c.why || '');
     return `<div class="card flat vcell ${lock ? 'lock' : ''}">${vaultImg(c)}<div class="main"><div class="line"><span>${esc(c.n)}</span>${c.A ? tierTag(c.A.t) + elChip(c.A.el) : ''}${c.s.lim > 1 ? `<span class="muted">余 ${c.left}</span>` : ''}</div>
       <div class="muted">${c.A ? esc(artMain(c.A.id)) + (c.A.k !== 'm' ? ' · ' + esc(L.artDesc(st, c.A.id)) : '') : esc(c.d)}</div>${lock ? `<div class="seal">${esc(c.why)}</div>` : ''}</div>
       <div class="right"><button class="btn sm ${c.ok ? 'gold' : 'alt'} eq" data-vr="${c.i}" ${c.ok ? '' : 'disabled'}>${owned ? c.why : c.cost > 0 ? `贡献 ${fmt(c.cost)}` : '免费'}</button>${short ? `<small class="muted">${esc(c.why)}</small>` : ''}</div></div>`;
   }).join('');
   return `<div class="mhead"><span>宗门宝库 · ${L.VAULT_ROT.n} 格</span><span class="muted">可用贡献 <b class="num">${fmt(st.sect.pts)}</b> · ${L.vaultRestockIn(st)} 周天后换货</span></div>
-    ${st.sect.freePick > 0 ? `<div class="quote">札记赏你宝库任选一件：功法、法宝这一回不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}<div id="vaultRot">${cells}</div>
+    ${st.sect.freePick > 0 ? `<div class="quote">札记赏你宝库任选一件：功法、法宝这一回不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}${vaultEmpty ? emptyNoteHTML('vault', cells ? `这一批能换的都换完了，${L.vaultRestockIn(st)} 周天后换货。` : `宝库还空着，${L.vaultRestockIn(st)} 周天后上货。`) : ''}<div id="vaultRot">${cells}</div>
     <div class="muted">每届论道换一批：本宗秘传功法、宝库法宝（够格时是镇宗之宝）、本宗阵图与器方按身份开放，贡献是唯一的货币。</div>`;
 }
 function bindSectVault(s) {
@@ -192,7 +193,7 @@ function doPromote() {
     duel({
       title: `${title}之争`, intro: `你要晋升${title}的消息传出，原${title}当众拦下：“想坐我的位置？先过我这一关！”`,
       right: { img: himg, name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
-      stage: 'sect', foe: (H.img && ftPeople(H.img, st.p.look.f && !!H.nf)) || ftGen(heir.n), face: true,
+      stage: 'sect', foe: withEl((H.img && ftPeople(H.img, st.p.look.f && !!H.nf)) || ftGen(heir.n), L.HEIR_EL && L.HEIR_EL[st.sect.id]), face: true,
       quote: `${heir.n}：“一个半路入门的散修，也配当${title}？”`,
       winText: `${esc(heir.n)}面如死灰，长剑落地。全场鸦雀无声，随后掌声雷动！`, loseText: '你惜败一招。来日修为更进一步，再来挑战！',
       done: () => { if (res.ok) celebrate(); else closeModal(); },
@@ -227,7 +228,7 @@ function runWar() {
   duel({
     title: '天剑宗来犯', intro: `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个弃徒！`,
     right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
-    stage: 'sect', foe: ftGen('天剑宗长老', { f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542', extra: 2 }),
+    stage: HAS_MO ? 'sect_mo' : 'sect', foe: ftGen('天剑宗长老', { f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542', extra: 2, el: L.foeEl ? L.foeEl({ kind: 'war', id: 'tianjian' }) : '' }),   // 魔宗演武场、天剑宗金系剑气（duel-scene.js）
     quote: '天剑宗长老：“交出那个弃徒，饶你们满门不死！”',
     winText: `你一人一剑立于山门之前，剑光过处，天剑宗众人倒飞而出！<br>宗门贡献 +${fmt(res.contrib || 0)}，灵石 +${fmt(res.stones || 0)}`,
     loseText: '宗门众长老联手苦战，方才逼退来敌。天剑宗扬言还会再来……',

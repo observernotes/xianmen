@@ -3,35 +3,61 @@
  * duels.js 的 duel(o) 调 duelStage()：场景换成擂台（ART.drawDuelStage：town 落霞城 / cloud 论道台 / sect 演武场 / wild 野外），
  * 双方 ART.fighter 小人、头顶 ART.drawHpBar、命中 ART.drawSpark、宿敌开场 ART.portrait 对视、结束盖 ART.stamp('胜'|'败')。
  * 胜负由逻辑层预先掷好（o.win），这里只演：四下互攻（约 2.1 秒）+ 开场 0.5～1.4 秒 + 收尾 0.6 秒，点画面或【跳过】直接到结果。
- * 越级取胜（胜算 < 45%）演“血条见底 → 戒指发光 → 反杀”；三人会武（rd.trio）连演三局，每局两下。 */
+ * 越级取胜（胜算 < 45%）演“血条见底 → 戒指发光 → 反杀”；三人会武（rd.trio）连演三局，每局两下。
+ * 阶段四（ART_API 阶段四 6～10）：首领用 ART.bossFighter 六帧小人；九宗代表走 ART.nineChamp；血煞魔宗与天剑宗来犯用 sect_mo 演武场；
+ * 攻方有五行时出招飞 ART.drawElemQi、命中 ART.drawElemHit（无属性仍是 drawSpark）；反杀的戒指爆光是 ART.drawRingBurst（20 帧）。 */
 let duelFx = null;
 // 版面（场景坐标，脚底 y = 128）：名字 y 57、血条 y 70、印章中心 y 34、对视条 40～110——都贴着人，场景再高也不会离得太远
 const DUEL = { nameY: 57, barY: 70, stampY: 34, labY: 44, faceY: 40, slide: 420, face: 1150, hit: 520, trioHit: 400, ring: 520, endPad: 260, foot: 128, xL: 72, xR: 128 };
 // ---------- 对决小人的来源 ----------
-// spec：{ who（ART.fighter 的第一个参数）, alt, pt（开场对视的半身像画布）, boss（首领 k，画 ART.boss）, extra（身后再站几个同门） }
-const ftMe = () => ({ who: { look: st.p.look, realm: Math.min(st.p.r, 9) }, pt: ART.portraitMe ? ART.portraitMe(st.p.look, Math.min(st.p.r, 9), 'ang') : null });
+// spec：{ who（ART.fighter 的第一个参数）, alt, pt（开场对视的半身像画布）, boss（首领 k，画 ART.bossFighter）, extra（身后再站几个同门）,
+//         el（出招的五行 jin mu shui huo tu，空 = 无属性）, stage（这个对手指定的舞台，例如血煞魔宗 sect_mo）, me（主角） }
+const ftMe = () => ({ me: true, who: { look: st.p.look, realm: Math.min(st.p.r, 9) }, pt: ART.portraitMe ? ART.portraitMe(st.p.look, Math.min(st.p.r, 9), 'ang') : null });
+// 主角出招的五行：装备的战技（L.atkEl，混元一气会取克制方）；没装战技看主修心法
+function duelMeEl(foeEl) {
+  const e = L.atkEl ? L.atkEl(st, foeEl || '') : '';
+  if (e) return e;
+  const sl = L.artSlots ? L.artSlots(st) : null, A = sl && sl[0] && L.art(sl[0]);
+  return (A && A.el) || '';
+}
+const withEl = (sp, el) => { if (sp && el) sp.el = el; return sp; };
 function ftPeople(id, alt) {
   if (!id || !ART.hasPortrait || !ART.hasPortrait(id)) return null;
   return { who: id, alt: !!alt, pt: ART.portrait(id, 'ang', !!alt) };
 }
 // 宿敌：逻辑里的楚天阔是 chu，美术里是 tian（RV_PT 在 panel-rivals.js）；女主时慕容雪换成慕容轩
-const ftRival = id => ftPeople((typeof RV_PT !== 'undefined' && RV_PT[id]) || id, id === 'mu' && !!st.p.look.f) || ftGen(L.rivalName ? L.rivalName(st, id) : id);
+// 五行：看家战技（L.RIVAL_INFO[id].art）的属性，没有就用 L.RIVAL_EL
+const rivalEl = id => { const RI = L.RIVAL_INFO && L.RIVAL_INFO[id], A = RI && L.art(RI.art); return (A && A.el) || (L.RIVAL_EL && L.RIVAL_EL[id]) || ''; };
+const ftRival = id => withEl(ftPeople((typeof RV_PT !== 'undefined' && RV_PT[id]) || id, id === 'mu' && !!st.p.look.f) || ftGen(L.rivalName ? L.rivalName(st, id) : id), rivalEl(id));
 const FT_HAIR = ['#1d1a24', '#3a2a22', '#4a3328', '#2a2230', '#5a4030'], FT_SKIN = ['#f2c9a0', '#e8b68a', '#f6d3b3', '#e0b088'];
 const FT_ROBE = [['#3a5a3a', '#5a8a4a', '#8ab86a'], ['#5a3a6a', '#8a5aa0', '#b88ad0'], ['#6a4a2a', '#9a7040', '#c8a060'], ['#2a4a6a', '#4a7aa0', '#7aa8d0'], ['#6a2a2a', '#9a4040', '#c87070'], ['#3a3a4a', '#5a5a70', '#8a8aa0']];
-// 路人：按名字散列出发色、肤色、道袍（同名恒定）；o.robe 指定道袍（宗门色），o.f 指定男女
+// 路人：按名字散列出发色、肤色、道袍（同名恒定）；o.robe 指定道袍（宗门色），o.f 指定男女，o.el 出招五行
 function ftGen(name, o) {
   o = o || {}; let h = 7; for (const ch of String(name || '?')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const who = { hair: FT_HAIR[h % FT_HAIR.length], skin: FT_SKIN[(h >> 4) % FT_SKIN.length], f: o.f !== undefined ? (o.f ? 1 : 0) : (h >> 7) % 2, robe: o.robe || FT_ROBE[(h >> 9) % FT_ROBE.length], trim: o.trim || '#f3ecdc' };
-  return { who, pt: o.pt || null, extra: o.extra || 0 };
+  return { who, pt: o.pt || null, extra: o.extra || 0, el: o.el || '' };
 }
-const ftBoss = k => ({ boss: k });
-// 宗门会武的代表：有画像的用画像（云无极 / 楚天阔 / 血无涯 / 丹红袖 / 玄微子 / 驭天风），其余按宗门换色
+// 首领：ART.bossFighter 六帧小人（人形 48×40 / 兽形 64×40，锚点见 ART.bossFighterDims）；五行 L.BOSS_EL（混沌残影无属性）
+const ftBoss = k => ({ boss: k, el: (L.BOSS_EL && L.BOSS_EL[k]) || '' });
+// 宗门会武的代表：ART.nineChamp(宗门 id) → 美术 id（九宗都有画像与小人）；五行 L.NINE_EL；血煞魔宗在魔宗演武场打
 const CHAMP_PT = { kunlun: 'yun', tianjian: 'tian', xuesha: 'xue', dan: 'hongxiu', dao: 'dao', yushou: 'yutian' };
 function ftChamp(foe) {
-  const sp = ftPeople(CHAMP_PT[foe.id]);
-  if (sp) return sp;
-  const S0 = (L.SECTS || []).find(x => x.id === foe.id), c = S0 && S0.color;   // 九宗里三大正宗有宗门色，其余按名字散列
-  return ftGen(foe.champ, c ? { robe: [hexMix(c, '#1b1326', 0.45), c, hexMix(c, '#ffffff', 0.4)] } : {});
+  const id = ART.nineChamp ? ART.nineChamp(foe.id) : CHAMP_PT[foe.id];
+  let sp = ftPeople(id);
+  if (!sp) {
+    const S0 = (L.SECTS || []).find(x => x.id === foe.id), c = S0 && S0.color;   // 没有画像时：有宗门色的按宗门色换道袍，其余按名字散列
+    sp = ftGen(foe.champ, c ? { robe: [hexMix(c, '#1b1326', 0.45), c, hexMix(c, '#ffffff', 0.4)] } : {});
+  }
+  withEl(sp, L.NINE_EL && L.NINE_EL[foe.id]);
+  if (foe.id === 'xuesha' && HAS_MO) sp.stage = 'sect_mo';
+  return sp;
+}
+const HAS_MO = !!(ART.duelStages && ART.duelStages().includes('sect_mo'));
+// 舞台：对手指定的（魔宗代表）> 身在血煞魔宗时宗门里的对决换成魔宗演武场 > 调用方给的
+function duelStageOf(o) {
+  if (o.R && o.R.stage) return o.R.stage;
+  if (o.stage === 'sect' && HAS_MO && st.sect && st.sect.id === 'xuesha') return 'sect_mo';
+  return o.stage || 'wild';
 }
 function hexMix(a, b, k) {
   const p = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16)), A = p(a), B = p(b);
@@ -44,9 +70,11 @@ function ftDisc(u, n) {
   return ftGen(n || (x && x.n), { f: x ? x.f : undefined, robe: L.REALMS[realm].robe, trim: L.REALMS[realm].trim });
 }
 function ftCanvas(sp, frame, flip) {
-  if (sp.boss !== undefined) return ART.boss(sp.boss);
+  if (sp.boss !== undefined) return ART.bossFighter ? ART.bossFighter(sp.boss, frame, flip) : ART.boss(sp.boss);
   return ART.fighter(sp.who, frame, flip, sp.alt);
 }
+// 小人的锚点（脚底）：首领兽形 64×40 与人形不同，flip 之后 x = w - 1 - ax
+function ftDims(sp) { return sp.boss !== undefined && ART.bossFighterDims ? ART.bossFighterDims(sp.boss) : ART.dims.fighter; }
 
 // ---------- 剧本：每一下是谁打谁、打完血条落到哪 ----------
 // 单场四下：赢 = 我、他、我、我（收尾）；越级赢 = 我、他、他（见底）、戒指发光、我（反杀）；输反过来。血条落点随胜算略有起伏
@@ -64,7 +92,7 @@ function duelStage(o) {
   const bouts = [];
   let t = face;
   const mk = (Ls, Rs, plan, hit, label, S, Q, nL, nR) => {
-    const b = { L: Ls, R: Rs, t0: t, ev: [], label, S, Q, nL, nR };
+    const b = { L: Ls, R: Rs, t0: t, ev: [], label, S, Q, nL, nR, el: { L: Ls.me ? duelMeEl(Rs.el) : Ls.el || '', R: Rs.el || '' } };
     t += DUEL.slide;
     for (const e of plan) { b.ev.push(Object.assign({ t0: t }, e)); t += e.ring ? DUEL.ring : hit; }
     t += 120; b.t1 = t;
@@ -77,7 +105,7 @@ function duelStage(o) {
         `第${'一二三'[i]}局 · ${x.who === 'me' ? '你' : x.n} ${x.win ? '胜' : '败'}`, x.S, x.Q, x.who === 'me' ? st.p.name : x.n, i === 0 ? o.foeName : (o.foeName ? o.foeName.replace(/^.*·/, '') + '门下' : '对手'));
     });
   } else mk(o.L, o.R, duelPlan(o.win, o.p), DUEL.hit, '', o.S, o.Q, st.p.name, o.foeName);
-  duelFx = { stage: o.stage || 'wild', bouts, bi: -1, t: 0, face, endAt: t + DUEL.endPad, win: o.win, onEnd: o.onEnd, ended: false, hp: { L: 1, R: 1 }, show: { L: 1, R: 1 }, lag: { L: 1, R: 1 }, fired: 0, ringT: -1, stampT: -1, uiKey: '' };
+  duelFx = { stage: duelStageOf(o), bouts, bi: -1, t: 0, face, endAt: t + DUEL.endPad, win: o.win, onEnd: o.onEnd, ended: false, hp: { L: 1, R: 1 }, show: { L: 1, R: 1 }, lag: { L: 1, R: 1 }, fired: 0, ringT: -1, stampT: -1, uiKey: '' };
   const me = duelFx;
   SFX.gong();
   // 保险：页面在后台没有逐帧绘制时，到点也把结果给出来
@@ -143,19 +171,35 @@ function drawDuelScene(dt) {
     return { x: Math.round(x), frame };
   };
   const pl = pose('L'), pr = pose('R');
-  // 越级取胜：戒指发光（金光一圈）
-  if (d.ringT >= 0 && d.t - d.ringT < DUEL.ring + 300) { const k = (d.t - d.ringT) / (DUEL.ring + 300); ART.glow(pl.x, foot - 18, 10 + k * 26, '#ffe39a', 0.7 * (1 - k)); }
   // 身后的同门（天剑宗来犯）
   if (b.R.extra) for (let i = b.R.extra; i >= 1; i--) { ctx.globalAlpha = 0.85; ctx.drawImage(ftCanvas(b.R, (T / 500 + i | 0) % 2 ? 'idle1' : 'idle0', true), pr.x + 14 * i - (FD.w - 1 - FD.ax), foot - 4 * i - FD.ay); ctx.globalAlpha = 1; }
   ctx.drawImage(ftCanvas(b.L, pl.frame, false), pl.x - FD.ax, foot - FD.ay);
-  if (b.R.boss !== undefined) {
+  if (b.R.boss !== undefined && !ART.bossFighter) {   // 旧美术：半身像站在场上
     const c = ftCanvas(b.R), down = pr.frame === 'down', hit = pr.frame === 'hit';
     ctx.globalAlpha = down ? 0.45 : hit && (T / 60 | 0) % 2 ? 0.5 : 1;
     ctx.drawImage(c, pr.x - 22, foot - 46 + (down ? 8 : Math.round(Math.sin(T / 300) * 1.5)));
     ctx.globalAlpha = 1;
-  } else ctx.drawImage(ftCanvas(b.R, pr.frame, true), pr.x - (FD.w - 1 - FD.ax), foot - FD.ay);
-  // 命中火花
-  for (const e of b.ev) if (e.spark !== undefined && d.t - e.spark < 260) { const tg = e.by === 'L' ? pr : pl; ART.drawSpark(tg.x + (e.by === 'L' ? -6 : 6), foot - 22, (d.t - e.spark) / 260); }
+  } else { const RD = ftDims(b.R); ctx.drawImage(ftCanvas(b.R, pr.frame, true), pr.x - (RD.w - 1 - RD.ax), foot - RD.ay); }
+  // 出招：攻方有五行就飞一道五行剑气（蓄力到命中之间，从出手处飞到对方身前）
+  if (act && !d.quick && ART.drawElemQi && b.el[act.by]) {
+    const k = (d.t - act.t0) / hitMs, dir = act.by === 'L' ? 1 : -1, tg = act.by === 'L' ? pr : pl;
+    if (k >= 0.15 && k < 0.45) {
+      const u = (k - 0.15) / 0.3, x0 = (act.by === 'L' ? DUEL.xL : DUEL.xR) + dir * 10, x1 = tg.x - dir * 8;
+      ART.drawElemQi(x0 + (x1 - x0) * u, foot - 22, b.el[act.by], T, dir < 0);
+    }
+  }
+  // 命中：五行命中特效（约 360 毫秒）；无属性仍是火花
+  for (const e of b.ev) {
+    if (e.spark === undefined) continue;
+    const tg = e.by === 'L' ? pr : pl, hx = tg.x + (e.by === 'L' ? -6 : 6), el = b.el[e.by];
+    if (el && ART.drawElemHit) { if (d.t - e.spark < 360) ART.drawElemHit(hx, foot - 22, el, (d.t - e.spark) / 360); }
+    else if (d.t - e.spark < 260) ART.drawSpark(hx, foot - 22, (d.t - e.spark) / 260);
+  }
+  // 越级取胜：戒指爆光（ART.drawRingBurst，20 帧 × 50 毫秒，画在小人之上；戒指在主角持剑手附近：脚底上方 10、身前 9）
+  if (d.ringT >= 0) {
+    if (ART.drawRingBurst) { const n = ART.ringBurstFrames || 20, f = (d.t - d.ringT) / 50 | 0; if (f < n) ART.drawRingBurst(pl.x + 9, foot - 10, f / (n - 1)); }
+    else if (d.t - d.ringT < DUEL.ring + 300) { const k = (d.t - d.ringT) / (DUEL.ring + 300); ART.glow(pl.x, foot - 18, 10 + k * 26, '#ffe39a', 0.7 * (1 - k)); }
+  }
   drawParts(dt);
   // 血条（名字与战力是 DOM，见 syncDuelUI）
   if (d.t >= b.t0) {
@@ -206,12 +250,12 @@ function syncDuelUI() {
 function ftRookie(rk) {
   if (!rk) return ftGen('新秀');
   const pt = ART.portraitGen ? ART.portraitGen(rk.seed, { kind: 'rookie', f: rk.fem, realm: Math.min(8, st.p.r) }, 'ang') : null;
-  return ftGen(rk.n, { f: rk.fem, pt });
+  return ftGen(rk.n, { f: rk.fem, pt, el: rk.el });
 }
 // 奇遇里的交手：宿敌用他的小人，新秀用新秀，事件人物有画像的用画像，其余按事件散列一个路人
 function duelFoeFt(d, ev) {
   const f = d && d.foe;
   if (f && f.kind === 'rival' && f.id) return ftRival(f.id);
   if (f && f.kind === 'rookie') return ftRookie(L.rookie(st) || (st.rv2 && st.rv2.pool.find(x => x.id === f.id)));
-  return ftGen(ev ? ev.id : '对手');
+  return ftGen(ev ? ev.id : '对手', { el: f && L.foeEl ? L.foeEl(f) : '' });
 }
