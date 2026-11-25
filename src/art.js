@@ -3432,5 +3432,106 @@ Object.assign(ICONS, {
   job_out: '..r..r..r/..r..r..r....w/.rr.rr.rr...wW/.rR.rR.rR..wW/..R..R..R.wW/.........wW/...rrrr.wW/..rrrrrrW/..rrprrr.y/..rrrrrR/...RRRR',
 });
 
+// ---------- 五、灵田与炼丹 ----------
+// 作物 id（顺序同 SYSTEMS §6.2，ART.cropIds；各接口也接受序号 0～7）：herb 灵草 rice 灵稻 grain 灵谷 fire 赤炎果 ice 寒霜莲 bolt 惊雷竹 vine 长生藤 soul 养魂花
+// ART.crop(id)                          → 16×16 作物图标
+// ART.drawPlot(x, y, id, stage, t)      → 在当前 ctx 画一块田（18×9 的垄，(x,y) 为垄内左上角，同 drawField 的 px,py）；stage 0 芽 | 1 长 | 2 熟；id 为空只画空垄
+// ART.icon(丹方 id)                     → 19 种丹药齐全（新增 liaoshang baoqi bingxin cuiti yanghun leihuo baicao wudao pozhang qingdu dingshen huaxing zhuyan）
+//   三类一眼可分：修炼类 = 素丸；战斗类 = 两侧带火星；根基类 = 垫金托。ART.pillGroup(id) → 'x' 修 | 'z' 战 | 'g' 根；ART.pillIds()
+// ART.yinCell(a, b, pill, sel)          → 22×22 药引格：a、b 为 'f' 'i' 't' 'w' 's'（或 0～4），两色斜分；pill 传丹方 id 则画上丹药，否则画“？”；sel 金框
+// ART.toxinGourd(frac)                  → 16×16 丹毒葫芦，frac 0～1（>0.6 变紫冒泡，≥1 变红）
+Object.assign(ICONS, {
+  c_rice: '.......y/......yyy....y/.....yyY....yy/....yyY....yyY/...yyY.g..yyY/...yY..g.yyY/...Y...gg.Y/..l....gG/..lg...gG..l/...gg..gG.lg/....gG.gGgG/.....gGgGG/......gGG',
+  c_grain: '......mm/.....mmmM/.....mhmM/....mmmmM....m/....mhmmM...mmM/.....mmM....mhM/.....mM.g...mmM/......g.g....M/..l...gG....g/..lg..gG...gG/...gg.gG..gG/....gGgGgGG/.....gGGG',
+  c_fire: '.....g..r/....gGg.rr/...gg.Grmr/..g...rrmhr/......rmhhr/..rr..rmmrR.g/.rmhr..rRR.gG/.rmmr...G.gG/..rR...gGgG/...g..gGG/...gG.gG/....gGgG/.....GG',
+  c_ice: '......i/.....iwi/..i..iwi..i/.iwi.iwb.iwi/.iwbiwwbiwbb/..iwbwwbwbb/...bbwybbb/....bbbbb/.cccc.G.cccc/cccCCcGcCCccc/.CCCC.G.CCCC/......G',
+  c_bolt: '....y.....v/...yy....vvV/...yyy...vV.l/..yyy....vV.lg/....y...vvV/....yy..vV/.......vvvV/..vV....vV/..vvV..vvV/..vV...vV/.vvvV..vV/..vV..vvvV/..vV...vV',
+  c_vine: '....ggg/...g...g..y/..g..o..g.yg/..g..o.gg/...g.ogg/....gog...l/...ggog..lg/..gg.o.g.g/..g..o..gg/..gy.o.gg/...ggogg/.....o/....ooo',
+  c_soul: '....u...w/...uwu.....w/..uuwuu/.uwwywwu..w/..uuwuu/...uwu.g/....u.gG/.....gG/..l..gG/..lg.gG.l/...gggGgg/.....gGG/.....GG',
+});
+const CROPS = {
+  // [茎, 叶, 果/花, 高光, 形]
+  herb: ['#3f8a3a', '#6fcf5a', '#9ae06a', '#d6f58a', 0], rice: ['#6a9a3a', '#a8c84a', '#f4c542', '#fff2a8', 1], grain: ['#5a8a3a', '#8ab84a', '#e8925a', '#ffd0a0', 2], fire: ['#2f6e4b', '#3f8a5a', '#e8483a', '#ffb23f', 3],
+  ice: ['#3a7ab8', '#7fc8e8', '#d4f4ff', '#ffffff', 4], bolt: ['#6a3aa8', '#a88af0', '#f4e04a', '#ffffff', 5], vine: ['#7a5230', '#2f8e4b', '#62d26f', '#f4c542', 6], soul: ['#4a7a6a', '#6aa88a', '#b8a0f0', '#ffffff', 7],
+};
+ART.cropIds = Object.keys(CROPS);
+const cropId = id => typeof id === 'number' ? ART.cropIds[id] : CROPS[id] ? id : null;
+ART.crop = id => ART.icon(cropId(id) === 'herb' ? 'herb' : 'c_' + (cropId(id) || 'rice'));
+ART.drawPlot = function (px, py, id, stage, t) {
+  px = Math.round(px); py = Math.round(py); t = t || 0;
+  R(px - 1, py - 1, 18, 9, '#5a4034'); R(px, py, 16, 7, '#6e4c36'); R(px - 1, py - 1, 18, 1, '#a07a50'); R(px - 1, py + 7, 18, 1, '#3e2a28');
+  for (let k = 0; k < 3; k++) { R(px, py + 1 + k * 2, 16, 1, '#825c40'); dR(px, py + 2 + k * 2, 16, 1, '#553a30', 8); }
+  const C = CROPS[cropId(id)]; if (!C) return;
+  const [s, l, f, h2, sh] = C;
+  for (let k = 0; k < 4; k++) {
+    const x = px + 2 + k * 4, y = py + 2 + (k % 2), sw = Math.round(Math.sin(t / 700 + px * 0.3 + k) * 0.7), sp = (t / 400 + k * 2 + px | 0) % 5 === 0;
+    if (stage <= 0) { R(x, y - 1, 1, 2, s); R(x - 1, y - 2, 1, 1, l); R(x + 1, y - 2, 1, 1, l); continue; }
+    const g = stage >= 2;
+    if (sh === 0) { R(x, y - 2, 1, 3, s); R(x - 1 + sw, y - 3, 1, 2, l); if (g) { R(x + 1 + sw, y - 4, 1, 2, f); R(x + sw, y - 5, 1, 1, h2); } }
+    else if (sh === 1) { R(x, y - (g ? 5 : 3), 1, g ? 6 : 4, s); R(x - 1, y - 2, 1, 2, l); if (g) { R(x + 1 + sw, y - 6, 1, 3, f); R(x + 2 + sw, y - 4, 1, 2, f); R(x + 1 + sw, y - 6, 1, 1, h2); } else R(x + 1, y - 4, 1, 2, l); }
+    else if (sh === 2) { R(x, y - (g ? 4 : 3), 1, g ? 5 : 4, s); R(x + 1, y - 2, 1, 1, l); R(x - 1, y - 3, 1, 1, l); if (g) { R(x - 1, y - 7, 2, 4, f); R(x - 1, y - 7, 1, 2, h2); R(x, y - 8, 1, 1, f); } }
+    else if (sh === 3) { R(x - 1, y - (g ? 4 : 3), 3, g ? 4 : 3, l); R(x, y - (g ? 5 : 4), 1, 1, s); R(x - 1, y - 1, 3, 1, s); if (g) { R(x - 1 + (k % 2) * 2, y - 4, 1, 1, f); R(x + (k % 2 ? -1 : 1), y - 2, 1, 1, f); R(x, y - 3, 1, 1, sp ? h2 : f); } }
+    else if (sh === 4) { R(x - 1, y - 1, 3, 1, s); R(x - 2, y, 2, 1, l); if (g) { R(x - 1, y - 3, 3, 2, f); R(x, y - 4, 1, 1, h2); R(x - 2, y - 2, 1, 1, l); R(x + 2, y - 2, 1, 1, l); R(x, y - 2, 1, 1, '#f4c542'); } else R(x, y - 2, 1, 1, f); }
+    else if (sh === 5) { const hh = g ? 8 : 4; R(x, y - hh + 1, 1, hh, l); for (let j = 2; j < hh; j += 3) R(x, y - j, 1, 1, s); R(x + 1, y - hh + 2, 1, 1, l); if (g) { R(x - 1, y - 5, 1, 1, l); R(x + (sp ? 1 : -1), y - 8, 1, 1, sp ? h2 : f); } }
+    else if (sh === 6) { const hh = g ? 7 : 4; R(x, y - hh + 1, 1, hh, s); for (let j = 1; j < hh; j += 2) R(x + (j % 4 === 1 ? -1 : 1), y - j, 1, 1, j % 4 === 1 ? l : f); if (g) R(x + 1, y - 7, 1, 1, h2); }
+    else { R(x, y - (g ? 4 : 2), 1, g ? 5 : 3, s); R(x - 1, y - 1, 1, 1, l); if (g) { R(x - 1, y - 6, 3, 2, f); R(x, y - 7, 1, 1, f); R(x, y - 5, 1, 1, h2); if (sp) R(x + 1 + sw, y - 9, 1, 1, h2); } else R(x, y - 3, 1, 1, f); }
+  }
+};
+Object.assign(PILLS, {
+  liaoshang: ['#f4e8e0', '#b89a94', '#ffffff', '/....../....rr/....rr/..rrrrrr/..rrrrrr/....rr/....rr'],
+  baoqi: ['#f0642a', '#a02a1a', '#ffd0a0', '/....../..w..w..w/...w.w.w/....www/..wwwwwww/....www/...w.w.w/..w..w..w'],
+  bingxin: ['#8fd8f0', '#3a8ab8', '#ffffff', '/....../.....w/..w..w..w/...w.w.w/.wwwwwwwww/...w.w.w/..w..w..w/.....w'],
+  cuiti: ['#c88a4a', '#7a4a26', '#ffe0b0', '/....../...w...w/....w...w/.....w...w/....w...w/...w...w'],
+  yanghun: ['#b8a8f0', '#6a5ab0', '#ffffff', '/....../....ww/...wwww/...wwww/....www/.....ww/....ww/...w'],
+  leihuo: ['#f4a020', '#a85a10', '#fff6c8', '/....../.....ww/....ww/...wwww/.....ww/....ww/...ww/...w'],
+  baicao: ['#a8c83a', '#5a7a1e', '#f0ffb4', '/....../....w/...www/....w...w/.......www/..w.....w/.www/..w'],
+  wudao: ['#3a4aa8', '#1e2460', '#d4dcff', '/....../.....w/....www/..wwwwwww/...wwwww/...ww.ww/..ww...ww'],
+  pozhang: ['#9aa2b8', '#55607e', '#ffffff', '/....../....w/....ww/.....w/....ww/...ww/....w/....ww'],
+  qingdu: ['#8fe8c0', '#3a9a7a', '#ffffff', '/....../.....b/.....b/....bbb/....bbb/...bbbbb/...bbbbb/....bbb'],
+  dingshen: ['#2a5a8a', '#12304e', '#bfe4ff', '/....../....www/...w...w/...w.w.w/...w...w/....www//..wwwwwww'],
+  huaxing: ['#e8a05a', '#9a5a26', '#fff0d0', '/....../...w.w.w/...w.w.w//....www/...wwwww/...wwwww/....www'],
+  zhuyan: ['#e87ac8', '#983a80', '#ffe0f4', '/....../....w.w/...wwwww/....wrw/...wwwww/....w.w'],
+});
+const PILL_G = { peiyuan: 'x', juling: 'x', yanghun: 'x', baicao: 'x', wudao: 'x', baoqi: 'z', leihuo: 'z' };
+ART.pillGroup = id => PILLS[id] ? PILL_G[id] || 'g' : null;
+ART.pillIds = () => Object.keys(PILLS);
+{
+  const icon0 = ART.icon;
+  ART.icon = function (name) {
+    if (!PILLS[name]) return icon0(name);
+    const g = ART.pillGroup(name); if (g === 'x') return icon0(name);
+    return cached('ic2|' + name, () => on(mk(16, 16), () => {
+      const src = icon0(name);
+      if (g === 'g') { ctx.drawImage(src, 0, -1); R(3, 14, 10, 2, INK); R(2, 13, 1, 2, INK); R(13, 13, 1, 2, INK); R(3, 13, 10, 1, '#f4c542'); R(4, 14, 8, 1, '#a8742a'); R(3, 13, 2, 1, '#fff2a8'); }
+      else { ctx.drawImage(src, 0, 0); for (const [x, y] of [[0, 3], [14, 2], [1, 11], [14, 12]]) { R(x, y, 2, 2, INK); R(x, y, 1, 1, '#ffb23f'); R(x + 1, y + 1, 1, 1, '#e8483a'); R(x + 1, y, 1, 1, '#fff2a8'); } }
+    }));
+  };
+}
+const YIN_C = { f: ['#e8483a', '#ffb23f'], i: ['#4aa8ff', '#d4ecff'], t: ['#f4e04a', '#c27dff'], w: ['#62d26f', '#2f8e4b'], s: ['#b8c0f0', '#6a72b8'] }, YIN_K = 'fitws';
+ART.yinKeys = YIN_K.split('');
+ART.yinCell = function (a, b, pill, sel) {
+  a = typeof a === 'number' ? YIN_K[a] : a; b = typeof b === 'number' ? YIN_K[b] : b; const A = YIN_C[a] || YIN_C.f, B = YIN_C[b] || YIN_C.f;
+  return cached(['yin', a, b, pill || '', sel ? 1 : 0].join('|'), () => on(mk(22, 22), () => {
+    R(1, 0, 20, 22, INK); R(0, 1, 22, 20, INK);
+    for (let y = 1; y < 21; y++) for (let x = 1; x < 21; x++) { const d = x + y - 21, top = d < 0, c = top ? A : B, k = pill ? 0.55 : 0.2; R(x, y, 1, 1, d === 0 || d === -1 ? '#1e1830' : lerpC('#262038', c[0], BAYER[(x & 3) + (y & 3) * 4] < 6 ? k : k * 0.7)); }
+    R(2, 2, 3, 3, A[0]); R(2, 2, 1, 1, A[1]); R(17, 17, 3, 3, B[0]); R(17, 17, 1, 1, B[1]);
+    const fc = sel ? '#f4c542' : pill ? '#928ea8' : '#55506e'; R(1, 1, 20, 1, fc); R(1, 20, 20, 1, hs(fc, 0.7)); R(1, 1, 1, 20, fc); R(20, 1, 1, 20, hs(fc, 0.7));
+    if (pill) ctx.drawImage(ART.icon(pill), 3, 3);
+    else for (const [x, y, w, hh] of [[8, 6, 6, 2], [7, 7, 2, 2], [13, 7, 2, 4], [10, 10, 4, 2], [10, 11, 2, 3], [10, 15, 2, 2]]) R(x, y, w, hh, '#928ea8');
+  }));
+};
+ART.toxinGourd = function (frac) {
+  const lv = Math.max(0, Math.min(10, Math.round(frac * 10)));
+  return cached('toxin|' + lv, () => {
+    const b = new Buf(16, 16), G2 = tone('#e0c890', '#a88a52', '#fff6d8'), c = lv >= 10 ? '#d8404a' : lv > 6 ? '#a050c8' : '#62d26f';
+    b.add(L => { L.e(8, 10.5, 5, 4.5, G2); L.e(8, 5, 3, 2.8, G2); L.r(7, 7, 2, 2, G2); });
+    b.r(7, 0, 2, 2, '#8a5c36'); b.hl(6, 9, 7, '#d8404a');
+    const top = 15 - lv * 1.25;
+    for (let y = 2; y < 15; y++) for (let x = 3; x < 13; x++) if (y >= top && [G2, up(G2), dn(G2)].includes(b.at(x, y)) && b.at(x - 1, y) && b.at(x + 1, y) && b.at(x, y + 1) && y !== 7) b.p(x, y, y === Math.ceil(top) ? lerpC(c, '#ffffff', 0.5) : x > 9 ? hs(c, 0.7) : c);
+    if (lv > 6) { b.p(4, 2, c); b.p(12, 3, c); b.p(11, 1, lerpC(c, '#ffffff', 0.5)); }
+    return b.cv();
+  });
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
