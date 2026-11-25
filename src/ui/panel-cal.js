@@ -80,52 +80,25 @@ $('#worldTag').addEventListener('click', e => { e.stopPropagation(); if (!st || 
 // ---------- 老祖：大势开始时一句“该干什么”（带数字）；换季时提一句（每季一次） ----------
 function worldLine(w) {
   const n = w.until - w.at, V = L.WORLD_V, inc = Math.max(L.income(st), 20);
-  const sellAll = ks => ks.reduce((a, k) => a + L.sellValue(st, k, L.sellHave(st, k)), 0);
+  const where = (k, a) => { const d = calDepth(k, a); return { d, f: L.expForecast(st, k, d, a), at: L.REGIONS[k].n + '·' + L.DEPTHS[d] }; };
   switch (w.id) {
-    case 'w_shouchao': {
-      const k = L.regionOpen(st, 3) ? 3 : 0, d = calDepth(k, 0), fc = L.expForecast(st, k, d, 0);
-      return `兽潮来了：这 ${n} 个周天去${L.REGIONS[k].n}这样的木属性地图斩妖，灵石多八成（${L.DEPTHS[d]}一趟约 ${fmt(fc.stones / V.shouchao)} → ${fmt(fc.stones)}）——不过评价分数 ${V.shouchaoScore}，量力。`;
-    }
-    case 'w_lingchao': {
-      const g1 = L.gainBase(st), g0 = g1 / (1 + V.lingchao), e = L.retInfo(st).epi;
-      return `灵气潮汐，${n} 个周天：修炼 +30%（每周天 +${dec(g0)} → +${dec(g1)}），闭关顿悟 ${L.pct(e / 2)} → ${L.pct(e)}。这几个周天闭关最划算。`;
-    }
-    case 'w_danhui': {
-      const r = L.alchRate(st), p = L.sellOpen(st) ? L.sellPrice(st, 'pill') : 0;
-      return `丹道大会开 ${n} 个周天：成丹率 ${L.pct(r - V.danhuiAlch)} → ${L.pct(r)}` + (p ? `，破境丹卖价 ×2（一枚 ${fmt(p / V.danhuiSell)} → ${fmt(p)}）。你手里 ${st.pills} 枚，留三枚，其余拿去坊市卖。` : '。灵草够就多炼几炉。');
-    }
-    case 'w_kuangmai': {
-      const k = w.k, d = calDepth(k, 0), fc = L.expForecast(st, k, d, 0);
-      return `${L.REGIONS[k].n}出了矿脉：${n} 个周天灵矿 ×3，斩妖一趟约 ${fmt(fc.ore / V.kuangmai)} → ${fmt(fc.ore)}。强化正缺灵矿，去那儿。`;
-    }
+    case 'w_shouchao': { const x = where(L.regionOpen(st, 3) ? 3 : 0, 0); return `兽潮来了，${n} 个周天：木属性地图斩妖灵石 ×1.8（${x.at} ${fmt(x.f.stones / V.shouchao)} → ${fmt(x.f.stones)}），分数 ${V.shouchaoScore}，量力。`; }
+    case 'w_lingchao': { const g1 = L.gainBase(st), e = L.retInfo(st).epi; return `灵气潮汐 ${n} 个周天：修炼 +${dec(g1 / (1 + V.lingchao))} → +${dec(g1)}/周天，闭关顿悟 ${L.pct(e / 2)} → ${L.pct(e)}。正好闭关。`; }
+    case 'w_danhui': { const r = L.alchRate(st), p = L.sellOpen(st) ? L.sellPrice(st, 'pill') : 0; return `丹道大会 ${n} 个周天：成丹率 ${L.pct(r - V.danhuiAlch)} → ${L.pct(r)}` + (p ? `，破境丹卖价 ${fmt(p / V.danhuiSell)} → ${fmt(p)}。留三枚，多的去卖。` : '，多炼几炉。'); }
+    case 'w_kuangmai': { const x = where(w.k, 0); return `${L.REGIONS[w.k].n}出了矿脉：${n} 个周天灵矿 ×3，斩妖一趟 ${fmt(x.f.ore / V.kuangmai)} → ${fmt(x.f.ore)}。缺灵矿就去。`; }
     case 'w_mojie': {
       const ks = []; for (let k = 0; k < L.REGIONS.length; k++) if (L.regionOpen(st, k) && ['huo', 'shui'].includes(L.REGIONS[k].el)) ks.push(k);
-      if (!ks.length) return `魔劫起了，${n} 个周天：火、水属性的地图推荐战力 ×1.3、收获 ×1.6。你还没去过那种地方，躲远点。`;
-      const k = ks[ks.length - 1], d = calDepth(k, 0), fc = L.expForecast(st, k, d, 0);
-      return `魔劫起了，${n} 个周天：${ks.map(x => L.REGIONS[x].n).join('、')}推荐战力 ×1.3、收获 ×1.6。${L.REGIONS[k].n}·${L.DEPTHS[d]}你预计「${fc.text}」，灵石约 ${fmt(fc.stones)}，打得过就去发财。`;
+      if (!ks.length) return `魔劫 ${n} 个周天：火、水属性地图推荐战力 ×1.3、收获 ×1.6。你还没去过那种地方，躲远点。`;
+      const x = where(ks[ks.length - 1], 0);
+      return `魔劫 ${n} 个周天：火、水属性地图推荐战力 ×1.3、收获 ×1.6。${x.at}你预计「${x.f.text}」，打得过就去。`;
     }
-    case 'w_liuxing': return `流星雨，${n} 个周天：寻宝掉落高一阶的概率 15% → 30%，天材地宝一出就是两个。这几趟都去寻宝。`;
-    case 'w_dahan': {
-      const loss = st.home.field ? L.fieldInc(st.home.field) * V.dahan : 0, p = L.sellOpen(st) ? L.sellPrice(st, 'herb') : 0;
-      return `大旱 ${n} 个周天：灵田${loss ? `灵石少 ${fmt(loss)}/周天、` : ''}灵草少四成` + (p ? `，可灵草卖价 ×1.6（现价 ${L.fmt1(p)}）。你有 ${fmt(st.herbs)} 株，正好卖：约 ${fmt(L.sellValue(st, 'herb', L.sellHave(st, 'herb')))} 灵石。` : '。');
-    }
-    case 'w_xianfu': {
-      const b = L.expBest(st, 0);
-      return `仙府现世，开 ${n} 个周天：这期间历练评价甲以上，一半机会带回一件仙府秘藏。挑稳的地方去——${L.REGIONS[b.k].n}·${L.DEPTHS[b.d]}你预计「${b.f.text}」。`;
-    }
-    case 'w_shanglu': {
-      const v = L.sellOpen(st) ? sellAll(['herb', 'pill']) : 0;
-      return `商路断了 ${n} 个周天：坊市买价 +30%（破境丹 ${fmt(L.price(st, 'pill'))} → ${fmt(Math.floor(L.price(st, 'pill') * V.shanglu))}），行情 ×1.3。先别买` + (v ? `，手里的灵草、破境丹拿去卖，约 ${fmt(v)} 灵石。` : '。');
-    }
-    case 'w_jiangdao': {
-      const m = L.retBaseMult(st), c = st.sect ? L.contribFor(L.homeRegion(st)) * V.jiangdaoContrib : 0;
-      return `名师讲道 ${n} 个周天：闭关倍率 ×${(m - V.jiangdao).toFixed(2)} → ×${m.toFixed(2)}${c ? `，每次出关另得贡献 ${fmt(c)}` : ''}。回洞府闭关（${fmt(L.retCost(st))} 灵石）。`;
-    }
-    case 'w_tongji': {
-      const q = L.wantedRank(st), P = q ? L.rivalPower(st, q) : 0, S = L.power(st);
-      return `通缉令：天骄榜第 ${q} 名「${w.who}」被悬赏，下届论道（${L.nextTour(st)} 周天后）打赢他赏 ${fmt(inc * L.CAL.bounty)} 灵石。他战力 ${fmt(P)}，你 ${fmt(S)}，胜算 ${L.pct(L.duelChance(S, P))}。`;
-    }
-    default: return `天下太平。这 ${n} 个周天没什么大事：照常历练、闭关，下一次看天象在 ${n + 2} 周天后。`;
+    case 'w_liuxing': return `流星雨 ${n} 个周天：寻宝出高一阶的概率 15% → 30%，天材地宝一出就是两个。这几趟去寻宝。`;
+    case 'w_dahan': { const p = L.sellOpen(st) ? L.sellPrice(st, 'herb') : 0, h = L.sellHave(st, 'herb'); return `大旱 ${n} 个周天：灵田少四成` + (p ? `，灵草卖价 ×1.6（一株 ${L.fmt1(p)}）。你的 ${fmt(h)} 株能卖 ${fmt(L.sellValue(st, 'herb', h))}。` : `，灵石少 ${fmt(st.home.field ? L.fieldInc(st.home.field) * V.dahan : 0)}/周天。`); }
+    case 'w_xianfu': { const b = L.expBest(st, 0); return `仙府现世 ${n} 个周天：历练评价甲以上，一半机会带回秘藏。${L.REGIONS[b.k].n}·${L.DEPTHS[b.d]}你预计「${b.f.text}」。`; }
+    case 'w_shanglu': { const v = L.sellOpen(st) ? L.sellValue(st, 'herb', L.sellHave(st, 'herb')) + L.sellValue(st, 'pill', L.sellHave(st, 'pill')) : 0; return `商路断了 ${n} 个周天：买价 +30%（破境丹 ${fmt(L.price(st, 'pill'))} → ${fmt(Math.floor(L.price(st, 'pill') * V.shanglu))}），行情 ×1.3。先别买` + (v ? `，卖草卖丹约 ${fmt(v)}。` : '。'); }
+    case 'w_jiangdao': { const m = L.retBaseMult(st), c = st.sect ? L.contribFor(L.homeRegion(st)) * V.jiangdaoContrib : 0; return `名师讲道 ${n} 个周天：闭关 ×${(m - V.jiangdao).toFixed(2)} → ×${m.toFixed(2)}${c ? `，出关另得贡献 ${fmt(c)}` : ''}。回洞府闭关。`; }
+    case 'w_tongji': { const q = L.wantedRank(st), P = q ? L.rivalPower(st, q) : 0, S = L.power(st); return `通缉令：第 ${q} 名「${w.who}」悬赏 ${fmt(inc * L.CAL.bounty)}，${L.nextTour(st)} 周天后论道打赢他就拿，胜算 ${L.pct(L.duelChance(S, P))}。`; }
+    default: return `天下太平，${n} 个周天没什么事。照常历练、闭关，${n + 2} 周天后再看天象。`;
   }
 }
 function worldTip(id) {

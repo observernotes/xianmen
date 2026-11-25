@@ -57,7 +57,7 @@ function showMarket(o) {
     const off = row.off ? `<span class="chip warn">${Math.round((1 - row.off) * 10)}折</span>` : row.urgent ? '<span class="chip bad">加急</span>' : '';
     const btn = row.lock ? `<button class="btn sm alt mbuy" disabled>${esc(row.lock)}</button>`
       : `<button class="btn sm ${dis ? 'alt' : 'gold'} mbuy" data-buy="${row.i}" data-k="${row.k}" ${dis ? 'disabled' : ''}>${iconHTML('stone', 12)} ${fmt(row.price)}</button>${why && row.left > 0 ? `<span class="muted">${esc(why)}</span>` : row.left <= 0 && !row.lock ? '<span class="muted">本届售罄</span>' : ''}`;
-    return `<div class="card flat shelfrow${row.lock ? ' lock' : ''}"><div style="flex:none">${row.k ? goodImg(st, row) : iconHTML('bag', 30)}</div><div class="main"><div>${esc(row.n)} ${off}</div>${row.d || lim ? `<div class="muted">${esc(row.d || '')}${lim}</div>` : ''}</div><div class="right">${btn}</div></div>`;
+    return `<div class="card flat shelfrow${row.lock ? ' lock' : ''}"><div style="flex:none">${row.k ? goodImg(st, row) : iconHTML('bag', 30)}</div><div class="main"><div>${esc(row.n.replace(/（\d折）$/, ''))} ${off}</div>${row.d || lim ? `<div class="muted">${esc(row.d || '')}${lim}</div>` : ''}</div><div class="right">${btn}</div></div>`;
   };
   const fixed = rows.filter(r => r.fixed), rot = rows.filter(r => !r.fixed);
   const disc = st.market && st.market.disc < 1 ? ' · 本届九折' : '', shang = L.worldOn(st, 'w_shanglu') ? ' · 商路断绝 +30%' : '';
