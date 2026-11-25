@@ -3,8 +3,9 @@
 // ---------- 人物 ----------
 function ladderHTML() {
   const rows = [];
-  const add = q => { const rv = L.rivalAt(st, q); rows.push(`<div class="${q === st.rank ? 'me' : ''}"><b>第${q}</b><span>${esc(rv ? rv.n : st.p.name)}${rv && rv.id ? ' <span class="seal">宿敌</span>' : ''}</span><span class="num">${fmt(q === st.rank ? L.power(st) : L.rivalPower(st, q))}</span></div>`); };
+  const add = q => { const rv = L.rivalAt(st, q); rows.push(`<div class="${q === st.rank ? 'me' : ''}"><b>第${q}</b><span>${esc(rv ? rv.n : st.p.name)}${rv && rv.id ? ' <span class="seal">宿敌</span>' : ''}${rv && rv.rk ? ' <span class="goldt">新秀</span>' : ''}</span><span class="num">${fmt(q === st.rank ? L.power(st) : L.rivalPower(st, q))}</span></div>`); };
   const qs = new Set([1, 2, 3]);
+  const rq = L.rookie && L.rookie(st) ? L.rookieRank(st) : 0; if (rq) qs.add(rq);   // 正在追你的新秀也列出来
   for (let q = st.rank - 2; q <= st.rank + 2; q++) if (q >= 1 && q <= 100) qs.add(q);
   let prev = 0;
   for (const q of [...qs].sort((a, b) => a - b)) { if (q - prev > 1) rows.push('<div class="muted"><b>…</b></div>'); add(q); prev = q; }
@@ -60,12 +61,14 @@ function showMe(tab) {
     body = `<div class="muted">已达成 ${got} / ${L.ACHS.length} · 点已获得的称号可佩戴</div>` + L.ACHS.map(a => `<div class="ach ${st.ach[a.id] ? '' : 'off'}" data-title="${st.ach[a.id] ? esc(a.t) : ''}"><b>${a.n}<br><span class="muted">${a.d}</span></b><span class="${st.title === a.t ? 'chip ok' : 'chip'}">「${a.t}」</span></div>`).join('')
       + (st.titles.filter(t => !L.ACHS.some(a => a.t === t)).length ? `<div class="sep"></div><div class="muted">其他称号</div>` + st.titles.filter(t => !L.ACHS.some(a => a.t === t)).map(t => `<div class="ach" data-title="${esc(t)}"><b>${esc(t)}</b><span class="${st.title === t ? 'chip ok' : 'chip'}">${st.title === t ? '佩戴中' : '佩戴'}</span></div>`).join('') : '');
   } else {
-    const rivals = L.RIVALS.map(rv => { const name = rv.id === 'mu' ? st.exName : rv.name; return `<div class="row"><span class="grow">${esc(name)} <span class="muted">${rv.title}</span></span>${st.beaten[rv.id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${L.rivalRank(st, rv.id) || '?'}名</span>`}</div>`; }).join('');
+    // 宿敌一览与新秀（panel-rivals.js）：点一行看宿敌卡（属性、看家战技、法宝、恩怨条，未知的写“？”）
+    const rivals = rivalListHTML();
     const bosses = L.BOSSES.map((B, k) => `<span class="chip ${st.bosses[k] ? 'ok' : ''}" style="${st.bosses[k] ? '' : 'opacity:.5'}">${B.n}</span>`).join(' ');
-    body = `<div class="muted">宿敌</div>${rivals}<div class="sep"></div><div class="muted">天骄榜（每 12 周天举行一届论道）</div>${ladderHTML()}<div class="sep"></div><div class="muted">地图首领</div><div style="display:flex;flex-wrap:wrap;gap:4px">${bosses}</div>`;
+    body = `${rivals}<div class="sep"></div><div class="muted">天骄榜（每 12 周天举行一届论道）</div>${ladderHTML()}<div class="sep"></div><div class="muted">地图首领</div><div style="display:flex;flex-wrap:wrap;gap:4px">${bosses}</div>`;
   }
   const s = sheet({ title: '人物', body: meTabs(tab) + body });
   bindMeTabs(s);
+  if (tab === 'rank') bindRivalList(s);
   const ab = s.querySelector('#btnArts'); if (ab) ab.onclick = () => { SFX.tap(); showArts(0); };
   const pm = s.querySelector('#btnPetsMe'); if (pm) pm.onclick = () => { SFX.tap(); showPets(); };
   const gb0 = s.querySelector('#btnGear'); if (gb0) gb0.onclick = () => { SFX.tap(); showGear('w'); };

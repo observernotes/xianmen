@@ -4,7 +4,7 @@
  * 十四类，分类与 ART.codexCats / ART.codexIcon 一致：map art combo gear pet pill recipe sigil people rival chain event realm ending。
  * 各系统已经各自记着“见过 / 发现”的，这里只读、不重复存：
  *   map 地点相性 st.meta.aff · combo 共鸣 st.meta.combo · pet 灵宠 st.meta.petSeen + petEvo · pill 丹方 L.recipeKnown（st.meta.recipe）
- *   rival 对手属性 st.meta.elem 的 rv_* / boss_* · realm 秘境 st.meta.mj · chain 奇遇链 st.meta.chain（chains.js）· people 人物喜好 L.giftKnown（人物线导出，没接上时这一类不计）
+ *   rival 对手属性 宿敌线的 L.rivalKnown（五行 / 功法 / 法宝，st.meta.rival）+ st.meta.elem 的 boss_* · realm 秘境 st.meta.mj · chain 奇遇链 st.meta.chain（chains.js）· people 人物喜好 L.giftKnown（人物线导出，没接上时这一类不计）
  * 别处没有跨世记录的，记进 st.meta.cx：art 功法 · gear 法宝底子 · plan 器方 · sigil 阵图 · ev 奇遇（散件）· end 结局 · grp 已成组的类。
  *
  * 加成（都要克制，sim 对照 nocodex）：
@@ -64,7 +64,8 @@ function evLoose() {
   return evSetCache;
 }
 const once = f => { let v = null; return () => v || (v = f()); };
-const rivalKeys = once(() => L.RIVALS.map(r => 'rv_' + r.id).concat(L.REGIONS.map((r, k) => 'boss_' + k)));
+// 宿敌：宿敌线导出 L.rivalKnown(st) → [{ id, n, el|null, art|null, gear|null }]（存在 st.meta.rival）；没有它时只认五行（st.meta.elem 的 rv_*）
+const rivalFacts = st => (typeof L.rivalKnown === 'function' ? L.rivalKnown(st) || [] : L.RIVALS.filter(r => st.meta.elem['rv_' + r.id]).map(r => ({ id: r.id, n: r.id === 'mu' ? st.exName : r.name, el: '?', art: null, gear: null })));
 const gearList = once(() => L.gearBases().slice());
 const petCells = once(() => { const out = []; for (const sp of L.PET_IDS) { out.push({ k: sp, sp, b: 0 }); if (L.PET_SP[sp].a) out.push({ k: sp + '_a', sp, b: 1 }, { k: sp + '_b', sp, b: 2 }); } return out; });
 const realmCells = once(() => { const out = []; for (const th of L.MJ_THEMES || []) out.push({ k: th.id + ':deep', th, t: 'deep' }, { k: th.id + ':clear', th, t: 'clear' }); out.push({ k: 'hunyuan', t: 'hunyuan' }); return out; });
@@ -100,10 +101,10 @@ L.CODEX = [
   { id: 'people', n: '人物喜好', d: '送礼试出来的人物喜好', avail: st => !!gifts(st),
     total: () => 14, got: st => Math.min(14, (gifts(st) || []).length),
     cells: st => [{ g: '', list: (gifts(st) || []).map(x => ({ n: typeof x === 'string' ? x : (x && x.n) || '喜好', on: true })).concat(Array.from({ length: Math.max(0, 14 - (gifts(st) || []).length) }, () => ({ n: '？', on: false }))) }] },
-  { id: 'rival', n: '对手属性', d: '宿敌与首领的五行，交过手才知道',
-    total: () => rivalKeys().length, got: st => rivalKeys().filter(k => st.meta.elem[k]).length,
-    cells: st => [{ g: '宿敌', list: L.RIVALS.map(r => ({ n: st.meta.elem['rv_' + r.id] ? (r.id === 'mu' ? st.exName : r.name) : '？', on: !!st.meta.elem['rv_' + r.id] })) },
-      { g: '首领', list: L.BOSSES.map((B, k) => ({ n: st.meta.elem['boss_' + k] ? B.n : '？', on: !!st.meta.elem['boss_' + k] })) }] },
+  { id: 'rival', n: '对手属性', d: '宿敌的五行、功法、法宝（宿敌线 L.rivalKnown，交过手、打探过才知道），首领的五行',
+    total: () => L.RIVALS.length * 3 + L.REGIONS.length, got: st => { let n = 0; for (const x of rivalFacts(st)) n += (x.el ? 1 : 0) + (x.art ? 1 : 0) + (x.gear ? 1 : 0); for (let k = 0; k < L.REGIONS.length; k++) if (st.meta.elem['boss_' + k]) n++; return n; },
+    cells: st => { const F = {}; for (const x of rivalFacts(st)) F[x.id] = x; return L.RIVALS.map(r => { const x = F[r.id] || {}; const nm = x.n || (r.id === 'mu' ? st.exName : r.name); return { g: x.id ? nm : '？', list: [['el', '五行'], ['art', '功法'], ['gear', '法宝']].map(([k, t]) => ({ n: x[k] ? t + '·' + (k === 'el' ? (L.elName ? L.elName(x.el) : x.el) : k === 'art' ? (L.art && L.art(x.art) ? L.art(x.art).n : x.art) : x.gear.n) : t + '？', on: !!x[k] })) }; })
+      .concat([{ g: '首领', list: L.BOSSES.map((B, k) => ({ n: st.meta.elem['boss_' + k] ? B.n : '？', on: !!st.meta.elem['boss_' + k] })) }]); } },
   { id: 'chain', n: '奇遇链', d: '十条奇遇链，每做完一步记一格（跨世取最远的那次）',
     total: () => L.CHAINS.reduce((a, c) => a + L.chainTotal(c.id), 0), got: st => L.CHAINS.reduce((a, c) => a + Math.min(L.chainTotal(c.id), Math.max(L.chainMeta(st, c.id).best || 0, L.chainGot(st, c.id))), 0),
     cells: st => L.CHAINS.map(c => { const best = Math.max(L.chainMeta(st, c.id).best || 0, L.chainGot(st, c.id)), t = L.chainTotal(c.id); return { g: c.n, chain: c.id, list: Array.from({ length: t }, (x, i) => ({ n: String(i + 1), on: i < best })) }; }) },

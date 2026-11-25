@@ -17,9 +17,54 @@ L.rivalA = function (q) {
   }
   return RA[RA.length - 1][1];
 };
-// 名次曲线本身（九宗会武的宗门战力也按它）；L.rivalPower 另乘这位天骄自己的永久加成 pw（拍卖会拍到东西 ×1.04，market.js）
+// 名次曲线本身（九宗会武的宗门战力也按它）；L.rivalPower 另乘这位天骄自己的永久加成 pw（拍卖会拍到东西 ×1.04，market.js；宿敌的奇遇 ×1.05，rivals2.js），
+// 每人合计上限 ×1.3（SYSTEMS §13，L.rivalBoost）；新秀（rv.rk）的战力另算（rivals2.js 的 L.rookiePower）
 L.rivalCurve = (st, q) => Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * st.tick);
-L.rivalPower = (st, q) => { const rv = L.rivalAt(st, q); return L.rivalCurve(st, q) * ((rv && rv.pw) || 1); };
+L.rivalPower = (st, q) => { const rv = L.rivalAt(st, q); if (rv && rv.rk && L.rookiePower) return L.rookiePower(st, rv, q); return L.rivalCurve(st, q) * ((rv && rv.pw) || 1); };
+// 永久系数：x 是 st.ladder 里的一项；m 是这一次的倍率；返回实际乘上的倍率（到顶了就是 1）。why 给了就进天骄榜快讯
+L.RIVAL_PW_CAP = 1.3;
+L.rivalBoost = function (st, x, m, why) {
+  if (!x || !(m > 0)) return 1;
+  const p0 = x.pw || 1, p1 = Math.min(L.RIVAL_PW_CAP, p0 * m);
+  if (p1 <= p0 + 1e-12) return 1;
+  x.pw = Math.round(p1 * 1e6) / 1e6;
+  if (why && x.id) L.log(st, `天骄榜快讯：${x.n}${why}，战力 ×${(Math.round(x.pw / p0 * 100) / 100)}（累计 ×${(Math.round(x.pw * 100) / 100)}${x.pw >= L.RIVAL_PW_CAP - 1e-9 ? '，到顶' : ''}）`);
+  return x.pw / p0;
+};
+
+// ---------- 宿敌资料（CONTENT §10：五行；看家战技与法宝本线定）：交手后记入图鉴 st.meta.rival（跨世保留），见 L.rivalKnow ----------
+// art：看家战技（L.ARTL 里的战技，五行与 L.RIVAL_EL 一致）；gear：一件法宝，带一条“克 X”词条——你的攻击属性是 X 时他对决战力 ×1.1（rivals2.js 登记）。
+// 选法：克他的那一系（土克水、火克金、水克火）永远不被他的法宝克，所以“换成克他的战技”始终是对的
+L.RIVAL_INFO = {
+  mu: { art: 'z_liuyun', gear: { n: '霜华簪', ke: 'jin' } },
+  zhao: { art: 'z_gengjin', gear: { n: '镇岳剑', ke: 'tu' } },
+  chu: { art: 'z_wanjian', gear: { n: '问心剑', ke: 'shui' } },
+  xue: { art: 'z_fentian', gear: { n: '噬魂血刃', ke: 'mu' } },
+  yun: { art: 'z_canghai', gear: { n: '星河棋盘', ke: 'jin' } },
+};
+L.RIVAL_GEAR_M = 1.10;
+L.rivalName = (st, id) => (id === 'mu' ? st.exName : (L.RIVALS.find(r => r.id === id) || {}).name || id);
+// 知道多少：五行（第一次交手，st.meta.elem 的 rv_<id>，战技槽一开就知道慕容的）、看家战技（第一次交手）、法宝（第一次击败他）
+L.rivalKnow = function (st, id) {
+  const m = (st.meta && st.meta.rival && st.meta.rival[id]) || {};
+  return { el: L.foeElKnown(st, { kind: 'rival', id }), art: !!m.art, gear: !!m.gear };
+};
+// 图鉴读的：已知的宿敌（至少知道一项），未知的项为 null
+L.rivalKnown = function (st) {
+  const out = [];
+  for (const rv of L.RIVALS) {
+    const k = L.rivalKnow(st, rv.id), I = L.RIVAL_INFO[rv.id];
+    if (!k.el && !k.art && !k.gear) continue;
+    out.push({ id: rv.id, n: L.rivalName(st, rv.id), el: k.el ? L.RIVAL_EL[rv.id] : null, art: k.art ? I.art : null, gear: k.gear ? { n: I.gear.n, ke: I.gear.ke } : null });
+  }
+  return out;
+};
+const revealFoe0 = L.revealFoe;
+L.revealFoe = function (st, foe) {
+  if (revealFoe0) revealFoe0(st, foe);
+  if (foe && foe.kind === 'rival' && foe.id && L.RIVAL_INFO[foe.id]) { const m = st.meta.rival || (st.meta.rival = {}); (m[foe.id] = m[foe.id] || {}).art = 1; }
+  if (foe && foe.kind === 'rookie' && L.rookieReveal) L.rookieReveal(st);
+};
 L.rivalAt = function (st, q) { if (q === st.rank) return null; return st.ladder[q < st.rank ? q - 1 : q - 2]; };
 L.rivalRank = function (st, id) { const i = st.ladder.findIndex(x => x.id === id); if (i < 0) return 0; return i + 1 < st.rank ? i + 1 : i + 2; };
 
@@ -35,6 +80,7 @@ L.duelP = function (st, S, Q, foe) {
 };
 // 第一次击败宿敌：置 beat_<id>（新事件用作 need），触发 beat:<id>
 L.markBeat = function (st, id) {
+  if (id && L.RIVAL_INFO[id]) { const m = st.meta.rival || (st.meta.rival = {}); (m[id] = m[id] || {}).gear = 1; m[id].art = 1; }
   if (!id || (st.eflags && st.eflags['beat_' + id])) return;
   st.eflags['beat_' + id] = 1;
   L.fireTrigger(st, 'beat:' + id);
@@ -83,6 +129,7 @@ L.pactDuel = function (st) {
   if (win) {
     st.beaten.mu = 1;
     L.markBeat(st, 'mu');
+    if (L.addGrudge) res.grudge = L.addGrudge(st, 'mu', L.GRUDGE.win);   // 赢他 +20（rivals2.js）
     const q = L.rivalRank(st, 'mu');
     if (q && q < st.rank) { st.rank = q; st.bestRank = Math.min(st.bestRank, q); }
     res.rank1 = st.rank;
@@ -96,7 +143,7 @@ L.pactDuel = function (st) {
 function ladderDrift(st) {
   for (let n = 0; n < 8; n++) {
     const i = Math.floor(R() * 98), a = st.ladder[i], b = st.ladder[i + 1];
-    if (a && b && !a.id && !b.id) { st.ladder[i] = b; st.ladder[i + 1] = a; }
+    if (a && b && !a.id && !b.id && !a.rk && !b.rk) { st.ladder[i] = b; st.ladder[i + 1] = a; }   // 新秀不随路人起伏（他自己每届追 8 名）
   }
 }
 // 天骄论道：三场，目标依次是战力约为自己 0.6 / 0.9 / 1.2 倍的名次，单场最多上升 15 名
@@ -146,7 +193,7 @@ L.tournament = function (st) {
       const rw = Math.floor(L.income(st) * 4 + 50);
       round.stones = rw; st.stones += rw;
       if (st.sect) { round.contrib = L.addContrib(st, L.contribFor(L.homeRegion(st)) * L.CONTRIB.tour); L.taskHit(st, 'tour'); }
-      if (rv && rv.id) { round.first = !st.beaten[rv.id]; st.beaten[rv.id] = (st.beaten[rv.id] || 0) + 1; L.markBeat(st, rv.id); }
+      if (rv && rv.id) { round.first = !st.beaten[rv.id]; st.beaten[rv.id] = (st.beaten[rv.id] || 0) + 1; L.markBeat(st, rv.id); if (L.addGrudge) round.grudge = L.addGrudge(st, rv.id, L.GRUDGE.win); }
       if (round.wanted) round.bounty = L.wantedPay(st, rv);
     }
     res.rounds.push(round);
@@ -154,6 +201,8 @@ L.tournament = function (st) {
   }
   st.bestRank = Math.min(st.bestRank, st.rank);
   if (st.rank <= 12) L.fireTrigger(st, 'rank:12');
+  // 新秀：每届往上追 8 名，追到身后就要打一场（rivals2.js）；参考战力记下本届的你
+  if (L.rookieTour) res.rookie = L.rookieTour(st, S);
   res.endRank = st.rank;
   L.log(st, `第${res.n}届天骄论道落幕，${st.p.name}位列天骄榜第 ${st.rank}`, st.rank < res.startRank ? 'gold' : '');
   L.checkQuests(st);

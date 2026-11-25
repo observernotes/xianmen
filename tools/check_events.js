@@ -29,13 +29,13 @@ const THEMES = ['jianqi', 'baicao', 'ronghuo', 'youquan'];
 const YIN = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const ARTS = L.ARTL ? L.ARTL.map(a => a.id) : null;
 const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices',
-  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'origin', 'sectId'];
-const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin'];
+  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'rkGrudge', 'origin', 'sectId'];
+const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin', 'foe'];   // foe：宿敌id | 'rookie'（rivals2.js）
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein',
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
-  'toxin', 'plus', 'affix', 'busy', 'duty', 'disc'];
+  'toxin', 'plus', 'affix', 'busy', 'duty', 'disc', 'rookie'];
 const COST_KEYS = ['stones', 'pills', 'herbs', 'yin', 'ore', 'feed', 'token'];
-const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat'];   // kwho / kwhat：最早那条没了的因果（dao.js）
+const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat', 'rk'];   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
 // 引擎会置上的 flag（不是事件 fx 置的）：首次击败宿敌、结为道侣
 const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye']);
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）
@@ -119,6 +119,7 @@ for (const e of EVENTS) {
   if ('season' in e && !SEASONS.includes(e.season)) err(id, `season 非法：${e.season}`);
   if ('theme' in e && !THEMES.includes(e.theme)) err(id, `theme 非法：${e.theme}`);
   if ('karma' in e && !(isInt(e.karma) && e.karma > 0)) err(id, 'karma 需为正整数（几周天前结下的因果）');
+  if ('rkGrudge' in e && !(isInt(e.rkGrudge) && e.rkGrudge > 0 && e.rkGrudge <= 100)) err(id, 'rkGrudge 需为 1～100 的整数');
   const daoMinBad = v => !v || typeof v !== 'object' || !Object.keys(v).length || Object.keys(v).some(k => !['k', 'w', 'r'].includes(k) || !(isInt(v[k]) && v[k] > 0));
   if ('daoMin' in e && daoMinBad(e.daoMin)) err(id, 'daoMin 需为 { k|w|r: 正整数 }');
   for (const [ci, c] of (e.choices || []).entries()) if ('daoMin' in c && daoMinBad(c.daoMin)) err(id, `choice${ci + 1} daoMin 需为 { k|w|r: 正整数 }`);
@@ -180,6 +181,7 @@ for (const e of EVENTS) {
     if (hasP && hasD) err(id, `${cid} p 与 duel 只能二选一`);
     if (hasP && !(typeof c.p === 'number' && c.p > 0 && c.p < 1)) err(id, `${cid} p 需在 (0,1)`);
     if (hasD && !(typeof c.duel === 'number' && c.duel >= 0.5 && c.duel <= 2)) err(id, `${cid} duel 倍数异常`);
+    if ('foe' in c && !(hasD && (RIVALS.includes(c.foe) || (c.foe === 'rookie' && /^rookie:/.test(e.trigger || ''))))) err(id, `${cid} foe 需配 duel，值为宿敌 id（新秀 'rookie' 只用于 rookie:* 剧情）`);
     if ((hasP || hasD) && !c.fail) err(id, `${cid} 有 p/duel 必须有 fail`);
     if (!(hasP || hasD) && c.fail) err(id, `${cid} 无 p/duel 却有 fail`);
     if (!c.ok) err(id, `${cid} 缺少 ok`);
@@ -205,7 +207,8 @@ for (const e of EVENTS) {
         if (!NPCS.includes(k)) err(id, `${oid} fx.aff 未知 NPC ${k}`);
         if (!(isInt(v) && v !== 0 && Math.abs(v) <= 25)) err(id, `${oid} fx.aff.${k}=${v} 异常`);
       }
-      if ('grudge' in fx) for (const [k, v] of Object.entries(fx.grudge || {})) if (!RIVALS.includes(k) || !isInt(v)) err(id, `${oid} fx.grudge.${k} 非法`);
+      if ('grudge' in fx) for (const [k, v] of Object.entries(fx.grudge || {})) if (!(RIVALS.includes(k) || (k === 'rk' && 'rkGrudge' in e)) || !isInt(v)) err(id, `${oid} fx.grudge.${k} 非法`);
+      if ('rookie' in fx && !(['win', 'lose', 'teach'].includes(fx.rookie) && /^rookie:/.test(e.trigger || ''))) err(id, `${oid} fx.rookie 只能是 win / lose / teach，且只用于 rookie:* 剧情`);
       for (const k of ['flag', 'unflag']) for (const f of asArr(fx[k])) if (typeof f !== 'string' || !/^[a-z0-9_]+$/.test(f)) err(id, `${oid} ${k} 非法`);
       if ('buff' in fx) {
         const b = fx.buff || {};
