@@ -92,12 +92,12 @@ function askList() {
 }
 function showAsk() {
   const list = askList().slice(0, 3);
-  const row = (x, i) => `<div class="card flat guide-ask"><div class="main"><div>${x.t}</div></div>${x.go ? `<div class="right"><button class="btn sm gold" data-ask="${i}">${x.btn}</button></div>` : ''}</div>`;
+  const row = (x, i) => `<div class="card flat guide-ask"><div class="main"><div>${x.t}</div></div>${x.go ? `<div class="right"><button class="btn sm ${i ? 'alt' : 'gold'}" data-ask="${i}">${x.btn}</button></div>` : ''}</div>`;
   const log = bubbleLog.slice(0, 4).map(b => `<div class="guide-said">${b.text}</div>`).join('');
   bubbleUnread = false;
   const s = sheet({ title: st.eflags && st.eflags.st_farewell ? '戒中余音' : '问老祖', sub: '眼下最该做的三件事（点【前往】直接去）',
     body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:44px;height:44px" alt=""><p class="grow" style="margin:0">${st.p.look.f ? '丫头' : '小子'}，听好了：</p></div>${list.map(row).join('')}${log ? `<div class="muted">老祖刚才说过：</div>${log}` : ''}`,
-    foot: [{ t: '玩法指南', alt: true, fn: () => showHelp() }, { t: '札记', alt: true, fn: () => showQuests() }, { t: '知道了', gold: true, fn: closeModal }] });
+    foot: [{ t: '玩法指南', alt: true, fn: () => showHelp() }, { t: '札记', alt: true, fn: () => showQuests() }, { t: '知道了', alt: true, fn: closeModal }] });   // 一屏只有一个金色按钮：头一条建议
   s.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => { SFX.tap(); const x = list[+b.dataset.ask]; closeModal(); if (x && x.go) x.go(); });
 }
 
@@ -117,11 +117,12 @@ function guideTick() {
     tip('s07_' + Math.floor(t / 6), `闲着也是闲着。去【${L.REGIONS[b.k].n}·${L.DEPTHS[b.d]}】预计 ${b.f.text}${ri && L.canRetreat(st) ? `；想涨修为就闭关，${ri.free ? '这回免费' : fmt(ri.cost) + ' 灵石'}` : ''}。`);
   }
   // S04：灵石 ≥ 最便宜升级价的 3 倍，且 6 周天没花过（12 周天一次）
-  const ups = L.HOME.filter(h => L.homeOpen(st, h.k) && st.home[h.k] < h.max).map(h => ({ k: h.k, c: L.hCost(h.k, st.home[h.k]) })).sort((a, b) => a.c - b.c);
+  // 推荐：聚灵阵 → 灵田 → 丹炉，都买不起或满级了才说最便宜的那一样
+  const ups = L.HOME.filter(h => L.homeOpen(st, h.k) && st.home[h.k] < h.max).map(h => ({ k: h.k, c: L.hCost(h.k, st.home[h.k]), o: ['array', 'field', 'furnace'].indexOf(h.k) })).sort((a, b) => (a.o < 0) - (b.o < 0) || (a.o < 0 ? a.c - b.c : a.o - b.o));
   stoneRun = st.stones >= lastStones - 1 ? stoneRun + 1 : 0; lastStones = st.stones;
   if (ups.length && st.stones >= ups[0].c * 3 && stoneRun >= 6 && !busy) {
     const u = L.upInfo(st, ups[0].k);
-    tip('s04_' + Math.floor(t / 12), `攒着 ${fmt(st.stones)} 灵石做什么？升【${(L.HOME.find(h => h.k === u.k) || {}).n || u.k}】${fmt(u.cost)} 灵石${u.note ? '：' + u.note : ''}。`);
+    tip('s04_' + Math.floor(t / 24), `攒着 ${fmt(st.stones)} 灵石做什么？升【${(L.HOME.find(h => h.k === u.k) || {}).n || u.k}】${fmt(u.cost)} 灵石${u.note ? '：' + u.note : ''}。`);
   }
   // S08：大事前 3 周天胜算 < 30%（每届一次）
   const nb = L.nextBig(st);
@@ -158,3 +159,5 @@ for (const id of ['market', 'furnace', 'me', 'heal']) { const h = HINTS.find(x =
 { const h = HINTS.find(x => x.id === 'boss'); if (h) { h.bubble = true; h.bigBubble = true; } }
 // 每段阻塞讲解都高亮一个要点的按钮：秘境第三句指“带着收获离开”（没有就指门）
 { const h = HINTS.find(x => x.id === 'realm3'); if (h && !h.target) Object.defineProperty(h, 'target', { get: () => (document.querySelector('#realmLeave') ? '#realmLeave' : '#realmDoors'), configurable: true }); }
+// 札记的【前往】：图鉴（化神“图鉴 30%”、炼虚“走完一条奇遇链”）
+GO.codex = () => showCodex();
