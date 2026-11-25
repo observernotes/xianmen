@@ -71,8 +71,7 @@ function updateHUD() {
   $('#lifeFill').style.width = (p.r >= 9 ? 0 : Math.min(100, p.age / Math.max(1, L.lifespan(st)) * 100)).toFixed(1) + '%';
   $('#lifeBox').classList.toggle('low', p.r <= L.MAXR && L.desperate(st));
   $('#vRank').textContent = '榜第' + (rankShown || st.rank);
-  $('#btnSpeed').textContent = SPEEDS[speedIdx] ? '×' + SPEEDS[speedIdx] : '暂停';
-  $('#btnSpeed').classList.toggle('on', SPEEDS[speedIdx] === 0);
+  setSpeedIcon();
   const ready = L.isReady(st);
   $('#realm').textContent = L.stageName(p);
   const need = L.pNeed(p);
@@ -107,7 +106,7 @@ function updateHUD() {
   $$('#nav button').forEach(b => {
     const lk = !!navLock(b.dataset.nav), was = b.classList.contains('locked');
     b.classList.toggle('locked', lk);
-    if (was && !lk && st.tick > 0) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
+    if (was && !lk && st.tick > 0) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); lockBreakFx(b); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
   });
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
@@ -129,6 +128,28 @@ function updateHUD() {
   updateHaul();
   syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
+}
+// 场景右上的速度档：ART.icon('spd1' | 'spd2' | 'spd4')，暂停时 'pause'（金框）；档位变了才换图。没有新美术时退回文字
+let speedKey = '';
+function setSpeedIcon() {
+  const b = $('#btnSpeed'), sp = SPEEDS[speedIdx], key = String(sp);
+  if (speedKey === key && b.firstChild) return;
+  speedKey = key;
+  const txt = sp ? '×' + sp : '暂停', ic = artIcon(sp ? 'spd' + sp : 'pause', 20);
+  if (ic) b.innerHTML = ic; else b.textContent = txt;
+  b.setAttribute('aria-label', '游戏速度：' + txt);
+  b.title = txt;
+  b.classList.toggle('on', sp === 0);
+}
+// 底栏解锁：锁按 ART.lockBreak 0 → 1 → 2 → 3 碎掉（每帧 80 毫秒），扫光（CSS .unlock::before）推迟到第 2 帧起
+function lockBreakFx(btn) {
+  if (!ART.lockBreak) return;
+  const n = ART.lockBreakFrames || 4, im = document.createElement('img');
+  im.className = 'px lkbrk'; im.alt = ''; im.src = urlOf(ART.lockBreak(0), 'lkb|0');
+  btn.appendChild(im);
+  let f = 0;
+  const step = () => { f++; if (f >= n) { im.remove(); return; } im.src = urlOf(ART.lockBreak(f), 'lkb|' + f); setTimeout(step, 80); };
+  setTimeout(step, 80);
 }
 // 渐进解锁：一开始只给历练、洞府、人物，免得一上来不知道点哪
 function navLock(nav) {

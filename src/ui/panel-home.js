@@ -101,7 +101,7 @@ function plotDetail(i) {
         <div class="${un ? 'jadet' : 'muted'}">${esc(eff)}</div>${rec && x === rec.k ? `<div class="muted">${esc(rec.why)}</div>` : ''}${un && why && !poor ? `<div class="seal">${esc(why)}</div>` : ''}</div>
         <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" data-build="${x}" ${ok ? '' : 'disabled'}>${un ? `${iconHTML('stone', 12)} ${fmt(c)}` : '未解锁'}</button>${un && poor ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`;
     }).join('');
-    return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || '<div class="muted">能建的都建了。</div>'}</div>`;
+    return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || emptyNoteHTML('build', '能建的都建了。')}</div>`;
   }
   const B = HB(k), u = L.upInfo(st, k), lv = st.home[k], can = !u.max && st.stones >= u.cost, keep = Math.floor(lv * L.HV.keep);
   const demo = k === 'array' ? '' : homeDemo === k

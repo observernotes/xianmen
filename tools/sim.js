@@ -409,7 +409,8 @@ function tryBreak(st, rec, strat) {
   // guided：护劫手段有就全用（祭法宝、灵宠、道侣、渡劫阵），破境丹只服到成功率封顶为止（3 枚 + 停顿时临阵吞丹 ≤ 2 枚）；lazy、idle 不用手段
   const aids = strat === 'guided' ? 'all' : null;
   let n = Math.min(3, st.pills);
-  if (strat !== 'idle') while (n > 0 && (trib ? L.tribRate(st, { pills: n - 1, aids }) : L.btRate(st, n - 1)) >= 0.995) n--;
+  const rateN = k => (trib ? L.tribRate(st, { pills: k, aids }) : L.btRate(st, k));
+  if (strat !== 'idle') while (n > 0 && rateN(n - 1) >= Math.min(0.995, rateN(n) - 1e-9)) n--;   // 到封顶（天劫难测，L.tribTop）就不再多服
   if (strat === 'lazy') n = Math.min(n, 2);
   const x0 = L.artSlots(st)[0];
   const art = { cul: L.artCulMult(st) / (x0 ? L.ARTS[L.art(x0).t].m : 1), atk: L.artAtkMult(st), combos: Object.keys(st.meta.combo || {}).length };
@@ -418,7 +419,7 @@ function tryBreak(st, rec, strat) {
     const v = L.tribStart(st, { pills: n, aids });
     if (!v) return;
     let ex = null;
-    if (strat === 'guided') { ex = { fa: 1, pet: 1, daolv: 1, pills: 0 }; while (ex.pills < v.pillMax && L.tribPeek(st, ex) < 0.995) ex.pills++; }
+    if (strat === 'guided') { ex = { fa: 1, pet: 1, daolv: 1, pills: 0 }; while (ex.pills < v.pillMax) { const a = L.tribPeek(st, ex); if (a >= 0.995) break; ex.pills++; if (L.tribPeek(st, ex) <= a + 1e-9) { ex.pills--; break; } } }
     rec.tribs++; rec.hints++; if (v.hint.right) rec.hintRight++;
     r = L.tribFinish(st, ex);
     rec.aidN += Object.keys(r.tb.aids).length + (r.tb.extraPills ? 1 : 0); rec.extraPills += r.tb.extraPills; if (r.tb.aids.zhen) rec.zhenAid++;

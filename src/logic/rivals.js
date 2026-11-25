@@ -20,7 +20,33 @@ L.rivalA = function (q) {
 // 名次曲线本身（九宗会武的宗门战力也按它）；L.rivalPower 另乘这位天骄自己的永久加成 pw（拍卖会拍到东西 ×1.04，market.js；宿敌的奇遇 ×1.05，rivals2.js），
 // 每人合计上限 ×1.3（SYSTEMS §13，L.rivalBoost）；新秀（rv.rk）的战力另算（rivals2.js 的 L.rookiePower）
 L.rivalCurve = (st, q) => Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * st.tick);
-L.rivalPower = (st, q) => { const rv = L.rivalAt(st, q); if (rv && rv.rk && L.rookiePower) return L.rookiePower(st, rv, q); return L.rivalCurve(st, q) * ((rv && rv.pw) || 1); };
+// 宿敌卡位（数值校准，docs/BALANCE_TODO.md）：赵乾 / 楚天阔 / 血无涯各守一道境界关 i（小层序号 4r + s：金丹中期 9、化神中期 17、合体后期 26）。
+// 没打赢他之前，他的战力至少是“同样的家底修到 i 那一层”——你的常驻战力（不算爆气丹、负伤这些一时的）× 1.5^(i − 你的小层) × 1.8^(大境界差) × c，
+// 再乘他自己的永久系数 pw（拍卖、宿敌的奇遇）。修到他那一层时约五五开，之后每高一层胜算约 +30%；与新秀“按你的战力追”是同一个思路（rivals2.js）。
+// 云无极（k = 0）不看层数：渡劫初期（from）起才肯上台，之后永远压你一头（你的常驻战力 × c），靠克制、爆气丹、玄霄重来去搏——约六成种子在飞升前拿到榜首。
+// 论道越不过没打赢的卡位宿敌（L.rivalBlock）；你的小层还不到 from 时他不上台（L.rivalRefuses）。
+// 天骄榜曲线照旧是下限：懒散玩家家底薄，曲线比卡位高，赵乾对他仍按曲线打。按曲线涨的天骄榜追不上勤快玩家：guided 第 90 周天约是第 45 名曲线的 19 倍。
+L.RIVAL_WALL = { zhao: { i: 9, c: 0.85, k: 1, from: 8 }, chu: { i: 17, c: 1, k: 1, from: 16 }, xue: { i: 26, c: 1, k: 1, from: 25 }, yun: { i: 32, c: 1.45, k: 0, from: 32 } };
+const WALL_SKIP = { buffs: 1, inj: 1 };
+L.rivalWall = function (st, id) {
+  const W = L.RIVAL_WALL[id]; if (!W || !(W.c > 0) || !st || st.p.r > L.MAXR || (st.beaten && st.beaten[id])) return 0;
+  let m = 1; for (const md of L.MODS.atk) { if (WALL_SKIP[md.id]) continue; const r = md.fn(st); if (!r) continue; for (const x of (!r.length || Array.isArray(r[0]) ? r : [r])) if (x) m *= x[1]; }
+  const i = L.si(st.p), k = W.k === undefined ? 1 : W.k;
+  return L.baseAtk(st) * m * Math.pow(P.pwStage, (W.i - i) * k) * Math.pow(P.pwRealm, ((W.i >> 2) - st.p.r) * k) * W.c;
+};
+L.rivalPower = (st, q) => { const rv = L.rivalAt(st, q); if (rv && rv.rk && L.rookiePower) return L.rookiePower(st, rv, q); return Math.max(L.rivalCurve(st, q), rv && rv.id ? L.rivalWall(st, rv.id) : 0) * ((rv && rv.pw) || 1); };
+// 论道往上打时挡在前面、还没打赢过的卡位宿敌的名次（lim 以内；没有给 0）：越不过他，排到他身后就得先打他
+L.rivalBlock = function (st, lim) {
+  for (let x = st.rank - 1; x >= lim; x--) { const rv = L.rivalAt(st, x); if (rv && rv.id && L.rivalWall(st, rv.id) > 0) return x; }
+  return 0;
+};
+// 你的小层还不到卡位的 from，他不上台：你守在他身后，这一届不再往上打（不然每届白挨一场，攒着运气也能蒙过去）
+L.rivalRefuses = function (st, q) {
+  const rv = L.rivalAt(st, q); if (!rv || !rv.id || !(L.rivalWall(st, rv.id) > 0)) return false;
+  return L.si(st.p) < L.RIVAL_WALL[rv.id].from;
+};
+// 他肯上台的那一层的名字（论道结算上写“修到 X 再来”）
+L.rivalWallStage = id => { const W = L.RIVAL_WALL[id]; return W ? L.REALMS[W.from >> 2].n + L.STAGES[W.from & 3] : ''; };
 // 永久系数：x 是 st.ladder 里的一项；m 是这一次的倍率；返回实际乘上的倍率（到顶了就是 1）。why 给了就进天骄榜快讯
 L.RIVAL_PW_CAP = 1.3;
 L.rivalBoost = function (st, x, m, why) {
@@ -89,8 +115,8 @@ L.markBeat = function (st, id) {
 L.duelLines = Q => ({ even: Q, sure: Q * 1.8 });
 // 三年之约：第 36 周天（炼气期 12 周天一年）。第一世未筑基时老祖借力 ×2
 L.PACT_TICK = 36;
-L.PACT_POWER = 125;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125（tools/sim.js 校准：guided 约 93%，借力同比 2 → 2.5，idle 不变）
-L.PACT_ASSIST = 2.5;
+L.PACT_POWER = 140;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125；最终校准 → 140（guided 95% → 92%，贴上沿太紧），借力 2.5 → 2.8 把 idle 抬回 17%
+L.PACT_ASSIST = 2.8;
 L.pactPower = () => L.PACT_POWER;
 // 对手描述（给对决倍率用；五行等属性随宿敌资料接入，见 CONTENT §10）
 L.PACT_FOE = { kind: 'rival', id: 'mu' };
@@ -162,7 +188,9 @@ L.tournament = function (st) {
     let q;
     if (st.rank === 1) q = 2;
     else {
-      const lim = Math.max(1, st.rank - L.TOUR_STEP);
+      const blk = L.rivalBlock(st, Math.max(1, st.rank - L.TOUR_STEP));
+      if (blk && blk === st.rank - 1 && L.rivalRefuses(st, blk)) { const hv = L.rivalAt(st, blk); res.hold = { id: hv.id, n: hv.n, q: blk, need: L.rivalWallStage(hv.id) }; break; }
+      const lim = Math.max(1, st.rank - L.TOUR_STEP, blk);
       const target = S * mults[j];
       q = st.rank - 1; let best = Infinity;
       for (let x = st.rank - 1; x >= lim; x--) {
@@ -171,6 +199,8 @@ L.tournament = function (st) {
       }
       // 宿敌优先：前方 15 名内有没打赢过的宿敌，且打得过，就打他
       for (let x = st.rank - 1; x >= lim; x--) { const rv = L.rivalAt(st, x); if (rv && rv.id && !st.beaten[rv.id] && L.rivalPower(st, x) < S * 1.6) { q = x; break; } }
+      // 卡位宿敌就在身前：只能打他
+      if (blk && blk === st.rank - 1) q = blk;
       // 通缉令（calendar.js）：被通缉的路人在 15 名以内、打得过，第一场就打他
       const wq = L.wantedRank(st), rq = L.rivalAt(st, q);
       if (j === 0 && wq && wq < st.rank && wq >= lim && !(rq && rq.id) && L.rivalPower(st, wq) < S * 1.6) q = wq;

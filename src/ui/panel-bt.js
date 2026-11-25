@@ -10,7 +10,8 @@ function btDefault() {
   const max = Math.min(L.BT.maxPills, st.pills);
   if (L.btGuard(st) || st.flags.sureBt) return 0;
   const trib = L.tribNeeded(st), aids = trib ? tribAidsSel() : null;
-  let n = 0; while (n < max && (trib ? L.tribRate(st, { pills: n, aids }) : L.btRate(st, n)) < 1) n++;
+  const rate = k => (trib ? L.tribRate(st, { pills: k, aids }) : L.btRate(st, k));
+  let n = 0; while (n < max && rate(n) < 1 && rate(n + 1) > rate(n) + 1e-9) n++;   // 天劫封顶（L.tribTop）之后多服也不涨
   return n;
 }
 // 突破后战力大约翻几倍：升一小层 ×1.5、大境界 ×1.8，外加觉醒抬灵根
