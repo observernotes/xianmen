@@ -17,3 +17,16 @@ if (sec('g1') && ART.affix) {
   for (const kind of ['hit', 'ok', 'fail']) fxc(160, 40, g => [0.1, 0.35, 0.6, 0.9].forEach((k, i) => { g.drawImage(ART.item('w', 3), 12 + i * 40, 12); ART.drawForge(20 + i * 40, 20, k, kind); }), 4, kind, PANEL);
   br();
 }
+
+if (sec('g2') && ART.calStrip) {
+  h('【二 历法与大势】四季 s0–s3、天下大势 12 枚（原尺寸纸底 / 暗底 / 4 倍）');
+  ['春', '夏', '秋', '冬'].forEach((n, i) => pair(ART.season(i), 's' + i + ' ' + n, i));
+  br(); const WN = { w_shouchao: '兽潮', w_lingchao: '灵气潮汐', w_danhui: '丹道大会', w_kuangmai: '矿脉现世', w_mojie: '魔劫', w_liuxing: '流星雨', w_dahan: '大旱', w_xianfu: '仙府现世', w_shanglu: '商路断绝', w_jiangdao: '名师讲道', w_tongji: '通缉令', w_taiping: '太平无事' };
+  ART.worldIds().forEach((id, i) => pair(ART.icon(id), WN[id], i));
+  br(); h('场景右上角的大势小牌（示意，3 倍）与年历条 ART.calStrip(t, marks)（3 倍）');
+  fxc(200, 40, g => { ART.drawDuelStage('wild', 0, 0); ['w_shouchao', 'w_liuxing', 'w_xianfu'].forEach((id, i) => { const x = 138 + i * 20; ART.R(x, 3, 20, 20, '#1a1528'); ART.R(x + 1, 4, 18, 18, '#262038'); ART.R(x + 1, 4, 18, 1, '#4ccb9f'); g.drawImage(ART.icon(id), x + 2, 5); }); }, 3, '小牌示意');
+  br(); show(ART.calStrip(5, [{ at: 7, kind: 'dao' }, { at: 3, len: 6, kind: 'auc' }, { at: 13, kind: 'war' }, { at: 11, len: 6, kind: 'realm' }, { at: 0, len: 3, kind: 'world' }, { at: 19, kind: 'dao' }]), 3, 't=5：论道 / 拍卖 / 会武 / 秘境 / 大势'); show(ART.calStrip(22, []), 3, 't=22 空');
+  br(); h('坊市：兽粮、秘境令、药引 ×5、功法残篇；拍卖：拍槌、号牌、三档出价；行情：涨 / 跌 / 平 / 出售');
+  [['feed', '兽粮'], ['token', '秘境令'], ['yin_f', '火引'], ['yin_i', '冰引'], ['yin_t', '雷引'], ['yin_w', '木引'], ['yin_s', '魂引'], ['frag', '功法残篇'], ['gavel', '拍槌'], ['paddle', '号牌'], ['bid1', '跟一口'], ['bid2', '加价'], ['bid3', '豪掷'], ['up', '涨'], ['down', '跌'], ['flat', '平'], ['sell', '出售']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
+  br();
+}

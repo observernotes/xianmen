@@ -2985,5 +2985,72 @@ ART.drawForge = function (x, y, k, kind) {
   }
 };
 
+// ---------- 二、历法、天下大势、坊市与拍卖 ----------
+// 全部是 ART.icon(name) 的 16×16 图标：
+//   四季 s0 春 s1 夏 s2 秋 s3 冬（也可 ART.season(0～3)）
+//   天下大势 w_shouchao w_lingchao w_danhui w_kuangmai w_mojie w_liuxing w_dahan w_xianfu w_shanglu w_jiangdao w_tongji w_taiping（id 同 CONTENT §8，ART.worldIds()）
+//   坊市 feed 兽粮 token 秘境令 yin_f yin_i yin_t yin_w yin_s 药引（火冰雷木魂）frag 功法残篇
+//   拍卖 gavel 拍槌 paddle 号牌 bid1 bid2 bid3 三档出价；行情 down 跌 flat 平（涨用已有的 up）sell 出售
+// ART.calStrip(t, marks) → 194×20 年历条：24 格（每格 8 宽，第 i 格左缘 x = 1 + 8i），第 0 格是当前周天，底色按季节；
+//   marks = [{ at: 0～23, len: 1, kind: 'dao' 论道 | 'auc' 拍卖 | 'war' 会武 | 'realm' 秘境 | 'world' 大势 }]，不缓存（每次新画）
+Object.assign(IPAL, { f: '#f7a3bd', F: '#c8607e', m: '#ffb23f', M: '#c8622a', u: '#b8c0f0', U: '#6a72b8', i: '#d4ecff', q: '#3a2a4a' });
+Object.assign(ICONS, {
+  s0: '.....fff/....fwfff/.ff.ffffF.ff/fwfffyyFffwff/fffffyyyffffF/.fFFfyyfFfFF/...ffffffff/..fwfff.fwff/..ffffF.fffF/...fFF...FF.g/......G....gG/......GgggG/......G',
+  s1: '......y/.y....y....y/..y.......y/....yyyyy/...yhhyyyY/...yhyyyyY/yy.yhyyyyY.yy/...yyyyyyY/...yyyyyYY/....YYYYY/..y.......y/.y....y....y/......y',
+  s2: '......m/.....mmm/..m..mmm..m/..mm.mmm.mm/.mmmmmrmmmmm/..mmmmrmmmmM/mmmmmrrrmmmmM/.mmmmmrmmmMM/..mmMmrmMMM/...MM.r.MM/......o/.....o',
+  s3: '......w/....w.w.w/.w...www...w/..w...w...w/.www..w..www/....wwiww/wwwwwiiiwwwww/....wwiww/.www..w..www/..w...w...w/.w...www...w/....w.w.w/......w',
+  w_shouchao: '...rr....rr/..rrrR..rrrR/..rrRR..rrRR/rr.RR....RR.rr/rrR........rrR/rRR..rrrr..rRR/.R..rrrrrr..R/...rrprrrrR/..rrprrrrrRR/..rrrrrrrrRR/..rrrRRRrrRR/...RR...RRR',
+  w_lingchao: '.....w/....www...j/.....w...jjj/..jj....jj.jj/.jjjj..jj...jj/jj..jjjj//..cc....cc/.cccc..cccc..c/cc..cccc..cccc//.CC....CC/CCCC..CCCC..CC',
+  w_danhui: '.....rrr/....rprrR/.....rRR/..y........y/.ssssssssssss/..sttttttttS/..stwttttSSS/..sttttyttSS/..stttyyytSS/...sttttSSS/....SSSSSS/...SS....SS',
+  w_kuangmai: '...sssss/..stttttss/.st....otts/.......oOts/......oO.tS/.....oO...S/....oO/...oO....cc/..oO....cwcC/.oO....sccCds/.O....sttCdSS/......sSSSSS',
+  w_mojie: 'v..........v/vv........vv/vVv......vVv/.vVvvvvvvVv/..vvvvvvvvV/..vKKvvKKvV/..vrKvvrKvV/..vvvvvvvvV/...vvKKvvV/...vwvwvwV/....VVVVV',
+  w_liuxing: '..........w/.w......yy/.......yy/......yyh....w/..w..yhh/....yhhyy/...yhwwhy/..yhwwwhyY/..yhwwhyYY..w/..yyhhyYY/...yyyYY/....YYY',
+  w_dahan: '....mmmmm/...mhhmmmM/.m.mhmmmmM.m/...mmmmmmM/....MMMMM//oooooooooooooo/oOooooOooooOoo/ooOoooOooooOoo/oOooooOOooOooo/ooOooOooOoOooo/OOOOOOOOOOOOOO',
+  w_xianfu: '......yy/....yyyyyy/..yyyYYYYyyy/yyYYYYYYYYYYyy/...nnnnnnnn/...nNrrrrNn/...nNryyrNn/...nNryyrNn/.ww.nnnnnn.ww/wwwwwwwwwwwwww/wWWwwwWWwwwWWw/.WW.WWWWW.WW',
+  w_shanglu: 'r...........r/rr..oooo...rr/.rroOooOo.rr/..rr.oo.orr/.oOrr..rrOo/.oo.rrrr.oo/.ooo.rr.ooo/.oo.rrrr.oo/.oOrr.oorrOo/..rroooo.rr/.rr.oooo..rr/rr.........rr',
+  w_jiangdao: '......y/..y...y...y/...y.....y//.nnnnn.nnnnn/nnsssnOnsssnN/nnnnnnOnnnnnN/nnsssnOnsssnN/nnnnnnOnnnnnN/nnssnnOnnssnN/nNNNNNONNNNNN/.oooooooooooo',
+  w_tongji: '.nnnnnnnnnnn/.nKKKnnKKKnN/.nnnnnnnnnnN/.nnnkkkknnnN/.nnkkkkkknnN/.nnkeeeeknnN/.nnkeKeKknnN/.nnneeeennnN/.nnkkkkkknnN/.nkkkkkkkrrN/.nnnnnnnrRrN/.nNNNNNNNrrN',
+  w_taiping: '/.....wwww/....wwwwww/..wwwwWwwwww/.wwwWwwwwWwww/.wwwwwwwwwwww/..WWwwwwwwWW/....WWWWWW//..j...jj...j/.jjj.jjjj.jjj/..J...JJ...J',
+  feed: '/.....mm.m/...mmhmmmm/..mhmmmMmmm/.mmmmMmmmhmm/nnnnnnnnnnnnnn/nNNnnnnnnnnNNN/.nnbbnnbbnnNN/.nnnnnnnnnNN/..nnnnnnnNN/...NNNNNNN',
+  token: '.....yyyy/....yvvvvy/...yvvvvvvY/..yvvwwwvvvY/..yvwvvvwvvY/..yvvvwwvvvY/..yvvwvvvvvY/..yvvwwwwvvY/..yvvvvvvvvY/...yvvvvvvY/....yyYYYY/.....rr.rr/....rR...rR',
+  yin_f: '......r/.....rr/.....rmr/....rmmr..r/...rrmmrr.rr/..rrmmhmrrmr/..rmmhhmmrmr/.rrmhhhhmmrr/.rmmhhwhhmmr/.rmmhwwhhmmR/..rmmhhhmmR/...RRmmmRR',
+  yin_i: '......i/.....iwb/....iwwbb/...iwwcbbB/..iwwccbbbB/..iwcccbbbB/..iwccbbbBB/...icbbbBB..i/.i..cbbBB..iwb/iwb..bBB....bB/.bB...B',
+  yin_t: '.......yyy/......yhy/.....yhy/....yhyy/...yhhhyyy/..yyyyhhy/.....yhy/....yhy/...yhy...v/...yy...vv/..yy.....v/..y',
+  yin_w: '.....gggg/....gl..gg/...gl.gg.gG/...g.gl.g.G/...g.g..g.G/...gG.ggG.G/....gG...GG.l/.....gGGG..lgG/......gG..lgG/......gGggG/......gG/.....GGGG',
+  yin_s: '.....uu/....uwwu/....uwwwu/...uwwwwwu/..uwwwwwwwu/..uwKwwKwwu/..uwKwwKwwU/..uwwwwwwwU/...uwwwwwuU/....uwwwuU..u/.....uuuU..uU/......UU',
+  frag: '..nnnnnnnn/..nnnnnnnnn/..nKKKnKKnnN/..nnnnnnnnnN/..nKKnKKKnnN/..nnnnnnnnnN/..nKKKKnnn.N/..nnnnnn..n/..nKKnn/..nnn..n/..nn',
+  gavel: '...oo/..oOOo/.oOOOOo/..oOOOOo/...oOOOOoo/....oOOo.oo/.....oo...oo/...........oo/............oO/..yyyyyyy/.yhyyyyyyY/.YYYYYYYYY',
+  paddle: '....rrrrrr/...rrrrrrrR/..rrrwwrrrrR/..rrwrwrrrrR/..rrrrwrrrrR/..rrrrwrrrrR/..rrrwwwrrRR/...rrrrrrRR/....RRRRRR/......oO/......oO/......oO',
+  bid1: '////.....wc/....wccC/....wcCCd/....wcCCd/....cCCdd/.....Cdd',
+  bid2: '////..wc....wc/.wccC..wccC/.wcCCd.wcCCd/.wcCCd.wcCCd/.cCCdd.cCCdd/..Cdd...Cdd',
+  bid3: '..y...wc...y/.yhy.wccC/..y..wcCCd/.....wcCCd/..wc.cCCdd.wc/.wccC.Cdd.wccC/.wcCCd...wcCCd/.wcCCd...wcCCd/.cCCdd...cCCdd/..Cdd.....Cdd/.yyyyyyyyyyyy/.YYYYYYYYYYYY',
+  down: '....rrrrR/....rrrrR/....rrrrR/....rrrrR/....rrrrR/.rrrrrrrrrrR/.RrrrrrrrrrR/..RrrrrrrrR/...RrrrrrR/....RrrrR/.....RrR/......R',
+  flat: '///.ssssssssssss/.ssssssssssss/.SSSSSSSSSSSS//.ssssssssssss/.ssssssssssss/.SSSSSSSSSSSS',
+  sell: '.........y/.........yy/.....yyyyyyy/.....yyyyyyyy/.....YYYYyyY/..wcc....yY/.wccCd...Y/.wcCCd/wccCCCd/wcCCCdd/.cCCdd/..Cdd',
+});
+ART.season = k => ART.icon('s' + (((k | 0) % 4 + 4) % 4));
+ART.worldIds = () => Object.keys(ICONS).filter(k => k.startsWith('w_'));
+const SEASON_C = ['#86d98f', '#f0c86a', '#e8925a', '#b8d4f0'], CAL_C = { dao: '#f4c542', auc: '#c27dff', war: '#d8404a', realm: '#7fe0f0', world: '#4ccb9f' };
+ART.seasonColor = k => SEASON_C[k & 3];
+ART.seasonOf = t => { const m = ((t % 12) + 12) % 12; return m >= 1 && m <= 3 ? 0 : m <= 6 && m >= 4 ? 1 : m <= 9 && m >= 7 ? 2 : 3; };
+ART.dims.cal = { w: 194, h: 20, cw: 8, x0: 1 };
+ART.calStrip = function (t, marks) {
+  return on(mk(194, 20), () => {
+    R(0, 1, 194, 18, INK); R(1, 0, 192, 20, INK);
+    for (let i = 0; i < 24; i++) {
+      const x = 1 + i * 8, tt = t + i, c = SEASON_C[ART.seasonOf(tt)];
+      R(x, 1, 8, 11, c); R(x, 1, 8, 1, lerpC(c, '#ffffff', 0.5)); R(x, 11, 8, 1, hs(c, 0.8)); R(x + 7, 2, 1, 9, hs(c, tt % 12 === 0 ? 0.45 : ART.seasonOf(tt) !== ART.seasonOf(tt + 1) ? 0.62 : 0.86));
+      R(x, 12, 8, 7, i % 2 ? '#2e2742' : '#262038');
+    }
+    R(1, 12, 192, 1, '#1a1528');
+    for (const m of marks || []) {
+      const c = CAL_C[m.kind] || '#efe3c4', x = 1 + m.at * 8, n = Math.max(1, m.len || 1);
+      if (n > 1) { const y = m.kind === 'world' ? 13 : 16, hh = m.kind === 'world' ? 2 : 3; R(x + 1, y, n * 8 - 2, hh, c); R(x + 1, y, n * 8 - 2, 1, lerpC(c, '#ffffff', 0.5)); }
+      else { R(x + 2, 3, 4, 7, INK); R(x + 1, 4, 6, 5, INK); R(x + 3, 4, 2, 5, c); R(x + 2, 5, 4, 3, c); R(x + 3, 5, 1, 2, lerpC(c, '#ffffff', 0.6)); R(x + 3, 13, 2, 6, c); }
+    }
+    R(1, 0, 8, 1, '#f4c542'); R(1, 19, 8, 1, '#f4c542'); R(0, 1, 1, 18, '#f4c542'); R(9, 1, 1, 18, '#a8742a'); R(4, 1, 2, 2, '#f4c542'); R(4, 3, 1, 1, '#f4c542');
+  });
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
