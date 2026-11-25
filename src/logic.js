@@ -23,14 +23,15 @@
  *   → rivals 天骄榜·对决·约战·论道 → sect 宗门·任务板 → expedition 历练·首领 → cultivation 吐纳·突破·闭关·疗伤
  *   → calendar 四季·固定历·天下大势 → market 坊市货架·行情·拍卖竞价 → realm 秘境 → alchemy 炼丹·药引丹方·丹毒 → events-engine 奇遇·访客 → pets 灵宠名册·岗位·进化 → crops 灵田作物·药引 → quests 札记 → meta 成就·转世
  *   → trib 天劫·护劫手段·道基·心魔劫 → dao 道心·因果（包了几个前面模块的函数，所以排在它们后面）
- *   → sect2 宗门加深：任务板四类、宝库轮换、职司、人脉、血煞魔宗 → disciples 徒弟·差事·传授·出师·三人会武 → save 迁移 → tick 推进
+ *   → sect2 宗门加深：任务板四类、宝库轮换、职司、人脉、血煞魔宗 → disciples 徒弟·差事·传授·出师·三人会武
+ *   → formation 阵法（聚灵阵上布阵、换阵 3 周天生效）→ buildings 洞府建筑接进各系统·阵图来源·洞府事件·迁移（home.js 管地块与建造）→ save 迁移 → tick 推进
  *
  * 用法：node 里 const L = require('./src/logic.js')；浏览器里 <script src="src/logic.js"> 会按顺序载入各模块
  * （tools/preview.html 这样用）；dist 由 tools/build.py 把模块按顺序内联，不经过本文件。
  */
 (function () {
 'use strict';
-const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'home', 'npc', 'rivals', 'sect', 'expedition', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'save', 'tick'];
+const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'home', 'npc', 'rivals', 'sect', 'expedition', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'formation', 'buildings', 'save', 'tick'];
 if (typeof module === 'object' && module.exports) {
   const L = {};
   for (const m of MODULES) require('./logic/' + m + '.js')(L);

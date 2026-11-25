@@ -403,6 +403,7 @@ function chestOpts(st, run) {
   const pool = [];
   for (const id of th.arts) if (!L.artOwned(st, id)) pool.push({ k: 'art', id });
   for (const id of th.plans) if (!(L.planOwned(st, id) || (st.gear && st.gear.zhentu && st.gear.zhentu[id]))) pool.push({ k: 'plan', id });
+  if (L.mjChestExtra) for (const x of L.mjChestExtra(st, run)) if (!pool.some(y => y.id === x.id)) pool.push(x);   // 仙府秘藏的迷踪阵图（buildings.js）
   pool.push({ k: 'pet', id: th.pet });
   while (pool.length && out.length < n) out.push(pool.splice(Math.floor(R() * pool.length), 1)[0]);
   const fill = [{ k: 'treasure', n: 2 }, { k: 'yin', id: th.yin, n: 3 }, { k: 'stones', n: 15 }];
@@ -412,7 +413,7 @@ function chestOpts(st, run) {
 }
 function chestDesc(st, o) {
   if (o.k === 'art') { const A = L.art(o.id); o.n = `《${A.n}》`; o.d = `${L.artTierName(A.t)}${L.ART_CAT[A.k]} · ${L.elName(A.el)} · ${A.pool === 'frag' ? `残篇（${(st.arts.frag[o.id] || 0)}/3）· ` : ''}${L.artDesc(st, o.id)}`; }
-  else if (o.k === 'plan') { if (L.PLAN[o.id]) { const P = L.PLAN[o.id]; o.n = `器方《${P.n}》`; o.d = `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; } else { o.n = `阵图《${L.ZHENTU[o.id]}》`; o.d = '阵法上线前先收着'; } }
+  else if (o.k === 'plan') { if (L.PLAN[o.id]) { const P = L.PLAN[o.id]; o.n = `器方《${P.n}》`; o.d = `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; } else { o.n = `阵图《${L.ZHENTU[o.id]}》`; o.d = L.zhenEffect ? `【洞府】聚灵阵上布阵：${L.zhenEffect(st, o.id)}` : '阵法上线前先收着'; } }
   else if (o.k === 'pet') { const P = petInfo(o.id), c = curPet(st); o.n = `灵宠蛋【${P[0]}】`; o.d = `${L.PETS[P[1]].n}，孵出来就是你的${c ? `（出战的${c[0]}是${L.PETS[c[1]].n}）` : ''}`; }
   else if (o.k === 'treasure') { o.n = `天材地宝 ×${o.n}`; o.d = `手里 ${st.treasure}，洗髓、九转、重铸都用它`; o.cnt = 2; }
   else if (o.k === 'yin') { o.n = `${yinN(o.id)} ×${o.n}`; o.d = '炼丹、打造用的药引'; o.cnt = 3; }
@@ -468,8 +469,8 @@ function wipe(st, res) {
   res.hp1 = 0; res.wipe = finish(st, 'wipe');
   return res;
 }
-// 传送阵 9 级免除（洞府建筑上线前没有传送阵，恒为 3）
-L.mjCost = st => ((st.home && st.home.portal) >= 9 ? 0 : L.MJ.cost);
+// 传送阵 9 级免除（buildings.js 的 L.portalLv；nohome2 时没有传送阵，恒为 3）
+L.mjCost = st => ((L.portalLv ? L.portalLv(st) : (st.home && st.home.portal) || 0) >= 9 ? 0 : L.MJ.cost);
 function finish(st, how) {
   const run = st.run, th = TH[run.theme], r = L.mjThRec(st, run.theme), R0 = rec(st), m = mj(st);
   const n = run.loot.length;

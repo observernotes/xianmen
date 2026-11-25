@@ -26,7 +26,7 @@ L.home2On = ON;
 
 // 每级效果（SYSTEMS §6.1 的表；静室按“替换洞府本体的闭关加成”取 0.05）
 L.HV = { forgeRate: 0.02, forgeOre: 0.03, forgeOreCap: 0.45, penFeed: 0.08, penJob: 0.05, roomRet: 0.05, roomEpi: 0.02, lib: 0.10,
-  springInj: 2, springTox: 0.5, springAge: 0.01, vaultInc: 0.06, vaultSell: 0.03, pavVisit: 0.10, pavAff: 1,
+  springInj: 2, springTox: 0.5, springAge: 0.01, vaultInc: 0.02, vaultSell: 0.03, pavVisit: 0.10, pavAff: 1,
   portalLen: 3, portalDeep: 6, portalRealm: 9, refund: 0.5, keep: 0.5, caveRet: 0.05 };
 const pc = v => Math.round(v * 100) + '%';
 const x2 = v => (Math.round(v * 100) / 100).toString();
@@ -187,9 +187,12 @@ L.upgrade = function (st, k) {
   L.checkQuests(st);
   return true;
 };
-// 藏经阁：每升一级（含建成、重建跳过的级）揭示一条共鸣提示
+// 藏经阁：每升到一个没到过的等级揭示一条共鸣提示（拆了重建，已经揭示过的那几级不再给；st.home.libMax 记最高到过几级）
 function afterLevel(st, k, lv0, lv1, res) {
-  if (k === 'library' && ON() && L.comboHint) for (let i = lv0; i < lv1; i++) { const id = L.comboHint(st); if (!id) break; res.hints.push(id); L.log(st, '藏经阁里翻出一条共鸣提示：' + L.comboHintText(id), 'gold'); }
+  if (k !== 'library' || !ON() || !L.comboHint) return;
+  const h = st.home, from = Math.max(lv0, h.libMax || 0);
+  for (let i = from; i < lv1; i++) { const id = L.comboHint(st); if (!id) break; res.hints.push(id); L.log(st, '藏经阁里翻出一条共鸣提示：' + L.comboHintText(id), 'gold'); }
+  h.libMax = Math.max(h.libMax || 0, lv1);
 }
 L.demolishWhy = function (st, k) {
   if (!B[k] || B[k].body) return '没有这种建筑';

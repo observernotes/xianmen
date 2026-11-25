@@ -29,6 +29,7 @@ L.MARKET = [
   { k: 'feed', n: '兽粮一袋', d: '喂灵宠升级（pets.js）', base: 40 },
   { k: 'yin', n: '药引一包', d: '两枚同种药引：炼丹、灵宠进化、打造用（crops.js）', base: 100 },
   { k: 'seed', n: '灵种', d: '一种还没解锁的灵田作物，买下就能种（crops.js）', base: 150 },
+  { k: 'zhentu', n: '阵图', d: '布在洞府聚灵阵上的阵法（formation.js）', base: 300 },
 ];
 const MK = {}; for (const M of L.MARKET) MK[M.k] = M;
 L.price = (st, k) => Math.floor(MK[k].base * Math.pow(2.6, rr(st)));
@@ -63,6 +64,7 @@ L.SHELF_POOL = [
   // 药引一包（两枚同种，手里最少的那种更常上）；灵种（下一种没解锁的作物）
   { k: 'yin', w: 3, ok: st => L.yinOpen(st), make: st => ({ yin: wpick(L.YIN_KEYS.map(y => [y, 1 / (1 + L.yinHave(st, y))])) }), lim: () => 2, lock: '筑基中期后上架' },
   { k: 'seed', w: 1.5, ok: st => (st.rebirth > 0 || mr(st) >= 1) && st.home.field > 0 && L.cropsOpen(st) && !!L.nextLockedCrop(st), make: st => ({ crop: L.nextLockedCrop(st).id }), lim: () => 1 },
+  { k: 'zhentu', w: 1.2, ok: st => !!L.zhenShopOk && L.zhenShopOk(st), make: st => ({ zt: L.zhenShopPick(st) }), lim: () => 1, lock: '筑基后上架' },   // 阵图：生财阵（buildings.js）
 ];
 L.restock = function (st, quiet) {
   const m = mk(st);
@@ -89,6 +91,7 @@ function rowName(st, s) {
   if (s.k === 'egg') return L.eggName(st);
   if (s.k === 'yin' && s.yin) return `${L.YIN_N[s.yin]}一包`;
   if (s.k === 'seed' && s.crop) return `${L.CROP[s.crop].n}灵种`;
+  if (s.k === 'zhentu' && s.zt) return `阵图《${L.ZHENTU[s.zt]}》`;
   return M.n;
 }
 function rowDesc(st, s) {
@@ -102,6 +105,7 @@ function rowDesc(st, s) {
   if (s.k === 'frag') return `${(st.arts.frag[s.art] || 0)}/3 片，集齐三片得这门神阶功法`;
   if (s.k === 'plan') { const P = L.PLAN[s.plan]; return `${L.GEAR_N[P.slot]} ${L.gearTierName(P.slot, P.t)}，${P.aff.map(a => L.AFFIX[a].n).join('、')}（化神后器炉打造）`; }
   if (s.k === 'token') return `手里 ${L.mjTokens(st)}/${L.MJ.tokenMax} 枚 · 夏季进秘境用`;
+  if (s.k === 'zhentu' && s.zt && L.zhenEffect) return `${L.zhenOwned(st, s.zt) ? '已有 · ' : ''}布在聚灵阵上：${L.zhenEffect(st, s.zt)}`;
   return MK[s.k].d;
 }
 // 买价的组成：折扣、本届九折、商路断绝 +30%
@@ -187,6 +191,7 @@ function giveGood(st, row) {
   if (row.k === 'yin' && s.yin) { L.addYin(st, s.yin, L.YIN_PACK); L.log(st, `坊市买下${L.YIN_N[s.yin]} ×${L.YIN_PACK}`); return { k: 'yin', yin: s.yin, n: L.YIN_PACK }; }
   if (row.k === 'seed' && s.crop) { if (L.cropOpen(st, s.crop)) return null; L.cropsOf(st).seed[s.crop] = 1; L.log(st, `坊市买下${L.CROP[s.crop].n}的灵种：现在就能种`, 'jade'); return { k: 'seed', crop: s.crop }; }
   if (row.k === 'token') { if (!L.mjAddToken(st, 1)) return null; L.log(st, `坊市买下一枚秘境令（${L.mjTokens(st)}/${L.MJ.tokenMax}）`); return { k: 'token' }; }
+  if (row.k === 'zhentu' && s.zt) { if (L.zhenOwned && L.zhenOwned(st, s.zt)) return null; return { k: 'zhentu', zt: s.zt, planText: L.givePlan(st, s.zt) }; }
   return null;
 }
 // 买第 i 格（L.shelf 的序号）
@@ -307,6 +312,7 @@ function rollAuction(st) {
   if (p.t < L.talentCap(st)) pool.push({ k: 'xisui', n: '洗髓丹', m: 1.5 });
   pool.push({ k: 'pack', n: '九转金丹材料包', m: 1.1 });
   pool.push({ k: 'pills', n: '破境丹 ×3', m: 0.5 });
+  { const z = L.zhenAucLot ? L.zhenAucLot(st) : null; if (z) pool.push(z); }   // 阵图（元婴起，buildings.js）
   const items = [], used = new Set();
   while (items.length < 3 && pool.length) {
     const it = pool.splice(Math.floor(R() * pool.length), 1)[0];
@@ -344,6 +350,7 @@ function giveLot(st, it) {
   const res = {};
   if (it.k === 'w' || it.k === 'g') res.it = L.gearDrop(st, it.slot || 'w', it.tier, { src: 'auction' });
   else if (it.k === 'plan') res.planText = L.givePlan(st, it.plan);
+  else if (it.k === 'zhentu') res.planText = L.givePlan(st, it.zt);
   else if (it.k === 'a' || it.k === 'frag') res.it = L.giveArt(st, it.art, { src: 'auction' });
   else if (it.k === 'egg') res.it = L.petEgg(st, it.el, 'auction', 1);
   else if (it.k === 'treasure') st.treasure++;
