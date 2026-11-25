@@ -19,7 +19,7 @@ L.RECIPES = [
 L.QUAL = [{ n: '下品', m: 0.7 }, { n: '中品', m: 1 }, { n: '上品', m: 1.3 }, { n: '极品', m: 1.8 }];
 // 太乙真经（丹毒上线前的替代效果）省灵草；丹火诀、炉火纯青加成丹率（arts.js）
 L.herbCost = (st, rc) => Math.ceil(rc.herbs * L.herbScale(st) * L.artHerbCost(st));
-L.alchRate = st => clamp(0.6 + 0.03 * st.home.furnace + (L.friend(st, 'ge') ? 0.15 : 0) + (L.has(st, 'alch') ? 0.15 : 0) + (st.sect && st.sect.id === 'dan' ? 0.15 : 0) + L.artAlchRate(st), 0.1, 0.97);
+L.alchRate = st => clamp(0.6 + 0.03 * st.home.furnace + (L.friend(st, 'ge') ? 0.15 : 0) + (L.has(st, 'alch') ? 0.15 : 0) + (st.sect && st.sect.id === 'dan' ? 0.15 : 0) + L.artAlchRate(st) + L.calAlch(st), 0.1, 0.97);   // 丹道大会 +10%（calendar.js）
 L.pillPower = st => (st.sect && st.sect.id === 'dan' ? 1.3 : 1);   // 丹霞谷：丹药效果 ×1.3
 L.canCraft = function (st, k) {
   const rc = L.RECIPES.find(x => x.k === k);

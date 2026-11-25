@@ -7,8 +7,10 @@ function speakerImg(ev, w) {
   if (spk && L.NPCS[spk]) return npcAvImg(spk, w);
   return myAvImg(w);
 }
-function showChoice(ev) {
+// back：结果页【继续】之后回到哪（坊市事件回坊市）；省略就关掉弹窗
+function showChoice(ev, back) {
   if (!ev || !st) return;
+  const done = back || closeModal;
   const spk = ev.speaker || ev.npc;
   const who = spk && L.NPCS[spk] ? `<div class="seal">${esc(L.npcName(st, spk))} <span class="muted">${L.NPCS[spk].title}${L.met(st, spk) ? ' · 好感 ' + L.aff(st, spk) : ''}</span></div>` : spk === 'elder' ? '<div class="seal">戒中老祖</div>' : '';
   const luck = L.choiceLuck(st);
@@ -29,7 +31,7 @@ function showChoice(ev) {
     body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div><div class="choices">${btns}</div>`,
   });
   SFX.reveal(ev.where === 'story' ? 4 : 2);
-  const lv = s.querySelector('[data-leave]'); if (lv) lv.onclick = () => { SFX.tap(); closeModal(); };
+  const lv = s.querySelector('[data-leave]'); if (lv) lv.onclick = () => { SFX.tap(); done(); };
   s.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => {
     SFX.tap();
     const res = L.resolveChoice(st, ev, +b.dataset.c);
@@ -42,13 +44,13 @@ function showChoice(ev) {
     if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
     if (res.duel) {
       duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
-        winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done: closeModal });
+        winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done });
       return;
     }
     if (res.hasRisk) { if (res.ok) SFX.win(); else SFX.fail(); } else SFX.coin();
     sheet({ title: esc(L.fill(st, ev.title)), center: true, noClose: true,
       body: `<div class="speaker">${speakerImg(ev, 44)}<p class="grow" style="margin:0">${esc(res.text)}</p></div>${chips}`,
-      foot: [{ t: '继续', gold: true, fn: closeModal }] });
+      foot: [{ t: '继续', gold: true, fn: done }] });
   });
 }
 

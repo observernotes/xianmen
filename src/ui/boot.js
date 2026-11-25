@@ -23,7 +23,12 @@ function onTick() {
   if (out.train) pushPopup(showTrain);
   if (st.guide && st.guide.done && st.tick % 3 === 0) artRecTip();
   if (st.guide && st.guide.done && st.tick % 3 === 1) gearPlusTip();
-  if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天`);
+  if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天 · 三件竞价`);
+  // 拍卖散场：竞拍者拿走的（宿敌战力 ×1.04）
+  if (out.aucEnd && out.aucEnd.length) { const b = out.aucEnd.find(x => x.boost); floatText(100, 40, b ? `${b.n}拍走了【${b.item}】：战力 ×${L.AUCTION.boost}` : `${out.aucEnd[0].n}拍走了【${out.aucEnd[0].item}】`, b ? '#ff9a8a' : '#9d93b8'); }
+  // 天下大势起了：老祖一句“该干什么”；换季：每季头一回提一句（panel-cal.js）
+  if (out.world) { const W = L.WORLD[out.world]; banner('天下大势 · ' + W.n, `${W.len} 周天`); SFX.reveal(3); worldTip(out.world); }
+  else if (out.season !== undefined && st.guide && st.guide.done) seasonTip(out.season);
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
@@ -126,5 +131,5 @@ try { window.claude && window.claude.hot && window.claude.hot.snapshot && window
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
-  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showCalendar, showBig, worldLine, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

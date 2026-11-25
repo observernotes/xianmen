@@ -394,6 +394,38 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .stepper .btn.sm { min-width: 44px; min-height: 36px; }
 .stepper b { font-weight: normal; min-width: 1.5em; text-align: center; font-size: calc(var(--fs) * 1.5); }
 .sheet.still { animation: none; }
+/* 天下大势小牌（场景右上角，点开 = 年历） */
+#worldTag { position: absolute; right: 4px; top: 4px; min-width: 44px; min-height: 44px; border: 0; cursor: pointer; padding: 2px 6px; display: flex; align-items: center; gap: 4px;
+  background: rgba(11, 9, 18, .78); color: var(--text); box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px #4ccb9f; }
+#worldTag b { font-weight: normal; color: var(--gold); font-variant-numeric: tabular-nums; }
+#worldTag.away { top: 34px; }
+#tip:not([hidden]) ~ #worldTag { display: none; }
+#worldTag:active { transform: translateY(1px); }
+/* 年历 */
+.calwrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+.calstrip { display: block; }
+.calruler { position: relative; height: 1.4em; }
+.calruler span { position: absolute; transform: translateX(-50%); color: var(--paper-mute); white-space: nowrap; }
+.callegend { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; color: var(--paper-mute); }
+.calkey { display: inline-block; width: 8px; height: 8px; margin-right: 4px; vertical-align: middle; box-shadow: 0 0 0 1px var(--ink); }
+.calrow.focus { box-shadow: 0 -2px 0 0 var(--gold), 0 2px 0 0 var(--gold), -2px 0 0 0 var(--gold), 2px 0 0 0 var(--gold); }
+.calgo, .mbuy { min-height: 44px; min-width: 64px; }
+/* 坊市：货架、行情、拍卖 */
+.mhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--seal); flex-wrap: wrap; }
+.mhead > span { display: flex; align-items: center; gap: 4px; }
+.shelfrow.lock { opacity: .7; }
+.sellrow { background: #f7eed6; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 -2px 0 0 #b9a77c, 0 2px 0 0 #b9a77c, -2px 0 0 0 #b9a77c, 2px 0 0 0 #b9a77c; }
+.sl-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sl-btns, .bids { display: grid; gap: 6px; }
+.sl-btns { grid-template-columns: 1fr 1fr; }
+.bids { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sl-btns .btn, .bidb { min-height: 44px; min-width: 0; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; }
+.bidb img { margin-bottom: 1px; }
+.sl-btns .btn small, .bidb small { font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.lot { background: #f7eed6; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 -2px 0 0 #b9a77c, 0 2px 0 0 #b9a77c, -2px 0 0 0 #b9a77c, 2px 0 0 0 #b9a77c; }
+.lot.done { opacity: .75; }
+.lotcomp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lotres { text-align: center; padding: 4px 0; }
 #haul { position: absolute; left: 4px; right: 4px; top: 12px; padding: 2px 6px; background: rgba(11, 9, 18, .72); color: #ffe39a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 /* 开场 */
 #intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
@@ -430,6 +462,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
     <div id="banner"></div>
     <div id="tip" hidden></div>
     <div id="haul" hidden></div>
+    <button id="worldTag" hidden aria-label="天下大势"></button>
   </div>
   <button id="cult" class="pxbox" aria-label="修为">
     <span class="row"><span id="realm">炼气初期</span><span id="xpTxt" class="num"></span></span>

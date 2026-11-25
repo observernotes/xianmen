@@ -52,15 +52,19 @@ const RIVAL_LINES = {
   yun: ['我在榜首等你很久了。来吧。', '好剑。天下第一，是你的了。'],
 };
 function runTournament() {
+  const wq = L.wantedRank(st), ww = L.wanted(st);
   const res = L.tournament(st);
   rankShown = res.startRank;
+  // 上回拍卖会被天骄拍走的东西（他们战力已 ×1.04）；通缉令的悬赏
+  const aucNews = (res.aucNews || []).length ? `<div class="quote">${res.aucNews.slice(0, 3).map(x => `${esc(x.n)}在拍卖会上拍得【${esc(x.item)}】，战力 ×${L.AUCTION.boost}`).join('<br>')}${res.aucNews.length > 3 ? `<br>另有 ${res.aucNews.length - 3} 人` : ''}</div>` : '';
+  const wantedNote = ww && wq ? `<p class="center seal">通缉犯「${esc(ww.who)}」也在台上（第 ${wq} 名），击败他赏 ${fmt(Math.max(L.income(st), 20) * L.CAL.bounty)} 灵石</p>` : '';
   let step = -1;
   const next = () => {
     step++;
     if (step === 0) {
       SFX.gong();
       sheet({ title: `第${res.n}届 天骄论道`, center: true, noClose: true,
-        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${res.n === 1 ? `<div class="quote">天骄论道每 ${L.TOUR_EVERY} 周天一届，会自动开打：三场，按战力去挑战榜上的对手，赢了就顶替对方的名次，每场最多上升 ${L.TOUR_STEP} 名。宿敌们都在榜上。</div>` : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
+        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${aucNews}${wantedNote}${res.n === 1 ? `<div class="quote">天骄论道每 ${L.TOUR_EVERY} 周天一届，会自动开打：三场，按战力去挑战榜上的对手，赢了就顶替对方的名次，每场最多上升 ${L.TOUR_STEP} 名。宿敌们都在榜上。</div>` : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
         foot: [{ t: '登台！', gold: true, fn: next }] });
       return;
     }
@@ -71,8 +75,8 @@ function runTournament() {
     duel({
       title: `第 ${step} 战`,
       right: { img: rivalAvImg(rv, 66), name: rv.n, sub: `${rv.s} · 第${rd.q}名 · ${fmt(rd.P)}` }, Q: rd.P, S: rd.S || res.S, p: rd.p, win: rd.win,
-      quote: `${rv.n}：“${lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
-      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
+      quote: `${rv.n}：“${rd.auc ? `上回拍卖会那件【${rd.auc}】，多谢你没跟价。今天就用它送你下台！` : rd.wanted ? '我是冤枉的……可你要拿我领赏，那就来！' : lines ? lines[0] : TAUNTS[(step + res.n) % TAUNTS.length]}”`,
+      winText: `${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天骄榜第一' : `排名升至第 ${rd.q}`} · 灵石+${fmt(rd.stones || 0)}${rd.contrib ? ` · 贡献+${fmt(rd.contrib)}` : ''}${rd.bounty ? `<div class="goldt">擒下通缉犯，赏金 +${fmt(rd.bounty)}</div>` : ''}${lines && rd.first ? `<div class="quote">${esc(rv.n)}：“${esc(lines[1])}”</div>` : rd.P > res.S * 0.9 ? `<div class="muted">${SHOCK[step % SHOCK.length]}</div>` : ''}`,
       loseText: '对手底蕴深厚，来日再战。',
       btn: res.rounds[step] ? '下一战' : '论道落幕',
       done: () => { if (rd.win && !rd.defend) rankShown = rd.q; next(); },

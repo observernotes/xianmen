@@ -45,7 +45,9 @@ function showGrowth(focus) {
   if (focus && focus !== 'all') { const el = s.querySelector('#g-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
 }
 $('#stats').addEventListener('click', e => { const b = e.target.closest('button[data-s]'); if (!b || !st || cine) return; ac(); SFX.tap(); if (b.dataset.s === 'big') showBig(); else showGrowth(b.dataset.s); });
+// “大事”牌：筑基（历法开放）之后点开是年历；之前照旧是三年之约的锦囊
 function showBig() {
+  if (L.calOpen(st)) { showCalendar(); return; }
   const nb = L.nextBig(st);
   if (nb.k === 'tour') { showMe('rank'); return; }
   if (nb.k === 'meet') { showSect(); return; }

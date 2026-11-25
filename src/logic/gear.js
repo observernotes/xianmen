@@ -2,7 +2,7 @@
  * 模块写法见 src/logic.js 顶部说明。
  *   st.gear = { w 兵器, r 法衣, o 饰品（各为一件或 null）, pend 待决定的掉落, lock 锁定当前（更低阶的掉落自动熔炼）,
  *               plans 器方, zhentu 阵图（阵法系统上线前先收着）, mats 首领材料 { 首领序号: 件数 }, uid, huzhu 护主上次生效的周天,
- *               rf 重铸的二选一（待定）, last 最近一次强化的花费（forge_refund2 返还用）, oreBuy 本届坊市已买几筐灵矿, vaultU 宝库镇宗法宝已领 }
+ *               rf 重铸的二选一（待定）, last 最近一次强化的花费（forge_refund2 返还用）, vaultU 宝库镇宗法宝已领 }
  *   一件法宝 = { u 编号, id 底子（L.gearBase(id)：名字、槽、阶、五行、固定词条）, slot, t 阶, plus 强化 0～9, aff 词条 id 数组, fail 连续强化失败次数（保底） }
  *   st.ore 灵矿（强化、打造用）：历练（斩妖 ×1.5，黑风岭 ×2、剑冢 ×3、星墟 ×4）、熔炼 4 × 2^阶、首领、事件、坊市一筐、宗门器堂。
  *   不做背包：新掉落进 st.gear.pend，界面弹对比卡【换上】/【熔炼】/【锁定当前】（不选 = 熔炼）；换上时旧的那件自动熔成灵矿、强化继承一半。
@@ -105,7 +105,7 @@ L.gearBase = id => BASE[id] || null;
 L.gearBases = () => Object.values(BASE);
 
 // ---------- 存档结构 ----------
-L.newGear = () => ({ w: null, o: null, r: null, pend: [], lock: { w: false, r: false, o: false }, plans: {}, zhentu: {}, mats: {}, uid: 0, huzhu: -99, rf: null, last: null, oreBuy: null, vaultU: {} });
+L.newGear = () => ({ w: null, o: null, r: null, pend: [], lock: { w: false, r: false, o: false }, plans: {}, zhentu: {}, mats: {}, uid: 0, huzhu: -99, rf: null, last: null, vaultU: {} });
 L.gearMake = function (st, id, opt) {
   const B = BASE[id]; if (!B) return null;
   opt = opt || {};
@@ -515,7 +515,7 @@ L.gearTick = function (st) {
 L.migrateGear = function (s) {
   const d = L.newGear();
   const g = s.gear && typeof s.gear === 'object' ? s.gear : d;
-  for (const k in d) if (g[k] === undefined || g[k] === null && k !== 'w' && k !== 'o' && k !== 'r' && k !== 'rf' && k !== 'last' && k !== 'oreBuy') g[k] = d[k];
+  for (const k in d) if (g[k] === undefined || g[k] === null && k !== 'w' && k !== 'o' && k !== 'r' && k !== 'rf' && k !== 'last') g[k] = d[k];
   for (const k of ['lock', 'plans', 'zhentu', 'mats', 'vaultU']) if (!g[k] || typeof g[k] !== 'object') g[k] = d[k];
   if (!Array.isArray(g.pend)) g.pend = [];
   const fix = x => (x && BASE[x.id] ? Object.assign(x, { slot: BASE[x.id].slot, t: BASE[x.id].t, plus: clamp(x.plus | 0, 0, 9), aff: Array.isArray(x.aff) ? x.aff.filter(a => L.AFFIX[a]) : [], fail: x.fail | 0, u: x.u || ++g.uid }) : null);

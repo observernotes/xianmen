@@ -102,7 +102,8 @@ L.breakthrough = function (st, n) {
 L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
 // TODO SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”以后移到静室
 // 烈阳诀 +0.2、星河倒悬 +0.125（arts.js 的 L.artRetBonus）
-L.retBaseMult = st => 2 + 0.05 * st.home.cave + L.artRetBonus(st);
+// 冬 +0.2、星河倒悬冬季再 +0.5、名师讲道 +0.5（calendar.js 的 L.calRetBonus）
+L.retBaseMult = st => 2 + 0.05 * st.home.cave + L.artRetBonus(st) + L.calRetBonus(st);
 L.retStreak = st => st.flags.retStreak || 0;
 L.retMult = st => Math.max(L.RET.minM, L.retBaseMult(st) - L.RET.fatigue * L.retStreak(st));
 L.retOpen = st => st.rebirth > 0 || Math.max(L.si(st.p), st.flags.maxI || 0) >= 1;
@@ -130,7 +131,7 @@ L.retInfo = function (st) {
   const left = Math.max(0, L.pNeed(st.p) - st.p.xp);
   const t0 = base > 0 ? left / base : 0, t1 = left <= base * m * L.RET.len ? left / (base * m) : L.RET.len + (left - base * m * L.RET.len) / base;
   return { cost: L.retCost(st), m, m0, tired: m < m0, streak: L.retStreak(st), len: L.RET.len, extra, total: base * m * L.RET.len, save: Math.max(0, Math.round(t0 - t1)), why: L.retWhy(st), free: !st.flags.retFree,
-    epi: (st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st), fenshen: L.artOn(st, 'm_fenshen') };
+    epi: ((st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st)) * L.calEpiMult(st), fenshen: L.artOn(st, 'm_fenshen') };
 };
 L.startRetreat = function (st, opt) {
   opt = opt || {};
@@ -159,11 +160,12 @@ L.endRetreat = function (st, done) {
     if (done) {
       const first = !st.stats.retreat;
       st.stats.retreat = (st.stats.retreat || 0) + 1;
-      const pe = (st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st);
+      const pe = ((st.sect && st.sect.id === 'dao' ? L.RET.epiDao : L.RET.epi) + L.artEpi(st)) * L.calEpiMult(st);   // 灵气潮汐：顿悟 ×2
       if (r.kind === 'ret' && (first || R() < pe)) { res.epi = L.gainCalm(st) * L.RET.epiTicks; L.addXp(st, res.epi); }
       // 分身术：闭关时分身去外围历练了一趟
       if (r.kind === 'ret') res.fenshen = L.fenshenTrip(st);
       if (st.sect) L.taskHit(st, 'act', t => t.sub === 'retreat');
+      if (r.kind === 'ret') res.contrib = L.calRetDone(st);   // 名师讲道：入宗者出关另得贡献
       if (first && !st.visitor && !st.stats.visits) res.visitor = L.spawnVisitor(st);   // 第一位访客固定在首次出关时上门
     }
     L.log(st, done ? `出关！修为 +${L.fmt(r.got)}${res.epi ? '，顿悟再得 ' + L.fmt(res.epi) : ''}` : '提前出关', res.epi ? 'gold' : 'jade');

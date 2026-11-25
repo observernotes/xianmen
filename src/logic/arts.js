@@ -107,8 +107,8 @@ L.ARTL = [
   { id: 'm_xuedun', n: '血遁', k: 'm', t: 4, el: 'huo', v: 0.01, d: v => `丁等不负伤，改为寿元 −${pc(0.0001 / v)}`, src: '血煞秘境', pool: 'mo' },   // 代价随熟练减轻：1% ÷ 熟练倍数
   // 心魔劫（SYSTEMS §9）上线前：“心魔劫必过”先折成冲击元婴及以上的成功率
   { id: 'm_wangqing', n: '太上忘情录', k: 'm', t: 5, el: '', v: 0.05, d: v => `冲击元婴及以上 +${pc(v)}（心魔劫上线后改为必过）；好感获取 −30%`, src: '玄天道宗宝库（太上长老）', pool: 'vault', sect: 'dao', rank: 5 },
-  // 四季（SYSTEMS §7）上线前：“季节加成翻倍”先折成一点修炼
-  { id: 'm_xingdou', n: '周天星斗大法', k: 'm', t: 6, el: '', v: 0.05, d: v => `修炼 +${pc(v)}（四季上线后改为季节加成翻倍）`, src: '残篇 ×3：天外星墟禁地、拍卖', pool: 'frag' },
+  // 四季（SYSTEMS §7，calendar.js 的 L.seasonAmp）：季节加成翻倍
+  { id: 'm_xingdou', n: '周天星斗大法', k: 'm', t: 6, el: '', v: 1, d: () => '四季的季节加成翻倍（春灵草访客、夏兽类地图、秋灵稻行情、冬闭关）', src: '残篇 ×3：天外星墟禁地、坊市、拍卖', pool: 'frag' },
 ];
 const ART = {};
 for (const A of L.ARTL) ART[A.id] = A;
@@ -179,7 +179,7 @@ L.COMBOS = [
   { id: 'c9', n: '丹剑双绝', a: ['m_danhuo', 'z_liehuo'], d: '炼丹 25% 概率不耗灵草（药引上线后改为不耗药引）' },
   { id: 'c10', n: '风行水上', a: ['m_yufeng', 'z_liuyun'], d: '历练时长再 −1（最少 2）' },
   { id: 'c11', n: '太上无情', a: ['m_wangqing', 'x_taiyi'], cul: 0.12, d: '修炼 +12%；不能结道侣（已有则双修失效）' },
-  { id: 'c12', n: '星河倒悬', a: ['m_xingdou', 'z_canghai'], d: '闭关倍率 +0.125（四季上线后改为冬季 +0.5）' },
+  { id: 'c12', n: '星河倒悬', a: ['m_xingdou', 'z_canghai'], d: '冬季闭关倍率再 +0.5' },
   { id: 'c13', n: '天河倒悬', a: ['x_xuanxiao_xin', 'z_tianjian'], d: '对天剑宗的人胜算下限 50%' },
   { id: 'c14', n: '玄霄真传', a: ['x_xuanxiao_xin', 'z_xuanxiao_jian'], cul: 0.10, atk: 0.20, d: '战力 +20%，修炼 +10%' },
   { id: 'c15', n: '混元一气', a: ['x_hunyuan', 'z_wuxing'], d: '五行拳经按 5 阶计，攻击属性每趟自动取克制方' },
@@ -259,7 +259,6 @@ L.artCulParts = function (st, sl) {
   if (g.same >= 2) out.push([`共鸣·${g.same >= 3 ? '三' : '两'}门同属`, 1 + (g.same >= 3 ? L.GEN.three : L.GEN.two), 'art']);
   for (const c of comboList(st, sl)) if (COMBO[c].cul) out.push(['共鸣·' + COMBO[c].n, 1 + COMBO[c].cul, 'art']);
   const rc = L.rongSum(st, 'cul'); if (rc > 0) out.push([`融会（${L.rongN(st)} 门圆满）`, 1 + rc, 'art']);
-  if (sl[2] === 'm_xingdou') out.push(['秘术·周天星斗', 1 + ART.m_xingdou.v * L.artMm(st, 'm_xingdou'), 'art']);
   return out;
 };
 L.artAtkParts = function (st, sl) {
@@ -337,7 +336,8 @@ L.expCulMult = st => Math.min(1, 0.5 + L.artV(st, 'x_taixu'));
 L.SWAP = { len: 2, m: 0.5 };
 L.artSwapLeft = st => (ON() && st.arts ? Math.max(0, st.arts.swapAt + L.SWAP.len - st.tick) : 0);
 // 闭关倍率（烈阳诀、星河倒悬）与顿悟（紫府天书）
-L.artRetBonus = st => L.artV(st, 'x_lieyang') + (L.comboOn(st, 'c12') ? 0.125 : 0);
+// 星河倒悬（c12）的冬季 +0.5 在 calendar.js 的 L.calRetBonus
+L.artRetBonus = st => L.artV(st, 'x_lieyang');
 L.artEpi = st => L.artV(st, 'x_zifu');
 // 吐纳环每周天蓄多少格（满格 6）：引气诀让它 6 → 5 周天蓄满
 L.tunaStep = st => { const v = L.artV(st, 'x_yinqi'); return v > 0 ? L.TUNA_FULL / (L.TUNA_FULL - Math.min(3, v)) : 1; };

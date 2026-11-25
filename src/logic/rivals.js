@@ -17,7 +17,9 @@ L.rivalA = function (q) {
   }
   return RA[RA.length - 1][1];
 };
-L.rivalPower = (st, q) => Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * st.tick);
+// 名次曲线本身（九宗会武的宗门战力也按它）；L.rivalPower 另乘这位天骄自己的永久加成 pw（拍卖会拍到东西 ×1.04，market.js）
+L.rivalCurve = (st, q) => Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * st.tick);
+L.rivalPower = (st, q) => { const rv = L.rivalAt(st, q); return L.rivalCurve(st, q) * ((rv && rv.pw) || 1); };
 L.rivalAt = function (st, q) { if (q === st.rank) return null; return st.ladder[q < st.rank ? q - 1 : q - 2]; };
 L.rivalRank = function (st, id) { const i = st.ladder.findIndex(x => x.id === id); if (i < 0) return 0; return i + 1 < st.rank ? i + 1 : i + 2; };
 
@@ -104,6 +106,10 @@ L.tournament = function (st) {
   st.stats.tour++;
   ladderDrift(st);
   const res = { n: st.stats.tour, startRank: st.rank, rounds: [], S };
+  // 上回拍卖会上被天骄拍走的东西：论道开场提一句（台词里也提），提过就清掉
+  res.aucNews = st.ladder.filter(x => x.aucNote).map(x => ({ n: x.n, id: x.id, item: x.aucNote, pw: x.pw || 1 }));
+  const aucNote = new Map(st.ladder.filter(x => x.aucNote).map(x => [x.n, x.aucNote]));
+  for (const x of st.ladder) delete x.aucNote;
   const mults = [0.6, 0.9, 1.2];
   for (let j = 0; j < 3; j++) {
     let q;
@@ -118,6 +124,9 @@ L.tournament = function (st) {
       }
       // 宿敌优先：前方 15 名内有没打赢过的宿敌，且打得过，就打他
       for (let x = st.rank - 1; x >= lim; x--) { const rv = L.rivalAt(st, x); if (rv && rv.id && !st.beaten[rv.id] && L.rivalPower(st, x) < S * 1.6) { q = x; break; } }
+      // 通缉令（calendar.js）：被通缉的路人在 15 名以内、打得过，第一场就打他
+      const wq = L.wantedRank(st), rq = L.rivalAt(st, q);
+      if (j === 0 && wq && wq < st.rank && wq >= lim && !(rq && rq.id) && L.rivalPower(st, wq) < S * 1.6) q = wq;
       // 三年之约输了：第 1 届第一场固定是退婚的那位
       if (j === 0 && st.pact < 0 && !st.beaten.mu) { const mq = L.rivalRank(st, 'mu'); if (mq && mq < st.rank) q = mq; }
     }
@@ -130,7 +139,7 @@ L.tournament = function (st) {
     // 玄霄在手：老祖“请出手”，每届 2 次，输掉的一场重掷（gear.js）
     if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = R() < p; }
     if (L.revealFoe && rv && rv.id) L.revealFoe(st, foe);
-    const round = { q, rv, P: Q, S: Sr, p, win, xx };
+    const round = { q, rv, P: Q, S: Sr, p, win, xx, auc: rv ? aucNote.get(rv.n) : undefined, wanted: !!(rv && L.wanted(st) && L.wanted(st).who === rv.n) };
     if (win) {
       st.stats.tourWins = (st.stats.tourWins || 0) + 1;
       if (st.rank === 1) round.defend = true; else st.rank = q;
@@ -138,6 +147,7 @@ L.tournament = function (st) {
       round.stones = rw; st.stones += rw;
       if (st.sect) { round.contrib = L.addContrib(st, L.contribFor(L.homeRegion(st)) * L.CONTRIB.tour); L.taskHit(st, 'tour'); }
       if (rv && rv.id) { round.first = !st.beaten[rv.id]; st.beaten[rv.id] = (st.beaten[rv.id] || 0) + 1; L.markBeat(st, rv.id); }
+      if (round.wanted) round.bounty = L.wantedPay(st, rv);
     }
     res.rounds.push(round);
     if (!win) break;

@@ -139,6 +139,34 @@ const gearHints = [
     } },
 ];
 HINTS.push(...gearHints);
+// ---------- 历法、天下大势、坊市货架、行情、拍卖（SYSTEMS §7 / §10 / §17）：每样一次阻塞讲解，数字当场算 ----------
+const inMarket = sel => modalTitle() === '坊市' && !!document.querySelector(sel);
+const calHints = [
+  { id: 'cal', intro: true, when: () => st.guide.done && L.calOpen(st) && !st.rebirth && !modalOpen() && !L.busy(st), target: BIG, btn: '好', text: () => {
+      const S = L.SEASONS[L.season(st)];
+      return `筑基了，天时也看得见了：这一格点开是<b>年历</b>——论道每 ${L.TOUR_EVERY} 周天（下一届 <b>${L.nextTour(st)}</b> 周天后）、拍卖会、九宗会武、夏季秘境都排在上面。现在是<b>${S.n}</b>：${S.d}。`;
+    } },
+  { id: 'world1', intro: true, when: () => st.guide.done && !!L.world(st) && !modalOpen() && !!document.querySelector('#worldTag:not([hidden])'), target: '#worldTag', btn: '好', text: () => {
+      const w = L.world(st);
+      return `右上角这块牌子是<b>天下大势</b>：${L.WORLD[w.id].n}，还剩 <b>${w.until - st.tick}</b> 个周天——${esc(L.worldDesc(st, w))}。每年第 ${L.CAL.worldAt} 个周天看一次天象，点牌子看年历。`;
+    } },
+  { id: 'shelf', intro: true, when: () => st.guide.done && L.shelfOpen(st) && inMarket('#shelfRot'), target: '#shelfRot', btn: '知道了', text: () => {
+      document.querySelector('#shelfRot').scrollIntoView({ block: 'nearest' });
+      const rot = L.shelf(st).filter(r => !r.fixed && !r.lock && r.k);
+      return `下面这几格是<b>轮换货</b>：每届论道换一次，各限购几件。这届有${rot.length ? rot.map(r => `「${esc(r.n)}」${fmt(r.price)}`).join('、') : '的不多'}。<b>${L.restockIn(st)}</b> 个周天后换货。`;
+    } },
+  { id: 'sell', intro: true, when: () => st.guide.done && L.sellOpen(st) && inMarket('#mktSell'), target: '#mktSell', btn: '知道了', text: () => {
+      document.querySelector('#mktSell').scrollIntoView({ block: 'nearest' });
+      const h = L.sellHave(st, 'herb');
+      return `筑基了，坊市能<b>卖东西</b>了：灵草现在 <b>×${mult2(L.sellMult(st, 'herb'))}</b>，你的 ${fmt(h)} 株能换 <b>${fmt(L.sellValue(st, 'herb', h))}</b> 灵石；破境丹一枚 <b>${fmt(L.sellPrice(st, 'pill'))}</b>。指数每 ${L.IDX.every} 个周天变一次，×1.2 以上再卖最划算。`;
+    } },
+  { id: 'auction', intro: true, when: () => st.guide.done && L.auctionOpen(st) && inMarket('#aucBox'), target: '#aucBox', btn: '知道了', text: () => {
+      document.querySelector('#aucBox').scrollIntoView({ block: 'nearest' });
+      const it = st.auction.items.find(x => !x.res) || st.auction.items[0], b = L.bidInfo(st, st.auction.items.indexOf(it), 1);
+      return `拍卖会开 <b>${st.auction.until - st.tick}</b> 个周天，三件。每件三档出价：跟一口 <b>35%</b>、加价 <b>70%</b>、豪掷 <b>97%</b>，有人竞拍各 −15%——比如「${esc(it.n)}」加价 ${fmt(b.price)} 拿下 <b>${L.pct(b.p)}</b>。没拿下不花钱，一场只能出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`;
+    } },
+];
+HINTS.push(...calHints);
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
 const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
@@ -234,7 +262,8 @@ function showHelp() {
     sec('build', '洞府', '聚灵阵加修炼速度，灵田产灵石和灵草，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时可以服一枚破境丹疗伤。'),
     sec('disc', '功法与五行', `【人物】→ 功法：三个槽，点槽再点一门就换上。心法管修炼，战技管战力并定攻击属性（炼气后期开），秘术给特效（金丹开）。装着就涨熟练（入门→小成→大成→圆满→化境，倍率的超出部分最多 ×${L.MAST.mult[4]}），圆满留一份融会。两门同属 +${Math.round(L.GEN.two * 100)}%、三门 +${Math.round(L.GEN.three * 100)}%；特定几门凑在一起有名有姓的共鸣，试出来就记进图鉴。五行：金克木、木克土、土克水、水克火、火克金，克制历练分数 +${L.EL_EXP}、对决 ×${L.EL_DUEL[0]}，被克反之。`),
     sec('sword', '法宝', `【人物】→ 法宝：兵器（战力，开局）、法衣（历练分数、少负伤，筑基中期）、饰品（修炼 / 财运 / 气运 / 寿元，元婴）三格。新掉落弹对比卡：【换上】（强化继承一半）或【熔炼】成灵矿（4 × 2^阶），不选就熔炼；【锁定当前】以后更低阶的直接熔炼。每格下【强化】花灵矿和灵石，+0～+9，每级超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%。词条 16 种，天材地宝能重铸一条。化神后器炉用器方打造专属法宝。`),
-    sec('bag', '坊市', '买破境丹、延寿丹、灵矿；寻宝抽法宝功法（连续两次没提升，第三次必出更高一阶）；筑基后孵灵兽蛋；金丹后每 24 周天有拍卖会。价格随境界上涨。'),
+    sec('bag', '坊市', `货架六格：破境丹、寻宝（连续两次没提升，第三次必出更高一阶）、灵兽蛋常驻；另三格每届论道换货（灵矿、延寿丹、法衣、残篇、器方、打折的常驻货），各限购几件。筑基后能在<b>行情</b>里卖灵草、灵矿、破境丹：指数 ×0.6～×1.6，每 ${L.IDX.every} 周天变一次，秋季、大势另有涨落。金丹后每 ${L.AUCTION.every} 周天一场<b>拍卖会</b>：三档出价（35% / 70% / 97%，有人竞拍各 −15%），没拿下不花钱，一场出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`),
+    sec('flag', '历法与天下大势', `12 周天一年：1～3 春（灵草、访客多）、4～6 夏（秘境开放、兽类地图斩妖灵石 +15%）、7～9 秋（灵田灵石 +50%、行情 +0.2）、10～12 冬（闭关 +0.2，冬末论道）。每年第 ${L.CAL.worldAt} 个周天看天象，六成起一件<b>天下大势</b>（兽潮、灵气潮汐、魔劫……），持续 6～10 周天，场景右上角挂一块牌子。筑基后最右那格“大事”点开是<b>年历</b>。`),
     sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 周天九宗会武，你代表本宗往上打。'),
     sec('flag', '天骄论道', `三年之约之后每 ${L.TOUR_EVERY} 周天一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
     sec('disc', '奇遇与访客', '历练途中可能遇到抉择；洞府门口有时会来访客（画面里的“！”），点它就能见，几个周天不理会自己走。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),

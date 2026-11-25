@@ -25,7 +25,10 @@ function fitScene() {
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; wrap.style.aspectRatio = `${W} / ${H}`; }
 }
 function phase() { return ((T / 120000) + 0.42) % 1; }
-function season() { return Math.floor(((st ? st.year : 0) % 1) * 4); }
+// 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
+function season() { return st ? L.season(st) : 0; }
+// ART.drawHome 按 st.year 的小数部分画四季：给它一个只改了 year 的视图，让画面的季节对上 L.season
+function homeView() { return Object.create(st, { year: { value: Math.floor(st.year || 0) + (season() + 0.5) / 4 } }); }
 function drawArray(x, y) {
   const lv = st.home.array; if (!lv) return null;
   const rx = 22 + Math.min(lv, 12), ry = Math.round(rx * 0.3);
@@ -126,7 +129,7 @@ function seasonFx(night) {
   if (night && s === 1 && Math.random() < 0.05) parts.push({ x: 20 + Math.random() * 160, y: 100 + Math.random() * 40, vx: (Math.random() - 0.5) * 0.01, vy: -0.004, life: 3000, max: 3000, c: '#e8ff7a', s: 1, fly: 1 });
 }
 function drawHomeScene(dt) {
-  const r = ART.drawHome(st, T, OY, parts, { phase: phase() });
+  const r = ART.drawHome(homeView(), T, OY, parts, { phase: phase() });
   const col = drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
   if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);

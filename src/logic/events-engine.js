@@ -86,7 +86,8 @@ L.supportElig('chain'); L.supportElig('step');
 L.supportChoice('need'); L.supportChoice('not'); L.supportChoice('srankMin');
 L.supportChoice('dao', { apply: (st, v) => { if (!['k', 'w', 'r'].includes(v)) return; st.dao = st.dao || { k: 0, w: 0, r: 0 }; st.dao[v] = (st.dao[v] || 0) + 1; } });
 for (const k of ['stones', 'pills', 'herbs']) L.supportCost(k);
-for (const k of ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'vein', 'contrib', 'talent', 'trait', 'title', 'daolv']) L.supportFx(k);
+// 内建的 fx（L.applyFx 里直接结算）。已被前面的模块登记过的（arts / gear / calendar / market 给 flag 接的一次性钩子）不要覆盖
+for (const k of ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'vein', 'contrib', 'talent', 'trait', 'title', 'daolv']) if (!L.CAPS.fx[k]) L.supportFx(k);
 // item：a 功法（按阶抽一门具体的，见 arts.js）/ pet 灵宠 / 法宝 w 兵器 · r 法衣 · o 饰品 · need 最弱的一槽（gear.js：空槽直接装上，否则走对比卡）
 L.supportFx('item', { ok: v => ['w', 'a', 'pet', 'need', 'r', 'o'].includes(v) });
 L.supportFx('buff', { ok: v => !!v && (v.cul > 0 || v.atk > 0) });
@@ -98,7 +99,8 @@ L.eligible = function (st, ev, where, ctx) {
   if (ev.where !== where) return false;
   if (!L.evLive(ev)) return false;
   const r = st.p.r;
-  if (where === 'story') { if (ev.trigger !== ctx.trigger) return false; if (st.evDone[ev.id]) return false; }
+  // story（剧情触发键）与 market（坊市里的时机：market:restock / market:buy / auction:*）都按 trigger 对上才出
+  if (where === 'story' || where === 'market') { if (ev.trigger !== ctx.trigger) return false; if (where === 'story' && st.evDone[ev.id]) return false; }
   if (ev.once && st.evDone[ev.id]) return false;
   if (ev.minR !== undefined && r < ev.minR) return false;
   if (ev.maxR !== undefined && r > ev.maxR) return false;
@@ -112,6 +114,8 @@ L.eligible = function (st, ev, where, ctx) {
   if (ev.daolv === true && !st.daolv) return false;
   if (ev.daolv === false && st.daolv) return false;
   if (where === 'exp' && ev.bg && ctx.bg && !ev.bg.includes(ctx.bg)) return false;
+  // 各系统登记的资格字段的判定（calendar.js 的 season / world …：L.supportElig(key, { test(st, v, ev) })）
+  for (const k in ev) { const c = L.CAPS.elig[k]; if (c && c.test && !c.test(st, ev[k], ev, where, ctx)) return false; }
   if (where !== 'story' && st.evLast[ev.id] !== undefined && st.tick - st.evLast[ev.id] < (ev.cooldown || L.EV_COOL)) return false;
   // 一个选项都付不起的奇遇不要弹出来（否则玩家只能干看着）
   if (where !== 'story' && !ev.choices.some(c => L.choiceShown(st, c) && L.costOk(st, c.cost))) return false;
@@ -223,6 +227,7 @@ L.resolveChoice = function (st, ev, idx) {
   if (ev.chain && ev.step) st.eflags[String(ev.chain).replace(/^ch_/, '') + '_' + ev.step] = 1;
   // 访客：见过就算数；途中遭遇：成了本趟分数 +5，砸了 −5
   if (st.visitor && st.visitor.id === ev.id) { st.visitor = null; st.stats.visits = (st.stats.visits || 0) + 1; }
+  if (ev.where === 'market' && L.marketEventDone) L.marketEventDone(st, ev.id);
   if (st.exp && st.exp.plan && st.exp.encEv === ev.id && !st.exp.encDone) { st.exp.encDone = 1; st.exp.plan.adj = (st.exp.plan.adj || 0) + (ok ? 5 : -5); }
   const fx = L.applyFx(st, br && br.fx, { ev });
   const text = L.fill(st, br ? br.text : '');

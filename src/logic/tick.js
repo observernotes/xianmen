@@ -25,10 +25,12 @@ L.tick = function (st, cont) {
   // 功法：熟练、长春功的额外疗伤（arts.js）；法宝：过期没决定的掉落兜底结清（gear.js）
   L.artTick(st);
   L.gearTick(st);
+  // 历法：大势到期 / 每轮 t%12 = 2 掷新的一件、换季（calendar.js）
+  L.calTick(st, out);
   // 增益与灵草
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);
-  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field) * L.fieldHerbMult(st); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
+  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field) * L.fieldHerbMult(st) * L.calFieldHerb(st); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
   // 吐纳环：在洞府打坐才蓄
   if (!L.busy(st) && !L.isFull(st) && p.r <= L.MAXR) st.tuna = Math.min(L.TUNA_FULL, Math.round(((st.tuna || 0) + L.tunaStep(st)) * 1e6) / 1e6);
   const evMul = L.friend(st, 'bai') ? 1.5 : 1;
@@ -55,7 +57,7 @@ L.tick = function (st, cont) {
   // 访客：闭关时顺延；新手期等第一次闭关出关（或第 20 周天后）才开始有人上门
   if (st.visitor) {
     if (--st.visitor.left <= 0) out.visitorGone = L.visitorLeave(st);
-  } else if (!st.retreat && !out.visitor && (st.rebirth > 0 || st.stats.visits > 0 || st.stats.retreat > 0 || st.tick >= 20) && R() < L.VISIT.p * evMul) {
+  } else if (!st.retreat && !out.visitor && (st.rebirth > 0 || st.stats.visits > 0 || st.stats.retreat > 0 || st.tick >= 20) && R() < L.VISIT.p * evMul * L.calVisitMult(st)) {
     out.visitor = L.spawnVisitor(st);
   }
   if (!st.pact && st.tick === L.PACT_TICK - 1) L.fireTrigger(st, 'pact_eve');
@@ -72,9 +74,8 @@ L.tick = function (st, cont) {
   }
   if (st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick % L.TOUR_EVERY === 0) { out.tourney = true; if (st.sect) L.rollTasks(st); }
   if (st.sect && st.sect.order && st.tick - st.sect.joined >= 12 && st.tick % L.MEET_EVERY === L.MEET_AT) out.meet = true;
-  // 拍卖会
-  if (st.auction && st.tick >= st.auction.until) st.auction = null;
-  if (L.mr(st) >= 2 && p.r <= L.MAXR && st.tick % L.AUCTION.every === L.AUCTION.at) { L.rollAuction(st); out.auction = true; L.log(st, '坊市拍卖会开槌，为期 6 周天', 'gold'); }
+  // 坊市：行情游走（每 6 周天）、货架换货（每届论道）、拍卖散场与开槌（market.js）
+  L.marketTick(st, out);
   for (const nw of L.RIVAL_NEWS) if (nw[0] === st.tick && !st.beaten[nw[1]]) L.log(st, nw[2]);
   if (p.r <= L.MAXR && p.age >= L.lifespan(st)) out.death = true;
   if (L.desperate(st) && !st.flags.warnLife) { st.flags.warnLife = 1; L.log(st, '寿元将尽！突破时将获得绝境加成', 'red'); }

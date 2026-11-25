@@ -202,7 +202,8 @@ L.rebAtk = st => 1 + 0.10 * perk(st, 'bone');
 
 // ---------- 新档 ----------
 L.newStats = () => ({ exp: 0, expWin: 0, bt: 0, events: 0, tour: 0, tourWins: 0, leapWins: 0, crafts: 0, perfect: 0, goodPill: 0, jiuzhuan: 0, btFails: 0, bosses: 0, despWin: 0,
-  retreat: 0, tuna: 0, visits: 0, herbExp: 0, seekExp: 0, slayExp: 0, sectTasks: 0, auction: 0, meetWins: 0, compExp: 0, dings: 0, tians: 0, expStones: 0, plus: 0, forged: 0 });
+  retreat: 0, tuna: 0, visits: 0, herbExp: 0, seekExp: 0, slayExp: 0, sectTasks: 0, auction: 0, meetWins: 0, compExp: 0, dings: 0, tians: 0, expStones: 0, plus: 0, forged: 0,
+  sold: 0, shop: 0, bids: 0, aucLost: 0 });
 // st.meta 跨世保留：aff 相性图鉴、perk 轮回殿加成、seen 见过的功能/事件、elem 已知的地图与对手五行、combo 发现过的功法共鸣、chint 共鸣提示
 L.newMeta = () => ({ aff: {}, perk: {}, seen: {}, elem: {}, combo: {}, chint: {} });
 L.newState = function (o) {
@@ -216,7 +217,7 @@ L.newState = function (o) {
     exp: null, retreat: null, visitor: null, auction: null, tuna: 0, boxMiss: 0, lastExp: null, best: {},
     rank: 100, bestRank: 100, ladder: [], beaten: {}, pact: 0, sect: null,
     quest: { done: {} }, log: [], rebirth: o.rebirth || 0, lives: o.lives || [], flags: {}, seenTips: {}, origin: o.origin || 'qitu', meta,
-    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {},
+    stats: L.newStats(), arts: L.newArts(), gear: L.newGear(), bossAt: {}, cal: L.newCal(), market: L.newMarket(),
     npc: {}, daolv: null, eflags: {}, evDone: {}, evLast: {}, storyQ: [], buffs: [], bonus: { cul: 0, atk: 0 },
     herbs: 0, herbProg: 0, treasure: 0, regionWins: {}, bosses: {}, ach: {}, titles: [], title: '', achQ: [],
     p: {

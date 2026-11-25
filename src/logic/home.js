@@ -18,7 +18,8 @@ L.arrayMult = lv => Math.pow(1.08, lv);
 L.fieldInc = lv => (lv > 0 ? 6 * Math.pow(1.42, lv) : 0);
 L.fieldHerb = lv => 0.1 * lv;
 L.vein = r => 4 * Math.pow(2.5, Math.min(r, 8));
-L.addCulMod('array', 30, st => ['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']);
+// world_dahan「布阵求雨」：聚灵阵停 3 周天（calendar.js 的 L.arrayPaused）
+L.addCulMod('array', 30, st => (L.arrayPaused(st) ? [`聚灵阵 Lv${st.home.array}（停阵求雨，剩 ${st.cal.pause - st.tick} 周天）`, 1, 'array'] : ['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']));
 L.addIncSrc('field', 10, st => ['灵田 Lv' + st.home.field, L.fieldInc(st.home.field), 'field']);
 // 设施解锁：聚灵阵要先历练一趟，灵田两趟，丹炉和洞府扩建要炼气后期
 L.homeOpen = function (st, k) {

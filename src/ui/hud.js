@@ -68,6 +68,7 @@ function updateHUD() {
     bb.className = 'md';
   }
   $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
+  updateWorldTag();
   $$('#nav button').forEach(b => b.classList.toggle('locked', !!navLock(b.dataset.nav)));
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
@@ -84,7 +85,7 @@ function updateHUD() {
   $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
   setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : canUp ? '↑' : '');
   setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : '');
-  setBadge('market', L.auctionOpen(st) ? '拍' : L.desperate(st) && (st.lifePills[p.r] || 0) < 3 ? '!' : '');
+  setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
   setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
   updateHaul();
   if (feedDirty) renderFeed();

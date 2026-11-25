@@ -43,6 +43,7 @@ UI_PARTS = [
     "duels",         # 对决、三年之约、天骄论道
     "events",        # 奇遇
     "panel-growth",  # 数值拆解、大事锦囊
+    "panel-cal",     # 年历（24 格时间轴）、天下大势小牌、大势与换季的老祖气泡
     "panel-me",      # 人物
     "panel-arts",    # 功法页、五行标记、掉落卡的【换上】
     "panel-gear",    # 法宝页、对比卡、强化、重铸、器炉打造

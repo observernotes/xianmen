@@ -43,7 +43,7 @@ L.NINE = [
   { id: 'yushou', n: '御兽山', champ: '驭天风', line: '我的兽群，会把你撕成碎片。' },
 ];
 const NINE_EQ = [3, 9, 16, 26, 38, 50, 62, 74, 88];
-L.ninePower = (st, pos) => L.rivalPower(st, NINE_EQ[pos - 1]);
+L.ninePower = (st, pos) => L.rivalCurve(st, NINE_EQ[pos - 1]);
 L.sectOrder = st => (st.sect ? st.sect.order : null);
 L.sectPos = st => (st.sect ? st.sect.order.indexOf(st.sect.id) + 1 : 0);
 L.sectPayMult = st => { if (!st.sect || !st.sect.order) return 1; const b = st.sect.build || {}; return (1 + 0.08 * (9 - L.sectPos(st))) * (1 + 0.25 * (st.sect.veins || 0)) * (1 + 0.25 * (b.vein || 0)); };
