@@ -9,7 +9,7 @@ function codexSummary() {
   const pct = L.codexPct(st), b = L.codexBonus(st), bn = L.codexBonusNext(st), nx = L.codexNextStep(st);
   const nxt = nx ? `再记约 <b>${nx.n}</b> 格「${esc(L.CODEX_CAT[nx.cat].n)}」，下一世到 +${Math.round((bn + L.CX_V.per) * 100)}%` : bn >= L.CX_V.cap ? '已到上限' : '';
   return `<div class="cxsum"><div><b>完成度 ${pctTxt(pct)}</b> · ${L.codexCells(st)} / ${L.codexTotal(st)} 格</div>
-    <div>见多识广（每 10% 修炼、战力各 +1%，上限 +${Math.round(L.CX_V.cap * 100)}%，按投胎时的图鉴算）：这一世 <b class="jadet">+${Math.round(b * 100)}%</b>，照现在的图鉴下一世 <b class="jadet">+${Math.round(bn * 100)}%</b>${nxt ? '；' + nxt : ''}</div>
+    <div>见多识广（每 ${Math.round(L.CX_V.step * 100)}% 修炼、战力各 +${Math.round(L.CX_V.per * 100)}%，上限 +${Math.round(L.CX_V.cap * 100)}%，按投胎时的图鉴算）：这一世 <b class="jadet">+${Math.round(b * 100)}%</b>，照现在的图鉴下一世 <b class="jadet">+${Math.round(bn * 100)}%</b>${nxt ? '；' + nxt : ''}</div>
     <div class="muted">图鉴跨世保留；这一世新记的格子轮回时每格道果 +${L.DG ? L.DG.cell : 2}（现在 +${L.codexNew(st)} 格）。</div></div>`;
 }
 function chainRows() {

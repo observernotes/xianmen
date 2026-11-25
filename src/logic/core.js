@@ -196,9 +196,9 @@ L.lifeLeft = st => L.lifespan(st) - st.p.age;
 L.lifeTicks = st => (st.p.r > L.MAXR ? Infinity : Math.max(0, Math.floor(L.lifeLeft(st) / L.REALMS[st.p.r].mpt)));
 L.desperate = st => st.p.r <= L.MAXR && L.lifeLeft(st) < L.lifespan(st) * 0.12;
 L.lifeLow = st => st.p.r <= L.MAXR && L.lifeLeft(st) < L.lifespan(st) * 0.30;
-// 轮回加成：宿慧（修炼 +15%/级）与根骨（战力 +10%/级），各 5 级，存在 st.meta.perk
+// 轮回加成：宿慧（修炼 +10%/级；原 +15%，第二世 / 第一世之比照轮回殿顺序花光时 0.72，校准后约 0.75）与根骨（战力 +10%/级），各 5 级，存在 st.meta.perk
 const perk = (st, k) => Math.min(5, ((st.meta && st.meta.perk) || {})[k] || 0);
-L.rebCul = st => 1 + 0.15 * perk(st, 'wis');
+L.rebCul = st => 1 + 0.10 * perk(st, 'wis');
 L.rebAtk = st => 1 + 0.10 * perk(st, 'bone');
 
 // ---------- 新档 ----------

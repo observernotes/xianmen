@@ -8,7 +8,7 @@
  * 别处没有跨世记录的，记进 st.meta.cx：art 功法 · gear 法宝底子 · plan 器方 · sigil 阵图 · ev 奇遇（散件）· end 结局 · grp 已成组的类。
  *
  * 加成（都要克制，sim 对照 nocodex）：
- *   见多识广：总完成度（各类完成比例的平均）每 10% 修炼、战力各 +1%，上限 +10%，转世后仍在（L.addCulMod / addAtkMod 'codex'）。
+ *   见多识广：总完成度（各类完成比例的平均）每 20% 修炼、战力各 +1%，上限 +5%（L.CX_V），转世后仍在（L.addCulMod / addAtkMod 'codex'）。
  *     按投胎那一刻的图鉴算（st.cxBirth），这一世新记的格子下一世才算进去——它是轮回的奖励；第一世是 +0%，引导型的节奏不受影响
  *     （sim 对照：一世里实时算的话引导型飞升快约 3.4%，524 → 506）。
  *   成组：某一类第一次集齐，一个小的永久加成（L.CX_GRP，多是寿元、奇遇把握、成丹率、灵石这类不怎么改节奏的）＋ 轮回时道果 +L.CX_V.grp。
@@ -19,7 +19,8 @@
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 
-L.CX_V = { step: 0.10, per: 0.01, cap: 0.10, grp: 40, newCell: 2 };
+// 见多识广：每 step 完成度修炼、战力各 +per（数值校准：原每 10% +1%、上限 +10%，第二世 / 第一世之比偏快，改成每 20% +1%、上限 +5%）
+L.CX_V = { step: 0.20, per: 0.01, cap: 0.05, grp: 40, newCell: 2 };
 const ON = () => L.CODEX_ON !== false;
 const CX = st => {
   st.meta = st.meta || L.newMeta();
