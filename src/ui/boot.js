@@ -22,6 +22,7 @@ function onTick() {
   }
   if (out.train) pushPopup(showTrain);
   if (st.guide && st.guide.done && st.tick % 3 === 0) artRecTip();
+  if (st.guide && st.guide.done && st.tick % 3 === 1) gearPlusTip();
   if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天`);
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
@@ -125,5 +126,5 @@ try { window.claude && window.claude.hot && window.claude.hot.snapshot && window
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 window.__xm = { get st() { return st; }, L, ART, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
-  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

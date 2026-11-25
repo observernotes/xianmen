@@ -542,7 +542,7 @@ L.supportFx('ore', { ok: v => Number.isInteger(v) && v !== 0, apply: (st, v, out
 } });
 L.supportCost('ore', { ok: (st, v) => (st.ore || 0) >= v * L.oreUnit(st), pay: (st, v) => { st.ore = Math.max(0, (st.ore || 0) - v * L.oreUnit(st)); }, text: (st, v) => '灵矿 ' + L.fmt(v * L.oreUnit(st)) });
 L.supportFx('plan', { ok: v => asArr(v).length > 0 && asArr(v).every(id => !!L.PLAN[id] || !!L.ZHENTU[id]), apply: (st, v, out) => { for (const id of asArr(v)) { const t = L.givePlan(st, id); if (t) out.push(t); } } });
-L.supportFx('gear', { ok: v => !!BASE[v], apply: (st, v, out) => { const it = L.gearDrop(st, BASE[v].slot, BASE[v].t, { base: v, src: 'event' }); out.push(L.gearItemText(st, it)); (out.items = out.items || []).push(it); if (!out.item) out.item = it; } });
+L.supportFx('gear', { ok: v => !!BASE[v], apply: (st, v, out) => { const it = L.gearDrop(st, BASE[v].slot, BASE[v].t, { base: v, src: 'event' }); const t = L.gearItemText(st, it); out.push(t); (out.gearTexts = out.gearTexts || []).push(t); (out.items = out.items || []).push(it); if (!out.item) out.item = it; } });
 // 强化失败时 10% 触发“炉中异物”（home_forge_boom）；它的 forge_refund2 返还本次强化灵矿 ×2
 L.supportTrigger('forge_fail');
 const flagPrev = L.CAPS.fx.flag;   // arts.js 已登记过 flag 的钩子（combo_hint），这里接在它后面

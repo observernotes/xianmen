@@ -110,6 +110,35 @@ const HINTS = [
       return `${L.elName(e.it)}克${L.elName(e.me)}，你这手${L.elName(e.me)}系的《${esc(z.n)}》在${L.REGIONS[k].n}要吃亏：分数 <b>−${-e.v}</b>。换一门战技，或者认了。` + (B ? `你有《${esc(B.n)}》，点右边一下就换。` : '');
     } },
 ];
+// ---------- 法宝（SYSTEMS §3 / §17）：对比卡、强化、法衣槽、饰品槽、器炉各一次阻塞讲解，数字当场从逻辑层算 ----------
+const gearHints = [
+  { id: 'gearCmp', intro: true, when: () => st.guide.done && !!document.querySelector('#modal [data-gcmp]') && !!L.gearPend(st, +document.querySelector('#modal [data-gcmp]').dataset.gcmp), target: '#modal [data-gcmp]', btn: '知道了', text: () => {
+      const el = document.querySelector('#modal [data-gcmp]'); el.scrollIntoView({ block: 'nearest' });
+      const x = L.gearPend(st, +el.dataset.gcmp), B = L.gearBase(x.id), D = L.gearDelta(st, x);
+      const aff = x.aff.length ? `带词条${x.aff.map(a => `「${L.AFFIX[a].n}」`).join('')}：${esc(L.AFFIX[x.aff[0]].d)}。` : '';
+      const gain = fmt(D.a.p) !== fmt(D.b.p) ? `战力 <b>${fmt(D.a.p)} → ${fmt(D.b.p)}</b>` : Math.abs(D.a.s - D.b.s) >= 0.05 ? `历练分数 <b>${sgn(D.a.s)} → ${sgn(D.b.s)}</b>` : `修炼 <b>+${dec(D.a.g)} → +${dec(D.b.g)}</b>`;
+      return `新得的【${esc(B.n)}】${aff}【换上】：${gain}；【熔炼】得灵矿 <b>${D.smelt}</b>。没有背包，不选就熔炼。`;
+    } },
+  { id: 'gearPlus', intro: true, when: () => artCalm() && L.gearOpen(st, 'plus') && !!st.gear.w && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
+      const info = L.gearPlusInfo(st, 'w'), c = info.cost;
+      const pp = info.a.pact !== null && L.pct(info.a.pact) !== L.pct(info.b.pact) ? `，约战胜算 <b>${L.pct(info.a.pact)} → ${L.pct(info.b.pact)}</b>` : '';
+      const have = (st.ore || 0) >= c.ore ? `你有灵矿 <b>${fmt(st.ore)}</b>，这一下要 ${fmt(c.ore)}` : `你有灵矿 <b>${fmt(st.ore || 0)}</b>，还差 ${fmt(c.ore - (st.ore || 0))}（斩妖、熔炼都给）`;
+      return `能<b>强化</b>了。灵矿别攒着：兵器强化 +${info.x.plus + 1}：战力 <b>${fmt(info.a.p)} → ${fmt(info.b.p)}</b>${pp}。${have}。【人物】→ 法宝，点兵器下面的【强化】，按住连强。`;
+    } },
+  { id: 'gearRobe', intro: true, when: () => artCalm() && L.gearOpen(st, 'r') && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
+      const x = st.gear.r, head = '<b>法衣槽</b>开了：法衣管护体——历练分数 <b>+1.5×阶</b>，三阶起负伤少 <b>1</b> 周天，金丹起还加天劫承劫。';
+      return head + (x ? `你身上的【${esc(L.gearBase(x.id).n)}】：${esc(L.gearMainText(st, x))}。` : `落日古墓掉法衣多一倍；一件三阶法衣就是历练分数 <b>+${dec(L.gearOScore(st, { t: 3, plus: 0 }))}</b>。`);
+    } },
+  { id: 'gearOrn', intro: true, when: () => artCalm() && L.gearOpen(st, 'o') && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
+      const x = st.gear.o, head = `<b>饰品槽</b>开了：四种，修炼 <b>+${Math.round(L.ACC_KIND.cul.v * 100)}%×阶</b>、灵石收入 +${Math.round(L.ACC_KIND.gold.v * 100)}%×阶、奇遇把握 +${Math.round(L.ACC_KIND.luck.v * 100)}%×阶、寿元 +${Math.round(L.ACC_KIND.life.v * 100)}%×阶。`;
+      return head + (x ? `你身上的【${esc(L.gearBase(x.id).n)}】：${esc(L.gearMainText(st, x))}。` : `东海龙宫掉饰品多一倍；一件四阶的修炼饰品就是修炼 <b>+${Math.round(L.ACC_KIND.cul.v * 4 * 100)}%</b>。`);
+    } },
+  { id: 'gearForge', intro: true, when: () => artCalm() && L.gearOpen(st, 'forge') && Object.keys(st.gear.plans).length > 0, target: '[data-nav="home"]', btn: '好', text: () => {
+      const n = Object.keys(st.gear.plans).length, ok = L.PLANS.filter(P => !L.canForge(st, P.id));
+      return `<b>器炉</b>能开火了：器方 <b>${n}</b> 张，用首领材料和灵矿打出固定词条的专属法宝${ok.length ? `，眼下【${esc(ok[0].n)}】材料就够` : '；首领材料不够的，金丹后首领每 ' + L.BOSS_AGAIN + ' 周天能再打一次'}。【洞府】→ 器炉。`;
+    } },
+];
+HINTS.push(...gearHints);
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
 const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
@@ -204,7 +233,8 @@ function showHelp() {
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
     sec('build', '洞府', '聚灵阵加修炼速度，灵田产灵石和灵草，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时可以服一枚破境丹疗伤。'),
     sec('disc', '功法与五行', `【人物】→ 功法：三个槽，点槽再点一门就换上。心法管修炼，战技管战力并定攻击属性（炼气后期开），秘术给特效（金丹开）。装着就涨熟练（入门→小成→大成→圆满→化境，倍率的超出部分最多 ×${L.MAST.mult[4]}），圆满留一份融会。两门同属 +${Math.round(L.GEN.two * 100)}%、三门 +${Math.round(L.GEN.three * 100)}%；特定几门凑在一起有名有姓的共鸣，试出来就记进图鉴。五行：金克木、木克土、土克水、水克火、火克金，克制历练分数 +${L.EL_EXP}、对决 ×${L.EL_DUEL[0]}，被克反之。`),
-    sec('bag', '坊市', '买破境丹、延寿丹；寻宝抽法宝功法（连续两次没提升，第三次必出更高一阶）；筑基后孵灵兽蛋；金丹后每 24 周天有拍卖会。价格随境界上涨。'),
+    sec('sword', '法宝', `【人物】→ 法宝：兵器（战力，开局）、法衣（历练分数、少负伤，筑基中期）、饰品（修炼 / 财运 / 气运 / 寿元，元婴）三格。新掉落弹对比卡：【换上】（强化继承一半）或【熔炼】成灵矿（4 × 2^阶），不选就熔炼；【锁定当前】以后更低阶的直接熔炼。每格下【强化】花灵矿和灵石，+0～+9，每级超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%。词条 16 种，天材地宝能重铸一条。化神后器炉用器方打造专属法宝。`),
+    sec('bag', '坊市', '买破境丹、延寿丹、灵矿；寻宝抽法宝功法（连续两次没提升，第三次必出更高一阶）；筑基后孵灵兽蛋；金丹后每 24 周天有拍卖会。价格随境界上涨。'),
     sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 周天九宗会武，你代表本宗往上打。'),
     sec('flag', '天骄论道', `三年之约之后每 ${L.TOUR_EVERY} 周天一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
     sec('disc', '奇遇与访客', '历练途中可能遇到抉择；洞府门口有时会来访客（画面里的“！”），点它就能见，几个周天不理会自己走。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),
@@ -215,7 +245,7 @@ function showHelp() {
   sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
 }
 const GO = {
-  exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'),
+  exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
   cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };
 // 札记（DESIGN §4.6）：本章主线 + 前三条未完成的小任务 + 以前章节没做完的主线；完成即领
