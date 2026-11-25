@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -19,7 +19,18 @@
   与器方“灵矿 基数 × 1.5^阶”同口径。写手原注“不按境界缩放”——不缩放时化神以后的“一筐灵矿”连一次强化都不够，所以改了；数值本身不用动。
 - [x] **`fx.plan`**：`g_*` 器方记进 `st.gear.plans`（化神后器炉打造）；`f_*` 阵图在阵法系统上线前记进 `st.gear.zhentu` 先收着（`story_trib1` 的渡劫阵、`ch_danjing_5` 的丹火阵）。
 - [x] 首领：首杀掉专属法宝（固定词条，走对比卡；槽没开就先收着，槽一开自动戴上）、首领材料 ×2、器方；金丹后每 48 周天可再战一次（材料 ×1）。
-- 当前上线 175 / 327（基础 122 全部上线；扩展包 53 / 205）。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
+- [x] 历法与坊市登记（`src/logic/calendar.js`、`src/logic/market.js`）：
+  - `elig.season`（`spring/summer/autumn/winter`，按 `t % 12` 的季节）、`elig.world`（只在该大势期间）；判定走新的通用钩子 `L.supportElig(key, { test(st, v, ev) })`，`L.eligible` 会调它。
+  - `where: 'market'` 与触发键 `market:*` / `auction:*`：`L.marketTrigger(st, key, p)` 掷中后把事件排进 `st.market.evQ`，**打开坊市时先弹**（处理完一件接着弹下一件，最后才是坊市本身）；sim 里会去坊市的策略每周天顺手处理。
+    时机：`market:restock` 换货后 5%（mkt_fake；魔劫期间 mkt_black）、`market:buy` 买轮换货时 10%（mkt_haggle）、`auction:open` 开拍 35%（auc_mystery）、`auction:rival` 有宿敌竞拍时 50%（auc_rival）、`auction:sell` 身上有 +5 以上或 5 阶以上法宝时 30%（auc_sell）。
+  - 一次性钩子 flag：`mkt_discount` 下一届货架九折、`mkt_cut30` 退回这次轮换货的三成、`mkt_extra_slot` 下一届多一格、`auc_consign` 下一场拍卖会开槌时结 8×收入×行情均值、`mu_overpaid` 慕容这场拍到的不加战力；
+    `lingchao_share` 灵气潮汐 +30% → +15%、`array_pause3` 聚灵阵停 3 周天（另记一次仁）。`xianfu_map` 留给秘境。
+  - **修了一个旧坑**：`events-engine` 的内建 fx 登记以前会把 arts / gear 接在 `fx.flag` 上的钩子盖掉（`combo_hint`、`forge_refund2` 其实没生效），现在内建键已被登记过就不再覆盖。
+  - 这一刀放行的 11 个：`mkt_fake`、`mkt_haggle`、`auc_mystery`、`auc_sell`、`season_autumn_harvest`、`season_winter_snow`、`world_lingchao`、`world_dahan`、`world_xianfu`、`world_shanglu`、`world_jiangdao`。
+    还闸着、但历法与坊市部分已能结算的：`auc_rival`、`world_liuxing`（等宿敌恩怨 `grudge`）、`mkt_black`（等丹毒、因果）、`world_shouchao`（等兽粮 `feed`）、`world_danhui`（等药引 `yin`）、`world_kuangmai` / `world_mojie` / `world_tongji`（等因果 `karma`）、
+    `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
+- 当前上线 186 / 327（基础 122 全部上线；扩展包 64 / 205）。
+- 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。
 
