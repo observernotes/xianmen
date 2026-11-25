@@ -222,10 +222,10 @@ function drawScene(dt) {
   ctx.globalAlpha = 1;
   if (!st) { R(0, 0, W, H, '#120f1c'); return; }
   ctx.setTransform(1, 0, 0, 1, 0, OY);
-  const mode = st.run ? 'realm' : st.exp ? 'adv' : 'home';   // st.run：秘境（panel-realm.js）
-  if (mode !== lastMode) { wipe = 700; lastMode = mode; parts.length = 0; adv = mode === 'adv' ? newAdv(st.exp.k) : null; }
+  const mode = duelFx ? 'duel' : st.run ? 'realm' : st.exp ? 'adv' : 'home';   // duelFx：场景内对决（duel-scene.js）；st.run：秘境（panel-realm.js）
+  if (mode !== lastMode) { wipe = mode === 'duel' ? 240 : 700; lastMode = mode; parts.length = 0; adv = mode === 'adv' ? newAdv(st.exp.k) : null; }
   if (mode === 'adv' && !adv) adv = newAdv(st.exp.k);
-  if (mode === 'realm') drawRealmScene(dt); else if (mode === 'adv') drawAdvScene(dt); else drawHomeScene(dt);
+  if (mode === 'duel') drawDuelScene(dt); else if (mode === 'realm') drawRealmScene(dt); else if (mode === 'adv') drawAdvScene(dt); else drawHomeScene(dt);
   if (wipe > 0) {
     wipe -= dt;
     const cols = Math.ceil(10 * wipe / 700);

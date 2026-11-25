@@ -48,6 +48,7 @@ function showChoice(ev, back) {
     if (res.duel) {
       const fi = duelFoeImg(res.duel, 66);   // 宿敌 / 新秀用半身像（panel-rivals.js）
       duel({ title: L.fill(st, ev.title), right: { img: fi ? fi.img : rivalAvImg({ n: ev.id }, 66), name: fi ? fi.name : '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
+        stage: st.exp || st.run ? 'wild' : st.sect ? 'sect' : 'town', foe: duelFoeFt(res.duel, ev), face: !!(res.duel.foe && res.duel.foe.kind),
         winText: esc(res.text) + chips, loseText: esc(res.text) + chips, done });
       return;
     }

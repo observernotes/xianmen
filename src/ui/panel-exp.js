@@ -66,6 +66,7 @@ function fightBossUI(k) {
   duel({
     title: '首领 · ' + B.n, intro: `【${L.REGIONS[k].n}】深处，${B.n}挡住了去路。`,
     right: { img: bossImg(k, 66), name: B.n, sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
+    stage: 'wild', foe: ftBoss(k),
     quote: `${B.n}：“${B.line}”`,
     winText: !res.win ? '' : res.again ? `再败${esc(B.n)}！<div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
       : `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText ? `<span>${esc(res.planText)}</span>` : ''}</div>${it ? gearLine(it) : ''}${res.art ? artLine(res.art) : ''}`,

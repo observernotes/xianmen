@@ -5,6 +5,7 @@ let modalOnClose = null;
 function sheet(o) {
   const m = $('#modal');
   m.classList.toggle('mid', !!o.center);
+  m.classList.remove('duel-m');   // 场景内对决的透明底（duels.js 打开对决时再加上）
   const foot = (o.foot || []).map((b, i) => `<button class="btn ${b.alt ? 'alt' : ''} ${b.gold ? 'gold' : ''}" data-fi="${i}" ${b.disabled ? 'disabled' : ''}>${b.t}</button>`).join('');
   const oldU = m.hidden ? [] : gearUids(m);   // 上一页没决定的法宝对比卡：新页里不再显示的就熔炼（panel-gear.js）
   m.innerHTML = `<div class="sheet${o.still ? ' still' : ''}" role="dialog" aria-modal="true"><div class="rod"></div>

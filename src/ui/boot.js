@@ -84,6 +84,7 @@ function frame(now) {
 function sceneClick(e) {
   if (!st || cine) return;
   ac();
+  if (duelFx) { duelSkip(); return; }   // 对决演出中：点画面跳过
   const r = cvs.getBoundingClientRect();
   const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H - OY;
   if (crane && Math.abs(x - crane.x + 3) < 14 && Math.abs(y - crane.y) < 8) {

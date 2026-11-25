@@ -155,6 +155,7 @@ function runSectMeet() {
     duel({
       title: `会武 · 对阵${rd.foe.n}${rd.trio ? '（三人战）' : ''}`,
       right: { img: rivalAvImg(look ? { n: rd.foe.champ, id: look } : { n: rd.foe.champ }, 66), name: rd.foe.champ, sub: `${rd.foe.n} · 天下第${rd.q}宗 · ${fmt(rd.Q)}` }, Q: rd.Q, S: rd.S || res.S, p: rd.p, win: rd.win,
+      stage: 'sect', foe: ftChamp(rd.foe), trio: rd.trio,
       quote: `${rd.foe.champ}：“${rd.foe.line}”`,
       winText: `${trio}${rd.xx ? '<div class="jadet">玄霄嗡鸣，老祖出手：这一场重来了一次</div>' : ''}${rd.defend ? '卫冕天下第一宗' : `${esc(sc.n)}升至天下第 ${rd.q} 宗`} · 贡献 +${fmt(rd.contrib || 0)} · 灵石 +${fmt(rd.stones || 0)}${tj && st.flags.beatTianjian === 1 ? '<div class="quote">天剑宗众长老面如土色——当年被一脚踢下山的弃徒，如今代表' + esc(sc.n) + '把天剑宗踩在了脚下！</div>' : ''}`,
       loseText: `${trio}对方底蕴深厚，下届会武再来！`,
@@ -191,6 +192,7 @@ function doPromote() {
     duel({
       title: `${title}之争`, intro: `你要晋升${title}的消息传出，原${title}当众拦下：“想坐我的位置？先过我这一关！”`,
       right: { img: himg, name: heir.n, sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
+      stage: 'sect', foe: (H.img && ftPeople(H.img, st.p.look.f && !!H.nf)) || ftGen(heir.n), face: true,
       quote: `${heir.n}：“一个半路入门的散修，也配当${title}？”`,
       winText: `${esc(heir.n)}面如死灰，长剑落地。全场鸦雀无声，随后掌声雷动！`, loseText: '你惜败一招。来日修为更进一步，再来挑战！',
       done: () => { if (res.ok) celebrate(); else closeModal(); },
@@ -225,6 +227,7 @@ function runWar() {
   duel({
     title: '天剑宗来犯', intro: `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个弃徒！`,
     right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
+    stage: 'sect', foe: ftGen('天剑宗长老', { f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542', extra: 2 }),
     quote: '天剑宗长老：“交出那个弃徒，饶你们满门不死！”',
     winText: `你一人一剑立于山门之前，剑光过处，天剑宗众人倒飞而出！<br>宗门贡献 +${fmt(res.contrib || 0)}，灵石 +${fmt(res.stones || 0)}`,
     loseText: '宗门众长老联手苦战，方才逼退来敌。天剑宗扬言还会再来……',

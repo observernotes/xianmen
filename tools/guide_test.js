@@ -170,7 +170,11 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   // 三年之约
   await ev(() => { const X = window.__xm; X.st.tick = 35; X.L.flow(X.st, 1); X.onTick(); X.setSpeed(0); });
   await page.waitForTimeout(500); await shot('g28-pactduel');
+  // 对决在场景里演（duel-scene.js）：演完纸卷底部的【跳过】变成【继续】；没演完就先点【跳过】
+  check(await ev(() => !!document.querySelector('#modal.duel-m') && !!document.getElementById('duelUI')), '约战在场景里演（擂台、双方名字与战力）');
   await page.waitForTimeout(1500); await shot('g29-pactres');
+  if (await ev(() => document.querySelector('#modal .foot .btn').textContent === '跳过')) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
+  check(await ev(() => /继续/.test(document.querySelector('#modal .foot .btn').textContent) && !!document.querySelector('#vsRes .big')), '对决演完：盖印、结果、【继续】');
   await page.click('#modal .foot .btn'); await page.waitForTimeout(600); t = await log('E19'); await shot('g30-afterpact');
   check(has(t, '天骄论道') || has(t, '第 1 届论道'), 'E19 讲天骄论道');
   await dismiss();
