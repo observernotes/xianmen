@@ -76,3 +76,25 @@ if (sec('g4') && ART.petSprite) {
   [['job_field', '守田'], ['job_furnace', '看炉'], ['job_array', '护阵'], ['job_forage', '觅食'], ['job_patrol', '巡山'], ['job_out', '出战']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
   br();
 }
+
+if (sec('g5') && ART.drawPlot) {
+  const CN = ['灵草', '灵稻', '灵谷', '赤炎果', '寒霜莲', '惊雷竹', '长生藤', '养魂花'];
+  h('【五 灵田与炼丹】作物图标 ART.crop(id)');
+  ART.cropIds.forEach((id, i) => pair(ART.crop(id), id + ' ' + CN[i], i));
+  br(); h('田里的三个生长阶段 ART.drawPlot(x, y, id, stage, t)（每列一种作物：芽 / 长 / 熟；最右为空垄），6 倍与洞府中原尺寸');
+  fxc(8 * 20 + 24, 40, g => { ART.cropIds.forEach((id, i) => [0, 1, 2].forEach(s => ART.drawPlot(3 + i * 20, 5 + s * 12, id, s, 1000))); ART.drawPlot(165, 5, null, 0, 0); }, 6, '', '#5a9a4a');
+  scene(g => {
+    const r = ART.drawHome({ year: 0.3, home: { cave: 4, field: 0, furnace: 4, array: 5 } }, 1000, OY, [], { phase: 0.5 });
+    ['rice', 'fire', 'ice', 'bolt', 'vine', 'soul'].forEach((id, i) => ART.drawPlot(5 + (i % 2) * 18, 112 + (i >> 1) * 12, id, i % 3 === 0 ? 1 : 2, 1000));
+    g.drawImage(ART.sit(look, 2), 100 - D.sit.w / 2, 136 - D.sit.h); ART.nightOverlay(r.sky, OY, 160 + OY, r.lights);
+  }, '洞府左侧六块田');
+  br(); h('丹药 19 种：修炼类（素丸）/ 战斗类（火星）/ 根基类（金托）');
+  const PN = { peiyuan: '培元丹', pojing: '破境丹', liaoshang: '疗伤丹', baoqi: '爆气丹', bingxin: '冰心丹', cuiti: '淬体丹', yanshou: '延寿丹', yanghun: '养魂丹', juling: '聚灵丹', leihuo: '雷火丹', baicao: '百草丹', wudao: '悟道丹', pozhang: '破障丹', qingdu: '清毒丹', dingshen: '定神丹', huaxing: '化形丹', xisui: '洗髓丹', zhuyan: '驻颜丹', jiuzhuan: '九转金丹' };
+  for (const g of ['x', 'z', 'g']) { ART.pillIds().filter(id => ART.pillGroup(id) === g).forEach((id, i) => pair(ART.icon(id), PN[id], i)); br(); }
+  h('药引格 ART.yinCell(a, b, pill, sel) 22×22：5×5 对称表（上三角已知，下三角未知，一格选中），2 倍；丹毒葫芦 ART.toxinGourd(frac)');
+  const K = ART.yinKeys, RC = { ff: 'baoqi', ii: 'bingxin', tt: 'cuiti', ww: 'yanshou', ss: 'yanghun', fi: 'juling', ft: 'leihuo', fw: 'baicao', fs: 'wudao', it: 'pozhang', iw: 'qingdu', is: 'dingshen', tw: 'huaxing', ts: 'xisui', ws: 'zhuyan' };
+  { const c = document.createElement('canvas'); c.width = 5 * 23 + 1; c.height = 5 * 23 + 1; const g = c.getContext('2d'); g.fillStyle = PAPER; g.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) { const a = Math.min(i, j), b2 = Math.max(i, j); g.drawImage(ART.yinCell(a, b2, j >= i ? RC[K[a] + K[b2]] : null, i === 1 && j === 3), 1 + j * 23, 1 + i * 23); } show(c, 3, '5×5'); }
+  for (const f of [0, 0.3, 0.6, 0.8, 1]) { show(ART.toxinGourd(f), 1, '', PANEL); show(ART.toxinGourd(f), 4, '丹毒 ' + f * 100, f * 10 % 2 ? PANEL : PAPER); }
+  br();
+}
