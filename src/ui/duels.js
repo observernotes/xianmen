@@ -102,6 +102,7 @@ function runTournamentGo() {
     sheet({ title: '论道落幕', center: true,
       body: `<div class="center big ${up > 0 ? 'goldt' : ''}">天骄榜第 ${res.endRank}</div><p class="center">${up > 0 ? `排名 ${res.startRank} → ${res.endRank}，上升 ${up} 位！` : res.endRank === 1 ? '稳坐天骄榜第一！' : '排名未变，下届再战。'}</p>
         ${res.endRank === 1 && res.startRank > 1 ? `<div class="quote">四海天骄俯首，${esc(st.p.name)}，天下第一！</div>` : ''}
+        ${res.hold ? `<p class="center seal">${esc(res.hold.n)}挡在第 ${res.hold.q} 名，没把你放在眼里，不肯上台。修到<b>${esc(res.hold.need)}</b>前后再来（越不过他的名次）。</p>` : ''}
         ${res.rookie ? `<p class="center ${res.rookie.due ? 'seal' : 'muted'}">新秀${esc(res.rookie.n)}往上追了 ${res.rookie.up} 名（第 ${res.rookie.q}）${res.rookie.due ? '，追到了你身后！' : `，离你还差 ${res.rookie.gap} 名`}</p>` : ''}`,
       foot: [{ t: '回洞府', gold: true, fn: closeModal }] });
   };
