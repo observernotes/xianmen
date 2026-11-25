@@ -53,8 +53,8 @@ L.WORLDS = [
   { id: 'w_mojie', n: '魔劫', len: 10, w: 1, open: st => mr(st) >= 2, d: '火、水属性地图：推荐战力 ×1.3，灵石灵草灵矿 ×1.6' },
   { id: 'w_liuxing', n: '流星雨', len: 6, w: 1, d: '寻宝掉落高一阶的概率翻倍，天材地宝 ×2' },
   { id: 'w_dahan', n: '大旱', len: 8, w: 1, open: st => mr(st) >= 1, d: '灵田产量 −40%，灵草卖价 ×1.6' },
-  // 仙府现世：秘境（SYSTEMS §8）上线前，先折成“期间历练评价甲以上，一半机会带回一件仙府秘藏（四选一随机）”，每次大势至多一件
-  { id: 'w_xianfu', n: '仙府现世', len: 6, w: 1, max: 3, open: st => mr(st) >= 2, d: '期间历练评价甲以上，一半机会带回一件仙府秘藏' },
+  // 仙府现世：期间免令进一次特殊秘境（8 层，秘藏四选一，realm.js 的 L.mjXianfu）；秘境没开（L.MJ_ON = false）时折成历练带回仙府秘藏
+  { id: 'w_xianfu', n: '仙府现世', len: 6, w: 1, max: 3, open: st => mr(st) >= 2, d: '开放一次不耗令的特殊秘境：8 层，秘藏四选一' },
   { id: 'w_shanglu', n: '商路断绝', len: 8, w: 1, open: st => mr(st) >= 1, d: '坊市买价 +30%，行情全部 ×1.3' },
   { id: 'w_jiangdao', n: '名师讲道', len: 6, w: 1, d: '闭关倍率 +0.5；入宗者每次出关另得贡献' },
   { id: 'w_tongji', n: '通缉令', len: 10, w: 1, open: st => mr(st) >= 1 && !!st.pact, d: '天骄榜上一名路人被通缉：论道击败他得 20×收入' },
@@ -162,7 +162,7 @@ L.calExp = function (st, k, d, a) {
   if (w.id === 'w_kuangmai' && w.k === k) { o.ore *= V.kuangmai; o.notes.push(`矿脉现世：灵矿 ×${V.kuangmai}`); }
   if (w.id === 'w_mojie' && (el === 'huo' || el === 'shui')) { o.rec *= V.mojieRec; o.stone *= V.mojieRew; o.herb *= V.mojieRew; o.ore *= V.mojieRew; o.notes.push(`魔劫：推荐战力 ×${V.mojieRec}，收获 ×${V.mojieRew}`); }
   if (w.id === 'w_liuxing') { if (a === 1) o.tier *= V.liuxingTier; o.treasure *= V.liuxingTreasure; o.notes.push(a === 1 ? '流星雨：掉落高一阶的概率翻倍，天材地宝 ×2' : '流星雨：天材地宝 ×2'); }
-  if (w.id === 'w_xianfu') o.notes.push('仙府现世：评价甲以上一半机会带回仙府秘藏');
+  if (w.id === 'w_xianfu' && !(L.mjUnlocked && L.mjUnlocked(st))) o.notes.push('仙府现世：评价甲以上一半机会带回仙府秘藏');
   return o;
 };
 // 兽潮：木属性地图斩妖分数 −8（进历练分数拆解）
@@ -171,6 +171,7 @@ L.addExpMod('world', 75, (st, k, d, a) => (L.worldOn(st, 'w_shouchao') && L.REGI
 L.calXianfu = function (st, rating) {
   const w = L.world(st);
   if (!w || w.id !== 'w_xianfu' || w.got || rating < 3 || R() >= L.WORLD_V.xianfuP) return null;
+  if (L.mjUnlocked && L.mjUnlocked(st)) return null;   // 秘境开着：仙府是一次免令的秘境（realm.js），不再从历练里折
   w.got = 1;
   const opts = [];
   const pa = L.artPity(st, L.boxCap(st, 'a')); if (pa) opts.push('a');

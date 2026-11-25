@@ -53,6 +53,7 @@ function updateHUD() {
   if (p.r >= 9) $('#xpTxt').textContent = '已证大道';
   else if (ready) $('#xpTxt').textContent = `修为圆满 · 点此冲击${p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n}`;
   else if (L.isFull(st) && st.exp) $('#xpTxt').textContent = '修为已满 · 回洞府后突破';
+  else if (st.run) $('#xpTxt').textContent = `${mjName(st.run)} · 第 ${st.run.floor}/${st.run.floors} 层 · 时间暂停`;
   else if (st.exp) $('#xpTxt').textContent = `历练中 · ${L.REGIONS[st.exp.k].n} · 剩${st.exp.left}周天${tagTxt}`;
   else if (st.retreat) $('#xpTxt').textContent = `${st.retreat.kind === 'train' ? '特训' : L.retName(st.retreat)}中 ×${st.retreat.m.toFixed(2)} · 剩${st.retreat.left}周天 · ${fmt(p.xp)}/${fmt(need)}`;
   else $('#xpTxt').textContent = `修为 ${fmt(p.xp)} / ${fmt(need)}${tagTxt}`;
@@ -90,10 +91,12 @@ function updateHUD() {
   setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
   setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
   updateHaul();
+  syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
 }
 // 渐进解锁：一开始只给历练、洞府、人物，免得一上来不知道点哪
 function navLock(nav) {
+  if (st && st.run && nav !== 'me') return '人还在秘境里。先点门走下去，或者带着收获离开。';
   if (!st || st.rebirth) return '';
   if (nav === 'market' && st.stats.exp < 1) return '坊市要等你先出去历练一趟、见过世面再说。先点【历练】。';
   if (nav === 'sect' && !st.sect && st.p.r < 1) return '宗门只收筑基修士。修为圆满后突破到筑基，三大宗门会上门抢人。';

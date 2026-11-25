@@ -139,7 +139,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // ---------- 宗门（SYSTEMS §11）：四个分页（身份 / 任务板 / 宝库 / 门下）、职司五选一、徒弟卡片与传授、三人会武；手机上不横向溢出、可点的 ≥ 44 像素 ----------
   await page.evaluate(() => {
     const { st, L } = window.__xm;
-    for (const h of window.__xm.hints) st.hintSeen[h.id] = 1;
+    for (const h of ['duty1', 'renmai1', 'disc1']) st.hintSeen[h] = 1;
     st.sect.rank = 4; st.sect.total = 2e5; st.sect.pts = 6e4; st.p.r = 4; st.p.s = 1; st.flags.maxR = 4; st.exp = null; st.retreat = null; st.storyQ = [];
     L.setDuty(st, 'qi', true); L.addFavor(st, 'xuanwei', 42); L.addFavor(st, 'shouzhuo', 28); L.rollTasks(st); L.rollVault(st);
     st.arts.own.x_houtu = L.artNeed('x_houtu', 3) + 2; st.arts.own.z_hanyue = L.artNeed('z_hanyue', 3) + 1;
@@ -234,6 +234,67 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal [data-bid="0:2"]'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/24b-auction-bid.png' });
   const bid = await page.evaluate(() => ({ bids: window.__xm.st.auction.bids, res: window.__xm.st.auction.items[0].res }));
   if (bid.bids !== 1 || !bid.res) errors.push('豪掷没有出价：' + JSON.stringify(bid));
+  await close();
+  // ---------- 秘境（SYSTEMS §8）：历练页入口、进入确认、一层的门卡、老祖三句、房间结果、奇遇、行商、秘藏、结算；手机上不溢出、可点的 ≥ 44 像素 ----------
+  await page.evaluate(() => {
+    const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.visitor = null; st.p.inj = 0; st.cal.w = null; st.auction = null;
+    st.tick = 160; st.mj = L.newMj(); st.mj.token = 2; st.mj.giftYr = Math.floor(160 / 12); st.hintSeen.realmOpen = 1; st.storyQ = []; document.querySelector('#tip').hidden = true;
+  });
+  await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-exp-realm.png' });
+  const mjCard = await page.evaluate(() => { const c = document.querySelector('#modal #mjCard'); return c ? c.textContent : ''; });
+  if (!mjCard.includes('秘境') || !mjCard.includes('可进')) errors.push('历练页没有秘境入口：' + mjCard.slice(0, 40));
+  await page.click('#modal #mjCard'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/26-realm-entry.png' });
+  lay44(await big44('#modal .foot .btn, #modal .close', '秘境入口'));
+  const ent = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, chips: document.querySelectorAll('#modal .mjfloor span').length, btn: document.querySelector('#modal .foot .btn.gold') && document.querySelector('#modal .foot .btn.gold').textContent }));
+  if (!/秘境/.test(ent.t) || ent.chips < 6 || !/进入/.test(ent.btn || '')) errors.push('秘境入口页不对：' + JSON.stringify(ent));
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/27-realm-floor.png' });
+  const fl = await page.evaluate(() => { const ds = [...document.querySelectorAll('#realmDoors .mjdoor')]; return { run: !!window.__xm.st.run, tok: window.__xm.st.mj.token, n: ds.length, small: ds.filter(b => { const r = b.getBoundingClientRect(); return r.width < 44 || r.height < 44; }).length, hint: (document.querySelector('#guide:not([hidden]) .gtext') || {}).textContent || '', page: document.documentElement.scrollWidth - window.innerWidth }; });
+  if (!fl.run || fl.tok !== 1 || fl.n < 2) errors.push('进秘境后没有门卡：' + JSON.stringify(fl));
+  if (fl.small) errors.push('秘境门卡不足 44px：' + fl.small);
+  if (fl.page > 0) errors.push('秘境场景横向溢出 ' + fl.page + 'px');
+  if (!/每层.*扇门.*掉 \d+ 气血/.test(fl.hint)) errors.push('老祖第一句没讲门与气血：' + fl.hint.slice(0, 50));
+  for (let i = 0; i < 3; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(250); if (i < 2) await page.screenshot({ path: `${out}/27${'bc'[i]}-realm-elder.png` }); }
+  const seen = await page.evaluate(() => ['realm1', 'realm2', 'realm3'].filter(h => window.__xm.st.hintSeen[h]).length);
+  if (seen !== 3) errors.push('老祖的三句没讲完：' + seen);
+  // 一间战斗房：动画 → 飘字 → 下一层
+  await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'fight', unk: false }, { t: 'spring', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  const hp0 = await page.evaluate(() => window.__xm.st.run.hp);
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(450); await page.screenshot({ path: out + '/28-realm-fight.png' });
+  await page.waitForTimeout(800); await page.screenshot({ path: out + '/29-realm-result.png' });
+  const r1 = await page.evaluate(() => ({ hp: window.__xm.st.run.hp, floor: window.__xm.st.run.floor, loot: window.__xm.st.run.loot.length, floats: [...document.querySelectorAll('#fx .float')].map(e => e.textContent), leave: !!document.querySelector('#realmLeave') }));
+  if (!(r1.hp < hp0) || r1.floor !== 2 || r1.loot < 1 || !r1.floats.some(t => /^−\d+$/.test(t)) || !r1.leave) errors.push('战斗房结果不对：' + JSON.stringify(r1));
+  lay44(await big44('#realmLeave', '秘境离开按钮'));
+  // 奇遇房（where: 'realm' 事件）
+  await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'event', unk: false }, { t: 'chest', unk: true }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/30-realm-event.png' });
+  const evm = await page.evaluate(() => ({ ph: window.__xm.st.run.phase, ev: window.__xm.st.run.ev, t: (document.querySelector('#modal h2') || {}).textContent }));
+  if (evm.ph !== 'event' || !/^realm_/.test(evm.ev || '') || !evm.t) errors.push('奇遇房没有弹出秘境事件：' + JSON.stringify(evm));
+  // 抽到的奇遇是随机的（生死门这类第一项有把握的，砸了会接着出事）：选项按成功结算，后面的行商、守关才走得下去
+  else { await page.evaluate(() => { window.__xm.L.rng = () => 0.01; }); await page.click('#modal .choices button[data-c]:not([disabled])'); await page.waitForTimeout(1500); await page.evaluate(() => { window.__xm.L.rng = Math.random; }); const b = await page.$('#modal .foot .btn:not([disabled])'); if (b) await b.click(); await page.waitForTimeout(600); }
+  const af = await page.evaluate(() => ({ ph: window.__xm.st.run && window.__xm.st.run.phase, fl: window.__xm.st.run && window.__xm.st.run.floor }));
+  if (af.ph !== 'door') errors.push('奇遇处理完没回到门前：' + JSON.stringify(af));
+  // 行商
+  await page.evaluate(() => { const { st } = window.__xm; st.run.hp = Math.max(st.run.hp, 40); st.run.doors = [{ t: 'shop', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1800); await page.screenshot({ path: out + '/31-realm-shop.png' });
+  lay44(await big44('#modal [data-shop], #modal .foot .btn', '秘境行商'));
+  const shopN = await page.evaluate(() => document.querySelectorAll('#modal [data-shop]').length);
+  if (shopN !== 3) errors.push('行商应有三件货：' + shopN);
+  await page.click('#modal .foot .btn'); await page.waitForTimeout(500);
+  // 气血见底：老祖气泡“该走了”
+  await page.evaluate(() => { const { st } = window.__xm; st.run.hp = 18; st.run.warned = 0; window.__xm_realm.syncRealmUI(true); window.__xm_realm.realmLowTip(); });
+  await page.waitForTimeout(400); await page.screenshot({ path: out + '/32-realm-lowhp.png' });
+  const low = await page.evaluate(() => (document.querySelector('#guide:not([hidden]) .gtext') || {}).textContent || '');
+  if (!/该走了.*\d+.*件/.test(low)) errors.push('低气血没有老祖气泡：' + low.slice(0, 40));
+  { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); } }
+  // 守关 → 秘藏三选一 → 结算
+  await page.evaluate(() => { const { st } = window.__xm; const r = st.run; r.floor = r.floors; r.max = 999; r.hp = 999; r.doors = [{ t: 'boss', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(2300); await page.screenshot({ path: out + '/33-realm-chest.png' });
+  const ch = await page.evaluate(() => ({ t: (document.querySelector('#modal h2') || {}).textContent, n: document.querySelectorAll('#modal [data-chest]').length, rec: document.querySelectorAll('#modal [data-chest] .chip.ok').length }));
+  if (ch.t !== '秘藏' || ch.n !== 3 || ch.rec !== 1) errors.push('秘藏三选一不对：' + JSON.stringify(ch));
+  lay44(await big44('#modal [data-chest]', '秘藏'));
+  await page.click('#modal [data-chest] .chip.ok'); await page.waitForTimeout(600); await page.screenshot({ path: out + '/34-realm-end.png' });
+  const end = await page.evaluate(() => ({ run: window.__xm.st.run, t: (document.querySelector('#modal h2') || {}).textContent, clears: window.__xm.L.mjRec(window.__xm.st).clears, tick: window.__xm.st.tick, title: window.__xm.st.title }));
+  if (end.run || !/打穿/.test(end.t || '') || end.clears < 1 || end.tick !== 163) errors.push('秘境通关结算不对：' + JSON.stringify(end));
   await close();
   // 历练确认页（血煞秘境·外围·寻宝）与札记
   await page.evaluate(() => window.__xm.confirmExp(4, 0, 1)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05b-confirm.png' });

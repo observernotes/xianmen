@@ -74,8 +74,8 @@ L.ARTL = [
   { id: 'x_zifu', n: '紫府天书', k: 'x', t: 4, el: 'huo', v: 0.15, d: v => `闭关顿悟概率 +${pc(v)}`, src: '丹霞谷宝库（长老）', pool: 'vault', sect: 'dan', rank: 4 },
   // 丹毒（SYSTEMS §5）上线前：“丹毒每周天多消 2”先折成炼丹省灵草
   { id: 'x_taiyi', n: '太乙真经', k: 'x', t: 5, el: 'shui', v: 0.10, d: v => `炼丹灵草 −${pc(v)}（丹毒上线后改为每周天多消 2 点）`, src: '玄天道宗宝库（圣子）', pool: 'vault', sect: 'dao', rank: 3 },
-  // 秘境（SYSTEMS §8）上线前：混元道经进随机池（五阶）
-  { id: 'x_hunyuan', n: '混元道经', k: 'x', t: 5, el: 'tu', v: 1, d: () => '三槽视为同属性：必得通用共鸣 +10%', src: '秘境（暂由五阶寻宝、历练掉落）', pool: 'drop' },
+  // 秘境独有（realm.js）：任意主题合计通关 3 次后进秘藏
+  { id: 'x_hunyuan', n: '混元道经', k: 'x', t: 5, el: 'tu', v: 1, d: () => '三槽视为同属性：必得通用共鸣 +10%', src: '秘境秘藏（任意主题合计通关 3 次后）', pool: 'realm' },
   { id: 'x_hongmeng', n: '鸿蒙造化经', k: 'x', t: 6, el: '', v: 1, d: v => `全部功法熟练速度 ×${n2(1 + v)}`, src: '残篇 ×3：混沌裂隙、拍卖、星墟仙人链', pool: 'frag' },
   { id: 'x_xuanxiao_xin', n: '玄霄剑典·心卷', k: 'x', t: 6, el: 'jin', v: 0.15, d: v => `战技倍率部分 +${pc(v)}`, src: '主线（合体真相后老祖传授）', pool: 'story' },
   // 战技（战力倍率 L.ZHAN_M[t-1]，并决定攻击属性）
@@ -84,12 +84,12 @@ L.ARTL = [
   { id: 'z_huichun', n: '回春剑诀', k: 'z', t: 2, el: 'mu', v: 1, d: v => `每趟历练归来负伤 −${n2(v)} 周天`, src: '寻宝·历练', pool: 'drop' },
   { id: 'z_liehuo', n: '烈火刀', k: 'z', t: 2, el: 'huo', v: 0.10, d: v => `斩妖灵石 +${pc(v)}`, src: '寻宝·历练、血煞秘境', pool: 'drop', mo: true },
   { id: 'z_gengjin', n: '庚金指', k: 'z', t: 3, el: 'jin', v: 0.1, d: v => `越级判定线 0.6 → ${n2(0.6 + v)}`, src: '太虚剑宗宝库（内门）', pool: 'vault', sect: 'jian', rank: 1 },
-  // 秘境上线前：“秘境战斗气血损失 −20%”先折成历练负伤周天 −20%
-  { id: 'z_hanyue', n: '撼岳拳', k: 'z', t: 3, el: 'tu', v: 0.2, d: v => `历练负伤周天 −${pc(v)}（秘境上线后改为战斗气血）`, src: '寻宝·历练', pool: 'drop' },
+  // 秘境战斗气血损失 −20%×熟练（realm.js 的 L.mjDmg）；历练负伤周天也 −20%
+  { id: 'z_hanyue', n: '撼岳拳', k: 'z', t: 3, el: 'tu', v: 0.2, d: v => `秘境战斗气血损失 −${pc(v)}，历练负伤周天 −${pc(v)}`, src: '寻宝·历练', pool: 'drop' },
   { id: 'z_wanjian', n: '万剑归宗', k: 'z', t: 4, el: 'jin', v: 6, d: v => `斩妖分数 +${n2(v)}`, src: '太虚剑宗宝库（圣子）', pool: 'vault', sect: 'jian', rank: 3 },
-  { id: 'z_fentian', n: '焚天诀', k: 'z', t: 4, el: 'huo', v: 0.1, d: v => `对首领战力 ×${n2(1 + v)}`, src: '血煞秘境、秘境·熔火（暂由四阶掉落）', pool: 'drop', mo: true },
-  // 秘境上线前：“秘境气血上限 +30”先折成负伤时的战力折损减轻
-  { id: 'z_qingdi', n: '青帝剑', k: 'z', t: 5, el: 'mu', v: 0.15, d: v => `负伤时战力 ×0.6 → ×${n2(Math.min(1, 0.6 + v))}（秘境上线后改为气血上限）`, src: '秘境·百草（暂由五阶掉落）', pool: 'drop' },
+  { id: 'z_fentian', n: '焚天诀', k: 'z', t: 4, el: 'huo', v: 0.1, d: v => `对首领战力 ×${n2(1 + v)}`, src: '血煞秘境（四阶掉落）、熔火秘境秘藏', pool: 'drop', mo: true },
+  // 秘境独有（百草秘藏）：秘境气血上限 +30×熟练（realm.js 的 L.mjMaxHp）；负伤时的战力折损也减轻
+  { id: 'z_qingdi', n: '青帝剑', k: 'z', t: 5, el: 'mu', v: 0.15, d: v => `秘境气血上限 +${Math.round(200 * v)}，负伤时战力 ×0.6 → ×${n2(Math.min(1, 0.6 + v))}`, src: '百草秘境秘藏', pool: 'realm' },
   { id: 'z_canghai', n: '沧海无量', k: 'z', t: 5, el: 'shui', v: 0.05, d: v => `论道连胜每场战力 +${pc(v)}`, src: '东海借宝链（暂也由五阶掉落）', pool: 'drop' },
   { id: 'z_tianjian', n: '天剑九式（残）', k: 'z', t: 5, el: 'jin', v: 0.2, d: v => `对天剑宗的人战力 ×${n2(1 + v)}`, src: '主线（元婴“残缺的剑诀”）', pool: 'story' },
   { id: 'z_xuanxiao_jian', n: '玄霄剑典·剑卷', k: 'z', t: 6, el: 'jin', v: 0.02, d: v => `对决胜算上限 97% → ${pc(Math.min(0.99, 0.97 + v))}`, src: '老祖旧剑链终点（与器方《玄霄》一起传授）', pool: 'story' },
@@ -98,8 +98,8 @@ L.ARTL = [
   { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `历练时长 −${Math.round(v)} 周天（最少 3）`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_xunlong', n: '寻龙诀', k: 'm', t: 2, el: 'tu', v: 0.25, d: v => `寻宝行事掉率 +${pc(v)}，天材地宝 ×${n2(1 + 2 * v)}`, src: '藏宝图链（暂也由二阶掉落）', pool: 'drop' },
   { id: 'm_baicao', n: '百草经', k: 'm', t: 2, el: 'mu', v: 0.5, d: v => `采药灵草 +${pc(v)}（带回药引待药引系统）`, src: '丹霞谷宝库（圣子）', pool: 'vault', sect: 'dan', rank: 3 },
-  // 秘境上线前：“多看一扇门、？门显形”先折成历练相性与五行不用试就显形
-  { id: 'm_tianyan', n: '天眼通', k: 'm', t: 3, el: 'huo', v: 1, d: () => '历练相性与地图五行不用试就显形（秘境上线后多看一扇门）', src: '秘境·幽泉（暂由三阶掉落）', pool: 'drop' },
+  // 秘境独有（幽泉秘藏）：秘境每层多一扇门、“？”门直接显形（realm.js）；历练相性与地图五行也不用试就显形
+  { id: 'm_tianyan', n: '天眼通', k: 'm', t: 3, el: 'huo', v: 1, d: () => '秘境每层多一扇门，“？”门直接显形；历练相性与地图五行不用试就显形', src: '幽泉秘境秘藏', pool: 'realm' },
   { id: 'm_yushou', n: '驭兽诀', k: 'm', t: 3, el: 'mu', v: 0.2, d: v => `出战灵宠效果 +${pc(v)}，认主概率 ×2`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_danhuo', n: '丹火诀', k: 'm', t: 3, el: 'huo', v: 0.08, d: v => `成丹率 +${pc(v)}，上品以上 +${pc(v * 1.25)}`, src: '丹霞谷宝库（真传）', pool: 'vault', sect: 'dan', rank: 2 },
   { id: 'm_zhujian', n: '铸剑谱', k: 'm', t: 3, el: 'jin', v: 0.1, d: v => `法宝强化成功率 +${pc(v)}`, src: '太虚剑宗宝库（真传）', pool: 'vault', sect: 'jian', rank: 2 },

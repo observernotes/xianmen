@@ -1,6 +1,7 @@
 // 内容系统界面测试：奇遇选项、访客、炼丹、首领、会武、宗门任务板、拍卖会、札记、功法（三槽、熟练、共鸣、五行克制、fx.art）、
 // 法宝（对比卡与继承、熔炼与锁定、强化与保底、词条效果、fx.ore / fx.plus、器方打造、v4 → v5 迁移）、特训、人物分页、
 // 历法与坊市（四季效果、天下大势效果与到期、货架轮换与限购、行情卖价、竞价结果与宿敌加成、坊市事件、年历与大势小牌、v5 → v6 迁移）、
+// 秘境（掉血公式与五行、离开与出局、秘藏、秘境事件与 run_* 标记、送令、迁移、存档续玩）
 // 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
 // 宗门加深（任务板四类、宝库轮换、职司五堂、人脉支持与晋升门槛、送礼、40 / 80 的恩惠、徒弟成长 / 差事 / 传授 / 出师 / 候选、性情事件、三人会武、血煞魔宗、长老事件界面、老祖讲解、迁移）
@@ -716,7 +717,9 @@ require('fs').mkdirSync(out, { recursive: true });
     const fav0 = L.favor(st, 'tieye'); const ore0 = st.ore; o.forgeDeliver = L.taskDeliver(st, 0) && t.done === 1 && st.ore === ore0 - t.n && L.favor(st, 'tieye') === fav0 + L.FAV.task;
     t = T('forge'); L.rng = () => 0.01; L.gearPlus(st, 'w'); L.rng = Math.random; o.forgePlus = t.done === 1 && st.gear.w.plus === 3;
     t = T('tame'); const fd0 = st.feed; o.tame = !!t.el && L.taskDeliver(st, 0) && st.feed === fd0 - t.n;
-    t = T('explore'); o.exploreFallback = !t.realm && L.expOpen(st, t.k, 2, 1) && /禁地寻宝/.test(L.taskText(st, t));
+    // 探秘：秘境开了时是“本季秘境闯过 N 层”（每过一层检查），秘境关掉时改去禁地寻宝
+    t = T('explore'); o.exploreRealm = !!t.realm && t.n >= 2 && /本季秘境闯过/.test(L.taskText(st, t)) && (L.realmFloorHit(st, t.n - 1), !t.done) && (L.realmFloorHit(st, t.n), t.done === 1);
+    L.MJ_ON = false; t = T('explore'); L.MJ_ON = true; o.exploreFallback = !t.realm && L.expOpen(st, t.k, 2, 1) && /禁地寻宝/.test(L.taskText(st, t));
     t = T('lecture'); o.lectureBusy = !!st.retreat && st.retreat.kind === 'busy' && st.retreat.left === 2 && L.gain(st) === 0;
     L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = [];
     const tot0 = st.sect.total; for (let i = 0; i < 2; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); }
@@ -846,6 +849,119 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await page.evaluate(gv => window.__xm.L.favor(window.__xm.st, 'liu') === gv + window.__xm.L.FAV.gift, gv), '身份页【送礼】：柳含烟支持 +6');
   await page.click('#modal [data-stab="vault"]'); await page.waitForTimeout(300); await shot('c43-sect-vault');
   expect(await page.evaluate(() => document.querySelectorAll('#modal [data-vr]').length === 6), '宝库六格');
+  await close();
+  // ---------- 秘境（SYSTEMS §8）：掉血公式、离开与出局、秘藏、秘境事件、run_* 标记、送令、存档续玩 ----------
+  const mj = await page.evaluate(() => {
+    const { L } = window.__xm, o = {};
+    const mk = () => { const r0 = L.rng; L.rng = Math.random; const s = L.newState({ name: '秘境' }); L.rng = r0; s.p.r = 3; s.p.s = 1; s.flags.maxR = 3; s.flags.maxI = 13; s.pact = 1; s.tick = 4 * 12 + 4; for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3; s.mj = L.newMj(); s.mj.token = 1; s.guide = { step: 99, done: true }; s.bonus.atk = 20; return s; };
+    let s = mk();
+    // 解锁：筑基中期且约战打完；夏季；有令
+    o.why = L.mjWhy(s); const s0 = mk(); s0.pact = 0; o.whyPact = L.mjWhy(s0); const s1 = mk(); s1.tick = 4 * 12 + 10; o.whyWin = L.mjWhy(s1); const s2 = mk(); s2.mj.token = 0; o.whyTok = L.mjWhy(s2);
+    // 掉血：层战力 = rec(家门口, 0) × 1.22^(层−1)；clamp(30 × (层 / 我)^1.2, 5, 70)；精英 ×1.8，守关再 ×1.3；我 = 战力 × 五行
+    L.giveArt(s, 'z_liehuo'); L.equipArt(s, 'z_liehuo');   // 火克金
+    const fake = { k: L.homeRegion(s), theme: 'jianqi' }, me = L.power(s) * 1.15;
+    o.me = [L.mjMe(s, 'jianqi'), me]; o.meMu = L.mjMe(s, 'baicao') / L.power(s);   // 火 vs 木：不克
+    const exp = (f, m) => Math.max(1, Math.round(Math.min(70, Math.max(5, 30 * Math.pow(L.rec(fake.k, 0) * Math.pow(1.22, f - 1) / me, 1.2))) * m));
+    o.dmg = [1, 3, 5, 6].map(f => [L.mjDmg(s, 'fight', f, fake, 'jianqi'), exp(f, 1), L.mjDmg(s, 'elite', f, fake, 'jianqi'), exp(f, 1.8), L.mjDmg(s, 'boss', f, fake, 'jianqi'), exp(f, 2.34)]);
+    L.giveArt(s, 'z_hanyue'); L.equipArt(s, 'z_hanyue');   // 撼岳拳（土，木克土 ×0.87… 主题百草）：战斗掉血 −20%
+    o.hanyue = [L.mjDmg(s, 'fight', 3, fake, 'jianqi'), Math.max(1, Math.round(Math.min(70, Math.max(5, 30 * Math.pow(L.rec(fake.k, 0) * Math.pow(1.22, 2) / L.power(s), 1.2))) * 0.8))];
+    L.equipArt(s, 'z_liehuo');
+    // 气血：100 + 法衣每阶 5（四阶起再 +10）
+    L.gearDrop(s, 'r', 4, { base: 'r4_0' }); o.hp = [L.mjMaxHp(s), 100 + 20 + 10];
+    // 进：耗令，6 层（元婴前），2 扇门
+    s.tick = 4 * 12 + 4; const run = L.mjEnter(s); o.enter = { tok: s.mj.token, floors: run.floors, doors: run.doors.length, th: run.theme, busy: L.busy(s), ready: L.isReady(s) };
+    o.leave1 = L.mjCanLeave(s);   // 第一层还没过，不能走
+    // 战斗房：掉血 = 公式，收获进本局（还没到手）
+    L.rng = () => 0.99;
+    run.doors = [{ t: 'fight', unk: false }, { t: 'spring', unk: false }];
+    const hp0 = run.hp, st0 = s.stones, r1 = L.mjPick(s, 0);
+    o.fight = { dmg: r1.dmg, want: L.mjDmg(s, 'fight', 1, run), hp: hp0 - run.hp, floor: run.floor, pend: L.mjPending(s).stones, stones: s.stones - st0, loot: run.loot.length };
+    // 宝（掷 0.99 不是陷阱）与泉
+    run.doors = [{ t: 'chest', unk: false }]; L.mjPick(s, 0); o.chestN = run.loot.length;
+    run.hp = 40; run.doors = [{ t: 'spring', unk: false }]; const r3 = L.mjPick(s, 0); o.spring = [r3.heal, run.hp];
+    // 奇：秘境事件按主题出（剑气或任意）；fx.hp 动本局气血；摆渡人的 run_skip 直达终层前一层
+    run.doors = [{ t: 'event', unk: false }]; const r4 = L.mjPick(s, 0); const ev = L.eventById(r4.ev);
+    o.ev = { id: r4.ev, ph: run.phase, theme: ev && (!ev.theme || ev.theme === 'jianqi'), live: L.events().filter(e => e.where === 'realm').filter(L.evLive).length };
+    if (ev) { const i = ev.choices.findIndex(c => L.choiceShown(s, c) && L.costOk(s, c.cost)); L.resolveChoice(s, ev, i); }
+    const r5 = L.mjAfterEvent(s); o.afterEv = { ph: run.phase, next: r5 && r5.next };
+    const altar = L.eventById('realm_altar'); run.hp = 50; L.resolveChoice(s, altar, 1); o.altarHp = run.hp;
+    run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
+    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线，宿敌那边的 zhao_2 还闸着）
+    o.gate = { zhao: L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
+    // 离开：收获全部到手
+    o.leave2 = L.mjCanLeave(s); const pend = L.mjPending(s).stones, sb = s.stones, n = run.loot.length; const sum = L.mjLeave(s);
+    o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks };
+    // 出局：收获丢六成（灵石按数量留四成），负伤 4 周天
+    s.mj.token = 1; s.p.inj = 0; const run2 = L.mjEnter(s); run2.doors = [{ t: 'fight', unk: false }]; L.mjPick(s, 0);
+    run2.loot.push({ stones: 1000, t: '灵石 1000' }); const pend2 = L.mjPending(s).stones, sb2 = s.stones;
+    run2.hp = 1; run2.doors = [{ t: 'fight', unk: false }]; const rw = L.mjPick(s, 0);
+    o.wipe = { how: rw.wipe && rw.wipe.how, got: s.stones - sb2, want: Math.floor(pend2 * 0.4), inj: s.p.inj, run: s.run };
+    // 守关 → 秘藏（幽泉：天眼通、魔角冠、冰羽鹤蛋）；合计通关 2 次后第三次通关出《混元道经》
+    const s3 = mk(); s3.tick = 7 * 12 + 4; L.mjRec(s3).clears = 2; const run3 = L.mjEnter(s3); o.th3 = run3.theme;
+    run3.floor = run3.floors; run3.max = run3.hp = 9999; run3.doors = [{ t: 'boss', unk: false }]; const rb = L.mjPick(s3, 0);
+    o.chest = { ph: run3.phase, ks: run3.chest.map(c => c.k + ':' + (c.id || '')), rec: L.mjChestRec(s3).i };
+    const iH = run3.chest.findIndex(c => c.id === 'x_hunyuan'); const sumC = L.mjChest(s3, iH);
+    o.clear = { how: sumC.how, own: L.artOwned(s3, 'x_hunyuan'), title: sumC.first, titles: s3.titles.includes(sumC.first), clears: L.mjThRec(s3, 'youquan').clears, total: L.mjRec(s3).clears, loot: rb.loot.length >= 2 };
+    const s4 = mk(); s4.tick = 7 * 12 + 4; const r4b = L.mjEnter(s4); r4b.floor = r4b.floors; r4b.max = r4b.hp = 9999; r4b.doors = [{ t: 'boss', unk: false }]; L.mjPick(s4, 0);
+    o.pool4 = r4b.chest.map(c => c.id || c.k).sort().join(',');
+    const ip = r4b.chest.findIndex(c => c.k === 'pet'); L.mjChest(s4, ip); o.pet = { sp: (s4.pets || []).map(p => p.sp).join(), n: L.petCount(s4) };
+    // 秘境令：夏季头一个周天送一枚，最多 3；坊市轮换货架有秘境令
+    L.rng = Math.random;
+    const s5 = mk(); s5.mj.token = 2; s5.tick = 5 * 12 + 3; L.tick(s5); const t1 = s5.mj.token; L.tick(s5); o.gift = [t1, s5.mj.token, L.mjAddToken(s5, 5), s5.mj.token];
+    s5.mj.token = 0; s5.market.cyc = -9; let found = false; for (let i = 0; i < 40 && !found; i++) { L.restock(s5, true); found = s5.market.rot.some(x => x.k === 'token'); } o.shelfTok = found;
+    // 迁移：v6 档没有 st.run / st.mj → 补默认；坏的局清掉；再迁一遍不变
+    const old = JSON.parse(JSON.stringify(mk())); delete old.run; delete old.mj; delete old.meta.mj;
+    const m1 = L.migrate(old); const a = JSON.stringify([m1.run, m1.mj, m1.meta.mj]); const m2 = L.migrate(JSON.parse(JSON.stringify(m1)));
+    o.mig = { v: m1.v, run: m1.run, tok: m1.mj.token, same: a === JSON.stringify([m2.run, m2.mj, m2.meta.mj]) };
+    const bad = JSON.parse(JSON.stringify(mk())); bad.run = { theme: 'nope', doors: 3 }; o.migBad = L.migrate(bad).run;
+    L.rng = Math.random;
+    return o;
+  });
+  expect(mj.why === '' && /三年之约/.test(mj.whyPact) && /入夏/.test(mj.whyWin) && /秘境令/.test(mj.whyTok), `秘境入口：${JSON.stringify([mj.why, mj.whyPact, mj.whyWin, mj.whyTok])}`);
+  expect(Math.abs(mj.me[0] - mj.me[1]) < 1e-6 && mj.meMu === 1, `五行：火克金 ×1.15（${mj.me[0] / mj.me[1]}），火对木 ×${mj.meMu}`);
+  expect(mj.dmg.every(r => r[0] === r[1] && r[2] === r[3] && r[4] === r[5]) && mj.dmg[0][0] < 70 && mj.dmg[0][0] < mj.dmg[3][0], `掉血公式 clamp(30×(层/我)^1.2,5,70)×房间：${JSON.stringify(mj.dmg)}`);
+  expect(mj.hanyue[0] === mj.hanyue[1], `撼岳拳：战斗掉血 −20%（${mj.hanyue}）`);
+  expect(mj.hp[0] === mj.hp[1], `气血上限：100 + 法衣四阶 20 + 10 = ${mj.hp[0]}（应为 ${mj.hp[1]}）`);
+  expect(mj.enter.tok === 0 && mj.enter.floors === 6 && mj.enter.doors === 2 && mj.enter.th === 'jianqi' && mj.enter.busy && !mj.enter.ready, `进秘境：${JSON.stringify(mj.enter)}`);
+  expect(!mj.leave1 && mj.leave2, '第一层没过不能走，过了可以走');
+  expect(mj.fight.dmg === mj.fight.want && mj.fight.hp === mj.fight.dmg && mj.fight.floor === 2 && mj.fight.pend > 0 && mj.fight.stones === 0 && mj.fight.loot >= 1, `战斗房：${JSON.stringify(mj.fight)}`);
+  expect(mj.chestN >= 2 && mj.spring[0] === 30 && mj.spring[1] === 70, `宝与泉：收获 ${mj.chestN} 件，泉 +${mj.spring[0]} → ${mj.spring[1]}`);
+  expect(/^realm_/.test(mj.ev.id || '') && mj.ev.ph === 'event' && mj.ev.theme && mj.ev.live === 16, `秘境事件按主题出且 16 个都上线：${JSON.stringify(mj.ev)}`);
+  expect(mj.afterEv.ph === 'door', `奇遇处理完回到门前：${JSON.stringify(mj.afterEv)}`);
+  expect(mj.altarHp === 60, `fx.hp：续一炷香气血 50 → ${mj.altarHp}`);
+  expect(mj.skip[1] === mj.skip[2] && mj.skip[3], `run_skip：第 ${mj.skip[0]} 层 → 第 ${mj.skip[1]} 层（终层前一层 ${mj.skip[2]}），标记不留在 eflags`);
+  expect(mj.gate.zhao && mj.gate.rival, `恩怨只对秘境事件放行：zhao_2 仍闸 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
+  expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 3, `带着收获离开：${JSON.stringify(mj.leave)}`);
+  expect(mj.wipe.how === 'wipe' && mj.wipe.got === mj.wipe.want && mj.wipe.inj >= 4 && !mj.wipe.run, `重伤出局：灵石留四成 ${mj.wipe.got}/${mj.wipe.want}，负伤 ${mj.wipe.inj}`);
+  expect(mj.th3 === 'youquan' && mj.chest.ph === 'chest' && mj.chest.ks.includes('art:x_hunyuan') && mj.chest.ks.length === 3, `秘藏三选一（第三次通关出混元道经）：${JSON.stringify(mj.chest)}`);
+  expect(mj.clear.how === 'clear' && mj.clear.own && mj.clear.title === '幽泉渡者' && mj.clear.titles && mj.clear.clears === 1 && mj.clear.total === 3 && mj.clear.loot, `通关：${JSON.stringify(mj.clear)}`);
+  expect(mj.pool4 === 'g_mojiao,m_tianyan,p_he', `幽泉秘藏池：${mj.pool4}`);
+  expect(mj.pet.sp.includes('p_he') && mj.pet.n >= 1, `秘藏的灵宠蛋进名册：${JSON.stringify(mj.pet)}`);
+  expect(mj.gift[0] === 3 && mj.gift[1] === 3 && mj.gift[2] === 0, `夏季送令、最多 3：${mj.gift}`);
+  expect(mj.shelfTok, '坊市轮换货架会上秘境令');
+  expect(mj.mig.v === 6 && mj.mig.run === null && mj.mig.tok === 0 && mj.mig.same && mj.migBad === null, `秘境存档迁移（幂等）：${JSON.stringify(mj.mig)}，坏局 ${mj.migBad}`);
+  // 界面：进秘境 → 过一层 → 奇遇弹出时存档 → 读档续玩（奇遇重新弹出，层数不变）→ 处理完回到门前
+  await close();
+  await page.evaluate(() => { const { st, L } = window.__xm; st.p.r = 3; st.p.s = 1; st.p.xp = 0; st.pact = 1; st.flags.maxR = 3; st.flags.maxI = 13; st.guide = { step: 99, done: true }; for (let k = 0; k <= 3; k++) st.best[k + "_0"] = 3; st.exp = null; st.retreat = null; st.p.inj = 0; st.tick = 15 * 12 + 4; st.mj = L.newMj(); st.mj.token = 1; st.mj.giftYr = 15; for (const h of ["realmOpen", "realm1", "realm2", "realm3"]) st.hintSeen[h] = 1; st.storyQ = []; window.__mjWhy = L.mjWhy(st); window.__xm_realm.realmEnterUI(false); });
+  { const w = await page.evaluate(() => window.__mjWhy); if (w) errors.push("界面进秘境失败：" + w); }
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { const { st } = window.__xm; if (!st.run) throw new Error('no run: ' + window.__mjWhy + ' ' + JSON.stringify([st.p.r, st.pact, st.tick, st.mj, !!st.exp, !!st.retreat, st.flags.maxI])); st.run.doors = [{ t: 'spring', unk: false }, { t: 'spring', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1200);
+  await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'event', unk: false }]; window.__xm_realm.syncRealmUI(true); });
+  await page.click('#realmDoors [data-door="0"]'); await page.waitForTimeout(1300);
+  const mjBefore = await page.evaluate(() => ({ ev: window.__xm.st.run.ev, fl: window.__xm.st.run.floor, modal: !document.getElementById('modal').hidden }));
+  await page.evaluate(() => { const { st } = window.__xm; const snap = JSON.parse(JSON.stringify(st)); window.__xm.closeModal(); window.__xm.loadState(snap); });
+  await page.waitForTimeout(900); await shot('c20-realm-resume');
+  const mjAfter = await page.evaluate(() => ({ ev: window.__xm.st.run && window.__xm.st.run.ev, fl: window.__xm.st.run && window.__xm.st.run.floor, title: (document.querySelector('#modal h2') || {}).textContent || '', doors: !!document.querySelector('#mjUI') }));
+  expect(mjBefore.modal && mjAfter.ev === mjBefore.ev && mjAfter.fl === mjBefore.fl && mjAfter.doors && mjAfter.title.length > 0, `存档续玩：${JSON.stringify([mjBefore, mjAfter])}`);
+  const t0 = await page.evaluate(() => window.__xm.st.tick);
+  await page.click('#modal .choices button[data-c]:not([disabled])'); await page.waitForTimeout(1500);
+  { const b = await page.$('#modal .foot .btn:not([disabled])'); if (b) await b.click(); } await page.waitForTimeout(600);
+  const back = await page.evaluate(() => ({ ph: window.__xm.st.run && window.__xm.st.run.phase, leave: !!document.querySelector('#realmLeave'), t: window.__xm.st.tick }));
+  expect(back.ph === 'door' && back.leave && back.t === t0, `续玩后奇遇处理完回到门前、时间没走：${JSON.stringify(back)}`);
+  await shot('c20b-realm-back'); await page.click('#realmLeave', { timeout: 5000 }); await page.waitForTimeout(600); await shot('c21-realm-leave');
+  const lv = await page.evaluate(() => ({ run: window.__xm.st.run, t: window.__xm.st.tick, title: (document.querySelector('#modal h2') || {}).textContent }));
+  expect(!lv.run && lv.t === t0 + 3 && lv.title === '全身而退', `离开：出来 3 个周天（${JSON.stringify(lv)}）`);
   await close();
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }

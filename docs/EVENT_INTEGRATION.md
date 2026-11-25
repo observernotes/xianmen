@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -47,7 +47,14 @@
   - 这一刀放行的 15 个：`story_demon1～3`、`story_ascend`、`tianheng_2`、`world_kuangmai`、`world_mojie`、`world_tongji`、`ch_map_2`、`ch_sword_4` 与 ev_karma 的 5 件。
     还闸着、但因果部分已能结算的：`realm_altar`、`realm_sword_slave`（等秘境）、`zhao_2`、`xue_1`、`xue_2`（等恩怨 `grudge`）、`sect_frame`、`sect_traitor`、`mo_xuehe_1`、`mo_xuesan_2`（等人脉 `favor`）、`ye_q1`（等药引）、`mkt_black`（等丹毒）、`disc_avenge`（等徒弟）。
   - 写手按“无数据键可表达”改成 `p` 掷骰的道心门槛（drowned 稳 ≥ 5、yun_1 随稳道心…）仍是掷骰；需要时可改写成 `daoMin`。
-- 当前上线 231 / 332（基础 122 全部上线；扩展包 109 / 210）。灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
+- [x] 秘境登记（`src/logic/realm.js`，第六刀）：`where: 'realm'`（“奇”房间，`L.pickEvent(st, 'realm', { theme })`）、`elig.theme`（jianqi / baicao / ronghuo / youquan）、`fx.hp`（本局气血 ±n）、`fx.token` / `cost.token`（秘境令）；
+  `run_*` 一次性标记由 fx.flag 的钩子从 `st.eflags` 挪进 `st.run.fl`，出秘境清掉（reveal / elite / reroll / trap_up / herb_gift / maxhp_down / proxy / safe / skip / melt 全部有效）；`xianfu_map` 在仙府那一局用掉（首层门全显）。
+  - **能力登记可以限 where**：`L.supportFx(key, { where: ['realm'], … })` 只对这些 where 的事件算支持（events-engine 的闸门认它）。秘境事件用到、但所属系统还没做的键，realm.js 先**只对秘境**登记了一份“先收着”的实现：
+    `fx.favor`（`st.favor`）、`fx.grudge` / `elig.grudge`（`st.grudge`）、`fx.toxin`（`st.toxin`）、`fx.recipe`（`st.recipeNote` 计数）；合并灵宠与天劫道心后，`fx.yin` / `cost.yin` / `fx.feed` / `fx.pet` 由 pets.js、`fx.karma` 由 dao.js 正式登记（覆盖了秘境里的先收着版本），秘藏的灵宠蛋走 `fx.pet` 进名册。
+    这些只在“还没人登记过”时登记；对应系统上线时不带 where 重新登记即覆盖（加载顺序无关），别处用这些键的事件到那时才放行——所以这一刀只多放行了 16 个秘境事件，没有连带放出别的系统的事件。
+  - realm_rival 已上线，但要宿敌恩怨 ≥ 20 才会出现（恩怨系统上线前只有秘境事件改得动 `st.grudge`）。灵宠天赋 realmUnk（霜月狐）现在是秘境“？”门减半（去掉了秘境上线前折的奇遇把握）。
+- 当前上线 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+- 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。

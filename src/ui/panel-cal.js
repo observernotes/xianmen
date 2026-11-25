@@ -35,7 +35,8 @@ function showCalendar(focus) {
   else row({ id: 'war', key: 'war', img: icon16('paddle', 2), n: '九宗会武', left: '入宗后', d: `入宗满 12 周天后，每 ${L.MEET_EVERY} 周天一届。` });
   // 秘境：每个夏季
   const rw = L.realmWindow(st);
-  row({ id: 'realm', key: 'realm', img: icon16('token', 2), n: '秘境', left: rw.open ? `正开着，还剩 ${rw.left} 周天` : `${rw.in} 周天后开`, d: '每年入夏开放 6 个周天（本年第 4～9 周天），筑基中期起可入。' });
+  const mth = L.mjThemeNow(st), mok = L.mjUnlocked(st);
+  row({ id: 'realm', key: 'realm', img: icon16('token', 2), n: '秘境' + (mok ? ` · ${mth.n}` : ''), left: rw.open ? `正开着，还剩 ${rw.left} 周天` : `${rw.in} 周天后开`, d: `每年入夏开放 6 个周天（本年第 4～9 周天），筑基中期起可入${mok ? `；秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}，主题每年一换（剑气 → 百草 → 熔火 → 幽泉）` : ''}。`, go: mok && L.mjCan(st) ? 'realm' : '', btn: '进入' });
   // 货架与任务板
   row({ id: 'shelf', img: icon16('sell', 2), n: '坊市换货', left: `${L.restockIn(st)} 周天后`, d: `每届论道后换三格轮换货${st.sect ? '，宗门任务板同时刷新' : ''}。`, go: navLock('market') ? '' : 'market', btn: '去坊市' });
   const legend = Object.keys(CAL_KIND).map(k => `<span>${calKey(k)}${CAL_KIND[k][0]}</span>`).join('');

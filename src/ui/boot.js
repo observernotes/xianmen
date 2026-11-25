@@ -30,6 +30,7 @@ function onTick() {
   // 天下大势起了：老祖一句“该干什么”；换季：每季头一回提一句（panel-cal.js）
   if (out.world) { const W = L.WORLD[out.world]; banner('天下大势 · ' + W.n, `${W.len} 周天`); SFX.reveal(3); worldTip(out.world); }
   else if (out.season !== undefined && st.guide && st.guide.done) seasonTip(out.season);
+  if (out.mjOpen) realmOpenFx(out.mjOpen);   // 入夏，秘境开了（panel-realm.js）
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
@@ -57,7 +58,7 @@ let last = performance.now(), cloudAcc = 0;
 function frame(now) {
   const dt = Math.min(100, now - last); last = now;
   const sp = SPEEDS[speedIdx];
-  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold;
+  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run;   // 秘境里时间不走
   if (running) {
     L.flow(st, dt * sp / TICK_MS);
     monthAcc += dt * sp;
@@ -85,6 +86,7 @@ function sceneClick(e) {
     for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28; parts.push({ x: crane.x, y: crane.y, vx: Math.cos(a) * 0.04, vy: Math.sin(a) * 0.04, life: 700, max: 700, c: '#ffe39a', s: 1 }); }
     SFX.coin(); crane = null; return;
   }
+  if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
   if (st.exp) { SFX.tap(); showExp(); return; }
   if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 14 && y > VISIT_POS.y - 30 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;
@@ -129,6 +131,7 @@ function start(data) {
   requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
   initCloud();
 }
+Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, realmLeaveUI, showRealmChest, showRealmShop, syncRealmUI, realmLowTip, get mjFx() { return mjFx; } });
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});

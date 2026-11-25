@@ -35,7 +35,7 @@ L.PET_TAL = {
   alchUp: { k: 'add', v: 0.06, job: 'furnace', d: v => `看炉成丹率再 +${pc(v)}` },
   ret: { k: 'add', v: 0.2, d: v => `闭关倍率 +${r2(v)}` },
   luck: { k: 'add', v: 0.03, d: v => `奇遇把握 +${pc(v)}` },
-  realmUnk: { k: 'add', v: 0.04, d: v => `秘境“？”门少一半（秘境上线前：奇遇把握 +${pc(v)}）` },
+  realmUnk: { k: 'add', v: 0.04, d: () => '秘境“？”门少一半' },   // realm.js 的 L.mjUnkP 读（有就减半）
   leap: { k: 'mul', v: 1.2, d: v => `越级奖励 +${pc(v - 1)}` },
   herbx: { k: 'add', v: 0.1, d: v => `历练 ${pc(v)} 多带一份灵草` },
   explen: { k: 'flag', v: 1, d: () => '历练时长 −1 周天（最少 2）' },
@@ -613,7 +613,7 @@ const wrap = (name, f) => { const base = L[name]; if (typeof base !== 'function'
 wrap('ageRate', b => st => b(st) * (1 - tv(st, 'age')));
 wrap('alchRate', b => st => clamp(b(st) + jobV(st, 'furnace') + tv(st, 'alchUp'), 0.1, 0.97));
 wrap('retBaseMult', b => st => b(st) + tv(st, 'ret'));
-wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + tv(st, 'realmUnk') + (L.seasonKey(st) === 'winter' ? tv(st, 'winterLuck') : 0));
+wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + (L.seasonKey(st) === 'winter' ? tv(st, 'winterLuck') : 0));
 wrap('leapMult', b => st => b(st) * tv1(st, 'leap'));
 wrap('expLen', b => (k, st) => { const n = b(k, st); return st && tv(st, 'explen') ? Math.max(2, Math.min(n, n - 1)) : n; });
 wrap('gearDingSave', b => st => { const a = b(st), v = Math.min(0.9, tv(st, 'dingSave')); return 1 - (1 - a) * (1 - v); });
