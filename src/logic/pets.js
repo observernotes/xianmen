@@ -155,7 +155,7 @@ function jobV(st, k) {
   if (!ON() || !st.pets) return 0;
   const p = st.pets.find(x => x.job === k);
   if (!p || L.petResting(st, p) || !JOB[k].need(st)) return 0;
-  let v = L.petJobV(p, k);
+  let v = L.petJobV(p, k) * (L.penJobMult ? L.penJobMult(st) : 1);   // 兽栏 +5%/级、养兽阵（buildings.js / formation.js）
   if (k === 'forage') v *= tv1(st, 'forage2');
   if (k === 'patrol') v = Math.min(0.9, v);
   return v;

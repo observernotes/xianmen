@@ -29,6 +29,8 @@ L.tick = function (st, cont) {
   L.calTick(st, out);
   // 秘境：每个夏季头一个周天送一枚秘境令（realm.js）
   if (L.mjTick) L.mjTick(st, out);
+  // 洞府：阵法布好生效、灵泉养伤、地块满了的提醒、阵图来源（buildings.js / formation.js）
+  if (L.homeTick) L.homeTick(st, out);
   // 灵宠：好感、觅食、闲着掉心与出走、争窝、名册满时没决定的新灵宠（pets.js）
   L.petTick(st, out);
   // 增益；灵田作物长一周天、熟了自动收（crops.js）；丹毒消退、自动续炼（alchemy.js）
