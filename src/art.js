@@ -4018,5 +4018,119 @@ Object.assign(ICONS, {
   crush: '....sssss/...sttttSs/..stttttSSs/..sttttSSSs/...sSSSSSs/.....ss/..r..ss..r/.rr......rr/rr.kkkkkk.rr/...kekeekk/..kkkkkkkk/..KKKKKKKK',
 });
 
+// ---------- 十、图鉴与轮回 ----------
+// ART.frame('codex' | 'codexCell' | 'codexCellOff') → 图鉴页九宫格（书页，左侧书脊）与收集格（已得 / 未得），用法同其它 frame
+// ART.codexIcon(cat)            → 16×16 分类图标。cat：map 地点相性 art 功法 combo 共鸣 gear 法宝 pet 灵宠 pill 丹方 recipe 器方 sigil 阵图 people 人物喜好 rival 对手属性 chain 奇遇链 event 奇遇 realm 秘境 ending 结局（ART.codexCats）
+// ART.icon('codex' 图鉴 | 'cx_map' | 'cx_combo' | 'cx_chain' | 'cx_end' | 'sm_slot' 功法槽 | 'sm_roster' 名册 | 'sm_elem' 识五行 | 'sm_legacy' 传承)
+// ART.samsaraNode(icon, state)  → 24×24 轮回殿节点：圆牌 + 任意 ART.icon 名；state 'locked' 未解锁 | 'open' 可买（金环）| 'done' 已点亮（玉色）
+// ART.origin(id)                → 64×40 出身小画：qitu 弃徒 dantong 丹童 moyi 魔门遗孤 shoumu 守墓人之后 sanxiu 散修丹师 yushou 御兽遗脉（ART.originIds）
+// ART.backdrop(kind) 新增 200×120 结局底图：'ascend' 飞升 | 'rest' 坐化 | 'summit' 登顶（榜首 / 宗主）| 'hermit' 归隐（道侣 / 桃李）
+Object.assign(ICONS, {
+  codex: '..bbbbbbbbbb/.bBnnnnnnnnnN/.bBnyyyyyynN/.bBnynnnnynN/.bBnynrrnynN/.bBnynrrnynN/.bBnynnnnynN/.bBnyyyyyynN/.bBnnnnnnnnN/.bBnnnnnnnnN/.bBBBBBBBBBB/..NNNNNNNNNN',
+  cx_map: '.nnnn....nnnn/.nNNnnnnnnNNn/.nNgGnnNnnrNn/.nNgGnnNnrrNn/.nNnnnnNnnnNn/.nNnccnNnnnNn/.nNcccnNnyynN/.nNnccnNnyynN/.nNnnnnNnnnNn/.nNNnnnnnnNNn/.nnnn....nnnn',
+  cx_combo: '..jjjj..vvvv/.jj..jjvv..vv/.j....vj....v/.j...vvjj...v/.j...v..j...v/.j...vvjj...v/.j....vj....v/.jj..jjvv..vv/..jjjj..vvvv/.....yy/....yhhy/.....yy',
+  cx_chain: '.yyyy/y....y/y.ss.y/y.s..yss/.yyyy...s/..s..yyyy/..s.y....y/...sy.ss.y/....y.s..yss/.....yyyy..s/.......s...s/........sss',
+  cx_end: '......w/.....www/......w/...yyyyyyy/..yhhhhhhhY/..y.......Y/..y..www..Y/..y.wwwww.Y/..y.wwwww.Y/..y..www..Y/.cyccccccccY/ccccccccccccc',
+  sm_slot: '/.yyyy.yyyy/.y..y.y..y.ss/.y.jy.y.ry.s.s/.y..y.y..y.s.s/.yyyy.yyyy.sss//.....y/....yyy/...yyyyy/.....y/.....y',
+  sm_roster: '/...kkk......y/..kkkkk.....y/..keeek...yyyyy/..keeek.....y/...eee......y/..jjjjj..kkk/.jjjjjjj.kek/.jjjjjjj.bbb/.jjjjjjjbbbbb/.JJJJJJJBBBBB',
+  sm_elem: '......y/.....yhy/......y/.g.........b/gGg.......bBb/.g....w....b/.....www/......w/..o.......r/.oOo.....rRr/..o.......r',
+  sm_legacy: '..nnnnnn/..nKKKKnN....y/..nnnnnnN...yy/..nKKKnnN.yyyyy/..nnnnnnN...yy/..NNNNNNN....y/.......j/......jjj/.....jjjjj/.......j..nnnn/.......jjjnKKn/..........nnnn',
+});
+Object.assign(FRAMES, {
+  codex: { fill: '#efe3c4', draw: b => { box(b, '#efe3c4', '#fff6dc', '#c8b48c'); ring(b, 1, '#5a4a3a'); b.r(1, 1, 4, 18, '#2a3a6a'); b.r(1, 1, 1, 18, '#4a5a9a'); b.r(4, 1, 1, 18, '#16203e'); for (const y of [2, 17]) { b.r(14, y, 4, 1, '#c8a84a'); b.r(17, y === 2 ? 2 : 14, 1, 4, '#c8a84a'); } b.p(2, 3, '#f4c542'); b.p(2, 16, '#f4c542'); } },
+  codexCell: { fill: '#fff6dc', draw: b => { box(b, '#fff6dc', '#ffffff', '#c8b48c'); ring(b, 1, '#2a8a7a'); ring(b, 2, '#8fe0c8'); for (const [x, y] of [[1, 1], [18, 1], [1, 18], [18, 18]]) b.p(x, y, null); } },
+  codexCellOff: { fill: '#3a3155', ink: '#928ea8', draw: b => { box(b, '#3a3155', '#4a4168', '#262038'); ring(b, 1, '#1a1528'); for (const [x, y] of [[1, 1], [18, 1], [1, 18], [18, 18]]) b.p(x, y, null); b.hl(3, 5, 3, '#55506e'); b.r(3, 3, 1, 3, '#55506e'); } },
+});
+const CODEX = { map: 'cx_map', art: () => ART.item('a', 3), combo: 'cx_combo', gear: () => ART.item('w', 2), pet: 'egg', pill: 'juling', recipe: 'gscroll', sigil: () => ART.sigil('f_juling'), people: 'heart', rival: 'post_zhan', chain: 'cx_chain', event: 'wonder', realm: 'token', ending: 'cx_end' };
+ART.codexCats = Object.keys(CODEX);
+ART.codexIcon = cat => { const v = CODEX[cat] || 'codex'; return typeof v === 'function' ? v() : ART.icon(v); };
+ART.samsaraNode = function (icon, state) {
+  state = state === 'done' || state === 'open' ? state : 'locked';
+  return cached('smn|' + icon + state, () => {
+    const b = new Buf(24, 24), rim = state === 'done' ? JADE : state === 'open' ? GOLD : tone('#55506e', '#34304a', '#716c8a');
+    b.add(L => L.e(12, 12, 11, 11, rim)); b.e(12, 12, 8.6, 8.6, state === 'done' ? '#1e4a44' : state === 'open' ? '#3a3155' : '#262038');
+    if (state === 'open') for (const [x, y] of [[12, 0], [0, 12], [23, 12], [12, 23]]) b.p(x, y, '#fff2a8');
+    const c = b.cv(), ic = ART.icon(icon) || ART.icon('unk');
+    on(c, () => { if (state === 'locked') ctx.globalAlpha = 0.35; ctx.drawImage(ic, 4, 4); ctx.globalAlpha = 1; if (state === 'done') { R(17, 17, 5, 5, INK); R(18, 18, 3, 3, '#4ccb9f'); R(19, 19, 1, 1, '#ffffff'); } });
+    return c;
+  });
+};
+function mini(x, y, robe, hair, kneel) { const hh = kneel ? 3 : 6; R(x - 3, y - hh, 7, hh, robe); R(x - 3, y - hh, 2, hh, lerpC(robe, '#ffffff', 0.3)); R(x - 2, y - hh - 5, 5, 5, '#f2c9a0'); R(x - 2, y - hh - 6, 5, 2, hair); R(x - 1, y - hh - 8, 3, 2, hair); R(x - 1, y - hh - 2, 1, 1, INK); R(x + 1, y - hh - 2, 1, 1, INK); if (kneel) R(x - 4, y - 1, 9, 1, hs(robe, 0.7)); }
+const ORIGIN = {
+  qitu: () => { // 雨夜山门外
+    vgrad(0, 0, 64, 40, ramp(['#070818', '#121a40', '#263466'], 4), 0.34); R(30, 6, 34, 4, '#34446a'); R(28, 9, 36, 2, '#222e50'); for (const x of [34, 58]) R(x, 11, 3, 16, '#5a2430'); R(38, 12, 19, 15, '#141228'); R(47, 12, 1, 15, '#2a1c2c');
+    for (let i = 0; i < 5; i++) { R(22 - i * 4, 27 + i * 3, 42 + i * 4, 3, i % 2 ? '#3a3e62' : '#464a72'); R(22 - i * 4, 27 + i * 3, 42 + i * 4, 1, '#6a70a0'); } R(33, 14, 2, 3, '#ff8a44'); R(57, 14, 2, 3, '#ff8a44');
+    mini(14, 38, '#8a8e9c', '#2a2230', 1); const r = seeded(3); for (let i = 0; i < 26; i++) { const x = r() * 70, y = r() * 40; line(x, y, x - 2, y + 4, '#8fa0d8'); }
+  },
+  dantong: () => { // 丹房里守炉的小童
+    R(0, 0, 64, 40, '#3a2a26'); R(0, 30, 64, 10, '#5a4034'); R(0, 30, 64, 1, '#8a6a4c'); for (const y of [8, 18]) { R(34, y, 30, 2, '#6e4628'); for (let i = 0; i < 4; i++) { const c = ['#62d26f', '#c27dff', '#4aa8ff', '#f4c542'][(i + y) % 4]; R(37 + i * 7, y - 5, 4, 5, c); R(38 + i * 7, y - 7, 2, 2, '#efe3c4'); R(37 + i * 7, y - 5, 1, 2, lerpC(c, '#ffffff', 0.5)); } }
+    ctx.drawImage(furnaceSprite(0), 8, 12); R(15, 26, 6, 2, '#ff7a2a'); R(16, 25, 3, 2, '#ffd060'); glow(18, 26, 12, '#ff8a2a', 0.5); for (let i = 0; i < 4; i++) R(17 + (i % 2) * 2, 8 - i * 2, 2, 2, '#d8d0e4');
+    mini(44, 36, '#62d26f', '#2a2230'); R(34, 28, 8, 1, '#d8c090'); R(34, 26, 5, 5, '#efe3c4'); R(34, 26, 1, 5, '#c8b48c');
+  },
+  moyi: () => { // 血月下的魔门孤儿
+    vgrad(0, 0, 64, 40, ramp(['#12060e', '#3e0a14', '#7a1a26'], 4), 0.34); disc(46, 12, 8, '#d8404a'); disc(44, 10, 3, '#ff8a8a'); glow(46, 12, 14, '#ff3a2a', 0.4);
+    for (const [x, hh, w] of [[6, 26, 7], [18, 18, 5], [58, 22, 6]]) { for (let k = 0; k < hh; k++) R(x - Math.round(w * (k / hh)) / 2, 34 - hh + k, Math.max(1, Math.round(w * (k / hh))), 1, '#0a0408'); R(x, 34 - hh, 1, hh, '#3e0a14'); }
+    R(0, 33, 64, 7, '#0a0408'); R(0, 33, 64, 1, '#5a1220'); mini(32, 36, '#5a1220', '#2a1418'); line(37, 34, 43, 22, '#d8404a'); line(38, 34, 44, 22, '#ff8a8a'); R(36, 33, 3, 1, '#c8a84a');
+    for (let i = 0; i < 6; i++) R(8 + i * 9, 6 + (i * 7 % 20), 1, 1, '#ff8a6a');
+  },
+  shoumu: () => { // 剑冢边的守墓少年
+    vgrad(0, 0, 64, 40, ramp(['#2a2e4a', '#5a5a7a', '#a8a0a8'], 4), 0.34); paintRidge(ridgeLine(7, 64, 22, 10, 3, 1.5), 30, '#4a4e6a', '#8a8898');
+    R(0, 30, 64, 10, '#5a5a62'); R(0, 30, 64, 1, '#8a8a94'); const sw = ['#4a5068', '#8a92a8', '#c8d0e0'];
+    for (const [x, l, tl] of [[8, 18, 0.1], [20, 12, -0.15], [50, 22, -0.08], [60, 11, 0.2], [40, 9, 0.05]]) swordProp(x, 32, l, tl, sw, ['#8a7a5a', '#c8b078']);
+    grave(30, 34, 8, 12, ['#55506e', '#716c8a', '#a8a4bc']); mini(18, 38, '#5a5a68', '#2a2230'); R(23, 30, 1, 6, '#5a3a2a'); R(22, 28, 3, 3, '#ffcf6a'); glow(23, 29, 6, '#ffb050', 0.6); dR(0, 26, 64, 4, '#c8c4d8', 4);
+  },
+  sanxiu: () => { // 坊市里摆摊的散修
+    vgrad(0, 0, 64, 20, ramp(['#74bce4', '#d4f0f8'], 3), 0.34); R(0, 20, 64, 20, '#b8a48c'); R(0, 20, 64, 1, '#e8d8b8'); for (const x of [2, 46]) { R(x, 6, 16, 14, '#c89a8a'); R(x - 1, 4, 18, 3, '#6a4464'); R(x + 5, 12, 6, 8, '#4f1818'); }
+    R(18, 8, 28, 2, '#5a3a2a'); for (let i = 0; i < 7; i++) R(18 + i * 4, 10, 4, 4, i % 2 ? '#c8323c' : '#fff6e0'); R(19, 10, 1, 22, '#5a3a2a'); R(44, 10, 1, 22, '#5a3a2a');
+    R(20, 26, 24, 3, '#8a5c36'); R(20, 26, 24, 1, '#b98a4c'); R(22, 29, 2, 6, '#5a3a2a'); R(40, 29, 2, 6, '#5a3a2a'); for (let i = 0; i < 5; i++) { const c = ['#62d26f', '#c27dff', '#4aa8ff', '#f4c542', '#ff8a9a'][i]; R(22 + i * 4, 23, 3, 3, c); R(22 + i * 4, 23, 1, 1, '#ffffff'); }
+    mini(32, 25, '#86694a', '#2a2230'); mini(54, 38, '#3f6ec0', '#3a2630'); R(48, 33, 3, 3, '#7fe0f0'); R(48, 33, 1, 1, '#ffffff');
+  },
+  yushou: () => { // 草坡上与灵兽为伴
+    vgrad(0, 0, 64, 26, ramp(['#3a84c8', '#a8d8f0', '#f0f8d8'], 4), 0.34); paintRidge(ridgeLine(9, 64, 20, 8, 3, 1.2), 28, '#6aa878', '#c8e8b0'); R(0, 27, 64, 13, '#5a9a4a'); R(0, 27, 64, 1, '#92c862'); dR(0, 34, 64, 6, '#356e46', 6);
+    roundTree(56, 30, 5, ['#2a6a4a', '#3f8a5a', '#7ac870'], '#4a3428'); mini(12, 37, '#4f9a62', '#4a3020'); ctx.drawImage(ART.petSprite('p_tu', 0, 0), 18, 11); ctx.drawImage(ART.petSprite('p_que', 0, 1), 34, -4);
+    for (const [x, y] of [[50, 30], [58, 35], [14, 36], [44, 37]]) { R(x, y, 1, 2, '#92c862'); R(x, y - 1, 1, 1, ['#f7a3bd', '#fff2a8'][x % 2]); }
+  },
+};
+ART.originIds = Object.keys(ORIGIN);
+ART.origin = id => cached('origin|' + id, () => on(mk(64, 40), () => { (ORIGIN[id] || ORIGIN.qitu)(); R(0, 0, 64, 1, INK); R(0, 39, 64, 1, INK); R(0, 0, 1, 40, INK); R(63, 0, 1, 40, INK); }));
+Object.assign(BACKDROP, {
+  // 飞升：云海之上的天门与一道接引金光
+  ascend: () => {
+    vgrad(0, 0, 200, 120, ramp(['#2c3878', '#6a7ac8', '#f0c890', '#fff6d0'], 6), 0.34); glow(100, 30, 46, '#fff2a8', 0.7);
+    for (let y = 0; y < 100; y++) { const w = 6 + y * 0.22; ctx.globalAlpha = 0.35; dR(100 - w, y, w * 2, 1, '#fffbe0', 10); } ctx.globalAlpha = 1; R(98, 0, 4, 96, '#ffffff');
+    for (const sx of [-1, 1]) { column(100 + sx * 26, 46, 30, ['#c8a84a', '#f4d86a', '#fff6c8'], ['#a8742a', '#f4c542']); } R(66, 8, 68, 5, '#f4c542'); R(62, 5, 76, 4, '#fff2a8'); R(66, 12, 68, 1, '#a8742a'); R(92, 1, 16, 4, '#f4c542');
+    for (let i = 0; i < 10; i++) ctx.drawImage(cloudSprite(40 + i, 30 + (i * 9 % 22), '#ffffff', '#f8e8d0', '#e0c8c0'), i * 24 - 26, 44 + (i * 11 % 14) + (i % 2) * 40);
+    R(0, 108, 200, 12, '#fff6e8'); mini(100, 92, '#f6f2fa', '#2a2230'); glow(100, 86, 10, '#ffffff', 0.6); for (let i = 0; i < 14; i++) { const x = 60 + (i * 37 % 80), y = 16 + (i * 23 % 70); R(x, y, 1, 1, '#ffffff'); if (i % 3 === 0) { R(x - 1, y, 3, 1, '#fff2a8'); R(x, y - 1, 1, 3, '#fff2a8'); } }
+  },
+  // 坐化：暮色、孤松、一方新碑
+  rest: () => {
+    vgrad(0, 0, 200, 96, ramp(['#2a2456', '#5a3474', '#b8507a', '#ff9a6a', '#ffd89a'], 5), 0.34); disc(52, 80, 14, '#fff0b8'); glow(52, 80, 26, '#ffb070', 0.5);
+    paintRidge(ridgeLine(51, 200, 76, 26, 4, 1.6), 100, '#8a5a86', '#e8a08a'); paintRidge(ridgeLine(57, 200, 90, 14, 6, 1.2), 104, '#5a3a62', '#b0708a');
+    R(0, 100, 200, 20, '#3e2848'); R(0, 100, 200, 1, '#8a5a82'); dR(0, 108, 200, 12, '#241630', 6); ellipse(130, 104, 44, 5, '#4a3256');
+    pine(160, 102, 46, ['#241a36', '#3a2a4e', '#6a4a6a'], '#1a1226'); grave(126, 104, 12, 20, ['#3e3a56', '#5a5478', '#9a94b0']); R(118, 103, 3, 2, '#ff8a44'); R(119, 100, 1, 3, '#d8d0e4'); glow(119, 102, 5, '#ff8a44', 0.5);
+    const r = seeded(8); for (let i = 0; i < 16; i++) { const x = 90 + r() * 100, y = 40 + r() * 60; R(x, y, 2, 1, i % 2 ? '#e8925a' : '#ffd89a'); } if (ART.drawCrane) ART.drawCrane(64, 34, 0);
+  },
+  // 登顶：绝顶大殿与万里云海
+  summit: () => {
+    vgrad(0, 0, 200, 120, ramp(['#143a8a', '#2c74c6', '#6cb0e8', '#eefaff'], 6), 0.34); disc(160, 24, 9, '#ffffff'); glow(160, 24, 20, '#fff6d0', 0.6);
+    paintRidge(ridgeLine(71, 200, 70, 40, 3, 2.4), 104, '#7c9ccc', '#e4f0ff', { snow: 50 });
+    rock(60, Array.from({ length: 80 }, (_, x) => Math.round(74 + Math.abs(x - 40) * 0.5 + Math.sin(x * 0.7) * 1.2)), 120, ['#3e4a6c', '#5a6a8e', '#8a9aba', '#c8d4e8'], 4);
+    wallBays(100, 56, 44, 16, pavPal(true), { door: true, bays: 3 }); roof(100, 44, 30, 56, 10, ROOF.gold, { big: true }); R(99, 36, 2, 6, '#f4c542');
+    for (let i = 0; i < 8; i++) { R(86 + i, 74 + i * 4, 28 - i * 2 + i * 3, 4, i % 2 ? '#a8b4cc' : '#c8d4e8'); }
+    for (let i = 0; i < 10; i++) ctx.drawImage(cloudSprite(60 + i, 30 + (i * 11 % 24), '#ffffff', '#e4ecfa', '#c0cce8'), i * 24 - 20, 96 + (i * 5 % 12));
+    R(0, 114, 200, 6, '#eef4fc'); for (const x of [70, 128]) { R(x, 46, 1, 28, '#5a3a2a'); for (let k = 0; k < 10; k++) R(x + 1 + k, 47 + Math.round(Math.sin(k * 0.7) * 1.2), 1, 7, k % 4 === 3 ? '#a8742a' : '#f4c542'); } mini(100, 73, '#f4c542', '#e9e8f2');
+  },
+  // 归隐：山脚小院、炊烟、两个人
+  hermit: () => {
+    vgrad(0, 0, 200, 90, ramp(['#3a84c8', '#74bce4', '#c4ecdc', '#f0f8d8'], 5), 0.34); paintRidge(ridgeLine(81, 200, 60, 30, 4, 1.5), 96, '#7aaeb6', '#cfead8', { trees: '#6a9ea8' }); paintRidge(ridgeLine(87, 200, 80, 16, 6, 1.2), 100, '#4c8a72', '#a4d2a8', { trees: '#3c7662' });
+    R(0, 96, 200, 24, '#5a9a4a'); R(0, 96, 200, 1, '#92c862'); dR(0, 110, 200, 10, '#356e46', 6); for (let x = 20; x < 120; x += 3) dR(x, 104 + Math.round(Math.sin(x / 20) * 3), 3, 4, '#a08a58', 8);
+    R(128, 76, 40, 22, '#d8c8a0'); R(128, 76, 40, 1, '#f0e4c8'); R(142, 84, 9, 14, '#6a4a30'); R(156, 82, 7, 6, '#4a3a2a'); roof(148, 66, 30, 52, 10, { l: '#b89a5a', m: '#8a6e3c', d: '#5a4628', e: '#d8c080', u: '#3a2c1c' }, {}); R(160, 54, 4, 10, '#8a8478');
+    for (let i = 0; i < 6; i++) { ctx.globalAlpha = 0.6 - i * 0.09; disc(162 + i * 2 + (i % 2), 50 - i * 6, 2 + (i >> 1), '#f6f2fa'); } ctx.globalAlpha = 1;
+    bloomTree(108, 100, 1.2, SEASON_TREE[0], 5); for (let i = 0; i < 3; i++) ART.drawPlot(30 + i * 20, 102, ['herb', 'rice', 'fire'][i], 2, 0);
+    mini(84, 104, '#f0b070', '#6a4630'); mini(94, 104, '#4ccb9f', '#2a2230'); R(87, 99, 5, 1, '#8a5c36'); for (const [x, y] of [[20, 99], [60, 112], [180, 104], [120, 112]]) { R(x, y, 1, 2, '#92c862'); R(x, y - 1, 1, 1, '#f7a3bd'); }
+  },
+});
+ART.backdropKinds = () => Object.keys(BACKDROP);
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
