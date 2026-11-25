@@ -89,11 +89,14 @@ L.supportTrigger = key => cap('trigger')(key); L.supportWhere = w => cap('where'
 const P = L.P = { g0: 10, gGrow: 1.30, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
 // TR：该境界在倍率 1 下的总周天；SW：四个小层各占的比例
 // （SYSTEMS §18：为后续系统的加成留出预算，比 v1 的 [50,150,400,820,1500,2500,4200,6800,10000] 拉长）
-L.TR = [50, 170, 500, 1100, 2200, 3900, 7000, 12000, 18500];
+// 最终校准（docs/BALANCE_TODO.md）：金丹起 [500,1100,2200,3900,7000,12000,18500] → 下面这组，guided 飞升 523 → 约 620，各境界落进 DESIGN §2.5；
+// 炼气、筑基不动——炼气连着三年之约（idle 15%～25%），筑基再长 idle 就坐化在筑基（寿元 200 年只够 112 个周天）
+L.TR = [50, 170, 615, 1750, 2850, 4650, 8700, 12300, 19800];
 L.SW = [0.19, 0.23, 0.27, 0.31];
 
 // ---------- 静态数据 ----------
 // rate: 冲击下一境界的基础成功率（v1 §3.8）；life: 该境界寿元（年）；mpt: 一个周天流逝的年数（炼气期 12 周天一年）
+// 合体 life 6000 → 4000（数值校准：DESIGN §3.12 要 lazy “合体以后至少亮一次寿元红灯”，原来 lazy 合体期最多只用到寿元的六成；guided 用到约五成，不受影响）
 // SYSTEMS §18 第 4 条：筑基→金丹起的 rate 整体 −0.10（v1 是 0.60/0.50/…/0.20），由天劫的护劫手段补回（trib.js：祭法宝、灵宠挡劫、道侣护法、临阵吞丹、渡劫阵）
 L.REALMS = [
   { n: '炼气', robe: ['#5d6f8a', '#7f93ab', '#a9bacb'], trim: '#dfe7ef', rate: 0.85, trib: 0, life: 100, mpt: 1 / 12 },
@@ -102,7 +105,7 @@ L.REALMS = [
   { n: '元婴', robe: ['#4f3a9e', '#7d5bd6', '#a98af0'], trim: '#e2d8ff', rate: 0.35, trib: 4, life: 800, mpt: 3 },
   { n: '化神', robe: ['#8e2a35', '#c8434e', '#ea7a80'], trim: '#ffd3d5', rate: 0.30, trib: 5, life: 1500, mpt: 5.5 },
   { n: '炼虚', robe: ['#24579a', '#3c84d6', '#76b0ee'], trim: '#d3e8ff', rate: 0.25, trib: 6, life: 3000, mpt: 11 },
-  { n: '合体', robe: ['#18756c', '#2aa79b', '#5fd3c4'], trim: '#cff8f2', rate: 0.20, trib: 7, life: 6000, mpt: 20 },
+  { n: '合体', robe: ['#18756c', '#2aa79b', '#5fd3c4'], trim: '#cff8f2', rate: 0.20, trib: 7, life: 4000, mpt: 20 },
   { n: '大乘', robe: ['#b9b3a5', '#e9e6dc', '#ffffff'], trim: '#ffd76a', rate: 0.15, trib: 8, life: 12000, mpt: 42 },
   { n: '渡劫', robe: ['#17131f', '#2e2838', '#4a4157'], trim: '#ffcc44', rate: 0.10, trib: 9, life: 24000, mpt: 80 },
   { n: '真仙', robe: ['#e8d48a', '#fff4c2', '#ffffff'], trim: '#ffffff', rate: 0, trib: 0, life: Infinity, mpt: 0 },
@@ -194,9 +197,9 @@ L.lifeLeft = st => L.lifespan(st) - st.p.age;
 L.lifeTicks = st => (st.p.r > L.MAXR ? Infinity : Math.max(0, Math.floor(L.lifeLeft(st) / L.REALMS[st.p.r].mpt)));
 L.desperate = st => st.p.r <= L.MAXR && L.lifeLeft(st) < L.lifespan(st) * 0.12;
 L.lifeLow = st => st.p.r <= L.MAXR && L.lifeLeft(st) < L.lifespan(st) * 0.30;
-// 轮回加成：宿慧（修炼 +15%/级）与根骨（战力 +10%/级），各 5 级，存在 st.meta.perk
+// 轮回加成：宿慧（修炼 +10%/级；原 +15%，第二世 / 第一世之比照轮回殿顺序花光时 0.72，校准后约 0.75）与根骨（战力 +10%/级），各 5 级，存在 st.meta.perk
 const perk = (st, k) => Math.min(5, ((st.meta && st.meta.perk) || {})[k] || 0);
-L.rebCul = st => 1 + 0.15 * perk(st, 'wis');
+L.rebCul = st => 1 + 0.10 * perk(st, 'wis');
 L.rebAtk = st => 1 + 0.10 * perk(st, 'bone');
 
 // ---------- 新档 ----------

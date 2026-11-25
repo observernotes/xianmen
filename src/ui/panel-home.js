@@ -33,6 +33,8 @@ function healCard() {
 // ---------- 地块网格与建筑小面板 ----------
 let homeSel = 0, homeMsg = '', homeDemo = '';
 const HB = k => L.HOME_B[k];
+// 选中地块的详情卡：画小建筑（ART.buildingSprite 26×26，按等级三档），没有就退回 16×16 图标
+function bldSprite(k, lv, max) { const c = ART.buildingSprite && ART.buildingSprite(k, lv >= max * 0.66 ? 2 : lv >= max * 0.33 ? 1 : 0); if (!c) return ''; const z = pxFit(26, 52); return `<img class="px" src="${urlOf(c, 'bsp|' + k + '|' + (lv >= max * 0.66 ? 2 : lv >= max * 0.33 ? 1 : 0))}" style="width:${z}px;height:${z}px;flex:none;vertical-align:middle" alt="">`; }
 function bldIcon(k, kk) { const c = ART.building(k), z = pxs(16, kk || 2); return c ? `<img class="px" src="${urlOf(c, 'bld|' + k)}" style="width:${z}px;height:${z}px;flex:none;vertical-align:middle" alt="">` : ''; }
 function sigilImg(id, kk, off) { const c = ART.sigil(id), z = pxs(16, kk || 2); return c ? `<img class="px${off ? ' psil' : ''}" src="${urlOf(c, 'sig|' + id)}" style="width:${z}px;height:${z}px;flex:none;vertical-align:middle" alt="">` : ''; }
 // 地块格：ART.plotTile 上叠建筑图标，缓存成图
@@ -99,13 +101,13 @@ function plotDetail(i) {
         <div class="${un ? 'jadet' : 'muted'}">${esc(eff)}</div>${rec && x === rec.k ? `<div class="muted">${esc(rec.why)}</div>` : ''}${un && why && !poor ? `<div class="seal">${esc(why)}</div>` : ''}</div>
         <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" data-build="${x}" ${ok ? '' : 'disabled'}>${un ? `${iconHTML('stone', 12)} ${fmt(c)}` : '未解锁'}</button>${un && poor ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`;
     }).join('');
-    return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || '<div class="muted">能建的都建了。</div>'}</div>`;
+    return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || emptyNoteHTML('build', '能建的都建了。')}</div>`;
   }
   const B = HB(k), u = L.upInfo(st, k), lv = st.home[k], can = !u.max && st.stones >= u.cost, keep = Math.floor(lv * L.HV.keep);
   const demo = k === 'array' ? '' : homeDemo === k
-    ? `<div class="quote">拆了退 <b>${fmt(L.homeRefund(st, k))}</b> 灵石（累计花费的一半）${keep >= 1 ? `，等级记着，重建从 <b>${keep}</b> 级起` : ''}。${k === 'field' ? '田里的作物一并铲掉。' : k === 'furnace' ? '炼丹房关门，续炼停下。' : ''}</div><div class="hrow"><button class="btn sm alt" data-demo-no="1">不拆了</button><button class="btn sm gold" data-demo-yes="${k}">确认拆除</button></div>`
+    ? `<div class="quote">拆了退 <b>${fmt(L.homeRefund(st, k))}</b> 灵石（累计花费的一半）${keep >= 1 ? `，等级记着，重建从 <b>${keep}</b> 级起` : ''}。${k === 'field' ? '田里的作物一并铲掉。' : k === 'furnace' ? '炼丹房关门，续炼停下。' : ''}</div><div class="hrow"><button class="btn sm alt" data-demo-no="1">不拆了</button><button class="btn sm" data-demo-yes="${k}">确认拆除</button></div>`
     : `<div class="hrow"><button class="btn sm alt" data-demo="${k}">拆除 · 退 ${fmt(L.homeRefund(st, k))}</button></div>`;
-  return `<div class="card flat hdet"><div style="flex:none">${bldIcon(k, 3)}</div><div class="main">
+  return `<div class="card flat hdet"><div style="flex:none">${bldSprite(k, lv, B.max) || bldIcon(k, 3)}</div><div class="main">
       <div class="line"><span><b>${B.n}</b></span><span class="chip">Lv ${lv}/${B.max}</span></div>
       <div class="muted">${esc(B.d(lv))}</div>${u.max ? '<div class="muted">已满级</div>' : `<div class="jadet">→ ${esc(B.d(lv + 1))}</div><div class="muted">${esc(u.note)}</div>`}
       <div class="hfn">${homeFnRow(k)}</div>${demo}</div>

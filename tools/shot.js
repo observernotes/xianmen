@@ -188,9 +188,57 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const { st } = window.__xm; st.disc.cand = null; st.disc.list.forEach(x => { x.di = 13; }); st.storyQ = []; window.__xm.runSectMeet(); });
   await page.waitForTimeout(300); await page.screenshot({ path: out + '/35-trio-meet.png' });
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1500); await page.screenshot({ path: out + '/35b-trio-round.png' });
+  // 对决在场景里演（duel-scene.js）：三局演完才出结果，没演完先点【跳过】
+  if (await page.evaluate(() => document.querySelector('#modal .foot .btn').textContent === '跳过')) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
   const trio = await page.evaluate(() => document.querySelectorAll('#modal .trio > span').length);
   if (trio !== 3) errors.push('三人会武的一轮应写三场：' + trio);
   for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
+  await close();
+  // ---------- 宗门补拍：长老卡的 40 / 50 / 80 刻度、宗主建设、宝库锁定格、长老事件立绘、魔宗四宗招揽、360 宽屏下宗门各页 ----------
+  const sectLay2 = async (what) => petLay(await pet44('#modal [data-stab], #modal [data-gift], #modal [data-vr], #modal [data-tk], #modal [data-td], #modal [data-di], #modal [data-dj], #modal #discTeach, #modal #discGrad, #modal [data-dtake], #modal #discPass, #modal #btnDuty, #modal #btnPromo, #modal [data-duty], #modal [data-dt], #modal [data-build], #modal #btnKarma, #modal .cands .cand, #modal .close', what));
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.storyQ = []; st.disc.q = []; L.addFavor(st, 'xuanwei', 80 - L.favor(st, 'xuanwei')); L.addFavor(st, 'shouzhuo', 55 - L.favor(st, 'shouzhuo')); L.addFavor(st, 'qingxu', 40 - L.favor(st, 'qingxu')); window.__sx0 = { stones: st.stones, cand: st.disc.cand }; st.stones = 1e7; L.rollCands(st); window.__xm.showSect('id'); });
+  await page.waitForTimeout(300);
+  const em = await page.evaluate(() => [...document.querySelectorAll('#modal .card.elder')].map(c => ({ marks: [...c.querySelectorAll('.fmark')].map(m => m.style.left).join(), txt: c.textContent })));
+  if (em.length !== 3 || em.some(x => x.marks !== '40%,50%,80%')) errors.push('长老卡支持条应有 40 / 50 / 80 三道刻度：' + JSON.stringify(em.map(x => x.marks)));
+  else if (!(em[0].txt.includes('支持 80') && em[0].txt.includes('✓ ≥80') && em[0].txt.includes('✓ ≥40')) || !(em[1].txt.includes('支持 55') && em[1].txt.includes('· ≥80')) || !em[2].txt.includes('支持 40')) errors.push('长老卡的支持值与 ≥40 / ≥80 勾选不对：' + em.map(x => x.txt.slice(0, 60)).join(' | '));
+  await page.evaluate(() => document.querySelector('#renmai').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/36-elder-marks.png' });
+  const bd = await page.evaluate(() => ({ n: document.querySelectorAll('#modal [data-build]').length, want: window.__xm.L.BUILDS.length }));
+  if (!bd.n || bd.n !== bd.want) errors.push('宗主建设按钮数不对：' + JSON.stringify(bd));
+  await page.evaluate(() => { const b = document.querySelector('#modal [data-build]'); if (b) b.scrollIntoView(); }); await page.waitForTimeout(150); await page.screenshot({ path: out + '/36b-sect-build.png' }); await sectLay2('宗主建设');
+  // 宝库：身份不够的格子照样摆着，写“X 可换”
+  await page.evaluate(() => { const { st, L } = window.__xm; st.sect.rank = 0; st.sect.vault = null; L.rollVault(st); window.__xm.showSect('vault'); });
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/36c-vault-locked.png' }); await sectLay2('宝库·锁定格');
+  const vl = await page.evaluate(() => ({ locked: [...document.querySelectorAll('#modal [data-vr][disabled]')].length, txt: document.querySelector('#modal .body').textContent }));
+  if (!vl.locked || !/可换/.test(vl.txt)) errors.push('宝库身份不够的格子应是禁用并写“X 可换”：' + JSON.stringify({ locked: vl.locked }));
+  await page.evaluate(() => { const { st, L } = window.__xm; st.sect.rank = 6; st.sect.vault = null; L.rollVault(st); });
+  await close();
+  // 长老事件：立绘、支持度
+  await page.evaluate(() => { const { st, L } = window.__xm; delete st.evDone.dao_xuanwei_1; window.__xm.showChoice(L.eventById('dao_xuanwei_1')); }); await page.waitForTimeout(350);
+  await page.screenshot({ path: out + '/37-elder-event.png' });
+  const ee = await page.evaluate(() => ({ who: (document.querySelector('#modal .speaker .seal') || {}).textContent || '', img: !!document.querySelector('#modal .speaker img') }));
+  if (!ee.img || !ee.who.includes('玄微子') || !/支持 \d+/.test(ee.who)) errors.push('长老事件应有长老立绘与支持度：' + JSON.stringify(ee));
+  await close();
+  // 魔宗招揽：有门路时四宗，没有时三宗
+  const inv = async (origin, name) => {
+    await page.evaluate(([origin]) => { const { st } = window.__xm; window.__keep = { sect: st.sect, origin: st.origin, ye: st.npc.ye }; st.sect = null; st.origin = origin; st.npc.ye = { aff: 0 }; window.__xm.showInvite(); }, [origin]);
+    await page.waitForTimeout(350); await page.screenshot({ path: out + '/' + name + '.png' }); await sectLay2('招揽·' + name);
+    const r = await page.evaluate(() => ({ n: document.querySelectorAll('#modal .cands .cand').length, txt: document.querySelector('#modal .cands').textContent }));
+    await page.evaluate(() => { window.__xm.closeModal(); const { st } = window.__xm; st.sect = window.__keep.sect; st.origin = window.__keep.origin; if (window.__keep.ye) st.npc.ye = window.__keep.ye; else delete st.npc.ye; }); await page.waitForTimeout(450);
+    return r;
+  };
+  const i4 = await inv('moyi', '38-invite-four'), i3 = await inv('qitu', '38b-invite-three');
+  if (i4.n !== 4 || !i4.txt.includes('血煞魔宗')) errors.push('魔门出身应有四宗招揽、含血煞魔宗：' + i4.n);
+  if (i3.n !== 3 || i3.txt.includes('血煞魔宗')) errors.push('没有门路时只出三宗：' + i3.n);
+  await close();
+  // 360 宽屏：宗门四个分页、传授页、职司页、候选卡、魔宗招揽
+  const vp0 = page.viewportSize(); await page.setViewportSize({ width: 360, height: 740 }); await page.waitForTimeout(300);
+  for (const tab of ['id', 'task', 'vault', 'disc']) { await page.evaluate(t => window.__xm.showSect(t), tab); await page.waitForTimeout(300); await page.screenshot({ path: out + '/39-w360-' + tab + '.png' }); await sectLay2('360 宽·宗门' + tab); }
+  await page.evaluate(() => { const c = document.querySelector('#modal .dcands'); if (c) c.scrollIntoView(); }); await page.waitForTimeout(150); await page.screenshot({ path: out + '/39b-w360-cands.png' });
+  await page.evaluate(() => { window.__xm.showDiscTeach(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/39c-w360-teach.png' }); await sectLay2('360 宽·传授');
+  await page.evaluate(() => { const { st } = window.__xm; st.sect.dutyMeet = -1; window.__xm.showDutyPick(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/39d-w360-duty.png' }); await sectLay2('360 宽·职司');
+  await inv('moyi', '39e-w360-invite');
+  await page.setViewportSize(vp0); await page.waitForTimeout(300);
+  await page.evaluate(() => { const { st } = window.__xm; st.stones = window.__sx0.stones; st.disc.cand = null; });
   await close();
   await page.evaluate(() => { const { st } = window.__xm; st.sect.rank = 0; st.sect.total = 3000; st.p.r = 3; st.p.s = 3; st.p.xp = window.__xm.L.pNeed(st.p); st.flags.maxR = 3; st.disc.list = []; st.sect.duty = ''; st.retreat = null; st.storyQ = []; });
   // ---------- 历法与坊市（SYSTEMS §7、§10）：大势小牌、年历、货架、行情、拍卖竞价；手机上不横向溢出、可点的 ≥ 44 像素 ----------
@@ -256,17 +304,18 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const { st } = window.__xm; st.toxin = 0; delete st.dan.next.baoqi; });
   await page.evaluate(() => {
     const { st, L } = window.__xm; st.p.inj = 0; st.exp = null; st.retreat = null; st.visitor = null;
-    for (const h of ['cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;
+    for (const h of ['plots', 'cal', 'world1', 'shelf', 'sell', 'auction', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp']) st.hintSeen[h] = 1;
     st.tick = 152; st.stones = 5e5; st.pills = 10; st.herbs = 300; st.ore = 60;
     st.cal.w = { id: 'w_dahan', at: 146, until: 154 }; st.market.idx = { herb: 1.4, ore: 0.8, pill: 1.2 };
     L.restock(st, true); L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true;
   });
   for (let i = 0; i < 8; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(150); }   // 老祖还没讲完的先点掉
   await page.evaluate(() => { document.querySelector('#tip').hidden = true; });
-  await page.waitForTimeout(600); await page.screenshot({ path: out + '/20-world-tag.png' });
+  await page.waitForTimeout(600); await page.evaluate(() => { document.querySelector('#tip').hidden = true; }); await page.screenshot({ path: out + '/20-world-tag.png' });
   const wt = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden && r.width > 0, w: r.width, h: r.height, txt: el.textContent }; });
   if (!wt.vis || wt.w < 44 || wt.h < 44 || !wt.txt.includes('大旱')) errors.push('大势小牌不对：' + JSON.stringify(wt));
-  await page.evaluate(() => document.querySelector('#worldTag').click()); await page.waitForTimeout(400); await page.screenshot({ path: out + '/21-calendar.png' });
+  await page.evaluate(() => { document.querySelector('#tip').hidden = true; });   // 气泡排队：等的这 0.6 秒里可能又冒一条（它冒着时大势小牌让位）
+  await page.click('#worldTag'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/21-calendar.png' });
   const calT = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: (document.querySelector('#calStrip') || {}).naturalWidth, w: (document.querySelector('#calStrip') || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width }));
   if (calT.t !== '年历' || calT.strip !== 194 || calT.w < 194) errors.push('年历没有打开或时间轴不对：' + JSON.stringify(calT));
   lay44(await big44('#modal .calgo, #modal .close', '年历'));
@@ -399,6 +448,88 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(1400); await page.screenshot({ path: out + '/14-tour.png' });
   for (let i = 0; i < 6; i++) { const b = await page.$('#modal:not([hidden]) .foot .btn:not([disabled])'); if (!b) break; await b.click(); await page.waitForTimeout(1350); }
   await close();
+  // ---------- 宿敌与新秀（SYSTEMS §13）：论道前的对决准备页（有 / 没有【换上】）、新秀挑战与打压结果、天骄榜宿敌行、宿敌卡（未知 / 已知）、新秀卡、
+  // 伏击事件与对决、老祖的克制讲解；每页手机上不横向溢出、可点的 ≥ 44 像素。造完局面用快照还原，不影响后面的截图 ----------
+  const rvSnap = await page.evaluate(() => JSON.stringify(window.__xm.st));
+  const rvBuild = kind => page.evaluate(kind => {
+    const { L } = window.__xm;
+    const m0 = document.getElementById('modal'); m0.hidden = true; m0.innerHTML = '';   // 上一页关掉后弹窗里的旧节点还在（#rvSwap 会让 rvKezhi 的 when 继续为真）：清干净
+    const s = L.newState({ name: '论道客' });
+    s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.stats.exp = 20; s.storyQ = []; s.guide = { step: 99, done: true };
+    s.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'gearCmp', 'rvKezhi', 'rvGrudge', 'rvRookie']) s.hintSeen[k] = 1;
+    for (const h of window.__xm.hints) if (!/^rv/.test(h.id)) s.hintSeen[h.id] = 1;   // 别的线新增的讲解一律算看过，免得抢在宿敌的讲解前面
+    s.home = { cave: 6, array: 8, field: 6, furnace: 6 };
+    const arts = (own, eq) => { for (const id of own) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); };
+    const tune = q => { s.tick = Math.round((Math.log(L.power(s)) - L.rivalA(q)) / L.RIVAL_SLOPE); };
+    if (kind === 'prep') { s.rank = 80; s.pact = -1; arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']); tune(72); }
+    else if (kind === 'prepNo') { s.rank = 80; s.pact = -1; arts(['z_hanyue'], ['z_hanyue']); tune(72); }   // 已经是克他的战技：没有【换上】
+    else if (kind === 'prepZhao') { s.rank = 50; s.beaten.mu = 1; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); tune(45); s.meta.rival.zhao = { art: 1, gear: 1 }; s.meta.elem.rv_zhao = 1; }
+    else if (kind === 'rookie' || kind === 'list') {
+      s.rank = 10; arts(['z_liehuo', 'z_hanyue'], ['z_liehuo']); s.gear = L.newGear(); L.gearDrop(s, 'w', 4, { base: 'w4_1' });
+      tune(10);   // 榜上第 10 名的战力和你差不多，新秀（第 11 名）才是个真对手
+      for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); }
+      if (kind === 'rookie') { for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); s.rv2.rk.el = 'shui'; s.rv2.rk.known = 1; }
+      else { s.grudge.zhao = 80; s.grudge.xue = -50; s.beaten.zhao = 1; s.meta.rival.zhao = { art: 1, gear: 1 }; s.rv2.pool.push({ id: 'rkP', n: '墨寒舟', s: '青玄剑宗', el: 'huo', g: 60, gear: { n: '裂空剑', aff: 'fengrui' }, at: 200 }); s.rv2.friends.push({ n: '白小雨', s: '落霞法阁', el: 'mu', at: 100, gifts: 2 }); }
+      s.storyQ = [];
+    } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
+    window.__xm.loadState(JSON.parse(JSON.stringify(s)));
+    window.__xm.setSpeed(3);
+  }, kind);
+  const rvLay = what => big44('#modal .foot .btn, #modal [data-zswap], #modal .rvrow, #modal .close, #modal .tabs button', what).then(lay44);
+  const rvForce = v => page.evaluate(v => { const L = window.__xm.L; L.rng0 = L.rng0 || L.rng; L.rng = () => v; }, v);
+  const rvUnforce = () => page.evaluate(() => { const L = window.__xm.L; if (L.rng0) { L.rng = L.rng0; L.rng0 = null; } });
+  const rvFoot = async i => { await page.evaluate(i => { const b = document.querySelectorAll('#modal:not([hidden]) .foot .btn'); b[i < 0 ? b.length - 1 : i].click(); }, i); await page.waitForTimeout(350); };
+  // 论道前的对决准备页：有【换上】、没有【换上】
+  await rvBuild('prep'); await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/60-rv-prep-swap.png' }); await rvLay('对决准备（有换上）');
+  if (!(await page.$('#modal #rvSwap'))) errors.push('对决准备页没有 #rvSwap');
+  await close();
+  await rvBuild('prepNo'); await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/61-rv-prep-noswap.png' }); await rvLay('对决准备（没有换上）');
+  if (await page.$('#modal #rvSwap')) errors.push('已是克他的战技时不该有 #rvSwap');
+  if ((await page.$$('#modal .foot .btn')).length !== 1) errors.push('对决准备页底部应只有一个【登台】');
+  await close();
+  await rvBuild('prepZhao'); await page.evaluate(() => window.__xm.runTournament()); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/62-rv-prep-zhao.png' }); await rvLay('对决准备（赵乾，法宝已知）'); await close();
+  // 新秀挑战与打压的对决结果
+  await rvBuild('rookie'); await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/63-rv-rookie.png' }); await rvLay('新秀挑战');
+  if (!(await page.$('#modal #rkSwap'))) errors.push('新秀挑战页没有 #rkSwap');
+  if ((await page.$$('#modal .foot .btn')).length !== 2) errors.push('新秀挑战页底部应是【指点】【打压】两个按钮');
+  await rvForce(0.0); await rvFoot(-1); await page.waitForTimeout(1700); await page.screenshot({ path: out + '/64-rv-crush-win.png' }); await rvUnforce(); await rvLay('打压的对决结果（胜）'); await rvFoot(0); await close();
+  await rvBuild('rookie'); await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400);
+  await rvForce(0.999999); await rvFoot(-1); await page.waitForTimeout(1700); await page.screenshot({ path: out + '/65-rv-crush-lose.png' }); await rvUnforce(); await rvLay('打压的对决结果（败）'); await rvFoot(0); await close();
+  // 天骄榜（宿敌一行一张 + 新秀 + 池子 + 友人）、宿敌卡、新秀卡
+  await rvBuild('list'); await page.evaluate(() => window.__xm.showMe('rank')); await page.waitForTimeout(400);
+  await page.screenshot({ path: out + '/66-rv-rank.png' }); await rvLay('人物 · 天骄榜');
+  await page.evaluate(() => document.querySelector('#modal .body').scrollTo(0, 99999)); await page.waitForTimeout(150); await page.screenshot({ path: out + '/66b-rv-rank-bottom.png' });
+  const rvRows = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, line: document.querySelectorAll('#modal .rvline').length }));
+  if (rvRows.rv !== 5 || rvRows.rk !== 1 || rvRows.line !== 2) errors.push('天骄榜宿敌 / 新秀行数不对：' + JSON.stringify(rvRows));
+  await page.evaluate(() => document.querySelector('#modal .rvrow[data-rv="mu"]').click()); await page.waitForTimeout(350);
+  await page.screenshot({ path: out + '/67-rv-card-unknown.png' }); await rvLay('宿敌卡（未知）');
+  await page.evaluate(() => window.__xm.showRivalCard('zhao')); await page.waitForTimeout(350);
+  await page.screenshot({ path: out + '/68-rv-card-known.png' }); await rvLay('宿敌卡（已知）');
+  await page.evaluate(() => window.__xm.showRookieCard()); await page.waitForTimeout(350);
+  await page.screenshot({ path: out + '/69-rv-rookie-card.png' }); await rvLay('新秀卡'); await close();
+  // 伏击事件与它的对决（宿敌半身像）
+  await rvBuild('ambush'); await page.evaluate(() => window.__xm.showChoice(window.__xm.L.eventById('rv_ambush_zhao'))); await page.waitForTimeout(500);
+  await page.screenshot({ path: out + '/70-rv-ambush.png' }); await rvLay('伏击事件');
+  await rvForce(0.0); await page.click('#modal button[data-c="0"]'); await page.waitForTimeout(600); await page.screenshot({ path: out + '/71-rv-ambush-duel.png' });
+  await page.waitForTimeout(1300); await rvUnforce(); await rvLay('伏击对决结果');
+  if (!(await page.$('#modal #vsR'))) errors.push('伏击对决里没有宿敌半身像 #vsR');
+  await close();
+  // 老祖讲解：对决准备页上的克制
+  await rvBuild('prep'); await page.evaluate(() => { delete window.__xm.st.hintSeen.rvKezhi; window.__xm.runTournament(); });
+  for (let i = 0; i < 12 && (await page.evaluate(() => window.__xm.guideDbg.active)) !== 'rvKezhi'; i++) await page.waitForTimeout(250);
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/72-rv-guide-kezhi.png' });
+  if ((await page.evaluate(() => window.__xm.guideDbg.active)) !== 'rvKezhi') errors.push('对决准备页的【换上】没有引出老祖的克制讲解');
+  await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }); await close();
+  // 全局 .sheet .foot .btn { min-height: 44px }：别的页的底部按钮没被挤坏（宿敌页之外抽三页量一下）
+  for (const [fn, what] of [['showMe("attr")', '人物 · 属性（底部按钮）'], ['showMarket()', '坊市（底部按钮）'], ['showSect()', '宗门（底部按钮）']]) {
+    await page.evaluate(fn => new Function('return window.__xm.' + fn)(), fn); await page.waitForTimeout(350);
+    lay44(await big44('#modal .foot .btn', what)); await close();
+  }
+  await page.evaluate(snap => { window.__xm.loadState(JSON.parse(snap)); window.__xm.setSpeed(3); }, rvSnap); await page.waitForTimeout(300); await close();
   // 历练途中（本趟收获条）与结算卡
   await page.evaluate(() => { const { st, L } = window.__xm; st.p.inj = 0; L.startExp(st, 3, 1, 0); });
   await page.evaluate(() => window.__xm.setSpeed(0)); await page.waitForTimeout(3500); await page.screenshot({ path: out + '/15-adv.png' });

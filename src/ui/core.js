@@ -14,21 +14,40 @@ let soundMode = 0;
 let cloudStatus = '未连接';
 let rankShown = 0;
 
-// ---------- 字号与缩放 ----------
+// ---------- 字号与缩放（DESIGN §5.1：字号三档、像素图整数倍） ----------
+// --fs 小（说明、标签）、--fs-m 中（数值、按钮、人名）、--fs-l 大（标题、境界名）；都是 12 像素字模的整数倍设备像素
+// --u1 / --u2：一个美术像素按 1×、2× 放大时占多少 CSS 像素（整数个设备像素），九宫格边框与图标都按它取尺寸
+let UPX = 2;   // 场景每个逻辑像素占几个设备像素（fitScene 用）
+function pxN(k) { const d = window.devicePixelRatio || 1; return Math.max(1, Math.round(d * k)); }
 function setFontSize() {
   const dpr = window.devicePixelRatio || 1;
   const k = Math.max(1, Math.round(dpr * 1.2));
   let fs = 12 * k / dpr;
   if (fs < 12) fs = 12;
   if (fs > 16) fs = 16;
+  const fm = dpr < 1.5 ? fs : Math.min(18, 12 * (k + 1) / dpr), fl = Math.max(24, 24 * k / dpr);
   const root = document.documentElement;
   root.style.setProperty('--fs', fs.toFixed(3) + 'px');
+  root.style.setProperty('--fs-m', fm.toFixed(3) + 'px');
+  root.style.setProperty('--fs-l', Math.min(32, fl).toFixed(3) + 'px');
+  root.style.setProperty('--u1', (pxN(1) / dpr).toFixed(4) + 'px');
+  root.style.setProperty('--u2', (pxN(2) / dpr).toFixed(4) + 'px');
+  UPX = pxN(2);
   root.style.zoom = '';
   const z = Math.min(window.innerWidth / 500, window.innerHeight / 600);
   const q = Math.max(1, Math.min(2, Math.floor(z * 4) / 4));
   if (q > 1) root.style.zoom = q;
 }
 setFontSize();
+// 界面皮肤：ART.frame 的九宫格（border-image），做成 CSS 变量 --fr-<kind>
+(function () {
+  if (!ART.frame) return;
+  const root = document.documentElement;
+  for (const k of ['hud', 'sheet', 'card', 'btnGold', 'btnAlt', 'btnSeal', 'btnOff']) { const f = ART.frame(k); if (f) root.style.setProperty('--fr-' + k, `url(${f.url})`); }
+  const lk = ART.icon && ART.icon('lock'); if (lk) root.style.setProperty('--ic-lock', `url(${lk.toDataURL()})`);
+})();
+// 像素图按整数倍显示：n 逻辑像素宽的图、想要大约 want CSS 像素宽 → 实际 CSS 宽（每个美术像素占整数个设备像素）
+function pxFit(n, want) { const d = window.devicePixelRatio || 1; return n * Math.max(1, Math.round(want * d / n)) / d; }
 
 // ---------- 图标 ----------
 const ICONS = {
@@ -47,17 +66,35 @@ const ICONS = {
 };
 const iconURL = {};
 for (const k in ICONS) iconURL[k] = ART.pix(ICONS[k][0], ICONS[k][1]).toDataURL();
-function iconHTML(k, size) { return `<img class="px" src="${iconURL[k]}" width="${size || 16}" height="${size || 16}" alt="">`; }
-$$('img[data-icon]').forEach(img => { img.src = iconURL[img.dataset.icon]; });
-const ELDER = ART.elder().toDataURL();
+// 旧 10×10 图标名 → 新 16×16 美术（ART.icon）；声音三态仍用旧图
+const ICON_ART = { stone: 'stone', pill: 'pojing', life: 'life', flag: 'rank', disc: 'cult', sword: 'atk', build: 'cave', bag: 'gift', pet: 'egg' };
+function iconHTML(k, size) {
+  const a = ICON_ART[k] && ART.icon && ART.icon(ICON_ART[k]);
+  if (a) { const s = pxFit(a.width, size || 16); return `<img class="px" src="${urlOf(a, 'ic|' + ICON_ART[k])}" width="${s}" height="${s}" style="width:${s}px;height:${s}px;flex:none" alt="">`; }
+  return `<img class="px" src="${iconURL[k]}" width="${size || 16}" height="${size || 16}" alt="">`;
+}
+// 新图标（ART.icon 名）按整数倍：artIcon('stone', 16)
+function artIcon(name, want, cls) { const c = ART.icon && ART.icon(name); if (!c) return ''; const s = pxFit(c.width, want || c.width); return `<img class="px${cls ? ' ' + cls : ''}" src="${urlOf(c, 'ic|' + name)}" style="width:${s}px;height:${s}px;flex:none" alt="">`; }
+// 空状态（.empty-note）：ART.emptyNote('pet' | 'vault' | 'build', paper) 48×48 淡墨小画按整数倍约 2 倍 + 一句话；纸卷上用宣纸底版
+function emptyNoteHTML(kind, text, dark) {
+  const c = ART.emptyNote && ART.emptyNote(kind, !dark), s = c ? pxFit(48, 96) : 0;
+  return `<div class="empty-note">${c ? `<img class="px" src="${urlOf(c, 'empty|' + kind + (dark ? 0 : 1))}" style="width:${s}px;height:${s}px;flex:none" alt="">` : ''}<div>${text}</div></div>`;
+}
+document.querySelectorAll('img[data-art]').forEach(img => { const c = ART.icon(img.dataset.art); if (!c) return; img.src = c.toDataURL(); const s = pxFit(c.width, +img.dataset.sz || c.width); img.style.width = img.style.height = s + 'px'; });
+// 戒中老祖：48×48 半身像（提示气泡、引导框、事件立绘都用它）；没有新美术时退回旧的水滴
+const ELDER = (ART.portrait && ART.portrait('elder', 'n') || ART.elder()).toDataURL();
+function elderImg(w, mood) { const c = ART.portrait && ART.portrait('elder', mood || 'n'); const s = pxFit(48, w); return c ? `<img class="px pt" src="${urlOf(c, 'pt|elder|' + (mood || 'n'))}" style="width:${s}px;height:${s}px;flex:none" alt="">` : `<img class="px" src="${ELDER}" style="width:${w}px;height:${w}px" alt="">`; }
 
 // ---------- 头像 ----------
 const avCache = new Map();
 function urlOf(canvas, key) { if (avCache.has(key)) return avCache.get(key); const u = canvas.toDataURL(); avCache.set(key, u); return u; }
 function avStyle(c, w) { return `width:${w}px;height:${Math.round(w * c.height / c.width)}px`; }
-function myAvCanvas(realm) { const p = st.p, r = realm !== undefined ? realm : p.r; const tc = L.TALENTS[p.t].c; return ART.avatar(p.look, r, tc === 'rainbow' ? '#c48bff' : tc); }
-function myAv(realm) { const p = st.p, r = realm !== undefined ? realm : p.r; return urlOf(myAvCanvas(r), ['me', p.look.hair, p.look.f, r, p.t].join('|')); }
-function myAvImg(w, realm, extraStyle) { const c = myAvCanvas(realm); return `<img class="px" src="${myAv(realm)}" style="${avStyle(c, w)};${extraStyle || ''}" alt="">`; }
+function myAvCanvas(realm, mood) { const p = st.p, r = realm !== undefined ? realm : p.r; if (ART.portraitMe) return ART.portraitMe(p.look, Math.min(r, 9), mood || 'n'); const tc = L.TALENTS[p.t].c; return ART.avatar(p.look, r, tc === 'rainbow' ? '#c48bff' : tc); }
+function myAv(realm, mood) { const p = st.p, r = realm !== undefined ? realm : p.r; return urlOf(myAvCanvas(r, mood), ['me', p.look.hair, p.look.skin, p.look.f, r, p.t, mood || 'n'].join('|')); }
+// 主角半身像（ART.portraitMe 48×48，整数倍）；w 是想要的大约宽度
+function myAvImg(w, realm, extraStyle, mood) { const c = myAvCanvas(realm, mood); const s = pxFit(c.width, w); return `<img class="px pt" src="${myAv(realm, mood)}" style="width:${s}px;height:${s * c.height / c.width}px;flex:none;${extraStyle || ''}" alt="">`; }
+// 半身像通用：画布 → 整数倍 img
+function ptHTML(c, key, w, id, extra) { const s = pxFit(c.width, w); return `<img class="px pt"${id ? ` id="${id}"` : ''} src="${urlOf(c, key)}" style="width:${s}px;height:${s}px;flex:none;${extra || ''}" alt="">`; }
 const RIVAL_LOOK = {
   mu: f => ({ look: { hair: '#3b2a22', skin: '#f6d3b3', f: f ? 0 : 1 }, robe: ['#a8405a', '#d86a88', '#f4a0b8'], trim: '#ffffff' }),
   zhao: () => ({ look: { hair: '#2a2230', skin: '#e8b68a', f: 0 }, robe: ['#3a5a8a', '#5a7ab0', '#8aa8d8'], trim: '#dfe7ef' }),
@@ -66,10 +103,14 @@ const RIVAL_LOOK = {
   yun: () => ({ look: { hair: '#e9e8f2', skin: '#f6d3b3', f: 0 }, robe: ['#8a92a8', '#c8d0e0', '#ffffff'], trim: '#a8d8ff' }),
 };
 const ROBES = [['#3a5a3a', '#5a8a4a', '#8ab86a'], ['#5a3a6a', '#8a5aa0', '#b88ad0'], ['#6a4a2a', '#9a7040', '#c8a060'], ['#2a4a6a', '#4a7aa0', '#7aa8d0'], ['#6a2a2a', '#9a4040', '#c87070']];
+const RIVAL_PT = { mu: 'mu', zhao: 'zhao', chu: 'tian', xue: 'xue', yun: 'yun' };
 function rivalAvImg(rv, w) {
+  if (rv.id && RIVAL_PT[rv.id] && ART.portrait) { const alt = rv.id === 'mu' && !!st.p.look.f; return ptHTML(ART.portrait(RIVAL_PT[rv.id], 'n', alt), ['pt', RIVAL_PT[rv.id], 'n', alt ? 1 : 0].join('|'), w, 'vsR'); }
+  let h = 0; for (const ch of rv.n) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  if (ART.portraitGen) return ptHTML(ART.portraitGen(h, { f: (h >> 3) % 2, realm: Math.min(8, st.p.r) }, 'n'), 'pg|' + h + '|' + Math.min(8, st.p.r), w, 'vsR');
   let o;
   if (rv.id && RIVAL_LOOK[rv.id]) o = RIVAL_LOOK[rv.id](st.p.look.f);
-  else { let h = 0; for (const ch of rv.n) h = (h * 31 + ch.charCodeAt(0)) >>> 0; o = { look: { hair: ['#1d1a24', '#3a2a22', '#4a3328'][h % 3], skin: '#e8b68a', f: (h >> 3) % 2 }, robe: ROBES[h % ROBES.length], trim: '#f3ecdc' }; }
+  else o = { look: { hair: ['#1d1a24', '#3a2a22', '#4a3328'][h % 3], skin: '#e8b68a', f: (h >> 3) % 2 }, robe: ROBES[h % ROBES.length], trim: '#f3ecdc' };
   const c = ART.avatar(o.look, 0, '#5a3a3a', { robe: o.robe, trim: o.trim, extra: o.extra });
   return `<img class="px" id="vsR" src="${urlOf(c, 'rv|' + rv.n)}" style="${avStyle(c, w)}" alt="">`;
 }
@@ -81,12 +122,14 @@ const NPC_LOOK = {
   bai: () => ({ look: { hair: '#f4f0f6', skin: '#fbe2d4', f: 1 }, robe: ['#c87a9a', '#f0a8c4', '#ffd8e8'], trim: '#ffffff' }),
   mo: () => ({ look: { hair: '#0e0c14', skin: '#d8c0b0', f: 0 }, robe: ['#0e0c14', '#1e1a26', '#34303e'], trim: '#6a5a8a' }),
 };
-function npcAvImg(id, w) {
+function npcAvImg(id, w, mood) {
+  if (ART.hasPortrait && ART.hasPortrait(id)) { const alt = (id === 'su' || id === 'ye') && !!st.p.look.f; return ptHTML(ART.portrait(id, mood || 'n', alt), ['pt', id, mood || 'n', alt ? 1 : 0].join('|'), w); }
   const o = NPC_LOOK[id] ? NPC_LOOK[id](st.p.look.f) : NPC_LOOK.chu();
   const c = ART.avatar(o.look, 0, '#3a4a6a', { robe: o.robe, trim: o.trim });
   return `<img class="px" src="${urlOf(c, 'npc|' + id + '|' + st.p.look.f)}" style="${avStyle(c, w)}" alt="">`;
 }
 function bossImg(k, w) {
+  if (ART.boss) { const c = ART.boss(k); if (c) return ptHTML(c, 'bossP|' + k, w, 'vsR', 'background:#2a1420'); }
   const key = 'boss|' + k;
   if (!avCache.has(key)) {
     const rg = L.REGIONS[k];

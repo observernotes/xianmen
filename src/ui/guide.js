@@ -1,15 +1,43 @@
 /* 废柴仙途 · 界面片段 guide：戒中老祖：引导、提示、指南、札记
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * 台词按 DESIGN §4.2～§4.3 的编号（E01… / U01… / S02…）。每句里的数字都是当场从逻辑层算的。 */
-// ---------- 戒中老祖提示 ----------
-function tip(key, text) {
+// ---------- 戒中老祖的气泡（非阻塞，DESIGN §4.1 / §4.3） ----------
+// tip(key, text, { big, html })：每个 key 一生一次；进队列，由引导调度（下面 pumpBubble）一条一条放：
+// 每 BUBBLE_GAP 个周天最多一条（big：大事提醒插队），讲解说话时、弹窗开着时先等；冒出来 6 秒后收成头像上的“！”，
+// 点头像（问老祖）能重看最近几条。台词里的数字在冒出来那一刻已经算好；排队超过 15 个周天还没轮上的直接收进“刚才说的”。
+const BUBBLE_GAP = 3, BUBBLE_MS = 6000, bubbleQ = [], bubbleLog = [];
+let bubbleCool = 0, bubbleCur = null, bubbleAt = 0, bubbleUnread = false;
+function tip(key, text, o) {
   if (!st || st.seenTips[key]) return;
   st.seenTips[key] = 1;
+  o = o || {};
+  bubbleQ.push({ key, text: o.html ? text : esc(text), big: !!o.big, tick: st.tick });
+  pumpBubble();
+}
+function pumpBubble() {
+  if (!st) return;
+  const el = $('#tip'), now = performance.now();
+  if (bubbleCur && now - bubbleAt > BUBBLE_MS) { el.hidden = true; bubbleCur = null; }
+  if (bubbleCur || !bubbleQ.length) return;
+  for (let i = bubbleQ.length - 1; i >= 0; i--) if (st.tick - bubbleQ[i].tick > 15 && !bubbleQ[i].big) { bubbleLog.unshift(bubbleQ[i]); bubbleQ.splice(i, 1); bubbleUnread = true; }
+  const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden;
+  const bi = bubbleQ.findIndex(b => b.big);
+  const i = bi >= 0 && !busy ? bi : !busy && !modalOpen() && st.tick >= bubbleCool && performance.now() > guideQuiet ? 0 : -1;
+  if (i < 0 || !bubbleQ[i]) return;
+  const b = bubbleQ.splice(i, 1)[0];
+  if (!b.big) bubbleCool = st.tick + BUBBLE_GAP;
+  showBubble(b);
+}
+function showBubble(b) {
   const el = $('#tip');
   const gone = st.eflags && st.eflags.st_farewell;
-  el.innerHTML = `<img class="px" src="${ELDER}" alt=""${gone ? ' style="opacity:.4"' : ''}><div class="grow"><span class="who">${gone ? '戒中余音' : '戒中老祖'}：</span>${esc(text)}</div><span class="x">×</span>`;
+  el.innerHTML = `<img class="px" src="${ELDER}" alt=""${gone ? ' style="opacity:.4"' : ''}><div class="grow"><span class="who">${gone ? '戒中余音' : '戒中老祖'}：</span>${b.text}</div><span class="x">×</span>`;
   el.hidden = false;
-  el.onclick = () => { el.hidden = true; SFX.tap(); };
+  el.onclick = () => { el.hidden = true; bubbleCur = null; SFX.tap(); };
+  bubbleCur = b; bubbleAt = performance.now();
+  bubbleLog.unshift(b); if (bubbleLog.length > 8) bubbleLog.length = 8;
+  bubbleUnread = true;
+  SFX.tap();
 }
 
 // ---------- 新手引导 ----------
@@ -49,9 +77,9 @@ const HINTS = [
   // 头一回金丹雷劫前（SYSTEMS §9 / §17）：护劫手段 → 那一停（panel-trib.js 的 tribPause）→ 点它
   { id: 'trib', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()) && st.p.r >= 1 && !!document.querySelector('#tribAids'), target: '#tribAids', btn: '知道了', text: () => {
       const fa = L.aidInfo(st, 'fa'), max = Math.min(L.BT.maxPills, st.pills);
-      return `从金丹起要渡雷劫。基础只有 <b>${L.pct(L.REALMS[Math.min(st.p.r, 8)].rate)}</b>，破境丹每枚 +${L.pct(L.BT.pill)}；这些<b>护劫手段</b>各能用一次：${fa.ok ? `祭法宝 <b>+${L.pct(fa.v)}</b>（失败兵器强化 −1）` : `祭法宝 +${L.pct(fa.v)}`}、道侣护法 +${L.pct(L.TRIB.daolv)}。全用上 <b>${L.pct(L.tribRate(st, { pills: max, aids: 'all' }))}</b>。`;
+      return `从金丹起要渡雷劫。基础只有 <b>${L.pct(L.REALMS[Math.min(st.p.r, 8)].rate)}</b>，破境丹每枚 +${L.pct(L.BT.pill)}；这些<b>护劫手段</b>各能用一次：${fa.ok ? `祭法宝 <b>+${L.pct(fa.v)}</b>（失败兵器强化 −1）` : `祭法宝 +${L.pct(fa.v)}`}、道侣护法 +${L.pct(L.TRIB.daolv)}。全用上 <b>${L.pct(L.tribRate(st, { pills: max, aids: 'all' }))}</b>。${L.tribTop(st) < 1 ? `天劫没有十成把握：最多 <b>${L.pct(L.tribTop(st))}</b>，多出来的不算，挑代价小的用；败一次下回 +${L.pct(L.BT.fail)}。` : `元婴劫起天劫就没有十成把握了（最多 ${L.pct(L.TRIB.top)}）。`}`;
     } },
-  { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满了！点这个<b>金色的修为条</b>冲击${nextName()}${L.btGuard(st) ? '。头一回老夫护法，<b>必成</b>' : `，成功率 <b>${L.pct(btShownRate())}</b>`}。`, until: () => /突破|天劫/.test(modalTitle()) || !!cine },
+  { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满了！点这个<b>金色的修为条</b>冲击${nextName()}${L.btGuard(st) ? '。头一回老夫护法，<b>必成</b>（100%）' : `，成功率 <b>${L.pct(btShownRate())}</b>`}。`, until: () => /突破|天劫/.test(modalTitle()) || !!cine },
   { id: 'btGo', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: () => `点它。成了之后战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 <b>${fmt(L.lifespan(st))} → ${fmt(nextLife())}</b>。`, until: () => !!cine || !modalOpen() },
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
       if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个周天</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个周天），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
@@ -148,7 +176,7 @@ HINTS.push(...gearHints);
 // ---------- 历法、天下大势、坊市货架、行情、拍卖（SYSTEMS §7 / §10 / §17）：每样一次阻塞讲解，数字当场算 ----------
 const inMarket = sel => modalTitle() === '坊市' && !!document.querySelector(sel);
 const calHints = [
-  { id: 'cal', intro: true, when: () => st.guide.done && L.calOpen(st) && !st.rebirth && !modalOpen() && !L.busy(st), target: BIG, btn: '好', text: () => {
+  { id: 'cal', intro: true, when: () => st.guide.done && L.calOpen(st) && !st.rebirth && !modalOpen() && !st.retreat && !st.run, target: BIG, btn: '好', text: () => {
       const S = L.SEASONS[L.season(st)];
       return `筑基了，天时也看得见了：这一格点开是<b>年历</b>——论道每 ${L.TOUR_EVERY} 周天（下一届 <b>${L.nextTour(st)}</b> 周天后）、拍卖会、九宗会武、夏季秘境都排在上面。现在是<b>${S.n}</b>：${S.d}。`;
     } },
@@ -217,7 +245,8 @@ const alchHints = [
 HINTS.push(...alchHints);
 HINTS.push(...homeHints);   // 洞府地块与阵法（panel-home.js）
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
-const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
+// 历练途中也能讲（人在路上照样能开【人物】换功法），闭关、负伤时不讲；以前要求“闲着”，机器人试玩里《引气诀》拖到第 150 周天才讲
+const artCalm = () => st.guide.done && !modalOpen() && !st.retreat && !st.run && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
 function artWithout(i, fn) {
   const a = st.arts, prev = a.slot[i];
@@ -226,12 +255,53 @@ function artWithout(i, fn) {
   try { return { on, off: fn() }; } finally { a.slot[i] = prev; }
 }
 let activeHint = null, tempHint = null, guideShownId = '', guideHold = false, hintCool = 0;
+// ---------- 引导调度（全局）：同一时刻只说一件事 ----------
+// · 阻塞讲解一次一段；两段不紧急的之间至少隔 GUIDE_GAP 个周天，关掉弹窗 / 讲解之后再静 1.2 秒；
+// · urgent（约战将至、修为圆满、要渡劫、秘境里、天劫一停……）插队，不等周天冷却，只等 0.4 秒；
+// · 就着眼前面板讲的（目标在打开的弹窗里）面板开着才有意义，也不等周天冷却；
+// · bubble: true 的讲解不阻塞，转成气泡（同样受气泡冷却）；
+// · core（DESIGN §4.2 的 E10～E14、U03、U05、U07：新手头一章的固定讲解）只隔 1 个周天、静 0.6 秒，免得错过时机；
+// · 刚读档 / 刚进游戏先静 2.5 秒、1 个周天，免得一进来连弹几段。
+// 别的片段加讲解：HINTS.push(...) 或 registerGuide(list, { before: 'id' })，字段：id、when()、text()、target、btn、until()、urgent、intro、bubble。
+const GUIDE_GAP = 3;
+let guideCurShown = null, hintCoolCore = 0, guideQuiet = 0, guideModalAt = 0, guideFor = null;
+function registerGuide(list, o) {
+  const arr = Array.isArray(list) ? list : [list];
+  const i = o && o.before ? HINTS.findIndex(h => h.id === o.before) : -1;
+  if (i >= 0) HINTS.splice(i, 0, ...arr); else HINTS.push(...arr);
+}
+const hintWhen = h => { try { return !!h.when(); } catch (e) { return false; } };
+const hintInModal = h => { if (h.ctx) return true; const tg = h.target; if (!tg) return false; const el = document.querySelector(tg); return !!(el && el.closest('#modal')); };
+function pickHint() {
+  // calm：弹窗关掉之后过了多久（弹窗开着时就着弹窗讲的不受它限制）
+  const now = performance.now(), calm = modalOpen() ? 1e9 : now - guideModalAt;
+  let ctxH = null, core = null, norm = null;
+  for (const h of HINTS) {
+    if (st.hintSeen[h.id] || (st.run && !/^realm/.test(h.id))) continue;
+    // 紧急的：弹窗里、秘境里的连讲（护劫手段 → 那一停、秘境三句）接着说，不再等；其余等 0.4 秒
+    if (h.urgent) { if ((modalOpen() || st.run || (calm > 400 && now > guideQuiet - 800)) && hintWhen(h)) return h; continue; }
+    if (ctxH && core && norm) continue;
+    if (!hintWhen(h)) continue;
+    if (hintInModal(h)) { if (!ctxH) ctxH = h; } else if (h.core) { if (!core) core = h; } else if (!norm) norm = h;
+  }
+  if (ctxH && now > guideQuiet - 900) return ctxH;
+  if (core && st.tick >= hintCoolCore && calm > 600 && now > guideQuiet - 600) return core;
+  if (norm && st.tick >= hintCool && calm > 1200 && now > guideQuiet) {
+    if (norm.bubble) { st.hintSeen[norm.id] = 1; tip('h_' + norm.id, typeof norm.text === 'function' ? norm.text() : norm.text, { html: true, big: norm.bigBubble }); return null; }
+    return norm;
+  }
+  return null;
+}
 function ensureGuide() {
   if (!st.guide) st.guide = { step: 0, done: st.tick > 3 || st.stats.exp > 0 || st.rebirth > 0 };
   if (!st.hintSeen) st.hintSeen = {};
+  if (guideFor !== st) {   // 新开一局或读档：先静一会儿
+    guideFor = st; activeHint = null; tempHint = null; bubbleQ.length = 0; bubbleCur = null;
+    hintCool = Math.max(hintCool, st.tick + 1); hintCoolCore = st.tick + 1; guideQuiet = performance.now() + 2500; bubbleCool = st.tick + 1;
+  }
 }
 function currentGuide() {
-  if (!st || !$('#intro').hidden || (cine && !cine.paused)) return null;   // 天劫中途那一停（cine.paused）老祖可以说话
+  if (!st || !$('#intro').hidden || (cine && !cine.paused) || duelFx) return null;   // 天劫中途那一停（cine.paused）老祖可以说话；场景里对决时不插嘴
   ensureGuide();
   if (tempHint) return tempHint;
   const g = st.guide;
@@ -246,24 +316,29 @@ function currentGuide() {
     if (g.step >= GUIDE.length) g.done = true;
     else { const s0 = GUIDE[g.step]; return !s0.silent && (!s0.show || s0.show()) ? s0 : null; }
   }
-  if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; }
-  if (activeHint && !activeHint.until && !activeHint.when()) activeHint = null;
+  if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; guideQuiet = performance.now() + 1200; }
+  if (activeHint && !activeHint.until && !hintWhen(activeHint)) activeHint = null;
   if (activeHint && st.run && !/^realm/.test(activeHint.id)) activeHint = null;   // 秘境里只讲秘境的
-  if (!activeHint) activeHint = HINTS.find(h => !st.hintSeen[h.id] && (!st.run || /^realm/.test(h.id)) && (h.urgent || st.tick >= hintCool) && h.when()) || null;
-  if (activeHint && activeHint.until && !activeHint.when() && !activeHint.until()) return null;
+  if (!activeHint) activeHint = pickHint();
+  if (activeHint && activeHint.until && !hintWhen(activeHint) && !activeHint.until()) return null;
   return activeHint;
 }
 function advanceGuide(cur) {
   SFX.tap();
+  guideQuiet = performance.now() + 1200;
   if (cur === tempHint) { tempHint = null; return; }
-  hintCool = st.tick + 2; // 两条提示之间至少隔两个周天，别连珠炮
+  if (!cur.urgent) { hintCool = st.tick + GUIDE_GAP; hintCoolCore = st.tick + 1; }   // 两段不紧急的讲解之间至少隔 GUIDE_GAP 个周天，别连珠炮
   if (GUIDE.includes(cur)) { st.guide.step = GUIDE.indexOf(cur) + 1; return; }
   st.hintSeen[cur.id] = 1; activeHint = null;
 }
 function updateGuide() {
   const el = $('#guide');
+  if (modalOpen()) guideModalAt = performance.now();
   const cur = currentGuide();
+  guideCurShown = cur;
+  if (cur && bubbleCur && !cur.silent) { $('#tip').hidden = true; bubbleCur = null; }   // 讲解开口时把正冒着的气泡收进头像（点头像能重看）
   guideHold = false;
+  pumpBubble(); syncElderAv(); chapPump();
   if (!cur) { if (!el.hidden) el.hidden = true; guideShownId = ''; return; }
   const tgt = cur.target ? document.querySelector(cur.target) : null;
   if (cur.target && (!tgt || !tgt.offsetParent)) { el.hidden = true; return; }
@@ -305,7 +380,7 @@ function showHelp() {
   const sec = (ic, t, d) => `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`;
   const body = [
     sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每 5 秒涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
-    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
+    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
     sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 周天修为。`),
     sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),

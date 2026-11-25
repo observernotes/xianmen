@@ -20,7 +20,7 @@ function showGrowth(focus) {
   const sec = (key, title, total, baseName, base, parts, extra) => `<div class="grow-sec" id="g-${key}"><h3>${title}<span>${total}</span></h3>
     ${baseName ? row(baseName, fmt(base), '', '') : ''}${parts.map(([n, m, k]) => row(n, m, k && act[k] ? act[k]() : '', k && tips[k] ? tips[k] : '')).join('')}${extra || ''}</div>`;
   const nxt = p.r >= L.MAXR ? '飞升' : L.REALMS[p.r + 1].n;
-  const btn = Math.min(L.BT.maxPills, st.pills), bt = L.btRate(st, btn);
+  const btn = Math.min(L.BT.maxPills, st.pills), bt = L.tribNeeded(st) ? L.tribRate(st, { pills: btn }) : L.btRate(st, btn);   // 金丹起按天劫算（元婴劫起封顶，L.tribTop）
   const body = [
     `<div class="muted">每项数值 = 基础 × 各项加成。点右边的按钮直接去提升。</div>`,
     sec('cul', '修炼速度', '+' + fmt(B.gain) + ' /周天', '境界基础（' + L.stageName(p) + '）', B.baseCul, B.cul,
@@ -32,7 +32,7 @@ function showGrowth(focus) {
       row('历练', '大头', goBtn('去历练', 'exp'), '历练带回的灵石远比每周天收入多。') + (st.sect ? '' : row('宗门俸禄', '未入宗', '', '筑基后拜入宗门，每周天领俸禄。'))),
     `<div class="grow-sec" id="g-bt"><h3>冲击${nxt}成功率<span>${L.pct(bt)}</span></h3>
       ${L.btParts(st, btn).filter(([k]) => !/^(丹炉|破境丹)/.test(k)).map(([k, v]) => row(k, k === '基础' ? L.pct(v) : (v < 0 ? '−' : '+') + L.pct(Math.abs(v)), '', '')).join('')}
-      ${L.tribNeeded(st) ? row('护劫手段', `眼下最多 +${L.pct(['fa', 'pet', 'daolv', 'zhen'].reduce((a, k) => { const A = L.aidInfo(st, k); return a + (A.ok ? A.v : 0); }, 0) + L.TRIB.maxPill * L.TRIB.pill)}`, '', `金丹起渡雷劫时用：祭法宝 +${L.pct(L.TRIB.fa)}、灵宠挡劫 +${L.pct(L.TRIB.pet)}、道侣护法 +${L.pct(L.TRIB.daolv)}、渡劫阵（聚灵阵每级 +1%），雷劫中途那一停还能临阵吞丹（每枚 +${L.pct(L.TRIB.pill)}，最多 ${L.TRIB.maxPill} 枚）。`) : ''}
+      ${L.tribNeeded(st) ? row('护劫手段', `眼下最多 +${L.pct(['fa', 'pet', 'daolv', 'zhen'].reduce((a, k) => { const A = L.aidInfo(st, k); return a + (A.ok ? A.v : 0); }, 0) + L.TRIB.maxPill * L.TRIB.pill)}`, '', `${L.tribTop(st) < 1 ? `天劫最多 ${L.pct(L.tribTop(st))}（每败一次 +${L.pct(L.BT.fail)}），超出的不算。` : ''}金丹起渡雷劫时用：祭法宝 +${L.pct(L.TRIB.fa)}、灵宠挡劫 +${L.pct(L.TRIB.pet)}、道侣护法 +${L.pct(L.TRIB.daolv)}、渡劫阵（聚灵阵每级 +1%），雷劫中途那一停还能临阵吞丹（每枚 +${L.pct(L.TRIB.pill)}，最多 ${L.TRIB.maxPill} 枚）。`) : ''}
       ${row('丹炉 Lv' + st.home.furnace, '+' + L.pct(st.home.furnace * L.BT.furnace), upBtn('furnace'), `每级突破 +${L.pct(L.BT.furnace)}，还能炼丹。`)}
       ${row('破境丹 ×' + st.pills, `每枚 +${L.pct(L.BT.pill)}`, goBtn('去买', 'market'), `一次最多服 ${L.BT.maxPills} 枚。坊市、历练（${L.pct(L.EXP_PILL)} 掉一枚）、炼丹都能得到；负伤时也能服一枚疗伤。`)}
       ${L.btGuard(st) ? row('老祖护法', '必成', '', '第一世头一回冲击筑基，老祖护法必成。') : ''}</div>`,

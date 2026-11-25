@@ -181,6 +181,7 @@ function showOpening() {
   duel({
     title: pt.title, intro: esc(pt.intro) + (res.assist ? `<br><span class="jadet">戒中老祖借你一缕神魂：战力 ${fmt(res.base)} ×${L.pactAssist(st)} = ${fmt(res.S)}</span>` : ''),
     right: { img, name: pt.who, sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
+    stage: 'town', foe: ftPeople(pt.img) || ftGen(pt.who), face: true,
     quote: pt.quote,
     winText: `${esc(pt.win)}<br>灵石 +${fmt(res.stones || 0)}`,
     loseText: `${esc(pt.lose)}<br>天骄榜上，再见分晓。`,
