@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -11,8 +11,17 @@
 - [x] 功法系统登记：`fx.art`（可为数组；`x_hongmeng` / `m_xingdou` 记一片残篇，三片合成）、`fx.mastery`（当前心法熟练 ±n，没装心法时作用于战技）、一次性 flag `combo_hint` / `combo_hint_c18`（揭示共鸣提示）。
 - [x] 重复 id：两位写手都写了 `story_pact_eve / story_trib1 / story_demon1～3 / story_ascend`，保留 `ev_sect_people.js` 版（CONTENT §14.4 记在这一组），`ev_world_chains.js` 的 8 段（含 `_b` 版）删去。
 - [x] 血河老祖的 `mo_xuehe_1` 去掉了 `maxR: 7`（校验的老祖规则不再误伤“血河老祖”）；`mo_xuehe_2`、`mo_xuesan_2` 正文里单写“老祖”，仍保留。
-- [x] 主线给功法（CONTENT §2 的“主”来源）：`story_r3` 得《天剑九式（残）》，`story_r6` 得《玄霄剑典·心卷》；`story_r8` 先给《玄霄剑典·剑卷》（老祖旧剑链终点 `ch_sword_6` 要等器方 `fx.plan`）。
-- 当前上线 165 / 327（基础 122 全部上线；扩展包 43 / 205）。闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`fx.ore`、`elig.theme` …（`report` 有全表）。
+- [x] 主线给功法（CONTENT §2 的“主”来源）：`story_r3` 得《天剑九式（残）》，`story_r6` 得《玄霄剑典·心卷》；《玄霄剑典·剑卷》只由老祖旧剑链终点 `ch_sword_6` 给（与器方《玄霄》一起；`story_r8` 的临时赠送已去掉）。
+- [x] 法宝系统登记（`src/logic/gear.js`）：`fx.item` 增加 `'need'`（最弱的一槽）/ `'r'`（法衣）/ `'o'`（饰品）——槽名与 `st.gear`、`ART.item('r' | 'o')` 一致；
+  `fx.plus`（当前兵器强化 +n，不掷）、`fx.affix`（±n：当前兵器随机去掉 / 添一条词条）、`fx.ore` 与 `cost.ore`、`fx.plan`、`fx.gear`（指定底子，走对比卡）；
+  剧情触发键 `forge_fail`（强化失败时 10%，`home_forge_boom`）；一次性 flag `forge_refund2`（返还这回强化灵矿 ×2）、常驻 flag `neighbor_smith`（强化灵矿 −20%）。
+- [x] **灵矿的单位**：事件里的 `ore: n`（fx 与 cost）按“筐”算，1 筐 = `L.oreUnit` = 1.5^境界（四舍五入，炼气 1、筑基 2、元婴 3、化神 5 … 渡劫 26），
+  与器方“灵矿 基数 × 1.5^阶”同口径。写手原注“不按境界缩放”——不缩放时化神以后的“一筐灵矿”连一次强化都不够，所以改了；数值本身不用动。
+- [x] **`fx.plan`**：`g_*` 器方记进 `st.gear.plans`（化神后器炉打造）；`f_*` 阵图在阵法系统上线前记进 `st.gear.zhentu` 先收着（`story_trib1` 的渡劫阵、`ch_danjing_5` 的丹火阵）。
+- [x] 首领：首杀掉专属法宝（固定词条，走对比卡；槽没开就先收着，槽一开自动戴上）、首领材料 ×2、器方；金丹后每 48 周天可再战一次（材料 ×1）。
+- 当前上线 175 / 327（基础 122 全部上线；扩展包 53 / 205）。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
+  还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
+  闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。
 
 ## ev_realm_rivals.js（秘境 16、宿敌与新秀 23、坊市拍卖 6）
 
