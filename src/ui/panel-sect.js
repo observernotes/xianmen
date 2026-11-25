@@ -107,7 +107,7 @@ function sectVaultHTML() {
     const lock = !!c.why && (/可换$/.test(c.why) || /槽/.test(c.why)), owned = ['已换完', '已习得', '已有'].includes(c.why), short = /^还差/.test(c.why || '');
     return `<div class="card flat vcell ${lock ? 'lock' : ''}">${vaultImg(c)}<div class="main"><div class="line"><span>${esc(c.n)}</span>${c.A ? tierTag(c.A.t) + elChip(c.A.el) : ''}${c.s.lim > 1 ? `<span class="muted">余 ${c.left}</span>` : ''}</div>
       <div class="muted">${c.A ? esc(artMain(c.A.id)) + (c.A.k !== 'm' ? ' · ' + esc(L.artDesc(st, c.A.id)) : '') : esc(c.d)}</div>${lock ? `<div class="seal">${esc(c.why)}</div>` : ''}</div>
-      <div class="right"><button class="btn sm ${c.ok ? 'gold' : 'alt'} eq" data-vr="${c.i}" ${c.ok ? '' : 'disabled'}>${owned ? c.why : `贡献 ${fmt(c.cost)}`}</button>${short ? `<small class="muted">${esc(c.why)}</small>` : ''}</div></div>`;
+      <div class="right"><button class="btn sm ${c.ok ? 'gold' : 'alt'} eq" data-vr="${c.i}" ${c.ok ? '' : 'disabled'}>${owned ? c.why : c.cost > 0 ? `贡献 ${fmt(c.cost)}` : '免费'}</button>${short ? `<small class="muted">${esc(c.why)}</small>` : ''}</div></div>`;
   }).join('');
   return `<div class="mhead"><span>宗门宝库 · ${L.VAULT_ROT.n} 格</span><span class="muted">可用贡献 <b class="num">${fmt(st.sect.pts)}</b> · ${L.vaultRestockIn(st)} 周天后换货</span></div>
     ${st.sect.freePick > 0 ? `<div class="quote">札记赏你宝库任选一件：功法、法宝这一回不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}<div id="vaultRot">${cells}</div>
@@ -204,7 +204,7 @@ function showInvite() {
   let sel = 0;
   const SC = L.sectsFor(st);
   const s = sheet({
-    title: '三宗争徒', center: true, noClose: true,
+    title: SC.length > 3 ? '四宗争徒' : '三宗争徒', center: true, noClose: true,
     body: `<p>筑基消息传出，天下震动！${SC.length > 3 ? '三大正宗的长老同时登门，血煞魔宗也递来一封血帖' : '三大宗门的长老同时登门'}，争相招揽：</p>
       <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
