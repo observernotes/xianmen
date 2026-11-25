@@ -3669,5 +3669,105 @@ ART.drawFormation = function (id, x, y, t, o) {
   ctx.restore();
 };
 
+// ---------- 七、天劫与道心 ----------
+// ART.drawTribClouds(t, OY, k)                → 劫云压顶，k 0～1 为聚拢程度（画在场景之上、人物之前）
+// ART.drawTribBolt(x, yTop, yGround, k, seed, lvl) → 一道雷：k 0～1（0～0.15 先导，0.15～0.5 主击 + 闪屏，之后余辉）；seed 定折线；lvl 0 青白 1 金 2 紫 3 赤
+// ART.drawShield(x, y, frac, t, hit)          → 护体光罩，(x,y) 人物脚底；frac 越低越红并出现裂纹；hit 真 = 受击闪白
+// ART.drawShieldBar(x, y, w, frac, o)         → 护体条（高 7，左端盾牌）；o = { mark: 0～1 画一道“预计落点”刻线, lag }
+// ART.stamp('完美' | '上' | '中' | '下')      → 24×24 道基品级印（完美为金边阴刻，也可写 '美'）
+// ART.icon('dao_k' 狂 | 'dao_w' 稳 | 'dao_r' 仁 | 'karma' 因果)
+// ART.backdrop('demon')                       → 200×120 心魔劫底图
+Object.assign(ICONS, {
+  dao_k: '......r/.....rr...w/....rrm..wW/...rrmm.wW/...rmmr.wW/..rrmhrwW/..rmhhmW/..rmhhwr/..rrmwWr/...rwWrR/..yyWRR/.oyy/oO',
+  dao_w: '.....sss/....sttS/.....SS/...ssssss/..sttttttS/...SSSSSS/..ssssssss/.sttttttttS/.sttttttttS/..SSSSSSSS/bbbbbbbbbbbbbb/.BBBBBBBBBBBB',
+  dao_r: '......f/.....fwf/..f..fwf..f/.fwf.fff.fwf/.fwwfffffwwf/..fwwfrfwwf/..ffwfrfwff/...ffffffF/.gg.FFFFF.gg/.gGg.....gGg/..gGGGGGGGg/....GGGGG',
+  karma: '....yyyyy/..yyy.y.yyy/.yy...y...yy/.y.y..y..y.y/yy..y.y.y..yy/y....yyy....y/yyyyyyryyyyyy/y....yyy....y/yy..y.y.y..yy/.y.y..y..y.y/.yy...y...yy/..yyy.y.yyy/....yyyyy',
+});
+const GLYPH2 = {
+  '美': ['...X.....X/....X...X/.XXXXXXXXXXX/......X/..XXXXXXXXX/......X/.XXXXXXXXXXX/......X/XXXXXXXXXXXXX/.....X.X/....X...X/..XX.....XX/XX.........XX', '#c8323c', 1, 1],
+  '上': ['......XX/......XX/......XX/......XXXXXXX/......XXXXXXX/......XX/......XX/......XX/......XX/......XX/......XX/XXXXXXXXXXXXXX/XXXXXXXXXXXXXX', '#c8323c', 0, 0],
+  '中': ['......XX/......XX/.XXXXXXXXXXXX/.XXXXXXXXXXXX/.XX...XX...XX/.XX...XX...XX/.XX...XX...XX/.XXXXXXXXXXXX/.XXXXXXXXXXXX/......XX/......XX/......XX/......XX', '#a8483a', 0, 0],
+  '下': ['XXXXXXXXXXXXXX/XXXXXXXXXXXXXX/......XX/......XX/......XXXX/......XX.XXX/......XX...XX/......XX/......XX/......XX/......XX/......XX', '#8a6a62', 0, 0],
+};
+{
+  const stamp0 = ART.stamp;
+  ART.stamp = function (rating) {
+    if (rating === '完美') rating = '美'; const S = GLYPH2[rating]; if (!S) return stamp0(rating);
+    return cached('stamp|' + rating, () => {
+      const b = new Buf(24, 24), col = S[1], rows = S[0].split('/'), r = seeded(rating.charCodeAt(0));
+      b.r(1, 0, 22, 24, col); b.r(0, 1, 24, 22, col);
+      if (!S[2]) { b.r(2, 2, 20, 20, null); for (const [x, y] of [[2, 2], [21, 2], [2, 21], [21, 21]]) b.p(x, y, col); }
+      else { b.r(2, 2, 20, 1, '#f4c542'); b.r(2, 21, 20, 1, '#f4c542'); b.r(2, 2, 1, 20, '#f4c542'); b.r(21, 2, 1, 20, '#f4c542'); }
+      const ink = S[2] ? '#fff6e0' : col, oy = 5 + ((14 - rows.length) >> 1);
+      for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) if (rows[j][i] === 'X') { b.p(5 + i, oy + j, ink); if (S[3]) b.p(6 + i, oy + j, ink); }
+      for (let k = 0; k < 9; k++) { const x = Math.floor(r() * 24), y = Math.floor(r() * 24); if (x < 3 || x > 20 || y < 3 || y > 20) b.p(x, y, null); }
+      return b.cv({ noOutline: 1 });
+    });
+  };
+}
+ART.drawTribClouds = function (t, OY, k) {
+  k = Math.max(0, Math.min(1, k)); OY = OY || 0;
+  ctx.save(); ctx.globalAlpha = 0.5 * k; R(0, -OY, 200, 160 + OY, '#141028'); ctx.globalAlpha = 1;
+  for (let i = 0; i < 12; i++) {
+    const far = i % 2, spr = cached('tcl' + (i % 4) + far, () => cloudSprite(80 + i % 4, 34 + (i % 4) * 9, far ? '#4a4468' : '#5a5478', far ? '#2e2a48' : '#3a3458', '#1a1830'));
+    const x = ((i * 37 + t * (0.006 + (i % 3) * 0.003)) % 260) - 50, y = -OY - 22 + k * (20 + (i % 3) * 8 + far * 4) + Math.sin(t / 900 + i) * 1.5;
+    ctx.drawImage(spr, Math.round(x), Math.round(y));
+  }
+  R(0, -OY - 40, 200, 40 + k * 8, '#1a1830');
+  ctx.restore();
+};
+const BOLT_C = ['#bfe4ff', '#f4e04a', '#c27dff', '#ff6b6b'];
+ART.drawTribBolt = function (x, y0, y1, k, seed, lvl) {
+  k = Math.max(0, Math.min(1, k)); const c = BOLT_C[(lvl | 0) & 3], r = seeded((seed | 0) + 5), n = 9, pts = [];
+  for (let i = 0; i <= n; i++) { const u = i / n; pts.push([x + (i === n ? 0 : (r() - 0.5) * 22 * (1 - u * 0.7) + (1 - u) * (((seed | 0) % 2) ? 14 : -14)), y0 + (y1 - y0) * u]); }
+  const seg = (a, b2, col, th) => line(a[0], a[1], b2[0], b2[1], col, th);
+  ctx.save();
+  if (k < 0.15) { ctx.globalAlpha = 0.6; const m = Math.ceil(k / 0.15 * n); for (let i = 0; i < m; i++) seg(pts[i], pts[i + 1], c, 1); ctx.restore(); return; }
+  const a = k < 0.5 ? 1 : Math.max(0, (1 - k) * 2), th = k < 0.5 ? 3 : 1;
+  if (k < 0.27) { ctx.globalAlpha = 0.4 * (1 - (k - 0.15) / 0.12); R(-20, y0 - 60, 260, y1 - y0 + 140, '#ffffff'); }
+  ctx.globalAlpha = a * 0.75; for (let i = 0; i < n; i++) seg([pts[i][0] - 1, pts[i][1]], [pts[i + 1][0] - 1, pts[i + 1][1]], c, th);
+  for (const bi of [3, 6]) { let p = pts[bi]; for (let j = 0; j < 4; j++) { const q2 = [p[0] + (bi === 3 ? -1 : 1) * (4 + r() * 5), p[1] + 5 + r() * 6]; seg(p, q2, c, 1); p = q2; } }
+  ctx.globalAlpha = a; for (let i = 0; i < n; i++) seg(pts[i], pts[i + 1], '#ffffff', k < 0.5 ? 2 : 1);
+  ctx.globalAlpha = 1; glow(x, y1, 12 + (1 - k) * 10, c, 0.8 * a);
+  if (k < 0.85) { const kk = (k - 0.15) / 0.7; ART.drawSpark(x, y1 - 1, kk); for (let i = 0; i < 7; i++) { const an = Math.PI * (1.05 + i * 0.15), d = 6 + kk * 18; ctx.globalAlpha = 1 - kk; R(x + Math.cos(an) * d, y1 + Math.sin(an) * d * 0.5 + kk * kk * 6, 2, 1, i % 2 ? c : '#ffffff'); } ellipse(x, y1 + 1, Math.round(4 + kk * 14), 2, 'rgba(255,255,255,' + (0.35 * (1 - kk)).toFixed(2) + ')'); }
+  ctx.restore();
+};
+ART.drawShield = function (x, y, frac, t, hit) {
+  x = Math.round(x); y = Math.round(y); frac = Math.max(0, Math.min(1, frac)); if (frac <= 0) return;
+  const rr = 26, c = hit ? '#ffffff' : frac > 0.6 ? '#f4c542' : frac > 0.3 ? '#ffb23f' : '#ff6b3a', hi = lerpC(c, '#ffffff', 0.6);
+  ctx.save();
+  for (let j = -rr; j <= 2; j++) { const w = Math.round(Math.sqrt(rr * rr - j * j) * 0.95), yy = y + j; ctx.globalAlpha = (hit ? 0.3 : 0.1) + (j + rr) / rr * 0.08; dR(x - w, yy, w * 2, 1, c, j < -rr * 0.5 ? 6 : 3); ctx.globalAlpha = 0.5 + frac * 0.4; R(x - w - 1, yy, 2, 1, hi); R(x + w - 1, yy, 2, 1, c); }
+  ctx.globalAlpha = 0.9; R(x - 8, y - rr - 1, 16, 1, hi); for (let j = -rr + 5; j < -8; j += 2) R(x - Math.round(Math.sqrt(rr * rr - j * j) * 0.95) + 3, y + j, 1, 1, '#ffffff');
+  const r = seeded(7), nc = Math.round((1 - frac) * 7); ctx.globalAlpha = 0.9;
+  for (let i = 0; i < nc; i++) { let px = x + (r() - 0.5) * 34, py = y - 6 - r() * 16; for (let s = 0; s < 6; s++) { const nx = px + (r() - 0.5) * 7, ny = py + (r() - 0.3) * 6; line(px, py, nx, ny, s % 2 ? '#ffffff' : hi); px = nx; py = ny; } }
+  for (let i = 0; i < 5; i++) { const a = t / 800 + i * 1.26, s = Math.sin(a); if (s < -0.2) continue; ctx.globalAlpha = 0.5 + s * 0.4; R(x + Math.cos(a) * (rr - 2), y - 12 + Math.sin(t / 600 + i) * 7, 2, 2, hi); }
+  ctx.restore();
+};
+ART.drawShieldBar = function (x, y, w, frac, o) {
+  o = o || {}; x = Math.round(x); y = Math.round(y); frac = Math.max(0, Math.min(1, frac)); const bx = x + 8, bw = w - 8, iw = bw - 2, fw = Math.round(iw * frac), lw = Math.round(iw * Math.max(frac, Math.min(1, o.lag || 0))), c = frac > 0.6 ? '#f4c542' : frac > 0.3 ? '#ffb23f' : '#ff6b3a';
+  R(bx + 1, y, bw - 2, 7, INK); R(bx, y + 1, bw, 5, INK); R(bx + 1, y + 1, iw, 5, '#2e2742');
+  if (lw > fw) R(bx + 1, y + 1, lw, 5, '#ffffff');
+  if (fw > 0) { R(bx + 1, y + 1, fw, 5, c); R(bx + 1, y + 1, fw, 1, lerpC(c, '#ffffff', 0.6)); R(bx + 1, y + 5, fw, 1, hs(c, 0.66)); for (let i = 2; i < fw - 1; i += 6) R(bx + 1 + i, y + 2, 2, 1, 'rgba(255,255,255,0.45)'); }
+  if (o.mark !== undefined) { const mx = bx + 1 + Math.round(iw * Math.max(0, Math.min(1, o.mark))); R(mx - 1, y - 2, 3, 2, '#d8404a'); R(mx, y, 1, 7, '#d8404a'); }
+  R(x, y - 1, 9, 1, INK); R(x - 1, y, 11, 5, INK); R(x, y + 5, 9, 1, INK); R(x + 1, y + 6, 7, 1, INK); R(x + 2, y + 7, 5, 1, INK); R(x + 3, y + 8, 3, 1, INK);
+  R(x, y, 9, 5, '#f4c542'); R(x, y, 4, 5, '#fff2a8'); R(x + 1, y + 5, 7, 1, '#f4c542'); R(x + 2, y + 6, 5, 1, '#a8742a'); R(x + 3, y + 7, 3, 1, '#a8742a'); R(x + 4, y + 1, 1, 5, '#a8742a'); R(x + 2, y + 2, 5, 1, '#a8742a');
+};
+// 心魔劫：血色虚空里一面裂开的镜子，镜中是自己的影子，上方一双眼
+BACKDROP.demon = () => {
+  vgrad(0, 0, 200, 120, ramp(['#08040e', '#1e0a26', '#4a1030', '#7a1a2e'], 6), 0.34);
+  const r = seeded(66);
+  for (let i = 0; i < 5; i++) for (let s = 0; s < 70; s++) { const a = s * 0.13 + i * 1.26, rr = 14 + s * 1.1 + i * 3, x = 100 + Math.cos(a) * rr * 1.5, y = 56 + Math.sin(a) * rr * 0.62; if (x < 0 || x > 199 || y < 0 || y > 108) continue; ctx.globalAlpha = 0.35 * (1 - s / 80); R(x, y, 2, 1, i % 2 ? '#a8203a' : '#5a1a6a'); }
+  ctx.globalAlpha = 1;
+  for (const sx of [-1, 1]) { const ex = 100 + sx * 34; glow(ex, 22, 14, '#ff3a2a', 0.5); for (let j = -4; j <= 4; j++) { const w = Math.round(Math.sqrt(1 - (j * j) / 20) * 15); R(ex - w, 22 + j, w * 2, 1, '#12060e'); } for (let j = -2; j <= 2; j++) { const w = Math.round(Math.sqrt(1 - (j * j) / 6) * 11); R(ex - w, 22 + j, w * 2, 1, '#f0d8d0'); } disc(ex - sx * 3, 22, 3, '#d8202a'); R(ex - sx * 3, 19, 1, 7, '#12060e'); R(ex - 12 + (sx > 0 ? 0 : 0), 17 - 0, 26, 1, '#12060e'); line(ex - sx * 15, 15, ex + sx * 13, 19, '#12060e', 2); }
+  // 镜
+  R(72, 30, 56, 78, '#2a1a36'); R(70, 32, 60, 74, '#2a1a36'); R(74, 34, 52, 70, '#5a4a1e'); R(74, 34, 52, 1, '#c8a84a'); R(74, 34, 1, 70, '#c8a84a'); R(77, 37, 46, 64, '#1a1430');
+  vgrad(77, 37, 46, 64, ramp(['#2a2448', '#3a2a5a', '#5a2a4a'], 4), 0.34);
+  disc(100, 62, 7, '#0a0612'); R(92, 68, 16, 30, '#0a0612'); R(88, 74, 24, 27, '#0a0612'); R(98, 52, 4, 4, '#0a0612'); R(96, 61, 2, 1, '#ff3a2a'); R(102, 61, 2, 1, '#ff3a2a');
+  for (const [x0, y0, x1, y1] of [[100, 37, 94, 58], [94, 58, 104, 70], [104, 70, 96, 101], [94, 58, 77, 66], [104, 70, 123, 62], [100, 84, 123, 92]]) { line(x0, y0, x1, y1, '#e8d8f0'); line(x0 + 1, y0, x1 + 1, y1, '#6a5a8a'); }
+  for (let i = 0; i < 7; i++) { const x = 56 + r() * 88, y = 96 + r() * 16; R(x, y, 3 + r() * 3, 1, '#c8b8e0'); R(x + 1, y + 1, 2, 1, '#6a5a8a'); }
+  R(0, 108, 200, 12, '#12060e'); R(0, 108, 200, 1, '#7a1a2e'); dR(0, 104, 200, 4, '#12060e', 8); ctx.globalAlpha = 0.3; dR(80, 109, 40, 10, '#5a2a4a', 6); ctx.globalAlpha = 1;
+  for (const x of [20, 46, 154, 180]) for (let y = 0; y < 62 + (x * 7 % 20); y += 4) { R(x + Math.round(Math.sin(y / 14 + x) * 2), y, 2, 3, y % 8 ? '#3a2a40' : '#5a4a60'); }
+};
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -125,3 +125,22 @@ if (sec('g6') && ART.drawBuilding) {
   ART.sigilIds.forEach((id, i) => pair(ART.sigil(id), SN[id], i));
   br();
 }
+
+if (sec('g7') && ART.drawTribBolt) {
+  h('【七 天劫与道心】劫云 + 雷击四个时刻（k = 0.1 先导 / 0.22 主击闪屏 / 0.4 主击 / 0.7 余辉）+ 护体光罩与护体条');
+  const T = 1000;
+  [[0.1, 0, 1, 0.9], [0.22, 1, 1, 0.7], [0.4, 2, 1, 0.45], [0.7, 3, 0, 0.2]].forEach(([k, lvl, hit, fr], i) => scene(g => {
+    const r = ART.drawHome({ year: 0.3, home: { cave: 5, field: 6, furnace: 4, array: 5 } }, T, OY, [], { phase: 0.5 });
+    ART.drawTribClouds(T + i * 400, OY, 1);
+    g.drawImage(ART.sit(look, 3), 100 - D.sit.w / 2, 136 - D.sit.h);
+    ART.drawShield(100, 136, fr, T, hit && k > 0.15 && k < 0.3);
+    ART.drawTribBolt(100, -OY + 10, 136 - 27, k, 3 + i, lvl);
+    ART.drawShieldBar(60, 150, 80, fr, { mark: 0.3, lag: fr + 0.15 });
+  }, 'k=' + k + ' 第' + (lvl + 1) + '色 护体' + fr * 100 + '%'));
+  br(); h('道基品级印 ART.stamp("完美" | "上" | "中" | "下")；道心三相与因果图标；心魔劫底图 ART.backdrop("demon")');
+  for (const r of ['完美', '上', '中', '下']) { show(ART.stamp(r), 1, '', PAPER); show(ART.stamp(r), 3, r, PAPER); }
+  [['dao_k', '狂'], ['dao_w', '稳'], ['dao_r', '仁'], ['karma', '因果']].forEach(([n, l], i) => pair(ART.icon(n), n + ' ' + l, i));
+  br(); show(ART.backdrop('demon'), SS, '心魔劫');
+  fxc(100, 44, g => { ART.drawShieldBar(6, 5, 88, 1, {}); ART.drawShieldBar(6, 18, 88, 0.5, { mark: 0.2, lag: 0.7 }); ART.drawShieldBar(6, 31, 88, 0.15, { mark: 0 }); }, 4, '护体条', '#3a5a7a');
+  br();
+}
