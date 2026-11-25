@@ -261,7 +261,8 @@ require('fs').mkdirSync(out, { recursive: true });
     st.cal.w = { id: 'w_dahan', at: 146, until: 154 }; st.market.idx = { herb: 1.4, ore: 0.8, pill: 1.2 };
     L.restock(st, true); L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true;
   });
-  for (let i = 0; i < 8; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(150); }   // 老祖还没讲完的先点掉
+  await page.evaluate(() => { const { st } = window.__xm; for (const h of window.__xm_people.hints) st.hintSeen[h.id] = 1; });   // 人物的讲解不在这里看（后面单独测），免得一次点不完
+  for (let i = 0; i < 20; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(250); }   // 老祖还没讲完的先点掉
   await page.evaluate(() => { document.querySelector('#tip').hidden = true; });
   await page.waitForTimeout(600); await page.screenshot({ path: out + '/20-world-tag.png' });
   const wt = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden && r.width > 0, w: r.width, h: r.height, txt: el.textContent }; });
@@ -411,6 +412,78 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 0; window.__xm.L.startRetreat(s); }); await page.waitForTimeout(800); await page.screenshot({ path: out + '/16c-retreat.png' });
   await page.evaluate(() => { const s = window.__xm.st; s.retreat = null; s.sect = null; window.__xm.showInvite(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/17-invite.png' });
   await close();
+  // 人物加深：羁绊页、送礼、委托完成卡、带同伴出发页、老祖讲送礼；360 宽，可点的都 ≥ 44 像素、不横向溢出
+  await page.setViewportSize({ width: 360, height: 740 }); await page.waitForTimeout(300);
+  const pplLay = async name => {
+    const r = await page.evaluate(() => {
+      const bad = [], body = document.querySelector('#modal .body') || document.querySelector('#modal');
+      for (const el of document.querySelectorAll('#modal button, #modal [data-ppgift], #modal [data-ppq], #modal [data-ppcomp], #modal #btnSx, #modal #ppGift, #modal #ppCompSw')) {
+        const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+        if (r.height < 43.5 || r.width < 43.5) bad.push((el.id || el.textContent.trim().replace(/\s+/g, '').slice(0, 10)) + ' ' + Math.round(r.width) + '×' + Math.round(r.height));
+      }
+      return { over: body.scrollWidth - body.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth, bad };
+    });
+    if (r.over > 0 || r.page > 0) errors.push(`人物 ${name} 横向溢出 ${r.over}/${r.page}px`);
+    if (r.bad.length) errors.push(`人物 ${name} 点击目标不足 44px：` + r.bad.join('，'));
+  };
+  await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.exp = null; st.retreat = null; st.run = null; st.p.inj = 0; st.guide = { step: 99, done: true }; st.storyQ = []; st.visitor = null; st.flags.maxR = 3;
+    for (const h of ['ppGift', 'ppQuest', 'ppComp', 'ppDaolv', 'ppSx', 'ppQuest']) st.hintSeen[h] = 1;
+    st.stones = 1e5; st.herbs = 800; st.feed = 300; st.ore = 300; st.treasure = 2; st.pills = 3; st.tick = 132; st.mats.yin.soul = 3; st.mats.yin.fire = 3;
+    st.npc = { su: { aff: 92, f60: 1 }, ye: { aff: 55, f60: 0 }, chu: { aff: 85, f60: 1 }, ge: { aff: 62, f60: 1 }, bai: { aff: 84, f60: 1 }, mo: { aff: 22 } };
+    st.daolv = 'su'; st.eflags = st.eflags || {}; st.eflags.tiankuo_ally = 1; st.ppl.sx = -99;
+    st.dan.bag.liaoshang = [1, 1, 0]; st.dan.bag.baoqi = [0, 2];
+    st.meta.gift = { su: { herbs: 1, art_mo: -1 }, chu: { ore: 1 }, ge: { dan_low: -1 } };
+    for (const id of L.PPL) L.pqCheck(st, id, true);
+    st.ppl.q.chu[1].s = 'done'; st.ppl.comp = 'chu';
+    window.__xm.showMe('bond');
+  });
+  await page.waitForTimeout(350); await page.screenshot({ path: out + '/p01-bond.png' }); await pplLay('羁绊页');
+  await page.evaluate(() => { const b = document.querySelector('#modal .body'); if (b) b.scrollTop = 1e5; }); await page.waitForTimeout(150); await page.screenshot({ path: out + '/p02-bond-bottom.png' }); await pplLay('羁绊页（底部）');
+  for (const sel of ['#btnSx', '[data-ppq]', '[data-ppcomp]']) if (!(await page.$('#modal ' + sel))) errors.push('羁绊页缺 ' + sel);
+  // 来访：事件弹窗里的【送礼】
+  await page.evaluate(() => { const { st, L } = window.__xm; window.__xm.closeModal(); const e = L.events().find(x => x.npc === 'su' && x.where === 'home'); st.visitor = { id: e.id, left: 6 }; window.__xm.showVisitor(); });
+  await page.waitForTimeout(450); await page.screenshot({ path: out + '/p03-visitor-gift.png' }); await pplLay('来访事件');
+  if (!(await page.$('#modal #ppGift:not([disabled])'))) errors.push('来访事件里没有可点的 #ppGift');
+  else {
+    await page.click('#modal #ppGift'); await page.waitForTimeout(350); await page.screenshot({ path: out + '/p04-gift-list.png' }); await pplLay('送礼列表');
+    const n = await page.evaluate(() => document.querySelectorAll('#modal .pgiftopt').length); if (n < 5) errors.push('送礼列表条目太少：' + n);
+    await page.click('#modal .pgiftopt'); await page.waitForTimeout(350); await page.screenshot({ path: out + '/p05-gift-result.png' }); await pplLay('送礼结果卡');
+    await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(450);
+    const dis = await page.evaluate(() => { const b = document.querySelector('#modal #ppGift'); return b ? [b.disabled, b.textContent] : null; });
+    if (!dis || !dis[0] || !/送过/.test(dis[1])) errors.push('送过礼后 #ppGift 应置灰并写明已送过：' + JSON.stringify(dis));
+  }
+  await close();
+  // 委托完成卡：交付两枚疗伤丹
+  await page.evaluate(() => window.__xm.showMe('bond')); await page.waitForTimeout(300);
+  if (await page.$('#modal [data-ppq]:not([disabled])')) {
+    await page.click('#modal [data-ppq]:not([disabled])'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/p06-pq-done.png' }); await pplLay('委托完成卡');
+    await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
+  } else errors.push('没有可交付的委托按钮');
+  await close();
+  // 带同伴的出发页
+  await page.evaluate(() => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.ppl.comp = 'ge'; window.__xm.confirmExp(0, 0, 2); }); await page.waitForTimeout(400);
+  await page.screenshot({ path: out + '/p07-exp-comp.png' }); await pplLay('出发页');
+  if (!(await page.$('#modal #ppCompSw'))) errors.push('出发页没有同伴【换】');
+  else { await page.click('#modal #ppCompSw'); await page.waitForTimeout(350); await page.screenshot({ path: out + '/p08-comp-pick.png' }); await pplLay('同伴选择');
+    await page.click('#modal [data-cc="bai"]'); await page.waitForTimeout(350);
+    const cc = await page.evaluate(() => window.__xm.L.comp(window.__xm.st)); if (cc !== 'bai') errors.push('同伴选择没生效：' + cc); }
+  await close();
+  // 老祖讲送礼（不遮挡之外，单独看一眼）
+  await page.evaluate(() => { const { st, L } = window.__xm; delete st.hintSeen.ppGift; st.visitor = null; st.ppl.note = {}; const e = L.events().find(x => x.npc === 'chu' && x.where === 'home'); st.visitor = { id: e.id, left: 6 }; window.__xm.showVisitor(); });
+  await page.evaluate(() => { window.__xm.st.tick += 100; });   // 两条提示之间隔两个周天（hintCool 按周天算）
+  for (let i = 0; i < 12; i++) {
+    await page.waitForTimeout(350);
+    if (await page.evaluate(() => window.__xm.guideDbg.active) === 'ppGift') break;
+    await page.evaluate(() => { const { st } = window.__xm; for (const id of window.__xm.guideDbg.cand) if (id !== 'ppGift') st.hintSeen[id] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
+  }
+  await page.waitForTimeout(300); await page.screenshot({ path: out + '/p09-gift-hint.png' }); 
+  const gh = await page.evaluate(() => ({ dbg: window.__xm.guideDbg, gift: !!document.querySelector('#ppGift:not([disabled])'), vis: !document.querySelector('#guide').hidden, txt: (document.querySelector('#guide .gtext') || {}).textContent || '' }));
+  if (!gh.vis || !/送礼/.test(gh.txt)) errors.push('老祖没有讲送礼：' + JSON.stringify(gh));
+  await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(400);
+  await page.evaluate(() => { const { st } = window.__xm; st.visitor = null; st.tick -= 100; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }); await close();
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
   await page.evaluate(() => window.__xm.showDeath()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/18a-settle.png' });
   // 轮回：结算 → 传承（没有能带的就跳过）→ 轮回殿 → 出身 → 命格，一路点“下一步”；老祖的讲解点“知道了”
   for (let i = 0; i < 6; i++) {

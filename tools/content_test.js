@@ -28,7 +28,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
-    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin']) st.hintSeen[k] = 1;
+    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'plots']) st.hintSeen[k] = 1;
     st.p.r = 3; st.p.t = 6; st.home = { cave: 6, array: 8, field: 8, furnace: 8 }; st.herbs = 500; st.treasure = 4; st.stones = 1e5; st.tick = 130; st.pact = 1; st.beaten.mu = 1; st.flags.maxR = 3; st.flags.maxI = 12; st.stats.exp = 20;
     for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
     st.bosses = { 0: 1, 1: 1, 2: 1 };
@@ -236,7 +236,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(fb.ok && fb.p1 === fb.p0 + 1, `fx.plus：兵器 +${fb.p0} → +${fb.p1}（${fb.fx}）`);
   // 器方与打造：story_trib1 给阵图（先收着），ch_star_4 给器方；化神 + 器炉（借丹炉）5 级、材料够就能打，打出来固定词条
   const fg = await page.evaluate(() => {
-    const { st, L } = window.__xm; st.p.r = 4; st.flags.maxR = 4; st.home.furnace = 8;
+    const { st, L } = window.__xm; st.p.r = 4; st.flags.maxR = 4; st.home.furnace = 8; st.home.forge = 5;
     L.applyFx(st, { plan: 'f_dujie' }); L.applyFx(st, { plan: 'g_langya' });
     L.giveMat(st, 0, 2);
     const why = L.canForge(st, 'g_langya'), it = L.forge(st, 'g_langya');
@@ -413,6 +413,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 年历：筑基且约战打完后，“大事”牌点开是年历（24 格时间轴 + 论道 / 拍卖 / 会武 / 秘境 / 大势各一行）；大势小牌在场景右上角
   await page.evaluate(() => { const { st, L } = window.__xm; st.market.evQ = []; st.tick = 158; st.cal.w = { id: 'w_shouchao', at: 158, until: 166 }; L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true; });
+  for (let i = 0; i < 20; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(250); }   // 老祖还没讲完的先点掉
   await page.waitForTimeout(400);
   const tag = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden, txt: el.textContent, w: r.width, h: r.height }; });
   expect(tag.vis && tag.txt.includes('兽潮') && tag.txt.includes('8') && tag.w >= 44 && tag.h >= 44, `大势小牌：${tag.txt}（${Math.round(tag.w)}×${Math.round(tag.h)}）`);
@@ -603,7 +604,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
   const gHint = async (id, setup) => {
-    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
+    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen.plots = 1; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
     await page.waitForTimeout(900);
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
     const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
@@ -893,8 +894,8 @@ require('fs').mkdirSync(out, { recursive: true });
     const r5 = L.mjAfterEvent(s); o.afterEv = { ph: run.phase, next: r5 && r5.next };
     const altar = L.eventById('realm_altar'); run.hp = 50; L.resolveChoice(s, altar, 1); o.altarHp = run.hp;
     run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
-    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线，宿敌那边的 zhao_2 还闸着）
-    o.gate = { zhao: L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
+    // 别的系统的键只对秘境事件放行（恩怨 grudge：秘境的 realm_rival 上线；宿敌线合并后 zhao_2 也上线了，不再被 fx.grudge 闸住）
+    o.gate = { zhao: L.evLive(L.eventById('zhao_2')) && !L.evGate(L.eventById('zhao_2')).includes('fx.grudge'), rival: L.evLive(L.eventById('realm_rival')) };
     // 离开：收获全部到手
     o.leave2 = L.mjCanLeave(s); const pend = L.mjPending(s).stones, sb = s.stones, n = run.loot.length; const sum = L.mjLeave(s);
     o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks };
@@ -937,7 +938,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(mj.afterEv.ph === 'door', `奇遇处理完回到门前：${JSON.stringify(mj.afterEv)}`);
   expect(mj.altarHp === 60, `fx.hp：续一炷香气血 50 → ${mj.altarHp}`);
   expect(mj.skip[1] === mj.skip[2] && mj.skip[3], `run_skip：第 ${mj.skip[0]} 层 → 第 ${mj.skip[1]} 层（终层前一层 ${mj.skip[2]}），标记不留在 eflags`);
-  expect(mj.gate.zhao && mj.gate.rival, `恩怨只对秘境事件放行：zhao_2 仍闸 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
+  expect(mj.gate.zhao && mj.gate.rival, `恩怨键放行：zhao_2 已上线 ${mj.gate.zhao}、realm_rival 上线 ${mj.gate.rival}`);
   expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 3, `带着收获离开：${JSON.stringify(mj.leave)}`);
   expect(mj.wipe.how === 'wipe' && mj.wipe.got === mj.wipe.want && mj.wipe.inj >= 4 && !mj.wipe.run, `重伤出局：灵石留四成 ${mj.wipe.got}/${mj.wipe.want}，负伤 ${mj.wipe.inj}`);
   expect(mj.th3 === 'youquan' && mj.chest.ph === 'chest' && mj.chest.ks.includes('art:x_hunyuan') && mj.chest.ks.length === 3, `秘藏三选一（第三次通关出混元道经）：${JSON.stringify(mj.chest)}`);
@@ -1094,6 +1095,282 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(300);
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
+  // 人物加深（src/logic/people.js）：送礼、委托、同伴、双修、迁移——都在新建的存档上算，不碰当前这一局
+  const PP = await page.evaluate(() => { const L = window.__xm.L; return (
+  (L) => {
+    const o = {};
+    const ev = (typeof L.events === 'function' ? L.events() : L.events);
+    const mk = (affs, f) => {
+      const s = L.newState({ name: '人物' });
+      s.p.r = 3; s.p.s = 3; s.p.t = 6; s.tick = 130; s.stones = 1e5; s.herbs = 800; s.feed = 400; s.ore = 400; s.stats.exp = 20; s.pact = 1; s.beaten.mu = 1; s.flags.maxR = 3; s.flags.maxI = 12;
+      s.guide = { step: 99, done: true }; s.hintSeen = {}; s.storyQ = [];
+      for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3;
+      s.npc = {}; for (const id in affs) s.npc[id] = { aff: affs[id] };
+      if (f) f(s);
+      L.migratePeople(s);
+      return s;
+    };
+    const visit = (s, id) => { const e = ev.find(x => x.npc === id && x.where === 'home'); s.visitor = { id: e.id, left: 6 }; return e; };
+    // ---- 送礼 ----
+    {
+      const s = mk({ su: 20, chu: 20, ye: 20, ge: 20, bai: 20, mo: 20 });
+      o.whyNone = L.pgiftWhy(s, 'su') === '等他来访时再送';   // 没有访客
+      visit(s, 'su');
+      o.whyOk = L.pgiftWhy(s, 'su') === '';
+      o.whyOther = L.pgiftWhy(s, 'chu') !== '';
+      o.hdr = L.GIFT_DEX === 18 && L.giftDex(s).total === 18 && L.giftDex(s).list.length === 6 && L.giftDex(s).list.every(x => x.cells.length === 3) && Array.isArray(L.giftKnown(s)) && L.giftKnown(s).length === 0;
+      // 优先级：讨厌的标签压过喜欢的
+      o.react = L.pgiftReact('su', ['herbs', 'art_mo']) === 'hate' && L.pgiftReact('su', ['herbs']) === 'like' && L.pgiftReact('su', ['ore']) === 'mid' && L.pgiftReact('ge', ['dan', 'dan_low']) === 'hate';
+      // 列表：只列有的
+      s.herbs = 0; s.ore = 0; s.feed = 0; s.stones = 0; s.treasure = 0; s.pills = 0; s.arts.own = {};
+      const empty = L.pgiftOpts(s, 'su');
+      o.optsEmpty = empty.length === 0;
+      s.herbs = 800; s.ore = 400; s.feed = 400; s.stones = 1e5;
+      const keys = L.pgiftOpts(s, 'su').map(x => x.key);
+      o.optsHave = keys.includes('herbs') && keys.includes('ore') && keys.includes('feed') && keys.includes('stones') && !keys.includes('treasure') && !keys.includes('pills');
+      // 一个 +8（爱收灵草）
+      const a0 = L.aff(s, 'su'), g1 = L.pgiftGive(s, 'su', 'herbs');
+      o.like = !!g1 && g1.react === 'like' && g1.d === 8 && L.aff(s, 'su') === a0 + 8 && s.meta.gift.su.herbs === 1 && s.herbs < 800;
+      o.again = L.pgiftWhy(s, 'su') === '这一回已经送过了' && L.pgiftGive(s, 'su', 'ore') === null && L.aff(s, 'su') === a0 + 8;
+      o.dexFound = L.giftKnown(s).length === 1 && L.giftDex(s).found === 1 && L.giftKnown(s)[0].tag === 'herbs';
+      // 一般 +3、讨厌 −3（抄本：魔道功法）
+      s.visitor.gift = 0;
+      const a1 = L.aff(s, 'su'), g2 = L.pgiftGive(s, 'su', 'ore');
+      o.mid = !!g2 && g2.react === 'mid' && g2.d === 3 && L.aff(s, 'su') === a1 + 3 && s.meta.gift.su.ore === 0;
+      s.visitor.gift = 0;
+      L.giveArt(s, 'z_liehuo');
+      const mo = L.pgiftOpts(s, 'su').find(x => x.key === 'art:z_liehuo');
+      o.optMo = !!mo && mo.tags.includes('art_mo');
+      const a2 = L.aff(s, 'su'), g3 = L.pgiftGive(s, 'su', 'art:z_liehuo');
+      o.hate = !!g3 && g3.react === 'hate' && g3.d === -3 && L.aff(s, 'su') === a2 - 3 && s.meta.gift.su.art_mo === -1 && g3.line.length > 0;
+      o.hateKnown = L.giftKnown(s).length === 2 && L.giftKnown(s).some(x => x.kind === 'hate' && x.tag === 'art_mo');
+      // 同一门功法只送同一人一次
+      o.artOnce = !L.pgiftOpts(s, 'su').some(x => x.key === 'art:z_liehuo') && ((s.visitor.gift = 0), true) && !L.pgiftOpts(s, 'su').some(x => x.key === 'art:z_liehuo');
+      visit(s, 'ge'); s.visitor.gift = 0;
+      o.artOther = L.pgiftOpts(s, 'ge').some(x => x.key === 'art:z_liehuo');
+      // 排序：♥、？、一般、✕
+      visit(s, 'su');
+      s.herbs = 800; s.ore = 400; s.feed = 400; s.stones = 1e5; L.giveArt(s, 'm_xuedun'); L.giveArt(s, 'z_huichun');
+      const rk = { like: 0, unk: 1, mid: 2, hate: 3 }, ol = L.pgiftOpts(s, 'su').map(x => rk[x.mark]);
+      o.sorted = ol.length >= 4 && ol.every((v, i) => !i || ol[i - 1] <= v) && new Set(ol).size >= 3;
+      // 丹囊里的丹按档分开列
+      visit(s, 'ye'); s.visitor.gift = 0; s.dan.bag.baoqi = [0, 1, 2, 3]; s.dan.bag.liaoshang = [];
+      const bk = L.pgiftOpts(s, 'ye').map(x => x.key).filter(k => k.startsWith('bag:baoqi'));
+      o.bagBands = bk.length === 3 && bk.includes('bag:baoqi:0') && bk.includes('bag:baoqi:1') && bk.includes('bag:baoqi:2');
+      const g4 = L.pgiftGive(s, 'ye', 'bag:baoqi:2');
+      o.bagHi = !!g4 && g4.react === 'like' && s.dan.bag.baoqi.length === 3 && Math.min(...s.dan.bag.baoqi) === 0 && !s.dan.bag.baoqi.includes(2) === true;
+      // 迎客亭：正的两档 +1，讨厌不加
+      const sp = mk({ su: 20 }, x => { x.home.pavilion = 1; }); visit(sp, 'su');
+      o.pav = L.pgiftVal(sp, 'like') === 9 && L.pgiftVal(sp, 'mid') === 4 && L.pgiftVal(sp, 'hate') === -3;
+      const g5 = L.pgiftGive(sp, 'su', 'herbs');
+      o.pavGive = !!g5 && g5.d === 9;
+      // 不认识的人不能送
+      const sn = mk({ su: 20 }); visit(sn, 'su'); o.unmet = L.pgiftWhy(sn, 'mo') !== '';
+      // 老祖点破一样 ♥ 记进图鉴
+      const sh = mk({ su: 20 }); L.pgiftHintLike(sh, 'su'); o.hint = L.giftKnown(sh).length === 1;
+    }
+    // ---- 委托 ----
+    {
+      const s = mk({ su: 39, chu: 39, ge: 39, ye: 39, bai: 39, mo: 39 });
+      L.pqCheck(s, 'su');
+      o.q0 = !s.ppl.q.su || !s.ppl.q.su[1];
+      L.addAff(s, 'su', 1);
+      o.q1 = !!s.ppl.q.su[1] && s.ppl.q.su[1].s === 'on' && !s.ppl.q.su[2];
+      s.npc.su.aff = 79; L.addAff(s, 'su', 1);
+      o.q2 = !!s.ppl.q.su[2] && L.pqActive(s).filter(x => x.id === 'su').length === 2;
+      // 历练：行事不对 / 评价不够不算；对了给 +15 与两枚疗伤丹
+      s.npc.su.aff = 41; s.ppl.q.su[2] = undefined; delete s.ppl.q.su[2];
+      const a0 = L.aff(s, 'su');
+      L.startExp(s, 0, 0, 0); s.exp.left = 0; const r0 = L.resolveExp(s); s.p.inj = 0;
+      o.expWrongAct = !(r0.pq && r0.pq.length) && s.ppl.q.su[1].s === 'on';
+      L.startExp(s, 3, 2, 2); s.exp.plan.rnd = -12; s.exp.plan.adj = -50; s.exp.left = 0; const r1 = L.resolveExp(s); s.p.inj = 0;
+      o.expLowRating = r1.rating < 2 && !(r1.pq && r1.pq.length) && s.ppl.q.su[1].s === 'on';
+      L.startExp(s, 0, 0, 2); s.exp.plan.rnd = 24; s.exp.left = 0; s.exp.recall = true; const r2 = L.resolveExp(s); s.p.inj = 0;
+      o.expRecall = !(r2.pq && r2.pq.length) && s.ppl.q.su[1].s === 'on';
+      L.startExp(s, 0, 0, 2); s.exp.plan.rnd = 24; s.exp.left = 0; const r3 = L.resolveExp(s); s.p.inj = 0;
+      o.expDone = r3.rating >= 2 && !!r3.pq && r3.pq.length === 1 && s.ppl.q.su[1].s === 'done' && L.aff(s, 'su') === a0 + 15 && L.bagN(s, 'liaoshang') === 2 && L.pqProg(s, 'su', 1).s === 'done' && s.ppl.qn === 1;
+      // 交付
+      s.npc.su.aff = 80; L.pqCheck(s, 'su'); s.dan.bag.liaoshang = [1];
+      o.giveShort = L.pqGiveWhy(s, 'su', 2) !== '' && L.pqGive(s, 'su', 2) === null && s.ppl.q.su[2].s === 'on';
+      s.dan.bag.liaoshang = [1, 1]; s.npc.su.aff = 80;
+      const gd = L.pqGive(s, 'su', 2);
+      o.giveDone = !!gd && s.ppl.q.su[2].s === 'done' && L.bagN(s, 'liaoshang') === 0 && L.artOwned(s, 'z_huichun') && L.aff(s, 'su') === 95 && L.pqGive(s, 'su', 2) === null;
+      // 炼丹：上品以上（葛老）——下品不算
+      s.npc.ge.aff = 40; L.pqCheck(s, 'ge'); s.herbs = 5000; s.home.furnace = 6; s.stones = 1e7;
+      let sawLow = false, lowOk = true, n = 0;
+      while (s.ppl.q.ge[1].s === 'on' && n++ < 80) { const r = L.craft(s, 'liaoshang'); if (r && r.ok && r.q < 2) { sawLow = true; if (s.ppl.q.ge[1].s !== 'on') lowOk = false; } s.toxin = 0; s.dan.bag.liaoshang = []; s.dan.next = {}; }
+      o.craftDone = s.ppl.q.ge[1].s === 'done' && lowOk && n < 80 && L.yinHave(s, 'fire') >= 1 && L.yinHave(s, 'soul') >= 1;
+      // 丹方：十五格全揭晓，改成“炼出两炉上品以上”
+      s.npc.ge.aff = 80; for (const g of L.YIN_GRID) s.meta.recipe[g[2]] = 1; L.pqCheck(s, 'ge');
+      const q2 = s.ppl.q.ge[2];
+      o.recipeAlt = !!q2 && q2.alt === 1 && L.pqDesc(s, 'ge', 2).includes('两炉上品') && L.pqProg(s, 'ge', 2).t.includes('/2');
+      q2.base = s.stats.goodPill || 0; s.stats.goodPill = q2.base + 1; L.peopleTick(s, {});
+      o.recipeAlt1 = s.ppl.q.ge[2].s === 'on';
+      s.stats.goodPill = q2.base + 2; L.peopleTick(s, {});
+      o.recipeAlt2 = s.ppl.q.ge[2].s === 'done';
+      // 丹方数增加（没揭晓满的情况）
+      const s2 = mk({ ge: 80 }, x => { x.meta.recipe = {}; });
+      const q22 = s2.ppl.q.ge[2];
+      o.recipeNew = !!q22 && !q22.alt && L.pqDesc(s2, 'ge', 2).includes('自己试出一格新的');
+      const k0 = L.YIN_GRID.find(g => !L.recipeKnown(s2, g[2]))[2];
+      L.peopleTick(s2, {}); o.recipeNew0 = s2.ppl.q.ge[2].s === 'on';
+      s2.meta.recipe[k0] = 1; L.peopleTick(s2, {});
+      o.recipeNew1 = s2.ppl.q.ge[2].s === 'done';
+      // 首领（楚狂）：再战也算
+      const sb = mk({ chu: 40 }, x => { x.p.r = 5; x.p.s = 3; });
+      o.bossQ = !!sb.ppl.q.chu && sb.ppl.q.chu[2] === undefined;
+      sb.npc.chu.aff = 80; L.pqCheck(sb, 'chu');
+      let bd = false, tries = 0;
+      for (let k = 0; k < 2 && !bd; k++) while (!bd && tries++ < 60) { sb.p.inj = 0; if (!L.bossReady(sb, k)) break; const r = L.fightBoss(sb, k); if (r && r.win) bd = true; }
+      o.bossDone = bd && sb.ppl.q.chu[2].s === 'done';
+      // 秘境：带着他闯过 3 层
+      const sr = mk({ ye: 80, su: 80 }, x => { x.tick = 136; x.rebirth = 1; x.mj = { token: 3 }; });
+      o.realmCan = L.mjCan(sr);
+      sr.p.hp = undefined; L.setComp(sr, 'ye');
+      const run = L.mjEnter(sr);
+      o.realmComp = !!run && run.comp === 'ye';
+      const step = () => { sr.run.doors = [{ t: 'spring' }]; sr.run.hp = sr.run.max; L.mjPick(sr, 0); };
+      step(); step();
+      o.realm2 = sr.run.cleared === 2 && sr.ppl.q.ye[2].s === 'on';
+      step();
+      o.realm3 = sr.run.cleared === 3 && sr.ppl.q.ye[2].s === 'done';
+      // 没带他：不算
+      const sr2 = mk({ ye: 80, su: 80 }, x => { x.tick = 136; x.rebirth = 1; x.mj = { token: 3 }; });
+      L.setComp(sr2, 'su'); L.mjEnter(sr2);
+      for (let i = 0; i < 4; i++) { sr2.run.doors = [{ t: 'spring' }]; L.mjPick(sr2, 0); }
+      o.realmNo = sr2.run.cleared >= 3 && sr2.ppl.q.ye[2].s === 'on';
+    }
+    // ---- 同伴 ----
+    {
+      const s = mk({ su: 85, ye: 85, chu: 85, ge: 85, bai: 85, mo: 85 });
+      o.compOk = L.compWhy(s, 'su') === '' && L.compWhy(s, 'chu') === '';
+      const s3 = mk({ su: 79, ye: 20 });
+      o.compNeed4 = L.compWhy(s3, 'su').includes('四心') && L.compWhy(s3, 'ye') !== '' && L.setComp(s3, 'su') === false;
+      const sd = mk({ su: 85 }, x => { x.daolv = 'su'; });
+      o.compDaolv = L.compWhy(sd, 'su').includes('道侣');
+      o.tianNo = L.compWhy(s, 'tian') !== '' && L.rivalAllyOn(s, 'chu') === false;
+      s.eflags.tiankuo_ally = 1;
+      o.tianOk = L.compWhy(s, 'tian') === '';
+      L.setComp(s, 'tian');
+      o.tianOn = L.rivalAllyOn(s, 'chu') === true;
+      L.setComp(s, 'chu'); o.tianOff = L.rivalAllyOn(s, 'chu') === false;
+      // 出发时记下
+      L.setComp(s, 'ye'); L.startExp(s, 0, 0, 0);
+      o.expComp = s.exp.comp === 'ye';
+      L.resolveExp(s); s.p.inj = 0;
+      // 孤星试炼下拒绝
+      const sg = mk({ su: 85 }, x => { x.trials = ['gu']; });
+      o.gu = L.trialOn(sg, 'gu') && L.compWhy(sg, 'su').includes('孤星') && L.setComp(sg, 'su') === false;
+      // 苏：不负伤。同一份预掷，没同伴负伤，有苏则不负伤（找一个会负伤的格子）
+      const trip = (comp, k, d, a, f) => { const t = mk({ su: 85, ye: 85, chu: 85, ge: 85, bai: 85, mo: 85 }, x => { x.eflags.tiankuo_ally = 1; x.yinOpen = 1; if (f) f(x); }); L.setComp(t, comp); L.startExp(t, k, d, a); t.exp.plan.u = [0.31, 0.62, 0.2, 0.9, 0.1, 0.5, 0.5, 0.99, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; t.p.inj = 0; return { t, res: L.resolveExp(t) }; };
+      // 找到会负伤的格子
+      let cell = null;
+      for (const [k, d, a] of [[3, 2, 0], [3, 2, 1], [3, 1, 0], [4, 2, 0], [2, 2, 0], [1, 2, 0], [4, 2, 1]]) { const r = trip(null, k, d, a); if (r.res.inj) { cell = [k, d, a]; break; } }
+      o.injCell = !!cell;
+      if (cell) {
+        const sa = trip('su', ...cell);
+        o.suSafe = !!trip(null, ...cell).res.inj && !sa.res.inj && sa.res.compSave === 'su' && sa.t.p.inj === 0;
+        const f0 = (() => { const t = mk({ su: 85 }); L.setComp(t, 'su'); return L.expForecast(t, cell[0], cell[1], cell[2]); })();
+        o.suForecast = !!f0 && f0.risk === 0 && f0.compSafe === 'su';
+      }
+      // 墨无痕：禁地五成挡伤
+      const fm = (() => { const t = mk({ mo: 85 }); const a = L.expForecast(t, 3, 2, 0); L.setComp(t, 'mo'); const b = L.expForecast(t, 3, 2, 0); const c = L.expForecast(t, 3, 1, 0); return { a, b, c, t }; })();
+      o.moHalf = !!fm.a && fm.a.risk > 0 && Math.abs(fm.b.risk - fm.a.risk * 0.5) < 1e-9 && fm.b.compSafe === 'mo';
+      const fm2 = (() => { const t = mk({ mo: 85 }); const a = L.expForecast(t, 3, 1, 0); L.setComp(t, 'mo'); const b = L.expForecast(t, 3, 1, 0); return a.risk === b.risk; })();
+      o.moOnlyDeep = fm2;
+      // 葛老：灵草 ×2；采药带回稀有药引（雷 / 木 / 魂）
+      const hb = (c) => { const t = mk({ ge: 85, su: 85 }, x => { x.meta.recipe = {}; }); if (c) L.setComp(t, c); L.startExp(t, 0, 0, 2); t.exp.plan.u = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; const h0 = t.herbs; const y0 = ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0); const r = L.resolveExp(t); return { r, gain: t.herbs - h0, yin: ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0) - y0 }; };
+      const h0 = hb(null), h1 = hb('ge');
+      o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain === h0.gain * 2 && h1.r.compHerbs === h0.r.herbs;
+      o.geYin = h0.yin === 0 && h1.yin === 1 && ['thunder', 'wood', 'soul'].includes(h1.r.compYin);
+      // 白小九：遭遇必出（plan.enc = 0），把握 +0.1
+      const tb = mk({ bai: 85 }); const cl0 = L.choiceLuck(tb); L.setComp(tb, 'bai'); L.startExp(tb, 0, 0, 0);
+      o.baiEnc = tb.exp.plan.enc === 0 && Math.abs(L.choiceLuck(tb) - cl0 - 0.1) < 1e-9;
+      const tb2 = mk({ bai: 85 }); L.startExp(tb2, 0, 0, 0); o.baiNo = tb2.exp.plan.enc > 0;
+      // 夜：灵石 ×1.2、越级 ×1.5
+      const te = mk({ ye: 85 }), sm0 = L.expStoneMult(te, 0), lm0 = L.leapMult(te); L.setComp(te, 'ye'); L.startExp(te, 0, 0, 0);
+      o.yeMult = Math.abs(L.expStoneMult(te, 0) / sm0 - 1.2) < 1e-9 && Math.abs(L.leapMult(te) / lm0 - 1.5) < 1e-9;
+      const te2 = mk({ ye: 85 }); L.setComp(te2, 'ye');   // 没出发：同伴位也算（确认页预计）
+      o.yeIdle = Math.abs(L.expStoneMult(te2, 0) / sm0 - 1.2) < 1e-9;
+      // 楚狂：斩妖 +10，采药不加
+      const tc = mk({ chu: 85 }); const sc0 = L.expForecast(tc, 0, 0, 0), hc0 = L.expForecast(tc, 0, 0, 2); L.setComp(tc, 'chu');
+      const sc1 = L.expForecast(tc, 0, 0, 0), hc1 = L.expForecast(tc, 0, 0, 2);
+      o.chuSlay = !!sc0 && sc1.base === sc0.base + 10 && hc1.base === hc0.base;
+      // nopeople2：不起作用
+      L.PEOPLE2_ON = false; const tn = mk({ su: 85 }); o.offComp = L.compWhy(tn, 'su') !== '' && L.comp(tn) === null; L.PEOPLE2_ON = true;
+    }
+    // ---- 道侣双修 ----
+    {
+      const mkD = who => mk({ su: 95, ye: 95 }, x => { x.daolv = who; x.flags.retFree = 0; x.p.xp = 0; x.stats.retreat = 0; });
+      const s = mkD('su');
+      o.sxNone = L.sxWhy(mk({ su: 95 })) === '还没有道侣';
+      const w0 = L.sxWhy(s);
+      o.sxOk = w0 === '';
+      const stones0 = s.stones, art0 = L.sxArt(s);
+      const r = L.shuangxiu(s);
+      o.sx = !!r && s.stones === stones0 && s.retreat && s.retreat.sx === 'su' && L.retName(s.retreat) === '双修' && s.flags.retFree === 0 && art0 === 'x_qingmu' && L.artOwned(s, 'x_qingmu') && r.first === true && s.ppl.sxN === 1;
+      o.sxCool = L.sxWhy(s).includes('周天') && L.shuangxiu(s) === null;
+      s.retreat = null; s.ppl.sx = s.tick - 11; o.sxCool11 = L.sxWhy(s).includes('1 周天');
+      s.ppl.sx = s.tick - 12; o.sxCool12 = L.sxWhy(s) === '';
+      // 次序：没有的先给；都会了熟练 +20
+      const s2 = mkD('su'); for (const a of L.DAOLV_ARTS.su) L.giveArt(s2, a);
+      const m0 = s2.arts.own[L.DAOLV_ARTS.su[0]];
+      const r2 = L.shuangxiu(s2);
+      o.sxAll = !!r2 && r2.it && r2.it.dup === true && s2.arts.own[L.DAOLV_ARTS.su[0]] === m0 + L.MAST.dup && L.MAST.dup === 20;
+      const s4 = mkD('su'); const order = []; for (let i = 0; i < 4; i++) { s4.retreat = null; s4.ppl.sx = -99; order.push(L.sxArt(s4)); L.shuangxiu(s4); }
+      o.sxOrder = JSON.stringify(order) === JSON.stringify(L.DAOLV_ARTS.su);
+      // 都会了：熟练 +20（第 5 次回到表头那一门）
+      s4.retreat = null; s4.ppl.sx = -99; const tgt = L.sxArt(s4), mm0 = s4.arts.own[tgt]; const rr_ = L.shuangxiu(s4);
+      o.sxMast = !!rr_ && !!rr_.it && rr_.it.dup === true && s4.arts.own[tgt] === mm0 + 20 && tgt === L.DAOLV_ARTS.su[0];
+      // 不消耗“第一次闭关免费”
+      const sf = mkD('su'); sf.flags.retFree = 0; const cost0 = L.retCost(sf); L.shuangxiu(sf); o.sxFree = sf.flags.retFree === 0 && sf.stones === 1e5;
+      const sf2 = mkD('su'); sf2.flags.retFree = 1; L.shuangxiu(sf2); o.sxFree2 = sf2.flags.retFree === 1;
+      // 第一次触发 shuangxiu:<id>
+      { const sx1 = mkD('su'); const f1 = L.shuangxiu(sx1); sx1.retreat = null; sx1.ppl.sx = -99; const f2 = L.shuangxiu(sx1); o.sxTrig = f1.first === true && f2.first === false; }
+      // 修炼倍率：×1.1，nopeople2 ×1.25
+
+
+      const sg = mkD('su'), sn = mkD(null);
+      const g1 = L.gain(sg), g0 = L.gain(sn);
+      L.PEOPLE2_ON = false; const g2 = L.gain(sg), g20 = L.gain(sn); L.PEOPLE2_ON = true;
+      o.sxMul = Math.abs(g1 / g0 - 1.1) < 0.02 && Math.abs(g2 / g20 - 1.25) < 0.02;
+      // 双修期间闭关名；忙时不行
+      const sb = mkD('ye'); L.startExp(sb, 0, 0, 0); o.sxBusy = L.sxWhy(sb) !== '' && L.shuangxiu(sb) === null;
+      o.sxYe = L.sxArt(mkD('ye')) === 'z_liehuo';
+
+    }
+    // ---- 迁移 ----
+    {
+      const s = mk({ su: 85, chu: 45, ge: 10 });
+      s.ppl = { q: { su: { 1: { s: 'bad' }, 2: { s: 'on', at: 1 }, 3: { s: 'on' } }, nobody: { 1: { s: 'on' } } }, comp: 'zzz', ga: { su: 'x', ye: ['a'] }, sx: 'x' };
+      s.meta.gift = { su: { herbs: 1, bogus: 1, ore: 5 }, nobody: { herbs: 1 }, chu: 3 };
+      s.exp = { comp: 'zzz', k: 0, d: 0, a: 0, left: 1, total: 1, plan: null };
+      s.ppl.q.su = { 1: { s: 'bad' }, 2: { s: 'on', at: 1 }, 3: { s: 'on' } };
+      L.migratePeople(s);
+      const j1 = JSON.stringify(s);
+      L.migratePeople(s);
+      o.migIdem = JSON.stringify(s) === j1;
+      o.migPpl = s.ppl.comp === null && s.ppl.sx === -99 && !s.ppl.q.nobody && !s.ppl.q.su[3] && s.ppl.q.su[2].s === 'on' && Array.isArray(s.ppl.ga.ye) && !s.ppl.ga.su && typeof s.ppl.sxN === 'number';
+      o.migGift = s.meta.gift.su.herbs === 1 && s.meta.gift.su.bogus === undefined && s.meta.gift.su.ore === undefined && !s.meta.gift.nobody && !s.meta.gift.chu;
+      o.migExp = s.exp.comp === undefined;
+      // 按读档时的好感补发委托（不发提示）
+      o.migQ = !!s.ppl.q.su[1] && s.ppl.q.su[1].s === 'on' && !!s.ppl.q.chu && !!s.ppl.q.chu[1] && !s.ppl.q.chu[2] && (!s.ppl.q.ge || !s.ppl.q.ge[1]);
+      const old = mk({ su: 85 }); delete old.ppl; delete old.meta.gift; const logN = old.log ? old.log.length : 0;
+      L.migratePeople(old);
+      o.migOld = !!old.ppl && !!old.meta.gift && !!old.ppl.q.su[1] && !!old.ppl.q.su[2] && (old.log ? old.log.length === logN : true);
+      // 读档 → 存档往返
+
+    }
+    return o;
+  }
+  )(L); });
+  const ppNames = { whyNone: '没有访客时送不了', whyOk: '门口就是他时能送', whyOther: '访客不是他时送不了', hdr: '喜好图鉴 18 格、六位各三格、没试过时为空', react: '讨厌的标签优先于喜欢的', optsEmpty: '身上空空时送礼列表为空', optsHave: '送礼列表只列身上有的', like: '♥ +8 并记进图鉴、扣了东西', again: '同一回来访第二次送被拒', dexFound: '图鉴数出一格', mid: '一般 +3 记为 0', optMo: '魔道功法抄本带 art_mo 标签', hate: '✕ −3 并记为 −1', hateKnown: '讨厌的格子进了图鉴', artOnce: '同一门功法抄本只能送同一人一次', artOther: '同一门功法抄本别人还能送', sorted: '送礼列表按 ♥ / ？ / 一般 / ✕ 排序', bagBands: '丹囊里的丹按下品 / 中品 / 上品以上三档分开列', bagHi: '送的是这一档最差的一枚', pav: '迎客亭：正的两档 +1、讨厌不加', pavGive: '迎客亭下送礼实际 +9', unmet: '没见过的人送不了', hint: '老祖点破一样 ♥ 记进图鉴',
+    q0: '好感 39 没有委托', q1: '好感到 40 出第 1 件', q2: '好感到 80 出第 2 件', expWrongAct: '历练行事不对不算完成', expLowRating: '历练评价不够不算完成', expRecall: '召回不算完成', expDone: '历练达标：完成、+15 好感、两枚疗伤丹', giveShort: '丹不够交付不了', giveDone: '交付：扣丹、给战技、+15、不能重复', craftDone: '炼出上品丹才算完成（下品不算）并给药引', recipeAlt: '十五格丹方全揭晓：改成炼出两炉上品以上', recipeAlt1: '只炼出一炉不算', recipeAlt2: '炼出两炉完成', recipeNew: '丹方没揭晓满：要试出新的一格', recipeNew0: '丹方数没变不算', recipeNew1: '丹方数增加完成', bossQ: '好感 40 楚狂只有第 1 件', bossDone: '击败首领完成首领委托', realmCan: '测试用的秘境能进', realmComp: '进秘境时记下同伴', realm2: '带着他闯过 2 层还没完成', realm3: '带着他闯过 3 层完成', realmNo: '没带他闯过 3 层不算',
+    compOk: '四心可以同行', compNeed4: '好感不到 80 不能同行', compDaolv: '道侣不占同伴位', tianNo: '楚天阔没化敌为友不能同行、宿敌线同行不生效', tianOk: 'tiankuo_ally 后可同行', tianOn: '楚天阔在同伴位时 rivalAllyOn 为真', tianOff: '换成别人 rivalAllyOn 为假', expComp: '出发时记在 st.exp.comp', gu: '孤星试炼下拒绝同伴', injCell: '找得到会负伤的格子', suSafe: '苏同行：本会负伤的一趟不负伤', suForecast: '苏同行：确认页风险为 0', moHalf: '墨无痕同行：禁地风险减半', moOnlyDeep: '墨无痕只在禁地起作用', geHerbs: '葛老同行：灵草 ×2', geYin: '葛老采药多带回稀有药引', baiEnc: '白小九同行：遭遇必出、把握 +10%', baiNo: '不带白小九遭遇不是必出', yeMult: '夜同行：灵石 ×1.2、越级 ×1.5', yeIdle: '夜在同伴位：确认页的灵石也 ×1.2', chuSlay: '楚狂同行：斩妖 +10、采药不加', offComp: 'nopeople2 时不能同行',
+    sxNone: '没有道侣不能双修', sxOk: '有道侣能双修', sx: '双修：不花灵石、不动免费闭关、名叫双修、给功法、第一次', sxCool: '双修后冷却', sxCool11: '冷却差 1 周天仍不行', sxCool12: '满 12 周天可再双修', sxAll: '功法都会了：熟练 +20', sxOrder: '双修按表的次序给功法', sxMast: '五次双修回到表头那门并熟练 +20', sxFree: '双修不消耗第一次闭关免费（原本没有）', sxFree2: '双修不消耗第一次闭关免费（原本有）', sxTrig: '第一次双修才触发 first', sxMul: '道侣常驻 ×1.1，nopeople2 ×1.25', sxBusy: '有事在身不能双修', sxYe: '夜的第一门是烈火诀',
+    migIdem: '迁移可重复调用', migPpl: '迁移清掉坏的同伴 / 委托 / 抄本记录', migGift: '迁移清掉坏的喜好键', migExp: '迁移清掉无效的同行', migQ: '迁移按好感补发委托', migOld: '旧档补 st.ppl / st.meta.gift 并补发委托、不发提示' };
+  for (const k in PP) expect(PP[k] === true, '人物加深：' + (ppNames[k] || k) + '（' + k + ' = ' + PP[k] + '）');
+  for (const k in ppNames) expect(k in PP, '人物加深：检查项缺失 ' + k);
   await close();
   await page.waitForTimeout(3000); await shot('c08-hud');
   console.log(errors.length ? errors.join('\n') : 'no errors');
