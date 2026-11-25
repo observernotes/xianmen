@@ -363,6 +363,28 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 .psilbox { display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; background: #e6dcc0; box-shadow: 0 0 0 2px #b9a77c; }
 .pend { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: #f7eed6; box-shadow: 0 0 0 2px var(--gold); margin: 4px 0; text-align: left; }
 .pend .btn { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+/* 灵田（panel-field.js）与炼丹房（panel-alchemy.js）：田一排、作物列表、药引库存、5×5 药引格、丹方行、状态栏的丹毒葫芦 */
+.yinbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 6px; background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; }
+.yinbar .res { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.fplots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fplot { min-height: 88px; min-width: 0; border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }
+.fplot.sel, .fplot.all { background: #fff6dc; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.fplot .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crow.off { opacity: .6; }
+.crow .right .btn, .arow .right .btn { min-height: 44px; min-width: 64px; }
+.arow .abtns { gap: 6px; }
+.arow .abtns .btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.arow .abtns .btn small { opacity: .85; max-width: 96px; overflow-wrap: anywhere; white-space: normal; }
+.achk.on { background: var(--jade); }
+.ygrid { display: grid; grid-template-columns: repeat(6, max-content); gap: 2px; justify-content: center; align-items: center; }
+.ygrid .yh { display: flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
+.ygrid .yc { border: 0; padding: 0; background: none; cursor: pointer; display: flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+.ygrid .yc.empty { cursor: default; }
+.ygrid .yc.can { animation: petGlow 1.2s steps(4) infinite; }
+.adet .card, .adet.card { box-shadow: 0 0 0 2px var(--gold); }
+.atabs button { min-width: 0; }
+.toxres { border: 0; background: none; font: inherit; color: inherit; padding: 0; cursor: pointer; min-height: 24px; }
+.toxres.half b { color: #ff9a8a; }
 /* 法宝（panel-gear.js）：三格 + 每格下【强化】、对比卡、词条记号、器炉 */
 .gslots { align-items: stretch; }
 .gcell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

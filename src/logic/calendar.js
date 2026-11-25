@@ -2,6 +2,7 @@
  * 模块写法见 src/logic.js 顶部说明。
  *   四季：12 周天一轮，t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬（与 ART.seasonOf 一致，场景美术按它画）。
  *     春：灵田灵草 +50%、访客 +30%；夏：秘境开放（4～9）、兽类地图斩妖灵石 +15%；秋：灵田灵石 +50%、行情 +0.2；冬：闭关倍率 +0.2，年末论道。
+ *     灵田作物各有旺季（SYSTEMS §6.2，crops.js 的 L.cropSeason）：春 灵草、惊雷竹、长生藤；夏 灵谷、赤炎果；秋 灵稻（灵石）；冬 寒霜莲、养魂花，旺季产量 +50%。
  *     周天星斗大法（m_xingdou）：季节加成翻倍。星河倒悬（共鸣 c12）：冬季闭关再 +0.5。
  *   固定历（24 周天一个大周期）：论道 t%12 = 0；拍卖会 t%24 = 8 起 6 周天；九宗会武 t%24 = 18；货架与任务板每届论道后刷新；秘境每个夏季开放。
  *   天下大势：每轮 t%12 = 2 掷一次，60% 发生一件（权重见 L.WORLDS），持续 6～10 周天；存在 st.cal = { w 当前大势, prev 上一件, n {id: 本世次数}, seen {季节: 1} }。
@@ -17,10 +18,10 @@ const mi = st => Math.max(L.si(st.p), (st.flags && st.flags.maxI) || 0);
 
 // ---------- 四季 ----------
 L.SEASONS = [
-  { id: 'spring', n: '春', d: '灵田灵草 +50%，访客多三成' },
-  { id: 'summer', n: '夏', d: '秘境开放，兽类地图斩妖灵石 +15%' },
-  { id: 'autumn', n: '秋', d: '灵田灵石 +50%，行情 +0.2' },
-  { id: 'winter', n: '冬', d: '闭关倍率 +0.2，年末天骄论道' },
+  { id: 'spring', n: '春', d: '灵草、惊雷竹、长生藤 +50%，访客多三成' },
+  { id: 'summer', n: '夏', d: '秘境开放，兽类地图斩妖灵石 +15%，灵谷、赤炎果 +50%' },
+  { id: 'autumn', n: '秋', d: '灵田灵石（灵稻）+50%，行情 +0.2' },
+  { id: 'winter', n: '冬', d: '闭关倍率 +0.2，年末天骄论道，寒霜莲、养魂花 +50%' },
 ];
 L.SEASON_V = { herb: 0.5, visit: 0.3, beast: 0.15, rice: 0.5, price: 0.2, ret: 0.2, xingheRet: 0.5 };
 L.seasonOf = t => { const m = ((t % 12) + 12) % 12; return m >= 1 && m <= 3 ? 0 : m >= 4 && m <= 6 ? 1 : m >= 7 && m <= 9 ? 2 : 3; };
@@ -119,14 +120,16 @@ L.addCulMod('world', 75, st => {
   const w = L.world(st);
   return ['大势·灵气潮汐' + (w.share ? '（合用）' : ''), 1 + (w.share ? L.WORLD_V.lingchaoShare : L.WORLD_V.lingchao), ''];
 });
-// 灵田：春灵草 +50%、秋灵稻（灵石）+50%；大旱 −40%（周天星斗翻倍季节项）
+// 灵田：秋灵稻（灵石）+50%；大旱 −40%（周天星斗翻倍季节项）。只算种灵稻的那几块（crops.js 的 L.fieldStoneInc）；
+// 其余作物的旺季与大旱在 crops.js 的产量里（L.cropParts）
 L.addIncSrc('season_field', 11, st => {
-  if (!st.home.field) return null;
-  const f = L.seasonFx(st), base = L.fieldInc(st.home.field), out = [];
+  if (!st.home.field || !L.riceCount(st)) return null;
+  const f = L.seasonFx(st), base = L.fieldStoneInc(st), out = [];
   if (f.rice) out.push(['秋·灵稻旺（灵田 +' + Math.round(f.rice * 100) + '%）', base * f.rice, 'field']);
   if (L.worldOn(st, 'w_dahan')) out.push(['大势·大旱（灵田 −40%）', -base * L.WORLD_V.dahan, 'field']);
   return out;
 });
+// 灵草作物的季节与大旱倍率（= crops.js 里灵草的旺季项 × 大旱项）
 L.calFieldHerb = st => (1 + L.seasonFx(st).herb) * (L.worldOn(st, 'w_dahan') ? 1 - L.WORLD_V.dahan : 1);
 // 访客：春天多三成
 L.calVisitMult = st => 1 + L.seasonFx(st).visit;

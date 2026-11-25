@@ -20,6 +20,7 @@ function onHook(type, data) {
   else if (type === 'comboGen') tip('gen', `${data.same >= 3 ? '三' : '两'}门功法同属${data.el ? L.elName(data.el) : ''}，起了共鸣：修炼、战力各 +${Math.round((data.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%。`);
   else if (type === 'mastery') { if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 18, `《${L.art(data.id).n}》${L.MAST.n[data.lv]}`, '#ffe39a', false, true); }
   else if (type === 'rong') { const A = L.art(data.id), R0 = L.RONG[A.k]; banner('融会贯通', `《${A.n}》圆满：${R0[0] ? '修炼 +' + (R0[0] * 100).toFixed(R0[0] < 0.01 ? 2 : 1) + '%' : ''}${R0[0] && R0[1] ? ' ' : ''}${R0[1] ? '战力 +' + (R0[1] * 100).toFixed(R0[1] < 0.01 ? 2 : 1) + '%' : ''}`); SFX.goal(); }
+  else if (type === 'recipe') { const rc = L.RECIPE[data]; if (rc && $('#modal').hidden) banner('丹方 · ' + rc.n, rc.yin ? L.yinText(L.recipeYin(rc)) : ''); }
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
   // 道心升级、因果（dao.js）：老祖气泡（panel-trib.js）
   else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
@@ -72,6 +73,7 @@ function updateHUD() {
   }
   $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
   updateWorldTag();
+  updateToxin();   // 丹毒葫芦（panel-alchemy.js）
   $$('#nav button').forEach(b => b.classList.toggle('locked', !!navLock(b.dataset.nav)));
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);

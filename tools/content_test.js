@@ -1,6 +1,8 @@
 // 内容系统界面测试：奇遇选项、访客、炼丹、首领、会武、宗门任务板、拍卖会、札记、功法（三槽、熟练、共鸣、五行克制、fx.art）、
 // 法宝（对比卡与继承、熔炼与锁定、强化与保底、词条效果、fx.ore / fx.plus、器方打造、v4 → v5 迁移）、特训、人物分页、
 // 历法与坊市（四季效果、天下大势效果与到期、货架轮换与限购、行情卖价、竞价结果与宿敌加成、坊市事件、年历与大势小牌、v5 → v6 迁移）、
+// 灵田与炼丹（田数、作物周期与产出、旺季、全种灵稻与旧被动灵石等价、解锁与灵种、改种、药引丹方的试炼与跨世图鉴、fx.recipe、丹毒的加减与门槛、自动续炼、
+// 爆气丹 / 雷火丹的效果与用掉、锦囊里的“服一枚爆气丹：胜算 p → p'”、疗伤丹、药引一包、旧档迁移、老祖的丹毒讲解）、
 // 秘境（掉血公式与五行、离开与出局、秘藏、秘境事件与 run_* 标记、送令、迁移、存档续玩）
 // 天劫（护劫手段的加成与代价、预掷与结果一致、临场提示八成准、评价 → 道基与“N 品金丹”、失败代价、心魔劫、那一停的界面）、道心（5/12/25 与九条效果、评语）、
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
@@ -26,7 +28,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
-    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo']) st.hintSeen[k] = 1;
+    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin']) st.hintSeen[k] = 1;
     st.p.r = 3; st.p.t = 6; st.home = { cave: 6, array: 8, field: 8, furnace: 8 }; st.herbs = 500; st.treasure = 4; st.stones = 1e5; st.tick = 130; st.pact = 1; st.beaten.mu = 1; st.flags.maxR = 3; st.flags.maxI = 12; st.stats.exp = 20;
     for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
     st.bosses = { 0: 1, 1: 1, 2: 1 };
@@ -49,8 +51,10 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await page.evaluate(() => !window.__xm.st.visitor), '见过访客后门口没人了');
   await close();
   // 炼丹
-  await page.evaluate(() => window.__xm.showAlchemy()); await page.waitForTimeout(300); await shot('c03-alchemy');
+  await page.evaluate(() => { const { st } = window.__xm; st.meta.recipe.juling = 1; st.mats.yin.fire = 2; st.mats.yin.ice = 2; st.toxin = 0; window.__xm.showAlchemy(); }); await page.waitForTimeout(300);
+  await page.click('#modal .atabs [data-tab="x"]'); await page.waitForTimeout(250); await shot('c03-alchemy');
   await page.click('#modal button[data-r="juling"]'); await page.waitForTimeout(1400); await shot('c04-craft');
+  expect(await page.evaluate(() => window.__xm.st.mats.yin.fire === 1 && window.__xm.st.mats.yin.ice === 1), '炼聚灵丹付了火引、冰引各一');
   await close();
   // 首领：万妖山脉禁地评价过乙
   await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); await shot('c05-exp-boss');
@@ -160,7 +164,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(ea.own.includes('z_fentian') && ea.own.includes('m_xuedun') && ea.lines === 2, `fx.art：得焚天诀、血遁，结果页 ${ea.lines} 行功法`);
   await close();
   // ---------- 法宝（SYSTEMS §3）----------
-  const H = ['gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge'];
+  const H = ['gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'crops', 'yinGrid', 'toxin'];
   await page.evaluate(H => { const { st, L } = window.__xm; for (const h of H) st.hintSeen[h] = 1; st.p.r = 3; st.p.s = 0; st.p.xp = 0; st.flags.maxR = 3; st.flags.maxI = 12; st.pact = 1; st.gear = L.newGear(); st.ore = 5000; st.stones = 1e6; st.treasure = 3; st.exp = null; st.retreat = null; st.p.inj = 0; L.gearDrop(st, 'w', 3, { base: 'w3_0' }); L.gearDrop(st, 'r', 3, { base: 'r3_0' }); L.gearDrop(st, 'o', 4, { base: 'o_cul4' }); }, H);
   // 对比卡：卡上写的“战力 a → b”就是换上之后的战力；强化继承一半（+4 → +2）；旧的熔成灵矿 4 × 2^阶
   const cmp = await page.evaluate(() => {
@@ -267,7 +271,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // ---------- 历法、天下大势、坊市（SYSTEMS §7、§10）----------
   const CALH = ['cal', 'world1', 'shelf', 'sell', 'auction', 'ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life',
-    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge'];
+    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'crops', 'yinGrid', 'toxin'];
   await page.evaluate(H => {
     const { st, L } = window.__xm; st.guide = { step: 99, done: true }; st.hintSeen = st.hintSeen || {}; for (const h of H) st.hintSeen[h] = 1;
     st.p.r = 3; st.p.s = 0; st.flags.maxR = 3; st.flags.maxI = 12; st.pact = 1; st.exp = null; st.retreat = null; st.p.inj = 0; st.visitor = null;
@@ -444,7 +448,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // ---------- 天劫（SYSTEMS §9）----------
   const SEEN = ['ready', 'btGo', 'trib', 'tribPause', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life',
-    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo'];
+    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin'];
   await page.evaluate(SEEN => { const { st } = window.__xm; st.guide = { step: 99, done: true }; st.hintSeen = st.hintSeen || {}; for (const k of SEEN) st.hintSeen[k] = 1; document.querySelector('#tip').hidden = true; }, SEEN);
   // 护劫手段的加成与代价：基础 + 破境丹 + 祭法宝 8% + 道侣 8%；灵宠、渡劫阵没上线时不可用（写明原因），接上钩子就能用
   const aid = await page.evaluate(() => {
@@ -472,14 +476,16 @@ require('fs').mkdirSync(out, { recursive: true });
     const { st, L } = window.__xm, bad = [];
     let n = 0, ok = 0, extraUp = 0;
     for (let i = 0; i < 300; i++) {
-      st.p.r = 2 + (i % 6); st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 8; st.p.fails = 0; st.trib.cur = null; st.trib.daoji = 0; st.eflags = {};
-      const v = L.tribStart(st, { pills: i % 4, aids: i % 2 ? { fa: 1 } : {} }), u = st.trib.cur.u, pill0 = st.pills, tox0 = st.trib.toxin;
+      st.p.r = 2 + (i % 6); st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 8; st.p.fails = 0; st.trib.cur = null; st.trib.daoji = 0; st.eflags = {}; st.toxin = 0;
+      // 丹毒（alchemy.js）上线后临阵吞丹走 L.addToxin（每枚 +20），开渡时服的破境丹结算时每枚 +10
+      const tox = () => (L.addToxin ? st.toxin : st.trib.toxin), toxPre = L.addToxin ? L.TOX.bt * (i % 4) : 0;
+      const v = L.tribStart(st, { pills: i % 4, aids: i % 2 ? { fa: 1 } : {} }), u = st.trib.cur.u, pill0 = st.pills, tox0 = tox();
       const mono = v.curve.every((x, j) => !j || x <= v.curve[j - 1] + 1e-9);
       const ex = i % 3 === 0 ? { pills: 2 } : {};
       const pv = L.tribPreview(st, ex), r = L.tribFinish(st, ex), p1 = r.tb.p1, m = p1 - u;
       if (pv.ok !== r.ok || pv.grade !== r.tb.grade || pv.p1 !== p1 || JSON.stringify(pv.curve1) !== JSON.stringify(r.tb.curve1)) bad.push('pv' + i);
       if (r.ok !== (u < p1) || !mono || (r.ok ? r.tb.curve1[v.N] <= 0 : r.tb.curve1[v.N] !== 0) || Math.abs(r.tb.margin - m) > 1e-3 || JSON.stringify(r.tb.curve0) !== JSON.stringify(v.curve)) bad.push(i);
-      if (ex.pills) { if (Math.abs(p1 - Math.min(1, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || st.trib.toxin - tox0 !== 40) bad.push('ex' + i); else extraUp++; }
+      if (ex.pills) { if (Math.abs(p1 - Math.min(1, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || tox() - tox0 !== 40 + toxPre) bad.push('ex' + i); else extraUp++; }
       else if (JSON.stringify(r.tb.curve1) !== JSON.stringify(v.curve)) bad.push('c' + i);
       if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g) bad.push('g' + i); }
       n++;
@@ -644,7 +650,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // ---------- 灵宠（SYSTEMS §4）：倍率、岗位、喂食与等级、进化分支与发现、好感、旧档迁移、灵宠事件 ----------
   const pt = await page.evaluate(() => {
     const { L } = window.__xm, o = {};
-    const st = L.newState({ name: '灵宠测试' }); st.p.r = 3; st.flags.maxR = 3; st.home = { cave: 4, array: 8, field: 8, furnace: 6 }; st.herbs = 2000; st.stones = 1e6; st.tick = 100;
+    const st = L.newState({ name: '灵宠测试' }); st.p.r = 3; st.flags.maxR = 3; st.home = { cave: 4, array: 8, field: 8, furnace: 6 }; st.herbs = 2000; st.mats.yin.fire = 3; st.stones = 1e6; st.tick = 100;
     const a = L.petGive(st, { sp: 'p_hu2', src: 'shop' }), p = st.pets[0];
     o.first = a.out && a.first && st.storyQ.includes('story_pet');
     o.mult = Math.abs(L.petAtkOf(st, p) - (1 + (L.PETS[2].m - 1) * 1.02)) < 1e-9 && Math.abs(L.atkParts(st).find(x => x[2] === 'pet')[1] - L.petAtkOf(st, p)) < 1e-9;
@@ -668,8 +674,9 @@ require('fs').mkdirSync(out, { recursive: true });
     o.hide = !L.choiceShown(st, ev.choices[0]) && L.choiceShown(st, ev.choices[2]);
     x.deep[1] = 3; o.show = L.choiceShown(st, ev.choices[0]) && L.petBranchOk(st, x, 1);
     o.unknown = !L.petEvoKnown(st, 'p_hu2', 1);
-    const h0 = st.herbs, e = L.petEvolve(st, 0, 1);
-    o.evolve = !!e && p.form === 1 && L.petTier(p) === 3 && st.herbs === h0 - L.yinHerbs(st, { fire: 3 }) && L.petEvoKnown(st, 'p_hu2', 1) && L.petName(p) === '炎虎王' && L.petTal(st, 'boss') > 1;
+    st.mats.yin.fire = 2; o.noYin = !!L.petEvolveWhy(st, 0, 1) && !L.petBranchOk(st, p, 1);
+    st.mats.yin.fire = 5; const h0 = st.herbs, e = L.petEvolve(st, 0, 1);
+    o.evolve = !!e && p.form === 1 && L.petTier(p) === 3 && st.herbs === h0 && st.mats.yin.fire === 2 && L.petEvoKnown(st, 'p_hu2', 1) && L.petName(p) === '炎虎王' && L.petTal(st, 'boss') > 1;
     // 好感：闲着 24 周天 −1 心；出战 36 周天 +1 心
     L.petSetJob(st, 1, ''); const hz = st.pets[1].heart; for (let i = 0; i < 24; i++) L.petTick(st, {});
     o.decay = st.pets[1].heart === hz - 1;
@@ -690,7 +697,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(mp.ok && mp.n === 1 && mp.sp === 'p_xiong' && mp.lv === 1 && mp.out === 0 && mp.old === undefined && mp.n2 === 1 && mp.m > 1.45, '旧灵宠迁移：' + JSON.stringify(mp));
   await close();
   // 灵宠事件：喂到 5 级 → 进化事件 pet_evolve_hu2 弹出来，点“喂赤炎果” → 炎虎王
-  await page.evaluate(() => { const { st, L } = window.__xm; st.pets = []; st.petOut = -1; st.petPend = []; st.p.r = 2; st.flags.maxR = 2; st.herbs = 3000; st.feed = 900; st.storyQ = []; st.evDone = {}; st.flags.petFirst = 1; L.petGive(st, { sp: 'p_hu2', src: 'shop' }); st.storyQ = []; for (let i = 0; i < 80 && !L.petFeedWhy(st, 0); i++) L.petFeed(st, 0); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.pets = []; st.petOut = -1; st.petPend = []; st.p.r = 2; st.flags.maxR = 2; st.herbs = 3000; st.mats.yin.fire = 4; st.feed = 900; st.storyQ = []; st.evDone = {}; st.flags.petFirst = 1; L.petGive(st, { sp: 'p_hu2', src: 'shop' }); st.storyQ = []; for (let i = 0; i < 80 && !L.petFeedWhy(st, 0); i++) L.petFeed(st, 0); });
   await page.evaluate(() => window.__xm.showChoice(window.__xm.L.eventById(window.__xm.st.storyQ.shift())));
   await page.waitForTimeout(300); await shot('c09-pet-evolve-event');
   const pe = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, n: document.querySelectorAll('#modal button[data-c]').length }));
@@ -963,6 +970,128 @@ require('fs').mkdirSync(out, { recursive: true });
   const lv = await page.evaluate(() => ({ run: window.__xm.st.run, t: window.__xm.st.tick, title: (document.querySelector('#modal h2') || {}).textContent }));
   expect(!lv.run && lv.t === t0 + 3 && lv.title === '全身而退', `离开：出来 3 个周天（${JSON.stringify(lv)}）`);
   await close();
+  // ---------- 灵田作物与炼丹（SYSTEMS §5、§6.2）----------
+  const cr = await page.evaluate(() => {
+    const { L } = window.__xm, o = {};
+    // 固定随机数只包住要定成丹品质的那几下（新建存档时取名要真的随机，常数会死循环）
+    const withR = (v, fn) => { const r0 = L.rng; L.rng = () => v; try { return fn(); } finally { L.rng = r0; } };
+    const mk = () => { const s = L.newState({ name: '灵田测试' }); s.p.r = 2; s.flags.maxR = 2; s.flags.maxI = 9; s.home = { cave: 2, array: 5, field: 9, furnace: 8 }; s.tick = 100; s.pact = 1; s.stats.exp = 10; return s; };
+    const st = mk();
+    // 田数 = 1 + floor(灵田等级 / 4)，至多 6 块；新开的田默认灵稻
+    o.plots = [0, 1, 3, 4, 8, 20, 30].map(lv => { st.home.field = lv; return L.plotCount(st); }).join() === '0,1,1,2,3,6,6';
+    st.home.field = 9; o.rice = L.plots(st).length === 3 && L.plots(st).every(x => x.c === 'rice');
+    // 全种灵稻 = 旧的被动灵石：灵田 + 秋季 +50% + 守田灵宠 − 大旱（拆解里的“灵田”几项之和）
+    const im = s => L.modProd(L.modParts('incMul', s));
+    const fieldSum = s => L.incParts(s).filter(x => x[2] === 'field' || (x[2] === 'petjob' && /守田/.test(x[0]))).reduce((a, x) => a + x[1], 0) / im(s);
+    const old = s => { const f = L.fieldInc(s.home.field), sf = L.seasonFx(s); return f * (1 + sf.rice - (L.worldOn(s, 'w_dahan') ? L.WORLD_V.dahan : 0) + (L.petJobVal(s, 'field') || 0)); };
+    L.petGive(st, { sp: 'p_tu' }); L.petSetJob(st, 0, 'field');
+    const eq = []; for (const t of [100, 103, 127]) { st.tick = t; eq.push(Math.abs(fieldSum(st) - old(st)) < 1e-6); }
+    st.cal.w = { id: 'w_dahan', at: 125, until: 140 }; eq.push(Math.abs(fieldSum(st) - old(st)) < 1e-6); st.cal.w = null;
+    o.equiv = eq.every(Boolean) && L.petJobVal(st, 'field') > 0;
+    // 改种灵草：灵稻份额 2/3，灵石少三分之一；3 周天一收，3 × (1 + 0.5r) × (1 + 8% × 9) × 守田 × 春季 1.5
+    const i0 = fieldSum(st); L.plant(st, 0, 'herb'); o.share = Math.abs(fieldSum(st) - i0 * 2 / 3) < 1e-6;
+    st.tick = 118; const h0 = st.herbs, pj = 1 + L.petJobVal(st, 'field');
+    for (let i = 0; i < 3; i++) { st.tick++; L.cropTick(st, {}); }
+    const herbWant = 3 * (1 + 0.5 * 2) * (1 + 0.08 * 9) * pj * 1.5;
+    o.herb = st.tick === 121 && L.season(st) === 0 && st.herbs - h0 === Math.floor(herbWant) && Math.abs(st.crops.prog.herbs - (herbWant % 1)) < 1e-6;
+    // 赤炎果：6 周天收一枚火引 × 产量，夏季 +50%（收成那一周天是夏）
+    L.plant(st, 1, 'fire'); st.tick = 118; const f0 = L.yinHave(st, 'fire'); let out6 = {};
+    for (let i = 0; i < 6; i++) { st.tick++; out6 = {}; L.cropTick(st, out6); }
+    const fireWant = (1 + 0.08 * 9) * pj * 1.5;
+    o.fire = L.season(st) === 1 && L.yinHave(st, 'fire') - f0 === Math.floor(fireWant) && out6.harvest && out6.harvest.fire === Math.floor(fireWant);
+    // 灵谷：4 周天兽粮 4 × 产量（夏旺）
+    L.plant(st, 2, 'grain'); const fd0 = st.feed; st.tick = 130; for (let i = 0; i < 4; i++) { st.tick++; L.cropTick(st, {}); }
+    o.grain = Math.abs(st.feed - fd0 - 4 * (1 + 0.08 * 9) * pj) < 1e-6;
+    // 解锁：养魂花元婴；春集“买灵种”提前一种；坊市“灵种”
+    o.lock = L.plantWhy(st, 0, 'soul') === '元婴解锁' && !L.plant(st, 0, 'soul') && L.cropOpen(st, 'bolt');
+    L.applyFx(st, { flag: 'seed_early' }); o.seed = L.cropOpen(st, 'soul') && !st.eflags.seed_early;
+    // 【全部改种】
+    o.all = L.plantAll(st, 'vine') === 3 && L.plots(st).every(x => x.c === 'vine' && x.g === 0) && L.riceShare(st) === 0;
+    // 药引丹方：试炼没揭晓的一格（火 + 冰 → 聚灵丹），丹成就揭晓并记进 st.meta.recipe，跨世保留；fx.recipe 'need' / 指定
+    st.herbs = 5000; st.treasure = 5; st.mats.yin = { fire: 3, ice: 3, thunder: 2, wood: 2, soul: 2 }; st.toxin = 0;
+    o.unknown = L.canCraft(st, 'juling') === '还没试出这一格' && L.trialWhy(st, 'ice', 'fire') === '';
+    const tr = withR(0.5, () => L.trial(st, 'ice', 'fire'));
+    o.trial = tr && tr.ok && tr.fresh && tr.k === 'juling' && st.meta.recipe.juling === 1 && st.mats.yin.fire === 2 && st.mats.yin.ice === 2 && st.buffs.some(b => b.src === 'juling');
+    o.known = L.recipeKnown(st, 'juling') && L.canCraft(st, 'juling') !== '还没试出这一格';
+    o.noStack = /药力还在/.test(L.canCraft(st, 'juling'));
+    const st2 = L.newState({ meta: st.meta, rebirth: 1 }); o.cross = L.recipeKnown(st2, 'juling') && !L.recipeKnown(st2, 'baoqi');
+    const n0 = L.recipeCount(st); L.applyFx(st, { recipe: 'need' }); o.need = L.recipeCount(st) === n0 + 1;
+    L.applyFx(st, { recipe: 'qingdu' }); o.named = L.recipeKnown(st, 'qingdu');
+    o.secret = /秘方/.test(L.canCraft(st, 'jiuzhuan')) && (L.applyFx(st, { recipe: 'jiuzhuan' }), L.recipeKnown(st, 'jiuzhuan'));
+    // 丹毒：中品 +15、上品 +10、极品 +5；过 60 药力减半；会过 100 就不能服；每周天退 2；突破时每枚破境丹 +10；清毒丹 −40
+    st.buffs = []; st.toxin = 0; const x0 = st.p.xp + 0; const g = L.gainCalm(st);
+    withR(0.5, () => L.craft(st, 'peiyuan')); o.tox15 = st.toxin === 15 && Math.abs(st.p.xp - x0 - 4 * g) < 1e-6;
+    withR(0.3, () => L.craft(st, 'peiyuan')); o.tox10 = st.toxin === 25;
+    st.toxin = 61; const x1 = st.p.xp; withR(0.5, () => L.craft(st, 'peiyuan')); o.half = st.toxin === 76 && Math.abs(st.p.xp - x1 - 2 * g) < 1e-6;
+    st.toxin = 86; o.block = /再服就要中毒/.test(L.canCraft(st, 'peiyuan'));
+    st.toxin = 30; L.alchTick(st, {}); o.decay = st.toxin === 28;
+    st.toxin = 50; withR(0.5, () => L.craft(st, 'qingdu')); o.qingdu = st.toxin === 10;
+    st.toxin = 0; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 3; const bt = L.breakthrough(st, 2); o.btTox = !!bt && st.toxin === 20;
+    // 自动续炼：每 3 周天；修炼类在丹毒会过 60 时跳过
+    const s3 = mk(); s3.herbs = 2000; L.setAuto(s3, 'peiyuan', true); s3.tick = 3; const ob = {}; withR(0.5, () => L.alchTick(s3, ob));
+    s3.toxin = 50; s3.tick = 6; const ob2 = {}; L.alchTick(s3, ob2);
+    o.auto = ob.brew && ob.brew.length === 1 && ob.brew[0].k === 'peiyuan' && !ob2.brew && /六十/.test(L.autoWhy(s3, 'peiyuan')) && L.setAuto(s3, 'pojing', true) && L.setAuto(s3, 'liaoshang', true) && !L.setAuto(s3, 'juling', true);
+    // 战斗类丹：爆气丹 下一场对决战力 ×1.3（约战胜算涨），约战打完就用掉；雷火丹 下一趟历练分数 +10，出发就用掉
+    const s4 = L.newState({ name: '对决' }); s4.tick = 30; s4.p.s = 3; s4.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s4.home.furnace = 3; s4.dan.bag.baoqi = [1]; s4.dan.bag.leihuo = [1];
+    const pa = L.pactInfo(s4).p, pw0 = L.duelPower(s4, L.PACT_FOE);
+    const tk = L.takePill(s4, 'baoqi');
+    o.baoqi = !!tk && Math.abs(L.duelPower(s4, L.PACT_FOE) / pw0 - 1.3) < 1e-9 && L.pactInfo(s4).p > pa && s4.toxin === 15 && L.bagN(s4, 'baoqi') === 0;
+    o.baoqiAgain = /丹囊里没有/.test(L.takeWhy(s4, 'baoqi'));
+    s4.tick = L.PACT_TICK; L.pactDuel(s4); o.baoqiUsed = !L.danNext(s4, 'baoqi');
+    L.takePill(s4, 'leihuo'); const lp = L.expExtraParts(s4, 0, 0, 0).find(x => /雷火丹/.test(x[0]));
+    const g1 = L.expParts(s4, 0, 0, 0).guts; L.startExp(s4, 0, 0, 0);
+    o.leihuo = !!lp && lp[1] === 10 && s4.exp && s4.exp.plan.guts === g1 && !L.danNext(s4, 'leihuo') && L.expParts(s4, 0, 0, 0).guts === g1 - 10;
+    // 疗伤：丹囊里的疗伤丹优先，没有再用破境丹
+    const s5 = mk(); s5.p.inj = 3; s5.pills = 2; s5.dan.bag.liaoshang = [1];
+    o.heal = L.healWith(s5) === 'liaoshang' && L.heal(s5) && s5.p.inj === 0 && s5.pills === 2 && L.bagN(s5, 'liaoshang') === 0;
+    s5.p.inj = 3; o.heal2 = L.healWith(s5) === 'pojing' && L.heal(s5) && s5.pills === 1;
+    // 事件：fx.yin / cost.yin 是真的药引；fx.toxin
+    const y0 = s5.mats.yin.ice; L.applyFx(s5, { yin: { ice: 2 } }); o.fxYin = s5.mats.yin.ice === y0 + 2 && L.costOk(s5, { yin: { ice: 2 } }) && !L.costOk(s5, { yin: { ice: 3 } });
+    L.applyFx(s5, { toxin: 30 }); o.fxTox = s5.toxin === 30;
+    // 坊市：药引一包（两枚同种）
+    s5.market.rot = [{ k: 'yin', lim: 2, sold: 0, off: 0, yin: 'soul' }]; s5.market.cyc = Math.floor(s5.tick / 12); s5.stones = 1e6; s5.flags.maxI = 9;
+    const row = L.shelf(s5).find(r => r.k === 'yin'); const so = s5.mats.yin.soul; const b = row && L.shelfBuy(s5, row.i);
+    o.shop = !!row && row.n === '魂引一包' && !!b && s5.mats.yin.soul === so + 2;
+    // 变种：药引作物成熟时 3% 触发 field_mutant（剧情 home_field_mutant）
+    const s6 = mk(); L.plant(s6, 0, 'fire'); s6.storyQ = []; withR(0.01, () => { for (let i = 0; i < 6; i++) { s6.tick++; L.cropTick(s6, {}); } });
+    o.mutant = s6.storyQ.includes('home_field_mutant') && s6.crops.mut === 'fire';
+    // 旧档：没有 st.crops / mats / dan / toxin / meta.recipe → 田全种灵稻（收入不变）、药引 0、丹毒 0；重复迁移不变
+    const od = JSON.parse(JSON.stringify(mk())); delete od.crops; delete od.mats; delete od.dan; delete od.toxin; delete od.meta.recipe; od.home.field = 9;
+    const inc0 = L.fieldInc(9); const m1 = L.migrate(od), m2 = L.migrate(JSON.parse(JSON.stringify(m1)));
+    o.migrate = !!m1 && m1.crops.plots.length === 3 && m1.crops.plots.every(x => x.c === 'rice') && Math.abs(L.incParts(m1).find(x => x[2] === 'field')[1] - inc0 * im(m1)) < 1e-6
+      && m1.mats.yin.fire === 0 && m1.toxin === 0 && Array.isArray(m1.dan.auto) && !!m1.meta.recipe && JSON.stringify(m2.crops) === JSON.stringify(m1.crops) && JSON.stringify(m2.dan) === JSON.stringify(m1.dan);
+    return o;
+  });
+  for (const k in cr) expect(cr[k], '灵田与炼丹：' + k);
+  // 锦囊：约战前丹囊里有爆气丹 → “服一枚爆气丹：胜算 p → p'”，点【服】生效
+  const jn = await page.evaluate(() => {
+    const { L } = window.__xm; const s = L.newState({ name: '锦囊' }); s.tick = 30; s.home.furnace = 3; s.dan.bag.baoqi = [1]; s.guide = { step: 99, done: true }; s.hintSeen = { pactSoon: 1, toxin: 1 }; s.stats.exp = 3;
+    s.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s.p.s = 3;   // 兵器已到上限（锦囊里不再有“换一件”）；炼气圆满，胜算不贴着下限
+    window.__xm.loadState(JSON.parse(JSON.stringify(s)));
+    const st = window.__xm.st, p0 = L.pactInfo(st).p;
+    st.dan.next.baoqi = 1.3; const p1 = L.pactInfo(st).p; delete st.dan.next.baoqi;
+    window.__xm.showPact();
+    const row = [...document.querySelectorAll('#modal .grow-row')].find(r => r.textContent.includes('服一枚爆气丹'));
+    return { p0: L.pct(p0), p1: L.pct(p1), txt: row ? row.textContent : '' };
+  });
+  await page.waitForTimeout(300); await shot('c11c-pact-baoqi');
+  expect(jn.txt.includes(`${jn.p0} → ${jn.p1}`), '锦囊里有“服一枚爆气丹：胜算 p → p\'”：' + JSON.stringify(jn));
+  await page.click('#modal [data-go="pill:baoqi"]'); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__xm.L.danNext(window.__xm.st, 'baoqi') > 1 && window.__xm.L.bagN(window.__xm.st, 'baoqi') === 0), '锦囊里点【服】服下了爆气丹');
+  await close();
+  // 老祖：第一次有丹毒，一次阻塞讲解（指着状态栏的葫芦，暂停，数字对）
+  await page.evaluate(() => { const { st } = window.__xm; delete st.hintSeen.toxin; st.toxin = 25; window.__xm.setSpeed(0); });
+  for (let i = 0; i < 10; i++) {
+    await page.waitForTimeout(300);
+    const a = await page.evaluate(() => window.__xm.guideDbg.active);
+    if (a === 'toxin') break;
+    await page.evaluate(() => { const { st } = window.__xm; for (const id of window.__xm.guideDbg.cand) if (id !== 'toxin') st.hintSeen[id] = 1; st.toxin = 25; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
+  }
+  await page.waitForTimeout(300); await shot('c11d-toxin-hint');
+  const th = await page.evaluate(() => ({ vis: !document.querySelector('#guide').hidden, txt: document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold }));
+  expect(th.vis && th.hold && th.txt.includes('丹毒 25') && th.txt.includes('过 60'), '老祖的丹毒讲解：' + JSON.stringify(th));
+  await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); window.__xm.setSpeed(3); });
+  await page.waitForTimeout(300);
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await close();

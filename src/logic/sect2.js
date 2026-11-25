@@ -57,7 +57,7 @@ L.ELDERS = {
   ],
   xuesha: [
     E('xuehe', '血河老祖', '宗主', '强者为尊', 'xuehe', ['act:leap', 'tour', 'boss', 'exp'], 'treasure', { k: 'leap', v: 0.2 }, { plan: 'g_xuesha' }, 'youji'),
-    E('xuesan', '鬼医薛三', '药房', '毒亦是药', 'xue3', ['pill', 'herbs', 'act:craft', 'tame', 'forge'], 'herbs', { k: 'yin', y: 'soul' }, { art: 'm_xuedun' }, 'xuehe'),
+    E('xuesan', '鬼医薛三', '药房', '毒亦是药', 'xue3', ['pill', 'herbs', 'act:craft', 'tame', 'forge'], 'herbs', (L.toxDecay ? { k: 'tox', v: 1 } : { k: 'yin', y: 'soul' }), { art: 'm_xuedun' }, 'xuehe'),
     E('youji', '幽姬', '细作', '人心可用', 'youji', ['escort', 'explore', 'teach', 'lecture', 'act:retreat'], 'stones', { k: 'bid', v: 0.05 }, { k: 'aucSteal' }, 'xuesan'),
   ],
 };
@@ -124,6 +124,7 @@ L.elderFavDesc = function (st, x, lv) {
     case 'world': return `天象早知：天下大势期间历练分数 +${s.v}`;
     case 'leap': return `越级奖励再 +${L.pct(s.v)}`;
     case 'bid': return `拍卖拿下把握 +${L.pct(s.v)}`;
+    case 'tox': return `丹毒每周天多消 ${s.v}（毒亦是药）`;
   }
   return '';
 };
@@ -446,9 +447,12 @@ wrap('bidInfo', b => (st, i, t) => {
 });
 wrap('calVisitMult', b => st => b(st) * (L.duty(st) === 'wai' ? L.DUTY_V.waiVisit : 1));
 wrap('retCost', b => st => { const v = st.sect ? fav40(st, 'ret') : 0; return v ? Math.floor(b(st) * (1 - v)) : b(st); });
+wrap('toxDecay', b => st => b(st) + (st.sect ? fav40(st, 'tox') : 0));
 wrap('addMastery', b => (st, id, n) => { const v = st.sect && n > 0 ? fav40(st, 'mast') : 0; return b(st, id, v ? n * (1 + v) : n); });
 wrap('leapMult', b => st => b(st) * (st.sect && st.sect.id === 'xuesha' ? L.MO_V.leap : 1) * (1 + (st.sect ? fav40(st, 'leap') : 0)));
-wrap('fieldHerbMult', b => st => b(st) * (1 + (st.sect ? fav40(st, 'field') : 0)));
+// 药尘子 ≥ 40：灵田产量 +10%（作物制下进 L.cropParts 的拆解；没有作物制时乘在灵草上）
+if (L.cropParts) wrap('cropParts', b => (st, id) => { const out = b(st, id), v = st.sect ? fav40(st, 'field') : 0; if (v) out.push(['药尘子', 1 + v]); return out; });
+else wrap('fieldHerbMult', b => st => b(st) * (1 + (st.sect ? fav40(st, 'field') : 0)));
 L.addExpMod('duty_zhan', 62, (st, k, d, a) => (a === 0 && L.duty(st) === 'zhan' ? ['职司·战堂（斩妖）', L.DUTY_V.slay] : null));
 L.addExpMod('elder_world', 63, st => { const v = st.sect ? fav40(st, 'world') : 0; return v && L.world(st) ? ['清虚真人·天象早知', v] : null; });
 // 战堂：论道所得灵石与贡献 +30%

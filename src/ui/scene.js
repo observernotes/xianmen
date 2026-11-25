@@ -27,8 +27,9 @@ function fitScene() {
 function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
-// ART.drawHome 按 st.year 的小数部分画四季：给它一个只改了 year 的视图，让画面的季节对上 L.season
-function homeView() { return Object.create(st, { year: { value: Math.floor(st.year || 0) + (season() + 0.5) / 4 } }); }
+// ART.drawHome 按 st.year 的小数部分画四季：给它一个只改了 year 的视图，让画面的季节对上 L.season；
+// 灵田等级给 0（田改成作物制，由 panel-field.js 的 drawPlots 逐块画 ART.drawPlot）
+function homeView() { return Object.create(st, { year: { value: Math.floor(st.year || 0) + (season() + 0.5) / 4 }, home: { value: Object.assign({}, st.home, { field: 0 }) } }); }
 function drawArray(x, y) {
   const lv = st.home.array; if (!lv) return null;
   const rx = 22 + Math.min(lv, 12), ry = Math.round(rx * 0.3);
@@ -123,6 +124,7 @@ function seasonFx(night) {
 }
 function drawHomeScene(dt) {
   const r = ART.drawHome(homeView(), T, OY, parts, { phase: phase() });
+  drawPlots();
   const col = drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
   if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y);

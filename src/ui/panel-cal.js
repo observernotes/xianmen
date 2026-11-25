@@ -110,9 +110,9 @@ function seasonTip(s) {
   if (!L.calOpen(st) || (st.guide && !st.guide.done)) return;
   const f = L.seasonFx(st), left = L.seasonLeft(st);
   let t = '';
-  if (s === 0) t = `开春了（${left} 个周天）：灵田灵草 +${Math.round(f.herb * 100)}%${st.home.field ? `（每周天约 ${L.fmt1(L.fieldHerb(st.home.field) * L.fieldHerbMult(st) / (1 + f.herb))} → ${L.fmt1(L.fieldHerb(st.home.field) * L.fieldHerbMult(st) * L.calFieldHerb(st))} 株）` : ''}，访客多三成。`;
-  else if (s === 1) { const ks = L.REGIONS.map((r, k) => k).filter(k => L.beastMap(k) && L.regionOpen(st, k)).map(k => L.REGIONS[k].n); t = `入夏：兽类地图（${ks.join('、') || '后山野林'}）斩妖灵石 +${Math.round(f.beast * 100)}%；传闻夏天山里有秘境开启。`; }
-  else if (s === 2) { const base = L.fieldInc(st.home.field); t = `入秋：灵田灵石 +${Math.round(f.rice * 100)}%${st.home.field ? `（+${L.fmt1(base)} → +${L.fmt1(base * (1 + f.rice))}/周天）` : ''}，行情 +${mult2(f.price)}${L.sellOpen(st) ? `：灵草现在 ×${mult2(L.sellMult(st, 'herb'))}` : ''}。秋天卖东西最好。`; }
-  else { const m = L.retBaseMult(st); t = `入冬：闭关倍率 ×${(m - f.ret).toFixed(2)} → ×${m.toFixed(2)}，冬末（${L.nextTour(st)} 周天后）是天骄论道。这时候闭关最划算。`; }
+  if (s === 0) t = `开春了（${left} 个周天）：${cropSeasonLine(0) || `灵田灵草 +${Math.round(f.herb * 100)}%`}，访客多三成。`;
+  else if (s === 1) { const ks = L.REGIONS.map((r, k) => k).filter(k => L.beastMap(k) && L.regionOpen(st, k)).map(k => L.REGIONS[k].n); t = `入夏：兽类地图（${ks.join('、') || '后山野林'}）斩妖灵石 +${Math.round(f.beast * 100)}%；传闻夏天山里有秘境开启。${cropSeasonLine(1) ? cropSeasonLine(1) + '。' : ''}`; }
+  else if (s === 2) { const base = L.fieldStoneInc(st); t = `入秋：灵田灵石 +${Math.round(f.rice * 100)}%${st.home.field ? `（+${L.fmt1(base)} → +${L.fmt1(base * (1 + f.rice))}/周天）` : ''}，行情 +${mult2(f.price)}${L.sellOpen(st) ? `：灵草现在 ×${mult2(L.sellMult(st, 'herb'))}` : ''}。秋天卖东西最好。`; }
+  else { const m = L.retBaseMult(st); t = `入冬：闭关倍率 ×${(m - f.ret).toFixed(2)} → ×${m.toFixed(2)}，冬末（${L.nextTour(st)} 周天后）是天骄论道。这时候闭关最划算。${cropSeasonLine(3) ? cropSeasonLine(3) + '。' : ''}`; }
   tip('season_' + s, t);
 }

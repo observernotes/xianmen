@@ -9,6 +9,7 @@ function onTick() {
     if (st.p.r <= L.MAXR && !L.isReady(st)) floatText(HOMEPOS.x + 14, HOMEPOS.y - D().sit.h + 2, '+' + fmt(g), '#8ff5d0', false, true);
     floatText(30, 108, '+' + fmt(inc), '#ffe39a', false, true);
   }
+  fieldTickFx(out);   // 收成、续炼飘字（panel-field.js）
   if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
   // 途中遭遇是要你做决定的，阻塞；引导期间（前两趟）逻辑层本来就不出
   if (out.choice && !(st.guide && !st.guide.done)) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
@@ -90,6 +91,7 @@ function sceneClick(e) {
   if (st.exp) { SFX.tap(); showExp(); return; }
   if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 14 && y > VISIT_POS.y - 30 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;
+  if (fieldSceneHit(x, y)) return;
   const S = D().sit;
   if (Math.abs(x - HOMEPOS.x) < S.w / 2 + 6 && y > HOMEPOS.y - S.h - 16 && y < HOMEPOS.y + 6) {
     if (L.isReady(st)) { SFX.tap(); showBreakthrough(); return; }
@@ -136,5 +138,5 @@ try { window.claude && window.claude.hot && window.claude.hot.snapshot && window
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
-  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, tribOpts, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, tribOpts, showField, brewUI, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

@@ -77,10 +77,9 @@ L.VAULT_GEAR = { jian: 'v_jian', dan: 'v_dan', dao: 'v_dao' };
 addB({ id: 'v_jian', slot: 'w', t: 5, n: '太虚剑', el: 'jin', fixed: ['fengrui', 'ke_mu'], vault: 'jian' });
 addB({ id: 'v_dan', slot: 'o', t: 5, n: '丹霞鼎', kind: 'cul', fixed: ['yangqi'], vault: 'dan', noBoom: true, note: '炼丹不炸炉' });
 addB({ id: 'v_dao', slot: 'w', t: 5, n: '玄天拂尘', el: 'shui', fixed: ['tongling', 'cangfeng'], vault: 'dao' });
-// 器方（CONTENT §5.2；灵矿数为 基数 × 1.5^阶；mats 首领材料；yin 药引（药引系统上线前每枚折灵草 L.YIN_HERB ×(1 + 境界)）；sword 老祖旧剑残片）
+// 器方（CONTENT §5.2；灵矿数为 基数 × 1.5^阶；mats 首领材料；yin 药引（crops.js 的 st.mats.yin）；sword 老祖旧剑残片）
 L.BOSS_MAT = ['狼王牙', '寨主令', '尸王玉', '猿王心', '血魔珠', '守墓剑意', '魔将角', '蛟皇鳞', '噬星核', '傀儡芯', '混沌尘'];
 L.YIN_N = { fire: '火引', ice: '冰引', thunder: '雷引', wood: '木引', soul: '魂引' };
-L.YIN_HERB = 12;
 L.PLANS = [
   { id: 'g_langya', n: '狼牙项链', slot: 'o', kind: 'luck', t: 2, aff: ['xunzhen'], mats: { 0: 2 }, ore: 20, src: '独眼狼王首杀' },
   { id: 'g_heifeng', n: '黑风重甲', slot: 'r', t: 3, aff: ['huzhu'], mats: { 1: 1 }, ore: 40, src: '黑风寨主首杀' },
@@ -455,12 +454,11 @@ const SWORD_FR = ['sword_3', 'sword_4', 'sword_5'];   // 老祖旧剑的三截�
 L.swordFrags = st => SWORD_FR.filter(f => st.eflags && st.eflags[f]).length;
 L.planOwned = (st, id) => !!(st.gear && st.gear.plans[id]);
 L.planOre = P => (P.ore ? Math.ceil(P.ore * Math.pow(1.5, P.t)) : 0);
-L.planHerbs = (st, P) => { let n = 0; for (const y in P.yin || {}) n += P.yin[y]; return n * L.YIN_HERB * (1 + Math.min(st.p.r, 8)); };
 L.planNeeds = function (st, id) {
   const P = L.PLAN[id], g = st.gear, out = [];
   for (const k in P.mats) out.push({ t: `${L.BOSS_MAT[k]} ×${P.mats[k]}`, have: g.mats[k] || 0, need: P.mats[k], ok: (g.mats[k] || 0) >= P.mats[k], src: `${L.BOSSES[k].n}（首杀 ×2，之后每 48 周天再战 ×1）` });
   const o = L.planOre(P); if (o) out.push({ t: `灵矿 ${L.fmt(o)}`, have: st.ore || 0, need: o, ok: (st.ore || 0) >= o });
-  const h = L.planHerbs(st, P); if (h) out.push({ t: `${Object.keys(P.yin).map(y => L.YIN_N[y] + ' ×' + P.yin[y]).join('、')}（药引上线前折灵草 ${L.fmt(h)}）`, have: st.herbs, need: h, ok: st.herbs >= h });
+  for (const y in P.yin || {}) out.push({ t: `${L.YIN_N[y]} ×${P.yin[y]}`, have: L.yinHave(st, y), need: P.yin[y], ok: L.yinHave(st, y) >= P.yin[y], src: '灵田药引作物、坊市、觅食的灵宠' });
   if (P.sword) out.push({ t: `老祖旧剑残片 ×${P.sword}`, have: L.swordFrags(st), need: P.sword, ok: L.swordFrags(st) >= P.sword, src: '老祖的旧剑链' });
   return out;
 };
@@ -477,7 +475,7 @@ L.forge = function (st, id) {
   const P = L.PLAN[id], g = st.gear;
   for (const k in P.mats) g.mats[k] -= P.mats[k];
   st.ore -= L.planOre(P);
-  st.herbs -= L.planHerbs(st, P);
+  if (P.yin) L.yinPay(st, P.yin);
   st.stats.forged = (st.stats.forged || 0) + 1;
   const it = L.gearDrop(st, P.slot, P.t, { base: id, src: 'forge' });
   L.log(st, `器炉开火，打成${L.GEAR_N[P.slot]}【${P.n}】（${P.aff.map(a => L.AFFIX[a].n).join('、')}）`, 'gold');

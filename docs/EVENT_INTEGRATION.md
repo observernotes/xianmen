@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：宗门加深与徒弟）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果；第五刀：灵宠；第六刀：秘境；第七刀：灵田作物与炼丹；第八刀：宗门加深与徒弟）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -31,7 +31,7 @@
     `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
 - [x] 灵宠登记（`src/logic/pets.js`）：`fx.pet`（种 id，进名册，满了走放生 / 替换卡）、`fx.feed` 与 `cost.feed`（兽粮，原始数量）、`fx.petHeart`（剧情事件作用于触发它的那只 `st.petFocus`，洞府 / 历练事件作用于出战的，`pet_guard` 作用于巡山的、`home_field_pest` 作用于守田的；`pet_fight` 偏心新来的时老的那只另 −1）、
   `fx.petForm`（`种_a` / `种_b`；药引、灵矿在选项的 cost 里付，首领材料在这里扣；分支里不是花费的条件——禁地 3 趟、好感、季节、首领材料——没满足时该选项不显示，靠包了一层的 `L.choiceShown`）；
-  `fx.yin` 与 `cost.yin`：**药引系统（SYSTEMS §5）上线前按 gear.js 的口径每枚折灵草 `L.YIN_HERB × (1 + 境界)`**，炼丹那一刀接入真正的药引时重新登记这两个键即可；
+  `fx.yin` 与 `cost.yin`：药引系统上线前按每枚折灵草 `12 × (1 + 境界)`；**灵田炼丹那一刀起是真的药引（crops.js 登记）**；
   触发键 `egg`（得蛋，孵蛋事件）、`pet_evolve:<种>`（升到 5 级）、`pet_runaway`（0 心再闲 24 周天）、`pet_fight`（名册 ≥ 2，每届论道后 25%）、`pet_sick`（炼出下品丹时出战灵宠 30% 偷吃）；
   一次性 flag `hatch_stone` / `hatch_warm` / `hatch_field`（埋进灵田：直接 2 级）/ `pet_release` / `pet_job_pick`（派到推荐的岗）/ `pen_discount`（兽栏建筑上线前：喂养效率 +8%）。
   数据里写不出来的前提（CONTENT §14.5 的“触发条件”）在 `L.eligible` 外面补：`pet_gift` 出战 ≥ 3 心、`pet_wild_friend` 采药且有出战、`pet_guard` 有巡山、`home_field_pest` 灵田 ≥ 3 级；用到 petHeart / petForm 的事件都要名册里至少一只。
@@ -53,7 +53,12 @@
     `fx.favor`（`st.favor`）、`fx.grudge` / `elig.grudge`（`st.grudge`）、`fx.toxin`（`st.toxin`）、`fx.recipe`（`st.recipeNote` 计数）；合并灵宠与天劫道心后，`fx.yin` / `cost.yin` / `fx.feed` / `fx.pet` 由 pets.js、`fx.karma` 由 dao.js 正式登记（覆盖了秘境里的先收着版本），秘藏的灵宠蛋走 `fx.pet` 进名册。
     这些只在“还没人登记过”时登记；对应系统上线时不带 where 重新登记即覆盖（加载顺序无关），别处用这些键的事件到那时才放行——所以这一刀只多放行了 16 个秘境事件，没有连带放出别的系统的事件。
   - realm_rival 已上线，但要宿敌恩怨 ≥ 20 才会出现（恩怨系统上线前只有秘境事件改得动 `st.grudge`）。灵宠天赋 realmUnk（霜月狐）现在是秘境“？”门减半（去掉了秘境上线前折的奇遇把握）。
-- [x] 宗门加深登记（`src/logic/sect2.js`、`src/logic/disciples.js`，第七刀）：
+- [x] 灵田作物与炼丹登记（`src/logic/crops.js`、`src/logic/alchemy.js`，第七刀）：`fx.yin` / `cost.yin` 换成真的药引（`st.mats.yin`，原始数量；秘境的占位登记与旧 `st.yin` 折进来）、
+  `fx.toxin`（丹毒 ±n，走 `L.addToxin`，天劫临阵吞丹也走它）、`fx.recipe`（`'need'` 揭晓一格没试过的药引丹方，丹炉等级够的优先；或指定丹方 id，`jiuzhuan` 是秘方；已会的给一点灵草）、
+  剧情触发键 `field_mutant`（药引作物成熟时 3%，记下是哪种作物）；一次性 flag `field_half`（本季灵田产量减半）、`mutant_seed`（变种的那种作物以后 ×1.2）、`seed_early`（下一种没解锁的作物提前能种）。
+  这一刀放行的 6 个：`ch_danjing_5`、`ge_end`、`home_field_mutant`、`mkt_black`、`season_spring_fair`、`xue_3`（另有秘境的 `realm_herb_king`、`realm_ghost_market` 从占位换成真的结算）。
+  还闸着、但炼丹部分已能结算的：`dan_yun_1`、`mo_xuehe_1`、`mo_xuesan_1`、`mo_youji_2`（等人脉 `favor`）。
+- [x] 宗门加深登记（`src/logic/sect2.js`、`src/logic/disciples.js`，第八刀）：
   - `fx.favor`：键 `a / b / c` = 本宗第 1 / 2 / 3 位长老（L.ELDERS 的顺序），或写具体长老 id（任何一宗的都算合法，不是本宗的就忽略；没入宗整条忽略）；值 ±50 以内，结果 0～100 截断；
     跨过 40 时给小恩惠、第一次到 80 给绝学。不带 where 重新登记，覆盖了 realm.js 只对秘境登记的“先收着”版本（`st.favor` 不再用）。
   - `elig.favorMin: [长老id, n]`：身在该长老的宗门且支持 ≥ n（隐含 sect）。鬼医薛三：事件里的长老 id 是 `xuesan`，立绘用美术 id `xue3`（L.ELDERS 里 `img: 'xue3'`）。
@@ -70,9 +75,9 @@
   - 数据里写不出来的前提在 `L.eligible` 外面补：`sect_frame` 要执法那位（本宗第 3 位）支持 < 40；血煞魔宗弟子碰不上 `sect_war_xuesha`、`sect_alliance`。
   - 这一刀放行的 43 个：宗门通用 8 个（sect_duty_pick、sect_junior_duel、sect_frame、sect_lecture、sect_candidates、sect_succession、sect_lord_vote、sect_traitor；sect_vault_new 早已上线）、
     长老 20 个（24 个里 dan_yun_1、mo_youji_2、mo_xuesan_1 还等丹毒，mo_xuehe_1、mo_xuesan_1 还等丹方）、徒弟 12 个、人物委托 3 个（su_q1、su_q2、bai_q2：fx.busy / fx.favor）。
-    还闸着、但宗门部分已能结算的：上面 4 个长老事件（丹毒 / 丹方）、chu_q2、mo_q1（fx.busy 已登记，等恩怨）、mu_4、xue_1（fx.favor 已登记，等恩怨）。
-- 当前上线 290 / 332（宗门加深之后；秘境合并后是 247）。
-- 秘境那一刀时 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
+    还闸着、但宗门部分已能结算的：chu_q2、mo_q1（fx.busy 已登记，等恩怨）、mu_4、xue_1（fx.favor 已登记，等恩怨）。
+    与灵田炼丹合并后，等丹毒 / 丹方的 4 个长老事件（dan_yun_1、mo_xuehe_1、mo_xuesan_1、mo_youji_2）也放行了。
+- 当前上线 300 / 332（宗门加深 +43，与灵田炼丹合并后那 4 个长老事件 +4）。灵田与炼丹那一刀 253 / 332（+6）。合并灵田炼丹之前 247 / 332（基础 122 全部上线；扩展包 125 / 210；秘境 16 / 16）。灵宠 + 天劫道心合并后 231 / 332；秘境单独接入时 202 / 327。
 - 灵宠那一刀 215 / 327；天劫与道心因果单独接入时 201 / 332；历法与坊市那一刀 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。

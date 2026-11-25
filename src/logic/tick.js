@@ -31,10 +31,11 @@ L.tick = function (st, cont) {
   if (L.mjTick) L.mjTick(st, out);
   // 灵宠：好感、觅食、闲着掉心与出走、争窝、名册满时没决定的新灵宠（pets.js）
   L.petTick(st, out);
-  // 增益与灵草
+  // 增益；灵田作物长一周天、熟了自动收（crops.js）；丹毒消退、自动续炼（alchemy.js）
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);
-  if (st.home.field > 0) { st.herbProg += L.fieldHerb(st.home.field) * L.fieldHerbMult(st) * L.calFieldHerb(st); const n = Math.floor(st.herbProg); if (n > 0) { st.herbs += n; st.herbProg -= n; } }
+  L.cropTick(st, out);
+  L.alchTick(st, out);
   // 吐纳环：在洞府打坐才蓄
   if (!L.busy(st) && !L.isFull(st) && p.r <= L.MAXR) st.tuna = Math.min(L.TUNA_FULL, Math.round(((st.tuna || 0) + L.tunaStep(st)) * 1e6) / 1e6);
   const evMul = L.friend(st, 'bai') ? 1.5 : 1;

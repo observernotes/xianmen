@@ -11,6 +11,8 @@
 //   node tools/sim.js all 200 nodaoji  渡劫评价不给道基（L.DAOJI_ON = false），量道基对节奏的影响
 //   node tools/sim.js all 200 nopets  关掉灵宠的新东西（L.PETS_ON = false：只剩种的初阶倍率，没有等级、进化、好感、岗位、天赋）
 //   node tools/sim.js all 200 nosect2 guided 不送礼、不收徒、不领职司、宝库照旧（人脉的晋升条件仍在），量宗门加深这一刀
+//   node tools/sim.js all 200 nocrops 灵田只种灵稻（L.CROPS_ON = false：等价于作物制之前的被动灵石，没有灵草、灵谷、药引作物）
+//   node tools/sim.js all 200 noalch  关掉药引丹方与丹毒（L.ALCH_ON = false：只剩培元、破境、疗伤三种基础丹）
 // 策略：
 //   guided 空闲就行动；快圆满时留在家；灵石按“聚灵阵 > 灵田 > 丹炉 > 洞府”的折算价升级；每两趟历练闭关一次；
 //          突破带尽量多的丹（最多 3 枚）；金丹起的天劫护劫手段有就全用（祭法宝、道侣、灵宠、渡劫阵；停顿时临阵吞丹补到成功率封顶），
@@ -19,14 +21,19 @@
 //          法宝：掉落卡“更好就换、否则熔炼”（L.gearAuto）；灵矿全花在强化上（兵器优先，按“每点灵矿换来多少”挑槽），器方材料够就打
 //          灵宠（SYSTEMS §4）：名册没满、或出战那只的初阶低于蛋的上限时每届买一枚蛋；兽粮一袋买得起就买；L.petAuto：出战最强的、空岗派人、
 //          条件满足就进化（留够两炉培元丹的灵草）、10 级觉醒、兽粮先喂出战的、名册满时更强才替换
+//          灵田（SYSTEMS §6.2）：缺什么药引就种什么（灵宠进化、聚灵丹、洗髓丹、爆气丹、器方），最多占一半的田，同样缺的先种当季的；
+//          田有三块以上、灵草不够炼两炉培元丹时留一块灵草；其余灵稻。只在刚收完的那块上改种（不糟蹋长到一半的）
+//          炼丹（SYSTEMS §5）：没揭晓的药引格材料够就试炼；丹毒过 60 炼清毒丹；能炼就炼洗髓、淬体；丹毒不过 60 时聚灵丹常驻，
+//          破境丹不足 3 枚补，灵草富余、丹毒不过 45 时培元；丹囊里留一枚疗伤丹、一枚爆气丹（胜算不到九成的约战、首领前服）
 //          坊市（SYSTEMS §10）：货架上打折的破境丹、轮换的法衣 / 残篇 / 器方买得起就买，灵矿不够强化时买一筐；
+//          药引一包：缺的那种（见下面的灵田）买得起三包就买；
 //          行情：破境丹 ≥ 9 枚时卖一半（指数 ≥ 0.9，或 ≥ 11 枚时不看指数），灵草远多于炼丹所需、指数 ≥ 1.2 时卖一半，灵矿不卖（全拿去强化）；
 //          拍卖：想要的拍品（法宝、功法、残篇、洗髓、器方，天材地宝不足 3 个时）按手里的钱出价，宿敌在场的先出、出到豪掷；
 //          钱差一点时拍卖那几个周天不升洞府、攒着；坊市事件随手选一个付得起的选项
 //          宗门（SYSTEMS §11）：宝库轮换里功法、更高阶法宝、器方阵图买得起就换；职司按宗门领；每届给支持最高的两位长老送礼；
 //          任务板四类新任务照接（讲法要离圆满还远），炼器、驯兽东西富余才交；徒弟挑灵根最高的收，闭门苦修到顶再去当值，圆满功法教给他，金丹出师
 //   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
-//          不闭关、不吐纳、不碰新系统（不卖行情、不去拍卖）；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
+//          不闭关、不吐纳、不碰新系统（不卖行情、不去拍卖、灵田照默认全种灵稻、不炼丹）；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
 //   idle   什么都不做，只在修为圆满时突破
 // 被 require 时导出 { run, L }，可以在别的脚本里换策略或统计（tools/ 之外的分析脚本用）
 const L = require('../src/logic.js');
@@ -37,6 +44,8 @@ if (arg.includes('nocal')) L.CAL_ON = false;
 if (arg.includes('norealm')) L.MJ_ON = false;
 if (arg.includes('nodaoji')) L.DAOJI_ON = false;
 if (arg.includes('nopets')) L.PETS_ON = false;
+if (arg.includes('nocrops')) L.CROPS_ON = false;
+if (arg.includes('noalch')) L.ALCH_ON = false;
 const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
@@ -115,8 +124,57 @@ function petGuided(st) {
   const want = L.petCount(st) < L.petCap(st) || (out && L.PET_SP[out.sp].t < L.petEggCap(st) && st.stones >= L.price(st, 'egg') * 3);
   if (want && st._eggCyc !== cyc && L.marketOpen(st, 'egg') && st.stones >= L.price(st, 'egg') * 1.5) { st._eggCyc = cyc; L.buy(st, 'egg'); }
   if (L.petCount(st) && L.marketOpen(st, 'feed') && st.stones >= L.price(st, 'feed') * 4) L.buy(st, 'feed');
-  L.petAuto(st, { herbKeep: 2 * L.herbCost(st, L.RECIPES[0]) });
+  L.petAuto(st);
 }
+// guided 的灵田：缺什么药引种什么（最多一半的田），灵草不够时留一块灵草，其余灵稻；只在刚收完（g = 0）的田上改种
+// 要药引的地方按先后：洗髓丹（灵根）> 清毒丹（丹毒过 50）> 灵宠进化 > 聚灵丹 > 器方 > 淬体丹 > 爆气丹；返回还缺的 [{ y, d }]，排在前面的先种
+function yinWants(st) {
+  const need = {}, order = [], add = (o, k) => { for (const y in o) { need[y] = (need[y] || 0) + o[y] * (k || 1); if (!order.includes(y)) order.push(y); } };
+  if (st.p.t < L.talentCap(st) && st.p.t < 6 && (st.home.furnace >= 8 || L.friend(st, 'ge'))) add({ thunder: 1, soul: 1 });
+  if ((st.toxin || 0) > 50 && st.home.furnace >= 3) add({ ice: 1, wood: 1 });
+  for (const p of st.pets || []) {
+    if (p.form || p.lv < 3 || !L.PET_SP[p.sp].a) continue;
+    const B = [L.PET_SP[p.sp].a, L.PET_SP[p.sp].b].find(b => b.c.yin && !b.c.deep && !b.c.heart && !b.c.season && b.c.mat === undefined);
+    if (B) add(B.c.yin);
+  }
+  if (st.home.furnace >= 3) add({ fire: 1, ice: 1 }, 2);
+  for (const id in st.gear.plans) { const P = L.PLAN[id]; if (P && P.yin) add(P.yin); }
+  if (st.home.furnace >= 5 && L.recipeKnown(st, 'cuiti')) add({ thunder: 2 });
+  if (st.home.furnace >= 3) add({ fire: 2 });
+  const out = [];
+  for (const y of order) { const d = need[y] - L.yinHave(st, y); if (d > 0) out.push({ y, d }); }
+  return out;
+}
+const YIN_CROP = { fire: 'fire', ice: 'ice', thunder: 'bolt', wood: 'vine', soul: 'soul' };
+function cropGuided(st) {
+  if (!L.cropsOpen(st)) return;
+  const n = L.plotCount(st), want = [];
+  const ys = yinWants(st).filter(x => L.cropOpen(st, YIN_CROP[x.y]));
+  for (const x of ys.slice(0, Math.max(n >= 2 ? 1 : 0, Math.floor(n / 3)))) want.push(YIN_CROP[x.y]);
+  if (n >= 3 && want.length < n - 1 && st.herbs < 2 * L.herbCost(st, L.RECIPES[0])) want.push('herb');
+  while (want.length < n) want.push('rice');
+  const plots = L.plots(st), left = want.slice();
+  // 已经种着想要的就留着；剩下的在刚收完时换成还缺的
+  const keep = plots.map(x => { const j = left.indexOf(x.c); if (j >= 0) { left.splice(j, 1); return true; } return false; });
+  plots.forEach((x, i) => { if (!keep[i] && x.g === 0 && left.length) L.plant(st, i, left.shift()); });
+}
+// guided 的炼丹
+function alchGuided(st, rec) {
+  if (!st.home.furnace) return;
+  const can = k => !L.canCraft(st, k), tox = () => st.toxin || 0;
+  // 试炼：根基类不计丹毒随时试，修炼 / 战斗类等丹毒不过 30
+  if (L.yinOpen(st)) for (const g of L.YIN_GRID) if (!L.recipeKnown(st, g[2]) && !L.trialWhy(st, g[0], g[1]) && (L.RECIPE[g[2]].g === 'g' || tox() <= 30)) { if (L.trial(st, g[0], g[1])) rec.trials++; break; }
+  if (tox() > 60 && can('qingdu')) L.craft(st, 'qingdu');
+  if (can('xisui')) L.craft(st, 'xisui');
+  if (can('cuiti')) L.craft(st, 'cuiti');
+  if (can('juling') && tox() + 15 <= 60) L.craft(st, 'juling');
+  else if (st.pills < 3 && can('pojing')) L.craft(st, 'pojing');
+  else if (can('peiyuan') && st.herbs > L.herbCost(st, L.RECIPES[0]) * 2.5 && !L.isFull(st) && tox() + 15 <= (L.recipeKnown(st, 'juling') ? 30 : 45)) L.craft(st, 'peiyuan');
+  if (L.bagN(st, 'liaoshang') < 1 && can('liaoshang') && st.herbs > L.herbCost(st, L.RECIPES[0])) L.craft(st, 'liaoshang');
+  if (L.bagN(st, 'baoqi') < 1 && can('baoqi')) L.craft(st, 'baoqi');
+}
+// 战斗类丹：胜算不到九成的硬仗（约战前夜、打首领前）服一枚爆气丹；论道、会武不服（火引留给聚灵丹）
+function battlePill(st, rec, p) { if (p < 0.9 && !L.takeWhy(st, 'baoqi') && L.takePill(st, 'baoqi')) rec.baoqi++; }
 // guided 的坊市：行情卖丹卖草、货架买轮换货（灵矿另见 gearGuided）
 function marketGuided(st, rec) {
   if (L.sellOpen(st)) {
@@ -129,7 +187,8 @@ function marketGuided(st, rec) {
   for (const row of L.shelf(st)) {
     if (row.fixed || L.shelfWhy(st, row)) continue;
     const buy = (row.k === 'pill' && st.pills < 3 && st.stones >= row.price * 2) || (row.k === 'robe' && st.stones >= row.price * 2) || (row.k === 'token' && !L.mjTokens(st) && st.stones >= row.price * 5)
-      || ((row.k === 'frag' || row.k === 'plan') && st.stones >= row.price * 1.5);
+      || ((row.k === 'frag' || row.k === 'plan') && st.stones >= row.price * 1.5)
+      || (row.k === 'yin' && row.s && yinWants(st).some(x => x.y === row.s.yin) && st.stones >= row.price * 3);
     if (buy) { const r = L.shelfBuy(st, row.i); if (r) { rec.shop++; if (r.it && r.it.pend) L.gearAuto(st, r.it.gear); } }
   }
 }
@@ -306,13 +365,9 @@ function actGuided(st, rec, seed) {
     });
     if (st.sect.rank >= 6) for (const b of L.BUILDS) if (st.stones >= L.buildCost(st.sect.build[b.k]) * 1.2) L.sectBuild(st, b.k);
   }
-  if (st.home.furnace) {
-    if (!L.canCraft(st, 'xisui')) L.craft(st, 'xisui');
-    if (!L.canCraft(st, 'juling') && !st.buffs.some(b => b.cul)) L.craft(st, 'juling');
-    else if (st.pills < 3 && !L.canCraft(st, 'pojing')) L.craft(st, 'pojing');
-    else if (!L.canCraft(st, 'peiyuan') && st.herbs > L.herbCost(st, L.RECIPES[0]) * 2.5 && !L.isFull(st)) L.craft(st, 'peiyuan');
-  }
-  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k)) { const foe = { kind: 'boss', k }; artFor(st, { foe }); if (L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe) > 0.7) L.fightBoss(st, k); }
+  cropGuided(st);
+  alchGuided(st, rec);
+  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k)) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.fightBoss(st, k); } }
   if (L.busy(st) || L.isFull(st)) return;
   if (p.inj > 0 && st.pills > 0) L.heal(st);
   if (L.canTrain(st)) { L.startTrain(st); return; }
@@ -369,7 +424,7 @@ function run(strat, seed, trace) {
   const st = L.newState({ name: '测试' });
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {},
-    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 } };
+    mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0 };
   const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
@@ -381,8 +436,12 @@ function run(strat, seed, trace) {
     if (strat === 'guided') gearGuided(st);
     if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
     if (strat === 'guided' && st.sect && st.tick % L.MEET_EVERY === L.MEET_AT - 1) { const pos = L.sectPos(st); artFor(st, { foe: { kind: 'sect', id: L.nineAt(st, pos === 1 ? 2 : pos - 1).id } }); }
+    if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) battlePill(st, rec, L.pactInfo(st).p);
     rec.passive += L.income(st);
+    rec.toxSum += st.toxin || 0; rec.toxMax = Math.max(rec.toxMax, st.toxin || 0); rec.ticks++;
+    if (L.plotCount(st)) { rec.rice += L.riceCount(st); rec.plots += L.plotCount(st); }
     const out = L.tick(st);
+    if (out.harvest) for (const k in out.harvest) if (L.YIN_N[k]) rec.yinGot += out.harvest[k];
     if (out.choice && strat !== 'idle') pickChoice(st, out.choice);
     if (out.visitor && strat !== 'idle') pickChoice(st, out.visitor);
     while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle') L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
@@ -416,6 +475,7 @@ function run(strat, seed, trace) {
   rec.sectTasks = st.stats.sectTasks; rec.trips = st.stats.exp;
   rec.discTaken = st.stats.discTaken || 0; rec.discGrad = st.stats.discGrad || 0; rec.discTeach = st.stats.discTeach || 0; rec.trioR = st.stats.trioRounds || 0; rec.trioW = st.stats.trioWins || 0;
   rec.fav = st.sect && st.sect.fav ? Object.values(st.sect.fav).sort((a, b) => b - a) : [0, 0, 0]; rec.duty = st.sect ? st.sect.duty : ''; rec.dings = st.stats.dings; rec.st = trace ? st : null;
+  rec.recipes = L.recipeCount(st); rec.crafts = st.stats.crafts; rec.talent = st.p.t;
   rec.aucLost = st.stats.aucLost || 0; rec.rivalPw = Math.max(1, ...st.ladder.filter(x => x.id).map(x => x.pw || 1));
   rec.ratio.sort((a, b) => a - b);
   rec.ratioMed = rec.ratio.length ? rec.ratio[rec.ratio.length >> 1] : 0;
@@ -502,6 +562,8 @@ function summarize(strat, recs, G) {
     const pa = (r, f) => med(recs.map(x => x.petAt[r] && x.petAt[r][f]));
     row(strat, '（参考）灵宠 筑基末 / 渡劫期 / 飞升：出战', `×${pa(2, 'm').toFixed(2)} / ×${pa(8, 'm').toFixed(2)} / ×${pa(9, 'm').toFixed(2)}（等级进化好感 ×${pa(2, 'share').toFixed(2)} / ×${pa(8, 'share').toFixed(2)} / ×${pa(9, 'share').toFixed(2)}），出战 ${pa(8, 't')} 阶 Lv${pa(8, 'lv')}`, '§18：灵宠等级进化 ×1.25');
     row(strat, '（参考）灵宠 岗位修炼 渡劫期 / 名册 / 进化 觉醒 / 喂兽粮', `×${pa(8, 'cul').toFixed(2)} / ${pa(8, 'n')} 只 / ${med(recs.map(x => x.petEvo))} 次 ${med(recs.map(x => x.petAw))} 次 / ${L.fmt(med(recs.map(x => x.feedUsed)))}`, '§18：岗位 +5% 修炼');
+    row(strat, '（参考）灵田 灵稻份额 / 药引收成；炼丹 炉数 / 试炼 / 揭晓丹方', `${pct(med(recs.map(x => x.rice / Math.max(1, x.plots))))} / ${med(recs.map(x => x.yinGot))} 枚；${med(recs.map(x => x.crafts))} / ${med(recs.map(x => x.trials))} / ${med(recs.map(x => x.recipes))} 格`, '—');
+    row(strat, '（参考）丹毒 平均 / 最高；爆气丹服用；飞升时灵根', `${med(recs.map(x => x.toxSum / Math.max(1, x.ticks))).toFixed(1)} / ${med(recs.map(x => x.toxMax)).toFixed(0)}；${med(recs.map(x => x.baoqi))} 枚；${med(recs.map(x => x.talent))} 档`, '—');
     row(strat, '（参考）飞升时 兵器阶+强化 / 法衣 / 饰品强化', `${ga(9, 'wt')}+${ga(9, 'wp')} / +${ga(9, 'rp')}（分数 +${ga(9, 'robe').toFixed(1)}） / +${ga(9, 'op')}`, '—');
     return { durs, ascMed };
   }
@@ -545,7 +607,7 @@ function main(onlyStrat, n) {
   }
   const w = [8, 30, 64, 44, 6];
   const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
-  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标（其中门槛 ${gateFails} 行）` : '\n全部达标');

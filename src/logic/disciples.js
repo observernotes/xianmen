@@ -127,7 +127,8 @@ L.discJobMult = (x, k) => (1 + x.jb) * ((T(x).job && T(x).job[k]) || 1);
 // 打理洞府：被动灵石与灵田灵草（每人 +8%，可叠）
 const homeAdd = st => ensure(st).list.reduce((a, x) => a + (x.job === 'home' && x.rest <= st.tick ? L.DISC_V.home * L.discJobMult(x, 'home') : 0), 0);
 L.addIncMul('disc_home', 45, st => { if (!st.disc || !st.disc.list.length) return null; const v = homeAdd(st); return v ? ['徒弟·打理洞府', 1 + v, 'disc'] : null; });
-wrap('fieldHerbMult', b => st => b(st) * (st.disc ? 1 + homeAdd(st) : 1));
+if (L.cropParts) wrap('cropParts', b => (st, id) => { const out = b(st, id), v = st.disc ? homeAdd(st) : 0; if (v) out.push(['徒弟·打理洞府', 1 + v]); return out; });
+else wrap('fieldHerbMult', b => st => b(st) * (st.disc ? 1 + homeAdd(st) : 1));
 L.discJobVal = function (st, x, k) {
   k = k || x.job;
   if (k === 'exp') { const kk = L.homeRegion(st); return { stones: Math.floor(L.rew(kk, 0) * L.RATE_M[2] * L.DISC_V.expShare * L.discJobMult(x, 'exp')), herbs: Math.round((2 + kk) * 0.6 * L.discJobMult(x, 'exp')) }; }
