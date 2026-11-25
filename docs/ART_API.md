@@ -149,3 +149,11 @@
 
 - `ART.drawRingBurst(x, y, k)`（画到当前 ctx）：(x, y) 是戒指所在点（主角持剑手附近，约脚底上方 10 像素、身前 9 像素），`k` 0～1。0～0.25 金光向内聚拢，0.25～0.5 炸开（白芯、十二道金芒，前两帧带全屏淡金闪屏），之后光环扩散、金屑上浮的余辉。
 - 按 20 帧播（`ART.ringBurstFrames = 20`，`k = 帧 / 19`，每帧 50 毫秒左右）；最大半径约 40 像素，画在小人之上。
+
+### 接线位置（阶段四已接入界面）
+
+- 1 锁碎裂：`src/ui/hud.js` `lockBreakFx`（updateHUD 里底栏解锁时调用；扫光推迟 0.16 秒，CSS 在 template 末尾“阶段四”段）。
+- 2 声音三态：`src/ui/audio.js` `setSoundIcon`。3 速度档：`src/ui/hud.js` `setSpeedIcon`（暂停显示 `pause`，金框）。
+- 4 品阶光柱：`src/ui/panel-exp.js` `dropFlipHTML` / `dropFlipRun`（历练结算卡，按掉落最高品阶）。
+- 5 空状态：`src/ui/core.js` `emptyNoteHTML`；兽栏（panel-pets.js `showPets`）、宗门宝库（panel-sect.js `sectVaultHTML`）、洞府空地（panel-home.js `plotDetail`）。
+- 6～10：`src/ui/duel-scene.js`（`ftBoss` / `ftChamp` / `duelStageOf` / `duelMeEl` / `drawDuelScene`）；天剑宗来犯 panel-sect.js `runWar` 传 `sect_mo`。
