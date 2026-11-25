@@ -3769,5 +3769,181 @@ BACKDROP.demon = () => {
   for (const x of [20, 46, 154, 180]) for (let y = 0; y < 62 + (x * 7 % 20); y += 4) { R(x + Math.round(Math.sin(y / 14 + x) * 2), y, 2, 3, y % 8 ? '#3a2a40' : '#5a4a60'); }
 };
 
+// ---------- 八、宗门人物 ----------
+// ART.portrait(id, mood, alt) 新增 14 位（规格同阶段二，48×48 五种表情）：
+//   长老 tieye 铁冶真人 liu 柳含烟 yaochen 药尘子 chisong 赤松客 shouzhuo 守拙道人 qingxu 清虚真人 xuehe 血河老祖 xue3 鬼医薛三 youji 幽姬
+//   圣子 xiao 萧凌风（alt → xiao2 苏清寒）hongxiu 丹红袖 zhibai 陆知白；终局 tianheng 陆天衡
+// ART.portraitGen(seed, o, mood) → 48×48 程序生成的门人头像。o = { f: 女, realm: 0～9 定道袍色（或直接给 robe: [暗,中,亮], trim）,
+//   temper: 0～7 或 '勤勉' '聪慧' '莽' '滑' '痴' '孤傲' '仁厚' '贪玩'（定眼神眉口）, kind: 'rookie' 新秀（金抹额、红披领、傲气） }；同参数缓存
+// ART.icon('post_dan' 丹堂 | 'post_qi' 器堂 | 'post_zhan' 战堂 | 'post_fa' 执法堂 | 'post_wai' 外事堂)
+const specs = (b, c) => b.mir(T => { T.hl(15, 22, 22, c); T.hl(15, 22, 28, c); T.r(15, 22, 1, 7, c); T.r(22, 22, 1, 7, c); T.p(23, 24, c); });
+const BAND = tone('#b04a3a', '#6a2a2a', '#e07a5a'), ICE = tone('#8fd0ff', '#4a8ad0', '#e8f8ff'), BONE = tone('#e4d6b8', '#9a7a6a', '#fff8e0');
+Object.assign(PEOPLE, {
+  // 铁冶真人：器堂。方脸络腮胡、红抹额、肩上一柄铁锤
+  tieye: {
+    skin: '#c88a62', hair: '#55525e', shape: 'square', robe: ['#3a2a22', '#5e4836', '#8a6c4c'], trim: '#3f6ec0', bust: { sw: 22, inner: '#3f6ec0' }, noGloss: 1,
+    fr: 'gg9888888888', back: (L, c) => L.r(14, 22, 20, 12, c),
+    pre: b => b.add(L => { L.l(40, 47, 42, 16, WOOD, 2); L.r(36, 7, 11, 9, STEEL); }),
+    F: { eye: 'n', iris: '#3a2a2a', brow: { th: 2, len: 6, tilt: 0.5 }, mouth: { n: 'flat', joy: 'grin', ang: 'grit' } },
+    skinX: (b, m, sk) => { b.l(29, 18, 32, 22, sk.M); b.hl(20, 27, 18, sk.S); },
+    post: (b, m, c) => { b.add(L => { L.sy(29, 'bbbbba98642', c); L.r(20, 30, 8, 3, null); }); b.add(L => L.r(13, 13, 22, 3, BAND)); b.r(22, 13, 4, 3, '#f4c542'); },
+  },
+  // 柳含烟：执法。紧髻银簪、眉眼如刀、高领
+  liu: {
+    skin: '#f6dcd0', hair: '#1e1a26', shape: 'sharp', robe: ['#263f7a', '#3f6ec0', '#7aa2e6'], trim: '#eef6ff', bust: { inner: '#1e2a4a' },
+    fr: 'jj8765444456', back: (L, c) => L.r(14, 14, 20, 18, c), hairX: (L, c) => L.e(24, 3.5, 5.5, 3.5, c),
+    F: { eye: 'x', fem: 1, iris: '#4a5a8a', tail: '#1e1a26', brow: { y: 21, tilt: 0.6 }, mouth: { n: 'flat', joy: 'smirk', ang: 'frown', shock: 'o', sad: 'flat' } },
+    post: b => { b.add(L => L.l(12, 1, 36, 6, STEEL)); b.r(36, 5, 2, 4, '#4aa8ff'); b.r(23, 16, 2, 2, '#aeb8c8'); b.hl(20, 27, 39, '#1e2a4a'); b.hl(21, 26, 42, '#aeb8c8'); },
+  },
+  // 药尘子：药园。大草帽、白眉、晒黑的笑脸
+  yaochen: {
+    skin: '#d8a878', hair: '#e8e6ee', shape: 'wide', robe: ['#2f5e3a', '#4f8a52', '#86b87a'], trim: '#e8f0c8', bust: { sw: 20, inner: '#c8d8a0' }, noGloss: 1,
+    hairX: (L, c) => L.mir(T => T.e(11.5, 23, 3, 5, c)),
+    F: { eye: 'o', iris: '#4a3a3a', brow: { c: '#e8e6ee', th: 2, len: 6, y: 21, tilt: -0.5 }, blush: 1, my: 32, mouth: { n: 'smile', joy: 'open', ang: 'flat', shock: 'o', sad: 'frown' } },
+    skinX: (b, m, sk) => { b.mir(T => { T.p(14, 27, sk.S); T.l(19, 30, 18, 32, sk.S); }); },
+    post: (b, m, W) => {
+      const H = tone('#d8b86a', '#9a7a3a', '#f8e0a0');
+      b.add(L => { for (let y = 3; y <= 16; y++) { const w = Math.round(3 + (y - 3) * 1.75); L.hl(24 - w, 23 + w, y, H); } }, { sep: 1, cast: [0, 2] });
+      for (const k of [-16, -8, 0, 8, 16]) b.l(24, 4, 24 + k, 16, '#9a7a3a'); b.add(L => { L.l(34, 8, 37, 1, GREEN); L.r(37, 0, 3, 2, GREEN); L.p(35, 3, GREEN); });
+      b.add(L => L.sy(35, '33221', W));
+    },
+  },
+  // 赤松客：外事。小圆帽、八字胡、一脸生意
+  chisong: {
+    skin: '#f0c8a0', hair: '#5a2a1e', shape: 'oval', robe: ['#8a2a1a', '#d8582a', '#ff9a5a'], trim: '#f4c542', bust: { inner: '#fff0c8' },
+    fr: 'jkcba9876656', back: (L, c) => L.r(15, 22, 18, 12, c),
+    F: { eye: 'n', iris: '#6a3a1a', brow: { tilt: -0.3 }, eyes: { n: ARC }, mouth: { n: 'smirk', joy: 'grin', ang: 'flat', shock: 'o', sad: 'flat' } },
+    post: (b, m, c) => {
+      const H = tone('#3a2a3a', '#1e1420', '#5c4a5c');
+      b.add(L => { L.e(24, 6, 9.5, 5.5, H); L.r(14, 6, 20, 4, H); }); b.hl(14, 33, 10, '#f4c542'); b.r(22, 4, 4, 3, '#f4c542'); b.r(23, 5, 2, 1, '#d8404a'); b.r(23, 0, 2, 2, '#d8404a');
+      b.mir(T => { T.hl(20, 23, 30, c); T.p(19, 31, c); T.p(18, 32, c); }); b.add(L => L.e(24, 44.5, 2.5, 2.5, GOLD)); b.p(24, 44, '#a8742a');
+    },
+  },
+  // 守拙道人：藏经。披散灰发、圆眼镜、怀里一卷书
+  shouzhuo: {
+    skin: '#ecc8a8', hair: '#b8b4c4', shape: 'long', robe: ['#4a4460', '#7a7494', '#aaa4c0'], trim: '#e8e4f0', noGloss: 1,
+    fr: 'f8765544444', back: (L, c) => L.r(11, 14, 26, 32, c), hairX: (L, c) => L.e(24, 4.5, 3.5, 3, c),
+    F: { eye: 'o', iris: '#4a4a5a', brow: { c: '#b8b4c4', tilt: -0.6, y: 20 }, mouth: { n: 'line', joy: 'smile', ang: 'flat', shock: 'o', sad: 'frown' } },
+    post: (b, m, c) => { specs(b, '#c8a84a'); b.add(L => L.sy(34, '222211', c)); b.add(L => L.r(18, 2, 12, 2, WOOD)); b.add(L => L.r(34, 35, 11, 6, PAPERW)); b.r(33, 34, 2, 8, '#8a5c36'); b.r(44, 34, 2, 8, '#8a5c36'); b.hl(36, 42, 37, '#928ea8'); b.hl(36, 41, 39, '#928ea8'); },
+  },
+  // 清虚真人：观星。星冠、深蓝星袍、脑后一轮星盘
+  qingxu: {
+    skin: '#f8e0d0', hair: '#1e2040', shape: 'oval', robe: ['#141a4a', '#2a3a8a', '#5a6ad0'], trim: '#f4e08a', bust: { inner: '#0e1230' },
+    fr: 'zz9865444445', back: (L, c) => L.r(10, 13, 28, 35, c),
+    pre: b => { for (let i = 0; i < 44; i++) { const a = i * Math.PI / 22; b.p(24 + Math.cos(a) * 22, 19 + Math.sin(a) * 19, i % 11 === 0 ? '#ffffff' : '#f4e08a'); if (i % 11 === 0) b.p(24 + Math.cos(a) * 21, 19 + Math.sin(a) * 18, '#f4e08a'); } },
+    F: { eye: 'f', fem: 1, iris: '#8a9af0', brow: { c: '#3a3a6a' }, mouth: { n: 'line', joy: 'smile', ang: 'flat', shock: 'o', sad: 'line' } },
+    post: b => { b.add(L => { L.r(23, 0, 2, 8, GOLD); L.l(19, 3, 22, 7, GOLD); L.l(28, 3, 25, 7, GOLD); L.hl(17, 30, 8, GOLD); }); b.r(23, 16, 2, 2, '#f4e08a'); for (const [x, y] of [[9, 44], [14, 42], [35, 43], [39, 45], [31, 46], [12, 46]]) b.p(x, y, '#fff2a8'); },
+  },
+  // 血河老祖：秃顶血纹、骨冠、长须獠牙
+  xuehe: {
+    skin: '#d8b0a8', hair: '#e8e0e8', shape: 'long', robe: ['#2a0810', '#5a1220', '#8a2a34'], trim: '#c8a84a', bust: { inner: '#1a0a10', sw: 21 }, noGloss: 1,
+    back: (L, c) => L.mir(T => T.r(11, 20, 3, 22, c)),
+    F: { eye: 'x', iris: '#ff3a2a', tail: '#8a1e2e', brow: { c: '#e8e0e8', len: 6, th: 2, tilt: 0.8 }, mouth: { n: 'fang', joy: 'fangO', ang: 'grit', shock: 'o', sad: 'flat' } },
+    skinX: (b, m, sk) => { b.l(24, 12, 24, 19, '#a8202a'); b.mir(T => { T.l(20, 13, 18, 18, '#a8202a'); T.l(17, 28, 19, 33, sk.S); }); },
+    post: (b, m, c) => { b.add(L => { L.mir(T => T.l(22, 34, 19, 35, c)); L.sy(36, '22222111', c); }); b.add(L => L.mir(T => { T.r(15, 8, 3, 3, BONE); T.r(13, 4, 2, 5, BONE); T.r(19, 6, 2, 4, BONE); T.r(22, 3, 2, 7, BONE); })); b.r(23, 10, 2, 2, '#d8404a'); },
+  },
+  // 鬼医薛三：青白脸、半张白面具、耳后别着银针
+  xue3: {
+    skin: '#cfe0c8', hair: '#2a4a3a', shape: 'sharp', robe: ['#141e1a', '#2a3e34', '#4a6a58'], trim: '#8fe0b8', bust: { inner: '#0e1410' },
+    fr: 'fgb9a8b89a79', back: (L, c) => { L.r(12, 12, 24, 20, c); L.l(13, 11, 9, 8, c, 2); L.l(34, 12, 39, 9, c, 2); },
+    F: { eye: 'x', iris: '#3ac86a', tail: '#2a4a3a', brow: { tilt: 0.3 }, mouth: { n: 'grin', joy: 'open', ang: 'frown', shock: 'o', sad: 'flat' } },
+    skinX: b => { b.add(L => { for (let y = 19; y <= 30; y++) L.hl(25, 34 - (y > 27 ? y - 27 : 0) - (y < 21 ? 1 : 0), y, WHITE); }, { sep: 1 }); b.r(27, 24, 4, 2, INK); b.p(28, 24, '#3ac86a'); b.l(26, 28, 31, 29, '#b4b0cc'); },
+    post: b => { b.l(37, 21, 42, 9, '#aeb8c8'); b.l(39, 23, 45, 12, '#aeb8c8'); b.p(42, 9, '#d8404a'); b.p(45, 12, '#d8404a'); b.add(L => L.r(22, 42, 4, 5, tone('#6ae08a', '#2a8a5a', '#c8ffd8'))); b.r(23, 41, 2, 1, '#8a5c36'); },
+  },
+  // 幽姬：遮半脸的长发、面纱、蝶形金钗
+  youji: {
+    skin: '#f6dcd4', hair: '#2a1a3a', shape: 'oval', robe: ['#1e1430', '#4a2a6a', '#7a4aa0'], trim: '#c27dff', bust: { inner: '#f6dcd4' },
+    fr: yeFr, cap: { full: 1 }, back: (L, c) => L.r(10, 13, 28, 35, c),
+    F: { eye: 'x', fem: 1, iris: '#c27dff', tail: '#c27dff', brow: { y: 21 }, mouth: { n: 'none', joy: 'none', ang: 'none', shock: 'none', sad: 'none' } },
+    skinX: b => { const V = tone('#8a5ac0', '#5a3a8a', '#b890e8'); b.add(L => L.sy(29, 'baa9987643', V)); b.hl(14, 33, 29, '#f4c542'); for (const x of [17, 24, 30]) b.p(x, 34, '#f4c542'); },
+    post: b => { b.add(L => { L.r(31, 8, 3, 3, GOLD); L.r(35, 6, 4, 5, GOLD); }); b.p(34, 9, '#d8404a'); b.r(11, 31, 1, 4, '#f4c542'); b.p(11, 35, '#c27dff'); },
+  },
+  // 萧凌风：高马尾、蓝抹额、嘴角带笑
+  xiao: {
+    skin: '#f6d8bc', hair: '#2a2a3a', shape: 'oval', robe: ['#24487e', '#3f7ed0', '#7ab4f4'], trim: '#eef6ff',
+    fr: 'jkcba9876656', back: (L, c) => { L.r(15, 24, 18, 10, c); L.l(26, 3, 38, 7, c, 3); L.l(38, 7, 43, 20, c, 3); L.l(43, 20, 41, 30, c, 2); }, hairX: (L, c) => L.e(24, 3.5, 3.5, 3.5, c),
+    pre: b => hilt(b, 11, 38, 5, 22, { g: 5 }),
+    F: { eye: 'm', iris: '#3a6ab0', brow: { tilt: 0.5, len: 6 }, mouth: { n: 'smirk', joy: 'grin', ang: 'grit', shock: 'o', sad: 'flat' } },
+    post: b => { b.add(L => { L.r(13, 14, 22, 2, ICE); L.l(13, 15, 8, 19, ICE, 2); L.l(13, 16, 9, 24, ICE); }); b.r(21, 6, 6, 2, '#eef6ff'); },
+  },
+  // 苏清寒：冰色发带、直发、神色清冷
+  xiao2: {
+    skin: '#f8e0d0', hair: '#2a2a3a', shape: 'oval', robe: ['#24487e', '#3f7ed0', '#7ab4f4'], trim: '#eef6ff',
+    fr: 'pp8765444456', back: (L, c) => L.r(10, 14, 28, 34, c), hairX: (L, c) => L.e(24, 4, 5, 4, c),
+    pre: b => hilt(b, 37, 38, 43, 22, { g: 5 }),
+    F: { eye: 'f', fem: 1, iris: '#4a8ad0', brow: { y: 21, tilt: 0.3 }, mouth: { n: 'line', joy: 'smile', ang: 'frown', shock: 'o', sad: 'line' } },
+    post: b => { b.add(L => { L.r(19, 1, 10, 2, ICE); L.l(29, 2, 34, 9, ICE, 2); L.l(19, 2, 15, 8, ICE, 2); }); b.r(23, 16, 2, 2, '#7fe0f0'); },
+  },
+  // 丹红袖：双髻红绸、葫芦耳坠、不服气的嘴
+  hongxiu: {
+    skin: '#f8d8bc', hair: '#4a1e1a', shape: 'round', robe: ['#a02a1e', '#e8502a', '#ff9a6a'], trim: '#ffe8c0',
+    fr: 'ssba98766667', back: (L, c) => L.r(12, 15, 24, 22, c), hairX: (L, c) => { L.e(14, 5, 5, 4.5, c); L.e(34, 5, 5, 4.5, c); },
+    F: { eye: 'f', fem: 1, iris: '#c8502a', blush: 1, brow: { tilt: 0.4 }, mouth: { n: 'smirk', joy: 'open', ang: 'pout', shock: 'o', sad: 'frown' } },
+    post: b => { b.mir(T => { T.r(12, 8, 5, 2, '#d8404a'); T.l(11, 10, 8, 16, '#d8404a'); T.p(11, 30, '#f4c542'); T.r(10, 31, 2, 2, '#62d26f'); T.r(10, 33, 3, 3, '#62d26f'); }); b.r(23, 42, 2, 2, '#f4c542'); },
+  },
+  // 陆知白：书生方巾、圆眼镜、耳后夹着笔
+  zhibai: {
+    skin: '#f4dcc4', hair: '#2a2630', shape: 'oval', robe: ['#54288a', '#8a4ec8', '#c27dff'], trim: '#f0e0ff', bust: { sw: 18 },
+    fr: 'jkcba9876656', back: (L, c) => L.r(15, 24, 18, 10, c),
+    F: { eye: 'd', iris: '#5a3a7a', brow: { tilt: -0.7, y: 20 }, mouth: { n: 'line', joy: 'smile', ang: 'pout', shock: 'o', sad: 'frown' } },
+    post: b => { const H = tone('#2e2838', '#17131f', '#4a4157'); b.add(L => { L.r(15, 3, 18, 7, H); L.r(18, 0, 12, 4, H); L.mir(T => T.l(14, 8, 6, 13, H, 2)); }); b.r(22, 5, 4, 3, '#5fd3b0'); specs(b, '#c8a84a'); b.l(36, 22, 40, 10, '#8a5c36'); b.r(40, 8, 2, 3, '#2a2630'); },
+  },
+  // 陆天衡：天剑宗主。金冠、鬓边两缕白发、金肩甲、眉心一道朱痕
+  tianheng: {
+    skin: '#ecd0b8', hair: '#3a3848', shape: 'long', robe: ['#a8a4bc', '#eeeaf4', '#ffffff'], trim: '#f4c542', bust: { sw: 22, inner: '#2a2238' },
+    fr: 'zz9876554445', back: (L, c) => L.r(9, 13, 30, 35, c), hairX: (L, c) => L.e(24, 4, 3, 3.5, c),
+    mid: b => b.add(L => L.mir(T => { T.e(8, 40, 7, 4, GOLD); T.r(1, 40, 13, 3, GOLD); })),
+    F: { eye: 'n', iris: '#8a2a2a', brow: { len: 6, in: 1, tilt: 0.7 }, eyes: { n: ['L.....', '.LLLLL', '..IIw.'] }, mouth: { n: 'flat', joy: 'smirk', ang: 'frown', shock: 'flat', sad: 'flat' } },
+    skinX: (b, m, sk) => b.mir(T => T.l(18, 29, 17, 32, sk.S)),
+    post: (b, m, c) => { b.mir(T => { T.r(11, 15, 1, 24, '#e8e6ee'); T.r(13, 13, 1, 10, '#e8e6ee'); }); b.add(L => { L.r(21, 0, 6, 7, GOLD); L.hl(16, 31, 4, GOLD); L.r(18, 5, 12, 2, GOLD); L.mir(T => T.l(16, 4, 13, 0, GOLD, 2)); }); b.r(23, 1, 2, 4, '#d8404a'); b.add(L => { L.mir(T => T.hl(20, 22, 30, c)); L.r(23, 34, 2, 4, c); }); b.r(23, 15, 2, 4, '#d8404a'); },
+  },
+});
+Object.assign(P_ALIAS, { xiaolingfeng: 'xiao', danhongxiu: 'hongxiu', luzhibai: 'zhibai', lutianheng: 'tianheng' });
+Object.assign(FSPEC, { tieye: ['beard'], liu: ['pins'], xuehe: ['beard', 'horns'], xiao: ['long'], xiao2: ['long'], hongxiu: ['pins'], zhibai: ['cap'], tianheng: ['long', 'crown'], qingxu: ['long', 'crown'], shouzhuo: ['long', 'beard'], chisong: ['cap'], youji: ['long'], yaochen: ['hat'] });
+// 程序生成的门人 / 新秀
+const TEMPER = ['勤勉', '聪慧', '莽', '滑', '痴', '孤傲', '仁厚', '贪玩'];
+const TEMP_F = [{ t: 0.2, m: 'line' }, { e: 'd', t: 0, m: 'smile' }, { e: 'n', t: 0.8, th: 2, m: 'grin' }, { e: 'x', t: -0.2, m: 'smirk' }, { e: 'o', t: -0.6, m: 'line' }, { e: 'n', t: 0.6, m: 'flat' }, { e: 'd', t: -0.4, m: 'smile', bl: 1 }, { t: 0, m: 'cat', bl: 1 }];
+function genSpec(seed, o) {
+  const r = seeded((seed | 0) * 7 + 3), pk = a => a[Math.floor(r() * a.length)], f = o.f ? 1 : 0, rk = o.kind === 'rookie';
+  const ti = typeof o.temper === 'string' ? Math.max(0, TEMPER.indexOf(o.temper)) : rk && o.temper === undefined ? 5 : ((o.temper | 0) % 8 + 8) % 8, TF = TEMP_F[ti], R0 = L.REALMS[Math.max(0, Math.min(9, o.realm | 0))];
+  const hair = pk([HAIR_K, '#3a2630', '#4a3628', '#2a2a3a', '#5a2a1e', '#33303a', '#1e1a26']), hsI = Math.floor(r() * 4), acc = Math.floor(r() * 6), ac = pk(['#d8404a', '#4aa8ff', '#62d26f', '#f4c542', '#c27dff', '#eef6ff']);
+  const S = {
+    skin: pk(['#f2c9a0', '#f6d8bc', '#e8b88e', '#f8e0d0', '#d8a878', '#f0c8a0']), hair, robe: o.robe || R0.robe, trim: o.trim || R0.trim,
+    shape: f ? pk(['round', 'oval', 'round', 'sharp']) : pk(['oval', 'square', 'oval', 'long', 'sharp']),
+    fr: f ? pk(['ssba98766667', 'pp8765444456', 'kkba9a99a9a9', 'kjbabaab9aba']) : pk(['jkcba9876656', 'gg8777777777', 'fgb9a8b89a79', 'jj8765444456']),
+    F: { eye: TF.e || (f ? 'f' : 'm'), fem: f, iris: pk(['#6a5a9a', '#7a5a3a', '#3a6ab0', '#4a3a5a', '#3a7a5a', '#a05a3a']), blush: TF.bl || (f && r() < 0.5), brow: { tilt: TF.t + (rk ? 0.3 : 0), th: TF.th || 1 }, mouth: { n: rk ? 'smirk' : TF.m } },
+  };
+  if (f) {
+    S.back = [(L2, c) => L2.r(11, 14, 26, 30, c), (L2, c) => L2.r(12, 15, 24, 20, c), (L2, c) => L2.r(13, 14, 22, 18, c), (L2, c) => { L2.r(12, 14, 24, 20, c); L2.l(36, 16, 39, 40, c, 4); }][hsI];
+    S.hairX = [(L2, c) => L2.e(24, 4, 6, 4, c), (L2, c) => { L2.e(15, 5, 4.5, 4, c); L2.e(33, 5, 4.5, 4, c); }, (L2, c) => L2.e(24, 3.5, 7.5, 4.5, c), (L2, c) => L2.e(31, 5, 4, 3.5, c)][hsI];
+  } else {
+    S.back = [(L2, c) => L2.r(16, 26, 16, 10, c), (L2, c) => { L2.r(15, 24, 18, 10, c); L2.l(26, 3, 37, 8, c, 3); L2.l(37, 8, 41, 26, c, 3); }, (L2, c) => L2.r(13, 13, 22, 22, c), (L2, c) => L2.r(10, 13, 28, 34, c)][hsI];
+    S.hairX = hsI === 2 ? (L2, c) => { L2.l(17, 7, 14, 3, c, 2); L2.l(28, 6, 31, 2, c, 2); } : (L2, c) => L2.e(24, 3.5, 4, 3.2, c);
+  }
+  S.post = (b, m, c, sk) => {
+    if (rk) { b.add(L2 => { L2.r(13, 14, 22, 2, GOLD); L2.r(22, 12, 4, 5, GOLD); }); b.r(23, 14, 2, 2, '#d8404a'); }
+    else if (acc === 0) b.add(L2 => L2.r(13, 14, 22, 2, tone(ac, hs(ac, 0.6), lerpC(ac, '#ffffff', 0.5))));
+    else if (acc === 1) { b.add(L2 => L2.l(14, 3, 34, 6, f ? GOLD : WOOD)); if (f) b.r(34, 5, 2, 3, ac); }
+    else if (acc === 2) b.p(29, 30, '#5a3a30');
+    else if (acc === 3 && !f) b.l(29, 19, 31, 24, sk.M);
+    else if (acc === 4) for (const x of [16, 19, 28, 31]) b.p(x, 28 + (x & 1), sk.S);
+    if (f && hsI !== 3) b.r(23, 6, 2, 2, ac); else if (!f && hsI !== 2) b.r(21, 6, 6, 2, hsI === 1 ? ac : '#f4c542');
+  };
+  if (rk) S.mid = b => b.add(L2 => L2.mir(T => { for (let y = 34; y <= 43; y++) T.hl(8 + Math.max(0, 38 - y), 13 + Math.round((y - 34) * 0.5), y, RED); }));
+  return S;
+}
+ART.tempers = TEMPER;
+ART.portraitGen = function (seed, o, mood) {
+  o = o || {}; if (!MOODS.includes(mood)) mood = 'n';
+  return cached(['ptg', seed, o.f ? 1 : 0, o.realm | 0, o.temper, o.kind || '', o.robe ? o.robe.join() : '', mood].join('|'), () => person(genSpec(seed, o), mood).cv({ max: 15 }));
+};
+Object.assign(ICONS, {
+  post_dan: '.....rr/....rprR/.....RR/.s........s/.ssssssssss/..sttttttS/..stwtttSS/..sttjjtSS/..sttjjtSS/...sttSSS/..S.rmr.S/.SS.ryr.SS',
+  post_qi: '.sss......sss/stttS....stttS/sttSo....osttS/.SSoO....OoSS/....oO..Oo/.....oOOo/......OO/.....oOOo/....oO..Oo/...oO....Oo/..oO......Oo/..O........O',
+  post_zhan: 'w..........w/ww........ww/.wW......Ww/..wW....Ww/...wW..Ww/....wWWw/.....rr/....WwwW/.y.Ww..wW.y/.yyW....Wyy/..yy....yy/.o.y....y.o',
+  post_fa: '....yyyyyy/...ykkkkkkY/...ykkrrkkY/...ykrrrrkY/...ykkrrkkY/...ykrrrrkY/...ykkrrkkY/...ykkrrkkY/...ykkkkkkY/....YkkkkY/.....YYYY/......rr/.....rRrR',
+  post_wai: '..........w/.........wW/.nnnnnnnnwWn/.nNnnnnnwWNn/.nnNnnnwWnnN/.nnnNnwWNnnN/.nnnnNrrnnnN/.nnnnrRRrnnN/.nnnnnrrnnnN/.nNNNNNNNNNN',
+});
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
