@@ -114,7 +114,7 @@ function confirmExp(k, d, a, still) {
       <div class="muted">行事 <span class="muted">（斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6）</span></div><div class="seg" id="expAppr">${appr}</div>
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="muted">预计评价</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>${dist}</div>
       <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>灵石</dt><dd class="num">约 ${fmt(f.stones)}${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''}</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
-      ${gearExpLine(k, d, a)}${notes.join('')}${opts.join('')}`,
+      ${gearExpLine(k, d, a)}${typeof compExpLine === 'function' ? compExpLine(k, d, a) : ''}${notes.join('')}${opts.join('')}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: '出发', gold: true, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
@@ -125,6 +125,7 @@ function confirmExp(k, d, a, still) {
   s.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, d, +b.dataset.a, true); });
   s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); confirmExp(k, d, a, true); } });
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
+  if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
 }
 function itemLine(it) {
   if (it.kind === 'a') return artLine(it);
@@ -178,6 +179,7 @@ function showExpResult(res) {
     if (res.lifeCost) lines.push(`<p class="center seal">血遁脱身：丁等不负伤，寿元 −${fmt(res.lifeCost)} 年。</p>`);
     if (res.qianyuan) lines.push('<p class="center jadet">潜渊：禁地失手，空手而归，但没有负伤。</p>');
     if (res.healed) lines.push(`<p class="center jadet">回春剑诀：负伤 −${res.healed} 周天。</p>`);
+    if (typeof compResLine === 'function') lines.push(compResLine(res));   // 同行的人、对上的委托（panel-people.js）
   }
   lines.push(deltaHTML(res));
   if (res.rating >= 2) SFX.coin(); else SFX.fail();

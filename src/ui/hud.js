@@ -25,6 +25,7 @@ function onHook(type, data) {
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
   // 道心升级、因果（dao.js）：老祖气泡（panel-trib.js）
   else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
+  else if (type === 'people') peopleHook(data);   // 委托、双修（panel-people.js）
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
 
@@ -124,7 +125,7 @@ function updateHUD() {
   setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : gd && !busy && (L.petGlowAny(st) || (st.petPend || []).length) ? '宠' : canUp ? '↑' : '');
   setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : st.sect && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st) ? '徒' : '');   // 徒：有拜师的孩子等着（disciples.js）
   setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
-  setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : '');
+  setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : peopleBadge());   // 委：有委托能交、侣：能双修（panel-people.js）
   updateHaul();
   syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();

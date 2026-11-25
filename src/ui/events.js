@@ -31,9 +31,10 @@ function showChoice(ev, back) {
   }).join('') + (ev.choices.some(c => L.choiceShown(st, c) && L.costOk(st, c.cost)) ? '' : '<button class="btn alt" data-leave="1"><span>作罢</span><small>眼下拿不出这些，只好作罢</small></button>');
   const s = sheet({
     title: (ev.where === 'story' ? '<span class="story-tag">主线</span>' : '') + esc(L.fill(st, ev.title)), center: true, noClose: true,
-    body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div><div class="choices">${btns}</div>`,
+    body: `<div class="speaker">${speakerImg(ev, 56)}<div class="grow">${who}<p style="margin:4px 0 0">${esc(L.fill(st, ev.text))}</p></div></div>${typeof peopleGiftBar === 'function' ? peopleGiftBar(ev) : ''}<div class="choices">${btns}</div>`,
   });
   SFX.reveal(ev.where === 'story' ? 4 : 2);
+  if (typeof bindPeopleGift === 'function') bindPeopleGift(s, ev, back);   // 来访的人物：【送礼】（panel-people.js）
   const lv = s.querySelector('[data-leave]'); if (lv) lv.onclick = () => { SFX.tap(); done(); };
   s.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => {
     SFX.tap();
