@@ -28,7 +28,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
-    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin']) st.hintSeen[k] = 1;
+    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'plots', 'zhen']) st.hintSeen[k] = 1;
     st.p.r = 3; st.p.t = 6; st.home = { cave: 6, array: 8, field: 8, furnace: 8 }; st.herbs = 500; st.treasure = 4; st.stones = 1e5; st.tick = 130; st.pact = 1; st.beaten.mu = 1; st.flags.maxR = 3; st.flags.maxI = 12; st.stats.exp = 20;
     for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
     st.bosses = { 0: 1, 1: 1, 2: 1 };
@@ -236,7 +236,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(fb.ok && fb.p1 === fb.p0 + 1, `fx.plus：兵器 +${fb.p0} → +${fb.p1}（${fb.fx}）`);
   // 器方与打造：story_trib1 给阵图（先收着），ch_star_4 给器方；化神 + 器炉（借丹炉）5 级、材料够就能打，打出来固定词条
   const fg = await page.evaluate(() => {
-    const { st, L } = window.__xm; st.p.r = 4; st.flags.maxR = 4; st.home.furnace = 8;
+    const { st, L } = window.__xm; st.p.r = 4; st.flags.maxR = 4; st.home.furnace = 8; st.home.forge = 5; L.homePlots(st);   // 器炉不再借丹炉等级：要建一座器炉
     L.applyFx(st, { plan: 'f_dujie' }); L.applyFx(st, { plan: 'g_langya' });
     L.giveMat(st, 0, 2);
     const why = L.canForge(st, 'g_langya'), it = L.forge(st, 'g_langya');
@@ -412,7 +412,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(mys.includes('auc_mystery'), `开拍时 auction:open → 无名之物（${mys.join()}）`);
   await close();
   // 年历：筑基且约战打完后，“大事”牌点开是年历（24 格时间轴 + 论道 / 拍卖 / 会武 / 秘境 / 大势各一行）；大势小牌在场景右上角
-  await page.evaluate(() => { const { st, L } = window.__xm; st.market.evQ = []; st.tick = 158; st.cal.w = { id: 'w_shouchao', at: 158, until: 166 }; L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true; });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.market.evQ = []; st.tick = 158; st.cal.w = { id: 'w_shouchao', at: 158, until: 166 }; L.rollAuction(st); st.market.evQ = []; document.querySelector('#tip').hidden = true; for (const h of window.__xm.hints) if (!/^realm/.test(h.id)) st.hintSeen[h.id] = 1; const gk = document.querySelector('#guide [data-g="ok"]'); if (gk) gk.click(); });   // 老祖讲解不要盖住大势小牌
   await page.waitForTimeout(400);
   const tag = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden, txt: el.textContent, w: r.width, h: r.height }; });
   expect(tag.vis && tag.txt.includes('兽潮') && tag.txt.includes('8') && tag.w >= 44 && tag.h >= 44, `大势小牌：${tag.txt}（${Math.round(tag.w)}×${Math.round(tag.h)}）`);
@@ -603,7 +603,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
   const gHint = async (id, setup) => {
-    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
+    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen[id] = 0; st.hintSeen.plots = 1; st.hintSeen.zhen = 1; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
     await page.waitForTimeout(900);
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
     const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
@@ -1092,6 +1092,334 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(th.vis && th.hold && th.txt.includes('丹毒 25') && th.txt.includes('过 60'), '老祖的丹毒讲解：' + JSON.stringify(th));
   await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); window.__xm.setSpeed(3); });
   await page.waitForTimeout(300);
+  {
+  // ---------- 洞府（SYSTEMS §6.1 / §6.3）：地块、拆建、迁移、十一种建筑的效果、阵法（逻辑层）；洞府面板、阵法面板、场景里点建筑、老祖讲解、拆建教学 ----------
+  const hl = await page.evaluate(() => {
+    const L = window.__xm.L, o = {};
+    try {
+        const withR = (v, fn) => { const r0 = L.rng; L.rng = () => v; try { return fn(); } finally { L.rng = r0; } };
+        const mk = () => { const s = L.newState({ name: '洞府测试' }); s.stats.exp = 5; s.stones = 1e12; s.p.r = 5; s.p.s = 1; s.flags.maxR = 5; s.flags.maxI = 22; s.tick = 300; s.rebirth = 1; s.pact = 1; return s; };
+        const has = (s, k) => L.homePlots(s).includes(k);
+        // ---- 1 地块、拆建
+        let s = mk();
+        o.plots0 = L.homePlotMax(s) === 3 && L.homePlots(s).length === 3 && L.homePlots(s)[0] === 'array';
+        s.home.cave = 3; o.plots3 = L.homePlotMax(s) === 4; s.home.cave = 12; o.plots12 = L.homePlotMax(s) === 8; s.home.cave = 0;
+        L.build(s, 'field'); L.build(s, 'furnace');
+        o.full = L.homePlotFree(s) === 0 && /地块满/.test(L.buildWhy(s, 'room')) && L.homeOpen(s, 'room') === false && L.build(s, 'room') === null && !L.upgrade(s, 'room');
+        o.fullBuiltOpen = L.homeOpen(s, 'field') === true;
+        for (let i = 0; i < 3; i++) L.upgrade(s, 'cave');
+        o.plot4 = L.homePlotFree(s) === 1 && L.homeOpen(s, 'room') === true;
+        const r0 = L.retBaseMult(s); L.build(s, 'room'); const r1 = L.retBaseMult(s);
+        o.room1 = Math.abs(r1 - r0 - 0.05) < 1e-9;
+        for (let i = 0; i < 7; i++) L.upgrade(s, 'room');
+        const spent = s.home.spent.room, st0 = s.stones, d = L.demolish(s, 'room');
+        o.demo = !!d && d.back === Math.floor(spent / 2) && s.stones === st0 + d.back && s.home.rec.room === 4 && s.home.room === 0 && !has(s, 'room') && L.homePlotFree(s) === 1;
+        const b = L.build(s, 'room'); o.rebuild = !!b && b.lv === 4 && s.home.room === 4 && s.home.rec.room === undefined && has(s, 'room');
+        const s1 = mk(); L.build(s1, 'vault'); L.demolish(s1, 'vault'); const b1 = L.build(s1, 'vault'); o.rebuild1 = b1.lv === 1 && !s1.home.rec.vault;
+        L.upgrade(s1, 'vault'); L.upgrade(s1, 'vault'); L.upgrade(s1, 'vault'); L.demolish(s1, 'vault'); o.rec3 = s1.home.rec.vault === 2 && L.homeRebuildLv(s1, 'vault') === 2;
+        o.noDemoArray = L.demolish(s, 'array') === null && /根基/.test(L.demolishWhy(s, 'array')) && L.demolish(s, 'cave') === null && L.demolish(s, 'pen') === null;
+        const sl = mk(); sl.home.cave = 6; L.migrateHome(sl);
+        L.build(sl, 'library'); L.upgrade(sl, 'library'); L.upgrade(sl, 'library');
+        const n3 = Object.keys(sl.meta.chint).length; L.demolish(sl, 'library');
+        const rb = L.build(sl, 'library'); L.upgrade(sl, 'library');
+        o.libOnce = n3 === 3 && Object.keys(sl.meta.chint).length === 3 && rb.hints.length === 0 && sl.home.library === 2;
+        L.upgrade(sl, 'library'); L.upgrade(sl, 'library'); o.libNew = Object.keys(sl.meta.chint).length === 4;
+        const sp = mk(); sp.home.cave = 6; L.migrateHome(sp); const full0 = L.hCost('pen', 0);
+        L.applyFx(sp, { flag: 'pen_discount' }); o.penDisc = sp.home.disc.pen === 0.7 && L.homeCost(sp, 'pen') === Math.floor(full0 * 0.7);
+        L.build(sp, 'pen'); o.penDisc2 = sp.home.spent.pen === Math.floor(full0 * 0.7) && !sp.home.disc.pen && L.homeCost(sp, 'pen') === L.hCost('pen', 1);
+
+        // 拆丹炉停续炼、拆灵田铲作物、重建的田是新的灵稻
+        const dm = mk(); dm.home.cave = 6; L.migrateHome(dm); L.build(dm, 'field'); L.build(dm, 'furnace'); for (let i = 0; i < 5; i++) L.upgrade(dm, 'field');
+        L.plant(dm, 0, 'fire'); const planted = L.plots(dm)[0].c === 'fire'; dm.dan.auto = ['peiyuan'];
+        o.demFurnace = !!L.demolish(dm, 'furnace') && dm.dan.auto.length === 0 && !dm.home.furnace && !has(dm, 'furnace');
+        o.demField = planted && !!L.demolish(dm, 'field') && L.plotCount(dm) === 0 && L.plots(dm).length === 0;
+        L.build(dm, 'field'); o.demField2 = dm.home.field === 3 && L.plots(dm).length === 1 && L.plots(dm).every(x => x.c === 'rice' && x.g === 0);
+        // 坊市轮换货：阵图（生财阵）
+        const mz = mk(); mz.market.rot = [{ k: 'zhentu', lim: 1, sold: 0, off: 0, zt: 'f_shengcai' }]; mz.market.cyc = Math.floor(mz.tick / 12); mz.stones = 1e9;
+        const zrow = L.shelf(mz).find(r => r.k === 'zhentu'), zb0 = L.zhenOwned(mz, 'f_shengcai'), zbuy = zrow && L.shelfBuy(mz, zrow.i);
+        o.shopZhen = !!zrow && !zb0 && !!zbuy && L.zhenOwned(mz, 'f_shengcai') && !L.zhenShopOk(mz) && L.zhenShopOk(Object.assign(mk(), { rebirth: 0, p: Object.assign(mk().p, { r: 1 }), flags: { maxR: 1 } }));
+
+        // ---- 2 迁移
+        const mkOld = (h, v) => { const x = JSON.parse(JSON.stringify(mk())); x.home = h; x.rebirth = 0; x.v = v || 6; return x; };
+        const old = mkOld({ cave: 6, array: 9, field: 8, furnace: 6 }); const m = L.migrate(old);
+        o.migPlots = !!m && JSON.stringify(m.home.plots.slice(0, 3)) === '["array","field","furnace"]' && m.home.array === 9 && m.home.field === 8 && m.home.furnace === 6;
+        o.migRec = m.home.rec.room === 6 && m.home.rec.forge === 5 && m.home.cave === 6;
+        o.migSpent = m.home.spent.field === L.homeSum('field', 8) && m.home.spent.furnace === L.homeSum('furnace', 6);
+        const snap = JSON.stringify(m.home), m2 = L.migrate(JSON.parse(JSON.stringify(m)));
+        o.migTwice = JSON.stringify(m2.home) === snap && L.migrateHome(m2) === '' && JSON.stringify(m2.home) === snap;
+        const low = mkOld({ cave: 0, array: 2, field: 2, furnace: 3 }); L.migrate(low); o.migLowFurnace = !low.home.rec.forge && !low.home.rec.room;
+        const ov = mk(); ov.home.cave = 0; ov.home.room = 1; ov.home.field = 2; ov.home.furnace = 2; ov.home.plots = undefined; L.migrateHome(ov);
+        o.over = L.homePlots(ov).length === 4 && L.homeOver(ov) === 1 && ov.home.room === 1 && L.homePlotFree(ov) === 0;
+        L.demolish(ov, 'room'); o.overBack = L.homePlots(ov).length === 3 && L.homeOver(ov) === 0 && ov.home.room === 0;
+        const v2 = mkOld({ cave: 6, array: 9, field: 8, furnace: 6 }, 2); v2.p.r = 1; const mv2 = L.migrate(v2);
+        o.migV2 = !!mv2 && mv2.v === L.SAVE_V && JSON.stringify(mv2.home.plots.slice(0, 3)) === '["array","field","furnace"]' && mv2.home.array === 9 && mv2.home.rec.room === 6 && Array.isArray(mv2.home.zhen) && mv2.home.zhen[0].id === 'f_juling';
+        const v2b = JSON.stringify(mv2.home); o.migV2Twice = JSON.stringify(L.migrate(JSON.parse(JSON.stringify(mv2))).home) === v2b;
+        const v2c = mkOld({ cave: 99, array: 99, field: 99, furnace: 99 }, 2); const mc = L.migrate(v2c);
+        o.migClamp = !!mc && mc.home.cave === 12 && mc.home.array === 30 && mc.home.furnace === 20 && L.homePlots(mc).length >= 3;
+        const bad = mkOld({ cave: 1, array: 1, field: 0, furnace: 0 }); bad.home.plots = ['field', 'array', 'x', 'furnace', 'furnace']; L.migrate(bad);
+        o.migBadPlots = bad.home.plots[0] === 'array' && !bad.home.plots.includes('x') && bad.home.plots.filter(k => k === 'furnace').length === 0;
+
+        // ---- 3 建筑效果
+        s = mk(); s.home.cave = 12; L.migrateHome(s);
+        for (const k of ['forge', 'library', 'spring', 'pen', 'vault', 'pavilion', 'portal']) L.build(s, k);
+        o.built7 = L.homePlotFree(s) === 0;
+        const t = mk(); t.home.cave = 12; L.migrateHome(t);
+        const e0 = L.artEpi(t), c0 = L.retBaseMult(t); L.build(t, 'room');
+        o.roomEpi = Math.abs(L.artEpi(t) - e0 - 0.02) < 1e-9 && Math.abs(L.retBaseMult(t) - c0 - 0.05) < 1e-9;
+        L.upgrade(t, 'room'); o.roomLv2 = Math.abs(L.artEpi(t) - e0 - 0.04) < 1e-9 && Math.abs(L.retBaseMult(t) - c0 - 0.10) < 1e-9 && Math.abs(L.roomRet(t) - 0.10) < 1e-9;
+        const f = mk(); f.home.cave = 12; L.migrateHome(f); f.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 4, aff: [], fail: 0 };
+        const pr0 = L.gearPlusRate(f, f.gear.w), oc0 = L.gearPlusCost(f, f.gear.w).ore; L.build(f, 'forge');
+        const pr1 = L.gearPlusRate(f, f.gear.w), oc1 = L.gearPlusCost(f, f.gear.w).ore;
+        o.forge1 = Math.abs(pr1 - pr0 - 0.02) < 1e-9 && oc1 < oc0 && oc1 === Math.max(1, Math.ceil(oc0 * 0.97)) && L.forgeLv(f) === 1 && !L.gearOpen(f, 'forge');
+        for (let i = 0; i < 4; i++) L.upgrade(f, 'forge'); o.forge5 = L.forgeLv(f) === 5 && L.gearOpen(f, 'forge') && Math.abs(L.gearPlusRate(f, f.gear.w) - pr0 - 0.10) < 1e-9;
+        const f2 = mk(); f2.home.furnace = 8; f2.home.cave = 3; L.migrateHome(f2); o.noForgeFromFurnace = L.forgeLv(f2) === 0 && !L.gearOpen(f2, 'forge');
+        const pt = mk(); pt.home.cave = 12; L.migrateHome(pt); L.build(pt, 'portal');
+        const base = mk(); const len0 = L.expLen(0, base);
+        o.portal1 = L.portalLv(pt) === 1 && L.expLen(0, pt) === len0 && L.mjCost(pt) === L.MJ.cost;
+        for (let i = 0; i < 2; i++) L.upgrade(pt, 'portal'); o.portal3 = L.expLen(0, pt) === len0 - 1 && L.expLen(0, base) === len0;
+        for (let i = 0; i < 3; i++) L.upgrade(pt, 'portal');
+        pt.best['0_0'] = 1; pt.best['0_1'] = 0; const closed = L.depthOpen(pt, 0, 2); pt.best['0_0'] = 2; const open6 = L.depthOpen(pt, 0, 2);
+        base.best['0_0'] = 2; base.best['0_1'] = 0; o.portal6 = !closed && open6 && !L.depthOpen(base, 0, 2) && L.depthOpen(pt, 0, 1);
+        o.portalMj = L.portalLv(pt) === 6 && L.mjCost(pt) === L.MJ.cost && (L.upgrade(pt, 'portal'), L.upgrade(pt, 'portal'), L.upgrade(pt, 'portal'), L.portalLv(pt) === 9 && L.mjCost(pt) === 0);
+        const mkInj = (lvSpring, inj) => { const q = mk(); q.home.cave = 12; L.migrateHome(q); if (lvSpring) { L.build(q, 'spring'); while (q.home.spring < lvSpring) L.upgrade(q, 'spring'); } q.p.inj = 0; L.tick(q); q.p.inj = inj; L.tick(q); return q.p.inj; };
+        o.spring0 = mkInj(0, 5) === 4; o.spring1 = mkInj(1, 5) === 4; o.spring4 = mkInj(4, 5) === 2; o.springMin = mkInj(10, 1) === 0 && mkInj(10, 2) === 0 + 0 || mkInj(10, 2) <= 1;
+        const vt = mk(); vt.home.cave = 12; L.migrateHome(vt); const im = q => L.modProd(L.modParts('incMul', q)); const inc0 = im(vt);
+        L.build(vt, 'vault'); L.upgrade(vt, 'vault'); o.vaultInc = Math.abs(im(vt) / inc0 - 1.04) < 1e-6;
+        const vs = mk(); vs.home.cave = 12; L.migrateHome(vs); const sk = Object.keys(L.SELL)[0];
+        const pv0 = L.sellPrice(vs, sk); L.build(vs, 'vault'); L.upgrade(vs, 'vault'); L.upgrade(vs, 'vault'); const pv1 = L.sellPrice(vs, sk);
+        o.vaultSell = pv1 > pv0;
+        const pv = mk(); pv.home.cave = 12; L.migrateHome(pv); const vm0 = L.calVisitMult(pv); o.pav0 = L.visitFavorBonus(pv) === 0;
+        L.build(pv, 'pavilion'); L.upgrade(pv, 'pavilion'); o.pav = Math.abs(L.calVisitMult(pv) / vm0 - 1.2) < 1e-9 && L.visitFavorBonus(pv) === 1;
+        pv.npc = { su: { aff: 30 } }; const a0 = pv.npc.su.aff; const out1 = L.applyFx(pv, { aff: { su: 4 } }, { ev: { visit: 1, id: 't' } }); const a1 = pv.npc.su.aff;
+        const out2 = L.applyFx(pv, { aff: { su: 4 } }, { ev: { id: 't' } }); const a2 = pv.npc.su.aff;
+        const pv2 = mk(); pv2.npc = { su: { aff: 30 } }; L.applyFx(pv2, { aff: { su: 4 } }, { ev: { visit: 1, id: 't' } });
+        o.pavAff = a1 - a0 === pv2.npc.su.aff - 30 + 1 && a2 - a1 === a1 - a0 - 1 && out1.some(x => /迎客亭/.test(x)) && !out2.some(x => /迎客亭/.test(x));
+        const pe = mk(); pe.home.cave = 12; L.migrateHome(pe); const pf0 = L.petFeedEff(pe), pj0 = L.penJobMult(pe); L.build(pe, 'pen'); L.upgrade(pe, 'pen');
+        o.pen = Math.abs(L.petFeedEff(pe) / pf0 - 1.16) < 1e-6 && Math.abs(L.penJobMult(pe) - 1.10) < 1e-9 && pj0 === 1;
+        L.HOME2_ON = false;
+        try { const nh = mk(); nh.home.cave = 12; L.migrateHome(nh); o.nh = !L.homeUnlocked(nh, 'room') && L.build(nh, 'forge') === null && L.homeUnbuilt(nh).every(k => !L.HOME_B[k].nu) && L.zhenSlots(nh) === 1 && !L.zhenOpen(nh);
+          nh.home.cave = 6; o.nhRet = Math.abs(L.roomRet(nh) - 0.30) < 1e-9; o.nhForge = L.forgeLv({ home: { furnace: 7, forge: 3 } }) === 7; } finally { L.HOME2_ON = true; }
+
+        // ---- 4 阵法
+        const zs = () => { const q = mk(); q.home.cave = 12; q.home.array = 20; L.migrateHome(q); q.gear.zhentu = { f_dujie: 1, f_danhuo: 1, f_shengcai: 1, f_hushan: 1 }; return q; };
+        let z = zs();
+        o.zOpen = L.zhenSlots(z) === 2 && L.formationReady(z, 'f_juling') && !L.formationReady(z, 'f_dujie');
+        z.tick = 400; L.zhenSet(z, 0, 'f_dujie');
+        o.zAt = z.home.zhen[0].at === 403;
+        const hist = []; for (let i = 0; i < 3; i++) { z.tick++; L.zhenTick(z, {}); hist.push([L.formationReady(z, 'f_juling'), L.formationReady(z, 'f_dujie')]); }
+        o.zSwitch = JSON.stringify(hist) === '[[true,false],[true,false],[false,true]]';
+        o.zTrib = Math.abs(L.aidInfo(z, 'zhen').v - 0.15) < 1e-9 && L.aidInfo(z, 'zhen').ok && Math.abs(L.formationVal(z, 'f_dujie') - 0.15) < 1e-9;
+        z.home.array = 8; o.zTrib8 = Math.abs(L.formationVal(z, 'f_dujie') - 0.08) < 1e-9; z.home.array = 40; o.zTribCap = Math.abs(L.formationVal(z, 'f_dujie') - 0.15) < 1e-9; z.home.array = 20;
+        o.zCulGone = L.culParts(z).find(x => x[2] === 'array')[1] === 1;
+        L.zhenSet(z, 0, 'f_juling'); for (let i = 0; i < 3; i++) { z.tick++; L.zhenTick(z, {}); }
+        o.zCulBack = Math.abs(L.culParts(z).find(x => x[2] === 'array')[1] - Math.pow(1.08, 20)) < 1e-9;
+        L.zhenSet(z, 1, 'f_dujie'); for (let i = 0; i < 3; i++) { z.tick++; L.zhenTick(z, {}); }
+        o.zSecond = L.zhenK(z, 'f_dujie') === 0.5 && Math.abs(L.formationVal(z, 'f_dujie') - 0.075) < 1e-9 && Math.abs(L.aidInfo(z, 'zhen').v - 0.075) < 1e-9;
+        o.zSecondCul = Math.abs(L.zhenNum(z, 'f_juling', 0.5).cul - (1 + (Math.pow(1.08, 20) - 1) * 0.5)) < 1e-9;
+        o.zNoDup = /另一个阵位/.test(L.zhenSetWhy(z, 0, 'f_dujie')) && L.zhenSet(z, 0, 'f_dujie') === null && /另一个阵位/.test(L.zhenSetWhy(z, 1, 'f_juling'));
+        L.zhenSet(z, 1, 'f_danhuo'); o.zNoDupNx = /另一个阵位/.test(L.zhenSetWhy(z, 0, 'f_danhuo'));
+        const z1 = zs(); z1.p.r = 4; z1.flags.maxR = 4; z1.rebirth = 0; o.zSlot2R = L.zhenSlots(z1) === 1 && /炼虚/.test(L.zhenSetWhy(z1, 1, 'f_danhuo')) && /还没有这张阵图/.test(L.zhenSetWhy(zs(), 0, 'f_duanhun')) && /不能空/.test(L.zhenSetWhy(z1, 0, ''));
+        const rb1 = L.newState({ name: 'r' }); rb1.rebirth = 1; o.rebirth = L.BLD_KEYS.filter(k => k !== 'array').every(k => L.homeUnlocked(rb1, k)) && L.zhenOpen(rb1) && L.zhenSlots(rb1) === 1;
+        rb1.flags.maxR = 5; o.rebirth2 = L.zhenSlots(rb1) === 2;
+        const zp = zs(); L.zhenSet(zp, 1, 'f_shengcai'); for (let i = 0; i < 3; i++) { zp.tick++; L.zhenTick(zp, {}); }
+        const on = [L.zhenK(zp, 'f_juling'), L.zhenK(zp, 'f_shengcai')], inc_on = L.income(zp); zp.cal.pause = zp.tick + 5;
+        o.zPause = on[0] === 1 && on[1] === 0.5 && L.zhenK(zp, 'f_juling') === 0 && L.zhenK(zp, 'f_shengcai') === 0 && L.culParts(zp).find(x => x[2] === 'array')[1] === 1 && L.income(zp) < inc_on && !L.formationReady(zp, 'f_juling');
+        zp.cal.pause = 0; o.zPauseEnd = L.zhenK(zp, 'f_juling') === 1;
+        const zb = zs(); zb.tick = 500; L.zhenSet(zb, 0, 'f_dujie'); const o1 = L.applyFx(zb, { flag: 'formation_boost' });
+        o.zBoost = !!zb.home.zboost && zb.home.zboost.id === 'f_dujie' && zb.home.zboost.until === 503 + L.ZV.boostLen && o1.some(x => /阵势 \+20%/.test(x)) && !zb.eflags.formation_boost;
+        for (let i = 0; i < 3; i++) { zb.tick++; L.zhenTick(zb, {}); }
+        o.zBoost2 = Math.abs(L.zhenK(zb, 'f_dujie') - 1.2) < 1e-9 && Math.abs(L.formationVal(zb, 'f_dujie') - 0.15 * 1.2) < 1e-9;
+        zb.tick = 503 + L.ZV.boostLen; o.zBoostEnd = L.zhenK(zb, 'f_dujie') === 1;
+        const zr = zs(); zr.tick = 600; L.zhenSet(zr, 0, 'f_dujie'); zr.tick = 601; const o2 = L.applyFx(zr, { flag: 'formation_redo' });
+        o.zRedo = zr.home.zhen[0].at === 606 && zr.home.zhen[0].nx === 'f_dujie' && zr.home.zhen[0].id === 'f_juling' && o2.some(x => /要再布 3/.test(x));
+        const zr2 = zs(); zr2.tick = 600; const o3 = L.applyFx(zr2, { flag: 'formation_redo' });
+        o.zRedo2 = zr2.home.zhen[0].nx === 'f_juling' && zr2.home.zhen[0].at === 603 && o3.some(x => /撤了重布/.test(x));
+        const zz = zs(); zz.home.zhen = [{ id: 'bogus', nx: 'x', at: -3 }, null]; L.zhenState(zz); o.zBad = zz.home.zhen[0].id === 'f_juling' && zz.home.zhen[1].id === '' && zz.home.zhen.length === 2;
+    } catch (e) { o.exception = false; o.msg = e.message + ' @' + (e.stack || '').split('\n')[1]; }
+    return o;
+  });
+  if (hl.msg) errors.push('check: 洞府逻辑抛了异常：' + hl.msg);
+  for (const k in hl) if (k !== 'msg') expect(hl[k], '洞府逻辑：' + k);
+  // 载入一个洞府局面：cfg.r 境界、i 最高心境、cave 洞府等级、build 先建的建筑、zhen 阵图、unseen 不标已看的老祖讲解
+  const hLoad = async cfg => {
+    await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
+    await page.evaluate(cfg => {
+      const { L } = window.__xm, s = L.newState({ name: '洞府' });
+      s.stats.exp = 8; s.stones = 1e10; s.p.r = cfg.r; s.p.s = cfg.s === undefined ? 1 : cfg.s; s.flags.maxR = Math.max(cfg.r, cfg.maxR || 0); s.flags.maxI = cfg.i; s.tick = 300 + 300 * (window.__hn = (window.__hn || 0) + 1); s.pact = 1;   // 每局的周天往后挪，老祖讲解的冷却不串局
+      s.herbs = cfg.herbs || 0;
+      s.home.cave = cfg.cave; L.migrateHome(s);
+      for (const k of cfg.build || []) L.build(s, k);
+      for (const id of cfg.zhen || []) s.gear.zhentu[id] = 1;
+      s.guide = { step: 99, done: true }; s.hintSeen = {}; for (const h of window.__xm.hints) s.hintSeen[h.id] = 1; for (const id of cfg.unseen || []) delete s.hintSeen[id];
+      s.storyQ = []; s.seenTips = {}; for (const k of L.BLD_KEYS) s.seenTips['bld_' + k] = 1; for (const z of L.ZHEN) s.seenTips['zt_' + z.id] = 1; for (const id of cfg.tips || []) delete s.seenTips[id];
+      window.__xm.loadState(JSON.parse(JSON.stringify(s)));
+      window.__xm.setSpeed(3);
+    }, cfg);
+    await page.waitForTimeout(300);
+  };
+  const hq = fn => page.evaluate(fn);
+  // 洞府面板：2×4 网格（3 个已建、1 块空地、4 块未开）、选中空地列出能建的（荐在最前、没解锁的灰）、点建、升级、拆除要确认
+  await hLoad({ r: 3, i: 13, cave: 4, build: ['field', 'furnace'] });
+  await page.evaluate(() => window.__xm.showHome(false, 3)); await page.waitForTimeout(350);
+  const hg = await hq(() => {
+    const t = [...document.querySelectorAll('#modal #homeGrid .hplot')], rows = [...document.querySelectorAll('#modal [data-build]')];
+    return { n: t.length, locked: t.filter(x => /未开/.test(x.textContent)).length, empty: t.filter(x => /空地/.test(x.textContent)).length, can: t.filter(x => x.classList.contains('can')).length,
+      built: t.filter(x => !/未开|空地/.test(x.textContent)).length, sel: t.filter(x => x.classList.contains('sel')).map(x => +x.dataset.hp), rows: rows.map(b => b.dataset.build + (b.disabled ? ':off' : '')),
+      rec: (document.querySelector('#modal .crow .chip') || {}).textContent, recK: (document.querySelector('#modal .crow [data-build]') || {}).dataset && document.querySelector('#modal .crow [data-build]').dataset.build, sub: (document.querySelector('#modal .sub, #modal .head .muted') || {}).textContent || '' };
+  });
+  await shot('h01-home-empty-plot');
+  expect(hg.n === 8 && hg.locked === 4 && hg.empty === 1 && hg.built === 3 && hg.sel.join() === '3' && hg.can === 1, '洞府网格：8 格，3 已建 / 1 空（买得起荐的，标“可建”）/ 4 未开，选中第 4 块：' + JSON.stringify(hg));
+  expect(hg.rows.length === 8 && hg.rows.includes('portal:off') && !hg.rows.filter(x => x !== 'portal:off').some(x => /:off/.test(x)) && hg.rec === '荐' && hg.recK === 'room', '空地建造列表：8 项、传送阵（化神）灰着、第一项是荐的（静室）：' + JSON.stringify(hg));
+  expect(hg.rows.indexOf('field') < 0 && hg.rows.indexOf('furnace') < 0 && !hg.rows.includes('cave') && !hg.rows.includes('array'), '建造列表不含已建的、洞府本体和聚灵阵');
+  await page.click('#modal [data-build="room"]'); await page.waitForTimeout(350);
+  const hb = await hq(() => { const { st, L } = window.__xm; return { room: st.home.room, pl: L.homePlots(st).join(), spent: st.home.spent.room, msg: (document.querySelector('#modal .quote') || {}).textContent || '', tile: (document.querySelector('#modal [data-hp="3"]') || {}).textContent, demo: !!document.querySelector('#modal [data-demo="room"]'), up: !!document.querySelector('#modal button[data-k="room"]'), full: L.homePlotFree(st) }; });
+  expect(hb.room === 1 && hb.pl === 'array,field,furnace,room' && hb.spent === 300 && /静室/.test(hb.msg) && /Lv1/.test(hb.tile) && hb.demo && hb.up && hb.full === 0, '点【建】：静室 Lv1 建在第 4 块、记花费 300、提示、网格更新：' + JSON.stringify(hb));
+  await page.click('#modal button[data-k="room"]'); await page.waitForTimeout(300);
+  expect(await hq(() => window.__xm.st.home.room === 2), '已建的地块里点升级：静室 Lv2');
+  // 拆除：先问，取消不动；确认后退一半、记一半等级、地块空出来
+  await page.click('#modal [data-demo="room"]'); await page.waitForTimeout(300); await shot('h02-home-demolish');
+  const hd = await hq(() => { const { st, L } = window.__xm; return { yes: !!document.querySelector('#modal [data-demo-yes]'), no: !!document.querySelector('#modal [data-demo-no]'), txt: (document.querySelector('#modal .hdet .quote') || {}).textContent || '', back: L.homeRefund(st, 'room'), room: st.home.room }; });
+  expect(hd.yes && hd.no && /拆了退/.test(hd.txt) && /重建从\s*1\s*级起/.test(hd.txt) && hd.back > 0 && hd.room === 2, '拆除前要确认，写明退多少、重建从几级起：' + JSON.stringify(hd));
+  await page.click('#modal [data-demo-no]'); await page.waitForTimeout(300);
+  expect(await hq(() => window.__xm.st.home.room === 2 && !document.querySelector('#modal [data-demo-yes]')), '点【取消】：建筑还在，确认条收起');
+  await page.click('#modal [data-demo="room"]'); await page.waitForTimeout(250);
+  const stBefore = await hq(() => window.__xm.st.stones), refund = await hq(() => window.__xm.L.homeRefund(window.__xm.st, 'room'));
+  await page.click('#modal [data-demo-yes="room"]'); await page.waitForTimeout(350);
+  const hy = await hq(() => { const { st, L } = window.__xm; return { room: st.home.room, rec: st.home.rec.room, stones: st.stones, pl: L.homePlots(st).join(), empty: [...document.querySelectorAll('#modal #homeGrid .hplot')].filter(x => /空地/.test(x.textContent)).length, msg: (document.querySelector('#modal .quote') || {}).textContent || '' }; });
+  expect(hy.room === 0 && hy.rec === 1 && hy.stones >= stBefore + refund && refund > 0 && hy.pl === 'array,field,furnace,' && hy.empty === 1 && /拆了静室/.test(hy.msg), '确认拆除：退一半、记 1 级、这块地空出来：' + JSON.stringify(hy));
+  expect(await hq(() => { const r = [...document.querySelectorAll('#modal [data-build="room"]')]; return r.length === 1 && !/重建从/.test(r[0].closest('.crow').textContent); }), '重建 1 级的不写“重建从”（和新建一样）');
+  // 未开的地块：写洞府几级开
+  await page.click('#modal [data-hp="6"]'); await page.waitForTimeout(300); await shot('h03-home-locked-plot');
+  const hk = await hq(() => (document.querySelector('#modal .hdet') || {}).textContent || '');
+  expect(/未开/.test(hk) && /洞府升到\s*10\s*级/.test(hk), '未开的地块：洞府升到 10 级开：' + hk);
+  // 洞府升级：4 → 5 级多一块地，写在提示里；第 5 块变空地
+  await page.click('#modal button[data-k="cave"]'); await page.waitForTimeout(350);
+  const hc = await hq(() => ({ max: window.__xm.L.homePlotMax(window.__xm.st), msg: (document.querySelector('#modal .quote') || {}).textContent || '', empty: [...document.querySelectorAll('#modal #homeGrid .hplot')].filter(x => /空地/.test(x.textContent)).length }));
+  expect(hc.max === 5 && /多出一块地/.test(hc.msg) && hc.empty === 2, '洞府 4 → 5 级：多出一块地，提示写明：' + JSON.stringify(hc));
+  await close();
+  // 地块满：洞府面板上空地没了、满了的提示在洞府卡里；超额的旧档卡上写“地块超出”
+  await hLoad({ r: 3, i: 13, cave: 0, build: ['field', 'furnace'] });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.home.room = 1; st.home.spent.room = 300; L.homePlots(st); window.__xm.showHome(false, 0); }); await page.waitForTimeout(350); await shot('h04-home-over');
+  const ho = await hq(() => ({ txt: (document.querySelector('#modal .card:has(button[data-k="cave"])') || document.body).textContent, over: document.querySelectorAll('#modal #homeGrid .hplot.over').length, n: document.querySelectorAll('#modal #homeGrid .hplot').length }));
+  expect(/地块超出 1 块/.test(ho.txt) && ho.over === 1 && ho.n === 8, '旧档地块超额：洞府卡写“地块超出 1 块”、超额那格标出来：' + JSON.stringify(ho));
+  await close();
+  // 阵法面板：布阵中、旧阵照常；第二阵位（炼虚）；同一阵法不能占两位
+  await hLoad({ r: 5, i: 22, cave: 12, build: ['field', 'furnace', 'room'], zhen: ['f_dujie', 'f_danhuo'] });
+  await page.evaluate(() => { const { st } = window.__xm; st.home.array = 12; window.__xm.showZhen(); }); await page.waitForTimeout(350);
+  const z0 = await hq(() => ({ slots: document.querySelectorAll('#modal #zhenSlots .zslot').length, rows: document.querySelectorAll('#modal .crow').length, own: [...document.querySelectorAll('#modal .crow:not(.off)')].length }));
+  expect(z0.slots === 2 && z0.rows === 8 && z0.own === 3, '阵法面板：两个阵位、八张阵图、手里 3 张：' + JSON.stringify(z0));
+  await page.click('#modal [data-zs="0"][data-zid="f_dujie"]'); await page.waitForTimeout(350); await shot('h05-zhen-pending');
+  const z1 = await hq(() => { const { st, L } = window.__xm, s0 = document.querySelectorAll('#modal #zhenSlots .zslot')[0]; return { pend: s0.classList.contains('zpend'), txt: s0.textContent, id: st.home.zhen[0].id, nx: st.home.zhen[0].nx, at: st.home.zhen[0].at - st.tick, chip: [...document.querySelectorAll('#modal .crow')].filter(r => /布阵中/.test(r.textContent)).length, msg: (document.querySelector('#modal .quote') || {}).textContent || '', k: L.zhenK(st, 'f_juling'), dis: !!document.querySelector('#modal [data-zs="1"][data-zid="f_dujie"]').disabled }; });
+  expect(z1.pend && /布阵中/.test(z1.txt) && z1.id === 'f_juling' && z1.nx === 'f_dujie' && z1.at === 3 && z1.k === 1 && /3<\/b> 个周天后生效|3 个周天后生效/.test(z1.msg.replace(/<[^>]+>/g, '')) && z1.dis, '换阵：布阵中 3 周天、旧阵（聚灵）照常、这张阵法不能再放第二阵位：' + JSON.stringify(z1));
+  await page.click('#modal [data-zs="1"][data-zid="f_danhuo"]'); await page.waitForTimeout(350); await shot('h06-zhen-second');
+  const z2 = await hq(() => { const { st } = window.__xm, c = document.querySelectorAll('#modal #zhenSlots .zslot'); return { nx1: st.home.zhen[1].nx, txt: c[1].textContent, pend: c[1].classList.contains('zpend') }; });
+  expect(z2.nx1 === 'f_danhuo' && z2.pend && /第二阵位/.test(z2.txt) && /×0.5/.test(z2.txt), '第二阵位布丹火阵（效果 ×0.5）：' + JSON.stringify(z2));
+  expect(await hq(() => { const b = document.querySelector('#modal [data-zs="0"][data-zid="f_dujie"]'); return b.disabled && window.__xm.st.home.zhen[0].nx === 'f_dujie'; }), '正在布的阵法按钮灰着、点不动');
+  await page.evaluate(() => { const { st } = window.__xm; st.tick += 3; window.__xm.onTick(); }); await page.waitForTimeout(300);
+  const z3 = await hq(() => { const { st, L } = window.__xm; return { a: st.home.zhen[0].id, b: st.home.zhen[1].id, trib: L.formationVal(st, 'f_dujie'), cul: L.culParts(st).find(x => x[2] === 'array')[1] }; });
+  expect(z3.a === 'f_dujie' && z3.b === 'f_danhuo' && Math.abs(z3.trib - 0.12) < 1e-9 && z3.cul === 1, '3 周天后换阵生效、聚灵阵那项 ×1、渡劫阵护劫 +12%（阵法强度 12）：' + JSON.stringify(z3));
+  await close();
+  // 筑基前阵法没开：showZhen 退回洞府；炼虚前只有一个阵位
+  await hLoad({ r: 1, i: 4, cave: 2, build: ['field'] });
+  await page.evaluate(() => window.__xm.showZhen()); await page.waitForTimeout(300);
+  expect(await hq(() => !!document.querySelector('#modal #homeGrid') && !document.querySelector('#modal #zhenSlots')), '阵法没开（心境不到筑基后期）：showZhen 退回洞府网格');
+  await close();
+  await hLoad({ r: 3, i: 13, cave: 6, zhen: ['f_dujie'], maxR: 3 });
+  await page.evaluate(() => window.__xm.showZhen()); await page.waitForTimeout(300);
+  expect(await hq(() => document.querySelectorAll('#modal #zhenSlots .zslot').length === 1 && !document.querySelector('#modal [data-zs="1"]') && /炼虚后开第二阵位/.test(document.querySelector('#modal .body').textContent)), '元婴只有一个阵位：没有第二阵位按钮，写“炼虚后开第二阵位”');
+  await close();
+  // 场景：夜间 / 白天画着建筑与光圈不出错；点场景里的建筑打开洞府并选中那块地
+  await hLoad({ r: 5, i: 22, cave: 12, build: ['field', 'furnace', 'room', 'vault'], zhen: ['f_dujie'] });
+  const sc = await page.evaluate(async () => {
+    const { st, L } = window.__xm; st.home.zhen[1] = { id: 'f_dujie', nx: '', at: 0 }; const cvs = document.querySelector('#scene'), r = cvs.getBoundingClientRect(), H = cvs.height, OY = H - 160, slots = window.__xm.ART.homeSlots;
+    const click = (x, y) => cvs.dispatchEvent(new MouseEvent('click', { clientX: r.left + x / 200 * r.width, clientY: r.top + (y - 8 + OY) / H * r.height, bubbles: true }));
+    const out = {}; out.pl = L.homePlots(st).join();
+    // 丹炉占第 2 个景位，其余按地块顺序：静室第 3 个、聚宝阁第 4 个
+    click(slots[3].x, slots[3].y); await new Promise(f => setTimeout(f, 500));
+    out.sel = (document.querySelector('#modal #homeGrid .hplot.sel') || {}).dataset && document.querySelector('#modal #homeGrid .hplot.sel').dataset.hp; out.title = (document.querySelector('#modal .hdet') || {}).textContent || '';
+    return out;
+  });
+  expect(sc.pl === 'array,field,furnace,room,vault,,,' && sc.sel === '3' && /静室/.test(sc.title), '点场景里的静室：打开【洞府】选中静室那块地：' + JSON.stringify(sc));
+  await close();
+  const lum = [];
+  await page.evaluate(() => { window.__skyAt0 = window.__xm.ART.skyAt; });
+  for (const [ph, nm] of [[0.5, 'day'], [0.0, 'night']]) {
+    await page.evaluate(ph => { const A = window.__xm.ART; A.skyAt = () => window.__skyAt0(ph); }, ph);
+    await page.waitForTimeout(700); await shot('h07-scene-' + nm);
+    lum.push(await page.evaluate(() => { const c = document.querySelector('#scene'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] + d[i + 1] + d[i + 2]; return t / (d.length / 4) / 3; }));
+  }
+  await page.evaluate(() => { window.__xm.ART.skyAt = window.__skyAt0; });
+  expect(lum[0] > lum[1] + 15, '场景白天比夜间亮（建筑与光圈照常画）：' + lum.map(Math.round).join(' / '));
+  // 已有场景的光圈：布阵中画虚线（pending）不抛错
+  await page.evaluate(() => { const { st, L } = window.__xm; st.home.zhen[0].nx = 'f_juling'; st.home.zhen[0].id = 'f_dujie'; st.home.zhen[0].at = st.tick + 3; }); await page.waitForTimeout(500);
+  // 老祖讲解：炼气圆满、器炉解锁、地块比建筑少 → 讲地块
+  await hLoad({ r: 0, s: 3, i: 3, cave: 0, build: [], unseen: ['plots'] });
+  const hint = async id => {
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(300);
+      if (await page.evaluate(() => window.__xm.guideDbg.active) === id) return true;
+      await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok && window.__xm.guideDbg.active !== id) ok.click(); }, id);
+      await page.evaluate(() => window.__xm.onTick());
+    }
+    return false;
+  };
+  const pre = await hq(() => { const { st, L } = window.__xm; return { un: L.homeUnbuilt(st), free: L.homePlotFree(st), forge: L.homeUnlocked(st, 'forge') }; });
+  expect(pre.forge && pre.un.includes('forge') && pre.un.length > pre.free, '前提：炼气圆满器炉解锁，能建的比空地多：' + JSON.stringify(pre));
+  const got = await hint('plots'); await shot('h08-hint-plots');
+  const ht = await hq(() => ({ vis: !document.querySelector('#guide').hidden, txt: (document.querySelector('#guide .gtext') || {}).textContent || '', hold: window.__xm.guideHold }));
+  expect(got && ht.vis && /洞府只有 3 块地/.test(ht.txt) && /地块比建筑少/.test(ht.txt) && /器炉/.test(ht.txt), '炼气圆满：老祖讲“地块比建筑少”（阻塞讲解）：' + JSON.stringify(ht));
+  await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(300);
+  expect(await hq(() => window.__xm.st.hintSeen.plots === 1), '讲过一次记下，不再讲');
+  await close();
+  // 筑基后期、≥ 2 张阵图 → 讲阵法；不到 2 张不讲
+  await hLoad({ r: 1, s: 2, i: 7, cave: 2, build: ['field'], unseen: ['zhen'] });
+  await page.waitForTimeout(600);
+  expect(await hq(() => !window.__xm.guideDbg.cand.includes('zhen') && window.__xm.L.zhenOpen(window.__xm.st) && window.__xm.L.zhenOwnList(window.__xm.st).length === 1), '只有聚灵阵（1 张）：不讲阵法');
+  await page.evaluate(() => { window.__xm.st.gear.zhentu.f_shengcai = 1; window.__xm.st.gear.zhentu.f_dujie = 1; });
+  const got2 = await hint('zhen'); await shot('h09-hint-zhen');
+  const ht2 = await hq(() => (document.querySelector('#guide .gtext') || {}).textContent || '');
+  expect(got2 && /换阵法/.test(ht2) && /渡劫阵/.test(ht2) && /3 个周天/.test(ht2), '筑基后期、手里 2 张阵图：老祖讲“换阵法”：' + ht2);
+  await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(300);
+  await close();
+  // 要渡劫了：渡劫阵提醒气泡（每境界一次）；大量炼丹前：丹火阵气泡；新建筑能建：气泡
+  await hLoad({ r: 1, s: 3, i: 7, cave: 4, build: ['field', 'furnace'], zhen: ['f_dujie', 'f_danhuo'], herbs: 5000 });
+  const tipTick = pre => page.evaluate(async pre => {
+    const { st, L } = window.__xm, el = document.querySelector('#tip'), seen = []; el.hidden = true;
+    const mo = new MutationObserver(() => seen.push(el.textContent)); mo.observe(el, { childList: true, subtree: true, characterData: true });
+    new Function('st', 'L', pre)(st, L); window.__xm.onTick(); await new Promise(f => setTimeout(f, 80)); mo.disconnect();
+    return { keys: Object.keys(st.seenTips).filter(k => /^zhen|^bld_/.test(k) && !/^bld_/.test(k)), txt: seen.join(' | '), hid: el.hidden };
+  }, pre);
+  const tp = await tipTick('st.hintSeen.zhen = 1; st.p.xp = L.pNeed(st.p);');
+  expect(tp.keys.includes('zhenDujie1') && !tp.hid, '要渡劫了：气泡提醒换渡劫阵（每境界一次的记号 zhenDujie1）：' + JSON.stringify(tp));
+  const tp2 = await tipTick("st.p.xp = 0; st.home.zhen[0].nx = 'f_dujie'; st.home.zhen[0].at = st.tick + 9;");
+  expect(tp2.keys.includes('zhenDanhuo1'), '灵草够炼很多炉：气泡提醒换丹火阵（记号 zhenDanhuo1）：' + JSON.stringify(tp2));
+  // 同一境界不重复提醒
+  const tp3 = await tipTick('');
+  expect(!/渡劫阵|丹火阵/.test(tp3.txt) && !tp3.keys.some(k => !tp2.keys.includes(k)), '同一境界提醒过就不再提醒：' + tp3.txt);
+  // tut_rebuild：弹出洞府，选中等级最低的建筑、拆除确认条已展开
+  await hLoad({ r: 3, i: 13, cave: 6, build: ['field', 'furnace', 'room'] });
+  await page.evaluate(() => window.__xm.onTick()); await page.waitForTimeout(500); await close();
+  await page.evaluate(() => { const { st, L } = window.__xm; st.home.field = 9; st.home.furnace = 6; st.home.room = 2; L.applyFx(st, { flag: 'tut_rebuild' }); window.__xm.onTick(); }); await page.waitForTimeout(900); await shot('h10-tut-rebuild');
+  const tr = await hq(() => ({ sel: (document.querySelector('#modal #homeGrid .hplot.sel') || {}).dataset && document.querySelector('#modal #homeGrid .hplot.sel').dataset.hp, yes: !!document.querySelector('#modal [data-demo-yes="room"]'), txt: (document.querySelector('#modal .quote') || {}).textContent || '', tut: window.__xm.st.home.tut }));
+  expect(tr.sel === '3' && tr.yes && /拆了退/.test(tr.txt) && !tr.tut, 'tut_rebuild：打开洞府、选中等级最低的静室、拆除确认条已展开：' + JSON.stringify(tr));
+  await close();
+  // 旧写法 st.home = {…} 直接赋值（不带 plots）：洞府面板和阵法面板都能打开、不抛错
+  const errN = errors.length;
+  await page.evaluate(() => { const { st } = window.__xm; st.home = { cave: 5, array: 9, field: 6, furnace: 5 }; window.__xm.showHome(); }); await page.waitForTimeout(350);
+  expect(await hq(() => document.querySelectorAll('#modal #homeGrid .hplot').length === 8 && /聚灵阵/.test(document.querySelector('#modal #homeGrid').textContent)), '直接赋值旧式 st.home：洞府面板照样打开（8 格、聚灵阵在）');
+  await close();
+  await page.evaluate(() => { window.__xm.showZhen(); }); await page.waitForTimeout(300); await close();
+  expect(errors.length === errN, '旧式 st.home 打开洞府 / 阵法没有报错：' + errors.slice(errN).join('；'));
+  // nohome2：界面里没有新建筑、没有阵法按钮
+  await hLoad({ r: 3, i: 13, cave: 4, build: ['field', 'furnace'] });
+  await page.evaluate(() => { window.__xm.L.HOME2_ON = false; window.__xm.showHome(false, 3); }); await page.waitForTimeout(350);
+  const nh = await hq(() => ({ rows: [...document.querySelectorAll('#modal [data-build]')].map(b => b.dataset.build), txt: document.querySelector('#modal .body').textContent }));
+  expect(nh.rows.length === 0 && !/器炉|兽栏|静室|传送阵/.test(nh.txt.replace(/器炉 · 打造/g, '')), 'nohome2：空地建造列表里没有新建筑：' + JSON.stringify(nh.rows));
+  await close();
+  await page.evaluate(() => { window.__xm.showZhen(); }); await page.waitForTimeout(300);
+  expect(await hq(() => !document.querySelector('#modal #zhenSlots')), 'nohome2：阵法面板不开');
+  await page.evaluate(() => { window.__xm.L.HOME2_ON = true; }); await close();
+  }
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
   await close();

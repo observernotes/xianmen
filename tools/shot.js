@@ -45,7 +45,7 @@ require('fs').mkdirSync(out, { recursive: true });
     L.petGive(st, { sp: 'p_hu2', src: 'shop' }); L.petGive(st, { sp: 'p_he' }); L.petGive(st, { sp: 'p_tu' });
     st.pets[0].lv = 5; st.pets[0].heart = 3; st.pets[1].lv = 3; st.herbs = 400; L.petSetJob(st, 1, 'array'); L.petSetJob(st, 2, 'forage');
     st.mats.yin.fire = 3;   // 赤焰虎进化（炎虎王）要火引 ×3
-    for (const h of ['crops', 'yinGrid', 'toxin']) st.hintSeen[h] = 1;
+    for (const h of ['crops', 'yinGrid', 'toxin', 'plots', 'zhen']) st.hintSeen[h] = 1;
     L.checkQuests(st); st.achQ = []; st.storyQ = [];
   });
   await close(); await page.waitForTimeout(1200);
@@ -266,6 +266,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(600); await page.screenshot({ path: out + '/20-world-tag.png' });
   const wt = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden && r.width > 0, w: r.width, h: r.height, txt: el.textContent }; });
   if (!wt.vis || wt.w < 44 || wt.h < 44 || !wt.txt.includes('大旱')) errors.push('大势小牌不对：' + JSON.stringify(wt));
+  await page.evaluate(() => { for (const h of window.__xm.hints) if (!/^realm/.test(h.id)) window.__xm.st.hintSeen[h.id] = 1; const gk = document.querySelector('#guide [data-g="ok"]'); if (gk) gk.click(); });   // 老祖讲解不要盖住大势小牌
+  await page.waitForTimeout(300);
   await page.click('#worldTag'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/21-calendar.png' });
   const calT = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: (document.querySelector('#calStrip') || {}).naturalWidth, w: (document.querySelector('#calStrip') || { getBoundingClientRect: () => ({ width: 0 }) }).getBoundingClientRect().width }));
   if (calT.t !== '年历' || calT.strip !== 194 || calT.w < 194) errors.push('年历没有打开或时间轴不对：' + JSON.stringify(calT));
@@ -411,6 +413,42 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 0; window.__xm.L.startRetreat(s); }); await page.waitForTimeout(800); await page.screenshot({ path: out + '/16c-retreat.png' });
   await page.evaluate(() => { const s = window.__xm.st; s.retreat = null; s.sect = null; window.__xm.showInvite(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/17-invite.png' });
   await close();
+  // 洞府：地块网格、已建地块、空地建造列表、未开地块、拆除确认；阵法面板的布阵中与第二阵位；场景里的建筑与光圈；每页手机宽度不溢出、点击目标 ≥ 44px
+  await page.evaluate(() => {
+    const { st, L } = window.__xm;
+    st.home = { cave: 5, array: 12, field: 8, furnace: 6 }; L.migrateHome(st);   // 旧写法直接赋值，再迁移出地块
+    st.stones = 1e10; st.flags.maxR = 5; st.flags.maxI = 22; st.retreat = null; st.exp = null; st.p.inj = 0; st.guide = { step: 99, done: true };
+    for (const h of window.__xm.hints) st.hintSeen[h.id] = 1;
+    L.build(st, 'room'); L.upgrade(st, 'room'); L.upgrade(st, 'room'); L.build(st, 'vault'); L.upgrade(st, 'vault');
+    st.gear.zhentu = Object.assign(st.gear.zhentu || {}, { f_dujie: 1, f_danhuo: 1, f_shengcai: 1 });
+  });
+  const hlay = async name => {
+    const r = await page.evaluate(() => {
+      const body = document.querySelector('#modal .body'), bad = [];
+      for (const el of document.querySelectorAll('#modal .hplot, #modal [data-build], #modal [data-k], #modal [data-demo], #modal [data-demo-yes], #modal [data-demo-no], #modal [data-zs], #modal [data-go], #modal .foot .btn, #modal .close, #modal #btnAlch, #modal #btnField, #modal #btnPets, #modal #btnForgeH, #modal #btnRet, #modal #btnHeal, #modal [data-zclear]')) {
+        if (el.disabled && !el.matches('[data-zs], [data-build], [data-k]')) continue;
+        const r = el.getBoundingClientRect(); if (r.height < 44 || r.width < 44) bad.push((el.textContent.trim().slice(0, 8) || el.className) + ' ' + Math.round(r.width) + '×' + Math.round(r.height));
+      }
+      return { over: body.scrollWidth - body.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth, bad };
+    });
+    if (r.over > 0 || r.page > 0) errors.push(`${name} 横向溢出 ${r.over}/${r.page}px`);
+    if (r.bad.length) errors.push(`${name} 点击目标不足 44px：` + r.bad.join('，'));
+  };
+  await page.evaluate(() => window.__xm.showHome(false, 0)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20a-home-array.png' }); await hlay('洞府（聚灵阵地块）');
+  await page.evaluate(() => window.__xm.showHome(false, 4)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20b-home-empty.png' }); await hlay('洞府（空地建造列表）');
+  await page.evaluate(() => window.__xm.showHome(false, 3)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20c-home-built.png' }); await hlay('洞府（已建地块）');
+  await page.click('#modal [data-demo]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/20d-home-demolish.png' }); await hlay('洞府（拆除确认）');
+  await page.evaluate(() => window.__xm.showHome(false, 7)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20e-home-locked.png' }); await hlay('洞府（未开地块）');
+  await page.evaluate(() => { const { st, L } = window.__xm; st.home.array = 12; L.zhenSet(st, 0, 'f_dujie'); window.__xm.showZhen(); }); await page.waitForTimeout(350); await page.screenshot({ path: out + '/21a-zhen-pending.png' }); await hlay('阵法（布阵中）');
+  await page.evaluate(() => { const { st, L } = window.__xm; L.zhenSet(st, 1, 'f_danhuo'); window.__xm.showZhen(); }); await page.waitForTimeout(350); await page.screenshot({ path: out + '/21b-zhen-second.png' }); await hlay('阵法（第二阵位）');
+  const zbtn = await page.evaluate(() => { const b = document.querySelector('#modal .foot .btn'); return b ? Math.round(b.getBoundingClientRect().height) : 0; });
+  if (zbtn < 44) errors.push('阵法页底部【回洞府】按钮不到 44px：' + zbtn);
+  await close();
+  await page.evaluate(() => { const { st } = window.__xm; st.tick += 3; window.__xm.onTick(); }); await page.waitForTimeout(500); await close(); await close();   // 这一跳可能弹出剧情，先收掉
+  await page.screenshot({ path: out + '/22a-scene-zhen.png' });
+  await page.evaluate(() => { window.__skyAt0 = window.__xm.ART.skyAt; window.__xm.ART.skyAt = () => window.__skyAt0(0.0); }); await page.waitForTimeout(700);
+  await page.screenshot({ path: out + '/22b-scene-night.png' });
+  await page.evaluate(() => { window.__xm.ART.skyAt = window.__skyAt0; });
   await page.evaluate(() => window.__xm.showDeath()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(1900); await page.screenshot({ path: out + '/18-rebirth.png' });
   await page.click('.cand[data-i="0"]'); await page.click('.foot .btn.gold'); await page.waitForTimeout(800); await page.screenshot({ path: out + '/19-newlife.png' });
   const meta = await page.evaluate(() => Object.keys(window.__xm.st.meta.aff).length);
