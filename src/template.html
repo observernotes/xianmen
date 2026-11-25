@@ -561,6 +561,47 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; color: var(--paper
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* 图鉴（panel-codex.js）：完成度、十四类网格、格子、奇遇链进度 */
+.cxsum { background: #f7eed6; padding: 6px 8px; box-shadow: 0 0 0 2px #b9a77c; display: flex; flex-direction: column; gap: 2px; }
+.cxcats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.cxcat { border: 0; cursor: pointer; min-height: 48px; min-width: 44px; padding: 2px 1px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: #f7eed6; color: var(--paper-ink); box-shadow: 0 0 0 2px #b9a77c; font: inherit; }
+.cxcat .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cxcat.on { background: var(--seal); color: #fff6e6; box-shadow: 0 0 0 2px var(--ink); }
+.cxcat.full { box-shadow: 0 0 0 2px var(--gold); }
+.cxcat.off { opacity: .5; }
+.cxhead { display: flex; gap: 8px; align-items: flex-start; }
+.cxg { color: var(--paper-mute); margin-top: 4px; }
+.cxcells { display: flex; flex-wrap: wrap; gap: 4px; }
+.cxc { padding: 1px 5px; background: #3a3155; color: #928ea8; box-shadow: 0 0 0 1px #1a1528; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cxc.on { background: #fff6dc; color: var(--paper-ink); box-shadow: 0 0 0 1px #2a8a7a; }
+.cxc i { font-style: normal; margin-left: 3px; color: #2a8a7a; }
+.cxchain { background: #f7eed6; padding: 6px 8px; box-shadow: 0 0 0 2px #b9a77c; display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.cxchain.on { box-shadow: 0 0 0 2px #2a8a7a; }
+.cxchain.fin { box-shadow: 0 0 0 2px var(--gold); }
+.cxchain .line { display: flex; justify-content: space-between; gap: 6px; }
+.cxseg { display: flex; gap: 3px; }
+.cxseg i { flex: 1; height: 6px; background: #cbb98f; }
+.cxseg i.on { background: var(--jade); }
+.cxseg i.past { background: #a8cfc0; }
+/* 轮回（life.js）：结算、传承、轮回殿、出身、天道试炼 */
+.dglist { display: flex; flex-direction: column; gap: 2px; }
+.dgrow { display: flex; justify-content: space-between; gap: 8px; padding: 2px 6px; background: #f7eed6; }
+.dgrow.mult { background: #efe0bd; }
+.dgrow.total { background: var(--paper-lo); padding: 6px; box-shadow: 0 0 0 2px var(--ink); }
+.lgrid, .ogrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.lgc, .ocard, .hnode { border: 0; cursor: pointer; font: inherit; min-height: 52px; min-width: 0; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; background: #f7eed6; color: var(--paper-ink); box-shadow: 0 0 0 2px #b9a77c; }
+.lgc.sel, .ocard.sel, .hnode.sel { box-shadow: 0 0 0 3px var(--gold); background: #fff3cf; }
+.ocard.off { opacity: .5; cursor: default; }
+.hgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hnode .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hnode.done { background: #e2f3e8; }
+.hdet .right .btn { min-height: 44px; min-width: 64px; }
+i.new { font-style: normal; background: var(--seal); color: #fff6e6; padding: 0 3px; margin-left: 3px; }
+.tlist { display: flex; flex-direction: column; gap: 6px; }
+.sheet .foot .btn { min-height: 44px; }
+button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: left; width: 100%; min-height: 48px; }
+.trow .grow { flex: 1; min-width: 0; }
+.cands.c4 { grid-template-columns: repeat(2, 1fr); }
 /* 洞府地块与阵法（panel-home.js）：2×4 地块网格、选中地块的小面板、阵位卡 */
 .hgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .hplot { min-height: 72px; min-width: 0; border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; padding: 3px 1px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; box-shadow: 0 0 0 2px #b9a77c; }

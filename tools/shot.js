@@ -411,8 +411,17 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 0; window.__xm.L.startRetreat(s); }); await page.waitForTimeout(800); await page.screenshot({ path: out + '/16c-retreat.png' });
   await page.evaluate(() => { const s = window.__xm.st; s.retreat = null; s.sect = null; window.__xm.showInvite(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/17-invite.png' });
   await close();
-  await page.evaluate(() => window.__xm.showDeath()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(1900); await page.screenshot({ path: out + '/18-rebirth.png' });
-  await page.click('.cand[data-i="0"]'); await page.click('.foot .btn.gold'); await page.waitForTimeout(800); await page.screenshot({ path: out + '/19-newlife.png' });
+  await page.evaluate(() => window.__xm.showDeath()); await page.waitForTimeout(300); await page.click('.foot .btn.gold'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/18a-settle.png' });
+  // 轮回：结算 → 传承（没有能带的就跳过）→ 轮回殿 → 出身 → 命格，一路点“下一步”；老祖的讲解点“知道了”
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(150);
+    if (await page.evaluate(() => /选择天赋/.test(document.querySelector('#modal h2').textContent))) break;
+    await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(350);
+  }
+  await page.waitForTimeout(1900); await page.screenshot({ path: out + '/18-rebirth.png' });
+  await page.click('.cand[data-i="0"]'); await page.click('.foot .btn.gold'); await page.waitForTimeout(300);   // → 天道试炼
+  await page.click('.foot .btn.gold'); await page.waitForTimeout(900);   // 投胎 → 出身开场
+  await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); await page.screenshot({ path: out + '/19-newlife.png' });
   const meta = await page.evaluate(() => Object.keys(window.__xm.st.meta.aff).length);
   if (meta < 15) errors.push('转世后相性图鉴没有保留（' + meta + '）');
   console.log(errors.length ? errors.join('\n') : 'no errors');

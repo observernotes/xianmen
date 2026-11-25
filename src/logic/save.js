@@ -137,6 +137,10 @@ L.migrate = function (s) {
   if (v4) L.log(s, '法宝换了新章法：兵器、法衣、饰品三槽，能强化、带词条' + (gearNote ? '。' + gearNote : ''), 'gold');
   if (petNote) L.log(s, '灵宠换了新章法：名册、岗位、等级与进化。' + petNote, 'gold');
   if (v5 && !old) L.log(s, '坊市换了新章法：货架六格、行情能卖、拍卖会竞价；四季与天下大势也看得见了', 'gold');
+  // 奇遇链进度、图鉴、轮回（chains.js / codex.js / samsara.js，可重复调用，不升版本；图鉴读前面各系统的记录，排最后）
+  if (L.migrateChains) L.migrateChains(s);
+  if (L.migrateSamsara) L.migrateSamsara(s);
+  if (L.migrateCodex) L.migrateCodex(s);
   s.v = L.SAVE_V;
   return s;
 };

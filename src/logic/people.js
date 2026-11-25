@@ -4,7 +4,7 @@
  *   喜好（发现表，跨世）：每位人物两类爱收的（♥ +8）、一类讨厌的（✕ −3），其余 +3（L.NPC_PREF）。只能在他来访时（门口那位访客就是他）送，
  *         一次来访送一样；送礼列表是身上现有的东西（灵草、灵矿、兽粮、灵石、天材地宝、破境丹、丹囊里的丹、五种药引、功法抄本）。
  *         每样东西带几个标签（L.pgiftOpts 的 tags），讨厌的标签优先、其次喜欢的；试过之后记进 st.meta.gift[人物][标签] = 1 / 0 / −1，
- *         列表上标 ♥ / ✕ / ·（一般）/ ？。L.giftKnown(st) 给图鉴页读（6 × 3 = 18 格）。
+ *         列表上标 ♥ / ✕ / ·（一般）/ ？。L.giftKnown(st)（试出来的格子，数组）给图鉴页 codex.js 读，共 L.GIFT_DEX = 6 × 3 = 18 格；L.giftDex(st) 是按人物分组的完整表。
  *   委托：好感到二心（40）、四心（80）各来一件（L.PQ），显示在人物卡上；完成 +15 好感和一件与他相关的东西。
  *         完成条件只读各系统已有的结果：历练结算（L.resolveExp 的返回）、炼丹（L.craft）、丹方数（L.recipeCount）、首领（L.fightBoss）、
  *         秘境（L.mjPick / L.mjAfterEvent 之后的 st.run.cleared）；交付类在人物卡上点【交付】。
@@ -169,9 +169,11 @@ L.pgiftGive = function (st, id, key) {
   emit('people', { k: 'gift', id, react, d });
   return { id, x, react, d, a0, a1: L.aff(st, id), line, fresh };
 };
-// 图鉴（跨世）：每位人物三格（两 ♥ 一 ✕），试出来的算数。给图鉴页读
+// 图鉴（跨世）：每位人物三格（两 ♥ 一 ✕），试出来的算数。
+// L.giftDex(st)：按人物分组的完整表（人物卡用）；L.giftKnown(st)：已试出来的那几格（数组，图鉴页 codex.js 读：每格 { id, n, kind, tag }），共 L.GIFT_DEX 格
 L.GIFT_DEX = 18;
-L.giftKnown = function (st) {
+L.giftKnown = st => { const out = []; for (const x of L.giftDex(st).list) for (const c of x.cells) if (c.known) out.push({ id: x.id, tag: c.tag, kind: c.kind, n: `${x.n}·${c.kind === 'like' ? '♥' : '✕'}${c.n}` }); return out; };
+L.giftDex = function (st) {
   const g = (st.meta && st.meta.gift) || {};
   let found = 0;
   const list = L.PPL.map(id => {
@@ -342,10 +344,12 @@ L.COMP = {
   tian: { n: '斩妖分数 +6', d: '斩妖时历练分数 +6（宿敌线的“同行·楚天阔”）' },
 };
 L.COMP_V = { ye: 1.2, yeLeap: 1.5, chu: 10, mo: 0.5, bai: 0.1 };
-const daolvOn = (st, id) => !!st.daolv && st.daolv === id && !(L.daolvBlocked && L.daolvBlocked(st));
+const daolvOn = (st, id) => !!st.daolv && st.daolv === id && !(L.daolvBlocked && L.daolvBlocked(st)) && !(typeof L.trialOn === 'function' && L.trialOn(st, 'gu'));
 // 能不能放进同伴位：四心（仁三级 90 即五心也算）、不是道侣（道侣本来就跟着）
+const lone = st => typeof L.trialOn === 'function' && L.trialOn(st, 'gu');   // 天道试炼·孤星：不能有同伴与道侣（samsara.js）
 L.compWhy = function (st, id) {
   if (!ON()) return '还没开放';
+  if (lone(st)) return '天道试炼·孤星：不带同伴';
   if (id === 'tian') return st.eflags && st.eflags.tiankuo_ally ? '' : '楚天阔化敌为友之后才肯同行';
   if (!L.NPCS[id] || !L.met(st, id)) return '还不认识';
   if (st.daolv === id) return '道侣本就同行，不占同伴位';
@@ -409,7 +413,7 @@ wrap('resolveExp', b => function (st) {
   let res;
   try { res = b(st); } finally { tripCtx = undefined; }
   if (!res || res.legacy) return res;
-  const on = id => comp === id || daolvOn(st, id);
+  const on = id => (comp === id && !lone(st)) || daolvOn(st, id);
   const with_ = L.COMP_IDS.filter(on);
   if (with_.length) {
     res.comps = with_;

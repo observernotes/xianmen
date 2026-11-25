@@ -21,7 +21,7 @@ function pplNext(id) { const h = Math.min(5, L.hearts(st, id)); if (h >= 5) retu
 
 // ---------- 【人物】→ 羁绊 ----------
 function bondTabHTML() {
-  const vis = L.pgiftVisitor(st), comp = L.comp(st), dex = L.giftKnown(st);
+  const vis = L.pgiftVisitor(st), comp = L.comp(st), dex = L.giftDex(st);
   const head = L.PEOPLE2_ON === false ? '' : `<div class="mhead"><span>同伴位：${comp ? `${pplImg(comp, pxs(24, 1), 'n')}${esc(L.compName(st, comp))}（${esc(L.COMP[comp].n)}）` : '空着'}</span><span class="muted">喜好图鉴 ${dex.found}/${dex.total}</span></div>`;
   return head + Object.keys(L.NPCS).map(id => pplCard(id, vis)).join('') + tianCard()
     + `<div class="muted">好感：奇遇里的抉择、来访时送礼（♥ +${L.PGIFT_V.like}、一般 +${L.PGIFT_V.mid}、✕ ${L.PGIFT_V.hate}）、委托（+${L.PQ_AFF}）。二心来访、三心知己、四心同行（每趟历练、秘境带一位）、五心终章；苏与夜二人中只能与一位结为道侣。试出来的喜好记进图鉴，下一世还在。</div>`;
@@ -38,7 +38,7 @@ function pplCard(id, vis) {
   rows.push(`<div class="${a >= 60 ? 'jadet' : 'muted'}">${a >= 60 ? '✓' : '·'} 三心知己：${esc(L.friendText ? L.friendText(st, id) : N.bonus)}</div>`);
   if (on) {
     // 喜好：已知的写名字，没试出来的是“？”
-    const K = (L.giftKnown(st).list.find(x => x.id === id) || { cells: [] }).cells;
+    const K = (L.giftDex(st).list.find(x => x.id === id) || { cells: [] }).cells;
     rows.push(`<div class="pprefs"><span class="muted">喜好</span>${K.map(c => `<span class="ppref ${c.kind === 'like' ? 'plike' : 'phate'}">${c.kind === 'like' ? '♥' : '✕'} ${c.known ? esc(c.n) : '？'}</span>`).join('')}</div>`);
     // 委托
     for (const i of [1, 2]) rows.push(pqRow(id, i));

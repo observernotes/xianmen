@@ -8,7 +8,7 @@ const P = L.P;
 // ---------- 事件数据 ----------
 // 浏览器：src/events.js 设 window.EVENTS，src/content/*.js 再 push 进去（tools/build.py 按顺序内联）。
 // node：require src/events.js 与 L.CONTENT_FILES 里的扩展包，拼成一份。
-L.CONTENT_FILES = ['ev_realm_rivals', 'ev_sect_people', 'ev_world_chains', 'ev_karma', 'ev_rivals2', 'ev_people2'];
+L.CONTENT_FILES = ['ev_realm_rivals', 'ev_sect_people', 'ev_world_chains', 'ev_karma', 'ev_rivals2', 'ev_chains2', 'ev_people2'];
 let nodeEvents = null;
 L.events = function () {
   if (globalThis.EVENTS) return globalThis.EVENTS;
