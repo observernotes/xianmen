@@ -61,7 +61,7 @@ function aidIcon(k) {
 }
 // 一行护劫手段：on 是否勾上；btn 的 data 名（准备页 data-aid，停顿卡 data-ex）
 function aidRow(k, on, data) {
-  const A = L.aidInfo(st, k), pct = k === 'zhen' ? '+' + L.pct(A.v) : '+' + L.pct(A.v);
+  const A = L.aidInfo(st, k), pct = '+' + L.pct(A.v);
   const desc = A.ok ? A.cost : A.why;
   return `<div class="aid ${on ? 'on' : ''} ${A.ok ? '' : 'off'}" data-aidrow="${k}">${aidIcon(k)}<div class="an"><div>${A.n} <span class="av">${pct}</span></div><div class="ad">${esc(desc)}</div></div>`
     + (data ? `<button class="btn sm ${on ? 'gold' : 'alt'}" data-${data}="${k}" ${A.ok ? '' : 'disabled'}>${on ? '已用' : '用上'}</button>` : '') + '</div>';
@@ -236,11 +236,13 @@ function daoHook(type, data) {
     const num = { k: [`越级奖励 ×${(2 * L.DAO_V.leap).toFixed(1)}（原来 ×2）`, `对决胜算再低也有 ${L.pct(L.DAO_V.lo)}（原来 3%）`, '丁等不直接负伤，“以伤换命”再战一次'],
       w: [`突破成功率 +${L.pct(L.DAO_V.bt)}`, `闭关花费 −${L.pct(1 - L.DAO_V.ret)}（现在 ${fmt(L.retCost(st))} 灵石）`, '天劫那一停，老夫的提示十成准'],
       r: [`来访的人好感多 +${L.DAO_V.aff}`, `徒弟成长 +${L.pct(L.DAO_V.disc - 1)}`, `人物五心只要好感 ${L.DAO_V.heart5}`] }[data.k][data.lv - 1];
-    tip(`dao_${data.k}${data.lv}`, `道心·${D0.n}到了${'一二三'[data.lv - 1]}级（${data.n} 笔）：${num}。${nx ? `再 ${nx - data.n} 笔到下一级。` : '三级已满。'}【人物】→ 道心。`);
+    // 头一回升级由阻塞讲解 dao1 讲（时间暂停）；之后每次升级是气泡
+    if (st.hintSeen && st.hintSeen.dao1) tip(`dao_${data.k}${data.lv}`, `道心·${D0.n}到了${'一二三'[data.lv - 1]}级（${data.n} 笔）：${num}。${nx ? `再 ${nx - data.n} 笔到下一级。` : '三级已满。'}【人物】→ 道心。`);
     banner('道心 · ' + D0.n, `${'一二三'[data.lv - 1]}级：${D0.fx[data.lv - 1]}`); SFX.reveal(4);
   } else if (type === 'karma') {
     if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - 40, '因果 +1', '#ff9a8a');
-    tip('karma1', `记下了一笔因果：${data.who}。账会回来——仇家上门、心魔劫翻旧账；轮回时每条未了的 −${Math.round(L.KARMA_REB * 100)}% 道果。【人物】→ 道心能看。`);
+    // 头一笔由阻塞讲解 karma1 讲；之后每笔一个气泡
+    if (st.hintSeen && st.hintSeen.karma1) tip('karma_' + L.karmaState(st).list.length, `又记下一笔因果：${data.who}（${data.n}）。眼下没了的 ${L.karmaOpen(st).length} 条。`);
   } else if (type === 'unkarma') {
     if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - 40, '了结一笔因果', '#8ff5d0');
   }
@@ -258,5 +260,17 @@ const tribNowHint = { id: 'tribNow', urgent: true, intro: true, when: () => moda
     const v = cine.v, ex = { fa: 1, pet: 1, daolv: 1, pills: v.pillMax }, p1 = L.tribPeek(st, ex), can = v.canAdd.length || v.pillMax;
     return `这就是那一停：护体还剩 <b>${L.pct(v.shield)}</b>，老夫看<b>${v.hint.text}</b>。${p1 > v.p + 1e-9 ? `下面能补的全补上，成功率 <b>${L.pct(v.p)} → ${L.pct(p1)}</b>。` : can ? `成功率已经 <b>${L.pct(v.p)}</b>，再补也是白补。` : '能补的都用过了，硬扛吧。'}`;
   } };
+// 道心、因果各一次阻塞讲解（SYSTEMS §17），之后的升级与新账走气泡（daoHook）
+const daoCalm = () => st.guide && st.guide.done && !modalOpen() && !L.busy(st);
+const daoHints = [
+  { id: 'dao1', intro: true, when: () => daoCalm() && L.DAO_KEYS.some(k => L.daoLv(st, k) >= 1), target: '[data-nav="me"]', btn: '好', text: () => {
+      const k = L.DAO_KEYS.find(x => L.daoLv(st, x) >= 1), d = st.dao;
+      return `你做的选择老夫都记着：狂 <b>${d.k}</b>、稳 <b>${d.w}</b>、仁 <b>${d.r}</b> 笔。${L.DAO[k].n}到 <b>${L.DAO_TH[0]}</b> 笔得了一级：${esc(L.DAO[k].fx[0])}。各到 ${L.DAO_TH.join(' / ')} 笔一级，【人物】→ 道心能看。`;
+    } },
+  { id: 'karma1', intro: true, when: () => daoCalm() && L.karmaOpen(st).length > 0, target: '[data-nav="me"]', btn: '知道了', text: () => {
+      const k = L.karmaOpen(st)[0];
+      return `你欠下了一笔<b>因果</b>：${esc(k.who)}。账会回来——过些日子仇家上门、心魔劫翻旧账；轮回时每条没了的 <b>−${Math.round(L.KARMA_REB * 100)}%</b> 道果。【人物】→ 道心里记着。`;
+    } },
+];
 HINTS.splice(Math.max(0, HINTS.findIndex(h => h.id === 'btGo')), 0, ...tribHints);
-HINTS.push(tribNowHint);
+HINTS.push(tribNowHint, ...daoHints);

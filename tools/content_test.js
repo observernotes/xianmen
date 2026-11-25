@@ -24,7 +24,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
-    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life']) st.hintSeen[k] = 1;
+    st.guide = { step: 99, done: true }; st.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1']) st.hintSeen[k] = 1;
     st.p.r = 3; st.p.t = 6; st.home = { cave: 6, array: 8, field: 8, furnace: 8 }; st.herbs = 500; st.treasure = 4; st.stones = 1e5; st.tick = 130; st.pact = 1; st.beaten.mu = 1; st.flags.maxR = 3; st.flags.maxI = 12; st.stats.exp = 20;
     for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
     st.bosses = { 0: 1, 1: 1, 2: 1 };
@@ -441,7 +441,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // ---------- 天劫（SYSTEMS §9）----------
   const SEEN = ['ready', 'btGo', 'trib', 'tribPause', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life',
-    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction'];
+    'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearCmp', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'dao1', 'karma1'];
   await page.evaluate(SEEN => { const { st } = window.__xm; st.guide = { step: 99, done: true }; st.hintSeen = st.hintSeen || {}; for (const k of SEEN) st.hintSeen[k] = 1; document.querySelector('#tip').hidden = true; }, SEEN);
   // 护劫手段的加成与代价：基础 + 破境丹 + 祭法宝 8% + 道侣 8%；灵宠、渡劫阵没上线时不可用（写明原因），接上钩子就能用
   const aid = await page.evaluate(() => {
@@ -589,6 +589,18 @@ require('fs').mkdirSync(out, { recursive: true });
   const daoUi = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, karma: document.querySelectorAll('#modal .krow').length, txt: document.querySelector('#modal .body').textContent, tab: !!document.querySelector('#modal .tabs button.on[data-t="dao"]') }));
   expect(daoUi.rows === 3 && daoUi.karma >= 1 && daoUi.tab && daoUi.txt.includes('被冤枉的通缉犯') && daoUi.txt.includes('道基') && daoUi.txt.includes('一级'), `人物 → 道心：三条道心、因果 ${daoUi.karma} 条、道基`);
   await close();
+  // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
+  const gHint = async (id, setup) => {
+    await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; st.hintSeen[id] = 0; st.tick += 3; st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
+    await page.waitForTimeout(900);
+    const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
+    const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); }
+    return r;
+  };
+  const gd = await gHint('dao1', "st.dao = { k: 5, w: 2, r: 1 };");
+  expect(gd.g.includes('狂 5') && gd.g.includes('一级') && gd.g.includes('越级奖励') && gd.hold, `道心讲解：${gd.g.slice(0, 40)}（暂停 ${gd.hold}）${gd.g ? "" : gd.dbg}`);
+  const gk = await gHint('karma1', "");
+  expect(gk.g.includes('因果') && gk.g.includes('被冤枉的通缉犯') && gk.g.includes('−2%') && gk.hold, `因果讲解：${gk.g.slice(0, 40)}（暂停 ${gk.hold}）${gk.g ? "" : gk.dbg}`);
   // 界面：雷劫中途那一停——提示在三种之内、老祖讲怎么补（时间暂停），补上临阵吞丹成功率上去；结束有道基印
   await page.evaluate(() => {
     const { st, L } = window.__xm; st.trib = L.newTrib(); st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 2; st.p.fails = 0; st.flags.sureBt = 0; st.exp = null; st.retreat = null;

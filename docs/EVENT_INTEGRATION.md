@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：天劫、道心与因果）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -29,7 +29,17 @@
   - 这一刀放行的 11 个：`mkt_fake`、`mkt_haggle`、`auc_mystery`、`auc_sell`、`season_autumn_harvest`、`season_winter_snow`、`world_lingchao`、`world_dahan`、`world_xianfu`、`world_shanglu`、`world_jiangdao`。
     还闸着、但历法与坊市部分已能结算的：`auc_rival`、`world_liuxing`（等宿敌恩怨 `grudge`）、`mkt_black`（等丹毒、因果）、`world_shouchao`（等兽粮 `feed`）、`world_danhui`（等药引 `yin`）、`world_kuangmai` / `world_mojie` / `world_tongji`（等因果 `karma`）、
     `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
-- 当前上线 186 / 327（基础 122 全部上线；扩展包 64 / 205）。
+- [x] 天劫与道心因果登记（`src/logic/trib.js`、`src/logic/dao.js`）：
+  - 剧情触发键 `demon:1～3`（元婴 / 化神 / 合体雷劫之前，界面在准备页点【引动天劫】后先弹，`L.tribPre`）、`ascend`（飞升雷劫之前，来敲门的是道侣 > 好感最高的知己 > 老祖，`L.ascendVisitor`）；`trib:1` 照旧在第一次渡过雷劫后触发。
+    心魔劫的 flag：`demonN_firm` 这一境界的雷劫 +5%，`demonN_waver`（与 `_shaken` 同义）−5%；题目（`L.demonQuestion`）：一 = 本世最早一条没了的因果（没有就是被逐出山门那天），二 = 没选的那位道侣候选（没有道侣是老祖），三 = 陆天衡。
+  - `fx.karma: '因果id'`：记一条因果（当事人与“你做了什么”在 dao.js 的 `L.KARMA`，没登记的按事件人物 / 标题兜底），同时记下当时选的是哪一项（心魔劫题目用）。
+    `fx.unkarma: 'any' | '因果id'`：了结最早的一条 / 指定那条。`choice.dao` 现在真的记道心（5 / 12 / 25 笔各一级，见 SYSTEMS §14），升级时发 `dao` 事件给老祖气泡。
+  - 新资格字段：`karma: n`（事件级：有一条 n 周天前结下、还没了的因果）、`daoMin: { k|w|r: n }`（事件级与选项级：该道心至少 n 笔）；新占位符 `{kwho}` / `{kwhat}`（最早那条没了的因果的当事人 / 做了什么）。`tools/check_events.js` 已认这些键。
+  - 新扩展包 `src/content/ev_karma.js`（寻仇 5 件：旧账上门、冤家路窄、苦主之后、悬赏令、漏雨的屋），全部上线。
+  - 这一刀放行的 15 个：`story_demon1～3`、`story_ascend`、`tianheng_2`、`world_kuangmai`、`world_mojie`、`world_tongji`、`ch_map_2`、`ch_sword_4` 与 ev_karma 的 5 件。
+    还闸着、但因果部分已能结算的：`realm_altar`、`realm_sword_slave`（等秘境）、`zhao_2`、`xue_1`、`xue_2`（等恩怨 `grudge`）、`sect_frame`、`sect_traitor`、`mo_xuehe_1`、`mo_xuesan_2`（等人脉 `favor`）、`ye_q1`（等药引）、`mkt_black`（等丹毒）、`disc_avenge`（等徒弟）。
+  - 写手按“无数据键可表达”改成 `p` 掷骰的道心门槛（drowned 稳 ≥ 5、yun_1 随稳道心…）仍是掷骰；需要时可改写成 `daoMin`。
+- 当前上线 201 / 332（基础 122 全部上线；扩展包 79 / 210）。天劫与道心因果之前是 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。
