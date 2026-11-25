@@ -167,6 +167,30 @@ const calHints = [
     } },
 ];
 HINTS.push(...calHints);
+// ---------- 灵宠（SYSTEMS §4 / §17）：第一只（主线“认主”之后讲兽栏）、第二只讲岗位、第一次能进化讲进化（进化事件或进化卡开着时就在上面讲） ----------
+const petCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !!st.pets && !(st.storyQ || []).length;
+const PET_EVO_TITLES = () => L.events().filter(e => /^pet_evolve:/.test(e.trigger || '')).map(e => e.title);
+const petEvoOpen = () => !!document.querySelector('#modal .pbrs') || PET_EVO_TITLES().includes(modalTitle());
+const petHints = [
+  { id: 'pet1', intro: true, when: () => petCalm() && !!L.petOut(st), target: '[data-nav="home"]', btn: '好', text: () => {
+      const p = L.petOut(st), need = L.petNeed(p), pw0 = L.petTry(st, () => { st.petOut = -1; }, () => L.power(st));
+      return `这小东西认你做主了：<b>${esc(L.petName(p))}</b>出战，战力倍率 <b>×${mult2(L.petAtkOf(st, p))}</b>（战力 ${fmt(pw0)} → <b>${fmt(L.power(st))}</b>）。【洞府】→ <b>兽栏</b> 喂兽粮升级：Lv1 → Lv2 要 <b>${need}</b>（你有 ${fmt(st.feed || 0)}），每级倍率超出部分 +5%；它跟你出门一趟另得一成经验，斩妖还带回兽粮。`;
+    } },
+  { id: 'pet2', intro: true, when: () => petCalm() && L.petCount(st) >= 2 && L.petJobsOpen(st), target: '[data-nav="home"]', btn: '好', text: () => {
+      const i = st.pets.findIndex((p, j) => j !== st.petOut && p.job), q = st.pets[i >= 0 ? i : st.petOut === 0 ? 1 : 0];
+      const k = q.job || L.petBestJob(st, q, true) || 'forage', J = L.PET_JOB[k], qi = st.pets.indexOf(q);
+      const fx = k === 'array' ? (() => { const [a, b] = petDelta(() => L.petSetJob(st, qi, ''), () => L.gain(st)); return `修炼 <b>+${dec(b)} → +${dec(a)}</b>/周天`; })() : esc(J.d(L.petTry(st, () => L.petSetJob(st, qi, k), () => L.petJobVal(st, k))));
+      return `第二只来了。出战只能一只，其余的派去洞府<b>岗位</b>：护阵（修炼）、觅食（兽粮）、守田、看炉、巡山，类型对口效果 <b>×1.5</b>。【${esc(L.petName(q))}】${q.job ? '已经在' : '最适合'}<b>${J.n}</b>：${fx}${L.petJobMatch(q, k) ? '（对口）' : ''}。连着 ${L.PET_N.idle} 周天没事干会掉好感。`;
+    } },
+  { id: 'petEvo', urgent: true, intro: true, get target() { return modalOpen() ? '#modal .pbrs, #modal .choices' : '[data-nav="home"]'; }, btn: '知道了',
+    when: () => st.guide.done && !!st.pets && st.pets.some(L.petCanEvo) && (modalOpen() ? petEvoOpen() : !L.busy(st) && !(st.storyQ || []).length), text: () => {
+      const i = st.pets.findIndex(L.petCanEvo), p = st.pets[i];
+      const [m0, m1] = petDelta(() => { st.pets[i].form = 1; }, () => L.petAtkOf(st, st.pets[i]));
+      const sb = b => (L.petEvoKnown(st, p.sp, b) ? L.petFormName(p.sp, b) : '？') + (L.petBranchOk(st, p, b) ? '（条件已满足）' : '');
+      return `【${esc(L.petName(p))}】${L.PET_N.evoLv} 级了，能<b>进化</b>：二选一，换外形、名字和天赋，品阶 <b>${L.petTier(p)} → ${L.petTier(p) + 1}</b>，出战倍率 <b>×${mult2(m0)} → ×${mult2(m1)}</b>。两支：${sb(1)} / ${sb(2)}。没试过的写着“？”，试出来记进图鉴。` + (modalOpen() ? '条件不够的分支先不显示，选“再等等”以后去兽栏点发光的卡片也能进化。' : '去【洞府】→ 兽栏，点它。');
+    } },
+];
+HINTS.push(...petHints);
 // 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
 const artCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
@@ -274,7 +298,7 @@ function showHelp() {
   sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
 }
 const GO = {
-  exp: () => showExp(), home: () => showHome(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
+  exp: () => showExp(), home: () => showHome(), pets: () => showPets(), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
   cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };
 // 札记（DESIGN §4.6）：本章主线 + 前三条未完成的小任务 + 以前章节没做完的主线；完成即领

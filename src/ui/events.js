@@ -40,7 +40,7 @@ function showChoice(ev, back) {
     const items = res.fx.items || (res.fx.item ? [res.fx.item] : []);
     const arts = items.filter(it => it && it.kind === 'a'), gears = items.filter(it => it && it.gear);
     const plain = res.fx.filter(f => !(res.fx.artTexts || []).includes(f) && !(res.fx.gearTexts || []).includes(f));
-    const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('') + gears.map(gearLine).join('');
+    const chips = (plain.length ? `<div class="fxlist">${plain.map(f => `<span>${esc(f)}</span>`).join('')}</div>` : '') + arts.map(artLine).join('') + gears.map(gearLine).join('') + items.filter(it => it && it.kind === 'pet' && it.pend).map(petLine).join('');
     if (res.fx.talent) { flash(0.6); SFX.reveal(6); }
     if (res.duel) {
       duel({ title: L.fill(st, ev.title), right: { img: rivalAvImg({ n: ev.id }, 66), name: '对手', sub: fmt(res.duel.Q) }, Q: res.duel.Q, S: res.duel.S, p: res.duel.p, win: res.duel.win,
@@ -57,7 +57,7 @@ function showChoice(ev, back) {
 // ---------- 随机事件 ----------
 function showEvent(ev) {
   const title = ev.kind === 'ring' ? '奇遇 · 戒中老祖' : ev.kind === 'beast' ? '灵兽认主' : '奇遇';
-  const img = ev.kind === 'ring' ? `<img class="px" src="${ELDER}" style="width:52px;height:52px" alt="">` : ev.item && ev.item.kind === 'pet' ? petImg(ev.item.tier, 52) : myAvImg(52);
+  const img = ev.kind === 'ring' ? `<img class="px" src="${ELDER}" style="width:52px;height:52px" alt="">` : ev.item && ev.item.kind === 'pet' ? petImg(ev.item, 52) : myAvImg(52);
   sheet({ title, center: true, body: `<div class="row">${img}<p class="grow">${esc(ev.text)}</p></div>`, foot: [{ t: '妙啊', gold: true, fn: closeModal }] });
   SFX.reveal(5);
 }

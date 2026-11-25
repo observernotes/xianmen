@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第五刀：灵宠）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -29,7 +29,16 @@
   - 这一刀放行的 11 个：`mkt_fake`、`mkt_haggle`、`auc_mystery`、`auc_sell`、`season_autumn_harvest`、`season_winter_snow`、`world_lingchao`、`world_dahan`、`world_xianfu`、`world_shanglu`、`world_jiangdao`。
     还闸着、但历法与坊市部分已能结算的：`auc_rival`、`world_liuxing`（等宿敌恩怨 `grudge`）、`mkt_black`（等丹毒、因果）、`world_shouchao`（等兽粮 `feed`）、`world_danhui`（等药引 `yin`）、`world_kuangmai` / `world_mojie` / `world_tongji`（等因果 `karma`）、
     `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
-- 当前上线 186 / 327（基础 122 全部上线；扩展包 64 / 205）。
+- [x] 灵宠登记（`src/logic/pets.js`）：`fx.pet`（种 id，进名册，满了走放生 / 替换卡）、`fx.feed` 与 `cost.feed`（兽粮，原始数量）、`fx.petHeart`（剧情事件作用于触发它的那只 `st.petFocus`，洞府 / 历练事件作用于出战的，`pet_guard` 作用于巡山的、`home_field_pest` 作用于守田的；`pet_fight` 偏心新来的时老的那只另 −1）、
+  `fx.petForm`（`种_a` / `种_b`；药引、灵矿在选项的 cost 里付，首领材料在这里扣；分支里不是花费的条件——禁地 3 趟、好感、季节、首领材料——没满足时该选项不显示，靠包了一层的 `L.choiceShown`）；
+  `fx.yin` 与 `cost.yin`：**药引系统（SYSTEMS §5）上线前按 gear.js 的口径每枚折灵草 `L.YIN_HERB × (1 + 境界)`**，炼丹那一刀接入真正的药引时重新登记这两个键即可；
+  触发键 `egg`（得蛋，孵蛋事件）、`pet_evolve:<种>`（升到 5 级）、`pet_runaway`（0 心再闲 24 周天）、`pet_fight`（名册 ≥ 2，每届论道后 25%）、`pet_sick`（炼出下品丹时出战灵宠 30% 偷吃）；
+  一次性 flag `hatch_stone` / `hatch_warm` / `hatch_field`（埋进灵田：直接 2 级）/ `pet_release` / `pet_job_pick`（派到推荐的岗）/ `pen_discount`（兽栏建筑上线前：喂养效率 +8%）。
+  数据里写不出来的前提（CONTENT §14.5 的“触发条件”）在 `L.eligible` 外面补：`pet_gift` 出战 ≥ 3 心、`pet_wild_friend` 采药且有出战、`pet_guard` 有巡山、`home_field_pest` 灵田 ≥ 3 级；用到 petHeart / petForm 的事件都要名册里至少一只。
+  这一刀放行的 29 个：`pet_hatch`、`pet_runaway`、`pet_fight`、`pet_sick`、`pet_gift`、`pet_wild_friend`、`pet_guard`、12 个 `pet_evolve_*`、`home_field_pest`、`season_summer_storm`、`world_shouchao`、`world_danhui`、`bai_q1`、`bai_end`、`ch_danjing_3`、`ch_fox_2`、`ch_fire_1`、`ch_star_3`。
+  还闸着、但灵宠部分已能结算的：`season_spring_fair`（等丹毒）、`disc_lazy`（等徒弟）、`dan_yaochen_1/2`（等人脉）、`realm_fire_spirit`、`realm_bees`（等秘境）。
+- 当前上线 215 / 327（基础 122 全部上线；扩展包 93 / 205）。
+- 历法与坊市那一刀时上线 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。

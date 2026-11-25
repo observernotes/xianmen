@@ -38,9 +38,11 @@ function showHome(still) {
       <div class="right"><button class="btn sm ${can ? 'gold' : 'alt'}" data-k="${b.k}" ${can ? '' : 'disabled'}>${u.max ? '已满级' : `${iconHTML('stone', 12)} ${fmt(u.cost)}`}</button></div></div>`;
   }).join('');
   const alch = (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}</button>` : '')
+    + (L.petCount(st) || (st.petPend || []).length ? `<button class="btn ${L.petGlowAny(st) || (st.petPend || []).length ? 'gold' : 'alt'}" id="btnPets">兽栏 · 灵宠 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}${L.petGlowAny(st) ? ' · 能进化' : (st.petPend || []).length ? ' · 有新灵宠' : ''}</button>` : '')
     + (L.gearOpen(st, 'forge') || Object.keys(st.gear.plans).length ? `<button class="btn alt" id="btnForgeH">器炉 · 打造 · 器方 ${Object.keys(st.gear.plans).length} 张 · 灵矿 ${fmt(st.ore || 0)}</button>` : '');
   const s = sheet({ title: '洞府', still, sub: `${L.caveName(st.home.cave)} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))} · 修炼 +${dec(L.gain(st))}/周天`, body: healCard() + retreatCard() + alch + '<div class="sep"></div>' + rows });
   const ab = s.querySelector('#btnAlch'); if (ab) ab.onclick = () => { SFX.tap(); showAlchemy(); };
+  const pb = s.querySelector('#btnPets'); if (pb) pb.onclick = () => { SFX.tap(); showPets(); };
   const fh = s.querySelector('#btnForgeH'); if (fh) fh.onclick = () => { SFX.tap(); showForge(); };
   const rb = s.querySelector('#btnRet'); if (rb) rb.onclick = () => { if (L.startRetreat(st)) { SFX.gather(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, `闭关 ×${st.retreat.m.toFixed(2)}`, '#8ff5d0'); closeModal(); } };
   const re = s.querySelector('#btnRetEnd'); if (re) re.onclick = () => { const r = L.endRetreat(st, false); if (r) { SFX.tap(); showHome(true); } };

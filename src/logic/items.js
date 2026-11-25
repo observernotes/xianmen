@@ -33,10 +33,8 @@ L.PETS = [
   { n: '上古神兽', m: 2.5, c: ['#f6e7ff', '#d6b8ff', '#a67ee6'], names: ['九尾天狐', '冰凰', '貔貅'] },
   { n: '太古真灵', m: 3.0, c: ['#ffe27a', '#f0b429', '#b87b10'], names: ['太古金龙', '麒麟', '金乌'] },
 ];
-// 灵宠的倍率（SYSTEMS §4 会把这个单值换成名册，届时只改这一行登记）。功法三槽见 arts.js；法宝三槽（兵器 / 法衣 / 饰品）见 gear.js
+// 功法三槽见 arts.js；法宝三槽（兵器 / 法衣 / 饰品）见 gear.js；灵宠名册（出战倍率、岗位、进化）见 pets.js——L.PETS 是它的阶倍率表
 // L.ARTS 现在只是心法的阶倍率表（arts.js 按阶取 m）；L.WEAPONS 是兵器的阶倍率表（gear.js 按阶取 m）
-// 灵宠：驭兽诀、万兽朝苍放大“超出 1 的部分”（L.petBoost）
-L.addAtkMod('pet', 25, st => { const m = L.PETS[st.p.pet ? st.p.pet.tier : 0].m; return ['灵宠·' + (st.p.pet ? st.p.pet.name : '无'), 1 + (m - 1) * (L.petBoost ? L.petBoost(st) : 1), 'pet']; });
 
 // ---------- 宝物 ----------
 L.rollTier = rollTier;
@@ -52,21 +50,15 @@ function rollTier(st, base, max) {
 L.itemText = function (st, it) {
   if (it.kind === 'a') return L.artItemText(st, it);
   if (it.gear) return L.gearItemText(st, it);
-  return (it.equip ? '获得' : '得到（已有更好的，换成灵石）') + L.PETS[it.tier].n + '【' + it.name + '】';
+  return L.petItemText(st, it);
 };
-// kind：'a' 功法（按阶抽一门具体的，见 arts.js 的 L.rollArt；ctx = { k 地图, d 深度, src 来源 }）/ 'pet' 灵宠 /
+// kind：'a' 功法（按阶抽一门具体的，见 arts.js 的 L.rollArt；ctx = { k 地图, d 深度, src 来源 }）/ 'pet' 灵宠（pets.js 的 L.petGive）/
 //       法宝 'w' 兵器 | 'r' 法衣 | 'o' 饰品 | 'g' 按地图挑一槽 | 'need' 最弱的一槽（gear.js 的 L.gearGive：空槽直接装上，否则进对比卡）
 L.giveItem = function (st, kind, tier, name, ctx) {
   const p = st.p;
   if (kind === 'a') return L.giveArt(st, L.rollArt(st, tier, ctx), ctx);
-  if (kind === 'pet') {
-    tier = clamp(tier, 1, L.PETS.length - 1);
-    const T = L.PETS[tier];
-    const it = { kind, tier, name: name || pick(T.names) };
-    if (!p.pet || p.pet.tier < tier) { const first = !p.pet; p.pet = { tier, name: it.name }; it.equip = true; if (first) L.fireTrigger(st, 'pet'); }
-    else { it.value = Math.floor(L.price(st, 'egg') * 0.3); st.stones += it.value; }
-    return it;
-  }
+  // 灵宠进名册（pets.js）：历练偶遇按地图给种，奇遇按阶抽一种
+  if (kind === 'pet') return L.petGive(st, { tier, k: ctx && ctx.k, src: (ctx && ctx.src) || 'event' });
   return L.gearGive(st, kind, tier, ctx);
 };
 });
