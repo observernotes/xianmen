@@ -2,7 +2,7 @@
 
 各写手交稿时报告的、引擎需要支持的东西。接入某个系统时，把这里对应的条目一起做掉。
 
-## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖）
+## 接入状态（第一刀：事件加载 + 能力闸门 + 功法与五行；第二刀：法宝三槽；第三刀：历法、天下大势、坊市货架行情拍卖；第四刀：秘境）
 
 - [x] 三个扩展包在 node（`L.events()`）与 dist（`tools/build.py` 拼进 EVENTS 脚本）里都加载，顺序以 `src/logic/events-engine.js` 的 `L.CONTENT_FILES` 为准。
 - [x] 能力闸门：`core.js` 的 `L.supportFx / supportElig / supportChoice / supportCost / supportTrigger / supportWhere`；事件用到任何没登记的写法就整条不出（`L.evGate(ev)` 列出缺什么）。各系统接入时在自己的模块里登记，对应事件自动上线。
@@ -29,7 +29,14 @@
   - 这一刀放行的 11 个：`mkt_fake`、`mkt_haggle`、`auc_mystery`、`auc_sell`、`season_autumn_harvest`、`season_winter_snow`、`world_lingchao`、`world_dahan`、`world_xianfu`、`world_shanglu`、`world_jiangdao`。
     还闸着、但历法与坊市部分已能结算的：`auc_rival`、`world_liuxing`（等宿敌恩怨 `grudge`）、`mkt_black`（等丹毒、因果）、`world_shouchao`（等兽粮 `feed`）、`world_danhui`（等药引 `yin`）、`world_kuangmai` / `world_mojie` / `world_tongji`（等因果 `karma`）、
     `season_spring_fair`（等 `pet`、丹毒）、`season_summer_storm`、`home_field_pest`（等灵宠心、兽粮、药引）。
-- 当前上线 186 / 327（基础 122 全部上线；扩展包 64 / 205）。
+- [x] 秘境登记（`src/logic/realm.js`，第四刀）：`where: 'realm'`（“奇”房间，`L.pickEvent(st, 'realm', { theme })`）、`elig.theme`（jianqi / baicao / ronghuo / youquan）、`fx.hp`（本局气血 ±n）、`fx.token` / `cost.token`（秘境令）；
+  `run_*` 一次性标记由 fx.flag 的钩子从 `st.eflags` 挪进 `st.run.fl`，出秘境清掉（reveal / elite / reroll / trap_up / herb_gift / maxhp_down / proxy / safe / skip / melt 全部有效）；`xianfu_map` 在仙府那一局用掉（首层门全显）。
+  - **能力登记可以限 where**：`L.supportFx(key, { where: ['realm'], … })` 只对这些 where 的事件算支持（events-engine 的闸门认它）。秘境事件用到、但所属系统还没做的键，realm.js 先**只对秘境**登记了一份“先收着”的实现：
+    `fx.yin` / `cost.yin`（`st.yin`）、`fx.karma`（`st.karma`）、`fx.recipe`（`st.recipeNote` 计数）、`fx.feed`（`st.feed`）、`fx.toxin`（`st.toxin`）、`fx.favor`（`st.favor`）、`fx.grudge` / `elig.grudge`（`st.grudge`）、`fx.pet`（灵宠名册上线前折成旧单只灵宠，种记进 `st.mj.eggs`）。
+    这些只在“还没人登记过”时登记；对应系统上线时不带 where 重新登记即覆盖（加载顺序无关），别处用这些键的事件到那时才放行——所以这一刀只多放行了 16 个秘境事件，没有连带放出别的系统的事件。
+  - realm_rival 已上线，但要宿敌恩怨 ≥ 20 才会出现（恩怨系统上线前只有秘境事件改得动 `st.grudge`）。
+- 当前上线 202 / 327（基础 122 全部上线；扩展包 80 / 205；秘境 16 / 16）。
+- 历法那一刀时上线 186 / 327。
 - 法宝那一刀时上线 175 / 327。法宝这一刀放行的 10 个：`ch_map_3`、`ch_map_5`、`ch_tea_5`、`ch_sword_3`、`ch_sword_6`、`ch_sea_4`、`ch_star_4`、`story_trib1`、`sect_vault_new`、`home_forge_boom`。
   还闸着、但法宝部分已能结算的：`realm_forge`、`realm_broken_sword`、`realm_twin_doors`（等秘境）、`xue_2`（等宿敌恩怨与因果）、`mu_3`、`yun_1`、`mkt_fake`、`auc_*`（等坊市事件、宿敌）、`jian_tieye_*`（等人脉）、`world_kuangmai`（等大势）、`ch_danjing_5`（等 `fx.recipe`）。
   闸住最多的键：`fx.favor`、`fx.grudge`、`elig.favorMin`、`fx.petHeart`、`cost.yin`、`where.realm`、`fx.karma`、`fx.hp`、`elig.theme` …（`report` 有全表）。

@@ -1,6 +1,7 @@
 // 长局测试：机器人通过界面流程玩完一世（到飞升或坐化），检查全程无报错；掉落的法宝对比卡像玩家一样点（更强换上、否则熔炼、偶尔锁定），每 12 周天去法宝页点【强化】；
 // 坊市像玩家一样逛（每 6 周天）：先处理弹出的坊市事件，破境丹多了点【卖一半】，货架上打折的破境丹、轮换的法衣 / 残篇 / 器方买得起就点，拍卖会对想要的拍品点【加价】（宿敌在场点【豪掷】）；
-// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌
+// 大势起了点右上角小牌看年历，筑基后每 24 周天点一次“大事”牌；秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
+// 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -97,6 +98,32 @@ const path = require('path');
       X.closeModal(); await sleep(450);
     }
     const seen = {};
+    let mjRuns = 0, mjClears = 0, mjDoors = 0;
+    async function realmRound(xf) {
+      X.showExp(); await sleep(40);
+      const card = document.querySelector(`#modal [data-mj="${xf ? 1 : 0}"]`);
+      if (!card) { X.closeModal(); await sleep(450); return; }
+      card.click(); await sleep(60);
+      const go = document.querySelector('#modal .foot .btn.gold:not([disabled])');
+      if (!go) { X.closeModal(); await sleep(450); return; }
+      go.click(); await sleep(400);
+      if (!X.st.run) return;
+      mjRuns++; seen['秘境'] = 1;
+      for (let g = 0; g < 120 && X.st.run; g++) {
+        if (modal()) {
+          const ch = document.querySelector('#modal [data-chest] .chip.ok'); if (ch) { ch.click(); mjClears++; await sleep(700); continue; }
+          const chs = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
+          if (chs.length) { chs[Math.floor(Math.random() * chs.length)].click(); seen['秘境奇遇'] = 1; await sleep(1400); continue; }
+          const f = document.querySelector('#modal .foot .btn:not([disabled])'); if (f) { f.click(); await sleep(500); continue; }
+          await sleep(200); continue;
+        }
+        if (window.__xm_realm.mjFx || X.st.run.phase !== 'door') { await sleep(250); continue; }
+        if (L.mjShouldLeave(X.st)) { const b = document.querySelector('#realmLeave'); if (b) { b.click(); await sleep(500); break; } }
+        const d = document.querySelector(`#realmDoors [data-door="${Math.max(0, L.mjDoorRec(X.st))}"]`);
+        if (d) { d.click(); mjDoors++; } await sleep(1100);
+      }
+      await drain();
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (X.cine) { await sleep(120); continue; }
@@ -156,6 +183,10 @@ const path = require('path');
       if (n % 24 === 5 && !X.cine) await artRound();
       if (n % 12 === 9 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
       if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
+      if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !X.cine && !modal()) {
+        if (L.mjCan(st, true)) await realmRound(true);
+        else if (L.mjCan(st) && (mjRuns < 2 || Math.floor(st.tick / 12) % 4 === 0)) await realmRound(false);
+      }
       if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0) {
         if (trips >= 2 && L.canRetreat(st)) { trips = 0; L.startRetreat(st); }
         else {
@@ -175,12 +206,13 @@ const path = require('path');
     const st = X.st;
     const qv = L.questView(st);
     return { npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
+      realm: `进 ${mjRuns} 次、通关 ${mjClears} 次、点门 ${mjDoors} 下、最深 ${st.stats.mjDeep || 0} 层、秘境令 ${L.mjTokens(st)}`,
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen) };
   });
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
-  for (const k of ['行情卖出', '拍卖竞价', '年历']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
+  for (const k of ['行情卖出', '拍卖竞价', '年历', '秘境']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
   if (errors.length) process.exitCode = 1;
