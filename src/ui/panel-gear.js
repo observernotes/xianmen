@@ -161,7 +161,7 @@ function doPlus(slot) {
   if (!r) return null;
   const nm = L.gearBase(r.x.id).n;
   if (r.ok) {
-    SFX.reveal(Math.min(6, 2 + r.to / 2));
+    SFX.reveal(Math.min(6, 2 + Math.floor(r.to / 2)));
     gearMsg = `<span class="jadet">强化成功：【${esc(nm)}】+${r.from} → <b>+${r.to}</b></span>${fmt(r.p0) !== fmt(r.p1) ? `，战力 ${fmt(r.p0)} → <b>${fmt(r.p1)}</b>` : ''}${info && info.a.pact !== null && L.pct(info.a.pact) !== L.pct(info.b.pact) ? `，约战胜算 ${L.pct(info.a.pact)} → <b>${L.pct(info.b.pact)}</b>` : ''}`;
     if (r.to >= 6) banner(`强化 +${r.to}`, nm);
   } else { SFX.fail(); gearMsg = `<span class="seal">强化失败</span>：灵矿 ${fmt(r.cost.ore)} 打了水漂，不掉级；下次成功率 ${L.pct(L.gearPlusRate(st, r.x))}（保底 +${Math.round(L.PLUS.pity * 100)}%）`; }
