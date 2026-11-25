@@ -286,6 +286,12 @@ L.discTick = function (st, out) {
   prune(st);
   // 新秀跪门（new_3）：收下他
   if (st.eflags && st.eflags.rookie_disciple) { delete st.eflags.rookie_disciple; const x = L.discTake(st, null, { cat: 'strong', rookie: true }); if (x) out.discNew = x; }
+  // 前世出师的徒弟：今生入宗后，作为前辈来一趟
+  const TL = st.meta && st.meta.taoli;
+  if (TL && st.rebirth > 0 && !st.flags.taoliVisit && st.sect) {
+    const g = TL.list.find(y => y.life < st.rebirth);
+    if (g) { st.flags.taoliVisit = 1; const v = Math.floor(Math.max(L.income(st), 20) * 20); st.stones += v; L.log(st, `前世的徒弟${g.n}如今已是一方前辈，听说“师父”转世入了宗门，托人送来灵石 ${fmt(v)}：“当年那${g.how === 'grad_sword' ? '把剑' : g.how === 'grad_meal' ? '顿饭' : '句话'}，弟子一直记着。”`, 'gold'); out.taoliVisit = g; }
+  }
   if (!L.discOpen(st)) return;
   // 候选：每 24 周天一批，名册有空位才送
   if (!L.discFull(st) && st.tick - d.candAt >= L.DISC_V.every) { L.rollCands(st); out.discCand = true; L.log(st, '宗门送来三个拜师的孩子，在【宗门】→ 门下', 'gold'); L.discFire(st, 'disc:candidates', null); }
@@ -307,12 +313,6 @@ L.discTick = function (st, out) {
     if (!keys.length) continue;
     const k = pick(keys); x.ev[k] = 1; x.evAt = st.tick;
     L.discFire(st, 'disc:' + k, x);
-  }
-  // 前世出师的徒弟：今生入宗后，作为前辈来一趟
-  const TL = st.meta && st.meta.taoli;
-  if (TL && st.rebirth > 0 && !st.flags.taoliVisit && st.sect) {
-    const g = TL.list.find(y => y.life < st.rebirth);
-    if (g) { st.flags.taoliVisit = 1; const v = Math.floor(Math.max(L.income(st), 20) * 20); st.stones += v; L.log(st, `前世的徒弟${g.n}如今已是一方前辈，听说“师父”转世入了宗门，托人送来灵石 ${fmt(v)}：“当年那${g.how === 'grad_sword' ? '把剑' : g.how === 'grad_meal' ? '顿饭' : '句话'}，弟子一直记着。”`, 'gold'); out.taoliVisit = g; }
   }
 };
 

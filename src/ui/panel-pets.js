@@ -96,7 +96,7 @@ function showPets(u, still) {
       <div>${role}</div><div class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</div><div class="muted">好感 ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '，五心能挡天劫（+10%，挡完休养 12 周天）、不会出走' : ''}${L.petResting(st, p) ? `<br><span class="seal">挡过天劫，休养中：还有 ${p.rest - st.tick} 周天，这期间不出力</span>` : ''}</div></div></div>
       ${lvLine}${petMsg ? `<div class="quote">${petMsg}</div>` : ''}${feedNote ? `<div class="muted">${feedNote}</div>` : ''}
       <div class="gbtns pbtns">${outBtn}${jobBtn}${feedBtn}</div>${evo}</div>`;
-  } else det = '<div class="muted">还没有灵宠。筑基后坊市有灵兽蛋（每届论道换一种属性），采药历练容易遇到当地的灵兽，奇遇里也有。</div>';
+  } else det = emptyNoteHTML('pet', '还没有灵宠。筑基后坊市有灵兽蛋（每届论道换一种属性），采药历练容易遇到当地的灵兽，奇遇里也有。');
   const body = `<div class="gres">${icon16('feed', 1)} 兽粮 <b class="num">${fmt(st.feed || 0)}</b> · 名册 ${st.pets.length}/${cap} · 灵草 ${fmt(st.herbs)}</div>
     ${petPendHTML()}<div class="pcards">${cards}</div>${det}
     <div class="muted">每级要兽粮 6 × 1.5^级 × 阶，每级让倍率的超出部分 +5%、岗位效果 +4%；5 级二选一进化（品阶 +1），10 级觉醒。出战每趟历练另得一级的一成经验，斩妖带回兽粮。岗位类型对口 ×1.5：护阵（护）、觅食·守田（寻）、看炉（灵）、巡山（战）。</div>`;

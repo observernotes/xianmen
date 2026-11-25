@@ -75,6 +75,11 @@ function iconHTML(k, size) {
 }
 // 新图标（ART.icon 名）按整数倍：artIcon('stone', 16)
 function artIcon(name, want, cls) { const c = ART.icon && ART.icon(name); if (!c) return ''; const s = pxFit(c.width, want || c.width); return `<img class="px${cls ? ' ' + cls : ''}" src="${urlOf(c, 'ic|' + name)}" style="width:${s}px;height:${s}px;flex:none" alt="">`; }
+// 空状态（.empty-note）：ART.emptyNote('pet' | 'vault' | 'build', paper) 48×48 淡墨小画按整数倍约 2 倍 + 一句话；纸卷上用宣纸底版
+function emptyNoteHTML(kind, text, dark) {
+  const c = ART.emptyNote && ART.emptyNote(kind, !dark), s = c ? pxFit(48, 96) : 0;
+  return `<div class="empty-note">${c ? `<img class="px" src="${urlOf(c, 'empty|' + kind + (dark ? 0 : 1))}" style="width:${s}px;height:${s}px;flex:none" alt="">` : ''}<div>${text}</div></div>`;
+}
 document.querySelectorAll('img[data-art]').forEach(img => { const c = ART.icon(img.dataset.art); if (!c) return; img.src = c.toDataURL(); const s = pxFit(c.width, +img.dataset.sz || c.width); img.style.width = img.style.height = s + 'px'; });
 // 戒中老祖：48×48 半身像（提示气泡、引导框、事件立绘都用它）；没有新美术时退回旧的水滴
 const ELDER = (ART.portrait && ART.portrait('elder', 'n') || ART.elder()).toDataURL();
