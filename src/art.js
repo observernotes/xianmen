@@ -4722,5 +4722,202 @@ ART.bossFighter = function (k, frame, flip) {
   }));
 };
 
+// ====================================================================
+// 阶段五·面板补缺（接口见 docs/ART_API.md “阶段五·面板补缺”）
+// ====================================================================
+{
+  const RB5 = ['#ff6b6b', '#ffb23f', '#f4e04a', '#62d26f', '#4aa8ff', '#c27dff'];
+  // ---------- 一、首领材料 16×16：ART.bossMat(k 0～10)，顺序同 L.BOSS_MAT ----------
+  const BMAT = [
+    b => b.m(1, 1, ['....rr.rr', '...r.yyy.r', '....yhyyY', '....nnnnN', '....nwnnN', '....nwnnN', '.....nwnN', '.....nwnN', '......nnN', '......nwN', '.......nN', '.......NN', '........N'], IPAL), // 狼王牙：金箍红绳的獠牙
+    b => b.m(1, 1, ['.....oo', '....yyyy', '...ySSSSy', '..ySsssSSY', '..ySsrrsSY', '..ySrrrrSY', '..ySsrrsSY', '..ySsrrsSY', '..ySssssSY', '...YSSSSY', '....YYYY', '.....rr', '....rRrR', '....r.rR'], IPAL), // 寨主令：铁牌朱字红穗
+    b => { // 尸王玉：带尸斑的青玉璧
+      b.add(L => L.e(8, 8, 6, 6, tone('#8fd8a8', '#3f8a6a', '#d8ffe0'))); b.e(8, 8, 1.6, 1.6, null);
+      for (const [x, y] of [[4, 6], [5, 5], [6, 4]]) b.p(x, y, '#ffffff'); for (const [x, y] of [[10, 5], [11, 6], [11, 7], [5, 10], [6, 11], [7, 12]]) b.p(x, y, '#2f8e4b'); for (const [x, y] of [[10, 10], [11, 10], [10, 11], [4, 8]]) b.p(x, y, '#6a3aa8');
+    },
+    b => { // 猿王心：燃着的赤心
+      b.m(2, 4, ['.rrr...rrr', 'rpprr.rrrrR', 'rprrrrrrrrR', 'rrrryrrrrRR', 'rrryyyrrrRR', '.rrryrrrRR', '..rrrrrRR', '...rrrRR', '....rRR', '.....R'], IPAL);
+      b.m(2, 1, ['...y....y', '..yo...yoy', '..oyo.oyo', '.o.o...o.o'], Object.assign({}, IPAL, { o: '#ffb23f', y: '#fff2a8' }));
+    },
+    b => { // 血魔珠：血珠里一道黑旋，底下滴血
+      b.add(L => L.e(8, 7, 5.5, 5.5, tone('#c8283a', '#6a0c1e', '#ff8a7a')));
+      for (const [x, y] of [[7, 5], [8, 5], [9, 6], [10, 7], [9, 9], [8, 10], [7, 9], [6, 8], [7, 7], [8, 7]]) b.p(x, y, '#4a0814'); b.p(5, 4, '#ffffff'); b.p(6, 4, '#ffffff'); b.p(5, 5, '#ffffff');
+      b.r(6, 13, 1, 2, '#c8283a'); b.p(10, 13, '#c8283a'); b.p(8, 14, '#8a1e2e');
+    },
+    b => b.m(1, 1, ['...........w', '..c.......wc', '.........wcC', '........wcC', '....c..wcC', '......wcC..c', '.....wcC', '..c.wcC', '...dcC...c', '..d.d', '.d...d', 'd..d'], IPAL), // 守墓剑意：一缕青色剑芒
+    b => b.m(1, 1, ['......vV', '.......vV', '.......vvV', '........vvV', '........vsvV', '........vsvV', '.......vsvvV', '......yhyyyY', '.....vsvvvVV', '...vvsvvvVV', '..vssvvvVV', '.yhyyyyYY', '.VVVVVV'], IPAL), // 魔将角：箍金环的弯角
+    b => { // 蛟皇鳞：扇形青鳞
+      b.add(L => L.sy(2, '245666665431', tone('#41aaca', '#1f5e8a', '#a8f0ff'), 8));
+      for (let y = 3; y <= 12; y++) b.p(8, y, '#d8fbff'); for (const [x, y] of [[5, 5], [4, 7], [5, 9], [6, 11], [11, 5], [12, 7], [11, 9], [10, 11]]) b.p(x, y, '#1f6e8a'); for (const [x, y] of [[6, 4], [5, 6], [6, 8]]) b.p(x, y, '#ffffff'); b.r(7, 13, 2, 1, '#f4c542');
+    },
+    b => { // 噬星核：黑核金芯，裂纹透紫
+      b.add(L => L.e(8, 8, 5.5, 5.5, tone('#3a2a6a', '#1a1238', '#7a5ac8')));
+      b.e(8, 8, 2, 2, '#f4c542'); b.r(7, 7, 2, 2, '#fff2a8'); b.p(7, 7, '#ffffff');
+      for (const [x, y] of [[5, 5], [4, 4], [11, 5], [12, 4], [5, 11], [11, 11], [12, 12], [8, 4], [8, 12], [4, 9]]) b.p(x, y, '#c27dff');
+    },
+    b => { // 傀儡芯：铜齿轮嵌青晶
+      b.add(L => { L.e(8, 8, 5, 5, '#b98a4c'); for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7], [3, 3], [11, 3], [3, 11], [11, 11]]) L.r(x, y, 2, 2, '#b98a4c'); });
+      b.add(L => L.e(8, 8, 2.6, 2.6, '#1f6e8a'), { flat: 1, sep: 1 }); b.r(7, 7, 2, 2, '#7fe0f0'); b.p(7, 7, '#ffffff'); b.p(5, 4, '#fff2a8'); b.p(4, 5, '#fff2a8');
+    },
+    b => { // 混沌尘：一撮灰尘，上头旋着七彩微光
+      b.add(L => L.sy(9, '235677', tone('#706c8a', '#3a3650', '#a8a4b8'), 8));
+      [[5, 12], [8, 10], [10, 13], [6, 14], [11, 11], [8, 13], [3, 13], [12, 13]].forEach(([x, y], i) => b.p(x, y, RB5[i % 6]));
+      [[8, 8], [9, 7], [10, 6], [10, 5], [10, 4], [9, 3], [8, 2], [7, 2], [6, 3], [5, 4], [5, 5], [6, 6], [7, 6], [8, 5]].forEach(([x, y], i) => b.p(x, y, i > 11 ? '#ffffff' : lerpC(RB5[(i / 2 | 0) % 6], '#c8c4d8', 0.35)));
+    },
+  ];
+  ART.bossMatCount = BMAT.length;
+  ART.bossMat = function (k) { k = Math.max(0, Math.min(BMAT.length - 1, k | 0)); return cached('bmat|' + k, () => { const b = new Buf(16, 16); BMAT[k](b); return b.cv(); }); };
+
+  // ---------- 二、16×16 图标：丹囊 danbag、宗主建设 sb_ward / sb_lib / sb_vein、宗门任务 task ----------
+  Object.assign(ICONS, {
+    danbag: '....o....o/....oO..oO/.....oooO/....yyhyyY/.....jjjJ/...jjjjjjjJ/..jjljjjjjjJ/..jljjwwjjjJ/..jjjwrrwjJJ/..jjjwrRwjJJ/..jjjjwwjjJJ/...jjjjjjJJ/....JJJJJJ',
+    sb_lib: '......yy/.....bbbb/...bbbbbbbb/..bBBBBBBBBb/....nnnnnn/....nOnnOn/..bbbbbbbbbb/.bBBBBBBBBBBb/...nnnnnnnn/...nOnyynOn/...nOnyynOn/..ssssssssss/.SSSSSSSSSSSS',
+  });
+  const ICON5 = {
+    sb_ward: b => { // 护山大阵：青色光罩扣住一座山
+      b.add(L => L.sy(6, '123456677', tone('#5c84ac', '#34507a', '#a8c8e8'), 8)); b.p(7, 6, '#ffffff'); b.r(7, 7, 2, 1, '#ffffff'); b.p(6, 8, '#ffffff');
+      for (let i = 0; i <= 24; i++) { const a = Math.PI + i * Math.PI / 24, x = Math.round(7.5 + Math.cos(a) * 6.5), y = Math.round(10 + Math.sin(a) * 9); b.p(x, y, i % 4 === 2 ? '#ffffff' : '#7fe0f0'); }
+      b.r(1, 10, 1, 4, '#7fe0f0'); b.r(14, 10, 1, 4, '#3fa8c8'); b.p(1, 14, '#f4c542'); b.p(14, 14, '#f4c542'); b.r(7, 1, 2, 1, '#fff2a8');
+    },
+    sb_vein: b => { // 灵脉：山岩里一道发光的脉，冒出灵晶
+      b.add(L => L.sy(5, '2345667777', tone('#706c8a', '#3a3650', '#a8a4b8'), 8));
+      b.add(L => { L.r(7, 1, 2, 5, '#7fe0f0'); L.r(9, 3, 1, 3, '#7fe0f0'); L.r(6, 4, 1, 2, '#7fe0f0'); });
+      for (const [x0, y0, x1, y1] of [[8, 6, 6, 8], [6, 8, 9, 11], [9, 11, 7, 14]]) { b.l(x0 + 1, y0, x1 + 1, y1, '#3fa8c8'); b.l(x0, y0, x1, y1, '#7fe0f0'); }
+      b.p(6, 8, '#ffffff'); b.p(9, 11, '#ffffff'); b.p(7, 2, '#ffffff'); b.p(7, 3, '#ffffff'); b.l(4, 11, 5, 12, '#3fa8c8'); b.l(11, 8, 12, 10, '#3fa8c8');
+    },
+    task: b => { // 宗门任务：贴着差事的告示牌
+      b.add(L => { L.r(3, 10, 2, 5, '#7a5230'); L.r(11, 10, 2, 5, '#7a5230'); });
+      b.add(L => L.r(1, 2, 14, 9, '#b98a4c')); b.r(1, 1, 14, 1, '#7a5230'); b.p(1, 1, null); b.p(14, 1, null);
+      b.r(3, 4, 5, 6, '#efe3c4'); b.hl(4, 6, 6, '#55506e'); b.hl(4, 5, 8, '#55506e'); b.p(5, 4, '#d8404a'); b.r(7, 9, 1, 1, '#c8b48c');
+      b.r(9, 3, 4, 5, '#fff2a8'); b.hl(10, 11, 5, '#a8742a'); b.p(10, 3, '#d8404a'); b.r(10, 6, 2, 2, '#d8404a');
+    },
+    // 展开箭头 10×10：fold_closed ▶ / fold_open ▼
+    fold_closed: b => { for (let i = 0; i < 4; i++) b.r(3 + i, 1 + i, 1, 8 - i * 2, i ? '#f4c542' : '#fff2a8'); b.p(3, 8, '#a8742a'); b.p(4, 7, '#a8742a'); b.p(5, 6, '#a8742a'); b.p(6, 5, '#a8742a'); },
+    fold_open: b => { for (let i = 0; i < 4; i++) b.r(1 + i, 3 + i, 8 - i * 2, 1, i ? '#f4c542' : '#fff2a8'); b.p(8, 3, '#a8742a'); b.p(7, 4, '#a8742a'); b.p(6, 5, '#a8742a'); b.p(5, 6, '#a8742a'); },
+  };
+  const icon4 = ART.icon;
+  ART.icon = function (name) {
+    if (!ICON5[name]) return icon4(name);
+    return cached('ic5|' + name, () => { const s = name.startsWith('fold_') ? 10 : 16, b = new Buf(s, s); ICON5[name](b); return b.cv(); });
+  };
+  const names4 = ART.iconNames; ART.iconNames = () => names4().concat(['sb_ward', 'sb_vein', 'task']);
+  ART.sectBuildIcon = k => ART.icon({ ward: 'sb_ward', lib: 'sb_lib', vein: 'sb_vein' }[k] || 'sb_ward');
+
+  // ---------- 三、“新”角标 10×10：朱印 + 白色叹号 ----------
+  ART.newBadge = () => cached('newbadge', () => {
+    const b = new Buf(10, 10); b.add(L => L.e(5.5, 4.5, 3.5, 3.5, tone('#da424c', '#8a1e2e', '#ff8a7a')));
+    b.r(5, 2, 1, 3, '#ffffff'); b.p(5, 6, '#ffffff'); b.p(6, 2, '#fff2a8');
+    return b.cv();
+  });
+
+  // ---------- 四、品阶底框：ART.qualityCell(tier 1～7, size 16 | 36) ----------
+  // tier 1～6 对应 ART.qualityColor(1～6)，7 为七彩；暗底、品阶色描边、底部一抹品阶色的光
+  ART.qualityCell = function (tier, size) {
+    tier = Math.max(1, Math.min(7, tier | 0)); const s = size >= 24 ? 36 : 16, big = s === 36;
+    return cached('qcell|' + tier + '|' + s, () => on(mk(s, s), () => {
+      const n = s - 1, q = i => tier === 7 ? RB5[(((i + s) / (big ? 5 : 3)) | 0) % 6] : QCOL[tier - 1], q0 = tier === 7 ? '#c8a8e8' : QCOL[tier - 1];
+      const bg = lerpC('#1a1528', q0, 0.16), k = big ? 2 : 1;
+      R(1, 0, s - 2, s, INK); R(0, 1, s, s - 2, INK); R(k, k, s - k * 2, s - k * 2, bg);
+      // 底部的光（越靠下越亮）
+      if (big) { for (let y = 0; y < 14; y++) for (let x = 3; x < n - 2; x++) dR(x, n - 3 - y, 1, 1, q(x), Math.round((14 - y) / 14 * 7)); }
+      else [0.5, 0.3, 0.14].forEach((f, y) => { for (let x = 2; x < n - 1; x++) R(x, n - 2 - y, 1, 1, lerpC(bg, q(x), f)); });
+      R(k + 1, k + 1, s - k * 2 - 2, 1, lerpC(bg, '#ffffff', 0.1));
+      // 描边：上、左亮，下、右暗
+      for (let i = 1; i < n; i++) for (let j = 0; j < k; j++) {
+        if (big && j === 0 && (i < 2 || i > n - 2)) continue;
+        R(i, 1 + j - (big ? 0 : 0), 1, 1, j || !big ? q(i) : lerpC(q(i), '#ffffff', 0.45)); R(i, n - 1 - j, 1, 1, hs(q(i), j || !big ? 0.8 : 0.6));
+        R(1 + j, i, 1, 1, j || !big ? q(i) : lerpC(q(i), '#ffffff', 0.45)); R(n - 1 - j, i, 1, 1, hs(q(i), j || !big ? 0.8 : 0.6));
+      }
+      for (const [x, y] of [[1, 1], [n - 1, 1], [1, n - 1], [n - 1, n - 1]]) R(x, y, 1, 1, INK);
+      if (!big) { for (const [x, y] of [[2, 2], [n - 2, 2], [2, n - 2], [n - 2, n - 2]]) R(x, y, 1, 1, tier >= 4 ? lerpC(q(x), '#ffffff', 0.6) : hs(q(x), 0.8)); return; }
+      for (const [x, y] of [[2, 2], [n - 2, 2], [2, n - 2], [n - 2, n - 2]]) R(x, y, 1, 1, INK);
+      // 36：内圈细线 + 四角折角；四档起角上嵌钉，五档起四边中点有菱
+      R(4, 4, s - 8, 1, hs(q0, 0.45)); R(4, n - 4, s - 8, 1, hs(q0, 0.45)); R(4, 4, 1, s - 8, hs(q0, 0.45)); R(n - 4, 4, 1, s - 8, hs(q0, 0.45));
+      for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const X = sx ? n - 4 : 4, Y = sy ? n - 4 : 4, dx = sx ? -1 : 1, dy = sy ? -1 : 1, c = q(X);
+        if (tier >= 2) { R(Math.min(X, X + dx * 4), Y, 5, 1, c); R(X, Math.min(Y, Y + dy * 4), 1, 5, c); }
+        if (tier >= 4) { R(X + (sx ? -1 : 0), Y + (sy ? -1 : 0), 2, 2, lerpC(c, '#ffffff', 0.7)); R(X + dx * 2, Y + dy * 2, 1, 1, c); }
+      }
+      if (tier >= 5) for (const [x, y] of [[18, 3], [18, n - 4], [3, 18], [n - 4, 18]]) { const c = q(x + y); R(x - 2, y, 4, 2, INK); R(x - 1, y - 1, 2, 4, INK); R(x - 1, y, 2, 2, lerpC(c, '#ffffff', 0.6)); }
+      if (tier >= 6) for (const [x, y] of [[8, 8], [n - 8, 8], [8, n - 8], [n - 8, n - 8]]) R(x, y, 1, 1, lerpC(q(x), '#ffffff', 0.5));
+    }));
+  };
+  ART.qualityCellSizes = [16, 36];
+
+  // ---------- 五、空状态淡墨小画（追加 kind）：pill 还没有丹方 / scroll 任务都做完了 / gift 没东西可送 / gavel 等下一场拍卖 ----------
+  const box5 = (x, y, w, h, I, fill) => { R(x, y, w, h, fill === undefined ? I[4] : fill); R(x, y, w, 1, I[0]); R(x, y + h - 1, w, 1, I[0]); R(x, y, 1, h, I[0]); R(x + w - 1, y, 1, h, I[0]); };
+  Object.assign(EMPTY, {
+    // 冷掉的丹炉、掀在一旁的炉盖、一张空白的方子
+    pill(I) {
+      dR(4, 41, 40, 5, I[3], 6);
+      for (const x of [12, 28]) { R(x, 36, 2, 7, I[0]); R(x - 1, 42, 4, 1, I[0]); } R(20, 38, 2, 5, I[1]);
+      ellipse(21, 30, 11, 8, I[0]); ellipse(21, 30, 10, 7, I[4]); dR(12, 31, 19, 6, I[3], 8); dR(24, 25, 7, 10, I[2], 5);
+      R(10, 29, 23, 1, I[1]); for (const x of [13, 17, 21, 25, 29]) R(x, 31, 1, 1, I[0]);
+      R(9, 20, 25, 3, I[0]); R(10, 21, 23, 1, I[2]); R(12, 22, 19, 1, I[1]);
+      for (const x of [7, 34]) { R(x, 16, 2, 6, I[0]); R(x === 7 ? 9 : 33, 16, 1, 1, I[0]); }
+      R(18, 26, 6, 1, I[1]); R(20, 25, 2, 3, I[1]);
+      ellipse(39, 42, 6, 2, I[0]); ellipse(39, 41, 5, 1, I[4]); R(38, 38, 3, 2, I[0]); R(39, 37, 1, 1, I[1]);
+      for (const [x, y] of [[20, 16], [22, 13], [20, 10], [23, 7]]) R(x, y, 1, 1, I[2]);
+      box5(31, 3, 13, 12, I); if (I[4] === '#f6ecd0') R(42, 3, 2, 2, '#efe3c4'); else ctx.clearRect(42, 3, 2, 2); line(41, 3, 43, 5, I[0]); for (const y of [6, 8, 10]) dR(33, y, y === 10 ? 5 : 8, 1, I[2], 6); R(40, 11, 2, 2, I[5]);
+    },
+    // 告示牌上的差事都揭完了，只剩钉子和一张打了勾的
+    scroll(I) {
+      dR(3, 42, 42, 4, I[3], 6);
+      for (const x of [8, 38]) { R(x, 9, 2, 35, I[0]); R(x - 1, 43, 4, 1, I[1]); }
+      R(4, 8, 40, 2, I[0]); R(6, 6, 36, 2, I[1]); R(5, 7, 1, 1, I[0]); R(42, 7, 1, 1, I[0]); R(3, 9, 1, 2, I[0]); R(44, 9, 1, 2, I[0]);
+      box5(10, 13, 28, 21, I); dR(11, 14, 26, 19, I[3], 5);
+      for (const [x, y] of [[14, 16], [33, 17], [15, 28], [32, 29]]) { R(x, y, 1, 1, I[0]); R(x + 1, y + 1, 1, 1, I[2]); }
+      R(13, 17, 4, 1, I[2]); R(13, 18, 2, 1, I[2]); line(31, 30, 34, 32, I[2]);
+      box5(20, 17, 10, 12, I, I[4]); R(24, 17, 2, 1, I[5]); for (const y of [20, 26]) R(22, y, 6, 1, I[2]);
+      line(22, 23, 24, 25, I[5]); line(24, 25, 28, 21, I[5]); line(22, 24, 24, 26, I[5]);
+      for (const [x, y] of [[13, 41], [34, 42], [42, 40]]) { R(x, y, 1, 3, I[2]); R(x + 1, y - 1, 1, 3, I[1]); R(x + 2, y + 1, 1, 2, I[2]); }
+      for (const [x, y] of [[40, 3], [45, 15]]) { R(x, y, 2, 1, I[1]); R(x + 2, y + 1, 1, 1, I[1]); R(x + 3, y, 2, 1, I[1]); }
+    },
+    // 打开的空礼盒、松开的缎带、飞走的蛾子
+    gift(I) {
+      dR(3, 41, 42, 5, I[3], 6);
+      line(11, 27, 15, 21, I[0]); line(34, 27, 38, 21, I[0]); R(15, 21, 24, 1, I[0]); dR(14, 22, 23, 5, I[2], 6); dR(16, 22, 21, 2, I[1], 7);
+      box5(11, 27, 24, 15, I); dR(12, 34, 22, 7, I[3], 6); line(35, 27, 38, 21, I[1]); line(35, 41, 38, 35, I[0]); R(38, 21, 1, 15, I[0]); dR(36, 24, 2, 14, I[2], 9);
+      R(22, 28, 2, 13, I[5]); R(12, 33, 22, 1, I[5]);
+      for (const [x0, y0, x1, y1] of [[22, 27, 18, 24], [18, 24, 14, 26], [24, 27, 29, 23], [29, 23, 32, 25]]) line(x0, y0, x1, y1, I[5]);
+      line(7, 39, 3, 36, I[5]); line(3, 36, 6, 33, I[5]); line(7, 39, 10, 41, I[5]);
+      box5(38, 38, 9, 4, I); R(37, 37, 11, 2, I[0]); R(38, 38, 9, 1, I[2]); R(42, 37, 2, 5, I[5]);
+      for (const [x, y] of [[27, 17], [29, 13], [27, 10], [30, 7]]) R(x, y, 1, 1, I[2]);
+      R(32, 4, 1, 2, I[0]); R(30, 2, 2, 2, I[1]); R(33, 2, 2, 2, I[1]); R(29, 3, 1, 2, I[0]); R(35, 3, 1, 2, I[0]); R(31, 4, 1, 1, I[2]); R(33, 4, 1, 1, I[2]);
+      for (const [x, y] of [[8, 14], [42, 12], [6, 24]]) R(x, y, 1, 1, I[2]);
+    },
+    // 搁在醒木上的拍卖槌、还在漏的沙漏
+    gavel(I) {
+      dR(3, 41, 42, 5, I[3], 6);
+      box5(6, 37, 22, 5, I); dR(7, 39, 20, 2, I[3], 8); R(8, 36, 18, 1, I[1]);
+      box5(9, 26, 16, 10, I, I[2]); dR(10, 31, 14, 4, I[1], 7); R(11, 26, 2, 10, I[0]); R(21, 26, 2, 10, I[0]); R(10, 27, 14, 1, I[4]);
+      line(23, 29, 35, 15, I[0], 2); line(24, 29, 35, 16, I[1]); R(34, 13, 4, 4, I[0]); R(35, 14, 2, 2, I[2]);
+      R(32, 26, 13, 2, I[0]); R(32, 42, 13, 2, I[0]); R(33, 28, 1, 14, I[1]); R(43, 28, 1, 14, I[1]);
+      for (let i = 0; i < 7; i++) { const w = Math.max(1, 4 - Math.min(i, 3)), wb = Math.max(1, i - 2); R(38 - w, 28 + i, 1, 1, I[0]); R(38 + w, 28 + i, 1, 1, I[0]); R(38 - wb - 1 + (i < 3 ? 0 : 0), 35 + i, 1, 1, I[0]); R(38 + wb + 1, 35 + i, 1, 1, I[0]); }
+      R(36, 29, 5, 1, I[2]); R(37, 30, 3, 1, I[2]); R(38, 31, 1, 1, I[2]); R(38, 33, 1, 1, I[5]); R(38, 36, 1, 2, I[5]); R(36, 40, 5, 2, I[2]); R(37, 39, 3, 1, I[2]); R(38, 38, 1, 1, I[2]);
+      for (const [x, y] of [[4, 30], [2, 26], [29, 22]]) R(x, y, 2, 1, I[2]);
+      for (const [x, y] of [[9, 8], [16, 5]]) { R(x, y, 2, 1, I[1]); R(x + 2, y + 1, 1, 1, I[1]); R(x + 3, y, 2, 1, I[1]); }
+    },
+  });
+  ART.emptyKinds = Object.keys(EMPTY);
+
+  // ---------- 六、未见过人物的剪影半身像 48×48 ----------
+  ART.portraitUnknown = () => cached('pt|?unknown', () => {
+    const b = new Buf(48, 48), C = tone('#3c3357', '#262038', '#55506e');
+    b.add(L => { L.sy(35, 'bdfhijkkkllll', C, 24); L.r(20, 30, 8, 6, C); });
+    b.add(L => { L.sy(11, FSHAPE.oval, C, 24); L.e(24, 13, 12.5, 9, C); L.e(24, 4, 3.5, 3.5, C); L.r(22, 6, 4, 3, C); L.r(11, 12, 3, 14, C); L.r(34, 12, 3, 14, C); });
+    b.l(24, 44, 18, 36, '#262038'); b.l(24, 44, 30, 36, '#262038'); b.r(24, 44, 1, 4, '#262038');
+    b.m(20, 15, ['.XXXXXX', 'XXXXXXXX', 'XX....XX', '......XX', '.....XXX', '....XXX', '...XXX', '...XX', '...XX', '', '...XX', '...XX'], { X: '#928ea8' });
+    for (const [x, y] of [[20, 15], [21, 15], [20, 16]]) b.p(x + 1, y, '#c8c4d8');
+    return b.cv();
+  });
+
+  // ---------- 七、勾选按钮框（九宫格，格式同 ART.frame）：chkOn 已勾 / chkOff 未勾，标记在右上角 ----------
+  Object.assign(FRAMES, {
+    chkOn: { fill: '#2a8a7a', ink: '#fff6e0', draw: b => { btn(b, '#2a8a7a', '#8fe0c8', '#1a5a52', '#4ccb9f'); b.r(13, 1, 6, 6, '#1a5a52'); b.r(14, 1, 5, 5, '#f4c542'); b.hl(14, 18, 1, '#fff2a8'); b.p(18, 1, null); for (const [x, y] of [[15, 3], [16, 4], [17, 3], [18, 2]]) b.p(x, y, '#3b2b1f'); } },
+    chkOff: { fill: '#3a3155', ink: '#a8a4b8', draw: b => { btn(b, '#3a3155', '#55506e', '#1a1528', '#443a60'); b.p(3, 3, '#6e6a88'); b.r(13, 1, 6, 6, '#1a1528'); b.r(14, 1, 5, 5, '#6e6a88'); b.r(15, 2, 3, 3, '#262038'); b.p(18, 1, null); } },
+  });
+}
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
