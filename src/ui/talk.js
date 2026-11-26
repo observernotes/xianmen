@@ -351,22 +351,7 @@ document.addEventListener('keydown', e => { if (!tk || tk.picking) return; if (e
   if (!$('#modal').hidden) closeModal();
   if (ev.cine) cnAfter(playCine(ev.cine, {}), () => playTalk(ev, back)); else playTalk(ev, back);
 }; }
-// 解锁卡排在剧情前面：有解锁卡等着的时候，剧情先不出（上手那几步的节奏不被对话打断）
-{ const pq1 = processQueue; processQueue = function () {
-  if (!queue.length && st && st.storyQ && st.storyQ.length && typeof unlockQ !== 'undefined' && unlockQ.length && $('#modal').hidden && !cine) { if (typeof onbPump === 'function') onbPump(); if (queue.length || !$('#modal').hidden) return pq1.apply(this, arguments); return; }
-  return pq1.apply(this, arguments);
-}; }
-// 章末卡排在这一章高潮那场戏之后：主线刚完成时先看一眼节拍，高潮的戏到了就先放它（不受“一季一次”管），章末卡等它收场
-const tkForced = new Set();
-if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function () {
-  if (tk) return;
-  if (st && st.storyQ && !awayUI() && $('#modal').hidden && !cine && !queue.length && $('#intro').hidden && st.path && st.path.ch !== L.chapterNow(st)) {
-    L.storyTick(st);
-    const i = st.storyQ.findIndex(id => { const ev = L.eventById(id); return !!ev && !tkForced.has(id + '|' + st.tick) && /^sb:c\d_climax$/.test(ev.trigger || ''); });
-    if (i >= 0) { const ev = L.eventById(st.storyQ.splice(i, 1)[0]); tkForced.add(ev.id + '|' + st.tick); showChoice(ev); return; }   // 一个月里只抢这一次：没选就关掉的（自动化脚本），章末卡照常出
-  }
-  return cp0.apply(this, arguments);
-}; }
+// 解锁卡、章末卡和剧情的先后全由结算链定（settle.js 的 chainPump：结算卡 → 剧情 → 章末卡 → 下一章 → 解锁卡），解锁卡永远不挡剧情（AP_PLAN §4.2）
 if (typeof onbPump === 'function') { const op0 = onbPump; onbPump = function () { if (tk) return; return op0.apply(this, arguments); }; }
 // 剧情线加的几个音效名（分镜与对话里按名字调）
 Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap(), boom: () => SFX.boom(), shine: () => SFX.shine(), whoosh: () => SFX.whoosh() });

@@ -2,7 +2,7 @@
  * · UI.isOpen(key)：系统开没开（读逻辑层的解锁表）。顶层五格永远在（没开的灰着，goalcard.js），格子里面的分页、按钮仍然是开了才出现。
  * · 阻塞对话只剩 §5.1 的 11 种：这里把各片段登记的讲解（HINTS，原来 55 段）全部关掉，只留“可以突破了”的金框；头三步手把手在 guide.js。
  * · 新系统解锁 → 解锁卡（§5.3，04_unlock.png）：放射光 + 大图标 + “解锁了！” + 名字 + 一句给你什么（带一个数）+ 入口路径 +【知道了】【带我去 ▸】；
- *   只在打坐态、没有别的弹层时出（线 1 的 canInterrupt() 管两次打断的间隔），排不上的等着；子项不出卡：入口挂“新” + 一行传讯。
+ *   由结算链（settle.js）在一条链的末尾出，不挡剧情；子项不出卡：入口挂“新” + 一行传讯。
  * · 掌握：一行传讯“✓ 学会了：灵田”，目标卡回到本章目标。
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE（排在 guide-ask 之后：各片段的讲解都登记完了）。 */
 const UI = {
@@ -84,16 +84,8 @@ function onbHook(type, k) {
     say(`✓ 学会了：${e.n.split('·')[0]}`);
   }
 }
-// 解锁卡只在打坐态、没有别的弹层时出；线 1 的 canInterrupt() 说能打断才出（两次主动打断至少隔 3 月）
-function onbPump() {
-  if (!unlockQ.length || !st || modalOpen() || cine || duelFx || !$('#guide').hidden || !$('#intro').hidden || L.busy(st) || queue.length) return;
-  if (typeof canInterrupt === 'function' && !canInterrupt()) return;
-  if (performance.now() - guideModalAt < 1200) return;
-  const k = unlockQ.shift();
-  if (typeof markInterrupt === 'function') markInterrupt();
-  unlockLastAt = performance.now();
-  pushPopup(() => showUnlock(k));
-}
+// 解锁卡由结算链出（settle.js 的 chainPump：一条链的末尾，AP_PLAN §4.2 第 6 级 / §4.6），不挡剧情、不看真实时间；节流只剩逻辑层按季的那两条
+function onbPump() { /* 结算链接管 */ }
 let burstTimer = 0;
 function showUnlock(k) {
   const C = UNLOCK_CARD[k], e = L.ONB_K[k]; if (!C || !e) return;

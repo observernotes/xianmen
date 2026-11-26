@@ -7,6 +7,8 @@
  *   纸鹤（st.inbox）只收不阻塞的消息（访客、大势、拍卖、宿敌消息），没有“在外”了。
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE（排在 onboard 之后、boot 之前）。 */
 
+// 历练演出进行中（一趟当场打完的那几十秒）：高光过场等这一趟打完再放（cine2.js 读它；原来的“在外”没有了）
+const tripUI = () => !!(st && st.exp);
 // ---------- 传讯与纸鹤 ----------
 // notify(kind, mail, fn)：旧接口（各面板还在调）。没有“在外”和打断间隔了，一律当场 fn()；mail 不再投（要进纸鹤的由调用方自己 L.mailPush）
 function notify(kind, mail, fn) { if (!st) return false; if (fn) fn(); return true; }
@@ -56,7 +58,12 @@ function showBig1(k) {
   else if (k === 'rookie') { if (L.rookie(st) && L.rookie(st).due) runRookie(); }
   else if (k === 'death') showDeath();
   else if (k === 'invite') { if (!st.sect) showInvite(); }
+  // 主线保底（mainline.js）：只剩宿敌没打时他上门、卡住时老祖说下一步、降要求
+  else if (k === 'mainFoe') { const id = L.mainFoes ? L.mainFoes(st)[0] : null; if (id) runMainFoe(id); }
+  else if (k === 'mainEase' || k === 'mainHint') { const v = blkData(k); if (v) (k === 'mainEase' ? showMainEase : showMainHint)(v); }
 }
+let blkStash = {};
+const blkData = k => { const v = blkStash[k]; delete blkStash[k]; return v; };
 function chainPump() {
   if (!st) return false;
   for (let g = 0; g < 24; g++) {
@@ -123,7 +130,7 @@ function showActResult(id, d, x) {
   if (id === 'retreat' || id === 'train') { seasonLog.push(id === 'train' ? '特训' : '闭关'); showRetResult(d, id); return; }
   if (id === 'errand') { seasonLog.push('差事'); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, d.note || (d.label || '差事') + '办完', '#8ff5d0'); return; }
   if (id === 'join') { seasonLog.push('拜山门'); if (st.sect) { SFX.win(); banner('拜入' + L.sectOf(st).n, `${L.srankName(st, st.sect.rank)} · 俸禄每${MO()} ${fmt(L.pay(st))}`); } return; }
-  if (id === 'duel' || id === 'final') { seasonLog.push(id === 'duel' ? '下战帖' : '主线一战'); showDuelResult(d, id); return; }
+  if (id === 'duel' || id === 'final') { seasonLog.push(id === 'duel' ? '下战书' : '主线一战'); if (id === 'duel' && d.n && typeof chalShow === 'function') chalShow(d); else showDuelResult(d, id); return; }
 }
 // 闭关 / 特训 / 双修结算：修为 +N（约 M 月），顿悟、分身、贡献、第一位访客
 function showRetResult(r, id) {
@@ -178,6 +185,8 @@ function nextSeason(force) {
   const S = L.seasonEnd(st);
   // 季末 3 个月里出来的、不在 S.big 里的阻塞内容：三宗争徒（线 B 改到第二章开章链末尾之后这一行可删）
   if (S.outs.some(o => o.invite) && !st.sect) L.blockPush(st, { kind: 'big', id: 'invite', data: { k: 'invite' }, lv: 7 });
+  // 主线保底（mainline.js 的 out.mainFoe / mainEase / mainHint）：排在季末卡和大事之后
+  for (const k of ['mainFoe', 'mainEase', 'mainHint']) { const o = S.outs.find(x => x[k]); if (o) { blkStash[k] = o[k]; L.blockPush(st, { kind: 'big', id: k, data: { k }, lv: 7 }); } }
   seasonFx(S);
   settle('season');
   saveLocal();

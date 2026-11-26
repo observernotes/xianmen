@@ -89,12 +89,8 @@ function chapSnap() {
   const at = st.flags.chapAt || (st.flags.chapAt = {}), ch = Math.min(8, st.p.r);
   if (!at[ch]) at[ch] = { t: st.tick, exp: st.stats.exp || 0, rank: st.rank, pw: Math.round(L.power(st)) };
 }
-// 排队等弹：超过 6 个月还没轮上（一直在忙）、或者已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
+// 排队等结算链出：已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
 function chapterDone(ch) { if (ch < L.chapterNow(st) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }
-function chapPump() {
-  if (!chapPend.length || !st || !$('#guide').hidden || modalOpen() || cine || duelFx || !$('#intro').hidden) return;
-  if (performance.now() - guideModalAt < 1500 || performance.now() < guideQuiet) return;
-  const x = chapPend.shift();
-  showChapterCard(x.ch);
-}
+// 章末卡由结算链出（settle.js 的 chainPump：这一章的高潮 / 收尾戏之后、下一章的戏之前），不看真实时间；这里只留个名字给旧的包装
+function chapPump() { /* 结算链接管 */ }
 // 章末结算卡 showChapterCard：panel-path.js（开罗式重整 §2.3）

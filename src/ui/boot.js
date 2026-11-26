@@ -1,4 +1,4 @@
-/* 废柴仙途 · 界面片段 boot：每月、主循环、输入、启动
+/* 废柴仙途 · 界面片段 boot：主循环、输入、启动
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 /* 时间不再自己走（docs/AP_PLAN.md §6.3）：原来每月的 onTick 拆成 settle.js 的 nextSeason（点【下一季】）→ seasonFx(S) → settle()。 */
 // E17 老祖特训：约战前 3 季内、胜算 < 60%、未筑基未圆满，第一世只此一次；花 2 点，当场得修为（AP_PLAN §2.2）
@@ -96,7 +96,7 @@ Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, re
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, nextSeason, settle, doAct, chainPump, get chainOn() { return chainOn; }, get busyUI() { return busyUI(); }, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, nextSeason, settle, doAct, chainPump, get chainOn() { return chainOn; }, get busyUI() { return busyUI(); }, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, chalPrep, chalRun, runMainFoe, showMainHint, showMainEase, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, runAct, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   UI, notify, openMail, showPrep, showYearBasic, showSeasonCard, watch: null,
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
