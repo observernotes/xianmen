@@ -32,7 +32,7 @@ function showExp() {
     const open = L.regionOpen(st, k) && L.expOpen(st, k, 0, 0);
     if (!open) { void lockedShown; continue; }   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
     if (L.bossReady(st, k)) {
-      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
+      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.TRIP_ON !== false && L.bossP ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
       rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战：首领材料 ×1、灵石，35% 掉专属（第 3 次必出）；每 ${L.BOSS_AGAIN} 月一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
     }
     const c = defaultCell(st, k), f = L.expForecast(st, k, c.d, c.a);
@@ -54,10 +54,12 @@ function showExpAway() {
   sheet({ title: '历练中', body: `<div class="card flat"><div class="main"><div>【${cellName(e.k, e.d)}】${L.APPR[e.a].n}${e.chain ? ` · 还要连续 ${e.chain} 趟` : ''}</div><div class="muted">${rg.desc}</div>${bar((e.total - e.left) / e.total, true)}<div class="muted">还需 ${e.left} 月归来</div></div></div>
     <dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(pv.stones)}</dd><dt>灵草</dt><dd class="num">+${fmt(pv.herbs)}</dd><dt>宝物</dt><dd class="num">${pv.finds ? pv.finds + ' 件（回来揭晓）' : '—'}</dd>${pv.xp > 0 ? `<dt>感悟</dt><dd class="num">+${fmt(pv.xp)}</dd>` : ''}</dl>
     ${sum ? `<p class="muted">之前 ${sum.n} 趟已得：灵石 ${fmt(sum.stones)}、灵草 ${fmt(sum.herbs)}</p>` : ''}
-    <p class="muted">历练途中修炼 ×0.5；评价在出发时就定了，回来揭晓。撤回：本趟收获减半，没有宝物，立刻回家。</p>`,
+    <p class="muted">${e.nodes ? `第 ${Math.min(e.ni + 1, e.nodes.length)} / ${e.nodes.length} 个节点 · 气血 ${Math.round((e.hp || 0) * 100)}%；评价按打出来的定。` : '评价在出发时就定了，回来揭晓。'}历练途中修炼 ×0.5。撤回：本趟收获减半，没有宝物，立刻回家。</p>`,
     foot: [{ t: '撤回', alt: true, fn: () => { const r = L.recallExp(st); closeModal(); if (r) pushPopup(() => showExpResult(r)); } }, { t: '继续', gold: true, fn: closeModal }] });
 }
 function fightBossUI(k) {
+  // 回合战（battle.js）：在场景里真打一场，打完 bossResultUI 出结果
+  if (L.TRIP_ON !== false && typeof btBossStart === 'function') { closeModal(); btBossStart(k); return; }
   const res = L.fightBoss(st, k);
   if (!res) return;
   const B = res.B;
@@ -93,7 +95,7 @@ function confirmExp(k, d, a, still) {
     return `<button class="segb ${aa === a ? 'on' : ''}" data-a="${aa}" ${ok ? '' : 'disabled'}><b>${L.APPR[aa].n}</b><small>${why}</small></button>`;
   }).join('');
   const notes = [];
-  if (f.first) notes.push('<div class="quote">第一趟老祖护着：必得甲</div>');
+  if (f.first) notes.push(L.TRIP_ON !== false ? '<div class="quote">第一趟只有小怪：必得一把剑</div>' : '<div class="quote">第一趟老祖护着：必得甲</div>');
   if (f.warnFull) notes.push(`<div class="seal">修为已经满了，再出去是白跑（溢出的修为最多存下一层的两成）。先回来突破${L.REALMS[Math.min(st.p.r + 1, 8)].n}。</div>`);
   if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个月。</div>`);
   // 大节点前（docs/KAIRO_PLAN.md §3.3 第 4 条）：回不来的行程不让出发；正好等长的提前一月赶回来（收获按走过的月数折算）
@@ -112,14 +114,14 @@ function confirmExp(k, d, a, still) {
   const yrs = f.len * L.REALMS[Math.min(st.p.r, 8)].mpt;
   const s = sheet({
     title: rg.n, center: true, still,
-    body: `${UI.isOpen('zhanji') ? elemLine(k) : ''}
+    body: `${typeof btPrepHTML === 'function' && L.TRIP_ON !== false ? btPrepHTML(k, d, a) : UI.isOpen('zhanji') ? elemLine(k) : ''}
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
       ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
       <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 月${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
       ${notes.join('')}${opts.join('')}
       ${dist}${lootPrepHTML(k, d)}`,
-    foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
+    foot: [{ t: '返回', alt: true, fn: showExp }].concat(!blk && L.quickOk && L.quickOk(st, k, d, a) ? [{ t: '速战', alt: true, fn: () => { if (L.startExp(st, k, d, a)) { st.exp.quick = 1; SFX.coin(); closeModal(); } } }] : []).concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
       if (L.startExp(st, k, d, a, o)) { SFX.coin(); expOpt.escort = false; closeModal(); }
@@ -127,7 +129,8 @@ function confirmExp(k, d, a, still) {
   });
   s.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, +b.dataset.d, a, true); });
   s.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, d, +b.dataset.a, true); });
-  s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); confirmExp(k, d, a, true); } });
+  s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); btSwapOpen = false; confirmExp(k, d, a, true); } });
+  s.querySelectorAll('[data-btswap]').forEach(b => b.onclick = () => { SFX.tap(); btSwapOpen = !btSwapOpen; confirmExp(k, d, a, true); });
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
   if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
   bindLootPrep(s, k, d, () => confirmExp(k, d, a, true));   // 这里掉什么、心愿（loot.js）
@@ -200,6 +203,7 @@ function tripSnapNow() {
   if (st.exp.snap) Object.assign(tripSnap, { pw: st.exp.snap.pw !== undefined ? st.exp.snap.pw : tripSnap.pw, xp: st.exp.snap.xp !== undefined ? st.exp.snap.xp : tripSnap.xp });
 }
 function showExpResult(res) {
+  // 归途翻牌就在这张结算卡上（评价章之后、“你变强了”之前；示意图 04_loot.png）：见下面的 lootFlipHTML / lootFlipRun（src/ui/loot.js）
   lastExp = res;
   const rg = L.REGIONS[res.k];
   if (res.legacy) {
@@ -213,6 +217,13 @@ function showExpResult(res) {
   const lines = [];
   // 评价
   lines.push(`<div class="krow"><span class="k">${res.recall ? '中途折返' : '评价'}</span><span class="v s">推荐 ${fmt(L.rec(res.k, res.d))}</span><div class="kstamp">${L.RATINGS[res.rating]}</div></div>`);
+  // 回合战的战况（COMBAT_LOOT §5.5 第 1 条）与“带 X 系来：预计 甲”（§4.2）
+  if (res.bt && res.bt.nf) {
+    const b = res.bt, all = b.won >= b.nf;
+    lines.push(`<div class="krow"><span class="k">战况</span><span class="v s">${all ? `${b.nf === 3 ? '三' : b.nf} 场全胜` : b.dead ? `倒在第 ${b.won + 1} 场` : `过了 ${b.won} / ${b.nf} 场`} · 剩气血 ${Math.round((b.hp || 0) * 100)}%${b.brk ? ` · 破招 ${b.brk} 次` : ''}</span></div>`);
+    const tr = res.rating < 3 && !res.recall && L.btSwapTry ? L.btSwapTry(st, res.k, res.d, res.a) : null;
+    if (tr && tr.lo > res.rating) lines.push(`<div class="krow"><span class="k">换招</span><span class="v kup">带${L.elName(tr.el)}系来：预计 ${L.RATINGS[tr.lo]}</span><button class="kb alt" data-btgo="${tr.id}">去换</button></div>`);
+  }
   // 拿到的：有就画，没有不占位（最多四格，其余一行小字）
   const loot = [];
   if (res.stones) loot.push(`${artIcon('stone', 16)} +${fmt(res.stones)}`);
@@ -226,10 +237,11 @@ function showExpResult(res) {
   if (loot.length) lines.push(`<div class="kloot">${loot.slice(0, 4).map(x => `<div>${x}</div>`).join('')}</div>` + (loot.length > 4 ? `<div class="kloot">${loot.slice(4, 8).map(x => `<div>${x}</div>`).join('')}</div>` : ''));
   // 归途翻牌（src/ui/loot.js；牌里的法宝、功法翻开后在牌下出对比行），牌以外的（灵宠、仙府秘藏）照旧一行一件
   const cards = res.sum ? res.sum.cards : res.cards, inCards = new Set((cards || []).map(c => c.item).filter(Boolean));
-  if (res.deeper) lines.push(`<div class="krow"><span class="k">趁势深入</span><span class="v ${res.deeper === 'win' ? 'kup' : 'kdn'}">${res.deeper === 'win' ? '赢了 · 多翻 2 张' : `输了${res.deeperLost && res.deeperLost.length ? ' · 丢了' + esc(res.deeperLost.join('、')) : ''}`}</span></div>`);
+  const dz = res.deeper || (res.cards && res.cards.deeper), dLost = res.deeperLost || (res.cards && res.cards.deeperLost);
+  if (dz) lines.push(`<div class="krow"><span class="k">趁势深入</span><span class="v ${dz === 'win' ? 'kup' : 'kdn'}">${dz === 'win' ? '赢了 · 多翻 2 张' : `输了${dLost && dLost.length ? ' · 丢了' + esc(dLost.join('、')) : ''}`}</span></div>`);
   if (cards && cards.length) lines.push(lootFlipHTML(cards));
   // 趁势深入（loot.js 的 L.startDeeper，§5.7）：甲以上、下一层还有，不回家直接打下一层的精英
-  const deepOk = !res.sum && !res.first && L.startDeeper && L.deeperOk(st, L.tripOf(res)) && !(L.expBlock && L.expBlock(st, res.k, res.d + 1, res.a));
+  const deepOk = !dz && !res.sum && !res.first && L.startDeeper && L.deeperOk(st, L.tripOf(res)) && !(L.tripBlock && L.tripBlock(st, L.DEEPER.len, false));
   if (deepOk) lines.push(`<div class="kslot lt-deep"><div class="mid"><div class="nm">再深一层 · ${L.DEPTHS[res.d + 1]}精英</div><small>赢：多翻 2 张、星率 ×1.5 · 输：牌丢一半</small></div><button class="kb" id="ltDeep">去 ▸<br><small>+${L.DEEPER.len} ${MO()}</small></button></div>`);
   // 新法宝 / 功法 / 灵宠：第一件“已戴上”；待定的【换上】【先收着】（先收着 = 留在【装备】的“新到”里，不熔）
   for (const it of res.items) {
@@ -282,6 +294,7 @@ function showExpResult(res) {
   const dp = s.querySelector('#ltDeep'); if (dp) dp.onclick = () => { if (L.startDeeper(st, res)) { SFX.coin(); closeModal(); updateHUD(); } };
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
+  s.querySelectorAll('[data-btgo]').forEach(b => b.onclick = () => { const id = b.dataset.btgo; if (L.equipArt(st, id)) { SFX.coin(); b.outerHTML = `<span class="chip ok">已换上《${esc(L.art(id).n)}》</span>`; } });
   s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价
@@ -291,4 +304,18 @@ function gearExpLine(k, d, a) {
   if (L.gearAffN(st, 'qingling')) bits.push('轻灵：时长 −1');
   if (L.gearHuzhuReady(st)) bits.push('护主：这趟丁等不负伤');
   return `<div class="muted gexp">${oreImg(pxs(8, 2))} 灵矿约 ${fmt(f.ore)}${bits.length ? ' · 法宝：' + bits.join(' · ') : ''}</div>`;
+}
+// 首领回合战打完（battle.js 的 btBossEnd 调）：结果卡
+function bossResultUI(k, res) {
+  const B = res.B, it = res.item;
+  if (res.win && typeof playCine === 'function' && !res.again) { try { playCine('boss', { k }); } catch (e) { /* 过场线没合并 */ } }
+  const body = !res.win ? `<div class="center">${stampHTML(0, true)}</div><p class="center">${esc(B.n)}太强，重伤而归（负伤 4 ${MO()}）。变强之后再来！</p>`
+    : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
+    : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`;
+  if (res.win) SFX.win(); else SFX.fail();
+  // 首领的牌（loot.js 的 L.bossLoot：首杀 3 张固定，再战 1 张）：就翻在这张卡上
+  const cards = res.win && res.cards && res.cards.length ? res.cards : null;
+  const s = sheet({ title: '首领 · ' + B.n, center: true, body: body + (cards ? lootFlipHTML(cards) : ''), foot: [{ t: '好', gold: true, fn: closeModal }] });
+  if (cards) lootFlipRun(s, cards);
+  if (typeof bindEquipButtons === 'function') bindEquipButtons(s);
 }

@@ -101,18 +101,23 @@ L.expForecast = function (st, k, d, a) {
   const base = pt.pow + (known ? pt.aff : (a === 2 ? 6 : 0)) + pt.guts - (elemUnknown ? ep[1] : 0);
   const first = L.firstTrip(st) && !k && !d && !a;
   const pGE = th => clamp((base + 12 - th) / 24, 0, 1);
-  const dist = [1 - pGE(L.RATE_TH[0]), pGE(L.RATE_TH[0]) - pGE(L.RATE_TH[1]), pGE(L.RATE_TH[1]) - pGE(L.RATE_TH[2]), pGE(L.RATE_TH[2]) - pGE(L.RATE_TH[3]), pGE(L.RATE_TH[3])];
+  let dist = [1 - pGE(L.RATE_TH[0]), pGE(L.RATE_TH[0]) - pGE(L.RATE_TH[1]), pGE(L.RATE_TH[1]) - pGE(L.RATE_TH[2]), pGE(L.RATE_TH[2]) - pGE(L.RATE_TH[3]), pGE(L.RATE_TH[3])];
+  // 回合战（trip.js）：同一套节点跑若干种子的分布；倒下（哪怕过了一场）也算负伤风险
+  const td = L.tripDist && L.TRIP_ON !== false ? L.tripDist(st, k, d, a) : null;
+  if (td) dist = td.dist.slice();
   // 六阶法衣：丁等 30% 改判丙
   const ds = L.gearDingSave(st); if (ds) { dist[1] += dist[0] * ds; dist[0] *= 1 - ds; }
   // 负伤风险：丁等的概率 × 没躲过的份（敛息术）；血遁、潜渊（禁地）、护主（每 12 月一次）丁等不负伤
   const injP = ax.xuedun || ax.c18 || L.gearHuzhuReady(st) ? 0 : 1 - ax.injAvoid;
   let lo = L.ratingOf(base - 12), hi = L.ratingOf(base + 12 - 1e-9), risk = dist[0] * injP, em = 0;
-  if (first) { lo = hi = 3; risk = 0; em = L.RATE_M[3]; }
-  else for (let j = 0; j < 5; j++) em += dist[j] * L.RATE_M[j];
+  if (td) { const q = f => { let c = 0; for (let j = 0; j < 5; j++) { c += dist[j]; if (c >= f - 1e-9) return j; } return 4; }; lo = q(0.15); hi = q(0.85); risk = Math.max(dist[0], td.dead) * injP; }
+  else if (first) { lo = hi = 3; risk = 0; em = L.RATE_M[3]; }
+  if (td) for (let j = 0; j < 5; j++) em += dist[j] * L.RATE_M[j];
+  else if (!td) for (let j = 0; j < 5; j++) em += dist[j] * L.RATE_M[j];
   const leap = pt.ratio < ax.leap;
   // 灵石期望：越级时乙以上再 ×2（与 expCalc 一致）
   let emL = em;
-  if (leap && !first) { emL = 0; for (let j = 0; j < 5; j++) emL += dist[j] * L.RATE_M[j] * (j >= 2 ? L.leapMult(st) : 1); }
+  if (leap && (!first || td)) { emL = 0; for (let j = 0; j < 5; j++) emL += dist[j] * L.RATE_M[j] * (j >= 2 ? L.leapMult(st) : 1); }
   // 季节与大势（calendar.js 的 L.calExp）：夏兽类地图、兽潮、魔劫的灵石，矿脉、魔劫的灵矿
   const cx = L.calExp(st, k, d, a);
   let stones = L.rew(k, d) * emL * L.APPR[a].stone * L.expStoneMult(st, a) * cx.stone;
@@ -160,12 +165,14 @@ function expCalc(st, e) {
   const pl = e.plan, k = e.k, d = e.d, a = e.a, A = L.APPR[a], u = pl.u, ax = L.artExp(st, k, d, a), gx = L.gearExp(st);
   const cx = pl.cx || { stone: 1, herb: 1, ore: 1, tier: 1, treasure: 1 };
   const score = pl.pow + pl.aff + pl.guts + pl.rnd + (pl.adj || 0);
-  let rating = pl.fix !== undefined ? pl.fix : L.ratingOf(score);
+  // 评价：有节点表（trip.js）就按打出来的定（COMBAT_LOOT §2.3），旧档按分数
+  const tr = L.tripRatingOf ? L.tripRatingOf(st, e) : null, dead = L.tripDead ? L.tripDead(e) : false;
+  let rating = tr !== null ? tr : pl.fix !== undefined ? pl.fix : L.ratingOf(score);
   const o = { k, d, a, score, rating, ratio: pl.ratio, parts: { pow: pl.pow, luck: pl.rnd + (pl.adj || 0), aff: pl.aff, guts: pl.guts } };
   // 六阶法衣：丁等 30% 改判丙（u[8]；旧档没有就从 u[0] 派生一个）
   if (rating === 0) { const u8 = u[8] === undefined ? (u[0] * 977) % 1 : u[8]; if (u8 < L.gearDingSave(st)) { rating = 1; o.robeSave = true; } }
   // 道心·狂三级：丁等“以伤换命”再战一次（dao.js 的 L.expRefight 按预掷的数重掷运气分），翻到丙以上就算数、换一月轻伤
-  if (rating === 0 && pl.fix === undefined && L.expRefight) { const r2 = L.expRefight(st, pl, score); if (r2 !== null) { o.refight = r2 > 0 ? 'win' : 'lose'; if (r2 > 0) rating = r2; } }
+  if (rating === 0 && pl.fix === undefined && tr === null && L.expRefight) { const r2 = L.expRefight(st, pl, score); if (r2 !== null) { o.refight = r2 > 0 ? 'win' : 'lose'; if (r2 > 0) rating = r2; } }
   const m = L.RATE_M[rating];
   const leap = pl.ratio < ax.leap && rating >= 2;
   Object.assign(o, { rating, m, leap });
@@ -176,8 +183,9 @@ function expCalc(st, e) {
   o.ore = Math.round(L.expOre(st, k, d, a, m) * cx.ore);
   o.pills = rating >= 1 && u[1] < L.EXP_PILL ? 1 : 0;
   o.drops = [];
-  if (pl.gift) o.drops.push(['w', 1]);
-  else {
+  const loot = L.tripLoot && e.nodes;   // 刷宝线（C2）的翻牌接管法宝、功法掉落（COMBAT_LOOT §5；接口见文末“接口”一节）
+  if (pl.gift && !loot) o.drops.push(['w', 1, 'w1_0']);   // 第一趟必掉精钢剑（金）
+  else if (!loot) {
     const slots = Math.max(1, L.gearOpenSlots(st).length);
     if (u[2] < L.GEAR_DROP.base * (1 + L.GEAR_DROP.slot * (slots - 1)) * m * A.item * ax.item * gx.item) o.drops.push(['g', 1 + Math.floor((3 * k + d) * 0.21) + (u[3] < 0.15 * cx.tier ? 1 : 0)]);
     if (u[4] < 0.25 * m * A.item * ax.item * gx.item) o.drops.push(['a', 1 + Math.floor((3 * k + d) * 0.18)]);
@@ -189,8 +197,8 @@ function expCalc(st, e) {
   // 丁等：潜渊（禁地）空手而归、不负伤；血遁不负伤改折寿元；敛息术按 u[7] 躲开
   o.injury = 0;
   if (o.refight === 'win') o.injury = L.DAO_V.refightInj;
-  if (rating === 0) {
-    if (ax.c18) { o.qianyuan = true; o.stones = 0; o.herbs = 0; o.ore = 0; o.pills = 0; o.drops = []; o.treasure = 0; o.plan = null; }
+  if (rating === 0 || (dead && !o.robeSave)) {
+    if (ax.c18 && rating === 0) { o.qianyuan = true; o.stones = 0; o.herbs = 0; o.ore = 0; o.pills = 0; o.drops = []; o.treasure = 0; o.plan = null; }
     else if (ax.xuedun) o.xuedun = ax.xuedun;
     else if ((u[7] === undefined ? R() : u[7]) < ax.injAvoid) o.dodged = true;
     else if (L.gearHuzhuReady(st)) o.huzhu = true;
@@ -256,20 +264,19 @@ L.resolveExp = function (st) {
   L.addOre(st, res.ore);
   if (res.huzhu) st.gear.huzhu = st.tick;
   // 归途翻牌（loot.js 的 L.tripLoot：法宝、功法、灵核、灵矿堆……都在牌里，保底与心愿也在那里）；灵宠偶遇不占牌，照旧
-  // TODO（C1 合并后删）：C1 的节点流程接上后由“归途”节点调 L.tripLoot，这里的兜底用评价推“打赢精英”（斩妖、寻宝乙以上）与宝节点（寻宝）
-  if (L.tripLoot) {
+  // 有节点表的（C1 的历练，trip.js）由“归途”调 L.tripLoot；这里是没有节点表时（L.TRIP_ON = false、旧档）的兜底：用评价推“打赢精英”与宝节点
+  if (L.tripLoot && !e.nodes) {
     res.cards = L.tripLoot(st, { k, d, a, rating: res.rating, won: res.rating >= 2, eliteWin: a !== 2 && res.rating >= 2, treasure: a === 1 && res.rating >= 1 && !e.recall ? 1 : 0, seq: st.stats.exp, recall: !!e.recall, hp: res.rating >= 4 ? 0.8 : res.rating >= 3 ? 0.55 : 0.3,
-      deeper: e.deeper ? (res.rating >= 2 && !e.recall ? 'win' : 'lose') : undefined, deeperOnly: !!e.deeper });
-    if (e.deeper) { res.deeper = res.cards.n.deeper ? 'win' : 'lose'; if (res.deeper === 'lose') res.deeperLost = L.lootHalveU(st, e.deeper.prevU || []); }
+      deeper: e.deeper ? (res.rating >= 2 && !e.recall ? 'win' : 'lose') : undefined, deeperOnly: !!e.deeper, deeperPrev: e.deeper && e.deeper.prevU });
     for (const c of res.cards) if (c.item && (c.kind === 'gear' || c.kind === 'art' || c.kind === 'frag')) res.items.push(c.item);
   }
-  for (const dr of res.drops) { if (L.tripLoot && dr[0] !== 'pet') continue; const it = L.giveItem(st, dr[0], dr[1], undefined, { k, d, src: 'exp' }); if (it.value) st.stats.expStones += it.value; res.items.push(it); }
+  for (const dr of res.drops) { if (L.tripLoot && !e.nodes && dr[0] !== 'pet') continue; const it = L.giveItem(st, dr[0], dr[1], undefined, { k, d, src: 'exp', base: dr[2] }); if (it.value) st.stats.expStones += it.value; res.items.push(it); }
   if (res.plan) res.planText = L.givePlan(st, res.plan);
   // 仙府现世（秘境上线前的折算）：评价甲以上一半机会带回一件仙府秘藏
   if (!e.recall) { const xf = L.calXianfu(st, res.rating); if (xf) { res.xianfu = xf; if (xf.it) res.items.push(xf.it); } }
   // 战技每趟斩妖历练另 +2 熟练
   const sl = L.artSlots(st);
-  if (!e.recall && a === 0 && sl[1] && L.ARTS_ON !== false) L.addMastery(st, sl[1], L.MAST.slay * L.artRate(st));
+  if (!e.recall && a === 0 && sl[1] && L.ARTS_ON !== false && !e.nodes) L.addMastery(st, sl[1], L.MAST.slay * L.artRate(st));
   res.xp = L.gainBase(st) * res.xpTicks;
   if (res.xp > 0) L.addXp(st, res.xp);
   if (res.contrib) L.addContrib(st, res.contrib);

@@ -219,7 +219,7 @@ L.resolveChoice = function (st, ev, idx) {
   if (ch.duel) {
     // choice.foe：对手是某位宿敌或正在追你的新秀（五行克制、他的法宝都算上，rivals2.js 的 L.choiceFoe）
     const cf = L.choiceFoe ? L.choiceFoe(st, ev, ch) : null;
-    const foe = cf ? cf.foe : { kind: 'event', id: ev.id }; const S = L.duelPower(st, foe), Q = cf ? cf.Q : L.power(st) * ch.duel; const p = L.duelP(st, S, Q, foe); ok = R() < p; duel = { S, Q, p, win: ok, foe: cf ? cf.foe : null, n: cf ? cf.n : '' };
+    const foe = cf ? cf.foe : { kind: 'event', id: ev.id }; const S = L.duelPower(st, foe), Q = cf ? cf.Q : L.power(st) * ch.duel; const p = L.duelP(st, S, Q, foe); ok = L.duelWin(st, S, Q, foe, p); duel = { S, Q, p, win: ok, foe: cf ? cf.foe : null, n: cf ? cf.n : '' };
     if (cf && L.revealFoe) L.revealFoe(st, cf.foe);
   }
   else if (ch.p !== undefined) ok = R() < Math.min(0.95, ch.p + L.choiceLuck(st));

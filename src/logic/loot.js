@@ -247,6 +247,7 @@ L.tripLoot = function (st, trip) {
     else w.n++;
   }
   cards.sort((x, y) => x.value - y.value);
+  if (trip.deeper) { cards.deeper = trip.deeper; if (trip.deeper === 'lose') cards.deeperLost = L.lootHalveU(st, trip.deeperPrev || []); }
   cards.wishHit = wishHit;
   cards.n = N;
   emit('tripLoot', cards);
@@ -297,11 +298,13 @@ L.bossLoot = function (st, k, first, opt) {
 L.deeperOk = (st, trip) => !!trip && !trip.recall && trip.rating >= 3 && (trip.hp === undefined || trip.hp >= 0.5) && trip.d < 2 && trip.a !== 2 && !st.exp && st.p.r <= L.MAXR;
 // 从结算卡上接着走：下一个深度只打精英，2 月；记下上一趟还没决定的法宝（输了丢一半）
 L.DEEPER = { len: 2 };
-L.tripOf = res => ({ k: res.k, d: res.d, a: res.a, rating: res.rating, recall: !!res.recall, hp: res.hp });
+L.tripOf = res => res.trip || { k: res.k, d: res.d, a: res.a, rating: res.rating, recall: !!res.recall, hp: res.bt ? res.bt.hp : undefined };
 L.startDeeper = function (st, res) {
-  if (!res || res.deeper || res.first || !L.deeperOk(st, L.tripOf(res))) return false;
+  if (!res || (res.cards && res.cards.deeper) || res.first || !L.deeperOk(st, L.tripOf(res))) return false;
   const prevU = (res.cards || []).filter(c => c.kind === 'gear' && c.item && L.gearPend(st, c.item.u)).map(c => c.item.u);
   const ok = L.startExp(st, res.k, res.d + 1, res.a, { len: L.DEEPER.len, deeper: { from: res.d, prevU }, quiet: true });
+  // 有节点表（C1 的历练）：只打下一层的精英，气血不回（接着上一趟归来时的）
+  if (ok && st.exp && st.exp.nodes) { st.exp.nodes = [{ t: 'elite' }, { t: 'home' }]; const hp = res.bt && res.bt.hp; if (hp > 0) st.exp.hp = hp; }
   if (ok) { st.stats.deeper = (st.stats.deeper || 0) + 1; L.log(st, `趁势深入【${L.REGIONS[res.k].n}·${L.DEPTHS[res.d + 1]}】`); }
   return ok;
 };

@@ -81,6 +81,10 @@ L.ARTL = [
   // 战技（战力倍率 L.ZHAN_M[t-1]，并决定攻击属性）
   { id: 'z_wuxing', n: '五行拳经', k: 'z', t: 1, el: 'tu', v: 0, d: () => '无特效', src: '寻宝·历练', pool: 'drop' },
   { id: 'z_liuyun', n: '流云剑法', k: 'z', t: 1, el: 'shui', v: 2, d: v => `历练分数 +${n2(v)}`, src: '寻宝·历练', pool: 'drop' },
+  // 黄阶五行各一门（COMBAT_LOOT §3.2 新增三门：裂金斩、青藤缚、燎原式）
+  { id: 'z_liejin', n: '裂金斩', k: 'z', t: 1, el: 'jin', v: 0.10, d: v => `历练灵矿 +${pc(v)}`, src: '第一章第 2 趟历练', pool: 'drop' },
+  { id: 'z_qingteng', n: '青藤缚', k: 'z', t: 1, el: 'mu', v: 0.15, d: v => `采药灵草 +${pc(v)}`, src: '后山野林外围精英·老藤王', pool: 'drop' },
+  { id: 'z_liaoyuan', n: '燎原式', k: 'z', t: 1, el: 'huo', v: 0.06, d: v => `斩妖灵石 +${pc(v)}`, src: '后山野林禁地精英·赤瞳头狼', pool: 'drop' },
   { id: 'z_huichun', n: '回春剑诀', k: 'z', t: 2, el: 'mu', v: 1, d: v => `每趟历练归来负伤 −${n2(v)} 月`, src: '寻宝·历练', pool: 'drop' },
   { id: 'z_liehuo', n: '烈火刀', k: 'z', t: 2, el: 'huo', v: 0.10, d: v => `斩妖灵石 +${pc(v)}`, src: '寻宝·历练、血煞秘境', pool: 'drop', mo: true },
   { id: 'z_gengjin', n: '庚金指', k: 'z', t: 3, el: 'jin', v: 0.1, d: v => `越级判定线 0.6 → ${n2(0.6 + v)}`, src: '太虚剑宗宝库（内门）', pool: 'vault', sect: 'jian', rank: 1 },
@@ -142,10 +146,10 @@ L.newArts = () => ({ own: {}, slot: [null, null, null], swapAt: -99, frag: {}, r
 // 心法槽开局；战技槽与五行克制炼气后期；秘术槽金丹（SYSTEMS §0）。转世后全开
 L.artSlotOpen = function (st, i) {
   if (i === 0 || st.rebirth > 0) return true;
-  if (i === 1) return Math.max(L.si(st.p), (st.flags && st.flags.maxI) || 0) >= 2;
+  if (i === 1) return true;   // COMBAT_LOOT §7.4：战技槽不再等炼气后期，拥有任意战技就能用（第 2 趟保底掉《裂金斩》）
   return Math.max(st.p.r, (st.flags && st.flags.maxR) || 0) >= 2;
 };
-L.artSlotWhy = i => (i === 1 ? '炼气后期开放' : i === 2 ? '金丹开放' : '');
+L.artSlotWhy = i => (i === 1 ? '第 2 趟历练会得到' : i === 2 ? '金丹开放' : '');
 function slotsOf(st) {
   const a = st.arts; if (!a) return [null, null, null];
   return a.slot.map((id, i) => (id && a.own[id] !== undefined && ART[id] && SLOT_OF[ART[id].k] === i && L.artSlotOpen(st, i) ? id : null));
@@ -517,7 +521,8 @@ L.artBest = function (st, opt) {
     let s = (opt.wc === undefined ? 1 : opt.wc) * Math.log(L.artCulMult(st, sl)) + (opt.wa === undefined ? 1 : opt.wa) * Math.log(L.artAtkMult(st, sl));
     if (m) s += opt.mval && opt.mval[m] !== undefined ? opt.mval[m] : 0.005 * ART[m].t;
     if (opt.foe) s += Math.log(L.duelElem(st, opt.foe, sl).m);
-    if (opt.k !== undefined) s += L.expElem(st, opt.k, sl).v * 0.028;
+    if (opt.fel !== undefined) { const ze = sl[1] ? ART[sl[1]].el : ''; s += L.elKe(ze, opt.fel) ? 0.45 : L.elKe(opt.fel, ze) ? -0.3 : 0; }   // 回合战：克这一格精英的战技（COMBAT_LOOT §4.1：克制 ≈ 战力 ×1.7）
+    else if (opt.k !== undefined) s += L.expElem(st, opt.k, sl).v * 0.028;
     if (!best || s > best.s + 1e-12) best = { sl, s };
   }
   return best ? best.sl : cur;

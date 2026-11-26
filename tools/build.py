@@ -46,6 +46,7 @@ UI_PARTS = [
     "panel-sect",    # 宗门
     "duels",         # 对决、三年之约、天骄论道
     "duel-scene",    # 场景内的对决演出：擂台、双方小人、血条、火花、开场对视、胜败印章（duel() 调 duelStage）
+    "battle",        # 历练的节点与回合战画面：btDrive（主循环里按节点推进月份）、事件演出、#bt 的气血 / 怒气 / 招式栏 / 大按钮（docs/COMBAT_LOOT.md §2）
     "events",        # 奇遇
     "panel-growth",  # 数值拆解、大事锦囊
     "panel-cal",     # 年历（24 格时间轴）、天下大势小牌、大势与换季的老祖气泡

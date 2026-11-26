@@ -331,8 +331,8 @@ wrap('sectMeet', b => st => {
     const pos = L.sectPos(st), q = pos === 1 ? 2 : pos - 1, foe = L.nineAt(st, q), Q = L.ninePower(st, q);
     const fo = { kind: 'sect', id: foe.id }, Sr = L.duelPower(st, fo), p = L.duelP(st, Sr, Q, fo);
     if (L.revealFoe) L.revealFoe(st, fo);
-    let me = R() < p, xx = false;
-    if (!me && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; me = R() < p; }
+    let me = L.duelWin(st, Sr, Q, fo, p), xx = false;
+    if (!me && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; me = L.duelWin(st, Sr, Q, fo, p); }
     const trio = [{ who: 'me', n: st.p.name, S: Sr, Q, p, win: me }];
     team.forEach((x, i) => { const Sd = L.discPow(st, x), Qd = L.trioFoePow(st, q, i + 1), pd = L.duelChance(Sd, Qd); trio.push({ who: 'disc', u: x.u, n: x.n, S: Sd, Q: Qd, p: pd, win: R() < pd }); });
     const wins = trio.filter(t => t.win).length, win = wins >= 2;
