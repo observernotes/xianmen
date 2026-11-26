@@ -122,15 +122,17 @@ for (let s = 1; s <= N; s++) play('引导·第一世#' + s, 'guided', s, { reach
 for (let s = 1; s <= N; s++) play('随手选#' + s, 'lazy', 100 + s, { maxT: 900 });
 // 2. 只冲境界：章停在第一个没完成的主线章；之后回头照引导玩，剧情按序补上
 for (let s = 1; s <= N; s++) {
-  // 照引导修炼、历练、论道，但三宗争徒一律不理（主线第二章要入宗）：境界一路往上，章停在第二章
-  const a = play('只修炼#' + s, 'guided', 200 + s, { maxT: 400, noJudge: true, mk: () => { const st = L.newState({ name: '测试' }); st.flags.inviteAt = 1e9; return st; } });
+  // 照引导修炼、历练、论道，但约战输了、慕容又永远打不过（她的战力 ×1e12），主线不降级（L.MAIN_EASE_ON = false）：境界一路往上，章停在第一章
+  const pp = L.PACT_POWER, dw0 = L.duelWin; L.PACT_POWER = 1e12; L.MAIN_EASE_ON = false;
+  L.duelWin = function (st, S, Q, foe) { return foe && foe.id === 'mu' ? false : dw0.apply(this, arguments); };
+  const a = play('只修炼#' + s, 'guided', 200 + s, { maxT: 400, noJudge: true });
+  L.PACT_POWER = pp; L.MAIN_EASE_ON = true; L.duelWin = dw0;
   const st = a.st, k = (() => { let i = 0; while (i < 9 && mainDone(st, i)) i++; return Math.min(8, i); })();
   if (L.chapterNow(st) !== k) fail(a.who, `境界 ${st.p.r} 时章是 ${L.chapterNow(st) + 1}，第一个没完成的主线是 ${k + 1}`);
   if (st.p.r <= L.chapterNow(st) + 1) fail(a.who, `只修炼 400 月境界 ${st.p.r} 没有超过章（${L.chapterNow(st) + 1}），这一局测不到“境界超前”`);
   for (let n = L.chapterNow(st) + 1; n <= 8; n++) if (st.evDone['story_r' + n]) fail(a.who, `章没到，story_r${n} 先出了`);
   judge(a);
-  // 回头补主线（把只修炼那段的记录接着用）：宗门照常上门
-  st.flags.inviteAt = st.tick + 1;
+  // 回头补主线（把只修炼那段的记录接着用）：慕容打得赢了
   const w = watch('只修炼→补主线#' + s, st); w.story = a.story.slice(); w.ch = L.chapterNow(st); w.chAt = a.chAt.slice(); cur = w;
   L.rng = rngFor(300 + s);
   const rec = run('guided', 300 + s, false, { st0: st, keep: true, onTick: onTick(w), maxT: 1100 });
@@ -172,6 +174,64 @@ for (let s = 1; s <= N; s++) {
 for (let s = 1; s <= N; s++) {
   const w = play('散修不入宗#' + s, 'guided', 800 + s, { mk: reborn('sanxiu', [], st => { st.flags.inviteAt = 1e9; }), reach: 5, gap: 420 });
   if (w.st.sect) fail(w.who, '测试局面没造出来（入了宗）');
+}
+// 7b. 不走捷径（docs/STORY_PLAN.md §12）：入宗只走界面那两条路（“三张帖子”那场戏、三宗争徒的弹窗），宿敌只靠论道、上门、下战书；
+//     每局每章都要在 GAP_NS 月内推进（主线卡住时 mainline.js 会降要求：没有永远卡死的局面）
+const GAP_NS = 200;
+{
+  const noSect = st => { st.flags.inviteAt = 1e9; };
+  const ROUTES_NS = [
+    ['散修·三张帖子都不理', 'guided', 1010, { mk: () => { const st = L.newState({ name: '测试' }); noSect(st); return st; }, run: { noSect: true } }],
+    ['随手选·不入宗', 'lazy', 1020, { mk: () => { const st = L.newState({ name: '测试' }); noSect(st); return st; }, run: { noSect: true }, maxT: 1300 }],
+    ['只靠论道与上门', 'guided', 1030, { run: { noChal: true } }],
+    ['随手选·只靠论道', 'lazy', 1040, { run: { noChal: true }, maxT: 1300 }],
+    ['散修丹师·不理', 'guided', 1050, { mk: reborn('sanxiu', [], noSect), run: { noSect: true } }],
+  ];
+  for (const [n, strat, seed, o] of ROUTES_NS) for (let s = 1; s <= N; s++) {
+    const w = play('不走捷径·' + n + '#' + s, strat, seed + s, Object.assign({ reach: 8, gap: GAP_NS }, o));
+    if (o.run && o.run.noSect && w.st.sect) fail(w.who, '不入宗的局面入了宗');
+    if (o.run && o.run.noSect && !w.st.eflags.path_san && !w.st.origin) fail(w.who, '三张帖子没有选“哪家也不去”');
+  }
+  // 约战输了、又不入宗
+  const pp = L.PACT_POWER;
+  for (let s = 1; s <= N; s++) {
+    L.PACT_POWER = 1e12;
+    const a = play('不走捷径·约战输·不入宗#' + s, 'guided', 1060 + s, { maxT: 40, noJudge: true, mk: () => { const st = L.newState({ name: '测试' }); noSect(st); return st; }, run: { noSect: true } });
+    L.PACT_POWER = pp;
+    if (a.st.pact !== -1) fail(a.who, '没输掉约战（测试局面没造出来）');
+    const w = watch(a.who, a.st); w.story = a.story; w.ch = L.chapterNow(a.st); w.chAt = a.chAt.slice(); cur = w;
+    L.rng = rngFor(1070 + s);
+    const rec = run('guided', 1070 + s, false, { st0: a.st, keep: true, onTick: onTick(w), noSect: true });
+    w.st = rec.st || a.st; judge(w, { reach: 8, gap: GAP_NS });
+    sum.runs++; if (w.st.p.r >= 9) sum.asc++; sum.chMax.push(L.chapterNow(w.st));
+    if (V) console.log(`  ${w.who.padEnd(22)} 境界 ${w.st.p.r} · 第 ${L.chapterNow(w.st) + 1} 章 · ${w.st.tick} 月 · 章 ${fmtCh(w)}`);
+  }
+  L.PACT_POWER = pp;
+  // 2.3.2 的旧档：散修走到第三章（赵乾）卡住——读档后补一封入宗帖、赵乾上门，主线接着走
+  for (let s = 1; s <= N; s++) {
+    const a = play('旧档·散修第三章#' + s, 'guided', 1080 + s, { maxT: 400, noJudge: true, mk: () => { const st = L.newState({ name: '测试' }); noSect(st); return st; }, run: { noSect: true, noChal: true } });
+    const st = a.st;
+    if (L.chapterNow(st) < 2) { fail(a.who, `400 月没走到第三章（第 ${L.chapterNow(st) + 1} 章），造不出旧档`); continue; }
+    // 退回“第三章、赵乾没打”的样子，去掉新字段（2.3.2 没有 st.story / st.mainG / 三张帖子）
+    for (let i = 2; i < 9; i++) delete st.quest.done['c' + i + '_m'];
+    delete st.beaten.zhao; delete st.eflags.beat_zhao; st.path.ch = 2; st.path.at[2] = { t: st.tick - 150, pw: 1, exp: 0 };
+    delete st.mainG; delete st.story; delete st.evDone.s2_invite; delete st.eflags.path_san; st.flags.inviteAt = 0; st.origin = 'sanxiu';
+    const s2 = L.migrate(JSON.parse(JSON.stringify(st)));
+    if (L.chapterNow(s2) !== 2) { fail(a.who, `迁移后第 ${L.chapterNow(s2) + 1} 章（应在第三章）`); continue; }
+    if (!(s2.mainG && s2.mainG.rescue)) fail(a.who, '旧档没有救场标记');
+    if (!(s2.flags.inviteAt <= s2.tick)) fail(a.who, '旧档没补入宗帖');
+    let invite = false, foe = false;
+    const w = watch(a.who + '·续玩', s2); w.story = a.story.slice(); w.ch = 2; w.chAt = [0, 36, s2.tick]; cur = w;
+    const t0 = s2.tick;
+    L.rng = rngFor(1090 + s);
+    const rec = run('guided', 1090 + s, false, { st0: s2, keep: true, maxT: 260, noSect: true, noChal: true, onTick: (x, out) => { onTick(w)(x, out); if (out.invite) invite = true; if (out.mainFoe === 'zhao') foe = foe || x.tick - t0; } });
+    w.st = rec.st || s2;
+    if (!invite) fail(w.who, '读档后宗门没有再来请');
+    if (foe === false) fail(w.who, '读档后赵乾没有上门'); else if (foe > 3) fail(w.who, `读档后第 ${foe} 月赵乾才上门`);
+    if (L.chapterNow(w.st) < 3) fail(w.who, `读档后 260 月还在第 ${L.chapterNow(w.st) + 1} 章`);
+    if (V) console.log(`  ${w.who.padEnd(22)} 赵乾上门 +${foe} 月 · 第三章用了 ${(w.chAt[3] || NaN) - t0} 月 · 第 ${L.chapterNow(w.st) + 1} 章`);
+    sum.runs++;
+  }
 }
 // 8. 旧存档：以前境界把章推过了头（第二章没入宗就进了第三章）
 for (let s = 1; s <= N; s++) {

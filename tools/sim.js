@@ -415,7 +415,7 @@ function zhenGuided(st, rec) {
 let simSect = '';   // 这一局入宗选哪一宗（run 里按 opt.sect / seed 定；剧情里的“三张帖子”跟三宗争徒的弹窗选同一家）
 function pickChoice(st, ev) {
   if (ev.id === 's2_invite') {
-    if (st.flags.inviteAt >= 1e9) { st.evDone.s2_invite = 1; return; }   // “三宗一律不理”的局面：这场戏也不接帖
+    if (st.flags.inviteAt >= 1e9) { const k = ev.choices.findIndex(c => c.ok && c.ok.fx && [].concat(c.ok.fx.flag || []).includes('path_san')); if (k >= 0) { L.resolveChoice(st, ev, k); return; } }   // “三宗一律不理”的局面：这场戏选“哪家也不去”（和界面同一条路）
     const i = ev.choices.findIndex(c => c.ok && c.ok.fx && c.ok.fx.join === simSect && L.choiceShown(st, c));
     if (i >= 0) { L.resolveChoice(st, ev, i); return; }
   }
@@ -665,7 +665,7 @@ function run(strat, seed, trace, opt) {
     if (out.choice && strat !== 'idle') pickChoice(st, out.choice);
     if (out.visitor && strat === 'guided') giftGuided(st, rec);
     if (out.visitor && strat !== 'idle') pickChoice(st, out.visitor);
-    while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle') L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
+    while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle' && !(ev.id === 's2_invite' && st.flags.inviteAt >= 1e9)) L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
     // 坊市事件（换货、开拍、买轮换货时）：会去坊市的人打开坊市时碰上，随手选一个
     if (strat !== 'idle') for (let g = 0, ev; g < 3 && (ev = L.marketEvent(st)); g++) { pickChoice(st, ev); L.marketEventDone(st, ev.id); }
     if (out.world) rec.worlds++;
@@ -673,7 +673,12 @@ function run(strat, seed, trace, opt) {
     if (out.pact) { rec.zhanN = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').length; rec.wStar = st.gear.w ? st.gear.w.star || 0 : -1; rec.wPlus = st.gear.w ? st.gear.w.plus || 0 : -1; rec.bossCh1 = !!st.bosses[0]; rec.wishHit = (st.stats.wishHit || 0) > 0; rec.infuse = (st.stats.infuse || 0) > 0; }
     if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win;
       const w = L.gearEq(st, 'w'); rec.loot1 = { star: w ? w.star || 0 : 0, wish: st.stats.wishHit || 0, plus: st.stats.plus || 0, infuse: st.stats.infuse || 0, zhan: Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').length, boss: !!st.bosses[0], cards: st.stats.lootGear || 0 }; }
-    if (out.invite && strat !== 'idle') L.joinSect(st, opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3]);
+    // 三宗争徒的弹窗（界面 showInvite：挑一家点【拜入】，或【再想想】）：不看境界，第二章“三张帖子”结过、还没宗门才来
+    if (out.invite) { if (strat !== 'idle' && !opt.noSect) L.joinSect(st, simSect); else L.inviteDecline(st); }
+    // 这一章要打的宿敌：只剩他时上门下战书（out.mainFoe，界面 runMainFoe）；guided 胜算 ≥ 45% 应战，lazy 一半一半，idle 改日
+    if (out.mainFoe) { const I = L.challengeInfo(st, out.mainFoe); const go = I && !I.why && (strat === 'guided' ? I.p >= 0.45 : strat === 'lazy' ? L.rng() < 0.5 : false); if (go) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, out.mainFoe); } else L.mainFoeLater(st, out.mainFoe); }
+    // 目标卡上的主线一步（mainline.js 的 L.mainStep）：胜算过半的下战书——guided 照做，lazy 三回里做一回（晋升、投帖上面已经照做）
+    if (!opt.noChal && strat !== 'idle') { const ms = L.mainStep(st); if (ms && ms.foe && (strat === 'guided' || L.rng() < 0.33)) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, ms.foe); } }
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
       // guided：论道前按克制换战技（第一场的宿敌）；换完下个周天 artOpt 再按平时的最优搭配换回来
