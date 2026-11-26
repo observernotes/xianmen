@@ -490,7 +490,7 @@ require('fs').mkdirSync(out, { recursive: true });
       if (r.ok !== (u < p1) || !mono || (r.ok ? r.tb.curve1[v.N] <= 0 : r.tb.curve1[v.N] !== 0) || Math.abs(r.tb.margin - m) > 1e-3 || JSON.stringify(r.tb.curve0) !== JSON.stringify(v.curve)) bad.push(i);
       if (ex.pills) { if (Math.abs(p1 - Math.min(top0, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || tox() - tox0 !== 40 + toxPre) bad.push('ex' + i); else extraUp++; }
       else if (JSON.stringify(r.tb.curve1) !== JSON.stringify(v.curve)) bad.push('c' + i);
-      if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g) bad.push('g' + i); }
+      if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g && ![0.5, 0.25, 0.08].some(t => Math.abs(m - t) < 2e-4)) bad.push('g' + i); }   // 余量恰在档线 ±2e-4 内时，结算按取整后的余量评档，两边可差一档
       n++;
     }
     return { n, ok, bad: bad.slice(0, 6), extraUp };
