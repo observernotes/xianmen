@@ -573,7 +573,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.showHome(false, 0)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20a-home-array.png' }); await hlay('洞府（聚灵阵地块）');
   await page.evaluate(() => window.__xm.showHome(false, 4)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20b-home-empty.png' }); await hlay('洞府（空地建造列表）');
   await page.evaluate(() => window.__xm.showHome(false, 3)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20c-home-built.png' }); await hlay('洞府（已建地块）');
-  await page.click('#modal [data-demo]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/20d-home-demolish.png' }); await hlay('洞府（拆除确认）');
+  await page.evaluate(() => document.querySelectorAll('#modal details.more').forEach(d => { d.open = true; })); await page.click('#modal [data-demo]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/20d-home-demolish.png' }); await hlay('洞府（拆除确认）');
   await page.evaluate(() => window.__xm.showHome(false, 7)); await page.waitForTimeout(350); await page.screenshot({ path: out + '/20e-home-locked.png' }); await hlay('洞府（未开地块）');
   await page.evaluate(() => { const { st, L } = window.__xm; st.home.array = 12; L.zhenSet(st, 0, 'f_dujie'); window.__xm.showZhen(); }); await page.waitForTimeout(350); await page.screenshot({ path: out + '/21a-zhen-pending.png' }); await hlay('阵法（布阵中）');
   await page.evaluate(() => { const { st, L } = window.__xm; L.zhenSet(st, 1, 'f_danhuo'); window.__xm.showZhen(); }); await page.waitForTimeout(350); await page.screenshot({ path: out + '/21b-zhen-second.png' }); await hlay('阵法（第二阵位）');

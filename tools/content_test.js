@@ -1408,7 +1408,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal button[data-k="room"]'); await page.waitForTimeout(300);
   expect(await hq(() => window.__xm.st.home.room === 2), '已建的地块里点升级：静室 Lv2');
   // 拆除：先问，取消不动；确认后退一半、记一半等级、地块空出来
-  await page.click('#modal [data-demo="room"]'); await page.waitForTimeout(300); await shot('h02-home-demolish');
+  await page.evaluate(() => document.querySelectorAll('#modal details.more').forEach(d => { d.open = true; })); await page.click('#modal [data-demo="room"]');   // 拆除收在建筑卡的“详情”里 await page.waitForTimeout(300); await shot('h02-home-demolish');
   const hd = await hq(() => { const { st, L } = window.__xm; return { yes: !!document.querySelector('#modal [data-demo-yes]'), no: !!document.querySelector('#modal [data-demo-no]'), txt: (document.querySelector('#modal .hdet .quote') || {}).textContent || '', back: L.homeRefund(st, 'room'), room: st.home.room }; });
   expect(hd.yes && hd.no && /拆了退/.test(hd.txt) && /重建从\s*1\s*级起/.test(hd.txt) && hd.back > 0 && hd.room === 2, '拆除前要确认，写明退多少、重建从几级起：' + JSON.stringify(hd));
   await page.click('#modal [data-demo-no]'); await page.waitForTimeout(300);

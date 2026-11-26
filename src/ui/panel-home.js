@@ -7,29 +7,28 @@
 function retreatCard() {
   if (st.retreat) {
     const r = st.retreat, nm = L.retName(r);
-    return `<div class="card flat"><div class="main"><div class="line"><span>${nm}中</span><span class="chip ok">修炼 ×${r.m.toFixed(2)}</span></div>${bar((r.total - r.left) / r.total, true)}
-      <div class="muted">还剩 ${r.left} 周天 · 已得修为 ${fmt(r.got)}${r.kind === 'ret' ? ' · 坐满出关有机会顿悟' : ''}</div></div>
-      <div class="right"><button class="btn sm alt" id="btnRetEnd">提前出关</button></div></div>`;
+    return pnRow({ ic: iconHTML('disc', 30), nm: `${nm}中`, badge: `<span class="chip ok">修炼 ×${r.m.toFixed(2)}</span>`, k: `还剩 ${r.left} 周天 · 修为 +${fmt(r.got)}`,
+      right: '<button class="btn sm alt" id="btnRetEnd">提前出关</button>' });
   }
-  if (!L.retOpen(st)) return '<div class="card flat" style="opacity:.6"><div class="main"><div>闭关</div><div class="muted">炼气中期解锁：4 周天修炼翻倍</div></div></div>';
+  if (!L.retOpen(st)) return '';   // 没开的不出现（docs/ONBOARDING.md §2.3）
+  // 闭关：一行 = 倍率角标 + 多得的修为 + 价钱按钮；顿悟、疲劳、静室收进卡片里
   const ri = L.retInfo(st), ok = !ri.why;
-  const cost = ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`;
-  const tired = ri.tired ? `<div class="seal">连着第 ${ri.streak + 1} 次闭关：倍率 ×${ri.m0.toFixed(2)} → ×${ri.m.toFixed(2)}（出门历练一趟就恢复）</div>` : '';
-  return `<div class="card flat"><div style="flex:none">${iconHTML('disc', 30)}</div><div class="main"><div class="line"><span>闭关 · ${ri.len} 周天</span><span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span></div>
-    <div class="jadet">修为 +${fmt(ri.extra)}（比打坐多）${ri.save ? `，本层提前 ${ri.save} 周天` : ''}</div>
-    <div class="muted">出关 ${L.pct(ri.epi)} 顿悟，再得 ${L.RET.epiTicks} 周天修为 · 期间不能历练${L.home2On() ? (st.home.room ? ` · 静室 Lv${st.home.room}` : L.homeUnlocked(st, 'room') ? ' · 建静室能加倍率' : '') : ''}</div>${tired}${ok ? '' : `<div class="seal">${esc(ri.why)}</div>`}</div>
-    <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}</button><span class="muted">${cost}</span></div></div>`;
+  const tired = ri.tired ? `<div class="pn-line seal">连着第 ${ri.streak + 1} 次闭关：倍率 ×${ri.m0.toFixed(2)} → ×${ri.m.toFixed(2)}（出门历练一趟就恢复）</div>` : '';
+  return pnFold('ret', { ic: iconHTML('disc', 30), nm: `闭关 · ${ri.len} 周天`, badge: `<span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span>`,
+    k: ok ? `修为 <b class="pn-up">+${fmt(ri.extra)}</b>` : `<span class="seal">${esc(ri.why)}</span>`,
+    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}</button>`,
+    body: `<div class="pn-line">比打坐多得修为 +${fmt(ri.extra)}${ri.save ? `，本层提前 ${ri.save} 周天` : ''}</div>${tired}
+      <div class="pn-line">出关 ${L.pct(ri.epi)} 顿悟，再得 ${L.RET.epiTicks} 周天修为 · 期间不能历练${L.home2On() ? (st.home.room ? ` · 静室 Lv${st.home.room}` : L.homeUnlocked(st, 'room') ? ' · 建静室能加倍率' : '') : ''}</div>` });
 }
 function healCard() {
   if (!(st.p.inj > 0)) return '';
   // 先用丹囊里的疗伤丹，没有再用破境丹（alchemy.js 的 L.heal）
   const ok = L.canHeal(st), w = L.healWith(st), nl = L.bagN(st, 'liaoshang');
   const how = w === 'liaoshang' ? `服一枚疗伤丹立刻痊愈（丹囊里 ${nl} 枚）` : `服一枚破境丹立刻痊愈（你有 ${st.pills} 枚${st.home.furnace ? `；疗伤丹 ${fmt(L.herbCost(st, L.RECIPE.liaoshang))} 灵草一炉，省下破境丹` : ''}）`;
-  return `<div class="card flat" style="box-shadow:0 0 0 2px var(--seal)"><div style="flex:none">${pillImg(w === 'liaoshang' ? 'liaoshang' : 'pojing', 2)}</div><div class="main"><div class="seal">负伤：还剩 ${st.p.inj} 周天</div>
-    <div class="muted">战力 ×0.6、修炼 ×0.5。${how}${ok ? '' : `；坊市 ${fmt(L.price(st, 'pill'))} 灵石一枚`}</div></div>
-    <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnHeal" ${ok ? '' : 'disabled'}>服丹疗伤</button></div></div>`;
+  return pnFold('heal', { cls: 'pn-sel', ic: pillImg(w === 'liaoshang' ? 'liaoshang' : 'pojing', 2), nm: `<span class="seal">负伤 · 还剩 ${st.p.inj} 周天</span>`, k: '<span class="pn-dn">战力 ×0.6 · 修炼 ×0.5</span>',
+    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnHeal" ${ok ? '' : 'disabled'}>服丹疗伤</button>`,
+    body: `<div class="pn-line">${how}${ok ? '' : `；坊市 ${fmt(L.price(st, 'pill'))} 灵石一枚`}</div>` });
 }
-
 // ---------- 地块网格与建筑小面板 ----------
 let homeSel = 0, homeMsg = '', homeDemo = '';
 const HB = k => L.HOME_B[k];
@@ -71,7 +70,7 @@ function homeFnRow(k) {
     if (!L.zhenOpen(st)) return `<div class="muted">布着聚灵阵：${esc(L.zhenEffect(st, 'f_juling'))}。${L.home2On() ? '筑基后期能换别的阵法。' : ''}</div>`;
     const z = L.zhenState(st), sl = L.zhenSlots(st);
     const one = (s, j) => (!s.id && !s.nx ? (j ? '<div class="muted">第二阵位空着</div>' : '') : `<div class="zline">${sigilImg(s.id || s.nx, 1.5)}<span>${s.id ? `${esc(L.zhenName(s.id))}：${esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1))}` : ''}${s.nx ? ` <span class="chip warn">布阵中 ${Math.max(1, s.at - st.tick)} 周天 → ${esc(L.zhenName(s.nx))}</span>` : ''}</span></div>`);
-    return `${one(z[0], 0)}${sl >= 2 ? one(z[1], 1) : ''}<button class="btn sm gold" data-go="zhen">换阵 · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}</button>`;
+    return `${one(z[0], 0)}${sl >= 2 ? one(z[1], 1) : ''}<button class="btn sm alt" data-go="zhen">换阵 · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}</button>`;
   }
   if (k === 'field') return L.plotCount(st) ? `<button class="btn sm alt" data-go="field">进灵田 · ${L.plotCount(st)} 块</button>` : '';
   if (k === 'furnace') return `<button class="btn sm alt" data-go="alch">炼丹房 · 灵草 ${fmt(st.herbs)}</button>`;
@@ -93,25 +92,28 @@ function plotDetail(i) {
   if (!k) {
     const rec = homeRec();
     const list = L.BLD_KEYS.filter(x => x !== 'array' && !st.home[x] && (L.home2On() || !HB(x).nu) && (UI.isOpen('plots') || L.homeUnlocked(st, x))).sort((a, b) => (rec && b === rec.k) - (rec && a === rec.k) || L.homeUnlocked(st, b) - L.homeUnlocked(st, a));
+    // 建造列表：一行 = 图标 + 名字 + 建成后的效果 +【建造】（价钱写在按钮小字）；只有“荐”的那一行是金色
     const rows = list.map(x => {
-      const B = HB(x), un = L.homeUnlocked(st, x), why = L.buildWhy(st, x, i), lv = L.homeRebuildLv(st, x), c = L.homeCost(st, x), ok = !why, poor = /灵石/.test(why);
-      const tag = rec && x === rec.k ? '<span class="chip warn">荐</span> ' : '';
+      const B = HB(x), un = L.homeUnlocked(st, x), why = L.buildWhy(st, x, i), lv = L.homeRebuildLv(st, x), c = L.homeCost(st, x), ok = !why, poor = /灵石/.test(why), isRec = rec && x === rec.k;
       const eff = un ? (B.nu ? L.homeDelta(st, x, 0, lv) : B.d(lv)) : B.unlock;
-      return `<div class="card flat crow${un ? '' : ' off'}"><div style="flex:none">${bldIcon(x, 2)}</div><div class="main"><div class="line">${tag}<span>${B.n}</span>${lv > 1 ? `<span class="chip ok">重建从 Lv${lv}</span>` : ''}</div>
-        <div class="${un ? 'jadet' : 'muted'}">${esc(eff)}</div>${rec && x === rec.k ? `<div class="muted">${esc(rec.why)}</div>` : ''}${un && why && !poor ? `<div class="seal">${esc(why)}</div>` : ''}</div>
-        <div class="right"><button class="btn sm ${ok ? 'gold' : 'alt'}" data-build="${x}" ${ok ? '' : 'disabled'}>${un ? `${iconHTML('stone', 12)} ${fmt(c)}` : '未解锁'}</button>${un && poor ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`;
+      return pnFold('hb-' + x, { cls: 'crow' + (un ? '' : ' off pn-off'), ic: bldIcon(x, 2), nm: `${isRec ? '<span class="chip warn">荐</span> ' : ''}${B.n}`, badge: lv > 1 ? `<span class="chip ok">重建从 Lv${lv}</span>` : '',
+        k: un && why && !poor ? `<span class="seal">${esc(why)}</span>` : `<span class="${un ? '' : 'muted'}">${esc(eff)}</span>`,
+        right: `<button class="btn sm ${ok && isRec ? 'gold' : 'alt'}" data-build="${x}" ${ok ? '' : 'disabled'}>${un ? '建造' : '未解锁'}${un ? `<small>${poor ? esc(why) : fmt(c) + ' 灵石'}</small>` : ''}</button>`,
+        body: isRec ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : '' });
     }).join('');
-    return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || emptyNoteHTML('build', '能建的都建了。')}</div>`;
+    return `<div class="hdet">${pnHead(`第 ${i + 1} 块 · 空地`, `已建 ${pl.filter(Boolean).length}/${max}`)}${rows ? `<div class="pn-list">${rows}</div>` : emptyNoteHTML('build', '能建的都建了。')}</div>`;
   }
+  // 已建的地块：升级前后最要紧的那个变化（大字）+【升级】；功能入口；现状说明与拆除收进“详情”
   const B = HB(k), u = L.upInfo(st, k), lv = st.home[k], can = !u.max && st.stones >= u.cost, keep = Math.floor(lv * L.HV.keep);
   const demo = k === 'array' || !UI.isOpen('plots') ? '' : homeDemo === k
     ? `<div class="quote">拆了退 <b>${fmt(L.homeRefund(st, k))}</b> 灵石（累计花费的一半）${keep >= 1 ? `，等级记着，重建从 <b>${keep}</b> 级起` : ''}。${k === 'field' ? '田里的作物一并铲掉。' : k === 'furnace' ? '炼丹房关门，续炼停下。' : ''}</div><div class="hrow"><button class="btn sm alt" data-demo-no="1">不拆了</button><button class="btn sm" data-demo-yes="${k}">确认拆除</button></div>`
-    : `<div class="hrow"><button class="btn sm alt" data-demo="${k}">拆除 · 退 ${fmt(L.homeRefund(st, k))}</button></div>`;
-  return `<div class="card flat hdet"><div style="flex:none">${bldSprite(k, lv, B.max) || bldIcon(k, 3)}</div><div class="main">
-      <div class="line"><span><b>${B.n}</b></span><span class="chip">Lv ${lv}/${B.max}</span></div>
-      <div class="muted">${esc(B.d(lv))}</div>${u.max ? '<div class="muted">已满级</div>' : `<div class="jadet">→ ${esc(B.d(lv + 1))}</div><div class="muted">${esc(u.note)}</div>`}
-      <div class="hfn">${homeFnRow(k)}</div>${demo}</div>
-    <div class="right"><button class="btn sm ${can ? 'gold' : 'alt'}" data-k="${k}" ${can ? '' : 'disabled'}>${u.max ? '已满级' : `${iconHTML('stone', 12)} ${fmt(u.cost)}`}</button>${!u.max && !can ? `<span class="muted">还差 ${fmt(u.cost - st.stones)}</span>` : ''}</div></div>`;
+    : `<div class="hrow"><button class="btn sm alt" data-demo="${k}">拆除<small>退 ${fmt(L.homeRefund(st, k))}</small></button></div>`;
+  const upBtn = `<button class="btn ${can ? 'gold' : 'alt'}" data-k="${k}" ${can ? '' : 'disabled'} style="flex:none;min-width:88px">${u.max ? '已满级' : `升级<small>${can ? fmt(u.cost) + ' 灵石' : '差 ' + fmt(u.cost - st.stones)}</small>`}</button>`;
+  const fn = homeFnRow(k);
+  return `<div class="pn-hero hdet"><div class="row"><div style="flex:none">${bldSprite(k, lv, B.max) || bldIcon(k, 3)}</div><div class="grow">
+      <div><b>${B.n}</b> <span class="chip">Lv ${lv}/${B.max}</span></div><div class="pn-k">${u.max ? '<span class="muted">已满级</span>' : `→ Lv${lv + 1}：<b class="pn-up">${esc(u.note || B.d(lv + 1))}</b>`}</div></div>${u.max ? '' : upBtn}</div>
+    ${fn ? `<div class="hfn">${fn}</div>` : ''}
+    <details class="more" data-pn="hmore-${k}"${homeDemo === k || pnOpenKeys.has('hmore-' + k) ? ' open' : ''}><summary>详情${demo ? ' · 拆除' : ''}</summary><div class="muted">现在：${esc(B.d(lv))}${u.max ? '' : `<br>升级后：${esc(B.d(lv + 1))}`}</div>${demo}</details></div>`;
 }
 function showHome(still, sel) {
   if (sel !== undefined) { homeSel = sel; homeDemo = ''; }
@@ -133,7 +135,7 @@ function showHome(still, sel) {
   const cu = L.upInfo(st, 'cave'), cCan = !cu.max && !cu.lock && st.stones >= cu.cost, nx = L.homeNextPlotCave(st);
   const caveCard = `<div class="card flat"><div style="flex:none">${iconHTML('build', 30)}</div><div class="main"><div class="line"><span>洞府 · ${L.caveName(st.home.cave)}</span><span class="chip">Lv ${st.home.cave}</span></div>
     <div class="muted">${esc(HB('cave').d(st.home.cave))}${L.homeOver(st) ? ` · <span class="seal">地块超出 ${L.homeOver(st)} 块（旧档留着，拆了就收回）</span>` : ''}</div>${cu.max ? '' : cu.lock ? `<div class="muted">${esc(cu.lock)}</div>` : `<div class="jadet">→ ${esc(cu.note)}</div>${nx && nx > st.home.cave + 1 ? `<div class="muted">升到 ${nx} 级多一块地</div>` : ''}`}</div>
-    <div class="right"><button class="btn sm ${cCan ? 'gold' : 'alt'}" data-k="cave" ${cCan ? '' : 'disabled'}>${cu.max ? '已满级' : cu.lock ? '未解锁' : `${iconHTML('stone', 12)} ${fmt(cu.cost)}`}</button></div></div>`;
+    <div class="right"><button class="btn sm alt" data-k="cave" ${cCan ? '' : 'disabled'}>${cu.max ? '已满级' : cu.lock ? '未解锁' : `${iconHTML('stone', 12)} ${fmt(cu.cost)}`}</button></div></div>`;
   const tox = L.toxinOn(st) ? ` · 丹毒 ${Math.round(st.toxin || 0)}` : '', auto = L.danOf(st).auto.length;
   const alch = (L.plotCount(st) ? `<button class="btn alt" id="btnField">灵田 · ${L.plotCount(st)} 块 · ${L.plots(st).map(x => L.CROP[x.c].n).filter((m, j, a) => a.indexOf(m) === j).join('、')}${L.yinTotal(st) ? ` · 药引 ${L.yinTotal(st)}` : ''}</button>` : '')
     + (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}${tox}${auto ? ` · 续炼 ${auto} 种` : ''}</button>` : '')
@@ -141,7 +143,7 @@ function showHome(still, sel) {
     + (L.gearOpen(st, 'forge') || Object.keys(st.gear.plans).length ? `<button class="btn alt" id="btnForgeH">器炉 · 打造 · 器方 ${Object.keys(st.gear.plans).length} 张 · 灵矿 ${fmt(st.ore || 0)}</button>` : '');
   // 洞府本体扩建（寿元、多开地块）：丹炉开了以后才出现（docs/ONBOARDING.md：第一章只有聚灵阵和闭关）
   const body = healCard() + (UI.isOpen('retreat') || st.retreat ? retreatCard() : '') + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
-  const s = sheet({ title: '洞府', still, sub: full ? `${L.caveName(st.home.cave)} · 地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))} · 修炼 +${dec(L.gain(st))}/周天` : `灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天`, body });
+  const s = sheet({ title: '洞府', still, sub: full ? `地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天` : `灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天`, body });
   homeMsg = '';
   const on = (q, f) => { const b = s.querySelector(q); if (b) b.onclick = f; };
   on('#btnAlch', () => { SFX.tap(); showAlchemy(); });
@@ -198,21 +200,28 @@ function zhenRec() {
 function showZhen(still) {
   if (!L.zhenOpen(st)) { showHome(still, 0); return; }
   const z = L.zhenState(st), sl = L.zhenSlots(st), rec = zhenRec();
+  // 阵位：图 + 阵位名 + 现在的效果（布阵中写还要几周天）
   const slotCard = j => {
     const s = z[j], id = s.id || s.nx;
-    return `<div class="card flat zslot${s.nx ? ' zpend' : ''}"><div style="flex:none">${id ? sigilImg(id, 2.5) : tileImg('empty')}</div><div class="main"><div><b>${j ? '第二阵位（×0.5）' : '主阵位'}</b></div>${s.id ? `<div class="jadet">${esc(L.zhenName(s.id))}：${esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1))}</div>` : '<div class="muted">空着</div>'}${s.nx ? `<div class="seal">布阵中：${esc(L.zhenName(s.nx))}，还要 ${Math.max(1, s.at - st.tick)} 周天</div>` : ''}</div>${j && (s.id || s.nx) ? '<div class="right"><button class="btn sm alt" data-zclear="1">撤下</button></div>' : ''}</div>`;
+    return pnRow({ cls: 'zslot' + (s.nx ? ' zpend' : ''), ic: id ? sigilImg(id, 2) : tileImg('empty'), nm: `${j ? '第二阵位 ×0.5' : '主阵位'} · ${s.id ? esc(L.zhenName(s.id)) : '空着'}`,
+      k: s.nx ? `<span class="seal">布阵中 → ${esc(L.zhenName(s.nx))}，还要 ${Math.max(1, s.at - st.tick)} 周天</span>` : s.id ? esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1)) : '',
+      right: j && (s.id || s.nx) ? '<button class="btn sm alt" data-zclear="1">撤下</button>' : '' });
   };
-  const rows = L.ZHEN.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id) || L.zhenOwned(st, b.id) - L.zhenOwned(st, a.id)).map(Z => {
-    const own = L.zhenOwned(st, Z.id), w = L.zhenWhere(st, Z.id);
-    const tag = (Z.id === rec.id ? '<span class="chip warn">荐</span> ' : '') + (w ? `<span class="chip ok">${w.on ? (w.slot ? '第二阵位' : '布着') : `布阵中 ${w.pend}`}</span> ` : '');
-    const btn = j => { const why = L.zhenSetWhy(st, j, Z.id), keep = z[j].id === Z.id && z[j].nx; return `<button class="btn sm ${why || j ? 'alt' : 'gold'}" data-zs="${j}" data-zid="${Z.id}" ${why ? 'disabled' : ''}>${keep ? '不换了' : j ? '第二阵位' : '布阵'}</button>`; };
-    return `<div class="card flat crow${own ? '' : ' off'}"><div style="flex:none">${sigilImg(Z.id, 2, !own)}</div><div class="main"><div class="line">${tag}<span>${esc(L.zhenName(Z.id))}</span></div>
-      <div class="${own ? 'jadet' : 'muted'}">${esc(L.zhenEffect(st, Z.id))}</div><div class="muted">${Z.id === rec.id ? esc(rec.why) : own ? esc(Z.use) : '来源：' + esc(Z.src)}</div></div>
-      <div class="right">${own ? btn(0) + (sl >= 2 ? btn(1) : '') : '<span class="muted">没有阵图</span>'}</div></div>`;
-  }).join('');
-  const body = `<div id="zhenSlots">${slotCard(0)}${sl >= 2 ? slotCard(1) : ''}</div>${homeMsg ? `<div class="quote">${homeMsg}</div>` : ''}${rows}
-    <div class="muted">强度 = 聚灵阵等级（Lv${st.home.array}）。换阵不花钱，<b>${L.ZV.switch}</b> 个周天后生效，这期间原来的阵照常管用。${sl >= 2 ? '第二阵位效果减半。' : '炼虚后开第二阵位（效果 ×0.5）。'}平时聚灵；大量炼丹前布丹火；渡劫前 ${L.ZV.switch} 个周天布渡劫。</div>`;
-  const s = sheet({ title: '阵法', still, sub: `聚灵阵 Lv${st.home.array} · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length} · 修炼 +${dec(L.gain(st))}/周天`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome(false, 0) }] });
+  // 阵图：一行 = 阵符 + 名字（荐 / 布着）+ 效果 +【布阵】（第二阵位开了再多一个）；只有“荐”的那一行是金色
+  const row = Z => {
+    const own = L.zhenOwned(st, Z.id), w = L.zhenWhere(st, Z.id), isRec = Z.id === rec.id;
+    const btn = j => { const why = L.zhenSetWhy(st, j, Z.id), keep = z[j].id === Z.id && z[j].nx; return `<button class="btn sm ${!why && !j && isRec ? 'gold' : 'alt'}" data-zs="${j}" data-zid="${Z.id}" ${why ? 'disabled' : ''}>${keep ? '不换了' : j ? '副阵' : '布阵'}</button>`; };
+    return pnFold('zh-' + Z.id, { cls: 'crow' + (own ? '' : ' off pn-off'), ic: sigilImg(Z.id, 2, !own), nm: `${isRec ? '<span class="chip warn">荐</span> ' : ''}${esc(L.zhenName(Z.id))}`,
+      badge: w ? `<span class="chip ok">${w.on ? (w.slot ? '副阵' : '布着') : `布阵中 ${w.pend}`}</span>` : '',
+      k: `<span class="${own ? '' : 'muted'}">${esc(L.zhenEffect(st, Z.id))}</span>`, right: own ? btn(0) + (sl >= 2 ? btn(1) : '') : '',
+      body: `${isRec ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : ''}${own ? `<div class="pn-line">${esc(Z.use)}</div>` : `<div class="pn-line">还没有这张阵图。来源：${esc(Z.src)}</div>`}` });
+  };
+  // 手里有的在前（荐的第一）；还没有的收进折叠，点开看效果和来源
+  const sorted = L.ZHEN.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id)), mine = sorted.filter(Z => L.zhenOwned(st, Z.id)), none = sorted.filter(Z => !L.zhenOwned(st, Z.id));
+  const rows = mine.map(row).join(''), noneHTML = none.length ? `<details class="more" data-pn="zh-none"${pnOpenKeys.has('zh-none') ? ' open' : ''}><summary>还没有的阵图 · ${none.length} 张</summary><div class="pn-list">${none.map(row).join('')}</div></details>` : '';
+  const body = `<div id="zhenSlots" class="pn-list">${slotCard(0)}${sl >= 2 ? slotCard(1) : ''}</div>${homeMsg ? `<div class="quote">${homeMsg}</div>` : ''}${pnHead('阵图', `换阵免费 · ${L.ZV.switch} 周天后生效`)}<div class="pn-list">${rows}</div>${noneHTML}
+    <details class="more"><summary>阵法怎么用</summary><div class="muted">强度 = 聚灵阵等级（Lv${st.home.array}）。换阵不花钱，<b>${L.ZV.switch}</b> 个周天后生效，这期间原来的阵照常管用。${sl >= 2 ? '第二阵位（副阵）效果减半。' : '炼虚后开第二阵位（效果 ×0.5）。'}平时聚灵；大量炼丹前布丹火；渡劫前 ${L.ZV.switch} 个周天布渡劫。</div></details>`;
+  const s = sheet({ title: '阵法', still, sub: `聚灵阵 Lv${st.home.array} · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome(false, 0) }] });
   homeMsg = '';
   s.querySelectorAll('[data-zs]').forEach(b => b.onclick = () => {
     const j = +b.dataset.zs, id = b.dataset.zid, r = L.zhenSet(st, j, id);
