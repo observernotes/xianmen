@@ -298,3 +298,82 @@
 - `'adv_ledger'` 明细：一本账，纸页上三道长短不一的条。“明细”折叠行行首用（1 倍）。
 
 接线位置：`src/ui/panel-growth.js` 的 `showGrowth` 与动作卡部件 `advCards`。
+
+---
+
+## 阶段九·剧情
+
+配合 `docs/STORY_PLAN.md`（剧情扩充与分支）。预览图：`docs/story_mock/art_preview.png`（源 `art_preview.html`，`node tools/story_shots.js` 重新生成；分块图 `art_bg / art_cg / art_end / art_px / art_ui.png`）。代码在 `src/art.js` 末尾“阶段九·剧情”一节，只追加、没动已有接口。全部是 200×120 的整幅画（带 1 像素边框）或 48×48 的半身像，和高光过场（阶段七·6）同一套尺寸，可以直接进 `cine2.js` 的镜头。
+
+### 1 场景底图（200×120）
+
+- `ART.storyBg(kind)` → 画布。`kind`（`ART.storyBgKinds`）：
+
+| kind | 画的是 | 用在 |
+|---|---|---|
+| `temple` | 破庙夜：塌顶漏月光、残佛、将熄的火 | 第一章、老祖夜谈、最后一课 |
+| `cave` | 洞府石室：书架、圆窗、蒲团、一盏灯 | 人物戏默认底 |
+| `town` | 落霞城街巷（白天）：屋檐、酒旗、城楼 | 城里的戏、三张帖子 |
+| `lantern` | 灯会夜河：拱桥、河灯 | 夜的戏、辞行 |
+| `herb` | 药庐：草庐、药圃、晒药匾 | 苏的戏 |
+| `tjgate` | 天剑宗山门：剑形山峰、长阶、巨剑石雕 | 问剑、石阶 |
+| `stele` / `stele2` | 天剑宗祖师碑前（完整 / 碎碑） | 第八章；按 `st_stele_broken` 选 |
+| `trib3k` | 三千年前的渡劫台（褪色青蓝、漩涡劫云、雨） | 回忆 |
+| `field` | 正魔大战：黄昏谷地，左蓝右红两军，中间一条路 | 第七章 |
+| `blood` | 血煞魔宗：黑柱、骨座、血池、红月 | 魔宗的戏 |
+| `grave` | 墨离衣冠冢：老松、小碑、雪 | 墨无痕的戏 |
+| `hall` | 宗门大殿：长阶、宗主座、红毯 | 议事、继任 |
+| `heaven` | 天门：云上两扇巨门，门缝漏光 | 第九章高潮 |
+| `void` | 天外：星海里悬着数不清的卷，正中一张空白的大卷 | “问天” |
+
+  传不认识的 kind 会落到 `ART.cineBg(kind)`（所以 `'dusk' 'ink' 'gate' 'clouds'` 也能传）。
+
+### 2 关键画面（200×120，大特写 / 定格）
+
+- `ART.storyCg(id, frame)` → 画布；`ART.storyCgIds`、`ART.storyCgFrames[id]` 是帧数。
+
+| id | 帧 | 画的是 |
+|---|---|---|
+| `ring` | 0 满锈 / 1 剥落一半 / 2 玉色 | 锈戒大特写（戒面是剑镡的形状） |
+| `stab` | 0 老祖记得的 / 1 真相 | 三千年前那一剑：白衣师父的背影、左边持剑的墨离；第 1 帧右边多出举剑的陆天衡，墨离的剑擦过师父的肩刺向他 |
+| `kneel` | 0 完整的碑 / 1 碎碑 | 陆天衡跪在碑前，左边地上横着那截断剑 |
+| `sword` | 0 三截排开 / 1 合一 | 玄霄 |
+| `jade` | 0 分开 / 1 合上 | 两块玉简 |
+| `door` | 0 门掩着 / 1 门开、门外人影 | 最后的访客 |
+| `fade` | 0 完整 / 1 半身 / 2 只剩光与一枚玉戒 | 老祖的背影在破庙里化成光点 |
+| `two` | 0，或传颜色串 | 山巅并肩看日出的两个背影；`frame` 传 `'#7fd8b0'` 这样的颜色 = 同行者的道袍色（缺省是老祖） |
+
+### 3 结局画面（200×120）
+
+- `ART.endingPic(id)` → 画布；`ART.endingPicIds`：`shitu` 师徒同归、`wentian` 问天、`dixian` 地仙·守人间、`gufeng` 孤峰、`mozun` 魔尊、`daolv_su` / `daolv_ye` 道侣同升、`zhige` 止戈。
+- 其他 id 落到原有的 `ART.backdrop(id)`（`ascend rest summit hermit`），再没有就是 `ascend`。
+
+### 4 表情叠加（48×48）
+
+- `ART.portraitX(id, mood, fx, alt)` → 画布：在 `ART.portrait(id, mood, alt)` 上再叠一层。`fx`（`ART.portraitFxNames`，可用空格连写多个）：
+
+| fx | 效果 | 典型用法 |
+|---|---|---|
+| `tear` | 两行泪 | 老祖得知真相、慕容被念休书 |
+| `shade` | 眉眼压一层阴影（只压肤色，不压头发） | 决绝、黑化、陆天衡 |
+| `blush` | 脸红 | 苏、夜 |
+| `blood` | 嘴角一道血 | 战后 |
+| `sweat` | 额角冷汗 | 赵乾 |
+| `mono` | 整张褪成青蓝 | 回忆里的人（年轻的陆天衡、墨离可用墨无痕的像） |
+| `fade` | 半透明、胸口以下化成光点 | 诀别后的老祖（“戒中余音”） |
+
+- 第一个参数也可以直接传一张 48×48 的画布（主角：`ART.portraitX(ART.portraitMe(look, realm, 'ang'), '', 'shade')`），这时不缓存。
+- 对话场景里的写法 `['mu:sad+tear', '……']` = `ART.portraitX('mu', 'sad', 'tear')`。
+
+### 5 对话场景小件
+
+- `ART.frame('talk')`：对话框九宫格（深墨底、金角，字色 `ink` 米白）。`ART.frame('talkName')` / `'talkNameMe'`：名牌（朱红 / 主角青色）。`ART.frame('talkPick')`：关键抉择的选项按钮（米纸底、左侧朱红竖条）。用法同其他 `ART.frame`。
+- `ART.talkNext(frame)` → 9×8“下一句”小三角，两帧（每 400ms 换）。
+- 新图标（`ART.icon(name)`，16×16，已进 `ART.iconNames()`）：`'branch'` 抉择（岔路）、`'echo'` 回响（涟漪——“先前的选择在这里起了作用”）、`'ending'` 结局（半开的门）。
+
+### 接线位置
+
+- 1～4：新 `src/ui/talk.js`（对话场景播放器）、`src/ui/cine2.js` 的数据式分镜（`CINE_DATA`）、`src/ui/life.js`（结局画面）。
+- 5：`src/ui/talk.js`；`'ending'` 图标用在图鉴结局页与结局卡。
+
+阶段九合计页面约 +25 KB。

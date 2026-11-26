@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf8">
+<style>
+@font-face{font-family:px;src:url(../../tools/fusion-pixel.ttf)}
+body{margin:0;background:#1b1326;color:#efe9ff;font:14px px,sans-serif;padding:16px;width:1700px}
+h3{margin:14px 0 6px;font-weight:normal;color:#f4c542;font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.it{text-align:center;font-size:12px;color:#9d93b8}
+canvas{image-rendering:pixelated;display:block;margin:0 auto 2px}
+</style>
+<h3>一 场景底图 ART.storyBg(kind) 200×120</h3><div class="row" id="bg"></div>
+<h3>二 关键画面 ART.storyCg(id, frame) 200×120</h3><div class="row" id="cg"></div>
+<h3>三 结局画面 ART.endingPic(id) 200×120</h3><div class="row" id="end"></div>
+<h3>四 表情叠加 ART.portraitX(id, mood, fx)</h3><div class="row" id="px"></div>
+<h3>五 对话框小件：ART.frame('talk' | 'talkName' | 'talkNameMe' | 'talkPick')、ART.talkNext(f)、图标 branch / echo / ending</h3><div class="row" id="ui"></div>
+<script src="../../src/art.js"></script>
+<script>
+window.L = window.L || { REALMS: Array.from({ length: 10 }, () => ({ robe: ['#34408a', '#5b6fd6', '#9fb0ff'], trim: '#efe3c4' })) };
+const add = (id, c, z, cap) => { const d = document.createElement('div'); d.className = 'it'; const e = document.createElement('canvas'); e.width = c.width * z; e.height = c.height * z; const g = e.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, e.width, e.height); d.appendChild(e); d.appendChild(document.createTextNode(cap || '')); document.getElementById(id).appendChild(d); };
+const only = new URLSearchParams(location.search).get('only');
+if (!only || only === 'bg') for (const k of ART.storyBgKinds) add('bg', ART.storyBg(k), 2, k);
+if (!only || only === 'cg') { for (const k of ART.storyCgIds) for (let f = 0; f < ART.storyCgFrames[k]; f++) add('cg', ART.storyCg(k, f), 2, k + ' ' + f); add('cg', ART.storyCg('two', '#7fd8b0'), 2, "two '#7fd8b0'（苏）"); }
+if (!only || only === 'end') for (const k of ART.endingPicIds) add('end', ART.endingPic(k), 2, k);
+if (!only || only === 'px') {
+  const L2 = [['elder', 'sad', 'tear'], ['elder', 'n', 'fade'], ['elder', 'n', 'mono'], ['mo', 'sad', 'tear'], ['mo', 'n', 'mono'], ['tianheng', 'n', 'shade'], ['tianheng', 'sad', 'tear'], ['tianheng', 'n', 'mono'], ['su', 'joy', 'blush'], ['su', 'sad', 'tear'], ['ye', 'joy', 'blush'], ['ye', 'ang', 'blood'], ['ye', 'sad', 'tear'], ['mu', 'sad', 'tear'], ['mu', 'ang', 'shade'], ['zhao', 'shock', 'sweat'], ['tian', 'ang', 'blood'], ['xue', 'joy', 'shade'], ['yun', 'n', 'shade'], ['chu', 'joy', 'blood'], ['ge', 'sad', 'tear'], ['bai', 'sad', 'tear'], ['bai', 'joy', 'blush']];
+  for (const [id, m, fx] of L2) add('px', ART.portraitX(id, m, fx), 3, id + ' ' + m + ' + ' + fx);
+  add('px', ART.portraitX(ART.portraitMe({ hair: '#2a2230', skin: '#f2c9a0', f: 0 }, 3, 'ang'), '', 'shade'), 3, '主角 ang + shade');
+  add('px', ART.portraitX(ART.portraitMe({ hair: '#2a2230', skin: '#f2c9a0', f: 1 }, 3, 'sad'), '', 'tear'), 3, '主角(女) sad + tear');
+}
+if (!only || only === 'ui') {
+  for (const k of ['talk', 'talkName', 'talkNameMe', 'talkPick']) add('ui', ART.frame(k).canvas, 5, k);
+  add('ui', ART.talkNext(0), 5, 'talkNext 0'); add('ui', ART.talkNext(1), 5, 'talkNext 1');
+  for (const k of ['branch', 'echo', 'ending']) add('ui', ART.icon(k), 5, k);
+}
+</script>

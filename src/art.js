@@ -5350,5 +5350,341 @@ ART.bossFighter = function (k, frame, flip) {
   const names7 = ART.iconNames; ART.iconNames = () => names7().concat(Object.keys(ICON8));
 }
 
+// ====================================================================
+// 阶段九·剧情（接口见 docs/ART_API.md “阶段九·剧情”，方案见 docs/STORY_PLAN.md）
+// 场景底图 ART.storyBg / 关键画面 ART.storyCg / 结局画面 ART.endingPic / 表情叠加 ART.portraitX / 对话框小件
+// ====================================================================
+{
+  const NIGHT = ['#0a0a1e', '#141438', '#232458', '#3a3a7a'];
+  const stars = (seed, n, h, w) => { const r = seeded(seed); for (let i = 0; i < n; i++) { const b = r(); R(r() * (w || 200), r() * h, 1, 1, b > 0.7 ? '#ffffff' : b > 0.35 ? '#9aa2dc' : '#55508a'); } };
+  const snow = (seed, n) => { const r = seeded(seed); for (let i = 0; i < n; i++) { const x = r() * 200, y = r() * 120; R(x, y, r() < 0.25 ? 2 : 1, 1, r() < 0.5 ? '#ffffff' : '#c8d4f0'); } };
+  const rays = (cx, cy, n, len, col, a) => { for (let i = 0; i < n; i++) { const an = -Math.PI + i * Math.PI / (n - 1); ctx.globalAlpha = (i % 2 ? 0.5 : 1) * a; for (let j = 0; j < len; j++) { const rr = 8 + j * 4, w = 1 + j * 0.4; R(cx + Math.cos(an) * rr - w / 2, cy + Math.sin(an) * rr, w, 4, col); } } ctx.globalAlpha = 1; };
+  const cloudBand = (seed, y, col, n) => { const r = seeded(seed); for (let i = 0; i < (n || 16); i++) disc((i * 14 + seed * 3) % 212 - 6, y + r() * 4, Math.round(5 + r() * 7), col); R(0, y + 5, 200, 120 - y, col); };
+  const dim = (a, col) => { ctx.globalAlpha = a; R(0, 0, 200, 120, col); ctx.globalAlpha = 1; };
+  // 小人：脚底 (x, y)，全高 h。o = { robe, trim, hair, skin, face 1 朝右 / -1 朝左, back 背影, long 披发, sword 1 垂剑 / 2 举剑 / 3 背剑 / 4 平刺, kneel, sit, sil 剪影色, sc 剑色 }
+  function sFig(x, y, h, o) {
+    o = o || {}; x = Math.round(x); y = Math.round(y);
+    const S = o.sil, robe = S || o.robe || '#5b6fd6', dark = S || lerpC(shade(robe, 0.62), COOL, 0.25), lit = S || lerpC(robe, '#ffffff', 0.3), skin = S || o.skin || '#f2c9a0', hair = S || o.hair || '#2a2230', f = o.face || 1, low = o.kneel || o.sit;
+    const hr = Math.max(2, Math.round(h * 0.12)), bh = Math.round(h * (low ? 0.44 : 0.72)), top = y - bh + 1, sw = Math.max(2, Math.round(h * 0.14)), hw = Math.max(3, Math.round(h * (low ? 0.3 : 0.2)));
+    if (o.sword === 3) line(x - f * (sw + 2), top + Math.round(bh * 0.5), x + f * (sw + 1), top - hr - 2, S || o.sc || '#c8d4e8');
+    for (let i = 0; i < bh; i++) { const w = Math.round(sw + (hw - sw) * Math.pow(i / Math.max(1, bh - 1), low ? 0.6 : 1.3)); R(x - w, top + i, w * 2 + 1, 1, robe); R(f > 0 ? x - w : x + w - 1, top + i, 2, 1, dark); if (i < bh * 0.5) R(f > 0 ? x + w : x - w, top + i, 1, 1, lit); }
+    if (!S) { R(x - sw, top + Math.round(bh * (low ? 0.55 : 0.42)), sw * 2 + 1, 1, o.trim || '#f6ecd0'); if (!o.back) R(x, top, 1, Math.round(bh * 0.4), o.trim || '#f6ecd0'); }
+    const hy = top - hr; disc(x, hy, hr, hair);
+    if (!o.back && !S) { R(f > 0 ? x - 1 : x - hr + 1, hy - 1, hr, hr + 1, skin); R(x - hr + 1, hy - hr, hr * 2 - 1, Math.max(1, hr - 1), hair); }
+    if (o.long) R(f > 0 ? x - hr - 1 : x + hr - 1 - (o.back ? hr : 0), hy, 2 + (o.back ? hr : 0), Math.round(h * 0.34), hair);
+    const hx = x + f * (sw + 1), hyy = top + Math.round(bh * (low ? 0.5 : 0.42)), sc = S || o.sc || '#e8f0ff', L = Math.round(h * 0.5);
+    if (o.sword === 1) line(hx, hyy, hx + f * Math.round(L * 0.45), Math.min(y, hyy + Math.round(L * 0.9)), sc);
+    if (o.sword === 2) line(hx, top + 1, hx + f * Math.round(L * 0.55), top - Math.round(L * 0.95), sc);
+    if (o.sword === 4) { line(hx, top + 3, hx + f * L, top + 2, sc); R(hx - (f < 0 ? 1 : 0), top + 2, 2, 3, S || '#f4c542'); }
+  }
+  const groundMen = (seed, n, y, col, x0, x1) => { const r = seeded(seed); for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * (i + r() * 0.6) / n, h = 5 + Math.floor(r() * 3); R(x, y - h, 3, h, col); disc(x + 1, y - h - 1, 1, col); if (r() < 0.4) R(x + 3, y - h - 5, 1, 7, col); } };
+  const lamp = (x, y, c) => { glow(x, y, 7, c || '#ffb23f', 0.5); R(x - 1, y - 2, 3, 4, c || '#ffd86a'); R(x - 1, y - 3, 3, 1, '#8a1e2e'); R(x, y - 1, 1, 2, '#fff6d8'); };
+  const stoneFloor = (y, c1, c2, cl) => { R(0, y, 200, 120 - y, c1); R(0, y, 200, 1, cl); for (let i = 0; i < 6; i++) { const yy = y + 3 + i * i * 0.9 + i * 2; if (yy < 120) R(0, yy, 200, 1, c2); } for (let i = -8; i <= 8; i++) line(100 + i * 13, y + 1, 100 + i * 24, 119, c2); };
+  function steleBase() {
+    vgrad(0, 0, 200, 96, ramp(['#1e2a4a', '#3a4a7a', '#6a7aa8', '#a8b4d0'], 6), 0.4);
+    paintRidge(ridgeLine(47, 200, 60, 26, 3, 2.2), 96, '#4a5a84', '#8a9ac0', { snow: 46 });
+    for (const x of [12, 40, 160, 188]) { const h = x < 30 || x > 170 ? 104 : 80; R(x - 5, 100 - h, 10, h, '#e0e4f0'); R(x - 5, 100 - h, 3, h, '#ffffff'); R(x + 3, 100 - h, 2, h, '#a0a8c0'); R(x - 7, 96 - h, 14, 4, '#aeb8c8'); R(x - 7, 96, 14, 4, '#aeb8c8'); }
+    R(0, 0, 200, 6, '#2a3050'); R(0, 6, 200, 2, '#aeb8c8');
+    stoneFloor(96, '#7a8098', '#6a7088', '#c8d0e8');
+    for (const s of [-1, 1]) { const x = 100 + s * 34; R(x - 1, 70, 2, 26, '#aeb8c8'); R(x - 3, 82, 6, 1, '#5a6480'); }
+  }
+
+  const STORY_BG = {
+    // 破庙夜：塌了半边的屋顶漏下月光，残佛，一堆将熄的火
+    temple: () => {
+      vgrad(0, 0, 200, 120, ramp(['#0c0a1c', '#1a1636', '#2a2450'], 6), 0.4); stars(3, 30, 40);
+      disc(138, 22, 9, '#e8ecff'); disc(141, 20, 8, '#1a1636'); glow(136, 22, 22, '#9aa8ff', 0.35);
+      ctx.globalAlpha = 0.16; for (let i = 0; i < 46; i++) R(96 + i * 0.35, 30 + i * 2, 34 + i * 0.5, 2, '#c8d4ff'); ctx.globalAlpha = 1;
+      R(0, 0, 200, 8, '#1a1424'); R(0, 8, 84, 6, '#241a2c'); R(150, 8, 50, 9, '#241a2c'); for (let i = 0; i < 9; i++) R(84 + i * 3, 8 + (i % 3), 3, 5 - (i % 4), '#241a2c');
+      line(60, 6, 112, 30, '#3a2a30', 3); line(170, 4, 150, 26, '#3a2a30', 3); R(0, 14, 12, 106, '#2a2030'); R(188, 17, 12, 103, '#2a2030'); R(12, 14, 3, 106, '#1a1424'); R(185, 17, 3, 103, '#1a1424');
+      for (const x of [34, 166]) { R(x - 4, 14, 8, 84, '#4a2a2c'); R(x - 4, 14, 2, 84, '#6a3a38'); R(x + 2, 14, 2, 84, '#2a1820'); R(x - 6, 94, 12, 4, '#3a3040'); }
+      R(78, 62, 44, 30, '#3a3448'); R(74, 88, 52, 8, '#2e283c'); R(74, 88, 52, 1, '#55506e'); ellipse(100, 60, 15, 12, '#4a445e'); disc(100, 42, 9, '#4a445e'); R(92, 30, 16, 5, '#4a445e'); disc(100, 30, 3, '#4a445e');
+      R(92, 40, 9, 12, '#5a5470'); for (let i = 0; i < 10; i++) R(104 + (i % 3), 34 + i * 2, 5 - (i % 3), 2, '#1a1636'); R(86, 58, 28, 1, '#6a6480'); R(93, 43, 3, 1, '#1a1424'); R(99, 43, 3, 1, '#1a1424');
+      R(0, 96, 200, 24, '#221c2e'); R(0, 96, 200, 1, '#3a3448'); const r = seeded(8); for (let i = 0; i < 40; i++) R(r() * 200, 98 + r() * 22, 2 + r() * 6, 1, i % 2 ? '#2e283c' : '#1a1424');
+      ctx.globalAlpha = 0.3; dR(110, 97, 50, 14, '#c8d4ff', 6); ctx.globalAlpha = 1;
+      glow(52, 104, 22, '#ff8a3a', 0.45); R(44, 107, 16, 2, '#3a2a20'); line(44, 108, 58, 104, '#4a3020', 2); R(49, 101, 5, 6, '#ff8a3a'); R(50, 99, 3, 6, '#ffd86a'); R(51, 97, 1, 3, '#fff6d8');
+      for (const [x, y] of [[20, 20], [24, 26], [178, 30], [174, 24]]) line(x, y, x + 8, y + 10, '#3a3448');
+    },
+    // 洞府石室：石壁、蒲团、一盏灯、书架
+    cave: () => {
+      R(0, 0, 200, 120, '#2a2438'); const r = seeded(4); for (let i = 0; i < 90; i++) { const x = r() * 200, y = r() * 88; R(x, y, 4 + r() * 12, 1 + (i % 3 === 0 ? 1 : 0), i % 2 ? '#342c46' : '#221c30'); }
+      for (let x = 0; x < 200; x += 2) { const h = 6 + Math.abs(Math.sin(x * 0.11) * 7 + Math.sin(x * 0.37) * 3); R(x, 0, 2, h, '#16121e'); }
+      R(0, 0, 14, 120, '#16121e'); R(186, 0, 14, 120, '#16121e'); for (let y = 0; y < 120; y += 3) { R(14, y, 2 + (y * 7 % 4), 3, '#16121e'); R(184 - (y * 5 % 4), y, 4, 3, '#16121e'); }
+      disc(150, 40, 17, '#16121e'); disc(150, 40, 15, '#232458'); disc(155, 35, 5, '#e8ecff'); R(135, 40, 31, 1, '#16121e'); R(150, 25, 1, 31, '#16121e'); glow(150, 40, 26, '#6a7adc', 0.25);
+      R(24, 34, 40, 54, '#3a2a24'); for (let k = 0; k < 3; k++) { R(26, 37 + k * 17, 36, 13, '#1e1620'); for (let i = 0; i < 9; i++) R(27 + i * 4, 39 + k * 17 + (i * 3 % 3), 3, 11 - (i * 3 % 3), ['#8a3a3a', '#3a5a8a', '#c8a84a', '#4a7a5a', '#6a4a8a'][(i + k) % 5]); }
+      stoneFloor(88, '#3a3448', '#2a2438', '#5a5470');
+      ellipse(100, 106, 22, 5, '#5a3a26'); ellipse(100, 105, 20, 4, '#8a5c36'); ellipse(100, 104, 14, 2, '#b98a4c');
+      R(170, 74, 2, 16, '#3a2a24'); lamp(171, 72); ctx.globalAlpha = 0.18; dR(140, 88, 50, 14, '#ffb23f', 6); ctx.globalAlpha = 1;
+    },
+    // 落霞城街巷：白日，屋檐酒旗，远处城楼
+    town: () => {
+      vgrad(0, 0, 200, 70, ramp(['#5a8ad0', '#8ab4e8', '#c8e0f4', '#f6e8c8'], 6), 0.4);
+      for (const [x, y, w] of [[20, 14, 40], [120, 22, 50]]) { ctx.globalAlpha = 0.85; dR(x, y, w, 4, '#ffffff', 10); dR(x + 6, y - 3, w - 16, 3, '#ffffff', 8); ctx.globalAlpha = 1; }
+      paintRidge(ridgeLine(91, 200, 56, 18, 4, 1.5), 74, '#8a9ac0', '#c8d4e8');
+      R(84, 34, 32, 36, '#8a7a72'); R(80, 30, 40, 5, '#5a3a3a'); R(76, 28, 48, 3, '#3a2a30'); R(88, 20, 24, 9, '#a85a4a'); R(84, 17, 32, 4, '#3a2a30'); R(96, 48, 8, 22, '#2a2030');
+      const house = (x, w, h, f) => { R(x, 74 - h, w, h + 22, '#d8c8a8'); R(x, 74 - h, w, 2, '#a89878'); R(x - 4, 68 - h, w + 8, 7, '#4a4a6a'); R(x - 4, 68 - h, w + 8, 1, '#7a7a9a'); for (let i = 0; i < w + 8; i += 3) R(x - 4 + i, 70 - h, 1, 5, '#3a3a56'); R(x + 4, 80 - h, w - 8, 8, '#5a3a26'); R(x + 5, 81 - h, w - 10, 6, '#2a2030'); R(x + (f > 0 ? w - 12 : 4), 76, 9, 20, '#5a3a26'); };
+      house(52, 24, 22, 1); house(126, 24, 24, -1); house(0, 46, 40, 1); house(154, 46, 44, -1);
+      for (const [x, y, c] of [[48, 44, '#d8404a'], [150, 40, '#2a8a7a']]) { R(x, y, 1, 22, '#3a2a24'); R(x + 1, y, 9, 14, c); R(x + 1, y, 9, 1, lerpC(c, '#ffffff', 0.4)); R(x + 4, y + 3, 3, 8, '#fff6d8'); }
+      R(0, 96, 200, 24, '#b8a890'); R(0, 96, 200, 1, '#e6d8b4'); const r = seeded(6); for (let i = 0; i < 50; i++) R(r() * 200, 98 + r() * 22, 5 + r() * 9, 1, i % 2 ? '#a89878' : '#c8b8a0');
+      for (const [x, c] of [[62, '#8a3a3a'], [70, '#3a5a8a'], [132, '#4a7a5a'], [140, '#c8a84a']]) sFig(x, 98, 12, { robe: c, face: x < 100 ? 1 : -1 });
+    },
+    // 灯会夜河：拱桥、河灯、两岸灯笼
+    lantern: () => {
+      vgrad(0, 0, 200, 70, ramp(NIGHT, 6), 0.4); stars(14, 46, 50); disc(40, 20, 8, '#fff2d0'); glow(40, 20, 20, '#ffe8a8', 0.35);
+      for (const [x, w, h] of [[0, 34, 26], [30, 22, 18], [150, 20, 20], [168, 32, 30]]) { R(x, 70 - h, w, h, '#16122e'); R(x - 3, 68 - h, w + 6, 3, '#231c40'); for (let i = 0; i < 3; i++) if ((x + i) % 2) R(x + 4 + i * 8, 76 - h, 3, 4, '#ffd86a'); }
+      vgrad(0, 70, 200, 50, ramp(['#141438', '#1e1e52', '#101030'], 6), 0.4);
+      for (let i = 0; i < 26; i++) { const x = (i * 37) % 200, y = 74 + (i * 13) % 44; R(x, y, 6 + (i % 5) * 3, 1, '#2e2e6a'); }
+      for (let x = 62; x <= 138; x++) { const u = (x - 100) / 38, y = 72 - Math.round((1 - u * u) * 12); R(x, y, 1, 78 - y, x % 2 ? '#141438' : '#101030'); }
+      for (let x = 44; x <= 156; x++) { const u = (x - 100) / 56, y = 66 - Math.round((1 - u * u) * 16); R(x, y, 1, 5, '#55506e'); R(x, y, 1, 1, '#8a86a0'); if (x % 8 === 0) R(x, y - 5, 1, 5, '#3a3155'); R(x, y - 5, 1, 1, '#3a3155'); }
+      R(44, 68, 18, 10, '#3a3155'); R(138, 68, 18, 10, '#3a3155');
+      const r = seeded(19); for (let i = 0; i < 16; i++) { const x = 8 + r() * 184, y = 84 + r() * 26, c = ['#ffb23f', '#ff7a5a', '#ffd86a', '#f6a0c0'][i % 4]; glow(x, y, 5, c, 0.4); R(x - 1, y - 1, 3, 2, c); R(x, y - 2, 1, 1, '#fff6d8'); ctx.globalAlpha = 0.35; R(x - 1, y + 2, 3, 3, c); ctx.globalAlpha = 1; }
+      for (let i = 0; i < 9; i++) lamp(48 + i * 13, 50 - Math.round((1 - Math.pow((i - 4) / 4.4, 2)) * 15), i % 2 ? '#ff7a5a' : '#ffd86a');
+      R(0, 113, 200, 7, '#16122e'); R(0, 113, 200, 1, '#3a3155');
+    },
+    // 药庐：草庐、药圃、晒药的匾、远山晨雾
+    herb: () => {
+      vgrad(0, 0, 200, 70, ramp(['#8ac0c8', '#b8dcd0', '#e8f0d0', '#fff6dc'], 6), 0.4); disc(160, 26, 9, '#fff6d8'); glow(160, 26, 26, '#fff2a8', 0.5);
+      paintRidge(ridgeLine(23, 200, 50, 22, 3, 1.6), 78, '#7aa898', '#d8ecd8'); paintRidge(ridgeLine(29, 200, 66, 12, 5, 1.3), 84, '#4a8a6a', '#a8d0a8', { trees: '#2f6a52' });
+      ctx.globalAlpha = 0.6; dR(0, 62, 200, 8, '#ffffff', 8); ctx.globalAlpha = 1;
+      R(0, 84, 200, 36, '#6a9a5a'); R(0, 84, 200, 1, '#a8d08a');
+      R(18, 50, 56, 38, '#d8c8a0'); R(18, 50, 56, 2, '#a89868'); for (let i = 0; i < 16; i++) R(10 + i * 2.2, 50 - i, 72 - i * 4.4, 1, i % 2 ? '#b98a4c' : '#a8742a'); R(36, 62, 14, 26, '#5a3a26'); R(37, 63, 12, 25, '#2a2030'); R(56, 60, 12, 10, '#5a3a26'); R(57, 61, 10, 8, '#f6ecd0'); R(62, 61, 1, 8, '#5a3a26');
+      for (let i = 0; i < 4; i++) { const y = 92 + i * 5; R(84, y, 110, 3, '#5a3a26'); for (let x = 86; x < 192; x += 5) { const c = ['#4ccb9f', '#8fe08a', '#f6a0c0', '#ffd86a', '#c27dff'][(x + i * 2) % 5]; R(x, y - 3, 2, 3, '#2f6a52'); R(x, y - 4, 2, 1, c); } }
+      for (let x = 0; x < 200; x += 6) { R(x, 110, 1, 10, '#b98a4c'); R(x + 3, 112, 1, 8, '#8a5c36'); } R(0, 113, 200, 1, '#b98a4c'); R(0, 117, 200, 1, '#8a5c36');
+      for (const x of [92, 116]) { ellipse(x, 80, 9, 3, '#8a5c36'); ellipse(x, 79, 8, 2, x === 92 ? '#c8a84a' : '#a85a4a'); R(x - 6, 82, 1, 5, '#5a3a26'); R(x + 6, 82, 1, 5, '#5a3a26'); }
+    },
+    // 天剑宗山门：冷蓝天色，剑一样的山峰，长阶，阶旁巨剑石雕
+    tjgate: () => {
+      vgrad(0, 0, 200, 90, ramp(['#2a3a6a', '#4a6aa0', '#8aa8d0', '#d0e0f0'], 6), 0.4);
+      for (const [x, w, h, c] of [[30, 18, 70, '#5a6a94'], [58, 12, 52, '#6a7aa4'], [150, 20, 76, '#5a6a94'], [176, 14, 56, '#6a7aa4'], [100, 26, 84, '#4a5a84']]) { for (let i = 0; i < h; i++) { const ww = Math.max(1, Math.round(w * (i / h))); R(x - ww / 2, 96 - h + i, ww, 1, c); R(x - ww / 2, 96 - h + i, Math.max(1, ww / 4), 1, lerpC(c, '#ffffff', 0.35)); } R(x - 1, 96 - h, 2, 6, '#f4f6ff'); }
+      ctx.globalAlpha = 0.75; dR(0, 70, 200, 8, '#ffffff', 9); dR(20, 64, 90, 5, '#ffffff', 6); ctx.globalAlpha = 1;
+      R(0, 96, 200, 24, '#4a5068');
+      for (let i = 0; i < 12; i++) { const y = 118 - i * 4, w = 100 - i * 6; R(100 - w / 2, y - 4, w, 4, i % 2 ? '#7a8098' : '#8a90a8'); R(100 - w / 2, y - 4, w, 1, '#c8d0e8'); }
+      R(64, 44, 72, 5, '#2a3050'); R(60, 40, 80, 5, '#3a4268'); R(60, 40, 80, 1, '#8a96c8'); for (const s of [-1, 1]) { R(100 + s * 28 - 3, 49, 6, 24, '#e8ecf8'); R(100 + s * 28 - 3, 49, 2, 24, '#ffffff'); R(100 + s * 28 + 1, 49, 2, 24, '#a8b0c8'); } R(86, 50, 28, 8, '#2a3050'); R(88, 52, 24, 4, '#aeb8c8');
+      for (const s of [-1, 1]) { const x = 100 + s * 70; R(x - 2, 60, 4, 50, '#aeb8c8'); R(x - 2, 60, 1, 50, '#eef4ff'); R(x - 1, 56, 2, 4, '#eef4ff'); R(x - 6, 96, 12, 3, '#5a6480'); R(x - 1, 99, 2, 8, '#5a6480'); R(x - 8, 108, 16, 12, '#55506e'); R(x - 8, 108, 16, 1, '#8a86a0'); }
+    },
+    // 天剑宗祖师碑前：廊柱，正中一块高碑
+    stele: () => { steleBase(); R(88, 30, 24, 62, '#6a7088'); R(88, 30, 3, 62, '#9aa0b8'); R(109, 30, 3, 62, '#4a5068'); R(86, 26, 28, 5, '#4a5068'); R(90, 22, 20, 5, '#5a6078'); for (let i = 0; i < 9; i++) R(96 + (i % 2) * 5, 38 + i * 5, 3, 3, '#3a4058'); R(82, 90, 36, 6, '#4a5068'); R(82, 90, 36, 1, '#8a90a8'); },
+    // 碎碑：碑断成两截，碎石满地（“碎碑正名”之后）
+    stele2: () => { steleBase(); R(88, 66, 24, 26, '#6a7088'); R(88, 66, 3, 26, '#9aa0b8'); for (let i = 0; i < 12; i++) R(88 + i * 2, 62 + (i * 5 % 5), 2, 5, '#6a7088'); R(82, 90, 36, 6, '#4a5068'); R(82, 90, 36, 1, '#8a90a8');
+      for (let i = 0; i < 12; i++) { R(124 + i, 94 + i * 0.5, 22 - i, 1, '#5a6078'); } R(124, 93, 22, 1, '#8a90a8'); const r = seeded(27); for (let i = 0; i < 22; i++) { const x = 60 + r() * 90, y = 98 + r() * 16, s = 1 + Math.floor(r() * 4); R(x, y, s + 1, s, i % 2 ? '#6a7088' : '#4a5068'); R(x, y, s + 1, 1, '#9aa0b8'); } },
+    // 三千年前·渡劫台（回忆，褪色青蓝）：孤台、漩涡劫云
+    trib3k: () => {
+      vgrad(0, 0, 200, 120, ramp(['#0e1420', '#1c2c40', '#34506a', '#6a8a9a'], 6), 0.4);
+      for (let i = 0; i < 150; i++) { const a = i * 0.42, rr = 6 + i * 0.52; ctx.globalAlpha = 0.5; disc(100 + Math.cos(a) * rr * 1.5, 22 + Math.sin(a) * rr * 0.42, 4 + (i % 4), i % 3 ? '#1c2434' : '#3a4a60'); } ctx.globalAlpha = 1;
+      disc(100, 22, 6, '#e8f4ff'); glow(100, 22, 22, '#a8d8ff', 0.6);
+      paintRidge(ridgeLine(43, 200, 92, 16, 4, 1.4), 120, '#1c2c40', '#34506a');
+      for (let i = 0; i < 38; i++) { const w = 26 + i * 1.3; R(100 - w, 82 + i, w * 2, 1, i < 2 ? '#a8c0d0' : i % 6 === 0 ? '#3a5068' : '#4a6a84'); } R(66, 80, 68, 3, '#6a8a9a'); R(66, 80, 68, 1, '#c8e0f0');
+      for (const x of [70, 130]) { R(x - 2, 60, 4, 20, '#4a6a84'); R(x - 2, 60, 1, 20, '#8ab0c8'); R(x - 3, 58, 6, 2, '#6a8a9a'); }
+      const r = seeded(77); for (let i = 0; i < 60; i++) { ctx.globalAlpha = 0.25; R(r() * 200, r() * 120, 1, 3 + r() * 5, '#c8e0f0'); } ctx.globalAlpha = 1;
+    },
+    // 正魔大战：黄昏的谷地，左蓝右红两军对阵，中间空出一条路
+    field: () => {
+      vgrad(0, 0, 200, 84, ramp(['#2a1a3a', '#6a2a4a', '#c8503a', '#f0a050', '#ffe0a0'], 6), 0.4); disc(100, 70, 16, '#fff2c8'); glow(100, 70, 44, '#ffb23f', 0.6);
+      for (let i = 0; i < 60; i++) { ctx.globalAlpha = 0.5; disc((i * 37) % 70 - 8, 8 + (i * 7) % 24, 5, '#3a4a8a'); disc(138 + (i * 31) % 70, 8 + (i * 11) % 24, 5, '#6a1a2a'); } ctx.globalAlpha = 1;
+      paintRidge(ridgeLine(61, 200, 62, 24, 3, 1.8), 84, '#3a2040', '#8a4a50');
+      R(0, 84, 200, 36, '#3a2a34'); R(0, 84, 200, 1, '#8a5a50'); const r = seeded(33); for (let i = 0; i < 50; i++) R(r() * 200, 86 + r() * 34, 4 + r() * 10, 1, i % 2 ? '#4a3640' : '#2a1e28');
+      ctx.globalAlpha = 0.3; for (let i = 0; i < 36; i++) R(100 - 6 - i * 0.6, 84 + i, 12 + i * 1.2, 1, '#ffd88a'); ctx.globalAlpha = 1;
+      for (let k = 0; k < 3; k++) { groundMen(40 + k, 9 + k * 2, 94 + k * 10, ['#2a3a6a', '#22305a', '#1a2648'][k], -4, 78 - k * 8); groundMen(50 + k, 9 + k * 2, 94 + k * 10, ['#6a1a2a', '#5a1420', '#481018'][k], 122 + k * 8, 204); }
+      for (const [x, y, h, c, f] of [[18, 94, 24, '#4aa8ff', 1], [52, 104, 28, '#4aa8ff', 1], [182, 94, 24, '#c8323c', -1], [148, 104, 28, '#c8323c', -1]]) { R(x, y - h, 1, h, '#1b1326'); R(f > 0 ? x + 1 : x - 10, y - h, 10, 6, c); R(f > 0 ? x + 1 : x - 10, y - h, 10, 1, lerpC(c, '#ffffff', 0.4)); }
+    },
+    // 血煞魔宗·血池大殿：黑石柱、血池、骨座、红月
+    blood: () => {
+      vgrad(0, 0, 200, 120, ramp(['#0e0408', '#2a0a14', '#4a1020', '#2a0a14'], 6), 0.4);
+      disc(100, 30, 15, '#8a1020'); disc(100, 30, 13, '#c8323c'); disc(96, 26, 5, '#e8605a'); glow(100, 30, 40, '#c8323c', 0.45);
+      for (const x of [16, 46, 154, 184]) { const h = x < 30 || x > 170 ? 108 : 88; R(x - 6, 110 - h, 12, h, '#1a0c14'); R(x - 6, 110 - h, 3, h, '#3a1a26'); R(x + 4, 110 - h, 2, h, '#0a0408'); R(x - 8, 106 - h, 16, 4, '#2a1420'); R(x - 1, 116 - h, 2, 12, '#c8323c'); }
+      R(84, 46, 32, 34, '#1a0c14'); R(80, 40, 6, 44, '#2a1420'); R(114, 40, 6, 44, '#2a1420'); for (const x of [80, 114]) { R(x, 36, 2, 5, '#e8e0d0'); R(x + 4, 36, 2, 5, '#e8e0d0'); } R(88, 62, 24, 4, '#4a1020'); R(84, 78, 32, 4, '#2a1420');
+      for (let i = 0; i < 5; i++) R(70 - i * 6, 82 + i * 3, 60 + i * 12, 3, i % 2 ? '#2a1420' : '#1a0c14');
+      ellipse(100, 108, 78, 11, '#4a0a14'); ellipse(100, 108, 74, 9, '#8a1020'); ellipse(100, 107, 66, 6, '#c8323c'); for (let i = 0; i < 12; i++) R(34 + (i * 29) % 130, 104 + (i * 5) % 8, 8 + (i % 3) * 4, 1, '#e8605a'); for (const [x, y] of [[60, 104], [128, 109], [96, 111]]) { disc(x, y, 2, '#e8605a'); R(x, y - 1, 1, 1, '#ffb0a0'); }
+      R(0, 0, 200, 4, '#0a0408');
+    },
+    // 墨离衣冠冢：老松、无字小碑、细雪
+    grave: () => {
+      vgrad(0, 0, 200, 86, ramp(['#4a5878', '#7a88a8', '#b0bcd0', '#e0e4ec'], 6), 0.4);
+      paintRidge(ridgeLine(83, 200, 58, 24, 3, 1.6), 90, '#6a789a', '#c8d0e0', { snow: 60 }); paintRidge(ridgeLine(87, 200, 78, 10, 5, 1.2), 96, '#8a94ac', '#e0e4ec', { snow: 84 });
+      R(0, 90, 200, 30, '#e8ecf4'); R(0, 90, 200, 1, '#ffffff'); const r = seeded(15); for (let i = 0; i < 30; i++) R(r() * 200, 92 + r() * 28, 6 + r() * 14, 1, '#c8d0e0');
+      ellipse(110, 96, 22, 7, '#a8aec0'); ellipse(110, 94, 20, 6, '#f4f6ff'); R(102, 70, 16, 24, '#5a6078'); R(102, 70, 3, 24, '#8a90a8'); R(100, 67, 20, 4, '#4a5068'); R(100, 66, 20, 1, '#f4f6ff'); R(98, 94, 24, 3, '#4a5068');
+      line(52, 100, 58, 50, '#3a2a28', 3); line(57, 62, 76, 48, '#3a2a28', 2); line(55, 72, 38, 60, '#3a2a28', 2); for (const [x, y, w] of [[60, 42, 24], [78, 46, 16], [34, 56, 18], [52, 34, 16]]) { ellipse(x, y, w / 2, 4, '#1e3a4a'); ellipse(x, y - 1, w / 2 - 1, 3, '#2f5a52'); R(x - w / 2 + 2, y - 4, w - 4, 2, '#f4f6ff'); }
+      R(128, 96, 5, 4, '#8a5c36'); R(129, 94, 3, 2, '#d8c8a0'); R(136, 97, 3, 3, '#aeb8c8'); snow(55, 70);
+    },
+    // 宗门大殿：长阶尽头的宗主座，两排灯
+    hall: () => {
+      vgrad(0, 0, 200, 120, ramp(['#1a1428', '#2a2040', '#3a2c52'], 6), 0.4);
+      R(60, 20, 80, 58, '#2a2040'); R(62, 22, 76, 56, '#3a2c52'); disc(100, 40, 14, '#c8a84a'); disc(100, 40, 12, '#3a2c52'); disc(100, 40, 8, '#f4c542'); disc(100, 40, 6, '#3a2c52'); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; R(100 + Math.cos(a) * 10 - 1, 40 + Math.sin(a) * 10 - 1, 2, 2, '#fff2a8'); } glow(100, 40, 26, '#f4c542', 0.3);
+      R(86, 56, 28, 22, '#6a2a2c'); R(86, 56, 28, 2, '#c8a84a'); R(82, 50, 5, 28, '#8a3a34'); R(113, 50, 5, 28, '#8a3a34'); R(90, 66, 20, 4, '#a84a40');
+      for (let i = 0; i < 7; i++) { const y = 78 + i * 5, w = 56 + i * 16; R(100 - w / 2, y, w, 5, i % 2 ? '#4a4058' : '#55506e'); R(100 - w / 2, y, w, 1, '#8a86a0'); R(100 - 9 - i, y, 18 + i * 2, 5, i % 2 ? '#8a1e2e' : '#a83030'); }
+      R(0, 113, 200, 7, '#2a2040');
+      for (const x of [14, 44, 156, 186]) { const h = x < 30 || x > 170 ? 110 : 92; R(x - 6, 112 - h, 12, h, '#6a2a2c'); R(x - 6, 112 - h, 3, h, '#a84a40'); R(x + 4, 112 - h, 2, h, '#3a1a20'); R(x - 8, 108 - h, 16, 4, '#c8a84a'); R(x - 8, 108, 16, 4, '#4a4058'); }
+      for (const s of [-1, 1]) for (let i = 0; i < 2; i++) lamp(100 + s * (62 + i * 22), 90 + i * 12);
+    },
+    // 天门：云海之上两扇巨门，门缝漏光
+    heaven: () => {
+      vgrad(0, 0, 200, 120, ramp(['#141040', '#2a2a7a', '#6a6ac0', '#c8b8e8', '#fff2d0'], 6), 0.4); stars(71, 50, 46);
+      rays(100, 62, 15, 26, '#fff2a8', 0.3); glow(100, 60, 46, '#fff2a8', 0.6);
+      for (const s of [-1, 1]) { const x = s < 0 ? 62 : 104; R(x, 14, 34, 86, '#c8a84a'); R(x + 2, 16, 30, 84, '#8a6a2a'); R(x + 4, 18, 26, 82, '#a8842e'); for (let k = 0; k < 3; k++) { R(x + 7, 24 + k * 26, 20, 18, '#c8a84a'); R(x + 9, 26 + k * 26, 16, 14, '#8a6a2a'); disc(x + 17, 33 + k * 26, 3, '#f4c542'); } R(s < 0 ? x + 30 : x + 2, 54, 3, 10, '#fff2a8'); }
+      R(96, 14, 8, 86, '#fffbe8'); R(98, 14, 4, 86, '#ffffff'); glow(100, 56, 14, '#ffffff', 0.7);
+      R(54, 6, 92, 9, '#8a6a2a'); R(50, 2, 100, 6, '#c8a84a'); R(50, 2, 100, 1, '#fff2a8'); for (const x of [54, 142]) { R(x - 4, 8, 8, 92, '#e8e0d0'); R(x - 4, 8, 2, 92, '#ffffff'); R(x + 2, 8, 2, 92, '#a8a0b0'); }
+      cloudBand(5, 92, '#b8a8d8'); cloudBand(9, 100, '#e0d4f0'); cloudBand(13, 108, '#ffffff', 18);
+    },
+    // 天外：门后没有仙宫，只有一片星海，悬着数不清的卷——“它们出题，从不改卷”
+    void: () => {
+      vgrad(0, 0, 200, 120, ramp(['#04040c', '#0a0a22', '#16103a', '#0a0a22'], 6), 0.4); stars(101, 150, 120);
+      for (let i = 0; i < 80; i++) { const a = i * 0.5, rr = 10 + i * 1.1; ctx.globalAlpha = 0.25; R(100 + Math.cos(a) * rr * 1.5, 50 + Math.sin(a) * rr * 0.5, 2, 1, i % 2 ? '#6a5ac0' : '#c27dff'); } ctx.globalAlpha = 1;
+      const r = seeded(64); for (let i = 0; i < 17; i++) { const x = 10 + r() * 180, y = 8 + r() * 84, w = 7 + Math.floor(r() * 9), d = r() < 0.5; if (x > 64 && x < 128 && y > 16 && y < 80) continue; ctx.globalAlpha = 0.45 + r() * 0.55; R(x, y, w, 2, '#c8a84a'); R(x + 1, y + 2, w - 2, d ? 12 : 7, '#efe3c4'); for (let k = 0; k < (d ? 4 : 2); k++) R(x + 2, y + 4 + k * 2, w - 4 - (k % 2) * 2, 1, '#8a7a5a'); R(x, y + (d ? 14 : 9), w, 1, '#c8a84a'); } ctx.globalAlpha = 1;
+      glow(100, 54, 40, '#c27dff', 0.3);
+      R(74, 30, 52, 3, '#f4c542'); R(76, 33, 48, 44, '#fff6dc'); R(74, 77, 52, 3, '#f4c542'); for (let k = 0; k < 6; k++) R(82, 39 + k * 5, 36 - (k * 7) % 12, 1, '#c8b48c'); R(106, 62, 12, 10, '#d8404a'); R(108, 64, 8, 6, '#fff6dc'); R(110, 66, 4, 2, '#d8404a');
+      cloudBand(21, 110, '#16103a', 14);
+    },
+  };
+  ART.storyBgKinds = Object.keys(STORY_BG);
+  ART.storyBg = kind => (STORY_BG[kind] ? cached('sbg|' + kind, () => on(mk(200, 120), () => { STORY_BG[kind](); frameEdge(); })) : ART.cineBg(kind));
+
+  // ---------- 关键画面（大特写 / 定格）200×120 ----------
+  const ME_ROBE = '#5b6fd6', ELDER = { robe: '#7aa8e0', hair: '#f0f9ff', skin: '#a6cdee', trim: '#e6f6ff', long: 1 };
+  const bigRing = (cx, cy, f) => {
+    const jade = ['#2a8a7a', '#5fd3b0', '#c8fff0'], rust = ['#4a2a20', '#8a5030', '#b87a4a'];
+    const isJ = a => f === 2 || (f === 1 && (a > 200 || a < 40));
+    for (let a = 0; a < 360; a += 1) { const t = a * Math.PI / 180, P = isJ(a) ? jade : rust;
+      for (let rr = 22; rr <= 33; rr++) R(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.62, 2, 2, rr < 25 ? P[0] : rr > 30 ? (Math.sin(t) < -0.2 ? P[2] : P[1]) : P[1]); }
+    const r = seeded(12 + f); if (f < 2) for (let i = 0; i < 46; i++) { const t = r() * 6.28, rr = 23 + r() * 9; if (isJ((t * 180 / Math.PI) % 360)) continue; R(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.62, 2, 1, i % 3 ? '#3a2018' : '#c88a50'); }
+    R(cx - 12, cy - 30, 24, 12, f === 2 ? jade[0] : rust[0]); R(cx - 10, cy - 28, 20, 8, f === 2 ? jade[1] : f === 1 ? '#6a9a80' : rust[1]); R(cx - 10, cy - 28, 20, 1, f === 2 ? jade[2] : rust[2]); R(cx - 2, cy - 27, 4, 6, f ? '#e8fff8' : '#3a2018'); R(cx - 6, cy - 25, 12, 2, f ? '#e8fff8' : '#3a2018');
+    if (f) { glow(cx, cy - 24, f === 2 ? 26 : 12, '#8ff0d0', f === 2 ? 0.6 : 0.35); for (let i = 0; i < (f === 2 ? 16 : 6); i++) { const t = r() * 6.28, rr = 36 + r() * 16; R(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr * 0.7, 1, 1, '#c8fff0'); } }
+    if (f === 1) for (let i = 0; i < 9; i++) R(cx + 20 + r() * 26, cy - 6 + i * 4 + r() * 3, 2, 2, rust[i % 3]);
+  };
+  const STORY_CG = {
+    // 锈戒大特写：三帧（满锈 / 剥落一半 / 玉色）
+    ring: f => { vgrad(0, 0, 200, 120, ramp(f === 2 ? ['#0e2a30', '#1a4a4a', '#2a6a5a'] : ['#141020', '#241a30', '#3a2a40'], 6), 0.4); ellipse(100, 100, 50, 7, '#0a0810'); bigRing(100, 66, f); },
+    // 三千年前那一剑。0 = 老祖记得的：墨离持剑刺来；1 = 真相：剑越过师父肩头，刺的是他背后举剑的陆天衡
+    stab: f => {
+      STORY_BG.trib3k(); dim(0.25, '#0a1018');
+      const S = '#060a12', rim = (x, y, h, o) => { sFig(x - 1, y, h, Object.assign({}, o, { sil: '#6a8aa8' })); sFig(x, y, h, o); };
+      if (f) { rim(136, 83, 44, { sil: S, face: -1, sword: 2, long: 1 }); glow(124, 30, 6, '#ff5a4a', 0.6); }
+      sFig(100, 83, 46, { robe: '#a8c4d8', hair: '#e8f4ff', trim: '#e8f4ff', sc: '#e8f4ff', back: 1, long: 1 });
+      rim(54, 83, 42, { sil: S, face: 1 });
+      const tx = f ? 130 : 93, ty = f ? 44 : 60; line(64, 58, tx, ty, '#e8f4ff'); line(64, 59, tx, ty + 1, '#a8d8ff');
+      if (f) { glow(tx, ty, 9, '#ffffff', 0.7); for (let i = 0; i < 7; i++) line(tx, ty, tx + Math.cos(i) * 12, ty + Math.sin(i * 1.7) * 9, '#ffffff'); } else glow(tx, ty, 7, '#ffffff', 0.5);
+      glow(100, 22, 30, '#a8d8ff', 0.5); for (const x of [92, 104, 110]) line(100, 24, x, 44, '#e8f4ff');
+    },
+    // 陆天衡跪在碑前，腰间那截断剑解下来横在地上（f = 1 用碎碑底）
+    kneel: f => { (f ? STORY_BG.stele2 : STORY_BG.stele)(); dim(0.3, '#0a1020'); sFig(100, 114, 44, { robe: '#e8ecf8', hair: '#3a3a52', skin: '#e8c8a8', trim: '#aeb8c8', back: 1, kneel: 1, long: 1 }); R(56, 112, 22, 2, '#8a5030'); R(56, 112, 22, 1, '#b87a4a'); R(52, 111, 5, 4, '#4a2a20'); glow(66, 112, 8, '#8ff0d0', 0.3); },
+    // 玄霄三截：0 三截排开 / 1 合一、通体青光
+    sword: f => {
+      vgrad(0, 0, 200, 120, ramp(['#101428', '#1c2444', '#2c3866'], 6), 0.4); if (f) { rays(100, 60, 17, 24, '#8ff0d0', 0.25); glow(100, 60, 50, '#8ff0d0', 0.5); }
+      const seg = (x0, x1, y, rusty) => { for (let x = x0; x <= x1; x++) { R(x, y - 3, 1, 7, rusty ? '#8a5030' : '#c8fff0'); R(x, y - 3, 1, 2, rusty ? '#b87a4a' : '#ffffff'); R(x, y + 3, 1, 1, rusty ? '#4a2a20' : '#5fd3b0'); R(x, y, 1, 1, rusty ? '#6a3a26' : '#8ff0d0'); } };
+      if (f) { seg(52, 164, 60, 0); for (let i = 0; i < 8; i++) R(164 + i, 60 - 3 + Math.ceil(i / 2), 1, 7 - i, '#c8fff0'); R(44, 52, 8, 17, '#2a8a7a'); R(46, 54, 4, 13, '#5fd3b0'); R(22, 58, 22, 5, '#3a2a24'); for (let i = 0; i < 5; i++) R(24 + i * 4, 58, 2, 5, '#c8a84a'); R(18, 57, 4, 7, '#f4c542'); }
+      else { seg(30, 66, 40, 1); R(22, 34, 8, 13, '#4a2a20'); R(8, 38, 14, 5, '#3a2a24'); for (let i = 0; i < 6; i++) R(66 + i, 40 - 3 + i, 1, 7 - i, '#8a5030');
+        seg(82, 124, 62, 1); for (let i = 0; i < 5; i++) { R(77 + i, 62 + 1 - i, 1, i + 2, '#8a5030'); R(124 + i, 62 - 3 + i, 1, 6 - i, '#8a5030'); }
+        seg(136, 176, 84, 1); for (let i = 0; i < 6; i++) R(130 + i, 84 + 3 - i, 1, i + 1, '#8a5030'); for (let i = 0; i < 8; i++) R(176 + i, 84 - 3 + Math.ceil(i / 2), 1, 7 - i, '#8a5030');
+        for (const [x, y] of [[48, 40], [102, 62], [156, 84]]) glow(x, y, 10, '#8ff0d0', 0.22); }
+    },
+    // 两块玉简：0 分开 / 1 合上，裂缝里漏光
+    jade: f => { vgrad(0, 0, 200, 120, ramp(['#141020', '#1e2a3a', '#2a4a4a'], 6), 0.4); const d = f ? 0 : 14; if (f) { rays(100, 60, 13, 22, '#c8fff0', 0.3); glow(100, 60, 40, '#8ff0d0', 0.6); }
+      for (const s of [-1, 1]) { const x0 = s < 0 ? 62 - d : 100 + d; R(x0, 30, 38, 60, '#2a8a7a'); R(x0 + 2, 32, 34, 56, '#5fd3b0'); R(x0 + 2, 32, 34, 2, '#c8fff0'); for (let k = 0; k < 9; k++) R(x0 + 6, 38 + k * 5, 26 - (k * 5 + (s > 0 ? 3 : 0)) % 9, 1, '#2a6a5a'); for (let y = 30; y < 90; y += 3) { const j = (y * 7) % 5; if (s < 0) R(x0 + 38 - j, y, j, 3, f ? '#c8fff0' : '#1a2434'); else R(x0, y, 4 - j, 3, f ? '#c8fff0' : '#1a2434'); } }
+      if (f) R(99, 30, 2, 60, '#ffffff'); },
+    // 最后的访客：门缝漏进一线光（0 门掩着 / 1 门开了，门外一个人影）
+    door: f => { R(0, 0, 200, 120, '#120e1c'); R(40, 10, 120, 104, '#241a2c'); const gap = f ? 44 : 6; R(100 - gap / 2, 14, gap, 100, '#ffe8b0'); glow(100, 64, f ? 50 : 22, '#ffb23f', 0.5);
+      for (const s of [-1, 1]) { const w = 56 - gap / 2, x = s < 0 ? 44 : 100 + gap / 2; R(x, 14, w, 100, '#3a2a30'); for (let k = 0; k < 4; k++) R(x + 4, 20 + k * 24, w - 8, 18, '#2a1e26'); R(s < 0 ? x + w - 5 : x + 2, 60, 3, 8, '#c8a84a'); }
+      if (f) sFig(100, 114, 50, { sil: '#1a1020', long: 1 });
+      R(0, 114, 200, 6, '#0a0810'); ctx.globalAlpha = 0.5; for (let i = 0; i < 6; i++) R(100 - gap / 2 - i * 5, 114 + i, gap + i * 10, 1, '#ffb23f'); ctx.globalAlpha = 1; },
+    // 老祖消散：背影自下而上化成光点（0 完整 / 1 半身 / 2 只剩光，地上一枚玉戒）
+    fade: f => { STORY_BG.temple(); dim(0.35, '#0a0a1e'); glow(100, 70, 40, '#a8d8ff', 0.4);
+      if (f < 2) { const c = on(mk(200, 120), () => sFig(100, 104, 52, Object.assign({ back: 1 }, ELDER))), g2 = c.getContext('2d'); g2.globalCompositeOperation = 'destination-out'; if (f) for (let y = 60; y < 120; y++) for (let x = 60; x < 140; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 62) * 0.7) g2.fillRect(x, y, 1, 1); ctx.globalAlpha = 0.9; ctx.drawImage(c, 0, 0); ctx.globalAlpha = 1; }
+      const r = seeded(90 + f); for (let i = 0; i < 30 + f * 40; i++) { const x = 100 + (r() - 0.5) * (50 + f * 30), y = 104 - r() * (30 + f * 36); R(x, y, r() < 0.2 ? 2 : 1, 1, r() < 0.5 ? '#ffffff' : '#a8d8ff'); }
+      if (f === 2) { R(98, 100, 5, 3, '#5fd3b0'); R(99, 99, 3, 1, '#c8fff0'); glow(100, 101, 10, '#8ff0d0', 0.6); } },
+    // 并肩：山巅两个背影看日出。f 传颜色串 = 同行者的道袍色（缺省是老祖）
+    two: f => { vgrad(0, 0, 200, 90, ramp(['#2a2458', '#6a4a8a', '#e88a6a', '#ffd88a', '#fff6d8'], 6), 0.4); disc(100, 74, 20, '#fff6d8'); glow(100, 74, 50, '#ffb23f', 0.6); rays(100, 74, 13, 22, '#fff2a8', 0.2);
+      cloudBand(31, 80, '#e8a8a0'); cloudBand(35, 90, '#f6d0c0'); for (let i = 0; i < 40; i++) { const w = 30 + i * 2.6; R(100 - w, 96 + i * 0.6, w * 2, 2, i < 2 ? '#8a6a8a' : '#3a2a44'); } R(0, 112, 200, 8, '#2a1e34');
+      const other = typeof f === 'string'; sFig(86, 98, 34, { robe: ME_ROBE, back: 1, sword: 3 }); sFig(114, 98, 36, { robe: other ? f : ELDER.robe, hair: other ? '#2a2230' : ELDER.hair, trim: other ? '#f6ecd0' : ELDER.trim, back: 1, long: 1 }); },
+  };
+  ART.storyCgIds = Object.keys(STORY_CG);
+  ART.storyCgFrames = { ring: 3, stab: 2, kneel: 2, sword: 2, jade: 2, door: 2, fade: 3, two: 1 };
+  ART.storyCg = (id, f) => (STORY_CG[id] ? cached('scg|' + id + '|' + (f || 0), () => on(mk(200, 120), () => { STORY_CG[id](f || 0); frameEdge(); })) : null);
+
+  // ---------- 结局画面 200×120 ----------
+  const ENDING = {
+    // 师徒同归：天门前一高一矮两道身影，白发的那位回头
+    shitu: () => { STORY_BG.heaven(); sFig(90, 102, 26, { robe: ME_ROBE, back: 1, sword: 3 }); ctx.globalAlpha = 0.88; sFig(110, 101, 30, Object.assign({ face: -1 }, ELDER)); ctx.globalAlpha = 1; glow(110, 84, 14, '#a8d8ff', 0.4); },
+    // 问天：一人一剑斩向那张最大的卷，卷从中裂开
+    wentian: () => { STORY_BG.void(); for (let i = 0; i < 50; i++) { const dx = Math.round(Math.sin(i * 0.9) * 2); R(99 + dx, 30 + i, 3, 1, '#04040c'); R(100 + dx, 30 + i, 1, 1, '#ff5a4a'); } glow(100, 52, 16, '#ff5a4a', 0.5);
+      for (let i = 0; i < 14; i++) R(72 + i * 2, 96 - i * 2, 3, 1, i % 2 ? '#c8fff0' : '#ffffff'); sFig(58, 118, 28, { robe: ME_ROBE, face: 1, sword: 2, sc: '#c8fff0' }); },
+    // 地仙·守人间：破庙修好了屋顶，窗里有灯，檐下挂剑，一路的灯点到庙门口
+    dixian: () => { vgrad(0, 0, 200, 84, ramp(['#3a4a8a', '#8a7ab0', '#f0a890', '#ffe0a8'], 6), 0.4); disc(40, 62, 12, '#fff2c8'); glow(40, 62, 30, '#ffb23f', 0.5);
+      paintRidge(ridgeLine(53, 200, 60, 20, 4, 1.5), 86, '#5a5a8a', '#c8a8b0'); R(0, 84, 200, 36, '#5a7a4a'); R(0, 84, 200, 1, '#a8c880');
+      for (let i = 0; i < 12; i++) R(160 - i * 0.3, 38 - i * 2.4, 3 + (i % 3), 2, '#e8e0e8');
+      R(70, 50, 84, 40, '#d8c8a0'); R(70, 50, 84, 2, '#a89868'); for (let i = 0; i < 18; i++) R(60 + i * 2.6, 50 - i, 104 - i * 5.2, 1, i % 2 ? '#4a4a6a' : '#3a3a56'); R(60, 49, 104, 2, '#7a7a9a');
+      R(102, 62, 18, 28, '#5a3a26'); R(104, 64, 14, 26, '#ffd88a'); R(110, 64, 1, 26, '#5a3a26'); glow(111, 76, 16, '#ffb23f', 0.5); for (const x of [80, 130]) { R(x, 62, 14, 12, '#5a3a26'); R(x + 1, 63, 12, 10, '#ffd88a'); R(x + 7, 63, 1, 10, '#5a3a26'); }
+      line(148, 54, 148, 72, '#e8f0ff'); R(146, 52, 5, 2, '#5fd3b0');
+      ellipse(52, 96, 10, 3, '#8a5c36'); ellipse(52, 95, 9, 2, '#c8a84a'); sFig(126, 98, 18, { robe: ME_ROBE, sit: 1, face: -1 }); for (let x = 4; x < 200; x += 9) { R(x, 104 + (x % 4), 2, 3, '#2f6a52'); R(x, 103 + (x % 4), 2, 1, x % 3 ? '#f6a0c0' : '#ffd86a'); }
+      for (let i = 0; i < 9; i++) lamp(8 + i * 23, 114 - (i % 2) * 3); },
+    // 孤峰：雪峰之巅一人独坐，身后一把空着的高座
+    gufeng: () => { vgrad(0, 0, 200, 120, ramp(['#0a0c1c', '#1a2040', '#3a4a70', '#8a94b0'], 6), 0.4); stars(44, 40, 50); disc(150, 24, 10, '#e8ecff'); glow(150, 24, 26, '#9aa8ff', 0.3);
+      paintRidge(ridgeLine(73, 200, 84, 20, 4, 1.8), 120, '#2a3458', '#5a6890', { snow: 80 });
+      for (let i = 0; i < 62; i++) { const w = 16 + i * 1.1 + Math.round(Math.sin(i * 0.8) * 2); R(100 - w, 58 + i, w * 2, 1, '#2e3858'); R(100 - w, 58 + i, Math.max(1, w * 0.35), 1, '#4a5880'); if (i < 5 + (i % 2)) R(100 - w, 58 + i, w * 2, 1, '#f4f6ff'); else if (i < 12) dR(100 - w, 58 + i, w * 2, 1, '#f4f6ff', 14 - i); }
+      R(90, 24, 20, 34, '#2a2a4a'); R(90, 24, 3, 34, '#4a4a80'); R(88, 18, 24, 7, '#3a3a66'); R(88, 18, 24, 1, '#8a8ac0'); R(93, 44, 14, 14, '#4a1a2a'); R(93, 44, 14, 1, '#8a3a4a');
+      sFig(100, 70, 24, { robe: '#c8d0e8', hair: '#1a1a2a', trim: '#8a94b0', sit: 1, back: 1, long: 1 }); snow(88, 60); },
+    // 魔尊：红月下的骨座，一人独坐，阶下万魔俯首
+    mozun: () => { STORY_BG.blood(); sFig(100, 78, 30, { robe: '#5a0a1c', hair: '#1a0c14', skin: '#e8c8b8', trim: '#f4c542', sit: 1, long: 1 }); groundMen(81, 16, 100, '#0a0408', 20, 180); glow(100, 30, 30, '#ff5a4a', 0.4); },
+    // 道侣·苏：药圃边并肩两个背影
+    daolv_su: () => { STORY_BG.herb(); sFig(124, 106, 28, { robe: ME_ROBE, back: 1, sword: 3 }); sFig(144, 106, 26, { robe: '#7fd8b0', hair: '#3a2a24', back: 1, long: 1, trim: '#ffffff' }); },
+    // 道侣·夜：屋顶对坐，中间一坛酒，一轮红月
+    daolv_ye: () => { vgrad(0, 0, 200, 120, ramp(NIGHT, 6), 0.4); stars(52, 60, 80); disc(150, 30, 16, '#c8323c'); disc(150, 30, 14, '#e8605a'); glow(150, 30, 36, '#c8323c', 0.4);
+      for (let i = 0; i < 40; i++) { const w = 20 + i * 2.6; R(100 - w, 80 + i, w * 2, 1, i % 4 === 0 ? '#2a2456' : '#3a3470'); } for (let x = 20; x < 180; x += 6) R(x, 96 + (x % 4), 4, 2, '#4a4488'); R(60, 78, 80, 3, '#55508a');
+      sFig(82, 79, 24, { robe: ME_ROBE, sit: 1, face: 1 }); sFig(118, 79, 24, { robe: '#a81e3a', hair: '#1a0c14', sit: 1, face: -1, long: 1, trim: '#f4c542' }); R(97, 72, 6, 6, '#8a5c36'); R(98, 70, 4, 2, '#d8404a'); },
+    // 止戈：两面旗插在一处，兵器堆上长了草，远处炊烟
+    zhige: () => { vgrad(0, 0, 200, 86, ramp(['#6a9ad0', '#a8c8e8', '#e8f0e0', '#fff6dc'], 6), 0.4); disc(150, 28, 10, '#fff6d8'); glow(150, 28, 28, '#fff2a8', 0.5);
+      paintRidge(ridgeLine(61, 200, 62, 24, 3, 1.8), 88, '#6a9a8a', '#c8e0c8'); R(0, 86, 200, 34, '#7aa85a'); R(0, 86, 200, 1, '#b8e08a');
+      for (const [x, c, f] of [[94, '#4aa8ff', -1], [106, '#c8323c', 1]]) { line(x, 100, x - f * 4, 40, '#3a2a24', 2); R(f > 0 ? x - 3 : x - 9, 40, 14, 9, c); R(f > 0 ? x - 3 : x - 9, 40, 14, 1, lerpC(c, '#ffffff', 0.4)); }
+      ellipse(100, 102, 26, 6, '#5a6480'); for (const [a, b2] of [[84, 92], [96, 88], [110, 90], [118, 94]]) line(a, 104, a + (a < 100 ? -6 : 6), b2, '#aeb8c8'); for (let x = 78; x < 124; x += 4) { R(x, 96 + (x % 5), 1, 4, '#2f6a52'); if (x % 3 === 0) R(x, 95 + (x % 5), 1, 1, '#ffd86a'); }
+      for (let i = 0; i < 10; i++) R(30 - i * 0.4, 66 - i * 3, 3 + (i % 3), 2, '#f4f6ff'); R(22, 72, 18, 14, '#d8c8a0'); R(20, 68, 22, 5, '#8a5c36'); for (let x = 4; x < 200; x += 11) { R(x, 108 + (x % 6), 2, 3, '#2f6a52'); R(x, 107 + (x % 6), 2, 1, x % 2 ? '#f6a0c0' : '#ffffff'); } },
+  };
+  ART.endingPicIds = Object.keys(ENDING);
+  // 没有专图的结局落到原有的 ART.backdrop（ascend / rest / summit / hermit）
+  ART.endingPic = id => (ENDING[id] ? cached('endpic|' + id, () => on(mk(200, 120), () => { ENDING[id](); frameEdge(); })) : (ART.backdrop(id) || ART.backdrop('ascend')));
+
+  // ---------- 表情叠加：在原有五种表情上再叠一层 ----------
+  // ART.portraitX(id | 画布, mood, fx, alt)。fx（可用空格连写）：tear 泪 / shade 眉眼压一层阴影（决绝、黑化）/ blush 脸红 / blood 嘴角血 / sweat 冷汗 / mono 回忆（褪成青蓝）/ fade 余音（半透明、下半身化成光点）
+  ART.portraitFxNames = ['tear', 'shade', 'blush', 'blood', 'sweat', 'mono', 'fade'];
+  ART.portraitX = function (id, mood, fx, alt) {
+    const isCv = id && typeof id !== 'string', src = isCv ? id : ART.portrait(id, mood, alt); if (!src) return null; if (!fx) return src;
+    const key = isCv ? '' : (P_ALIAS[id] || id), spec = isCv ? null : (alt && PEOPLE[key + '2']) || PEOPLE[key], F = (spec && spec.F) || {}, ey = F.ey || 24, ex = F.ex || 17;
+    const make = () => {
+      const c = mk(48, 48), g = c.getContext('2d'), has = k => (' ' + fx + ' ').includes(' ' + k + ' '); g.drawImage(src, 0, 0);
+      const px = (x, y, col, a) => { if (!g.getImageData(x, y, 1, 1).data[3]) return; g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
+      if (has('shade')) { const d = g.getImageData(0, 0, 48, 48).data; for (let y = ey - 8; y <= ey + 4; y++) for (let x = 6; x < 42; x++) { const i = (y * 48 + x) * 4; if (d[i + 3] && d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11 > 120) px(x, y, '#1b1326', y <= ey + 1 ? 0.5 : y === ey + 2 ? 0.34 : (x + y) % 2 ? 0.3 : 0.12); } }
+      if (has('blush')) for (const sx of [ex - 2, 46 - ex]) for (let k = 0; k < 4; k++) { px(sx + k, ey + 5, '#ff8a8a', 0.75); if (k % 2) px(sx + k, ey + 6, '#ff8a8a', 0.5); }
+      if (has('tear')) for (const sx of [ex + 1, 46 - ex]) { px(sx, ey + 3, '#c8f0ff'); px(sx, ey + 4, '#8ad0ff'); px(sx, ey + 5, '#8ad0ff'); px(sx, ey + 6, '#c8f0ff'); px(sx, ey + 8, '#8ad0ff', 0.8); }
+      if (has('sweat')) { px(36, ey - 5, '#c8f0ff'); px(36, ey - 4, '#8ad0ff'); px(36, ey - 3, '#8ad0ff'); px(35, ey - 3, '#c8f0ff'); px(37, ey - 3, '#8ad0ff'); }
+      if (has('blood')) { const my = F.my || ey + 7; px(27, my, '#c8323c'); px(27, my + 1, '#c8323c'); px(28, my + 2, '#8a1020'); px(28, my + 3, '#c8323c', 0.8); }
+      if (has('mono')) { const d = g.getImageData(0, 0, 48, 48), p = d.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; const l = (p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) / 255; p[i] = Math.round(20 + l * 170); p[i + 1] = Math.round(34 + l * 196); p[i + 2] = Math.round(56 + l * 190); } g.putImageData(d, 0, 0); }
+      if (has('fade')) { const d = g.getImageData(0, 0, 48, 48), p = d.data; for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) { const i = (y * 48 + x) * 4; if (!p[i + 3]) continue; const lv = (y - 28) * 0.8 + Math.sin(x * 0.9 + y * 0.5) * 2; if (BAYER[(x & 3) + (y & 3) * 4] < lv) p[i + 3] = 0; else { p[i + 3] = Math.round(p[i + 3] * 0.82); p[i] = Math.min(255, p[i] + 24); p[i + 1] = Math.min(255, p[i + 1] + 30); p[i + 2] = Math.min(255, p[i + 2] + 36); } } g.putImageData(d, 0, 0);
+        const r = seeded(7); g.fillStyle = '#c8f0ff'; for (let i = 0; i < 16; i++) g.fillRect(4 + Math.floor(r() * 40), 30 + Math.floor(r() * 18), 1, 1); }
+      return c;
+    };
+    return isCv ? make() : cached(['ptx', id, mood, fx, alt ? 1 : 0].join('|'), make);
+  };
+
+  // ---------- 对话场景小件 ----------
+  Object.assign(FRAMES, {
+    // 对话框：深墨底、金角（字用米白）
+    talk: { fill: '#1e1830', ink: '#f6ecd0', draw: b => { box(b, '#1e1830', '#3a3155', '#0e0a18'); ring(b, 0, '#0e0a18'); ring(b, 1, '#55506e'); for (const [x, y, dx, dy] of [[1, 1, 1, 1], [18, 1, -1, 1], [1, 18, 1, -1], [18, 18, -1, -1]]) { b.p(x, y, '#f4c542'); b.p(x + dx, y, '#f4c542'); b.p(x, y + dy, '#f4c542'); b.p(x + dx * 2, y, '#a8742a'); b.p(x, y + dy * 2, '#a8742a'); } } },
+    // 名牌：朱红小签（说话的人）；talkNameMe：主角用青色
+    talkName: { fill: '#a8303a', ink: '#fff6e0', draw: b => { box(b, '#a8303a', '#d8504a', '#6a1a20'); ring(b, 0, '#1b1326'); b.hl(3, 16, 17, '#f4c542'); } },
+    talkNameMe: { fill: '#2a6a7a', ink: '#eafff8', draw: b => { box(b, '#2a6a7a', '#4a9aa8', '#16404a'); ring(b, 0, '#1b1326'); b.hl(3, 16, 17, '#8ff0d0'); } },
+    // 抉择选项：米纸底、左边一道朱红竖条（“这一句会改变后面的故事”）
+    talkPick: { fill: '#efe3c4', ink: '#3b2b1f', draw: b => { box(b, '#efe3c4', '#fff6dc', '#c8b48c'); ring(b, 0, '#1b1326'); b.r(1, 1, 3, 18, '#d8404a'); b.r(1, 1, 1, 18, '#ff8a8a'); } },
+  });
+  // “下一句”小三角 9×8，两帧（上下跳 1 像素）
+  ART.talkNext = frame => cached('talknext|' + (frame & 1), () => { const b = new Buf(9, 8), y = frame & 1; for (let i = 0; i < 4; i++) b.hl(1 + i, 7 - i, 1 + y + i, i ? '#f4c542' : '#fff2a8'); return b.cv(); });
+  const ICON9 = {
+    // 抉择：岔路（一条路分成两条，路口一块小牌）
+    branch: b => { b.add(L => { L.l(8, 14, 8, 8, WOOD, 2); L.l(8, 8, 3, 3, WOOD, 2); L.l(9, 8, 13, 3, WOOD, 2); }); b.r(2, 1, 3, 2, '#4ccb9f'); b.r(12, 1, 3, 2, '#d8404a'); b.r(6, 10, 6, 3, '#f4c542'); b.hl(6, 11, 10, '#fff2a8'); },
+    // 回响：一圈圈荡开的涟漪（“先前的选择在这里起了作用”）
+    echo: b => { b.add(L => { for (const [r, c] of [[6, '#2a8a7a'], [4, '#5fd3b0']]) for (let a = 0; a < 32; a++) { if (r === 6 && a % 8 === 0) continue; const t = a * Math.PI / 16; L.p(Math.round(8 + Math.cos(t) * r), Math.round(8 + Math.sin(t) * r * 0.8), c); } }); b.r(7, 7, 2, 2, '#c8fff0'); },
+    // 结局：一扇半开的门里透出光
+    ending: b => { b.add(L => L.r(3, 2, 10, 13, '#8a6a2a')); b.r(5, 4, 6, 11, '#fff2a8'); b.r(5, 4, 3, 11, '#c8a84a'); b.p(7, 9, '#fff2a8'); b.r(9, 6, 1, 7, '#ffffff'); },
+  };
+  const icon8 = ART.icon; ART.icon = function (name) { if (ICON9[name]) return cached('ic9|' + name, () => { const b = new Buf(16, 16); ICON9[name](b); return b.cv(); }); return icon8(name); };
+  const names8 = ART.iconNames; ART.iconNames = () => names8().concat(Object.keys(ICON9));
+}
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
