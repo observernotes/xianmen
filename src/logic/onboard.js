@@ -29,9 +29,17 @@ const hasArt = (st, kind) => !!(st.arts && Object.keys(st.arts.own || {}).some(i
 const metAny = st => Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]);
 const EXTRA_B = ['forge', 'pen', 'room', 'library', 'spring', 'vault', 'pavilion', 'portal'];
 
-// 间隔（周天）。×1 一周天 L.TICK_SEC 秒（界面读它）：第一世元婴之前 6 秒（系统一样一样开的这一段），之后 5 秒
+// 间隔（月）。系统之间另有 L.TIME.unlockGapMonths 的下限（解锁卡之间 ≥ 8 月；真实时间那一半由界面登记 L.onbHold 判，见 src/ui/clock.js）
 L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn: 3 };
-L.TICK_SEC = st => (st && !st.rebirth && st.p.r < 3 ? 6 : 5);
+// ---------- 时钟（docs/KAIRO_PLAN.md §3.2 / §3.4 的旋钮）：×1 时一月多少秒 ----------
+// idle 在洞府打坐、trip 历练、away 闭关 / 特训 / 讲道；转世后用 reborn 那一组。unlockGapMonths / unlockGapSec：两张解锁卡之间的最短间隔；
+// interruptGapMonths：打坐时两次主动打断（解锁卡、事件、老祖一句）之间至少隔几个月（src/logic/time.js 的 L.notifyGate）
+L.TIME = { idle: 15, trip: 8, away: 3, reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, interruptGapMonths: 3 };
+L.monthSec = function (st) {
+  const T = st && (st.rebirth || 0) > 0 ? L.TIME.reborn : L.TIME;
+  return !st ? T.idle : st.exp ? T.trip : st.retreat ? T.away : T.idle;
+};
+L.TICK_SEC = st => L.monthSec(st);   // 旧名（界面、测试脚本还在读）
 // k：键；n：名字；sys：系统（true）/ 子项（false，par 是父系统）；base：原门槛；force：已经发生了，立刻开；
 // master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个周天就当掌握了
 L.ONB = [
@@ -102,7 +110,7 @@ L.onbStep = function (st) {
   for (const e of L.ONB) if (o.at[e.k] !== undefined && o.m[e.k] === undefined && call(e.master, st)) { o.m[e.k] = st.tick; emit('master', e.k); }
   const reborn = (st.rebirth || 0) > 0;
   let got = null;
-  for (const e of L.ONB) if (o.at[e.k] === undefined && call(e.force, st)) { o.at[e.k] = st.tick; o.last = Math.max(o.last, st.tick); emit('unlock', e.k); got = got || e.k; }
+  for (const e of L.ONB) if (o.at[e.k] === undefined && call(e.force, st)) { o.at[e.k] = st.tick; o.last = Math.max(o.last, st.tick); if (e.sys && e.k !== 'bt') o.ls = st.tick; emit('unlock', e.k); got = got || e.k; }
   // 转世后“快开”：不讲解、不等掌握、不等三年之约，原门槛到了就按表的顺序每 L.ONB_GAP.reborn 个周天开一样
   const ls = lastSys(st), sysWait = !reborn && !!ls && !masteredNow(st, ls);
   for (const e of L.ONB) {
@@ -112,7 +120,11 @@ L.onbStep = function (st) {
     if (e.sys && sysWait) continue;   // 上一个系统还没掌握：别的系统等着，子项可以先开
     const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着
+    // 解锁卡（系统）之间：至少 L.TIME.unlockGapMonths 月；界面另把“离上一张卡不到 6 分钟”登记成 L.onbHold
+    if (e.sys && !reborn && o.ls !== undefined && st.tick - o.ls < L.TIME.unlockGapMonths) break;
+    if (e.sys && !reborn && typeof L.onbHold === 'function' && L.onbHold(st, e)) break;
     o.at[e.k] = st.tick; o.last = st.tick;
+    if (e.sys) o.ls = st.tick;
     if (!e.master || reborn) o.m[e.k] = st.tick;
     emit('unlock', e.k);
     return got || e.k;

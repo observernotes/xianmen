@@ -96,7 +96,7 @@ L.yearClose = L.yearClose || null;
 // ===================== 一行传讯（§5.2-3）：替代横幅与大部分气泡；≤ 20 字，停 6 秒，点开纸鹤看历史 =====================
 let tickNewAt = 0;
 const sayLog = [];
-function say(text, cls) {
+function sayLine(text, cls) {
   if (!st || !text) return;
   text = String(text).replace(/<[^>]+>/g, '');
   const m = (st.tick % 12) + 1;
@@ -210,7 +210,7 @@ function syncNav() {
 }
 function navClick(nav) {
   const s = navState(nav);
-  if (!s.open) { say(`${NAV_N[nav]}：${s.why}`); return; }
+  if (!s.open) { sayLine(`${NAV_N[nav]}：${s.why}`); return; }
   if (modalOpen() && navCur === nav) { closeModal(); return; }
   if (modalOpen()) closeModal();
   navOpenPanel(nav);

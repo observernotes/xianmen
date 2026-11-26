@@ -295,7 +295,7 @@ function currentGuide() {
   if (!st || !$('#intro').hidden || (cine && !cine.paused) || duelFx) return null;   // 天劫中途那一停（cine.paused）老祖可以说话；场景里对决时不插嘴
   ensureGuide();
   // 临时提示（入口没开、秘境里气血低……）不再阻塞：改成一行传讯 + 金框（§5.2）
-  if (tempHint) { const t = tempHint; tempHint = null; say(cut(String(typeof t.text === 'function' ? t.text() : t.text).replace(/<[^>]+>/g, ''), 24)); if (t.target) hlOnly(t.target, 5000); }
+  if (tempHint) { const t = tempHint; tempHint = null; sayLine(cut(String(typeof t.text === 'function' ? t.text() : t.text).replace(/<[^>]+>/g, ''), 24)); if (t.target) hlOnly(t.target, 5000); }
   const g = st.guide;
   if (!g.done) {
     for (let guard = 0; guard < 20 && g.step < GUIDE.length; guard++) {

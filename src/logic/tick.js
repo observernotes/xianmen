@@ -62,8 +62,9 @@ L.tick = function (st, cont) {
     if (st.retreat.left <= 0) { out.retreat = L.endRetreat(st, true); if (out.retreat.visitor) out.visitor = out.retreat.visitor; }
   }
   // 访客：闭关时顺延；新手期等第一次闭关出关（或第 20 周天后）才开始有人上门
+  // 在外（历练 / 闭关）时等待不减：从你回到洞府起算（docs/KAIRO_PLAN.md §3.3 第 3 条）
   if (st.visitor) {
-    if (--st.visitor.left <= 0) out.visitorGone = L.visitorLeave(st);
+    if (!st.exp && !st.retreat && --st.visitor.left <= 0) out.visitorGone = L.visitorLeave(st);
   } else if (!st.retreat && !out.visitor && (st.rebirth > 0 || st.stats.visits > 0 || st.stats.retreat > 0 || st.tick >= 20) && R() < L.VISIT.p * evMul * L.calVisitMult(st)) {
     out.visitor = L.spawnVisitor(st);
   }

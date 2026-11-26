@@ -14,9 +14,9 @@ function onTick() {
   if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
   // 途中遭遇是要你做决定的，阻塞；引导期间（前两趟）逻辑层本来就不出
   if (out.choice && !(st.guide && !st.guide.done)) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
-  // 访客不弹窗：门口出现一个“！”，点它才见（DESIGN D4）
-  if (out.visitor) { SFX.reveal(1); floatText(VISIT_POS.x, VISIT_POS.y - 22, '有人来访', '#ffe39a'); }
-  if (out.visitorGone) floatText(VISIT_POS.x, VISIT_POS.y - 22, '访客走了', '#9d93b8');
+  // 访客不弹窗：门口出现一个“！”，点它才见（DESIGN D4）；同时进纸鹤，等待期从你回到洞府起算（docs/KAIRO_PLAN.md §3.3）
+  if (out.visitor && st.visitor) { L.mailPush(st, { k: 'visitor', ic: 'mail', t: '有人来访', left: st.visitor.left, data: { id: st.visitor.id } }); notify('tick', null, () => { SFX.reveal(1); floatText(VISIT_POS.x, VISIT_POS.y - 22, '有人来访', '#ffe39a'); }); }
+  if (out.visitorGone) notify('tick', null, () => floatText(VISIT_POS.x, VISIT_POS.y - 22, '访客走了', '#9d93b8'));
   if (out.retreat) {
     const r = out.retreat;
     if (r.kind === 'teach') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '指点完毕 贡献到手', '#8ff5d0');
@@ -24,26 +24,27 @@ function onTick() {
     else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
   if (out.train) pushPopup(showTrain);
-  if (st.guide && st.guide.done && st.tick % 3 === 0 && UI.isOpen('arts')) artRecTip();
-  if (st.guide && st.guide.done && st.tick % 3 === 1 && UI.isOpen('plus')) gearPlusTip();
-  if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天 · 三件竞价`);
+  if (st.guide && st.guide.done && st.tick % 3 === 0 && UI.isOpen('arts') && !awayUI()) artRecTip();
+  if (st.guide && st.guide.done && st.tick % 3 === 1 && UI.isOpen('plus') && !awayUI()) gearPlusTip();
+  if (out.auction) notify('tick', { k: 'auction', t: '拍卖会开槌', left: L.AUCTION.len }, () => banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} ${UNIT} · 三件竞价`));
   // 拍卖散场：竞拍者拿走的（宿敌战力 ×1.04）
-  if (out.aucEnd && out.aucEnd.length) { const b = out.aucEnd.find(x => x.boost); floatText(100, 40, b ? `${b.n}拍走了【${b.item}】：战力 ×${L.AUCTION.boost}` : `${out.aucEnd[0].n}拍走了【${out.aucEnd[0].item}】`, b ? '#ff9a8a' : '#9d93b8'); }
+  if (out.aucEnd && out.aucEnd.length && !awayUI()) { const b = out.aucEnd.find(x => x.boost); floatText(100, 40, b ? `${b.n}拍走了【${b.item}】：战力 ×${L.AUCTION.boost}` : `${out.aucEnd[0].n}拍走了【${out.aucEnd[0].item}】`, b ? '#ff9a8a' : '#9d93b8'); }
   // 天下大势起了：老祖一句“该干什么”；换季：每季头一回提一句（panel-cal.js）
-  if (out.world) { const W = L.WORLD[out.world]; banner('天下大势 · ' + W.n, `${W.len} 周天`); SFX.reveal(3); worldTip(out.world); }
-  else if (out.season !== undefined && st.guide && st.guide.done && UI.isOpen('cal')) seasonTip(out.season);
+  if (out.world) { const W = L.WORLD[out.world]; notify('active', { k: 'world', t: '天下大势 · ' + W.n, left: W.len }, () => { banner('天下大势 · ' + W.n, `${W.len} ${UNIT}`); SFX.reveal(3); worldTip(out.world); }); }
+  else if (out.season !== undefined && st.guide && st.guide.done && UI.isOpen('cal')) notify('active', { k: 'season', t: ['入春了', '入夏了', '入秋了', '入冬了'][out.season] || '换季了', left: 3 }, () => seasonTip(out.season));
   if (out.mjOpen) realmOpenFx(out.mjOpen);   // 入夏，秘境开了（panel-realm.js）
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
   if (out.war) pushPopup(runWar);
   if (out.tourney) pushPopup(runTournament);
   // 宿敌与新秀（panel-rivals.js）：新秀出世、追到身后强制一战、指点过的新秀送礼
-  if (out.rookieNew) { banner('新秀出世', `${out.rookieNew.n} · 天骄榜第 ${L.rookieRank(st)}`, '#ffe39a'); SFX.reveal(2); }
+  if (out.rookieNew) notify('tick', { k: 'rookie', t: '新秀出世 · ' + out.rookieNew.n }, () => { banner('新秀出世', `${out.rookieNew.n} · 天骄榜第 ${L.rookieRank(st)}`, '#ffe39a'); SFX.reveal(2); });
   if (out.rookie) pushPopup(runRookie);
-  if (out.rkGift) floatText(100, 40, `${out.rkGift[0].n}送来${out.rkGift[0].what}`, '#8ff5d0');
+  if (out.rkGift && !awayUI()) floatText(100, 40, `${out.rkGift[0].n}送来${out.rkGift[0].what}`, '#8ff5d0');
   if (out.meet) pushPopup(runSectMeet);
   if (out.death) pushPopup(showDeath);
-  guideTick();   // 卡住检测与补齐的老祖气泡（guide-ask.js）
+  clockTick(out);   // 大节点预告、备战卡、年报、空转、寿元、圆满自动停、排着的剧情事件（clock.js）
+  if (!awayUI()) guideTick();   // 卡住检测与补齐的老祖气泡（guide-ask.js）
   saveLocal();
 }
 // E17 老祖特训：约战剩余 ≤ 8 周天、胜算 < 60%、未筑基未圆满，第一世只此一次
@@ -65,7 +66,7 @@ let last = performance.now(), cloudAcc = 0;
 function frame(now) {
   const dt = Math.min(100, now - last); last = now;
   const sp = SPEEDS[speedIdx];
-  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run;   // 秘境里时间不走
+  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run && !autoStop();   // 秘境里、自动停（clock.js）时间不走
   if (running) {
     const TM = tickMs();
     L.flow(st, dt * sp / TM);
@@ -123,7 +124,7 @@ $('#nav').addEventListener('click', e => {
   ac(); SFX.tap();
   navClick(b.dataset.nav);
 });
-$('#btnSpeed').onclick = () => { ac(); speedIdx = (speedIdx + 1) % SPEEDS.length; SFX.tap(); savePref(); updateHUD(); };
+$('#btnSpeed').onclick = () => { ac(); SFX.tap(); if (autoStop()) { resumeClock(); updateHUD(); return; } speedIdx = (speedIdx + 1) % SPEEDS.length; savePref(); updateHUD(); };   // 自动停着时点它 = 继续
 document.addEventListener('visibilitychange', () => { if (document.hidden) { saveLocal(); saveCloud(); } });
 window.addEventListener('pagehide', saveLocal);
 window.addEventListener('resize', () => { setFontSize(); fitScene(); });
@@ -144,9 +145,9 @@ Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, re
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = Math.min(i, SPEEDS.length - 1); }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, showAsk, askList, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
-  UI, get tickMs() { return tickMs(); },
+  UI, get tickMs() { return tickMs(); }, notify, openMail, showPrep, showYearBasic, resumeClock, get autoStop() { return autoStop(); }, watch: null,
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
 Object.assign(window.__xm, { showArts, showBag, showPetAwake });
 Object.assign(window.__xm, { showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get pauseIdx() { return SPEEDS.indexOf(0); }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）

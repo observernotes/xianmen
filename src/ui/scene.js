@@ -300,7 +300,7 @@ function ringBurst(x, y, c, n) {
 const bannerQ = [];
 let bannerBusy = false;
 // 横幅只留给清单里的大事（章末、对决结果）：bigTitle；其余的 banner() 都改写成一行传讯（§5.2-3）
-function banner(text, sub, color) { say(sub ? `${text} · ${sub}` : text, color === "#8ff5d0" ? "jade" : "gold"); }
+function banner(text, sub, color) { sayLine(sub ? `${text} · ${sub}` : text, color === "#8ff5d0" ? "jade" : "gold"); }
 function bigTitle(text, sub, color, lock) {
   const key = text + '|' + (sub || '');
   if (bannerQ.some(b => b.key === key)) return;

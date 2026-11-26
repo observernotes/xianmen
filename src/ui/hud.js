@@ -27,7 +27,7 @@ function onHook(type, data) {
   else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
   else if (type === 'people') peopleHook(data);
   else if (type === 'unlock' || type === 'master') onbHook(type, data);   // 上手曲线：解锁横幅、子项气泡、掌握飘字（onboard.js）   // 委托、双修（panel-people.js）
-  else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); say(`可晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}`, 'gold'); }
+  else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); say(`可晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}`); }
   else if (type === 'chapter' && data && data.from !== undefined && data.to > data.from) chapterDone(data.from);   // 线 1 的 path.js：当前章变了 → 章末结算卡（panel-path.js）
 }
 
@@ -58,7 +58,7 @@ function updateHUD() {
   L.checkAchs(st);
   if (L.onbStep) L.onbStep(st);   // 已经发生了的（入宗、拿到灵宠、修为圆满……）立刻开，不等下个月
   // 成就：一行传讯（不再出横幅）
-  if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; say(`成就 · ${a.n}：称号「${a.t}」`, 'gold'); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
+  if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; say(`成就 · ${a.n}：称号「${a.t}」`); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
   const sz = season();
   if (dateKey !== String(sz)) { dateKey = String(sz); if (ART.seasonColor) $('#time').style.boxShadow = `inset 0 -2px 0 0 ${ART.seasonColor(sz)}`; }
   rollNum('#vStone', st.stones);

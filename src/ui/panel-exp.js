@@ -95,6 +95,10 @@ function confirmExp(k, d, a, still) {
   if (f.first) notes.push('<div class="quote">第一趟老夫暗中护着你：必得<b>甲</b>，还有一把凡器。</div>');
   if (f.warnFull) notes.push(`<div class="seal">修为已经满了，再出去是白跑（溢出的修为最多存下一层的两成）。先回来突破${L.REALMS[Math.min(st.p.r + 1, 8)].n}。</div>`);
   if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个周天。</div>`);
+  // 大节点前（docs/KAIRO_PLAN.md §3.3 第 4 条）：回不来的行程不让出发；正好等长的提前一月赶回来（收获按走过的月数折算）
+  const blk = L.expBlock ? L.expBlock(st, k) : null, cutI = !blk && L.expCut ? L.expCut(st, k) : null;
+  if (blk) notes.push(`<div class="seal">${esc(blk.big.n)}还有 ${blk.left} ${UNIT}，这一趟要 ${f.len} ${UNIT}，回不来。</div>`);
+  else if (cutI) notes.push(`<div class="quote">${esc(cutI.big.n)}前会赶回来：只走 ${cutI.months} ${UNIT}，收获按 ${cutI.months}/${f.len} 算。</div>`);
   if (f.leap) notes.push(`<div class="seal">越级挑战：战力不到推荐的${Math.round(L.artExp(st, k, d, a).leap * 100)}%。评价乙以上奖励再 ×2。</div>`);
   const fine = [];   // 次要的说明：收进“详情”
   if (f.affUnknown && !f.first && nAppr > 1) fine.push('<div class="muted">这一格的相性还没试过，按 ○ 估算；去一趟就知道了。</div>');
@@ -117,7 +121,7 @@ function confirmExp(k, d, a, still) {
       ${nAppr > 1 ? '<div class="muted">斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6</div>' : ''}
       <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
       ${gearExpLine(k, d, a)}${fine.join('')}</details>`,
-    foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: '出发', gold: true, fn: () => {
+    foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
       if (L.startExp(st, k, d, a, o)) { SFX.coin(); expOpt.escort = false; closeModal(); }

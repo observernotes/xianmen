@@ -6,6 +6,7 @@ const SYS_IC = { exp: 'slay', home: 'array', retreat: 'retreat', bt: 'up', gearC
   pets: 'egg', plus: 'ore', cal: 'time', zhanji: 'atk', realm: 'wonder', bond: 'heart', plots: 'cave', zhen: 'array', dao: 'dao_w', disc: 'post_wai', codex: 'codex', herb: 'gather', treasure: 'seek', tuna: 'cult', sell: 'sell', shelf: 'gavel',
   crops: 'c_rice', robe: 'gear', world: 'w_taiping', yin: 'yin_f', vault: 'contrib', mishu: 'gscroll', auction: 'paddle', petJobs: 'job_array', chainExp: 'slay', duty: 'post_dan', comp: 'buddy', orn: 'gear', forge: 'b_forge' };
 const sysIcon = (k, want) => artIcon(SYS_IC[k] || 'unk', want || 16) || artIcon('unk', want || 16);
+function showRivals() { showWorld('rank'); }   // clock.js 的纸鹤“新秀”一条点【看】
 function showWorld(tab) {
   navOpenPanel('world');
   const k = tab || ['rank', 'sect', 'market', 'bond'].find(x => meTabOpen(x)) || 'rank';
@@ -73,6 +74,7 @@ function yearPending() {
   const r = st.flags.repUI; return !!r && r.y < cy;
 }
 function yearPump() {
+  if (L.yearDue) return;   // 线 1 的 clock.js 每月判 L.yearDue 并排进弹窗队列（UI.showYear）
   if (yearQueued || !yearPending() || st.exp || st.run || cine || !$('#intro').hidden) return;
   yearQueued = true;
   pushPopup(showYearReport);
@@ -89,7 +91,7 @@ function showYearReport() {
   const R = L.yearReport(st), nx = R.next || {}, big = nx.big;
   const up = (a, b, f) => `${f(a)} → <span class="big">${f(b)}</span>${b > a ? ` <span class="kup" style="font-size:14px">▲${f(b - a)}</span>` : ''}`;
   const opened = (R.opened || []).filter(k => L.ONB_K[k] && L.ONB_K[k].sys).slice(0, 4);
-  const ch = nx.ch !== undefined ? nx.ch : L.chapterNow(st), bar = nx.bar || L.goalNow(st).bar;
+  const nch = nx.ch && typeof nx.ch === 'object' ? nx.ch : null, chL = nch ? nch.chN : chName(typeof nx.ch === 'number' ? nx.ch : L.chapterNow(st)), bar = nx.bar || (nch && nch.bar) || L.goalNow(st).bar;
   sheet({ title: `${artIcon('report', 24)} 第 ${R.y} 年 · 年报`, center: true, noClose: true,
     body: `<div class="krow"><span class="k">境界</span><span class="v">${esc(R.realm[0])} → <span class="kup">${esc(R.realm[1])}</span></span></div>
       <div class="krow"><span class="k">战力</span><span class="v">${up(R.pw[0], R.pw[1], fmt)}</span></div>
@@ -98,7 +100,7 @@ function showYearReport() {
       <div class="krow"><span class="k">历练</span><span class="v">${R.exp} 趟${R.best >= 0 && R.exp ? ` · 最好 ${L.RATINGS[Math.min(4, R.best)]}` : ''}</span></div>
       ${R.rank ? `<div class="krow"><span class="k">天骄榜</span><span class="v">${R.rank[0]} → <span class="kup">${R.rank[1]}</span></span></div>` : ''}
       ${opened.length ? `<div class="krow"><span class="k">新开</span><span class="v">${opened.map(k => `${sysIcon(k, 16)} ${esc(L.ONB_K[k].n.split('·')[0])}`).join('　')}</span></div>` : ''}
-      <div class="ksec"><span>明年 · ${chName(ch)}</span></div>
+      <div class="ksec"><span>明年 · ${chL}</span></div>
       <div class="krow"><div class="kpbar"><i style="width:${(Math.max(0, Math.min(1, bar.v / (bar.max || 1))) * 100).toFixed(1)}%"></i></div><span class="s">${esc(cut(bar.text, 16))}</span></div>
       ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${big.left} ${MO()}</span></div>` : ''}
       ${R.say ? `<div class="ksay">${elderImg(24)}<span>老祖：“${esc(cut(R.say, 20))}”</span></div>` : ''}`,

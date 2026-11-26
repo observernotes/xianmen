@@ -8,6 +8,13 @@
 const UI = {
   isOpen: k => !st || !L.onbShown || L.onbShown(st, k),
   navOpen: nav => navState(nav).open,
+  // 线 1 的 clock.js 调这几个（docs/KAIRO_PLAN.md 末尾“接口”）
+  say: (t, cls) => sayLine(t, cls),
+  showYear: () => showYearReport(),
+  go: (k, hl) => goTo(k, hl),
+  showInbox: () => showInbox(),
+  flashGoal: () => { const g = $('#goal'), t = $('#time'); for (const el of [g, t]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } },
+  nudge: nav => { const b = document.querySelector(`#nav [data-nav="${nav}"]`); if (b) { b.classList.add('gonow'); setTimeout(() => b.classList.remove('gonow'), 6000); } },
 };
 // ---------- 阻塞讲解只留清单里的：头三步（guide.js 的 GUIDE）+ 第一次“可以突破了”的金框 ----------
 const KEEP_HINTS = new Set(['ready']);
@@ -72,9 +79,9 @@ function onbHook(type, k) {
   if (type === 'unlock') {
     if (st.rebirth) return;   // 转世“快开”：入口上挂“新”就够（§8 P2 的合并卡以后再做）
     if (e.sys && UNLOCK_CARD[k] && st.tick > 0) { if (!unlockQ.includes(k)) unlockQ.push(k); }
-    else if (SUB_SAY[k]) { try { const t = SUB_SAY[k](); if (t) say(cut(t, 20), 'jade'); } catch (er) { /* 数字算不出来就不说 */ } }
+    else if (SUB_SAY[k]) { try { const t = SUB_SAY[k](); if (t) say(cut(t, 20)); } catch (er) { /* 数字算不出来就不说 */ } }
   } else if (type === 'master' && e.goal && e.sys && st.tick > 0 && st.onb && st.onb.at[k] !== st.tick) {
-    say(`✓ 学会了：${e.n.split('·')[0]}`, 'jade');
+    say(`✓ 学会了：${e.n.split('·')[0]}`);
   }
 }
 // 解锁卡只在打坐态、没有别的弹层时出；线 1 的 canInterrupt() 说能打断才出（两次主动打断至少隔 3 月）
