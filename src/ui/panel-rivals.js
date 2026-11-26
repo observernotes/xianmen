@@ -166,7 +166,7 @@ const rvHints = [
       if (!tf) return '换一门战技，胜算能高一截。';
       const b = L.duelArtBest(st, tf.foe, tf.Q), cur = b.cur ? L.art(b.cur) : null;
       const bad = cur && tf.known && b.ke0 ? `你这手${L.elName(b.me0)}系的《${esc(cur.n)}》被他的${L.elName(b.fe)}克，战力 <b>×${L.EL_DUEL[1]}</b>。` : cur && b.gear0 ? `他身上那件${tf.gk ? `【${esc(b.gear0.n)}】` : '法宝'}专克${L.ELEM[b.gear0.ke]}系，你吃亏 <b>×${(1 / L.RIVAL_GEAR_M).toFixed(2)}</b>。` : '';
-      return `看清了再上台。${esc(tf.n)}${tf.known ? `练的是${L.elName(b.fe)}系` : ''}，${bad}换成《${esc(B.n)}》${tf.known && b.ke ? `（${L.elName(b.me)}克${L.elName(b.fe)}，×${L.EL_DUEL[0]}）` : ''}：胜算 <b>${L.pct(b.p0)} → ${L.pct(b.p1)}</b>。战技即换即生效，打完再换回来。`;
+      return `看清了再上台。${esc(tf.n)}${tf.known ? `练的是${L.elName(b.fe)}系` : ''}，${bad}换成《${esc(B.n)}》${tf.known && b.ke ? `（${L.elName(b.me)}克${L.elName(b.fe)}，×${L.EL_DUEL[0]}）` : ''}：胜算 <b>${L.pct(b.p0)} → ${L.pct(b.p1)}</b>。战技即换即生效；打完以后功法页按接下来的事再推荐。`;
     } },
   { id: 'rvGrudge', intro: true, target: '[data-nav="me"]', btn: '记住了', when: () => rvCalm() && Object.keys(st.rv2.g60).some(id => L.grudge(st, id) >= L.GRUDGE.hi), text: () => {
       const id = Object.keys(st.rv2.g60).filter(x => L.grudge(st, x) >= L.GRUDGE.hi).sort((a, b) => st.rv2.g60[b] - st.rv2.g60[a])[0], g = L.grudge(st, id), n = esc(L.rivalName(st, id));

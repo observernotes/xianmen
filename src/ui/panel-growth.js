@@ -9,7 +9,8 @@ function gwIc(name, px) {
   return artIcon(name, px) || artIcon('up', px);
 }
 function gwEl(el) { const c = el && ART.elemBadge && ART.elemBadge(el); if (!c) return ''; const s = pxFit(c.width, 16); return `<img class="px" src="${urlOf(c, 'elb|' + el)}" style="width:${s}px;height:${s}px;flex:none" alt="">`; }
-const gwCost = a => (a.gap ? `${esc(a.gain.text)} ${esc(a.gain.sub || '')}　${esc(a.gap.fix.t === '去熔' ? '熔 1 件' : '去刷一趟')}` : a.cost.length ? a.cost.map(c => `${gwIc(c.icon, 16)} ${typeof c.n === 'number' ? fmt(c.n) : esc(c.n)}${c.have !== undefined ? ` <span class="${c.have < c.n ? 'kdn' : 'gw-mut'}">有 ${fmt(c.have)}</span>` : ''}`).join('　') : '不花钱');
+const gwCost = a => (a.why && !a.gap ? esc(a.why) : a.gap ? `${esc(a.gain.text)} ${esc(a.gain.sub || '')}　${esc(a.gap.fix.t === '去熔' ? '熔 1 件' : '去刷一趟')}` : a.cost.length ? a.cost.map(c => `${gwIc(c.icon, 16)} ${typeof c.n === 'number' ? fmt(c.n) : esc(c.n)}${c.have !== undefined ? ` <span class="${c.have < c.n ? 'kdn' : 'gw-mut'}">有 ${fmt(c.have)}</span>` : ''}`).join('　') : '不花钱');
+// 功法的推荐牌（artrec.js）花费一栏写原因（“克三年之约的慕容（水）”），不花钱是自然的
 // 动作卡：52 图标格 ｜ 名字 / 大数字 / 花费 ｜ 一个按钮（第一张金框 + 红章 + 红按钮；还差牌虚线框、红字、浅按钮）
 function advCards(acts, o) {
   o = o || {};
