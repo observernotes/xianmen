@@ -219,14 +219,16 @@ const GAP_NS = 200;
     const s2 = L.migrate(JSON.parse(JSON.stringify(st)));
     if (L.chapterNow(s2) !== 2) { fail(a.who, `迁移后第 ${L.chapterNow(s2) + 1} 章（应在第三章）`); continue; }
     if (!(s2.mainG && s2.mainG.rescue)) fail(a.who, '旧档没有救场标记');
-    if (!(s2.flags.inviteAt <= s2.tick)) fail(a.who, '旧档没补入宗帖');
-    let invite = false, foe = false;
+    // 宗门不再上门来请（AP_PLAN §4.7）：读档当季就能【拜山门】、能向赵乾【下战帖】（L.mainActs）
+    if (L.knockWhy(s2, 'jian')) fail(a.who, '读档后拜不了山门：' + L.knockWhy(s2, 'jian'));
+    { const acts = L.mainActs(s2), side = L.mainActs(s2, { side: true }); if (!acts.some(x => x.do && x.do.id === 'duel' && x.do.args && x.do.args.id === 'zhao')) fail(a.who, '读档后主线行动里没有【下战帖 · 赵乾】：' + acts.map(x => x.t).join(' / ')); if (!side.some(x => x.do && x.do.id === 'join' && x.ok)) fail(a.who, '读档后没有能点的【拜山门】'); }
+    let invite = true, foe = false;
     const w = watch(a.who + '·续玩', s2); w.story = a.story.slice(); w.ch = 2; w.chAt = [0, 36, s2.tick]; cur = w;
     const t0 = s2.tick;
     L.rng = rngFor(1090 + s);
-    const rec = run('guided', 1090 + s, false, { st0: s2, keep: true, maxT: 260, noSect: true, noChal: true, onTick: (x, out) => { onTick(w)(x, out); if (out.invite) invite = true; if (out.mainFoe === 'zhao') foe = foe || x.tick - t0; } });
+    const rec = run('guided', 1090 + s, false, { st0: s2, keep: true, maxT: 260, noSect: true, noChal: true, onTick: (x, out) => { onTick(w)(x, out); if (out.mainFoe === 'zhao') foe = foe || x.tick - t0; } });
     w.st = rec.st || s2;
-    if (!invite) fail(w.who, '读档后宗门没有再来请');
+    void invite;
     if (foe === false) fail(w.who, '读档后赵乾没有上门'); else if (foe > 3) fail(w.who, `读档后第 ${foe} 月赵乾才上门`);
     if (L.chapterNow(w.st) < 3) fail(w.who, `读档后 260 月还在第 ${L.chapterNow(w.st) + 1} 章`);
     if (V) console.log(`  ${w.who.padEnd(22)} 赵乾上门 +${foe} 月 · 第三章用了 ${(w.chAt[3] || NaN) - t0} 月 · 第 ${L.chapterNow(w.st) + 1} 章`);
@@ -339,6 +341,124 @@ for (let s = 1; s <= N; s++) {
       if (n < 2) fail(who, `故事标志位 ${f} 只有 ${n} 处读它（回声不够）`);
     } }
   sum.runs += ROUTES.length + 1;
+}
+
+// 10. 结算链与主线行动（docs/AP_PLAN.md §8.3 的 H1～H10）：只用 L.act / L.seasonEnd / L.nextBlock / L.blockDone / L.mainActs 玩（界面也只能调这几个），不借 sim 的主循环
+//   H1 关键剧情 shown − due === 0（逻辑层的 st.story.lag，和本段自己记的“条件第一次成立 → 那场戏出链”两套口径）；H3 中段戏 ≤ 1 季；H5 三年之约整条链在第 36 月；
+//   H7 季初阻塞内容 ≤ 2 件；H8 单章 ≤ 60 季、六个出身 × 入宗 / 散修都走到第六章以后；H9 任何一季 L.mainActs 非空、做不了的说得出差什么；H10 旧档迁移 + 第一条链。
+//   另打印：关键剧情 shown − due 的分布（应全为 0）、每条路线每章用了几季。
+const HSUM = { lag: {}, mid: {}, chap: [] };
+const KEY_RE = /^sb:c\d_(open|climax|end|pre)$|^sb:c2_mid1$|^(beat|boss|trib|demon|srank|rank|war_eve):|^(sect|daolv|pact_eve)$/;
+// 击败点名的人：那场戏是那一章的高潮——人在前一章就打赢了的（论道上碰到），戏在那一章开章的同一条链里接着出，所以“成立”= 打赢了且章到了
+const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']], ['war', st => !!st.flags.warWon, ['s6_after']]]
+  .concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => ['m' + (i - 1), st => !!st.quest.done['c' + (i - 1) + '_m'], ['story_r' + i]]));
+function chainPlay(who, mk, o) {
+  o = o || {};
+  L.rng = rngFor(o.seed || 1);
+  const st = mk(); st.btPol = 'smart';
+  const seq = () => st.ap.seq, due = {}, shown = {}, chAt = []; let ch0 = L.chapterNow(st); chAt[ch0] = st.tick;
+  const h = m => fail(who, m);
+  const pick = ev => {
+    const okI = ev.choices.map((c, i) => i).filter(i => L.choiceShown(st, ev.choices[i]) && L.costOk(st, ev.choices[i].cost));
+    if (!okI.length) return undefined;
+    if (ev.id === 's2_invite') { const join = okI.find(i => ev.choices[i].ok && ev.choices[i].ok.fx && ev.choices[i].ok.fx.join && L.sectJoinable(st, ev.choices[i].ok.fx.join)), san = okI.find(i => [].concat((ev.choices[i].ok && ev.choices[i].ok.fx && ev.choices[i].ok.fx.flag) || []).includes('path_san')); return o.lone ? (san !== undefined ? san : okI[0]) : join !== undefined ? join : okI[0]; }
+    return okI[Math.floor(L.rng() * okI.length)];
+  };
+  const watchK = () => { for (const [k, f] of KEYEV) if (due[k] === undefined && f(st)) due[k] = { seq: seq(), tick: st.tick }; const ch = L.chapterNow(st); if (ch > ch0) { for (let i = ch0 + 1; i <= ch; i++) chAt[i] = st.tick; ch0 = ch; } };
+  const settle = why => {
+    L.chainOpen(st, why); const t0 = st.tick; let n = 0, lv8 = 0; const list = [];
+    for (;;) {
+      const x = L.nextBlock(st); if (!x) break;
+      if (++n > 60) { h(`结算链不收敛（${why}，第 ${st.tick} 月）：${list.slice(-6).join(' → ')}`); break; }
+      list.push(x.kind + ':' + x.id);
+      if (x.kind === 'story') { if (shown[x.id] === undefined) shown[x.id] = { seq: seq(), tick: st.tick }; const ev = L.eventById(x.id); if (ev) { const i = pick(ev); if (i !== undefined) L.resolveChoice(st, ev, i); } }
+      if (why === 'season' && x.lv === 8) lv8++;
+      L.blockDone(st, x); watchK();
+    }
+    if (st.tick !== t0) h(`结算链进行中时间走了（${t0} → ${st.tick}）`);
+    if (lv8 > 2) h(`H7 季初阻塞内容 ${lv8} 件（第 ${st.tick} 月）：${list.join(' → ')}`);
+    for (const id of st.storyQ) { const ev = L.eventById(id); if (ev && /^sb:c\d_(open|climax|end)$/.test(ev.trigger || '')) h(`链结束后关键剧情 ${id} 还在队列里（第 ${st.tick} 月）`); }
+    return list;
+  };
+  const trip = args => { if (!L.act(st, 'exp', args)) return null; L.tripAuto(st, ev => { const i = pick(ev); if (i !== undefined) L.resolveChoice(st, ev, i); }); return L.tripEnd(st); };
+  const growAct = () => {
+    if (st.p.inj > 0 && st.pills > 0 && L.heal) L.heal(st);
+    if (L.isFull(st) || st.p.inj > 0) return (!L.apWhy(st, 'retreat') && L.act(st, 'retreat')) || L.act(st, 'sit');
+    if ((st._hT || 0) >= 2 && !L.apWhy(st, 'retreat')) { st._hT = 0; return L.act(st, 'retreat'); }
+    const c = L.expBest(st, 0); const r = trip({ k: c.k, d: c.d, a: c.a }); if (r) { st._hT = (st._hT || 0) + 1; return r; }
+    return L.act(st, 'sit');
+  };
+  const chores = () => {   // 家务：不花点（换装、换功法、建造升级洞府、宗门任务、买破境丹）
+    try { if (L.gearAutoAll) L.gearAutoAll(st); if (L.artApply && L.artBest) L.artApply(st, L.artBest(st, {})); } catch (e) { /* 没开放 */ }
+    if (L.home2On && L.home2On() && L.homePlotFree(st)) for (const k of ['field', 'furnace', 'room', 'vault', 'library', 'forge', 'pen', 'spring', 'pavilion', 'portal']) { if (st.home[k] > 0 || !L.homeUnlocked(st, k)) continue; if (st.stones >= L.homeCost(st, k)) L.build(st, k); break; }
+    for (let g = 0; g < 20; g++) { let best = null; for (const b of L.HOME) { if (st.home[b.k] >= b.max || !L.homeOpen(st, b.k) || (b.nu && !st.home[b.k])) continue; const c = L.hCost(b.k, st.home[b.k]); if (!best || c < best.c) best = { k: b.k, c }; } if (!best || st.stones < best.c * 1.2 || !L.upgrade(st, best.k)) break; }
+    if (st.sect) st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'lecture') L.taskTake(st, i); if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i); });
+    if (L.isFull(st) || (L.ticksToNext && L.ticksToNext(st) <= 6)) for (let g = 0; g < 3 && st.pills < 3 && st.stones >= L.price(st, 'pill'); g++) L.buy(st, 'pill');
+  };
+  settle('load');
+  if (o.fixture) {
+    if (st.tick % 3) h(`H10 迁移后 tick = ${st.tick}，不在季界上`);
+    if (st.exp || st.retreat) h('H10 迁移 + 第一条链之后还有“在外”状态');
+    for (let n = 1; n <= Math.min(8, L.chapterNow(st)); n++) if (!st.evDone['story_r' + n]) h(`H10 迁移 + 第一条链之后 story_r${n} 还没播（第 ${L.chapterNow(st) + 1} 章）`);
+    if (!L.mainActs(st).length) h('H10 迁移后 L.mainActs 为空');
+  }
+  const maxS = o.seasons || 230;
+  let sN = 0;
+  for (; sN < maxS && st.p.r < 9 && st.p.age < L.lifespan(st); sN++) {
+    chores();
+    for (let g = 0; g < 6 && L.apLeft(st) > 0; g++) {
+      const acts = L.mainActs(st);
+      if (!acts.length) h(`H9 第 ${st.tick} 月 L.mainActs 为空（第 ${L.chapterNow(st) + 1} 章）`);
+      for (const a of acts) if (!a.ok && (!a.why || /^(条件不足|不可用|暂不可用|眼下做不了)$/.test(a.why))) h(`H9 主线行动「${a.t}」做不了却没说差什么（“${a.why}”）`);
+      if (!acts.some(a => a.ok) && L.apLeft(st) > 0 && !st.run) h(`H9 第 ${st.tick} 月主线行动一项都做不了：${acts.map(a => a.t + '✗' + a.why).join(' / ')}`);
+      const t0 = st.tick, a = acts.find(x => x.ok && !x.grow && (x.p === undefined || x.p >= 0.55));
+      let r = null;
+      if (a && a.do) r = a.do.id === 'exp' ? trip(a.do.args) : L.act(st, a.do.id, a.do.args);
+      if (!r) r = growAct();
+      if (st.tick !== t0) h(`行动之后时间走了（${t0} → ${st.tick}）`);
+      watchK(); settle('act');
+      if (!r) break;
+    }
+    if (L.isReady(st) && !(st.p.r === 8 && L.chapterNow(st) < 8)) { if (L.tribNeeded(st)) { const v = L.tribStart(st, { pills: Math.min(3, st.pills), aids: 'all' }); if (v) L.tribFinish(st, { fa: 1, pet: 1, daolv: 1, pills: 0 }); } else L.breakthrough(st, Math.min(3, st.pills)); watchK(); settle('act'); }
+    if (st.p.r >= 9) break;
+    const t0 = st.tick; L.seasonEnd(st);
+    if (st.tick !== t0 + 3 && !(st.p.age >= L.lifespan(st))) h(`季末结算后 tick ${t0} → ${st.tick}`);
+    watchK(); settle('season');
+    const ch = L.chapterNow(st); if (chAt[ch] !== undefined && st.tick - chAt[ch] > 180 && !st.quest.done.c8_m && st.p.r < 9) { h(`H8 第 ${ch + 1} 章超过 60 季：${L.mainActs(st).map(a => a.t + (a.ok ? '✓' : '✗' + a.why)).join(' / ')}`); break; }
+  }
+  if (st.p.r >= 9) settle('act');
+  // H1 两套口径
+  for (const [k, , evs] of KEYEV) { if (!due[k]) continue; const id = evs.find(e => shown[e]); if (!id) continue; const d = shown[id].seq - due[k].seq; HSUM.lag[d] = (HSUM.lag[d] || 0) + 1; if (d !== 0) h(`H1 剧情滞后：${k} 在第 ${due[k].tick} 月成立，${id} 第 ${shown[id].tick} 月才出（隔 ${d} 个行动）`); }
+  for (const id in st.story.lag) {
+    const x = st.story.lag[id], ev = L.eventById(id); if (!ev || x.shown === undefined || x.via !== 'chain') continue;
+    if (KEY_RE.test(ev.trigger || '') && !(L.storyIdle && L.storyIdle(ev))) { const d = x.shown - x.due; HSUM.lag[d] = (HSUM.lag[d] || 0) + 1; if (d !== 0) h(`H1 st.story.lag：${id}（${ev.trigger}）shown − due = ${d}`); }
+    else if (L.storyIdle && L.storyIdle(ev)) { const d = x.shown - x.due; HSUM.mid[d] = (HSUM.mid[d] || 0) + 1; }
+  }
+  if (due.pact && !o.fixture && !st.rebirth) for (const id of ['s1_pact_after', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && st.pact > 0) h(`H5 ${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq}（约战第 ${due.pact.tick} 月 / seq ${due.pact.seq}）`);
+  for (const b in st.story.beat) if (st.story.beat[b] === -1 && /^(c1_climax|c2_mid1|c3_climax|c7_mid2|c7_climax|c8_mid2|c8_climax|c9_climax|c\d_open)$/.test(b) && !o.fixture) h(`H3 带抉择的节拍 ${b} 被记成“错过”`);
+  const fin = !!st.quest.done.c8_m || st.p.r >= 9;
+  if (o.reach !== undefined && !fin && L.chapterNow(st) < o.reach && st.p.r < 9) h(`H8 ${sN} 季（境界 ${st.p.r}）只走到第 ${L.chapterNow(st) + 1} 章（要第 ${o.reach + 1} 章）`);
+  const per = []; for (let i = 1; i < chAt.length; i++) if (chAt[i] !== undefined && chAt[i - 1] !== undefined) per.push(Math.round((chAt[i] - chAt[i - 1]) / 3));
+  { const last = chAt.length - 1; if (last >= 0 && chAt[last] !== undefined) per.push(Math.round((st.tick - chAt[last]) / 3) + (fin ? '' : '+')); }
+  HSUM.chap.push({ who, per, end: fin ? '完' : `第 ${L.chapterNow(st) + 1} 章`, seasons: sN, r: st.p.r });
+  sum.runs++; if (st.p.r >= 9) sum.asc++; sum.chMax.push(L.chapterNow(st));
+  if (V) console.log(`  ${who.padEnd(22)} ${sN} 季 · 境界 ${st.p.r} · ${fin ? '九章做完' : '第 ' + (L.chapterNow(st) + 1) + ' 章'} · 每章季数 ${per.join('/')}`);
+  return st;
+}
+{
+  const HN = QUICK ? 1 : 2;
+  for (const o of L.ORIGIN_IDS) for (const lone of [false, true]) for (let k = 0; k < HN; k++) {
+    const mk = o === 'qitu' && k === 0 ? () => L.newState({ name: '测试' }) : reborn(o);
+    chainPlay(`链·${L.ORIGINS[o].n}·${lone ? '散修' : '入宗'}#${k + 1}`, mk, { seed: 1300 + k * 7 + (lone ? 1 : 0), lone, reach: 6 });
+  }
+  // H10 旧档
+  const FIX = path.join(__dirname, 'story_fixtures'), fsx = require('fs');
+  const files = fsx.existsSync(FIX) ? fsx.readdirSync(FIX).filter(f => /\.json$/.test(f)).sort() : [];
+  for (const f of QUICK ? files.filter((x, i) => i % 3 === 0) : files) chainPlay('旧档·' + f.replace(/\.json$/, ''), () => L.migrate(JSON.parse(fsx.readFileSync(path.join(FIX, f), 'utf8'))), { seed: 1400, fixture: f, lone: /lone|wuzong|refuse/.test(f), seasons: QUICK ? 20 : 60 });
+  const ls = Object.keys(HSUM.lag).sort((a, b) => a - b).map(d => `${d}: ${HSUM.lag[d]}`).join('，'), ms = Object.keys(HSUM.mid).sort((a, b) => a - b).map(d => `${d}: ${HSUM.mid[d]}`).join('，');
+  console.log(`关键剧情 shown − due（个行动）分布：${ls || '—'}；闲戏：${ms || '—'}`);
+  console.log('每条路线每章用了几季（第一章起；— = 没走到）：');
+  for (const c of HSUM.chap.filter(x => !/^旧档/.test(x.who))) console.log(`  ${c.who.padEnd(20)} ${c.per.map((v, i) => `${i + 1}:${v}`).join(' ')} · ${c.end} · 共 ${c.seasons} 季`);
 }
 
 const sec = Math.round((Date.now() - t0) / 1000);

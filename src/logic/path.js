@@ -6,7 +6,7 @@
  *   L.ONB[j].ch：这一项在第几章开放（路径页“已开 / 还有几样”）
  *   L.chapterNow(st)：当前章 = 第一个主线没做完的章（只由主线推进；境界与章节互不挂钩：境界随便升，主线没做完就停在这一章，主线目标也不看境界）。
  *     按章走的东西：realm:N 主线剧情等“境界到 N 且章到 N”才放（story.js）；事件的境界窗口按 min(境界, 章) 判；解锁卡第一世按章开（onboard.js）；天剑宗来犯按章（第六章）。
- *   散修之路（L.loneRoute：天道试炼“无宗”，或散修丹师不入宗）：要宗门的主线换成不要宗门的版本（L.LONE），目标卡、路径页、札记跟着换字
+ *   散修之路（L.loneRoute：没入宗就是散修，mainline.js）：要宗门的主线换成不要宗门的版本（L.LONE），目标卡、路径页、札记跟着换字
  *   L.pathView(st) / L.goalNow(st) / L.chapterSummary(st, i)：界面读（接口见 KAIRO_PLAN.md 末尾“接口”）
  *   emit('chapter', { from, to })：当前章变了（L.checkQuests 之后判；界面据此弹章末结算）
  *   存档 st.path = { ch, at: [{ t, pw, exp }], best: [每章最好评价] }；L.migratePath 幂等
@@ -177,36 +177,45 @@ L.goalNow = function (st) {
   return g;
 };
 L.goalNext = function (st) {
-  const key = (L.adviseKey ? L.adviseKey(st) : st.tick + '|' + Math.floor(st.stones)) + '|' + (L.isFull(st) ? 'F' : '') + Object.keys(st.onb ? st.onb.m : {}).length + '|' + Object.keys((st.quest && st.quest.done) || {}).length + '|' + (st.clk && st.clk.prepSeen);
+  const key = (L.adviseKey ? L.adviseKey(st) : st.tick + '|' + Math.floor(st.stones)) + '|' + (L.isFull(st) ? 'F' : '') + Object.keys(st.onb ? st.onb.m : {}).length + '|' + Object.keys((st.quest && st.quest.done) || {}).length + '|' + (st.clk && st.clk.prepSeen) + '|' + (st.ap ? st.ap.left + ':' + st.ap.seq : '') + '|' + (st.sect ? st.sect.rank + ':' + Math.floor(st.sect.total) : '') + '|' + st.rank + '|' + Object.keys(st.beaten || {}).length + '|' + st.p.inj;
   if (gCache.key === key && gCache.st === st) return gCache.v;
   const v = goalNext0(st);
   gCache = { key, st, v };
   return v;
 };
+// 返回 { t, go, hl, why, k, ap, do }：ap 是这一步花几点（0 = 不花点），do 是界面点【去】时直接执行的行动（{ id, args } 交给 L.act；null = 只跳到 go 那一页）
+// 没有“在外 / 备战”两支了（AP_PLAN §5.4）：历练、闭关当场结算；备战由“本季末有大事”那一季的目标卡和【下一季】按钮承担（界面）
 function goalNext0(st) {
   const p = st.p;
-  if (p.r > L.MAXR) return { t: '已飞升', go: 'path', hl: null, why: 'idle' };
-  if (st.run) return { t: '秘境中', go: 'realm', hl: null, why: 'away' };
-  if (st.exp) return { t: `历练中 · 还有 ${st.exp.left} 月`, go: 'exp', hl: null, why: 'away' };
-  if (st.retreat) return { t: `${L.retName(st.retreat)}中 · 还有 ${st.retreat.left} 月`, go: 'home', hl: null, why: 'away' };
-  // 大节点前 1 月：备战（自动停）
-  const big = L.bigNext ? L.bigNext(st) : null;
-  if (big && big.left <= 1 && !(st.clk && st.clk.prepSeen === st.tick)) return { t: '备战：' + big.n, go: 'prep', hl: null, why: 'prep', big };
-  // 其余都取变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡、老祖头像、变强页同一张表；必须先做的（突破、疗伤、新法宝）压过新系统上手
+  if (p.r > L.MAXR) return { t: '已飞升', go: 'path', hl: null, why: 'idle', ap: 0, do: null };
+  if (st.run) return { t: '秘境中', go: 'realm', hl: null, why: 'realm', ap: 0, do: null };
+  // 变强建议（docs/KAIRO_PLAN.md §10.5）：必须先做的（突破、疗伤、新法宝）压过一切——都不花点
   const A = L.advise ? L.advise(st, 'goal') : null, a0 = A && A.acts[0];
   if (a0 && a0.must) return advNext(a0);
-  // 主线眼下就能做的一步（投帖、晋升、胜算过半的下战书；mainline.js）
-  const ms = L.mainStep ? L.mainStep(st) : null;
-  if (ms && ms.must) return { t: cut(ms.t, 12), go: ms.go, hl: ms.hl, why: 'main', k: ms.id, foe: ms.foe };
+  // 主线差的那一步（mainline.js 的 L.mainActs）：现在就能做、做了主线进度条一定动
+  const mn = L.mainNext ? L.mainNext(st) : null;
+  if (mn && mn.ok && !mn.grow) return mainNext(st, mn);
   // 刚开、还没学会的系统
   const og = L.onbGoal(st);
-  if (og) return { t: cut(og.goal, 12), go: ONB_GO[og.k] || 'path', hl: null, why: 'onb', k: og.k };
-  if (p.inj > 0 && (!a0 || a0.id === 'idle')) return { t: `养伤 · 还有 ${p.inj} 月`, go: 'home', hl: null, why: 'idle' };
+  if (og) return { t: cut(og.goal, 12), go: ONB_GO[og.k] || 'path', hl: null, why: 'onb', k: og.k, ap: 0, do: null };
+  // 主线这一步眼下做不了（差战力、冷却、固定日子）：变强建议的第一张牌就是补差距的那一步；need 写差什么
+  const need = mn && !mn.ok ? mn.why : '';
+  if (a0 && a0.id !== 'idle') return Object.assign(advNext(a0), need ? { need, main: mn } : {});
+  if (mn && mn.ok) return Object.assign(mainNext(st, mn), need ? { need } : {});
+  if (p.inj > 0) return { t: L.injText ? cut(L.injText(st), 12) : '养伤 · 闭关或打坐', go: 'home', hl: null, why: 'idle', ap: 0, do: null, need };
   if (a0) return advNext(a0);
-  if (p.inj > 0) return { t: `养伤 · 还有 ${p.inj} 月`, go: 'home', hl: null, why: 'idle' };
-  return { t: '去历练', go: 'exp', hl: '[data-nav="exp"]', why: 'exp' };
+  return { t: '去历练', go: 'exp', hl: '[data-nav="exp"]', why: 'exp', ap: L.AP ? L.AP.exp : 2, do: null, need };
 }
-const advNext = a => ({ t: a.say, go: a.go, hl: a.hl || null, why: 'adv', act: a, k: a.id });
+const advNext = a => ({ t: a.say, go: a.go, hl: a.hl || null, why: 'adv', act: a, k: a.id, ap: a.ap !== undefined ? a.ap : 0, do: a.do || null });
+// 主线行动 → 目标卡的“下一步”（go：界面跳转键，界面也可以直接 L.act(st, do.id, do.args)）
+const ACT_GO = { duel: 'rivals', join: 'sect', promote: 'sectid', final: 'sectid', boss: 'exp', exp: 'exp', retreat: 'home', sit: 'home' };
+function mainNext(st, a) {
+  const d = a.do || {};
+  let go = ACT_GO[d.id] || 'path';
+  if (d.id === 'duel' && d.args && d.args.id) go = 'mainfoe';
+  if (d.id === 'final' && L.finalKind && L.finalKind(st) === 'war') go = 'prep';
+  return { t: cut(a.t, 12), go, hl: d.id === 'promote' ? '#btnPromo' : d.id === 'duel' && d.args && d.args.id ? '#btnChal' : null, why: a.grow ? 'grow' : 'main', k: 'main:' + a.id, ap: a.ap || 0, do: a.do || null, p: a.p, act: a, foe: d.id === 'duel' && d.args ? d.args.id : undefined };
+}
 
 // ---------- 章末结算 ----------
 L.chapterSummary = function (st, i) {

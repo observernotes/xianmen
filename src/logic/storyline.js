@@ -3,8 +3,10 @@
  *
  *   主线目标：第七章 = 得知真相 + 了结正魔大战；第八章 = 天骄榜前二 + 了断陆天衡；第九章 = 渡过天劫、在天门前作出选择。都不写境界。
  *   节拍 L.STORY_BEATS：每章 open / mid1～3 / pre / climax / end 几个位子，按表里的顺序一个一个放；放的时候 L.fireTrigger(st, 'sb:<节拍 id>')，
- *     场景用 trigger: 'sb:c3_open' 挂上去（人物戏挂 'sb:mid'：任何一章的中段空位）。在外（L.busy）不放；带抉择的节拍（must）过了章也补放，别的过章就算错过。
- *     已经放过、场景却还没结算的（队列被清、选了个不显示的选项……）每月补一次，所以主线不会丢。
+ *     场景用 trigger: 'sb:c3_open' 挂上去（人物戏挂 'sb:mid'：任何一章的中段空位）。带抉择的节拍（must）过了章也补放，别的过章就算错过。
+ *     时点（docs/AP_PLAN.md §4.3）：开章、高潮、收尾、三张帖子是关键戏，事件一结算 L.storyKick 当场进队（结算链 blocks.js 当场出）；中段戏只在季初放（L.storyTick，一季一场）；
+ *     pre 在最后一仗开打之前放（L.storyPreFire，blocks.js 把那一仗挪到它后面），固定日子的（守山）在那一季的季初。
+ *     已经放过、场景却还没结算的（队列被清、选了个不显示的选项……）每条结算链补一次（L.storyRepush），所以主线不会丢。
  *   故事量：L.storyPath / storyDark / storyBonds / storySky / storyCond（对话里 if 的写法都走 storyCond）。
  *   有条件的选项：选项写 gate: 'stop' | 'expose' | 'stay' | 'break' | 'xuesha' | 'kept'，L.STORY_GATES[名](st) → { ok, why }；不满足时 L.choiceShown 为假，界面用 L.choiceGate 把它画成灰的并写上 why。
  *   场景字段（引擎只登记、不判）：talk 台词、scene 底图、gist 梗概、cine 过场、bgm 配乐；选项字段 key 关键抉择、hint 小字。
@@ -93,7 +95,7 @@ for (const k of ['key', 'hint', 'gate', 'cond']) L.supportChoice(k);
 // 抉择记一笔（跨世）：下一世的选项上有个小点
 L.supportChoice('key', { apply: (st, v, ev, ch) => { if (!st.meta) return; const p = st.meta.picks || (st.meta.picks = {}); (p[ev.id] || (p[ev.id] = {}))[ev.choices.indexOf(ch)] = 1; } });
 L.supportFx('join', { ok: v => typeof v === 'string', apply: (st, v, out) => { if (!st.sect && L.sectJoinable(st, v) && !(L.trialOn && L.trialOn(st, 'wuzong')) && L.joinSect(st, v)) out.push('拜入' + L.sectOf(st).n); } });
-L.supportFx('retry', { ok: v => v > 0, apply: (st, v, out, fx, ctx) => { const ev = ctx && ctx.ev; if (!ev) return; delete st.evDone[ev.id]; S(st).retry[ev.id] = st.tick + v; } });
+L.supportFx('retry', { ok: v => v > 0, apply: (st, v, out, fx, ctx) => { const ev = ctx && ctx.ev; if (!ev) return; delete st.evDone[ev.id]; S(st).retry[ev.id] = Math.ceil((st.tick + v) / 3) * 3; } });   // 过 v 个月重来：向上取到季界（AP_PLAN §4.3）
 L.supportFx('unsect', { apply: (st, v, out) => { if (st.sect && st.sect.id !== 'xuesha') { out.push(L.sectOf(st).n + '将你除名'); L.log(st, `${L.sectOf(st).n}将你除名`, 'red'); st.sect = null; st.eflags.sect_expelled = 1; } } });
 
 // 抉择二选了“哪家也不去”：这一世走散修之路（之后改主意入了宗就不算了）
@@ -134,12 +136,17 @@ const S = st => { const s = st.story || (st.story = {}); if (!s.beat) s.beat = {
 L.storyState = S;
 const mainDone = (st, i) => !!(st.quest && st.quest.done && st.quest.done['c' + i + '_m']);
 const prOf = (st, ch) => { try { const a = L.CHAPTERS[ch].prog(st); if (!a || !a.length) return 0; return a.reduce((s, x) => s + Math.min(1, x.v / (x.max || 1)), 0) / a.length; } catch (e) { return 0; } };
-const MID_PR = { mid1: 0.2, mid2: 0.45, mid3: 0.7 }, MID_T = { mid1: 18, mid2: 36, mid3: 54 }, GAP = { open: 2, mid1: 6, mid2: 6, mid3: 6, pre: 3, climax: 0, end: 1 };
+const MID_PR = { mid1: 0.2, mid2: 0.45, mid3: 0.7 };
+// 节拍时点（docs/AP_PLAN.md §4.3）：中段入章满 3 / 6 / 9 季也放；最小间隔只剩中段 1 季（一个季初最多一场）；pre 的兜底 36 月（12 季）
+const MID_T = { mid1: 9, mid2: 18, mid3: 27 }, GAP = { open: 0, mid1: 3, mid2: 3, mid3: 3, pre: 0, climax: 0, end: 0 };
+L.STORY_GAP = GAP; L.STORY_MID_T = MID_T;
 // 高潮：这一章最后一仗打完的那一刻（不是主线完成——第七、八、九章的主线要等高潮那场戏里的抉择）
 const CLIMAX = [
   st => !!st.pact, st => L.mainRankOk(st, 60, 1), st => !!st.beaten.zhao, st => mainDone(st, 3), st => !!st.beaten.chu, st => !!st.flags.warWon,
   st => !!E(st).st_truth && !!st.beaten.xue, st => !!E(st).st_justice && L.mainRankOk(st, 2, 7), st => st.p.r >= 9,   // 名次按 mainline.js 降过级的算
 ];
+// 固定日子的最后一仗（守山）：那一季的季初放 pre（AP_PLAN §4.3）
+const FIXED_PRE = { 5: st => !st.flags.warWon && st.flags.war > st.tick && st.flags.war - st.tick <= 3 };
 // 每章节拍的顺序（缺省 open mid1 mid2 mid3 pre climax end）；must：带抉择，过了章也补放
 const ORDER = { 4: ['open', 'mid1', 'mid2', 'climax', 'mid3', 'end'], 7: ['open', 'mid1', 'mid2', 'pre', 'climax', 'mid3', 'end'], 8: ['open', 'mid1', 'mid2', 'mid3', 'pre', 'climax'] };
 const MUST = { c1_climax: 1, c2_mid1: 1, c3_climax: 1, c5_mid3: 1, c7_mid2: 1, c7_climax: 1, c8_mid2: 1, c8_climax: 1, c9_climax: 1 };   // 另外：每章的开章（主线剧情）都算
@@ -150,8 +157,8 @@ for (let ch = 0; ch < 9; ch++) for (const slot of ORDER[ch] || ['open', 'mid1', 
     slot === 'open' ? (ch > 0 || x.inCh >= 24)   // 第一章的开章：新开一局时界面在建档后当场播（talk.js 的 storyStart）；没播过的（转世、快放的自动化）等上手那两年过去再放
       : slot === 'climax' ? CLIMAX[ch](st)
         : slot === 'end' ? mainDone(st, ch)
-          : slot === 'pre' ? (x.pr >= 0.85 || x.inCh >= 72 || CLIMAX[ch](st))
-            : id === 'c2_mid1' ? true   // 三张帖子：第二章一开就来请（入宗不看境界，mainline.js）
+          : slot === 'pre' ? ((FIXED_PRE[ch] && FIXED_PRE[ch](st)) || x.pr >= 0.85 || x.inCh >= 36 || CLIMAX[ch](st))
+            : id === 'c2_mid1' ? true   // 三张帖子：第二章开章那条链的末尾当场放（入宗不看境界，mainline.js）
               : (x.pr >= MID_PR[slot] || x.inCh >= MID_T[slot]) });
 }
 const BEAT = {}; for (const b of L.STORY_BEATS) BEAT[b.id] = b;
@@ -163,7 +170,7 @@ L.storyKeyDue = function (st, key) {
   return false;
 };
 const fired = (st, id) => S(st).beat[id] !== undefined;
-// 节拍放过了、挂在它上面的场景却没结算也不在队列里：补进队列
+// 节拍放过了、挂在它上面的场景却没结算也不在队列里：补进队列（结算链每条链开头、每出一张之前补一次：blocks.js）
 function repush(st) {
   const s = S(st); let n = 0;
   for (const ev of L.events()) {
@@ -174,39 +181,49 @@ function repush(st) {
   }
   return n;
 }
-L.storyTick = function (st) {
+L.storyRepush = st => (st && st.storyQ && st.p && L.STORYLINE !== false ? repush(st) : 0);
+// 上手引导头三步手把手（点历练 → 点地点 → 点出发）期间不放戏（AP_PLAN §4.7）
+const guideHold = st => !!(st.guide && !st.guide.done && (st.guide.step || 0) < 3 && st.tick < 36);
+L.storyGuideHold = guideHold;
+// 闲戏（中段的主线戏、人物戏 sb:mid）：只在季初放，一个季初最多一场（AP_PLAN §4.4）；固定日子的 pre（守山）也在季初放。
+// 开章、高潮、收尾、三张帖子、带抉择的补放是关键戏，不在这里——事件一结算 L.storyKick 当场放进队列（同一条结算链）。
+const IDLE_RE = /^sb:(mid|c\d_mid\d)$/;
+L.storyIdle = ev => !!ev && ev.where === 'story' && IDLE_RE.test(ev.trigger || '') && ev.trigger !== 'sb:c2_mid1';
+L.storyTick = function (st, force) {
   if (!st || !st.p || !st.storyQ || L.STORYLINE === false) return 0;
   const s = S(st), now = L.chapterNow(st);
   for (let c = 0; c <= now; c++) if (s.chAt[c] === undefined) s.chAt[c] = st.tick;
-  if (L.busy(st)) return 0;
-  if (st.guide && !st.guide.done && st.tick < 36) return 0;   // 开头的上手引导没走完：先不放戏（KAIRO §3：引导期间不叠阻塞弹窗）
-  let n = repush(st);
-  if (st.storyQ.length) return n;
+  if (!force && st.tick % 3 !== 0) return 0;   // 只在季界（季末结算的最后一个月 = 下一季的季初）
+  if (guideHold(st)) return 0;
+  // 队列里还压着一场闲戏（上一季没排上）：这一季先放它，不再加
+  if (st.storyQ.some(id => L.storyIdle(L.eventById(id)))) return 0;
+  if (typeof s.lastMid !== 'number') s.lastMid = -99;
+  let n = 0;
+  let midBlocked = false;
   for (const b of L.STORY_BEATS) {
     if (fired(st, b.id)) continue;
     if (b.ch > now) break;
     const stale = b.ch < now && b.slot !== 'climax' && b.slot !== 'end';
     if (stale && !b.must) { s.beat[b.id] = -1; continue; }   // 过了章的中段戏：错过（回忆里补看）
-    if (st.tick - s.last < (stale || b.id === 'c2_mid1' ? 1 : GAP[b.slot])) break;
-    const x = { ch: b.ch, pr: stale ? 1 : prOf(st, b.ch), inCh: st.tick - (s.chAt[b.ch] || 0) };
-    if (!stale && !b.when(st, x)) {
-      // 高潮没到、章却已经过了（旧档、别的路子完成的主线）：不卡后面的
-      if (b.ch < now && (b.slot === 'climax' || b.slot === 'end') && !b.must) { s.beat[b.id] = -1; continue; }
-      break;
-    }
+    if (reactiveSlot(b) || (stale && b.must)) continue;   // 关键戏：L.storyKick 当场放
+    if (b.slot === 'climax' || b.slot === 'end') { if (b.ch < now && !b.must) s.beat[b.id] = -1; continue; }
+    const isMid = /^mid/.test(b.slot);
+    if (isMid && (midBlocked || st.tick - s.lastMid < GAP[b.slot])) { midBlocked = true; continue; }
+    const x = { ch: b.ch, pr: prOf(st, b.ch), inCh: st.tick - (s.chAt[b.ch] || 0) };
+    if (!b.when(st, x)) { if (isMid) midBlocked = true; continue; }   // 中段按序：前一个没到点，后面的中段也不放（pre 不受牵连）
     s.beat[b.id] = st.tick;
     const q0 = st.storyQ.length;
     L.fireTrigger(st, 'sb:' + b.id);
-    if (st.storyQ.length === q0 && /^mid/.test(b.slot)) L.fireTrigger(st, 'sb:mid');   // 这个中段位子没有主线戏：让给人物戏
+    if (st.storyQ.length === q0 && isMid) L.fireTrigger(st, 'sb:mid');   // 这个中段位子没有主线戏：让给人物戏
+    if (isMid) s.lastMid = st.tick;
     if (st.storyQ.length > q0) { s.last = st.tick; n += st.storyQ.length - q0; break; }
   }
   return n;
 };
 // ---------- 关键事件 → 对应剧情：零延迟 ----------
 // 直接回应某件事的戏（约战之后、入宗那天、击败点名的人、这一章的高潮与收尾、下一章的开章、三张帖子）不进任何节流：
-// 事件一结算（L.checkQuests / L.markBeat / L.joinSect 之后），对应的节拍当场放进剧情队列、排在闲戏前头；不看在不在外、不看间隔、不等前一场。
-// 只有中段的闲戏（mid1～3、人物戏 sb:mid）照旧按“在洞府、隔几个月”放。界面读 L.storyUrgent(st)：队首是关键戏就当场播。
-const IDLE_RE = /^sb:(mid|c\d_mid\d)$/;
+// 事件一结算（L.checkQuests / L.markBeat / L.joinSect 之后），对应的节拍当场放进剧情队列；结算链（blocks.js 的 L.nextBlock）按 AP_PLAN §4.2 的顺序连着出完。
+// 只有中段的闲戏（mid1～3、人物戏 sb:mid）在季初放。L.storyUrgent(st)：队首是关键戏（旧界面用）。
 L.storyReactive = ev => !!ev && ev.where === 'story' && (!IDLE_RE.test(ev.trigger || '') || ev.trigger === 'sb:c2_mid1');
 const reactiveSlot = b => b.slot === 'open' || b.slot === 'climax' || b.slot === 'end' || b.id === 'c2_mid1';
 // 队列里关键戏排前面（各自保持原来的先后）
@@ -222,7 +239,7 @@ L.storyUrgent = st => !!(st && st.storyQ && st.storyQ.length && L.storyReactive(
 let kicking = 0;
 L.storyKick = function (st) {
   if (kicking || !st || !st.p || !st.storyQ || !st.quest || L.STORYLINE === false) return 0;
-  if (st.guide && !st.guide.done && st.tick < 36) return 0;
+  if (guideHold(st)) return 0;
   kicking++;
   try {
     const s = S(st), now = L.chapterNow(st); let n = 0;
@@ -246,6 +263,17 @@ L.storyKick = function (st) {
     return n;
   } finally { kicking--; }
 };
+// 主线最后一仗之前的铺垫（pre）：玩家点了【下战帖】/【圣子之战】之后、对决之前当场放（blocks.js 把那一仗挪到这场戏之后再打）。
+// 返回这一回放进队列的场景 id（没有可放的就是空数组，这一仗当场打）
+L.storyPreFire = function (st) {
+  if (!st || !st.p || !st.storyQ || L.STORYLINE === false) return [];
+  const now = L.chapterNow(st), b = BEAT['c' + (now + 1) + '_pre'];
+  if (!b || fired(st, b.id)) return [];
+  const s = S(st), q0 = st.storyQ.length;
+  s.beat[b.id] = st.tick; s.last = st.tick;
+  L.fireTrigger(st, 'sb:' + b.id);
+  return st.storyQ.slice(q0);
+};
 L.STORY_CLIMAX = CLIMAX;
 // 'sb:mid' 的人物戏一次只放一场：fireTrigger 会把合格的全推进去，这里只留权重最高的一条
 { const ft0 = L.fireTrigger; L.fireTrigger = function (st, key) {
@@ -255,7 +283,7 @@ L.STORY_CLIMAX = CLIMAX;
 }; }
 { const tk0 = L.tick; L.tick = function (st, cont) { const out = tk0(st, cont); L.storyTick(st); return out; }; }
 // 奇遇链 / 条件剧情的补放认 sb: 键（tianheng_2 是《老祖的旧剑》第 5 步）
-{ const cc0 = L.chainCatchUp; if (cc0) L.chainCatchUp = function (st) { return cc0(st) + (st && st.storyQ && !L.busy(st) ? repush(st) : 0); }; }
+{ const cc0 = L.chainCatchUp; if (cc0) L.chainCatchUp = function (st) { return cc0(st) + (st && st.storyQ ? repush(st) : 0); }; }
 // 天剑宗来犯：了断陆天衡、或止了战以后不再来（P19）
 { const wc0 = L.warChapter; L.warChapter = st => wc0(st) && !(st.flags && st.flags.warWon); }
 { const tk1 = L.tick; L.tick = function (st, cont) { if (st && st.flags && !st.flags.warWon && (any(st, L.STORY_LU) || E(st).war_stop) && L.chapterNow(st) > 5) st.flags.warWon = st.flags.warWon || 1; return tk1(st, cont); }; }
@@ -386,8 +414,20 @@ L.EPILOGUE = EPI;
 L.migrateStoryline = function (s) {
   if (!s || !s.p || !s.quest) return s;
   const fresh = !s.story; const st = S(s);
-  if (fresh && (s.tick || 0) > 0) { const now = L.chapterNow(s); for (const b of L.STORY_BEATS) if (b.ch < now) st.beat[b.id] = -1; for (let c = 0; c <= now; c++) st.chAt[c] = c === now ? s.tick : 0; if (now === 0) st.beat.c1_open = -1; }
+  // 带抉择的、开章的（must）不算错过：读档后第一条结算链里按章序补出来（AP_PLAN §7、§8.3 H10）
+  if (fresh && (s.tick || 0) > 0) { const now = L.chapterNow(s); for (const b of L.STORY_BEATS) if (b.ch < now && !b.must && b.slot !== 'climax') st.beat[b.id] = -1; /* 过了章的高潮：条件成立就补（赵乾落败、守山之后……） */ for (let c = 0; c <= now; c++) st.chAt[c] = c === now ? s.tick : 0; if (now === 0) st.beat.c1_open = -1; }
   return s;
 };
-{ const mg0 = L.migrate; L.migrate = function (s) { const r = mg0.apply(this, arguments); if (r) L.migrateStoryline(r); return r; }; }
+// 以前的版本把过了章的开章 / 抉择 / 高潮记成了“错过”（−1）、场景却一场没放：放出来（场景都结算过的不动；高潮的条件不成立的不放）
+L.storyUnmiss = function (s) {
+  if (!s || !s.story || !s.story.beat || !s.quest) return 0;
+  const now = L.chapterNow(s); let n = 0;
+  for (const b of L.STORY_BEATS) {
+    if (b.ch >= now || !(b.must || b.slot === 'climax') || s.story.beat[b.id] !== -1) continue;
+    const evs = L.events().filter(ev => ev.where === 'story' && ev.trigger === 'sb:' + b.id);
+    if (evs.length && !evs.some(ev => s.evDone[ev.id])) { delete s.story.beat[b.id]; n++; }
+  }
+  return n;
+};
+{ const mg0 = L.migrate; L.migrate = function (s) { const r = mg0.apply(this, arguments); if (r) { L.migrateStoryline(r); L.storyUnmiss(r); } return r; }; }
 });

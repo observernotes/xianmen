@@ -347,7 +347,8 @@ async function apSection(quick) {
       else if (!route.lone) chk(false, `${who}：没入宗`, 'D');
       if (route.lone && !route.late) chk(!st.sect, `${who}：这条路线确实没入宗（散修）`, 'D');
       // st.story.lag（线 B 打点，H1 `shown − due === 0`）
-      if (st.story && st.story.lag) { const bad = Object.entries(st.story.lag).filter(([id, v]) => H1KEY(trgOf(id)) && v && v.shown - v.due !== 0); chk(!bad.length, `${who}：st.story.lag（H1）关键剧情 shown − due = 0` + (bad.length ? '：' + bad.slice(0, 4).map(([id, v]) => `${id} ${v.shown - v.due}`).join('、') : ''), 'B'); }
+      const trgOf = id => { const ev = L.eventById && L.eventById(id); return ev ? ev.trigger || '' : ''; };   // （线 B：原来只在上面的块里定义，这里用不到）
+      if (st.story && st.story.lag) { const bad = Object.entries(st.story.lag).filter(([id, v]) => H1KEY(trgOf(id)) && v.shown !== undefined && v.via !== 'resolve' && v && v.shown - v.due !== 0); chk(!bad.length, `${who}：st.story.lag（H1）关键剧情 shown − due = 0` + (bad.length ? '：' + bad.slice(0, 4).map(([id, v]) => `${id} ${v.shown - v.due}`).join('、') : ''), 'B'); }
       else notes.push(`${who}：st.story.lag 还没有（线 B 的打点），H1 只按“同链”判`);
       // Z2 主线可推进
       if (typeof L.mainActs === 'function' || typeof L.mainPending === 'function') {
