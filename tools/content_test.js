@@ -1857,7 +1857,7 @@ async function apSection(quick) {
       await page.waitForTimeout(300);
       if (await page.evaluate(() => window.__xm.guideDbg.active) === id) return true;
       await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok && window.__xm.guideDbg.active !== id) ok.click(); }, id);
-      await page.evaluate(() => { window.__xm.onTick(); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
+      await page.evaluate(() => { window.__xm.st.storyQ = []; window.__xm.onTick(); window.__xm.st.storyQ = []; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });   // 排着剧情时洞府提示不讲：这里不让剧情排队
     }
     return false;
   };
@@ -1873,7 +1873,7 @@ async function apSection(quick) {
   await hLoad({ r: 1, s: 2, i: 7, cave: 2, build: ['field'], unseen: ['zhen'] });
   await page.waitForTimeout(600);
   expect(await hq(() => !window.__xm.guideDbg.cand.includes('zhen') && window.__xm.L.zhenOpen(window.__xm.st) && window.__xm.L.zhenOwnList(window.__xm.st).length === 1), '只有聚灵阵（1 张）：不讲阵法');
-  await page.evaluate(() => { window.__xm.st.gear.zhentu.f_shengcai = 1; window.__xm.st.gear.zhentu.f_dujie = 1; });
+  await page.evaluate(() => { window.__xm.st.gear.zhentu.f_shengcai = 1; window.__xm.st.gear.zhentu.f_dujie = 1; window.__xm.st.storyQ = []; });   // 排着剧情时洞府提示不讲（homeCalm）
   const got2 = await hint('zhen'); await shot('h09-hint-zhen');
   const ht2 = await hq(() => (document.querySelector('#guide .gtext') || {}).textContent || '');
   const dbg2 = await hq(() => JSON.stringify(Object.assign({ tick: window.__xm.st.tick, calm: !document.querySelector('#modal:not([hidden])'), q: window.__xm.st.storyQ.length }, window.__xm.guideDbg)));
@@ -3000,7 +3000,8 @@ async function apSection(quick) {
       // 葛老：灵草 ×2；采药带回稀有药引（雷 / 木 / 魂）
       const hb = (c) => { const t = mk({ ge: 85, su: 85 }, x => { x.meta.recipe = {}; }); if (c) L.setComp(t, c); L.startExp(t, 0, 0, 2); t.exp.plan.u = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; const h0 = t.herbs; const y0 = ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0); const r = L.resolveExp(t); return { r, gain: t.herbs - h0, yin: ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0) - y0 }; };
       const h0 = hb(null), h1 = hb('ge');
-      o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain === h0.gain * 2 && h1.r.compHerbs === h0.r.herbs;
+      o.geDbg = JSON.stringify([h0.r.herbs, h1.r.herbs, h0.gain, h1.gain, h1.r.compHerbs, h0.r.rating, h1.r.rating, h0.r.cutF, L.TRIP_ON]);
+      o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain >= h1.r.herbs &&   /* 2.3.0 刷宝：灵草之外的随机零头不比 */ h1.r.compHerbs === h0.r.herbs;
       o.geYin = h0.yin === 0 && h1.yin === 1 && ['thunder', 'wood', 'soul'].includes(h1.r.compYin);
       // 白小九：遭遇必出（plan.enc = 0），把握 +0.1
       const tb = mk({ bai: 85 }); const cl0 = L.choiceLuck(tb); L.setComp(tb, 'bai'); L.startExp(tb, 0, 0, 0);
@@ -3278,7 +3279,7 @@ async function apSection(quick) {
           const list = L.advise(X.st, 'goal').acts; return list.map(x => ({ t: x.n + ' ' + x.gain.text, btn: x.btn, go: typeof x.go }));
         }, ['(' + set.toString() + ')(s, L)']);
         expect(info.length >= 1 && info.length <= 3 && info.every(x => /\d/.test(x.t) && x.go === 'string' && x.btn), `变强页（${name}）：每张牌带数字和一个按钮：${JSON.stringify(info.map(x => x.t.slice(0, 24)))}`);
-        await pg.evaluate(() => window.__xm.showGrowth('goal')); await pg.waitForTimeout(350);
+        await pg.evaluate(() => window.__xm.showGrowth('goal')); await pg.waitForTimeout(800);   // 纸卷展开动画里高度会被压扁，等它完
         const ui = await pg.evaluate(() => {
           const bs = [...document.querySelectorAll('#modal [data-adv]')], small = bs.filter(b => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length;
           const body = document.querySelector('#modal .sheet .body');
