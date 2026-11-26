@@ -2,97 +2,13 @@
  * 顶栏（灵石 / 丹 / 寿元 / 纸鹤 / 暂停）、时间条、场景状态牌、境界条右侧“圆满还差”、三个数值格跳字、目标卡三行、一行传讯、固定五格底栏（灰锁 + 两种角标）、
  * 面板浮在底栏之上（navOpenPanel）、hlOnly 金框、目标卡【去】的跳转表 GO_K。
  * 数据读线 1 的接口（docs/KAIRO_PLAN.md 末尾“接口”）：L.goalNow / L.timeBar / L.lifeMonths / L.chapterNow / L.pathView / L.chapterSummary / L.yearReport / L.mailbox。
- * 本片段开头那一段是这些接口的兜底（线 1 合并后，同名的逻辑层实现先装上，这里的 `L.x = L.x || …` 就不生效；确认无用后可删）。
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 
-// ===================== 兜底：线 1 的接口没装上时用（合并线 1 后可删） =====================
+// ===================== 小工具（线 1 的接口已经装在 L 上：goalNow / goalNext / timeBar / lifeMonths / bigNext / pathView / chapterSummary / yearReport / mailbox） =====================
 const CH_NUM = '一二三四五六七八九';
 const chName = i => '第' + CH_NUM[Math.max(0, Math.min(8, i))] + '章';
 const MO = () => L.UNIT || '月';
-// 每章开放的系统（KAIRO_PLAN §2.1 表“这一章开放”一列）：L.ONB[j].ch 没有时按这张表
-const ONB_CH0 = { exp: 0, home: 0, herb: 0, retreat: 0, bt: 0, gearCmp: 0, tour: 1, market: 1, sect: 1, visitor: 1, tuna: 1, field: 1, treasure: 1, trib: 1, sell: 1, shelf: 1, robe: 1, vault: 1,
-  arts: 2, furnace: 2, plus: 2, pets: 2, cal: 2, world: 2, zhanji: 2, crops: 2, yin: 2, mishu: 2, realm: 3, bond: 3, plots: 3, zhen: 3, dao: 3, auction: 3, codex: 3, petJobs: 3,
-  disc: 4, duty: 4, comp: 4, orn: 4, forge: 4, chainExp: 4 };
-const onbCh = e => (e.ch !== undefined ? e.ch : ONB_CH0[e.k] !== undefined ? ONB_CH0[e.k] : 4);
-const CH_GOAL = ['赢下三年之约', '晋升内门 · 榜前 60', '晋升真传 · 败赵乾', '成为圣子', '九宗会武夺魁', '击退天剑宗', '击败血无涯', '成为宗主', '渡过飞升天劫'];
-const CH_BLURB = ['被退婚，三年后打回去', '拜入宗门，进天骄榜前 60', '渡雷劫 · 晋升真传', '成为圣子 / 圣女', '九宗会武', '守山之战', '击败血无涯', '宗主 · 带宗门登顶', '白日飞升'];
-L.chapterNow = L.chapterNow || (st => { const done = (st.quest && st.quest.done) || {}; let i = 0; while (i < 8 && done[L.CHAPTERS[i].main.id]) i++; return Math.min(8, Math.max(i, L.mr ? L.mr(st) : st.p.r)); });
-const chGoal = (st, i) => { const C = L.CHAPTERS[i]; if (C.goal) return typeof C.goal === 'function' ? C.goal(st) : C.goal; if (i === 0 && st.pact < 0) return '论道击败' + (st.exName || '对手'); return CH_GOAL[i]; };
-const chBlurb = i => L.CHAPTERS[i].blurb || CH_BLURB[i];
-function chProg(st, i) {
-  const C = L.CHAPTERS[i];
-  if (C.prog) { try { const r = C.prog(st); if (r && r.length) return r; } catch (e) { /* 线 1 的 prog 算不出来就用兜底 */ } }
-  if (i === 0) { const pi = L.pactInfo(st); return [{ k: 'pact', t: '胜算', v: pi.p, max: 0.8, text: `胜算 ${L.pct(pi.p)} → 目标 80%` }]; }
-  if (i === 1) { const b = st.bestRank || st.rank; return [{ k: 'rank', t: '天骄榜', v: Math.max(0, 100 - b), max: 40, text: `天骄榜 第 ${st.rank} → 前 60` }]; }
-  if (i === 8) { const r = L.tribRate ? L.tribRate(st, { pills: Math.min(L.BT.maxPills, st.pills), aids: 'all' }) : 0; return [{ k: 'trib', t: '天劫', v: r, max: 1, text: `天劫成功率 ${L.pct(r)}` }]; }
-  const qv = L.questView(st); return [{ k: 'quest', t: '札记', v: qv.doneN, max: Math.max(1, qv.total), text: `本章小任务 ${qv.doneN}/${qv.total}` }];
-}
 const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-// 刚开的系统的小目标去哪做（ONB 键 → GO_K 键）
-const ONB_GO_K = { exp: 'exp', home: 'home', retreat: 'home', bt: 'bt', sect: 'sect', market: 'market', visitor: 'inbox', field: 'field', gearCmp: 'gear', furnace: 'furnace', arts: 'arts', trib: 'bt', pets: 'pets', plus: 'gear', zhanji: 'arts', realm: 'realm', bond: 'people', plots: 'home', zhen: 'zhen', disc: 'sect', tour: 'rivals', cal: 'cal', dao: 'attr', codex: 'record' };
-const QGO_K = { big: 'big', cult: 'bt', me: 'attr', gear: 'gear', arts: 'arts' };
-L.goalNow = L.goalNow || function (st) {
-  const ch = L.chapterNow(st), prog = chProg(st, ch), b = prog[0];
-  const bar = { v: Math.max(0, Math.min(1, b.v / (b.max || 1))), max: 1, text: b.text };
-  let next = null;
-  const qv = L.questView(st), og = L.onbGoal && L.onbGoal(st), nb = L.nextBig(st);
-  if (st.exp) next = { t: '历练中，等它回来', go: null, why: 'exp' };
-  else if (L.isReady(st)) next = { t: '可以突破了', go: 'bt', hl: '#cult', why: 'ready' };
-  else if (st.gear && st.gear.pend.some(y => !y.hold)) next = { t: '装备里有新东西', go: 'gear', why: 'gear' };
-  else if (og) next = { t: cut(og.goal, 12), go: ONB_GO_K[og.k] || 'exp', why: 'onb' };
-  else if (nb && nb.left <= 6 && nb.k === 'pact' && nb.info.p < 0.8 && typeof pactTips === 'function' && pactTips()[0]) { const t = pactTips()[0]; next = { t: cut(t.t, 12), go: t.go === 'cult' ? 'bt' : t.go || 'big', why: 'big' }; }
-  else if (qv.first && !qv.first.main) next = { t: cut(L.questText(st, qv.first), 12), go: QGO_K[qv.first.go] || qv.first.go || 'exp', why: 'quest' };
-  else if (st.retreat) next = { t: '闭关中，静候出关', go: null, why: 'idle' };
-  else next = { t: '去历练', go: 'exp', hl: null, why: 'exp' };
-  return { ch, chN: chName(ch), t: chGoal(st, ch), bar, next };
-};
-L.lifeMonths = L.lifeMonths || (st => { if (st.p.r > L.MAXR) return { m: Infinity, text: '不朽', red: false }; const m = L.lifeTicks(st); return { m, text: m >= 120 ? '寿元足' : `寿元 ${m} 月`, red: m <= 60 }; });
-L.bigNext = L.bigNext || (st => { const nb = L.nextBig(st); return nb ? { k: nb.k, n: nb.n, left: nb.left, p: nb.info && nb.info.p } : null; });
-L.timeBar = L.timeBar || function (st) {
-  // 月份跟四季对齐（L.season：每年第 1～3 月春……第 10～12 月冬；第 t 月 = tick t，开局 tick 0 是头一年开春前的冬末）
-  const t = st.tick, k = Math.max(0, t - 1), y = Math.floor(k / 12) + 1, m = t ? (k % 12) + 1 : 12, big = L.bigNext(st);
-  const pre = !st.pact && !st.rebirth, n = pre ? 36 : 12, cur = pre ? Math.min(35, k) : k % 12;
-  const cells = []; for (let i = 0; i < n; i++) cells.push({ s: i < cur ? 'past' : i === cur ? 'now' : 'future' });
-  if (big && (cur + big.left < n || (pre && big.k === 'pact'))) cells[Math.min(n - 1, cur + big.left)] = { s: 'big', k: big.k };   // 三年之约在第 36 月末：画在最后一格
-  return { y, m, season: L.season(st), n, cur, cells, big, label: big ? `${big.n} 还有 ${big.left} ${MO()}` : '' };
-};
-L.mailbox = L.mailbox || (st => (st.inbox || []).filter(x => x.left === null || x.left === undefined || x.left > 0));
-L.pathView = L.pathView || function (st) {
-  const now = L.chapterNow(st), done = (st.quest && st.quest.done) || {};
-  return L.CHAPTERS.map((C, i) => {
-    const keys = L.ONB.filter(e => e.sys && onbCh(e) === i).map(e => e.k);
-    const opened = keys.filter(k => L.onbShown(st, k));
-    const state = i < now ? (done[C.main.id] ? 'done' : 'miss') : i === now ? 'now' : i === now + 1 ? 'next' : 'lock';
-    return { i, n: C.n, realm: C.realm, state, goal: chGoal(st, i), blurb: chBlurb(i), prog: i === now ? chProg(st, i) : [], opened, toOpen: keys.length - opened.length };
-  });
-};
-L.chapterSummary = L.chapterSummary || function (st, i) {
-  const at = (st.flags.chapAt || {})[i] || { t: 0, exp: 0, rank: 100, pw: 10 }, C = L.CHAPTERS[i], N = L.CHAPTERS[i + 1];
-  const best = Math.max(-1, ...Object.values(st.best || {}));
-  const nk = N ? L.ONB.filter(e => e.sys && onbCh(e) === i + 1).length : 0;
-  return { i, n: C.n, realm: C.realm, months: st.tick - at.t, pw0: at.pw, pw1: L.power(st), exp: (st.stats.exp || 0) - at.exp, best,
-    next: N ? { i: i + 1, n: N.n, goal: chGoal(st, i + 1), blurb: chBlurb(i + 1), toOpen: nk, rw: L.rewardText(st, N.main.rw) } : null };
-};
-// 年报兜底：界面自己记一份年初快照（st.flags.repUI），灵石赚 / 花按每次刷新的差值累计
-function repSnap(y) { return { y, r: st.p.r, s: st.p.s, pw: Math.round(L.power(st)), gain: L.gain(st), earn: 0, spend: 0, exp: st.stats.exp || 0, best: -1, rank: st.pact ? st.rank : null, opened: Object.keys((st.onb && st.onb.at) || {}) }; }
-let repStones = null;
-function repTrack() {
-  if (!st || L.yearClose) return;
-  const f = st.flags, y = Math.floor(st.tick / 12) + 1;
-  if (!f.repUI) f.repUI = repSnap(y);
-  if (repStones !== null && st.stones !== repStones) { const d = st.stones - repStones; if (d > 0) f.repUI.earn += d; else f.repUI.spend -= d; }
-  repStones = st.stones;
-}
-L.yearReport = L.yearReport || function (st) {
-  const r = st.flags.repUI || repSnap(Math.floor(st.tick / 12)), stage = (rr, ss) => L.REALMS[Math.min(rr, 9)].n + (rr <= L.MAXR ? L.STAGES[ss] : '');
-  const at0 = new Set(r.opened || []), opened = Object.keys((st.onb && st.onb.at) || {}).filter(k => !at0.has(k) && L.ONB_K[k] && L.ONB_K[k].sys);
-  const g = L.goalNow(st), bn = L.bigNext(st);
-  const lows = [['pw', L.power(st) / Math.max(1, r.pw)], ['gain', L.gain(st) / Math.max(0.01, r.gain)]].sort((a, b) => a[1] - b[1]);
-  return { y: r.y, realm: [stage(r.r, r.s), stage(st.p.r, st.p.s)], pw: [r.pw, Math.round(L.power(st))], gain: [r.gain, L.gain(st)], earn: r.earn, spend: r.spend, exp: (st.stats.exp || 0) - r.exp,
-    best: Math.max(-1, ...Object.values(st.best || {})), rank: r.rank !== null && st.pact ? [r.rank, st.rank] : null, opened, next: { ch: g.ch, bar: g.bar, big: bn },
-    say: lows[0][0] === 'gain' ? '修炼涨得慢，聚灵阵该升了。' : '战力没怎么长，多去历练捡法宝。' };
-};
-L.yearClose = L.yearClose || null;
 
 // ===================== 一行传讯（§5.2-3）：替代横幅与大部分气泡；≤ 20 字，停 6 秒，点开纸鹤看历史 =====================
 let tickNewAt = 0;
@@ -300,5 +216,5 @@ function renderMain() {
     $('#gNext').innerHTML = `下一步：${esc(nx.t || '')}`;
     $('#gGo').hidden = !nx.go;
   }
-  syncNav(); renderTick(); syncHl(); repTrack(); tripSnapNow();
+  syncNav(); renderTick(); syncHl(); tripSnapNow();
 }

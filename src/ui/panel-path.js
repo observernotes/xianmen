@@ -66,26 +66,8 @@ function showChapterCard(ch) {
 }
 
 // ---------- 年报（§6.2，阻塞清单 #8）：每 12 月的月初一张；在外则归来结算之后 ----------
-let yearQueued = false;
-function yearPending() {
-  if (!st || st.tick <= 0 || st.p.r > L.MAXR) return false;
-  const cy = Math.floor(st.tick / 12) + 1;
-  if (L.yearClose && st.rep) return st.rep.y < cy;
-  const r = st.flags.repUI; return !!r && r.y < cy;
-}
-function yearPump() {
-  if (L.yearDue) return;   // 线 1 的 clock.js 每月判 L.yearDue 并排进弹窗队列（UI.showYear）
-  if (yearQueued || !yearPending() || st.exp || st.run || cine || !$('#intro').hidden) return;
-  yearQueued = true;
-  pushPopup(showYearReport);
-}
-function yearClose() {
-  yearQueued = false;
-  if (L.yearClose) { L.yearClose(st); return; }
-  const R = L.yearReport(st), h = st.flags.yearHist || (st.flags.yearHist = []);
-  h.unshift({ y: R.y, r: st.p.r, pw: R.pw[1], gain: R.gain[1], earn: R.earn, exp: R.exp, best: R.best, rank: R.rank ? R.rank[1] : null }); if (h.length > 60) h.length = 60;
-  st.flags.repUI = repSnap(Math.floor(st.tick / 12) + 1);
-}
+// 排队：线 1 的 clock.js 每月判 L.yearDue，在打坐态、结算之后 pushPopup(UI.showYear)
+function yearClose() { L.yearClose(st); }
 function showYearReport() {
   if (!st) return;
   const R = L.yearReport(st), nx = R.next || {}, big = nx.big;

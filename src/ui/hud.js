@@ -92,7 +92,6 @@ function updateHUD() {
   syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
   renderMain();    // 时间条、目标卡、底栏五格、传讯行（goalcard.js）
-  yearPump();      // 年报（panel-path.js）
 }
 // 场景右上的速度档：ART.icon('spd1' | 'spd2' | 'spd4')，暂停时 'pause'（金框）；档位变了才换图。没有新美术时退回文字
 let speedKey = '';

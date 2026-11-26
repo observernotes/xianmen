@@ -48,7 +48,7 @@ function clockTick(out) {
   for (const w of out.warns || []) { say(`${w.n} 还有 ${w.left} ${UNIT}${w.p !== undefined ? ' · 胜算 ' + L.pct(w.p) : ''}`, { k: 'big', t: `${w.n} 还有 ${w.left} ${UNIT}`, left: w.left }); if (UI.flashGoal) UI.flashGoal(); }
   if (out.prep) { const info = out.prep; setStop('prep'); pushPopup(() => showPrep(info)); }
   // 年报：打坐态才出；在外就等归来（归来结算排在前面）
-  if (L.yearDue(st) && !yearQ) { yearQ = true; pushPopup(() => { yearQ = false; if (st.rep && st.rep.ready) (UI.showYear || showYearBasic)(); }); }
+  if (L.yearDue(st) && !yearQ) { yearQ = true; pushPopup(() => { yearQ = false; if (awayUI()) { processQueue(); return; } if (st.rep && st.rep.ready) (UI.showYear || showYearBasic)(); }); }   // 排着的时候人又出门了：等下次回来
   if (out.idle) { say(`闲了 ${out.idle} ${UNIT}，去历练`); if (UI.nudge) UI.nudge('exp'); }
   if (out.lifeRed) { setStop('life'); say(`寿元只够 ${out.lifeRed.m} ${UNIT}了`); }
   const si = L.si(st.p);
@@ -72,7 +72,7 @@ L.GOAL_TIP = (s, big) => {
 // ---------- 在外零打断的兜底（包已有的几个调度函数；线 2 改掉了哪个就跳过哪个） ----------
 const bannerRaw = banner;
 banner = function (text, sub, color, lock) { if (awayUI()) { if (st) L.mailPush(st, { k: 'misc', t: String(text).slice(0, 14) }); return; } bannerRaw(text, sub, color, lock); };
-if (typeof pumpBubble === 'function') { const pb0 = pumpBubble; pumpBubble = function () { if (awayUI() && !bubbleCur) return; pb0(); }; }
+if (typeof pumpBubble === 'function') { const pb0 = pumpBubble; pumpBubble = function () { if (awayUI()) { if (bubbleCur) { $('#tip').hidden = true; bubbleCur = null; } return; } pb0(); }; }   // 出门那一刻把正冒着的气泡收进头像
 if (typeof currentGuide === 'function') { const cg0 = currentGuide; currentGuide = function () { if (awayUI() && st.guide && st.guide.done) return null; return cg0(); }; }
 if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function () { if (awayUI()) return; cp0(); }; }
 // 剧情事件（st.storyQ）：在外不弹；打坐时守“一季一次”
