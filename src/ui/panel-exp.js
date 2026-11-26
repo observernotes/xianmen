@@ -226,7 +226,11 @@ function showExpResult(res) {
   if (loot.length) lines.push(`<div class="kloot">${loot.slice(0, 4).map(x => `<div>${x}</div>`).join('')}</div>` + (loot.length > 4 ? `<div class="kloot">${loot.slice(4, 8).map(x => `<div>${x}</div>`).join('')}</div>` : ''));
   // 归途翻牌（src/ui/loot.js；牌里的法宝、功法翻开后在牌下出对比行），牌以外的（灵宠、仙府秘藏）照旧一行一件
   const cards = res.sum ? res.sum.cards : res.cards, inCards = new Set((cards || []).map(c => c.item).filter(Boolean));
+  if (res.deeper) lines.push(`<div class="krow"><span class="k">趁势深入</span><span class="v ${res.deeper === 'win' ? 'kup' : 'kdn'}">${res.deeper === 'win' ? '赢了 · 多翻 2 张' : `输了${res.deeperLost && res.deeperLost.length ? ' · 丢了' + esc(res.deeperLost.join('、')) : ''}`}</span></div>`);
   if (cards && cards.length) lines.push(lootFlipHTML(cards));
+  // 趁势深入（loot.js 的 L.startDeeper，§5.7）：甲以上、下一层还有，不回家直接打下一层的精英
+  const deepOk = !res.sum && !res.first && L.startDeeper && L.deeperOk(st, L.tripOf(res)) && !(L.expBlock && L.expBlock(st, res.k, res.d + 1, res.a));
+  if (deepOk) lines.push(`<div class="kslot lt-deep"><div class="mid"><div class="nm">再深一层 · ${L.DEPTHS[res.d + 1]}精英</div><small>赢：多翻 2 张、星率 ×1.5 · 输：牌丢一半</small></div><button class="kb" id="ltDeep">去 ▸<br><small>+${L.DEEPER.len} ${MO()}</small></button></div>`);
   // 新法宝 / 功法 / 灵宠：第一件“已戴上”；待定的【换上】【先收着】（先收着 = 留在【装备】的“新到”里，不熔）
   for (const it of res.items) {
     if (inCards.has(it)) continue;
@@ -275,6 +279,7 @@ function showExpResult(res) {
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   if (cards && cards.length) lootFlipRun(s, cards, { onWish: () => { closeModal(); confirmExp(res.k, res.d, res.a); } });
+  const dp = s.querySelector('#ltDeep'); if (dp) dp.onclick = () => { if (L.startDeeper(st, res)) { SFX.coin(); closeModal(); updateHUD(); } };
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });

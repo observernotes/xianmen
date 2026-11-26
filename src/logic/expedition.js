@@ -137,7 +137,7 @@ L.chainOpen = st => st.rebirth > 0 || (st.flags.maxR || 0) >= 2;
 L.startExp = function (st, k, d, a, opt) {
   d = d || 0; a = a || 0; opt = opt || {};
   if (L.busy(st) || st.p.r > L.MAXR || !L.expOpen(st, k, d, a)) return false;
-  const rg = L.REGIONS[k], len = L.expLen(k, st), pt = L.expParts(st, k, d, a);
+  const rg = L.REGIONS[k], len = opt.len || L.expLen(k, st), pt = L.expParts(st, k, d, a);
   // 出发时把评价和掉落的随机数都掷好，途中逐步揭示，读档不会变（u[7]：敛息术躲不躲得过负伤；u[8]：六阶法衣丁等改判丙；u[9]：器方掉落）
   // cx：出发时的季节与大势加成（途中大势结束也照出发时的算）
   const plan = { pow: pt.pow, aff: pt.aff, guts: pt.guts, ratio: pt.ratio, rnd: -12 + 24 * R(), adj: 0, u: [R(), R(), R(), R(), R(), R(), R(), R(), R(), R()], enc: R(), cx: L.calExp(st, k, d, a) };
@@ -145,6 +145,7 @@ L.startExp = function (st, k, d, a, opt) {
   let chain = 0;
   if (opt.chain > 1 && L.chainOpen(st)) chain = Math.min(3, Math.floor(opt.chain)) - 1;
   st.exp = { k, d, a, left: len, total: len, plan, chain };
+  if (opt.deeper) st.exp.deeper = opt.deeper;   // 趁势深入（loot.js 的 L.startDeeper）：只打下一层的精英，2 月
   if (opt.escort !== undefined && st.sect && st.sect.tasks) { const t = st.sect.tasks[opt.escort]; if (t && t.ty === 'escort' && t.taken && !t.done && t.k === k) st.exp.escort = opt.escort; }
   st.lastExp = { k, d, a };
   st.tuna = 0;
@@ -257,7 +258,9 @@ L.resolveExp = function (st) {
   // 归途翻牌（loot.js 的 L.tripLoot：法宝、功法、灵核、灵矿堆……都在牌里，保底与心愿也在那里）；灵宠偶遇不占牌，照旧
   // TODO（C1 合并后删）：C1 的节点流程接上后由“归途”节点调 L.tripLoot，这里的兜底用评价推“打赢精英”（斩妖、寻宝乙以上）与宝节点（寻宝）
   if (L.tripLoot) {
-    res.cards = L.tripLoot(st, { k, d, a, rating: res.rating, won: res.rating >= 2, eliteWin: a !== 2 && res.rating >= 2, treasure: a === 1 && res.rating >= 1 && !e.recall ? 1 : 0, seq: st.stats.exp, recall: !!e.recall, hp: res.rating >= 4 ? 0.8 : res.rating >= 3 ? 0.55 : 0.3 });
+    res.cards = L.tripLoot(st, { k, d, a, rating: res.rating, won: res.rating >= 2, eliteWin: a !== 2 && res.rating >= 2, treasure: a === 1 && res.rating >= 1 && !e.recall ? 1 : 0, seq: st.stats.exp, recall: !!e.recall, hp: res.rating >= 4 ? 0.8 : res.rating >= 3 ? 0.55 : 0.3,
+      deeper: e.deeper ? (res.rating >= 2 && !e.recall ? 'win' : 'lose') : undefined, deeperOnly: !!e.deeper });
+    if (e.deeper) { res.deeper = res.cards.n.deeper ? 'win' : 'lose'; if (res.deeper === 'lose') res.deeperLost = L.lootHalveU(st, e.deeper.prevU || []); }
     for (const c of res.cards) if (c.item && (c.kind === 'gear' || c.kind === 'art' || c.kind === 'frag')) res.items.push(c.item);
   }
   for (const dr of res.drops) { if (L.tripLoot && dr[0] !== 'pet') continue; const it = L.giveItem(st, dr[0], dr[1], undefined, { k, d, src: 'exp' }); if (it.value) st.stats.expStones += it.value; res.items.push(it); }

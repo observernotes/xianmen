@@ -36,14 +36,14 @@ function showGear(sel, still) {
     if (!x) return `<div class="kslot"><div class="cell"></div><div class="mid"><div class="nm">${L.GEAR_N[s]} · 空</div><small>历练会掉</small></div></div>`;
     const B = L.gearBase(x.id), info = plusOpen && s === 'w' ? L.gearPlusInfo(st, s) : null;   // 第一屏只给兵器一个【强化】；法衣、饰品点图标格进明细强化
     const pb = !info ? '' : info.max ? '<button class="kb alt" disabled>+9</button>' : `<button class="kb${info.why ? '' : ''}" data-kplus="${s}" ${info.why ? 'disabled' : ''}>强化<br><small>矿 ${fmt(info.cost.ore)}</small></button>`;
-    return `<div class="kslot"><button class="cell" data-kdet="${s}" aria-label="${L.GEAR_N[s]}明细" style="border:0;padding:0;cursor:pointer">${qcellHTML(x.t, gearImg(x, 2), 2)}</button><div class="mid"><div class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${x.plus ? ` <span class="p">+${x.plus}</span>` : ''}</div><small>${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]} · ${gearContrib(s)}</small></div>${pb}</div>`;
+    return `<div class="kslot"><button class="cell" data-kdet="${s}" aria-label="${L.GEAR_N[s]}明细" style="border:0;padding:0;cursor:pointer">${qcellHTML(x.t, gearImg(x, 2), 2)}</button><div class="mid"><div class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${x.plus ? ` <span class="p">+${x.plus}</span>` : ''}${lootStarsHTML(x.star || 0)}</div><small>${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]} · ${gearContrib(s)}</small></div>${pb}</div>`;
   }).join('');
   const pend = g.pend.filter(y => !y.hold).sort((a, b) => (L.gearDelta(st, b).better ? 1 : 0) - (L.gearDelta(st, a).better ? 1 : 0)), held = L.gearHeld(st);
   const pendRows = pend.slice(0, 1).map(y => {
     const B = L.gearBase(y.id), D = L.gearDelta(st, y), up = D.better;
     const dp = D.b.p - D.a.p, big = Math.abs(dp) >= 1;
     const num = big ? `战力 <span class="${dp >= 0 ? 'kup' : 'kdn'}" style="font-size:16px">${dp >= 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dp))}</span>　${fmt(D.a.p)} → ${fmt(D.b.p)}` : esc(gearKey(y));
-    return `<div class="kslot${up ? ' hot' : ''}"><div class="cell">${qcellHTML(y.t, gearImg(y, 2), 2)}</div><div class="mid"><div class="nm" style="color:${pnTierInk(y.t)}">${esc(B.n)}</div><small>${num}</small></div>
+    return `<div class="kslot${up ? ' hot' : ''}"><div class="cell">${qcellHTML(y.t, gearImg(y, 2), 2)}</div><div class="mid"><div class="nm" style="color:${pnTierInk(y.t)}">${esc(B.n)}${lootStarsHTML(y.star || 0)}</div><small>${num}</small></div>
       <button class="kb ${up ? 'red' : 'alt'}" data-keq="${y.u}">换上</button><button class="kb ${up ? 'alt' : ''}" data-ksm="${y.u}">熔<br><small>矿+${D.smelt}</small></button></div>`;
   }).join('');
   const rest = pend.slice(1).concat(held);

@@ -196,6 +196,7 @@ L.tripCardN = function (trip) {
   const r = trip.recall ? Math.min(1, trip.rating | 0) : clamp(trip.rating | 0, 0, 4);
   const n = { rate: L.LOOT.rate[r], elite: trip.eliteWin && !trip.recall ? 1 : 0, seek: trip.a === 1 && !trip.recall && r >= 1 ? 1 : 0, node: trip.recall ? 0 : trip.treasure | 0, deeper: trip.deeper === 'win' ? 2 : 0 };
   n.total = Math.min(L.LOOT.cap, n.rate + n.elite + n.seek + n.node + n.deeper);
+  if (trip.deeperOnly) { n.rate = n.elite = n.seek = n.node = 0; n.total = n.deeper; }   // 趁势深入那一段：只有赢了的 2 张
   return n;
 };
 L.tripLoot = function (st, trip) {
@@ -205,13 +206,14 @@ L.tripLoot = function (st, trip) {
   if (trip.seq === undefined) trip.seq = (st.stats.exp || 0);
   const N = L.tripCardN(trip);
   const cards = [], push = c => { if (c) cards.push(c); };
+  const must = Array.isArray(trip.must) ? trip.must : defaultMust(st, trip);
+  if (st.rebirth === 0 && trip.seq === 1 && must.length) N.total = must.length;   // 人生第一趟：只翻那一张（精钢剑），一次只教一件事
   let left = N.total;
   // 心愿：这一格的（首领那格另算，见 L.bossLoot）
   const w = st.wish && st.wish.k === k && st.wish.d === d && st.wish.i !== 4 ? st.wish : null;
   let wishHit = false;
   const take = c => { if (!c) return; if (w && c.slot === w.i) { c.wish = true; wishHit = true; } push(c); };
   // ① 第一章保底脚本
-  const must = Array.isArray(trip.must) ? trip.must : defaultMust(st, trip);
   for (const m of must) { if (left <= 0) break; const c = mustCard(st, ctx, m); if (c) { c.must = true; take(c); left--; } }
   // ② 首领（历练里的首领节点）
   if (trip.boss && !trip.recall) for (const c of L.bossLoot(st, k, !!trip.bossFirst, { inTrip: true })) { take(c); left--; }
@@ -233,7 +235,7 @@ L.tripLoot = function (st, trip) {
     if (!c) c = rateCard(st, ctx, info);
     take(c); left--;
   }
-  if (!cards.length) push(resCard(st, ctx, 'ore'));   // 每趟至少 1 张
+  if (!cards.length && !trip.deeperOnly) push(resCard(st, ctx, 'ore'));   // 每趟至少 1 张
   // 记图鉴、心愿进度、星数统计
   for (const c of cards) {
     if (c.slot !== undefined) c.first = markSeen(st, k, d, c.slot);
@@ -250,12 +252,12 @@ L.tripLoot = function (st, trip) {
   emit('tripLoot', cards);
   return cards;
 };
-// 趁势深入输了：牌丢一半（按价值从高到低隔一张丢，丢掉的法宝熔掉、功法不收回——发放已经发生，只收回能收回的：法宝熔成灵矿）
-L.lootHalve = function (st, cards) {
-  const keep = [], lost = [];
-  cards.slice().sort((x, y) => y.value - x.value).forEach((c, i) => (i % 2 ? lost : keep).push(c));
-  for (const c of lost) if (c.kind === 'gear' && c.item && L.gearPend(st, c.item.u)) L.gearDecide(st, c.item.u, 'smelt');
-  return keep.sort((x, y) => x.value - y.value);
+// 趁势深入输了：上一趟的牌丢一半。东西在翻牌时已经发放，能收回的只有还没决定的法宝：从最好的一件起隔一件丢（丢掉 = 没了，不给灵矿）
+L.lootHalveU = function (st, us) {
+  const pend = us.map(u => L.gearPend(st, u)).filter(Boolean).sort((x, y) => (y.t * 10 + (y.star || 0)) - (x.t * 10 + (x.star || 0)));
+  const lost = pend.filter((x, i) => i % 2 === 0);
+  st.gear.pend = st.gear.pend.filter(y => !lost.includes(y));
+  return lost.map(x => L.gearBase(x.id).n);
 };
 
 // ---------- 首领（§5.6）：首杀 3 张固定（专属 ★★、功法、器方）；再战 35% 出专属（第 3 次必出，星另掷：★★ 60% / ★★★ 12% / 其余 ★），否则 2 枚它那一系的灵核 ----------
@@ -293,6 +295,16 @@ L.bossLoot = function (st, k, first, opt) {
 // 不回家、气血不回、直接打下一个深度的精英：赢了多翻 2 张、星率 ×1.5；输了这一趟的牌丢一半。
 // C1 的战斗流程接上之前（没有 L.battleNew）按战力比估一个胜率：0.5 + 0.55·log2(战力 / 下一层推荐 × 剩余气血)
 L.deeperOk = (st, trip) => !!trip && !trip.recall && trip.rating >= 3 && (trip.hp === undefined || trip.hp >= 0.5) && trip.d < 2 && trip.a !== 2 && !st.exp && st.p.r <= L.MAXR;
+// 从结算卡上接着走：下一个深度只打精英，2 月；记下上一趟还没决定的法宝（输了丢一半）
+L.DEEPER = { len: 2 };
+L.tripOf = res => ({ k: res.k, d: res.d, a: res.a, rating: res.rating, recall: !!res.recall, hp: res.hp });
+L.startDeeper = function (st, res) {
+  if (!res || res.deeper || res.first || !L.deeperOk(st, L.tripOf(res))) return false;
+  const prevU = (res.cards || []).filter(c => c.kind === 'gear' && c.item && L.gearPend(st, c.item.u)).map(c => c.item.u);
+  const ok = L.startExp(st, res.k, res.d + 1, res.a, { len: L.DEEPER.len, deeper: { from: res.d, prevU }, quiet: true });
+  if (ok) { st.stats.deeper = (st.stats.deeper || 0) + 1; L.log(st, `趁势深入【${L.REGIONS[res.k].n}·${L.DEPTHS[res.d + 1]}】`); }
+  return ok;
+};
 L.deeperP = function (st, k, d, hp) {
   const r = L.power(st) / L.rec(k, Math.min(2, d + 1)) * (hp === undefined ? 0.75 : hp);
   return clamp(0.5 + 0.55 * Math.log2(Math.max(r, 1e-9)), 0.05, 0.95);

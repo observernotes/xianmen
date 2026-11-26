@@ -115,9 +115,10 @@ function gearGuided(st) {
     if (!best) break;
     L.gearPlus(st, best.s);
   }
-  // 重铸：兵器（非固定词条）没有锋锐时，花多余的天材地宝（留 3 个炼丹）重抽价值最低的一条，新的更好才留
+  lootGuided(st);
+  // 洗练（原重铸，器纹石，筑基开）：兵器（非固定词条）没有会心时，重抽价值最低的一条，新的更好才留
   const wx = L.gearEq(st, 'w');
-  if (wx && !L.gearBase(wx.id).fixed && st.treasure > 3 && !wx.aff.includes('huixin') && wx.aff.length) {
+  if (wx && !L.gearBase(wx.id).fixed && L.runeN && L.runeN(st) >= 1 && L.gearOpen(st, 'reroll') && !wx.aff.includes('huixin') && wx.aff.length) {
     let worst = 0, wv = Infinity;
     wx.aff.forEach((a, i) => { wx.aff.splice(i, 1); const v = -L.gearValue(st); wx.aff.splice(i, 0, a); if (v < wv) { wv = v; worst = i; } });
     const v0 = L.gearValue(st), rf = L.gearReforge(st, 'w', worst);
@@ -126,6 +127,18 @@ function gearGuided(st) {
   // 灵矿不够强化兵器、灵石富余（≥ 一筐价的 4 倍）时，去坊市买一筐
   const w = L.gearEq(st, 'w');
   if (w && L.marketOpen(st, 'ore') && L.oreBuyLeft(st) > 0 && (st.ore || 0) < L.gearPlusCost(st, w).ore && st.stones >= L.price(st, 'ore') * 4) L.buy(st, 'ore');
+}
+// guided 的刷宝与炼器（COMBAT_LOOT §5、§6；线 C2）：开锋选“锋”；手里的兵器克不了家门地图最深一格的精英、而有 3 枚克它的灵核时淬灵；
+// 心愿开了、没钉时钉家门地图最深一格的招牌（没掉过的优先）
+function lootGuided(st) {
+  if (!L.tripLoot) return;
+  const w = L.gearEq(st, 'w');
+  if (w && L.gearEdgeDue(w)) L.gearEdge(st, 'w', L.gearEdgeOpts(w).includes('feng') ? 'feng' : L.gearEdgeOpts(w)[0]);
+  const k = L.homeRegion(st);
+  let d = 0; for (let dd = 2; dd >= 0; dd--) if (L.expOpen(st, k, dd, 0)) { d = dd; break; }
+  const info = L.cellInfo(k, d), want = L.ELEM_KEYS.find(x => L.elKe(x, info.el));
+  if (w && want && !L.elKe(L.gearEl(w), info.el) && L.gearOpen(st, 'infuse') && !L.gearInfuseWhy(st, w, want)) L.gearInfuse(st, w, want);
+  if (!st.wish && L.wishOpen(st)) { const row = L.dropTable(st, k, d), c = row.find(x => x.sig && !x.seen) || row.find(x => x.i === 1); if (c) L.setWish(st, k, d, c.i); }
 }
 // SYSTEMS §18 预算量：强化让战力多了多少（各槽强化清零对照）；词条的战力当量（家门地图斩妖时锋锐、克 X 给的分数，每 25 分折战力 ×2）
 function gearShare(st) {
@@ -603,7 +616,8 @@ function run(strat, seed, trace, opt) {
     if (strat !== 'idle') for (let g = 0, ev; g < 3 && (ev = L.marketEvent(st)); g++) { pickChoice(st, ev); L.marketEventDone(st, ev.id); }
     if (out.world) rec.worlds++;
     if (out.train && strat === 'guided') L.startTrain(st);
-    if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win; }
+    if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win;
+      const w = L.gearEq(st, 'w'); rec.loot1 = { star: w ? w.star || 0 : 0, wish: st.stats.wishHit || 0, plus: st.stats.plus || 0, infuse: st.stats.infuse || 0, zhan: Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').length, boss: !!st.bosses[0], cards: st.stats.lootGear || 0 }; }
     if (out.invite && strat !== 'idle') L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]);
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
@@ -707,6 +721,14 @@ function summarize(strat, recs, G) {
     const AT = L.ONB_ON === false ? [580, 660] : [620, 710];   // 上手曲线放慢了前中期（docs/ONBOARDING.md §5）
     row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `中位数 ${AT[0]}～${AT[1]}`, within(ascMed, AT[0], AT[1]));
     row(strat, '三年之约胜率', pct(pact), '85%～95%', within(pact, 0.85, 0.95), true);
+    // 刷宝 + 炼器（COMBAT_LOOT §5.8 / §6.6 / §7.5 的第一章末指标；线 C2）。第一章的强化 / 心愿要等 C1 改完解锁表（L.ONB）才会在约战前开
+    const l1 = recs.map(x => x.loot1).filter(Boolean);
+    if (l1.length) {
+      const fr = f => pct(l1.filter(f).length / l1.length);
+      row(strat, '（参考）第一章末 兵器 ★以上 / ★★以上 / ★★★', `${fr(x => x.star >= 1)} / ${fr(x => x.star >= 2)} / ${fr(x => x.star >= 3)}`, '≥ 80% / 35%～60% / 3%～10%');
+      row(strat, '（参考）第一章末 心愿达成 / 强化 ≥ 2 次 / 淬灵 ≥ 1 次', `${fr(x => x.wish >= 1)} / ${fr(x => x.plus >= 2)} / ${fr(x => x.infuse >= 1)}`, '≥ 90% / ≥ 85% / 50%～80%');
+      row(strat, '（参考）第一章末 战技门数 / 打过首领 / 翻出的法宝', `${med(l1.map(x => x.zhan))} / ${fr(x => x.boss)} / ${med(l1.map(x => x.cards))} 件`, '≥ 3 / 40%～70% / —');
+    }
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
     row(strat, '（参考）第一章行动数（历练 + 闭关）', `${med(recs.map(x => x.ch1Acts))}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, 'KAIRO_PLAN §3.6：8～10');
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
