@@ -78,19 +78,21 @@ function goTo(k, hl) {
 // 变强建议的一张牌（next.act）照旧直接做（当场能做的当场做完、闭关直接闭、历练开那一格的出发页）；其余按 next.go 跳过去
 $('#gGo').addEventListener('click', e => {
   e.stopPropagation(); if (!st || cine || busyUI()) return; ac(); SFX.tap();
-  const g = L.goalNow(st), nx = g.next || {};
-  if (nx.do && L.ACTS && L.ACTS[nx.do]) { goDo(nx); goalKey = ''; return; }
+  const g = L.goalNow(st), nx = g.next || {}, d = goDoOf(nx);
+  if (d && L.ACTS && L.ACTS[d.id]) { goDo(d); goalKey = ''; return; }
   if (nx.act) { if (modalOpen()) closeModal(); runAct(nx.act, null); goalKey = ''; }
   else if (nx.go) goTo(nx.go, nx.hl);
 });
-// next.do 的执行：历练要先选格子（没给 args 时开出发页）、首领要打回合战、下战书先进准备页；别的当场 L.act
-function goDo(nx) {
-  const id = nx.do, a = nx.args;
+// next.do：线 B 给 { id, args }（也认旧的 next.do = id、next.args）
+const goDoOf = nx => (!nx || !nx.do ? null : typeof nx.do === 'object' ? nx.do : { id: nx.do, args: nx.args });
+// next.do 的执行：历练要先选格子（没给 args 时开出发页）、首领要打回合战、下战书先进准备页（点名的人）；别的当场 L.act
+function goDo(d) {
+  const id = d.id, a = d.args;
   if (modalOpen()) closeModal();
   if (id === 'exp' && !(a && (Array.isArray(a) ? a.length : a.k !== undefined))) { showExp(); return; }
   if (id === 'exp') { const k = L.actArg(a, 0, 'k'), d = L.actArg(a, 1, 'd') || 0, aa = L.actArg(a, 2, 'a') || 0; confirmExp(k, d, aa); return; }
   if (id === 'boss') { fightBossUI(L.actArg(a, 0, 'k')); return; }
-  if (id === 'duel' && typeof chalPrep === 'function' && L.challengeInfo) { chalPrep(L.actArg(a, 0, 'id'), {}); return; }
+  if (id === 'duel' && typeof chalPrep === 'function' && L.challengeInfo && L.actArg(a, 0, 'id')) { chalPrep(L.actArg(a, 0, 'id'), {}); return; }
   if (id === 'realm') { showRealm(); return; }
   doAct(id, a);
 }
@@ -98,7 +100,7 @@ function goDo(nx) {
 function goAp(nx) {
   if (!nx || !st) return 0;
   if (typeof nx.ap === 'number') return nx.ap;
-  if (nx.do && L.ACTS && L.ACTS[nx.do]) return L.apCost(st, nx.do, nx.args);
+  const d = goDoOf(nx); if (d && L.ACTS && L.ACTS[d.id]) return L.apCost(st, d.id, d.args);
   const go = String((nx.act && nx.act.go) || nx.go || '');
   if (/^exp:/.test(go) || /^do:(exp|wish)/.test(go)) return L.AP.exp;
   if (/^do:retreat/.test(go)) return L.AP.retreat;
@@ -240,7 +242,7 @@ function renderMain() {
   // 目标卡三行：第 N 章 + 目标 / 现值 → 目标值 / 下一步 + 【去】
   const g = L.goalNow(st), nx = g.next || {};
   const nap = goAp(nx), nwhy = nap > L.apLeft(st) ? '点不够（下一季）' : '';
-  const gk = [g.ch, g.t, g.bar.text, g.bar.v, nx.t, nx.go, nx.do, nap, nwhy].join('|');
+  const gk = [g.ch, g.t, g.bar.text, g.bar.v, nx.t, nx.go, nx.do && (nx.do.id || nx.do), nap, nwhy].join('|');
   if (gk !== goalKey) {
     goalKey = gk;
     $('#gCh').textContent = g.chN || chName(g.ch);

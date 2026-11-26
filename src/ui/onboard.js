@@ -79,7 +79,8 @@ function onbHook(type, k) {
   const e = L.ONB_K[k]; if (!e) return;
   if (type === 'unlock') {
     if (st.rebirth) return;   // 转世“快开”：入口上挂“新”就够（§8 P2 的合并卡以后再做）
-    if (e.sys && UNLOCK_CARD[k] && begun()) { if (!unlockQ.includes(k)) unlockQ.push(k); }
+    // 线 B 的结算链（L.blockRun）自己给 'unlock' 块，这里就不排了
+    if (e.sys && UNLOCK_CARD[k] && begun()) { if (!L.blockRun && !unlockQ.includes(k)) unlockQ.push(k); }
     else if (SUB_SAY[k]) { try { const t = SUB_SAY[k](); if (t) say(cut(t, 20)); } catch (er) { /* 数字算不出来就不说 */ } }
   } else if (type === 'master' && e.goal && e.sys && begun() && st.onb && st.onb.at[k] !== st.tick) {
     say(`✓ 学会了：${e.n.split('·')[0]}`);

@@ -147,8 +147,8 @@ function nineHTML() {
     <div class="ladder">${rows}</div>`;
 }
 const NINE_LOOK = { kunlun: 'yun', tianjian: 'chu', xuesha: 'xue' };
-function runSectMeet() {
-  const res = L.sectMeet(st);
+function runSectMeet(res0) {
+  const res = res0 || L.sectMeet(st);
   if (!res) return;
   const sc = L.sectOf(st);
   let step = -1;
@@ -188,11 +188,12 @@ function runSectMeet() {
   };
   next();
 }
-function doPromote() {
+// 【晋升】：走 L.act(st, 'promote')（0 点；线 B 登记），结果卡由结算链出 → showPromote(res)；圣子之战是 'final'
+function doPromote() { if (L.ACTS && L.ACTS.promote) { doAct('promote'); return; } showPromote(L.promote(st)); }
+function showPromote(res, before) {
+  if (!res || !st.sect) return;
   const sc = L.sectOf(st);
-  const before = st.sect.rank;
-  const res = L.promote(st);
-  if (!res) return;
+  if (before === undefined) before = res.ok || !res.duel ? st.sect.rank - 1 : st.sect.rank;
   const title = L.srankName(st, before + 1);
   const celebrate = () => {
     banner('晋升' + title, sc.n);
@@ -236,8 +237,8 @@ function showInvite() {
   s.querySelectorAll('.cand').forEach(c => c.onclick = () => { sel = +c.dataset.i; SFX.tap(); show(); });
   show();
 }
-function runWar() {
-  const res = L.sectWar(st);
+function runWar(res0) {
+  const res = res0 || L.sectWar(st);
   const sc = L.sectOf(st);
   duel({
     title: '天剑宗来犯', intro: sc ? `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个${L.originWord ? L.originWord(st, 'lowly') : '弃徒'}！` : '天剑宗长老率众杀到你的洞府门前：散修也敢翻天剑宗的旧账？',

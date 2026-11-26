@@ -3,7 +3,8 @@
  *   结算链 settle(why)：每个行动结束、每次季末、读档后调。循环问 L.nextBlock(st)，一张接一张出（结算卡 / 季末卡 / 年报 / 剧情 / 大事 / 章末卡 / 解锁卡），
  *     出完一张才问下一张，链里不过季、不扣点、不插无关的东西；链没出完时【下一季】与底栏不让点（busyUI）。出完一张存一次档。
  *     不看真实时间：链的先后只由 L.nextBlock 的优先级和界面这边排着的东西（弹窗队列 queue、过场 cnQ、章末卡 chapPend、解锁卡 unlockQ）决定。
- *   线 B 的 L.nextBlock 完整版会自己给 'chapter' / 'unlock' 块；那时设 L.CHAIN_FULL = true，界面就不再从 chapPend / unlockQ 里自己补。
+ *   线 B 的完整版（src/logic/blocks.js，有 L.blockRun 就算）：L.nextBlock 每次现算，给 story / act / chapter / unlock / big 块；大事与推迟的那一仗由 L.blockRun 打、
+ *     界面只演结果（runPact / runTournament / runSectMeet / runWar 接收结果），出完 L.blockDone。这时界面不再从 chapPend / unlockQ 里自己补、也不自己判节拍。
  *   纸鹤（st.inbox）只收不阻塞的消息（访客、大势、拍卖、宿敌消息），没有“在外”了。
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE（排在 onboard 之后、boot 之前）。 */
 
@@ -24,6 +25,7 @@ function openMail(item) {
 
 // ---------- 结算链 ----------
 let chainOn = false, chainWhy = '', chainCur = null, chainN = 0, chainTicked = false;
+const chainFull = () => !!L.blockRun || !!L.CHAIN_FULL;
 let seasonLog = [];   // 这一季做过的事（季末卡上那一行“这一季：历练 1 趟 · 乙 ｜ 首领 ✓”）
 // 有阻塞层开着（弹窗、过场、对话场景、对决、开场、历练演出、首领战）：链等它关掉
 const chainBusy = () => !$('#modal').hidden || !!cine || !!duelFx || !$('#intro').hidden || (typeof tk !== 'undefined' && !!tk) || (typeof cn !== 'undefined' && !!cn)
@@ -32,7 +34,7 @@ const chainBusy = () => !$('#modal').hidden || !!cine || !!duelFx || !$('#intro'
 const busyUI = () => !st || chainOn || chainBusy() || !!st.run || queue.length > 0;
 function settle(why) {
   if (!st) return;
-  L.chainOpen(st, why || 'act');
+  if (!(chainFull() && (why === 'act' || why === 'season'))) L.chainOpen(st, why || 'act');   // 线 B：L.act / L.seasonEnd 里已经开过链（链内计数别清零）
   chainOn = true; chainWhy = why || 'act'; chainN = 0; chainTicked = false;
   chainPump();
   updateHUD();
@@ -45,43 +47,55 @@ function showBlock(x) {
   if (x.kind === 'season') { showSeasonCard(d); return; }
   if (x.kind === 'year') { if (st.rep && st.rep.ready) { yearS = d; (UI.showYear || showYearBasic)(); } else showSeasonCard(d); return; }
   if (x.kind === 'story') { const ev = d || L.eventById(x.id); if (ev) showChoice(ev); return; }
-  if (x.kind === 'chapter') { const ch = d && typeof d === 'object' ? d.ch !== undefined ? d.ch : d.from : typeof d === 'number' ? d : +String(x.id).replace(/\D/g, ''); showChapterCard(ch); return; }
-  if (x.kind === 'unlock') { showUnlock((d && d.k) || x.id); return; }
-  if (x.kind === 'big') { showBig1(x.id || (d && d.k)); return; }
+  if (x.kind === 'chapter') { const ch = x.ch !== undefined ? x.ch : d && typeof d === 'object' ? d.i !== undefined ? d.i : d.ch !== undefined ? d.ch : d.from : typeof d === 'number' ? d : +String(x.id).replace(/\D/g, ''); showChapterCard(ch); return; }
+  if (x.kind === 'unlock') { const k = (d && d.k) || x.id; if (UNLOCK_CARD[k]) showUnlock(k); return; }   // 没有卡的（子项）不出，记一下就过
+  if (x.kind === 'big') { showBig1(x.id || (d && d.k), x); return; }
 }
 // 固定日子的大事（季末那条链里）：三年之约、论道、会武、来犯、新秀逼战、寿尽；三宗争徒（线 B 改成第二章开章链末尾之前，季末的 out.invite 由这里接）
-function showBig1(k) {
-  if (k === 'pact') { if (!st.pact) runPact(); }
-  else if (k === 'tour' || k === 'tourney') runTournament();
-  else if (k === 'meet') runSectMeet();
-  else if (k === 'war') runWar();
-  else if (k === 'rookie') { if (L.rookie(st) && L.rookie(st).due) runRookie(); }
+// x：线 B 的大事块（L.blockRun 打出结果、界面演）；没有 x 的是旧链（界面自己打）
+const runBlk = x => (x && L.blockRun ? L.blockRun(st, x) : null);
+function showBig1(k, x) {
+  if (k === 'pact') { if (!st.pact) { const r = runBlk(x); runPact(r || undefined); } }
+  else if (k === 'tour' || k === 'tourney') runTournament(x && L.blockRun ? () => runBlk(x) : null);   // 准备页在前，点【登台】才打
+  else if (k === 'meet') { const r = runBlk(x); if (r || !x) runSectMeet(r || undefined); }
+  else if (k === 'war') { const r = runBlk(x); if (r || !x) runWar(r || undefined); }
+  else if (k === 'rookie') { if (L.rookie(st) && L.rookie(st).due) runRookie(); }   // 打压还是指点由玩家选（runRookie 自己结算），不让 L.blockRun 替你“指点”
+  else if (k === 'foe') { const id = x && x.data && typeof x.data.data === 'string' ? x.data.data : L.mainFoes ? L.mainFoes(st)[0] : null; if (id) runMainFoe(id); }   // 宿敌上门：应战 / 改日由玩家选
   else if (k === 'death') showDeath();
   else if (k === 'invite') { if (!st.sect) showInvite(); }
   // 主线保底（mainline.js）：只剩宿敌没打时他上门、卡住时老祖说下一步、降要求
   else if (k === 'mainFoe') { const id = L.mainFoes ? L.mainFoes(st)[0] : null; if (id) runMainFoe(id); }
   else if (k === 'mainEase' || k === 'mainHint') { const v = blkData(k); if (v) (k === 'mainEase' ? showMainEase : showMainHint)(v); }
 }
-let blkStash = {};
+let blkStash = {}, blkLate = null;
 const blkData = k => { const v = blkStash[k]; delete blkStash[k]; return v; };
 function chainPump() {
   if (!st) return false;
   for (let g = 0; g < 24; g++) {
     if (chainBusy()) return true;
     if (queue.length) { const fn = queue.shift(); fn(); continue; }
+    if (blkLate) { const y = blkLate; blkLate = null; L.blockDone(st, y); }   // 论道：准备页关掉了（打过或没打，blockDone 都会结掉）
     if (chainCur) { chainCur = null; saveLocal(); }   // 上一张出完了：存一次（AP_PLAN §4.2 存档点）
     if (typeof cnFlush === 'function' && cnFlush()) continue;   // 排着的高光过场（cine2.js）
     let x = L.nextBlock(st);
-    if (!L.CHAIN_FULL && chapPend.length && (!x || (x.kind === 'story' && !chEndStory(x)))) {
+    if (!chainFull() && chapPend.length && (!x || (x.kind === 'story' && !chEndStory(x)))) {
       // A1 的缺省 nextBlock 不出章末卡：主线刚完成时先看一眼这一章的高潮到没到（到了先放它），再出章末卡
       if (!x && L.storyTick) { L.storyTick(st); x = L.nextBlock(st); }
       if (!(x && chEndStory(x))) { const c = chapPend.shift(); chainCur = { kind: 'chapter', id: 'ch:' + c.ch }; chainN++; showChapterCard(c.ch); continue; }
     }
-    if (x) { L.blockDone(st, x); chainCur = x; chainN++; showBlock(x); continue; }
+    if (x) {
+      chainCur = x; chainN++;
+      // 大事：结果由 L.blockRun 打（论道要等准备页的【登台】）；玩家自己选怎么结的（新秀、宿敌上门）不让 blockDone 代打
+      if (x.kind === 'big' && (x.id === 'rookie' || x.id === 'foe')) x.ran = true;
+      if (x.kind === 'act') { L.blockRun(st, x); L.blockDone(st, x); continue; }   // 推迟的那一仗：打完，结果卡排进链（下一张）
+      if (x.kind === 'big' && x.id === 'tour' && L.blockRun) { showBlock(x); if (x.ran) L.blockDone(st, x); else blkLate = x; continue; }   // 准备页开着：关掉以后再 blockDone
+      if (x.kind === 'big') { showBlock(x); L.blockDone(st, x); continue; }
+      L.blockDone(st, x); showBlock(x); continue;
+    }
     // 逻辑层给完了：链尾的解锁卡（AP_PLAN §4.2 第 6 级 / §4.6）。手把手那三步还在讲的时候先不出（它们只等这一下，不看真实时间）
-    if (!L.CHAIN_FULL && unlockQ.length && $('#guide').hidden) { const k = unlockQ.shift(); chainCur = { kind: 'unlock', id: k }; chainN++; showUnlock(k); continue; }
+    if (!chainFull() && unlockQ.length && $('#guide').hidden) { const k = unlockQ.shift(); chainCur = { kind: 'unlock', id: k }; chainN++; showUnlock(k); continue; }
     // A1 的缺省链不判节拍：行动的链收尾前看一眼本章节拍（climax / end / open 到了就当场放，不等季末的 L.tick；AP_PLAN §4.3）。线 B 的完整版接手后不走这里
-    if (chainOn && !chainTicked && !L.CHAIN_FULL && L.storyTick && chainWhy !== 'season') { chainTicked = true; if (L.storyTick(st) > 0) continue; }
+    if (chainOn && !chainTicked && !chainFull() && L.storyTick && chainWhy !== 'season') { chainTicked = true; if (L.storyTick(st) > 0) continue; }
     if (chainOn) { chainOn = false; chainEnd(chainWhy); if (chainBusy() || queue.length) continue; }
     if (chainAfter) { const fn = chainAfter; chainAfter = null; fn(); continue; }
     return false;
@@ -137,8 +151,14 @@ function showActResult(id, d, x) {
   if (id === 'sit') { seasonLog.push('打坐'); floatText(HOMEPOS.x + 14, HOMEPOS.y - D().sit.h - 6, '打坐 修为+' + fmt(d.got || 0), '#8ff5d0'); SFX.gather(); return; }
   if (id === 'retreat' || id === 'train') { seasonLog.push(id === 'train' ? '特训' : '闭关'); showRetResult(d, id); return; }
   if (id === 'errand') { seasonLog.push('差事'); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, d.note || (d.label || '差事') + '办完', '#8ff5d0'); return; }
+  if (id === 'promote') { showPromote(d); return; }
   if (id === 'join') { seasonLog.push('拜山门'); if (st.sect) { SFX.win(); banner('拜入' + L.sectOf(st).n, `${L.srankName(st, st.sect.rank)} · 俸禄每${MO()} ${fmt(L.pay(st))}`); } return; }
-  if (id === 'duel' || id === 'final') { seasonLog.push(id === 'duel' ? '下战书' : '主线一战'); if (id === 'duel' && d.n && typeof chalShow === 'function') chalShow(d); else showDuelResult(d, id); return; }
+  if (id === 'duel' || id === 'final') {
+    if (d.deferred) return;   // 先放这一章的 pre，那一仗排在链里（'act' 块）
+    seasonLog.push(id === 'duel' ? '下战书' : '主线一战');
+    if (id === 'final' && d.final === 'heir') { showPromote(d); return; }   // 圣子之战 = 晋升那一场
+    if (id === 'final' && d.final === 'war') { runWar(d); return; }       // 讨回山门 = 来犯那一场
+    if (id === 'duel' && d.n && typeof chalShow === 'function') chalShow(d); else showDuelResult(d, id); return; }
 }
 // 闭关 / 特训 / 双修结算：修为 +N（约 M 月），顿悟、分身、贡献、第一位访客
 function showRetResult(r, id) {
@@ -195,7 +215,7 @@ function nextSeason(force) {
   // 季末 3 个月里出来的、不在 S.big 里的阻塞内容：三宗争徒（线 B 改到第二章开章链末尾之后这一行可删）
   if (S.outs.some(o => o.invite) && !st.sect) L.blockPush(st, { kind: 'big', id: 'invite', data: { k: 'invite' }, lv: 7 });
   // 主线保底（mainline.js 的 out.mainFoe / mainEase / mainHint）：排在季末卡和大事之后
-  for (const k of ['mainFoe', 'mainEase', 'mainHint']) { const o = S.outs.find(x => x[k]); if (o) { blkStash[k] = o[k]; L.blockPush(st, { kind: 'big', id: k, data: { k }, lv: 7 }); } }
+  for (const k of ['mainFoe', 'mainEase', 'mainHint']) { if (k === 'mainFoe' && chainFull()) continue; const o = S.outs.find(x => x[k]); if (o) { blkStash[k] = o[k]; L.blockPush(st, { kind: 'big', id: k, data: { k }, lv: 7 }); } }   // 线 B：宿敌上门是 'foe' 大事块
   seasonFx(S);
   settle('season');
   saveLocal();

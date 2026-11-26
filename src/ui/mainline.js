@@ -11,7 +11,7 @@ GO_NAV.mainfoe = 'world';
 // 晋升：宗门页总是落在“身份”分页（上回停在任务板也一样），【晋升】按钮 #btnPromo 才在眼前
 GO_K.sectid = () => { sectTab = 'id'; showWorld('sect'); };
 GO_NAV.sectid = 'world';
-const chalCd = () => seasons(L.mainEase(st) >= 1 ? L.MAIN_V.cdEase : L.MAIN_V.cd);   // 输了几季后可以再来
+const chalCd = () => (L.MAIN_V_S ? (L.mainEase(st) >= 1 ? L.MAIN_V_S.cdEase : L.MAIN_V_S.cd) : seasons(L.mainEase(st) >= 1 ? L.MAIN_V.cdEase : L.MAIN_V.cd));   // 线 B：L.MAIN_V_S 本来就按季   // 输了几季后可以再来
 if (L.ACTS && L.ACTS.duel && !L.challenge && L.challengeRival) L.regAct('duel', { why: (s, x) => { const I = L.challengeInfo(s, L.actArg(x, 0, 'id')); return !I ? '没有这个人' : I.why || ''; }, run: (s, x) => L.challengeRival(s, L.actArg(x, 0, 'id')) });
 if (L.ACTS && L.ACTS.join && !L.knock && L.sectApply) L.regAct('join', { why: (s, x) => L.sectApplyWhy(s, L.actArg(x, 0, 'id')), run: (s, x) => (L.sectApply(s, L.actArg(x, 0, 'id')) && s.sect ? { id: s.sect.id, sect: s.sect } : null) });
 // 准备页：VS、胜算、换战技；o = { visit 上门的那一回, intro, back }

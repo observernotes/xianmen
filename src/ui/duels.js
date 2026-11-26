@@ -35,8 +35,9 @@ function duel(o) {
 }
 
 // ---------- 三年之约 ----------
-function runPact() {
-  const res = L.pactDuel(st);
+// res：结算链里 L.blockRun 打出来的结果（AP_PLAN §10 线 B：界面不再自己调 L.pactDuel）；不给就当场打（旧入口、测试）
+function runPact(res0) {
+  const res = res0 || L.pactDuel(st);
   const ex = st.exName;
   duel({
     title: '三年之约', intro: '三年之期已到。落霞城擂台下人山人海，都来看那个被退婚的“废物”如何收场。' + (res.assist ? `<br><span class="jadet">戒中老祖借你一缕神魂：战力 ${fmt(res.base)} ×${L.PACT_ASSIST} = ${fmt(res.S)}</span>` : ''),
@@ -60,10 +61,11 @@ const RIVAL_LINES = {
   yun: ['我在榜首等你很久了。来吧。', '好剑。天下第一，是你的了。'],
 };
 // 第一场多半碰上宿敌时，先弹对决准备页（panel-rivals.js 的 tourPrep：他的资料、换成 X 战技：胜算 p → p'），点【登台】再开打
-function runTournament() { tourPrep(runTournamentGo); }
-function runTournamentGo() {
+// run：开打时调，返回 L.tournament 的结果（结算链里是 L.blockRun）；论道前的准备页（换克制的战技）在开打之前
+function runTournament(run) { tourPrep(() => runTournamentGo(run)); }
+function runTournamentGo(run) {
   const wq = L.wantedRank(st), ww = L.wanted(st);
-  const res = L.tournament(st);
+  const res = (typeof run === 'function' ? run() : null) || L.tournament(st);
   rankShown = res.startRank;
   // 上回拍卖会被天骄拍走的东西（他们战力已 ×1.04）；通缉令的悬赏
   const aucNews = (res.aucNews || []).length ? `<div class="quote">${res.aucNews.slice(0, 3).map(x => `${esc(x.n)}在拍卖会上拍得【${esc(x.item)}】，战力 ×${L.AUCTION.boost}`).join('<br>')}${res.aucNews.length > 3 ? `<br>另有 ${res.aucNews.length - 3} 人` : ''}</div>` : '';
