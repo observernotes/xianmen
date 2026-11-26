@@ -356,3 +356,14 @@ function btPrepHTML(k, d, a) {
 }
 // 招式格出手时亮一下
 function btFire(id) { const c = document.querySelector(`#bt [data-sk="${id}"]`); if (!c) return; c.classList.remove('fire'); void c.offsetWidth; c.classList.add('fire'); }
+// 测试脚本用：把正在打的这一场按 'smart' 一口气打完（首领战直接出结果卡；历练节点记下结果、过这一月）
+window.__xm_bt = {
+  get on() { return !!btv; }, get ph() { return btv ? btv.ph : ''; },
+  finish() {
+    const v = btv; if (!v) return false;
+    if (v.B && !v.B.done) L.battleAuto(v.B, 'smart');
+    if (v.mode === 'boss') { btBossEnd(); return true; }
+    if (v.B) { L.expNodeDone(st, L.battleResult(v.B)); btMonth(); }
+    return true;
+  },
+};

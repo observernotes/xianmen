@@ -63,7 +63,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); await shot('c05-exp-boss');
   expect(await page.evaluate(() => !!document.querySelector('#modal .card[data-boss="3"]')), '历练面板出现首领卡');
   await close();
-  await page.evaluate(() => window.__xm.fightBossUI(3)); await page.waitForTimeout(1400); await shot('c06-boss');
+  await page.evaluate(() => window.__xm.fightBossUI(3)); await page.waitForTimeout(600);
+  await page.evaluate(() => window.__xm_bt && window.__xm_bt.on && window.__xm_bt.finish()); await page.waitForTimeout(800); await shot('c06-boss');   // 首领在场景里真打（src/ui/battle.js）：测试里一口气打完
   await page.click('#modal .foot .btn'); await page.waitForTimeout(200); await close();
   // 九宗会武
   await page.evaluate(() => window.__xm.runSectMeet()); await page.waitForTimeout(300); await shot('c09-meet0');
@@ -129,20 +130,21 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await page.evaluate(() => document.querySelector('#modal [data-slot="0"]').textContent.includes('圆满')), '功法页心法槽写着“圆满”');
   await shot('c17-arts-mastery');
   await close();
-  // 五行克制：黑风岭属金，木系战技被克 −8；确认页一键换上火系的烈火刀（火克金）→ +8，预计分数 +16
+  // 五行克制（COMBAT_LOOT §2.4 / §4.2：回合战的克制条）：黑风岭外围的精英刀疤头目属金，木系战技克不动 → 红条 +【换 ▸】；两次点击换上火系的烈火刀（火克金）→ 绿条
   const el = await page.evaluate(() => {
-    const { st, L } = window.__xm; st.meta.elem[1] = 1; L.equipArt(st, 'z_huichun');
+    const { st, L } = window.__xm; st.meta.elem[1] = 1; st.meta.foes = Object.assign(st.meta.foes || {}, { feikou: 1, tangl: 1, daoba: 1 }); L.giveArt(st, 'z_liehuo'); L.equipArt(st, 'z_huichun');
     window.__xm.confirmExp(1, 0, 0);
-    const txt = document.querySelector('#expElem').textContent, f0 = L.expForecast(st, 1, 0, 0);
-    const parts = L.expParts(st, 1, 0, 0).extra.filter(x => x[2] === 'elem').map(x => x[1]);
-    return { txt, base: f0.base, parts, btn: (document.querySelector('#expElem [data-swapz]') || {}).textContent || '' };
+    const bar = document.querySelector('#modal .bt-kebar');
+    return { txt: bar ? bar.textContent : '', bad: !!(bar && bar.classList.contains('bad')), btn: !!document.querySelector('#modal [data-btswap]') };
   });
-  expect(el.txt.includes('此地（金）克你的木系战技：分数 −8') && el.parts[0] === -8, `被克：${el.txt}（${el.parts}）`);
-  expect(el.btn.includes('烈火刀') && el.btn.includes('+16'), `一键换克制战技：${el.btn}`);
-  await page.waitForTimeout(500); await shot('c18-elem-ke');
-  await page.click('#expElem [data-swapz]'); await page.waitForTimeout(250);
-  const el2 = await page.evaluate(() => { const { st, L } = window.__xm; return { txt: document.querySelector('#expElem').textContent, base: L.expForecast(st, 1, 0, 0).base, pow: L.expParts(st, 1, 0, 0).pow }; });
-  expect(el2.txt.includes('你的火系战技克此地（金）：分数 +8'), `克制：${el2.txt}`);
+  expect(el.bad && /打不动金/.test(el.txt) && el.btn, `被克：克制条红、写“打不动金”、有【换 ▸】（${el.txt}）`);
+  await page.waitForTimeout(300); await shot('c18-elem-ke');
+  await page.click('#modal [data-btswap]'); await page.waitForTimeout(250);
+  const rows = await page.evaluate(() => [...document.querySelectorAll('#modal .bt-swr')].map(b => b.textContent));
+  expect(rows.length >= 1 && rows.length <= 4 && rows.some(t => /烈火刀/.test(t) && /克金/.test(t)), `【换】小列表 ≤ 4 行、每行写克谁：${rows.join(' / ')}`);
+  await page.click('#modal .bt-swr[data-swapz="z_liehuo"]'); await page.waitForTimeout(250);
+  const el2 = await page.evaluate(() => { const bar = document.querySelector('#modal .bt-kebar'); return { txt: bar ? bar.textContent : '', ok: !!(bar && bar.classList.contains('ok')), z: window.__xm.L.artSlots(window.__xm.st)[1] }; });
+  expect(el2.ok && el2.z === 'z_liehuo' && /克金/.test(el2.txt), `换上烈火刀后克制条变绿：${el2.txt}`);
   await shot('c19-elem-counter');
   await close();
   // 对决：土系战技克慕容（水）×1.15；锦囊列出“换成克制对手的战技”
