@@ -37,6 +37,8 @@ function showIntro() {
       ac();
       if (typing) { clearInterval(typing); typing = null; ps.forEach((p, i) => p.textContent = ls[i]); return; }
       page++;
+      // 第 2 页（当众退婚）换成高光过场 ①（cine2.js；看过了照旧显示这一页）
+      if (page === 1 && typeof introCine === 'function' && introCine(box, () => { page = 2; render(); })) return;
       if (page >= lines.length) setupForm(); else render();
     };
   };

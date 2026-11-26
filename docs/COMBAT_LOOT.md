@@ -655,6 +655,14 @@
 | `src/ui/panel-me.js`（仙途 · 记录） | “回忆”一栏：`Object.keys(CINE)` 排成小图，看过的可点。 |
 | `src/logic/save.js` | `st.meta.cine = {}` 默认值。 |
 
+**实装（线 C3，`src/ui/cine2.js`）与方案不同之处**：
+- ⑩ 拆成两段键（`feisheng` 飞升 25 秒、`lunhui` 轮回 18 秒），回忆页共 11 格。⑥ 首领、⑦ 宿敌、③ 短版按变体各记一次（`boss:3`、`rival:chu`、`pojing:4`），回忆按段名点亮。
+- 触发接线全用“包一层”：`afterBreakthrough`（③⑧）、`runPact` + `L.pactDuel`（④，只在弃徒出身时播）、`L.joinSect`（⑤）、`L.fightBoss`（⑥）、`duel`（⑦，按对手名字认赵乾 / 楚天阔 / 血无涯）、`L.sectWar`（⑨）、`showAscension` / `showDeath`（⑩）；① 在 `intro.js` 第 2 页。没有改 `duels.js`、`panel-bt.js`、`panel-sect.js` 等文件的流程。
+- 在外不打断：在外触发的过场（首领、入宗、守山……）进 `st.cnQ`，回洞府后 `processQueue` 先放它（排在结算卡、年报之前；章末卡、解锁卡也等它）。只有 ② 戒中剑意当场播（玩家正看着那场战斗）。
+- 停表：播的时候 `cine` 放一个哨兵 `{ cn: true }`，主循环、弹窗队列、讲解都按原有的 `cine` 判断让路。
+- ② 的底图没有用历练场景（`ART.drawAdventure` 只缓存一张地图，两处一起画会来回重建），改用泼墨底压暗；㈠ 的洞府镜头（③⑧⑩轮回）用开播那一刻场景画布的截图。
+- 首领倒地用 `ART.bossFighter(k, 'down')`；入宗的“背影”没有背面小人，用正面站姿 `ART.standRealm`。
+
 **验收**：每段过场总时长在表里的秒数 ±20%；任意时刻点【跳过】0.3 秒内结束并进入后续流程；第二次触发同一段不再自动播；【回忆】里能重看；360×640 下字幕不换行。
 
 ---

@@ -16,6 +16,8 @@ const P = L.P;
 // 灵宠名册（SYSTEMS §4）：没有 st.pets 的档把旧的 st.p.pet 折成名册（pets.js 的 L.migratePets，可重复调用，不升版本）
 // 灵田作物与炼丹（SYSTEMS §5、§6.2）：没有 st.crops / st.mats / st.dan / st.toxin 的档补上（田全种灵稻，与旧的被动灵石等价；L.migrateCrops / L.migrateAlch，可重复调用，不升版本）
 L.SAVE_V = 6;
+// 高光过场（COMBAT_LOOT §9）：看过的过场 st.meta.cine（跨世保留）；读档迁移按 L.newMeta 的键补空对象，所以旧档自动补上
+{ const nm = L.newMeta; L.newMeta = () => Object.assign(nm(), { cine: {} }); }
 L.SAVE_OK = [2, 3, 4, 5, 6];
 L.migrateMarket = function (s) {
   const d = L.newMarket(), m = s.market && typeof s.market === 'object' ? s.market : d;

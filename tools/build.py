@@ -67,6 +67,7 @@ UI_PARTS = [
     "clock",         # 时间流逝的界面一半：notify() 打断节流与纸鹤、自动停、解锁卡的真实时间间隔、年报最小版（docs/KAIRO_PLAN.md §3）
     "panel-prep",    # 大节点前 1 月的备战卡
     "intro",         # 开场与起名
+    "cine2",         # 高光过场（docs/COMBAT_LOOT.md §9）：十段像素过场播放器、只播一次、在外排队、回忆（包一层接各触发点，排在 boot 前）
     "boot",          # 每周天、主循环、输入、启动（必须最后）
 ]
 
