@@ -134,8 +134,8 @@ function guideTick() {
   const fails = (st.stats && st.stats.btFails) || 0;
   if (fails >= lastFails + 2 || (fails >= 2 && lastFails === 0 && !st.seenTips.s06)) { lastFails = fails; tip('s06' + (st.seenTips.s06 ? '_' + t : ''), `别硬冲。破境丹每枚 +${L.pct(L.BT.pill)}（你有 ${st.pills} 枚）；灵草够的话自己炼更便宜。`); st.seenTips.s06 = 1; }
   // U02 / 寻宝：行事解锁（第二趟、第四趟出发前）
-  if (!st.rebirth && L.apprOpen(st, 2)) tip('u02', '行事多了一样【采药】：灵草多、灵石少。每个地方适合干什么不一样（◎○△），试过才知道。');
-  if (!st.rebirth && L.apprOpen(st, 1)) tip('u02b', '行事又多一样【寻宝】：宝物多一成，打斗少。三样行事在每张图上相性不同，试出来记进图鉴。');
+  if (!st.rebirth && L.apprOpen(st, 2)) tip('u02', '行事多了一样【采药】：灵草 ×3，灵石少些。');
+  if (!st.rebirth && L.apprOpen(st, 1)) tip('u02b', `行事又多一样【寻宝】：法宝、功法掉率 ×2，打斗少。`);
   // U04：筑基后灵兽蛋上架
   if (p.r >= 1 && L.marketOpen(st, 'egg') && !L.petCount(st)) tip('u04', `灵兽蛋上架了，${fmt(L.price(st, 'egg'))} 灵石一枚。灵宠最低也让战力 ×${L.PETS[1].m}。【坊市】。`);
   // U14：金丹后能连续历练
