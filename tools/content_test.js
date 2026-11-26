@@ -558,8 +558,11 @@ require('fs').mkdirSync(out, { recursive: true });
     // 狂三级：丁等以伤换命再战一次（翻到丙以上算数，换一周天轻伤）
     st.exp = null; st.retreat = null; st.p.inj = 0; st.p.r = 3; st.p.s = 0; st.p.xp = 0;
     const mk = () => { L.startExp(st, 0, 0, 0); const pl = st.exp.plan; Object.assign(pl, { fix: undefined, gift: undefined, aff: 0, guts: 0, adj: 0, rnd: -12, pow: L.RATE_TH[0] - 3 + 12 }); pl.u[0] = 0.1; pl.u[5] = 0; pl.u[7] = 0.99; pl.u[8] = 0.99; };
+    // 以伤换命按旧的分数制量（回合战里倒下就是倒下，不再重掷；COMBAT_LOOT §2.3）：这一段临时关掉回合战
+    const trip0 = L.TRIP_ON; L.TRIP_ON = false;
     mk(); const re = L.resolveExp(st); out.refight = re.refight; out.rating = re.rating; out.inj = st.p.inj;
     st.dao.k = 0; st.p.inj = 0; mk(); const re0 = L.resolveExp(st); out.noRefight = !re0.refight && re0.rating === 0;
+    L.TRIP_ON = trip0;
     // 稳：突破 +3%、闭关花费 ×0.85、天劫提示十成准
     st.flags.retFree = 1; const rc0 = L.retCost(st); st.dao.w = 12; out.bt = (L.btParts(st, 0).find(x => x[0] === '道心·稳') || [])[1]; out.ret = L.retCost(st) / rc0; st.dao.w = 25; out.acc = L.tribHintAcc(st);
     // 仁：来访的人给好感多 +1；五心只要 90
