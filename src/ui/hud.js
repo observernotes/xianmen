@@ -129,7 +129,9 @@ function updateHUD() {
   const qv = L.questView(st), q = qv.first;
   // 刚开的系统有一个小目标（掌握信号的白话），排在札记最前面，做到了才换回平常的任务（docs/ONBOARDING.md §2）
   const og = L.onbGoal && L.onbGoal(st);
-  $('#goalTxt').textContent = og ? '【新】' + og.goal : q ? (q.main ? '【主线】' : '') + L.questText(st, q) : '大道已成';
+  // 【新】小目标前面挂 ART.newBadge（“【新】”留作读屏文字，textContent 不变）；内容没变就不重写
+  const gt = og ? '【新】' + og.goal : q ? (q.main ? '【主线】' : '') + L.questText(st, q) : '大道已成', ge = $('#goalTxt');
+  if (ge._t !== gt) { ge._t = gt; const nb = og ? newBadgeHTML(12) : ''; if (nb) ge.innerHTML = nb + '<span class="vh">【新】</span>' + esc(og.goal); else ge.textContent = gt; }
   $('#goalRw').textContent = og ? og.n : q ? L.rewardText(st, q.rw) : '';
   const busy = L.busy(st);
   const gd = st.guide && st.guide.done;

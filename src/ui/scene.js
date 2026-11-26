@@ -299,10 +299,10 @@ function ringBurst(x, y, c, n) {
 // 场景顶部的小横幅：一次一条、排队、每条约 1.8 秒（DESIGN §5.2）；同一句话排着的不再重复
 const bannerQ = [];
 let bannerBusy = false;
-function banner(text, sub, color) {
+function banner(text, sub, color, lock) {
   const key = text + '|' + (sub || '');
   if (bannerQ.some(b => b.key === key)) return;
-  bannerQ.push({ key, text, sub, color });
+  bannerQ.push({ key, text, sub, color, lock });
   if (bannerQ.length > 4) bannerQ.splice(0, bannerQ.length - 4);
   if (!bannerBusy) nextBanner();
 }
@@ -311,9 +311,12 @@ function nextBanner() {
   if (!o) { bannerBusy = false; return; }
   bannerBusy = true;
   const b = $('#banner');
-  b.innerHTML = '<span>' + esc(o.text) + '</span>' + (o.sub ? `<small>${esc(o.sub)}</small>` : '');
+  const lk = o.lock && ART.lockBreak ? `<img class="px bnlk" src="${urlOf(ART.lockBreak(0), 'lkb|0')}" style="width:${pxFit(16, 24)}px;height:${pxFit(16, 24)}px" alt="">` : '';
+  b.innerHTML = '<span>' + lk + esc(o.text) + '</span>' + (o.sub ? `<small>${esc(o.sub)}</small>` : '');
   b.style.color = o.color || 'var(--gold)';
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  // 碎锁：0 → 1 → 2 → 3（每帧 120 毫秒，横幅飞入后开始），停在碎屑帧
+  if (lk) { const im = b.querySelector('.bnlk'), n = ART.lockBreakFrames || 4; for (let f = 1; f < n; f++) setTimeout(() => { if (im.isConnected) im.src = urlOf(ART.lockBreak(f), 'lkb|' + f); }, 300 + f * 120); }
   setTimeout(nextBanner, 1800);
 }
 // 场景里盖一枚印章（ART.stamp：天甲乙丙丁胜败完 / 完美上中下），在 (x, y) 逻辑坐标处砸下

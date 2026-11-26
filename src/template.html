@@ -897,6 +897,28 @@ details.pn-it[open] > summary.pn-row::after { content: '▾'; }
 .pn-stats > div { background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; padding: 4px 6px; display: flex; flex-direction: column; min-width: 0; }
 .pn-stats small { color: var(--paper-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pn-stats b { font-weight: normal; font-size: var(--fs-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---- 美术阶段五·面板补缺接线（docs/ART_API.md）：品阶底框、“新”角标、勾选框、展开箭头、读屏文字 ---- */
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* 品阶底框 ART.qualityCell(t, 16|36)：格子图垫在底框中间（core.js qcellHTML） */
+.pn-qc { flex: none; display: inline-flex; align-items: center; justify-content: center; background-size: 100% 100%; background-repeat: no-repeat; image-rendering: pixelated; }
+/* 包裹格的“新”角标 ART.newBadge：叠在图标右上角 */
+.pn-tic { position: relative; display: inline-flex; flex: none; }
+.pn-tic .pn-new { position: absolute; right: -6px; top: -6px; pointer-events: none; }
+#goalTxt .pn-new { vertical-align: -1px; margin-right: 4px; }
+/* 勾选按钮 ART.frame('chkOn' | 'chkOff')：九宫格同其它按钮，标记在右上角角格 */
+.btn.pn-chk { border-image-source: var(--fr-chkOff); color: var(--ink-chkOff); }
+.btn.pn-chk.on { border-image-source: var(--fr-chkOn); color: var(--ink-chkOn); background: none; }
+.btn.pn-chk:disabled { border-image-source: var(--fr-btnOff); color: #c8c4d8; }
+.btn.pn-chk small { color: inherit; }
+.pn-chkbox { flex: none; width: 28px; height: 28px; box-sizing: border-box; border: calc(6 * var(--u1)) solid transparent; border-image: var(--fr-chkOff) 6 fill / calc(6 * var(--u1)) stretch; }
+.pn-chkbox.on { border-image-source: var(--fr-chkOn); }
+.pjob .grow { flex: 1; }
+/* 卡片展开箭头 ART.icon('fold_closed' | 'fold_open') 10×10，整数倍（--fold-sz） */
+summary.pn-row::after { content: ''; width: var(--fold-sz, 12px); height: var(--fold-sz, 12px); background: var(--ic-fold_closed) center / 100% 100% no-repeat; image-rendering: pixelated; }
+details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var(--ic-fold_open); }
+/* 系统解锁横幅上的碎锁 ART.lockBreak */
+#banner .bnlk { vertical-align: middle; margin-right: 6px; }
+#banner > span { display: inline-flex; align-items: center; }
 </style>
 
 <div id="app">

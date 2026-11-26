@@ -64,7 +64,7 @@ function aidRow(k, on, data) {
   const A = L.aidInfo(st, k), pct = '+' + L.pct(A.v);
   const desc = A.ok ? A.cost : A.why;
   return `<div class="aid ${on ? 'on' : ''} ${A.ok ? '' : 'off'}" data-aidrow="${k}">${aidIcon(k)}<div class="an"><div>${A.n} <span class="av">${pct}</span></div><div class="ad">${esc(desc)}</div></div>`
-    + (data ? `<button class="btn sm alt" data-${data}="${k}" ${A.ok ? '' : 'disabled'}>${on ? '☑ 已用' : '☐ 用上'}</button>` : '') + '</div>';
+    + (data ? `<button class="btn sm alt pn-chk${on ? ' on' : ''}" data-${data}="${k}" aria-pressed="${on ? 'true' : 'false'}" ${A.ok ? '' : 'disabled'}><span class="vh">${on ? '☑' : '☐'}</span>${on ? '已用' : '用上'}</button>` : '') + '</div>';
 }
 
 // ---------- 准备页（金丹起）----------

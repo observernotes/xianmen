@@ -42,7 +42,7 @@ function recipeRow(rc, prim, open) {
   const brew = `<button class="btn sm ${!why && prim === 'r:' + rc.k ? 'gold' : 'alt'}" data-r="${rc.k}" ${why ? 'disabled' : ''}>炼制</button>`;
   const autoDis = !auto && L.danOf(st).auto.length >= L.AUTO.max;
   const body = `<div class="pn-line">${esc(rc.d)}</div><div class="pn-line">材料：${costHTML(rc)}</div><div class="pn-line">${toxNote(rc)}</div>${used ? `<div class="pn-line">${used}</div>` : ''}
-    <div class="pn-acts"><button class="btn alt achk${auto ? ' on' : ''}" data-auto="${rc.k}" ${autoDis ? 'disabled' : ''}>${auto ? '☑' : '☐'} 续炼${autoDis ? `<small>最多 ${L.AUTO.max} 种</small>` : ''}</button></div>`;
+    <div class="pn-acts"><button class="btn alt achk pn-chk${auto ? ' on' : ''}" data-auto="${rc.k}" aria-pressed="${auto ? 'true' : 'false'}" ${autoDis ? 'disabled' : ''}><span class="vh">${auto ? '☑' : '☐'}</span>续炼${autoDis ? `<small>最多 ${L.AUTO.max} 种</small>` : ''}</button></div>`;
   return pnFold('rc-' + rc.k, { cls: 'arow', ic: pillImg(rc.k, 2), nm: rc.n, badge, k: key, right: takeBtn + brew, body, open });
 }
 function yinCellImg(a, b, k, sel, z) {
@@ -91,7 +91,7 @@ function showAlchemy(still) {
   else {
     const list = L.recipeList(st, alchTab), prim = alchPrim(list);
     main = list.length ? `<div class="pn-list">${list.map(rc => recipeRow(rc, prim)).join('')}</div>`
-      : emptyNoteHTML('vault', alchTab === 'z' ? '战斗丹要药引：去【丹方格】试出来。' : '还没有会炼的：去【丹方格】试炼。');
+      : emptyNoteHTML('pill', alchTab === 'z' ? '战斗丹要药引：去【丹方格】试出来。' : '还没有会炼的：去【丹方格】试炼。');
   }
   const auto = L.danOf(st).auto;
   const rules = `<details class="more"><summary>续炼与丹毒 · 续炼 ${auto.length}/${L.AUTO.max}</summary><div class="muted">续炼：最多勾 ${L.AUTO.max} 种${auto.length ? '（' + auto.map(k => L.RECIPE[k].n).join('、') + '）' : ''}，每 ${L.AUTO.every} 周天材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。<br>丹毒每周天退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。<br>成丹分下、中、上、极四品，炸炉只亏材料。天材地宝 ${st.treasure}${L.friend(st, 'ge') ? '；葛老指点，成丹率更高' : ''}。</div></details>`;

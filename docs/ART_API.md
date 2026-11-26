@@ -160,7 +160,7 @@
 
 ## 阶段五·面板补缺
 
-预览：`node tools/preview.js <输出.png> only=g12`（`g12a` 图标与品阶底框 / `g12b` 空状态、剪影、勾选框），代码在 `tools/preview_p5.js`。本批只画图，尚未接线。旧接口（`ART.icon` / `ART.frame` / `ART.emptyNote` 的旧名字）输出逐像素不变。
+预览：`node tools/preview.js <输出.png> only=g12`（`g12a` 图标与品阶底框 / `g12b` 空状态、剪影、勾选框），代码在 `tools/preview_p5.js`。已接线（包裹、法宝 / 功法 / 兽栏格子、空状态、宗主建设、任务板、人物、勾选按钮、展开箭头、解锁横幅、札记【新】）。旧接口（`ART.icon` / `ART.frame` / `ART.emptyNote` 的旧名字）输出逐像素不变。
 
 ### 1 首领材料（包裹）
 

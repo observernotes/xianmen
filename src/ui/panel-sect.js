@@ -58,9 +58,9 @@ function sectIdHTML() {
   const kw = st.sect.id === 'xuesha' ? L.karmaTradeWhy(st) : '';
   const moTrade = st.sect.id === 'xuesha' ? pnFold('karma', { ic: icon16('karma', 2), nm: '以因果换贡献', k: `一条换 ${fmt(L.karmaTradeVal(st))}`,
     right: `<button class="btn sm alt eq" id="btnKarma" ${kw ? 'disabled' : ''}>交一条</button>`, body: `<div class="pn-line">手里的因果交给血河老祖，这笔账也就了了。未了 ${L.karmaOpen(st).length} 条</div>` }) : '';
-  // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处
+  // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处；图标 ART.sectBuildIcon(k) 即 ART.icon('sb_' + k)
   const B0 = st.sect.build || {};
-  const builds = sr >= 6 ? pnHead('宗主建设', `灵石 ${fmt(st.stones)}`) + '<div class="pn-list">' + L.BUILDS.map(b => { const lv = B0[b.k] || 0, c = L.buildCost(lv), ok = lv < 5 && st.stones >= c; return pnFold('bd-' + b.k, { ic: icon16('cave', 2), nm: b.n, badge: `<span class="chip">${lv}/5</span>`, right: `<button class="btn sm alt eq" data-build="${b.k}" ${ok ? '' : 'disabled'}>${lv >= 5 ? '已满' : fmt(c)}${lv >= 5 ? '' : '<small>灵石</small>'}</button>`, body: `<div class="pn-line">${esc(b.d)}</div>` }); }).join('') + '</div>' : '';
+  const builds = sr >= 6 ? pnHead('宗主建设', `灵石 ${fmt(st.stones)}`) + '<div class="pn-list">' + L.BUILDS.map(b => { const lv = B0[b.k] || 0, c = L.buildCost(lv), ok = lv < 5 && st.stones >= c; return pnFold('bd-' + b.k, { ic: icon16(ART.icon('sb_' + b.k) ? 'sb_' + b.k : 'cave', 2), nm: b.n, badge: `<span class="chip">${lv}/5</span>`, right: `<button class="btn sm alt eq" data-build="${b.k}" ${ok ? '' : 'disabled'}>${lv >= 5 ? '已满' : fmt(c)}${lv >= 5 ? '' : '<small>灵石</small>'}</button>`, body: `<div class="pn-line">${esc(b.d)}</div>` }); }).join('') + '</div>' : '';
   return `<div class="pn-stats"><div><small>身份</small><b>${L.srankName(st, sr)}</b></div><div><small>俸禄/周天</small><b class="num">${fmt(L.pay(st))}</b></div><div><small>可用贡献</small><b class="num">${fmt(st.sect.pts)}</b></div></div>
     ${promo}${duty}${moTrade}${builds}
     ${UI.isOpen('vault') ? pnHead('人脉', `圣子、宗主要两位 ≥${L.FAV.promo}`, 'renmai') + `<div class="pn-list">${L.eldersOf(st).map(elderCard).join('')}</div>` : ''}
@@ -77,7 +77,7 @@ function bindSectId(s) {
 // 职司：五选一（每届会武后可改）
 function showDutyPick() {
   const cur = L.duty(st);
-  const rows = Object.keys(L.DUTIES).map(k => { const D = L.DUTIES[k]; return `<button class="pjob duty ${k === cur ? 'cur' : ''}" data-duty="${k}" ${k === cur ? 'disabled' : ''}>${icon16(D.icon, 2)}<span class="grow"><b>${D.n}${k === cur ? '（现在）' : ''}</b><span class="muted">${esc(D.d)}</span></span></button>`; }).join('');
+  const rows = Object.keys(L.DUTIES).map(k => { const D = L.DUTIES[k]; return `<button class="pjob duty ${k === cur ? 'cur' : ''}" data-duty="${k}" ${k === cur ? 'disabled' : ''}>${icon16(D.icon, 2)}<span class="grow"><b>${D.n}${k === cur ? '（现在）' : ''}</b><span class="muted">${esc(D.d)}</span></span><span class="pn-chkbox${k === cur ? ' on' : ''}" aria-hidden="true"></span></button>`; }).join('');
   const s = sheet({ title: '领职司', body: `<p class="muted">真传弟子在五堂领一份差事，每届九宗会武之后可以改。</p><div class="pjobs" id="dutyList">${rows}</div>`, foot: [{ t: '回宗门', alt: true, fn: () => showSect('id') }] });
   s.querySelectorAll('[data-duty]').forEach(b => b.onclick = () => { const k = b.dataset.duty; if (!L.setDuty(st, k)) return; SFX.win(); banner('职司 · ' + L.DUTIES[k].n, L.DUTIES[k].d); showSect('id'); });
 }
@@ -91,10 +91,10 @@ function sectTaskHTML() {
   const tasks = T.map((t, i) => {
     const can = L.taskCanDeliver(st, t), el = L.elder(L.taskElder(st, t)), g = i === gi ? 'gold' : 'alt';
     const btn = t.done ? '<span class="chip ok">已完成</span>' : !t.taken ? `<button class="btn sm ${g} eq" data-tk="${i}" ${busyT(t) ? 'disabled' : ''}>接取</button>` : can ? `<button class="btn sm ${g} eq" data-td="${i}">交付</button>` : `<span class="chip">进行中${t.need > 1 ? ` ${t.prog}/${t.need}` : ''}</span>`;
-    return pnFold('tk-' + i, { cls: t.done ? 'pn-off' : '', ic: el ? ptImg(el.img, pxs(32, 1)) : icon16('flag', 2), nm: esc(L.taskText(st, t)), k: `<span class="goldt">${esc(L.taskReward(st, t))}</span>`, right: btn,
+    return pnFold('tk-' + i, { cls: t.done ? 'pn-off' : '', ic: el ? ptImg(el.img, pxs(32, 1)) : icon16(ART.icon('task') ? 'task' : 'flag', 2), nm: esc(L.taskText(st, t)), k: `<span class="goldt">${esc(L.taskReward(st, t))}</span>`, right: btn,
       body: el ? `<div class="pn-line">${esc(el.n)}管的事：做完支持 +${L.FAV.task}${t.fav ? `（已 +${t.fav.d}）` : ''}</div>` : '' });
   }).join('');
-  return pnHead('任务板', `${L.nextTour(st)} 周天后刷新`) + (tasks ? `<div class="pn-list">${tasks}</div>` : emptyNoteHTML('vault', '这一届的任务都做完了，论道后刷新。'));
+  return pnHead('任务板', `${L.nextTour(st)} 周天后刷新`) + (tasks ? `<div class="pn-list">${tasks}</div>` : emptyNoteHTML('scroll', '这一届的任务都做完了，论道后刷新。'));
 }
 function bindSectTask(s) {
   s.querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { if (L.taskTake(st, +b.dataset.tk)) { SFX.tap(); if (st.retreat && (st.retreat.kind === 'teach' || st.retreat.kind === 'busy')) closeModal(); else showSect('task'); } });

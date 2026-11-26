@@ -60,7 +60,7 @@ function onbHook(type, k) {
 // 横幅等讲解、弹窗都空下来再放（不和老祖抢话）
 function onbPump() {
   if (!onbBanner || !$('#guide').hidden || modalOpen() || cine || duelFx) return;
-  banner(onbBanner.t, onbBanner.sub, '#8ff5d0'); SFX.reveal(3); onbBanner = null;
+  banner(onbBanner.t, onbBanner.sub, '#8ff5d0', true); SFX.reveal(3); onbBanner = null;
 }
 // 底栏角标只给“现在该点的”一个：按先后挑第一个
 function pickBadge(cands) { const c = cands.find(x => x && x.t && UI.navOpen(x.nav)); return c || null; }

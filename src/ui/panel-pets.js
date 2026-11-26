@@ -8,6 +8,14 @@ function petCardImg(sp, form, aw, k, sil) {
   const c = ART.petCard(sp, form || 0, aw), s = pxs(36, k || 2);
   return `<img class="px${sil ? ' psil' : ''}" src="${urlOf(c, ['pc', sp, form || 0, aw ? 1 : 0].join('|'))}" style="width:${s}px;height:${s}px;flex:none" alt="">`;
 }
+// 兽栏格子：品阶底框 ART.qualityCell(品阶, 36) 上叠灵宠像（和 ART.petCard 同位置 (2, 4)）；没有底框时退回 petCard
+function petQCardImg(p, k) {
+  if (!ART.qualityCell) return petCardImg(p.sp, p.form, p.aw, k);
+  const t = L.petTier(p), key = ['pqc', p.sp, p.form || 0, p.aw ? 1 : 0, t].join('|'), s = pxs(36, k || 2);
+  let u = avCache.get(key);
+  if (!u) { const c = document.createElement('canvas'); c.width = c.height = 36; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(ART.qualityCell(t, 36), 0, 0); x.drawImage(ART.petSprite(p.sp, p.form || 0, 0, p.aw), 2, 4); u = urlOf(c, key); }
+  return `<img class="px" src="${u}" style="width:${s}px;height:${s}px;flex:none" alt="">`;
+}
 function petSprImg(p, k) {
   const c = ART.petSprite(p.sp, p.form || 0, 0, p.aw), z = pxs(1, k || 3);
   return `<img class="px" src="${urlOf(c, ['ps', p.sp, p.form || 0, p.aw ? 1 : 0].join('|'))}" style="width:${32 * z}px;height:${28 * z}px;flex:none" alt="">`;
@@ -70,7 +78,7 @@ function showPets(u, still) {
   const cards = st.pets.map((p, i) => {
     const glow = L.petGlow(st, p), rest = L.petResting(st, p);
     const badge = glow ? '<span class="chip warn">可进化</span>' : rest ? '<span class="chip bad">休养</span>' : i === st.petOut ? `<span class="chip ok prole">${petRoleIcon(i, p)}出战</span>` : p.job ? `<span class="chip prole">${petRoleIcon(i, p)}${L.PET_JOB[p.job].n}</span>` : '<span class="chip bad">闲着</span>';
-    return `<button class="pcard pn-pcard${i === petSel ? ' sel' : ''}${glow ? ' glow' : ''}" data-pi="${i}">${petCardImg(p.sp, p.form, p.aw, 1.5)}<span class="nm">${esc(L.petName(p))}</span><span class="num">Lv${p.lv} <span class="phearts">♥${p.heart}</span></span>${badge}</button>`;
+    return `<button class="pcard pn-pcard${i === petSel ? ' sel' : ''}${glow ? ' glow' : ''}" data-pi="${i}">${petQCardImg(p, 1.5)}<span class="nm">${esc(L.petName(p))}</span><span class="num">Lv${p.lv} <span class="phearts">♥${p.heart}</span></span>${badge}</button>`;
   }).join('') + Array.from({ length: Math.max(0, cap - st.pets.length) }, () => '<div class="pcard empty pn-pcard"><span class="aempty">空</span></div>').join('');
   let det = '';
   const p = st.pets[petSel];
@@ -158,7 +166,7 @@ function showPetJobs(i) {
     const match = k !== 'out' && L.petJobMatch(p, k);
     const swap = other ? `<span class="muted fxs">换下【${esc(L.petName(other))}】</span>` : '';
     return `<button class="pjob${cur ? ' cur' : ''}" data-job="${k}" ${why || cur ? 'disabled' : ''}>${icon16(k === 'out' ? 'job_out' : J.icon, 2)}<span class="grow"><span class="line"><b>${k === 'out' ? '出战' : J.n}</b>${k === rec ? '<span class="chip ok">荐</span>' : ''}${match ? '<span class="chip ok">对口 ×1.5</span>' : ''}${cur ? '<span class="chip warn">当前</span>' : ''}</span>
-      <span class="fxs">${why ? `<span class="seal">${esc(why)}</span>` : cur ? (k === 'out' ? `战力倍率 ×${mult2(L.petAtkOf(st, p))}` : esc(J.d(L.petJobVal(st, k)))) : jobEffect(i, k)}</span>${swap}</span></button>`;
+      <span class="fxs">${why ? `<span class="seal">${esc(why)}</span>` : cur ? (k === 'out' ? `战力倍率 ×${mult2(L.petAtkOf(st, p))}` : esc(J.d(L.petJobVal(st, k)))) : jobEffect(i, k)}</span>${swap}</span><span class="pn-chkbox${cur ? ' on' : ''}" aria-hidden="true"></span></button>`;
   };
   const order = L.PET_JOBS.slice().sort((a, b) => (b.k === rec) - (a.k === rec));
   const body = `<div class="row">${petCardImg(p.sp, p.form, p.aw, 1.5)}<div class="grow"><b>${esc(L.petName(p))}</b> <span class="muted">Lv${p.lv} · ${L.PET_TY[L.PET_SP[p.sp].ty]}型</span></div></div>

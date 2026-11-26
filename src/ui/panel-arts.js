@@ -65,7 +65,7 @@ function showArts(sel, still) {
     if (!A) return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span><span class="aempty">空</span><span class="muted">${i === 0 ? '基础吐纳' : '点下面一门'}</span></div>`;
     const big = i === 0 ? `修炼 ×${dec2(L.artXMult(st))}` : i === 1 ? `战力 ×${dec2(L.artZMult(st))}` : '';
     const pg = L.artProg(st, id);
-    return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span>${artImg(id, 2)}<span class="nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</span>${big ? `<span class="num pn-key">${big}</span>` : elChip(A.el)}${bar(pg.f, pg.lv >= 3)}<span class="muted">${L.MAST.n[pg.lv]}</span></div>`;
+    return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span>${qcellHTML(A.t, artImg(id, 2), 2)}<span class="nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</span>${big ? `<span class="num pn-key">${big}</span>` : elChip(A.el)}${bar(pg.f, pg.lv >= 3)}<span class="muted">${L.MAST.n[pg.lv]}</span></div>`;
   }).join('');
   // 当前三槽的共鸣
   const g = L.artGen(st), combos = L.artCombos(st);

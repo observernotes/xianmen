@@ -47,6 +47,10 @@ setFontSize();
   const root = document.documentElement;
   for (const k of ['hud', 'sheet', 'card', 'btnGold', 'btnAlt', 'btnSeal', 'btnOff']) { const f = ART.frame(k); if (f) root.style.setProperty('--fr-' + k, `url(${f.url})`); }
   const lk = ART.icon && ART.icon('lock'); if (lk) root.style.setProperty('--ic-lock', `url(${lk.toDataURL()})`);
+  // 阶段五：勾选按钮框 chkOn / chkOff（字色跟着 ink），卡片展开箭头 fold_closed / fold_open（10×10，整数倍）
+  for (const k of ['chkOn', 'chkOff']) { const f = ART.frame(k); if (f) { root.style.setProperty('--fr-' + k, `url(${f.url})`); root.style.setProperty('--ink-' + k, f.ink); } }
+  for (const k of ['fold_closed', 'fold_open']) { const c = ART.icon && ART.icon(k); if (c) root.style.setProperty('--ic-' + k, `url(${c.toDataURL()})`); }
+  const d = window.devicePixelRatio || 1; root.style.setProperty('--fold-sz', (10 * Math.max(1, Math.round(12 * d / 10)) / d) + 'px');
 })();
 // 像素图按整数倍显示：n 逻辑像素宽的图、想要大约 want CSS 像素宽 → 实际 CSS 宽（每个美术像素占整数个设备像素）
 function pxFit(n, want) { const d = window.devicePixelRatio || 1; return n * Math.max(1, Math.round(want * d / n)) / d; }
@@ -77,10 +81,20 @@ function iconHTML(k, size) {
 }
 // 新图标（ART.icon 名）按整数倍：artIcon('stone', 16)
 function artIcon(name, want, cls) { const c = ART.icon && ART.icon(name); if (!c) return ''; const s = pxFit(c.width, want || c.width); return `<img class="px${cls ? ' ' + cls : ''}" src="${urlOf(c, 'ic|' + name)}" style="width:${s}px;height:${s}px;flex:none" alt="">`; }
-// 空状态（.empty-note）：ART.emptyNote('pet' | 'vault' | 'build', paper) 48×48 淡墨小画按整数倍约 2 倍 + 一句话；纸卷上用宣纸底版
+// 空状态（.empty-note）：ART.emptyNote('pet' | 'vault' | 'build' | 'pill' | 'scroll' | 'gift' | 'gavel', paper) 48×48 淡墨小画按整数倍约 2 倍 + 一句话；纸卷上用宣纸底版
 function emptyNoteHTML(kind, text, dark) {
   const c = ART.emptyNote && ART.emptyNote(kind, !dark), s = c ? pxFit(48, 96) : 0;
   return `<div class="empty-note">${c ? `<img class="px" src="${urlOf(c, 'empty|' + kind + (dark ? 0 : 1))}" style="width:${s}px;height:${s}px;flex:none" alt="">` : ''}<div>${text}</div></div>`;
+}
+// 阶段五小件：“新”角标（ART.newBadge 10×10，叠在格子右上角）、没见过的人（ART.portraitUnknown 48×48）、品阶底框（ART.qualityCell）
+function newBadgeHTML(want) { const c = ART.newBadge && ART.newBadge(); if (!c) return ''; const s = pxFit(10, want || 12); return `<img class="px pn-new" src="${urlOf(c, 'newbadge')}" style="width:${s}px;height:${s}px" alt="新">`; }
+function unkPtHTML(w) { const c = ART.portraitUnknown && ART.portraitUnknown(); return c ? ptHTML(c, 'pt|?unknown', w) : '<span class="muted" style="font-size:var(--fs-l)">？</span>'; }
+// 格子图垫品阶底框：图按 k 倍（每个美术像素约 k 个 CSS 像素）。k ≥ 1.5 用 36 号底框（16 图约 2 倍落在框里），否则 16 号（同倍数、同左上角）
+function qcellHTML(tier, img, k) {
+  const big = k >= 1.5, n = big ? 36 : 16, c = ART.qualityCell && ART.qualityCell(tier, n);
+  if (!c) return img;
+  const d = window.devicePixelRatio || 1, s = n * Math.max(1, Math.round(d * (big ? k / 2 : k))) / d;
+  return `<span class="pn-qc" style="width:${s}px;height:${s}px;background-image:url(${urlOf(c, 'qcell|' + tier + '|' + n)})">${img}</span>`;
 }
 document.querySelectorAll('img[data-art]').forEach(img => { const c = ART.icon(img.dataset.art); if (!c) return; img.src = c.toDataURL(); const s = pxFit(c.width, +img.dataset.sz || c.width); img.style.width = img.style.height = s + 'px'; });
 // 戒中老祖：48×48 半身像（提示气泡、引导框、事件立绘都用它）；没有新美术时退回旧的水滴

@@ -144,9 +144,9 @@ function showGear(sel, still) {
     else {
       const B = L.gearBase(x.id), why = plusOpen ? L.gearPlusWhy(st, s) : 'x';
       const badge = g.lock[s] ? '<span class="chip">锁</span>' : !why && L.gearPlusRate(st, x) >= 0.8 ? '<span class="chip ok">可强化</span>' : '';
-      inner = `<span class="k">${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]}</span>${gearImg(x, 2)}<span class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${plusTag(x.plus)}</span><span class="num pn-key">${esc(gearKey(x))}</span>${badge}`;
+      inner = `<span class="k">${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]}</span>${qcellHTML(x.t, gearImg(x, 2), 2)}<span class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${plusTag(x.plus)}</span><span class="num pn-key">${esc(gearKey(x))}</span>${badge}`;
     }
-    return `<div class="${cls}" data-gslot="${s}" style="${x ? 'border-top:3px solid ' + gTierBorder(x.t) : ''}">${inner}</div>`;
+    return `<div class="${cls}" data-gslot="${s}">${inner}</div>`;
   }).join('');
   // 选中格：名字、主属性全文、强化（一个金按钮）；词条与重铸、锁定当前收进详情
   const x = g[gearSel];
@@ -290,28 +290,37 @@ function bagItems() {
   add('常用', 'pills', '破境丹', 'pojing', st.pills || 0, '坊市、历练、丹炉', `突破时服下，成功率每枚 +${L.pct(L.BT.pill)}`);
   add('常用', 'feed', '兽粮', 'feed', st.feed || 0, '斩妖历练、觅食岗的灵宠、放生', '喂灵宠升级', L.petCount && L.petCount(st) ? ['去喂', () => showPets()] : null);
   const bagN = st.dan && st.dan.bag ? Object.keys(st.dan.bag).reduce((n, k) => n + ((st.dan.bag[k] || []).length), 0) : 0;
-  add('常用', 'dan', '丹囊', 'peiyuan', bagN, '炼丹房炼出的疗伤、爆气、雷火丹', '负伤、对决、历练前服', ['丹囊', () => showAlchemy()]);
+  add('常用', 'dan', '丹囊', 'danbag', bagN, '炼丹房炼出的疗伤、爆气、雷火丹', '负伤、对决、历练前服', ['丹囊', () => showAlchemy()]);
   add('常用', 'token', '秘境令', 'token', (st.mj && st.mj.token) || 0, '每年送一枚、奇遇', '进秘境', UI.isOpen('realm') ? ['去秘境', () => showExp()] : null);
   const yin = (st.mats && st.mats.yin) || {};
   for (const k of Object.keys(BAG_YIN_IC)) add('药引', 'yin_' + k, L.YIN_N[k], BAG_YIN_IC[k], yin[k] || 0, '灵田药引作物、坊市、觅食的灵宠', '药引丹方、灵宠进化、器方', st.home && st.home.furnace ? ['炼丹', () => showAlchemy()] : null);
   for (const k of Object.keys(g.mats || {})) add('材料', 'mat_' + k, L.BOSS_MAT[k], 'treasure', g.mats[k], '首领：首杀 ×2，金丹后再战 ×1', '器炉打造专属法宝', ['器炉', () => showForge()]);
+  out.forEach(it => { if (it.k.startsWith('mat_') && ART.bossMat) { const k = +it.k.slice(4); it.img0 = ART.bossMat(k); it.imgKey = 'bmat|' + k; } });
   add('材料', 'plans', '器方', 'gscroll', Object.keys(g.plans || {}).length, '首领首杀、拍卖、宗门宝库、奇遇链', '器炉打造固定词条的法宝', ['器炉', () => showForge()]);
   for (const id of Object.keys((st.arts && st.arts.frag) || {})) if (!L.artOwned(st, id)) add('材料', 'frag_' + id, `《${L.art(id).n}》残篇`, 'frag', st.arts.frag[id], esc(L.art(id).src || '奇遇'), '集齐 3 片自动合成');
   for (const y of L.gearHeld ? L.gearHeld(st) : []) add('材料', 'held_' + y.u, L.gearBase(y.id).n, null, 1, '首领、器方、奇遇', `${L.GEAR_N[y.slot]}槽${L.gearOpenWhy(st, y.slot)}，到时自动戴上`, null);
   out.forEach(it => { if (it.k.startsWith('held_')) it.img = gearImg(L.gearHeld(st).find(y => 'held_' + y.u === it.k), 1.5); });
   return out;
 }
-const bagImg = (it, want) => it.img || artIcon(it.ic, want) || iconHTML('bag', want);
-let bagSel = '';
+const bagImg = (it, want) => it.img || (it.img0 ? `<img class="px" src="${urlOf(it.img0, it.imgKey)}" style="width:${pxFit(16, want)}px;height:${pxFit(16, want)}px;flex:none" alt="">` : '') || artIcon(it.ic, want) || iconHTML('bag', want);
+// “新”角标：材料、药引比上次打开包裹时多了的格子挂 ART.newBadge；上次看过的数量记在 st.flags.bagSeen（打开包裹即记下，这一次开着的时候角标不消失）
+const bagNewGrp = it => it.grp === '材料' || it.grp === '药引';
+let bagSel = '', bagNew = new Set();
 function showBag(sel) {
   const items = bagItems();
+  if (sel === undefined) {
+    const seen = st.flags.bagSeen || {};
+    bagNew = new Set(items.filter(it => bagNewGrp(it) && st.flags.bagSeen && it.have > (seen[it.k] || 0)).map(it => it.k));
+    const now = {}; for (const it of items) if (bagNewGrp(it)) now[it.k] = it.have;
+    st.flags.bagSeen = now;
+  }
   if (sel !== undefined) bagSel = sel;
   if (!items.some(it => it.k === bagSel)) bagSel = items[0] ? items[0].k : '';
   const cur = items.find(it => it.k === bagSel);
   const det = cur ? `<div class="pn-bagdet">${bagImg(cur, 32)}<div class="grow"><div class="line"><b class="pn-nm">${esc(cur.n)}</b><span class="num pn-key">${fmt(cur.have)}</span></div>
       <div class="muted">来源：${cur.from}</div><div class="muted">用途：${cur.use}</div></div>${cur.go ? `<button class="btn sm gold" id="bagGo">${cur.go[0]}</button>` : ''}</div>` : '';
   const grps = [...new Set(items.map(it => it.grp))];
-  const grid = grps.map(gp => `<div class="pn-bagh">${gp}</div><div class="pn-bag">${items.filter(it => it.grp === gp).map(it => `<button class="pn-tile${it.k === bagSel ? ' sel' : ''}" data-bag="${it.k}">${bagImg(it, 24)}<b class="num">${fmt(it.have)}</b><span>${esc(it.n)}</span></button>`).join('')}</div>`).join('');
+  const grid = grps.map(gp => `<div class="pn-bagh">${gp}</div><div class="pn-bag">${items.filter(it => it.grp === gp).map(it => `<button class="pn-tile${it.k === bagSel ? ' sel' : ''}" data-bag="${it.k}"><span class="pn-tic">${bagImg(it, 24)}${bagNew.has(it.k) ? newBadgeHTML(pxFit(16, 24) * 10 / 16) : ''}</span><b class="num">${fmt(it.have)}</b><span>${esc(it.n)}</span></button>`).join('')}</div>`).join('');
   const s = sheet({ title: '包裹', still: sel !== undefined, body: items.length ? det + grid : emptyNoteHTML('vault', '包裹是空的：去历练捡点东西。'), foot: [{ t: '回人物', alt: true, fn: () => showMe() }] });
   s.querySelectorAll('[data-bag]').forEach(b => b.onclick = () => { SFX.tap(); showBag(b.dataset.bag); });
   const gb = s.querySelector('#bagGo'); if (gb && cur && cur.go) gb.onclick = () => { SFX.tap(); cur.go[1](); };

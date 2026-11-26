@@ -32,7 +32,7 @@ function bondTabHTML() {
 // 人物卡（pnFold）：立绘 + 名字（一个角标）+ 五心与好感 + 眼下最该做的一件事的按钮（送礼 / 交付委托 / 双修 / 同行）；喜好、委托、同伴、道侣点开看
 function pplCard(id, vis) {
   const N = L.NPCS[id];
-  if (!L.met(st, id)) return pnRow({ cls: 'pn-off', ic: '<span class="muted" style="font-size:var(--fs-l)">？</span>', nm: '？？？', k: `<span class="muted">${N.title} · 尚未相识</span>` });
+  if (!L.met(st, id)) return pnRow({ cls: 'pn-off', ic: unkPtHTML(pxs(48, 1)), nm: '？？？', k: `<span class="muted">${N.title} · 尚未相识</span>` });
   const a = L.aff(st, id), h = Math.min(5, L.hearts(st, id)), on = L.PEOPLE2_ON !== false;
   const tag = vis === id ? '<span class="chip bad">在门口</span>' : st.daolv === id ? '<span class="chip ok">道侣</span>' : a >= 60 ? '<span class="chip ok">知己</span>' : a >= 30 ? '<span class="chip">熟识</span>' : '<span class="chip">初识</span>';
   const rows = [];
@@ -94,7 +94,7 @@ function bindBondTab(s) {
 function showGift(id, back) {
   const opts = L.pgiftOpts(st, id), a = L.aff(st, id), nx = pplNext(id);
   const rows = opts.map(o => `<button class="btn alt pgiftopt" data-pg="${esc(o.key)}">${pmk(o.mark)}<span class="grow">${esc(o.text)}</span><small class="${o.mark === 'like' ? 'jadet' : o.mark === 'hate' ? 'seal' : 'muted'}">${pmkVal(o.mark)}</small></button>`).join('')
-    || emptyNoteHTML('vault', '身上没什么拿得出手的。灵草、灵矿、丹药、药引都能送。');
+    || emptyNoteHTML('gift', '身上没什么拿得出手的。灵草、灵矿、丹药、药引都能送。');
   const s = sheet({ title: `送礼 · ${esc(L.npcName(st, id))}`, center: true,
     sub: `好感 ${a}/100 · ${L.HEART_N[Math.min(5, L.hearts(st, id))]}${nx ? ` · 到 ${nx.v} 是${nx.n}` : ''}`,
     body: `<div class="speaker">${pplImg(id, 44, pplMood(id))}<p class="grow" style="margin:0">一回来访送一样。没试过的写“？”。</p></div><div class="pgifts">${rows}</div>

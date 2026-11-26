@@ -99,7 +99,7 @@ function showMarket(o) {
     };
     aucH = pnHead(`${icon16('gavel', 1)} 拍卖会`, `还剩 ${A.until - st.tick} 周天 · 出手 ${left} 次`, 'aucBox') + `${A.consign ? `<div class="jadet">送拍的东西落槌：灵石 +${fmt(A.consign)}</div>` : ''}${A.items.map(lot).join('')}
       <details class="more"><summary>拍卖规则</summary><div class="muted">跟一口 ×1 拿下 35%，加价 ×1.4 拿下 70%，豪掷 ×2 拿下 97%；有竞拍者各 −15%。没拿下不花钱，拍品归对方——宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。</div></details>`;
-  } else if (UI.isOpen('auction') && (st.rebirth > 0 || L.mr(st) >= 2)) aucH = emptyNoteHTML('vault', `下一场拍卖会 <b>${L.nextAuction(st)}</b> 周天后，开 ${L.AUCTION.len} 周天。`);
+  } else if (UI.isOpen('auction') && (st.rebirth > 0 || L.mr(st) >= 2)) aucH = emptyNoteHTML('gavel', `下一场拍卖会 <b>${L.nextAuction(st)}</b> 周天后，开 ${L.AUCTION.len} 周天。`);
   const box = L.boxCap(st, 'w');
   body += `<details class="more"><summary>身上的东西 · 寻宝保底</summary><div class="muted">当前：${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => L.GEAR_N[s] + ' ' + (L.gearTier(st, s) ? L.gearTierName(s, L.gearTier(st, s)) : '空')).join(' · ')} · 心法 ${L.artSlots(st)[0] ? '《' + esc(L.art(L.artSlots(st)[0]).n) + '》' : '基础吐纳'} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}<br>寻宝保底：连续 ${st.boxMiss || 0}/2 次没提升；本境界最高补到 ${L.WEAPONS[box].n} / ${L.ARTS[L.boxCap(st, 'a')].n}功法${L.gearPity(st) ? `（下一次保底补${L.GEAR_N[L.gearPity(st).s]}到${L.gearTierName(L.gearPity(st).s, L.gearPity(st).t)}）` : ''}${st.arts.firstBox ? '' : '；头一回寻宝必得《引气诀》'}</div></details>`;
   // 货架 / 行情 / 拍卖分页（只剩货架时不画分页条）；三段都在页里，切页只是显隐，按钮一直在（机器人与测试脚本照常点得到）
