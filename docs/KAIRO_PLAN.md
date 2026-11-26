@@ -467,3 +467,71 @@
 - `ART.burst(frame, color?)`：解锁卡的放射光，48×48，两帧。
 
 接口细节见 `docs/ART_API.md`“阶段六·开罗式信息架构”。
+
+---
+
+## 接口（线 1「路径 + 时间」提供给线 2；名字以此为准）
+
+> 线 1 的 worktree 分支：`worktree-agent-a65d95f62f4344c37`。线 2 可以先放兜底 `L.xxx = L.xxx || (st => …)`，合并时删。
+> 逻辑新文件：`src/logic/path.js`（路径、目标卡、章末）、`src/logic/time.js`（时钟、大节点、纸鹤数据、出发拦截、寿元月数、时间条）、`src/logic/report.js`（年报），都排在 MODULES 的 `onboard` 之后。`L.TIME` / `L.monthSec` 在 `src/logic/onboard.js`（替换 `L.TICK_SEC`）。
+> 界面新文件（线 1）：`src/ui/clock.js`（`notify()`、自动停、打断节流、纸鹤数据进出）、`src/ui/panel-prep.js`（备战卡）。纸鹤列表 `showInbox()`、目标卡 / 时间条 / 路径页 / 章末卡 / 年报的 DOM 归线 2。
+
+### 路径（path.js）
+
+```js
+L.CHAPTERS[i].prog(st) → [{ k, t, v, max, text }]   // 1～2 条；v/max 为比例（0～1 用 v÷max），text 如 '胜算 62% → 目标 80%'
+L.CHAPTERS[i].blurb                                   // ≤ 14 字一句话
+L.ONB[j].ch                                           // 该项在第几章开放（0 起）
+L.chapterNow(st) → i                                  // 当前章（0～8）：第一个主线没做完的章，但不小于到过的最高境界
+L.pathView(st) → [{ i, n, realm, state: 'done'|'now'|'next'|'lock'|'miss', goal, blurb, prog, opened: [ONB 键], toOpen: 数量 }]
+                                                      // 'miss'：境界已经越过、主线没做（仍可补，questView.old 里那条）
+L.goalNow(st) → { ch, chN: '第一章', t: '赢下三年之约', bar: { v, max, text }, next: { t, go, hl, why } }
+   // next.why：'ready'|'gear'|'onb'|'quest'|'big'|'exp'|'idle'|'prep'（§2.2 六级取法 + 自动停）
+   // next.go：界面跳转键，取值 'bt' 'exp' 'home' 'gear' 'arts' 'pets' 'bag' 'world' 'rivals' 'sect' 'market' 'people' 'path' 'big' 'prep' 'field' 'furnace' 'zhen' 'realm' 'cal' 'disc' 'trib' 'inbox'
+   // next.hl：给 hlOnly() 的 CSS 选择器（可能为 null，只开面板）
+L.chapterSummary(st, i) → { i, n, realm, months, pw0, pw1, exp, best: 0～3|-1, next: null | { i, n, goal, blurb, toOpen, rw: '灵石+1500 破境丹+2' } }
+emit('chapter', { from, to })                         // 当前章变化时（L.checkQuests 之后判）；界面据此 pushPopup(showChapterEnd(from))
+st.path = { ch, at: [{ t, pw, exp }] }                // 每章开始时的快照（迁移 L.migratePath 幂等）
+```
+
+### 时间（onboard.js / time.js）
+
+```js
+L.TIME = { idle: 15, trip: 8, away: 3, reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, interruptGapMonths: 3 }
+L.monthSec(st) → 秒                                   // ×1 时一月多少秒：按 st.exp（trip）/ st.retreat（away）/ 打坐（idle）/ 是否转世
+L.clockMode(st) → 'idle'|'trip'|'away'                // 逻辑层三态；“停”由界面判（面板、聚光、秘境、自动停）
+L.UNIT = '月'
+L.bigList(st) → [{ k: 'pact'|'tour'|'meet'|'war'|'rookie', n, left, foe?: { n, pw }, p? }]   // 按 left 升序，已知的大节点
+L.bigNext(st) → bigList(st)[0] || null
+L.lifeMonths(st) → { m, text: '寿元足'|'寿元 48 月', red: bool }
+L.timeBar(st) → { y, m: 1～12, season: 0～3, n: 36|12, cur, cells: [{ s: 'past'|'now'|'future'|'big', k? }], big: { k, n, left } | null, label: '三年之约 还有 14 月' }
+L.expBlock(st, k, d, a) → null | { why: '来不及了：还有 3 月', left, big }   // 出发会撞上大节点（行程 ≥ left）；L.startExp 同样拒绝
+out.warn = { k, n, left }                             // L.tick 产出：大节点还有 12 / 6 / 3 月（传讯行 + 进度条闪）
+out.prep = { k, n, left: 1, foe, S, Q, p }            // 大节点前 1 月：备战卡（自动停）
+out.year = { y }                                      // 每 12 月月初：年报（见下）
+```
+
+### 纸鹤（time.js 数据 + ui/clock.js 投递）
+
+```js
+st.inbox = [{ id, k, ic, t, at, left, go, data }]     // k：'visitor'|'season'|'world'|'auction'|'rookie'|'unlock'|'master'|'rival'|'say'|'misc'；t ≤ 14 字；left 剩余月数（null = 不过期）
+L.mailbox(st) → st.inbox（按 at 倒序，已清过期）
+L.mailPush(st, { k, ic, t, left?, go?, data? }) → item
+L.mailTake(st, id) → item（取出并删除）
+L.mailAway(st) → [{ k, t }]                           // 本趟在外期间进来的，归来结算卡最后一行汇总用；L.mailAwayClear(st)
+// 界面（ui/clock.js）：
+notify(kind, payload, fn)   // 能放行就立即执行 fn()，否则 L.mailPush 进纸鹤；kind 同上；在外一律进纸鹤；打坐时两次主动打断间隔 ≥ L.TIME.interruptGapMonths
+canInterrupt()              // 现在能不能主动打断（线 2 的解锁卡、老祖一句、气泡排队前先问它）
+markInterrupt()             // 主动打断出过了（记月份）
+autoStop() → null | 'ready'|'prep'|'result'|'year'|'life'   // frame() 的 running 条件
+openMail(item)              // 线 2 的纸鹤列表点【看】时调：按 item.k 打开访客 / 面板
+```
+
+### 年报（report.js）
+
+```js
+st.rep = { y, t0, r, s, pw, gain, earn, spend, exp, best, rank, opened: [] }   // 本年起点快照与累计
+L.yearReport(st) → { y, realm: [A, B], pw: [A, B], gain: [A, B], earn, spend, exp, best, rank: [A, B] | null, opened: [ONB 键], next: { ch, bar, big }, say }
+L.yearHist(st) → [{ y, r, pw, gain, earn, exp, best, rank }]   // 存最近 60 年
+L.yearClose(st)                                       // 界面显示完年报后调（存进 yearHist、开新的一年）；sim 里 tick 自动调
+```
