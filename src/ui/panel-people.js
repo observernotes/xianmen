@@ -60,7 +60,7 @@ function pplCard(id, vis) {
     }
     if (st.daolv === id) {
       const sx = L.sxInfo(st), A = sx.art && L.art(sx.art);
-      rows.push(`<div class="pcompr"><span class="grow">道侣同行，不占同伴位：${esc(L.COMP[id].d)}。<b>双修</b>：${sx.len} 周天修炼 ×${sx.m.toFixed(2)}，不花灵石${A ? `，${sx.artNew ? '学' : '熟练'}《${esc(A.n)}》` : ''}</span>${top === 'sx' ? '' : `<button class="btn sm alt eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button>`}</div>`);
+      rows.push(`<div class="pcompr"><span class="grow">道侣同行，不占同伴位：${esc(L.COMP[id].d)}。<b>双修</b>：${sx.len} 月修炼 ×${sx.m.toFixed(2)}，不花灵石${A ? `，${sx.artNew ? '学' : '熟练'}《${esc(A.n)}》` : ''}</span>${top === 'sx' ? '' : `<button class="btn sm alt eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button>`}</div>`);
     } else if (N.daolv && !st.daolv) rows.push(`<div class="muted">· 可结为道侣：好感 90、心意相通之后，${pplTa(id)}会来问你</div>`);
   } else if (N.daolv) rows.push('<div class="muted">· 可结为道侣（双修 修炼 ×1.25）</div>');
   return pnFold('pp-' + id, { cls: 'pcard2', attrs: ` data-pp="${id}"`, ic: pplImg(id, pxs(48, 1), pplMood(id)), nm: esc(L.npcName(st, id)), badge: tag,
@@ -172,7 +172,7 @@ function peopleHook(d) {
     if (cine) banner(`委托完成 · ${L.npcName(st, d.id)}`, `${L.fill(st, d.res.Q.t)}：好感 +${L.PQ_AFF}`);
     else pushPopup(() => showPqDone(d.res));
   } else if (d.k === 'sx') {
-    if (st.hintSeen && st.hintSeen.ppSx) { const sx = L.sxInfo(st); tip('sx_' + L.pplOf(st).sx, `能和${L.npcName(st, d.id)}双修了：${sx.len} 个周天修炼 ×${sx.m.toFixed(2)}，不花灵石${sx.art ? `，还有《${L.art(sx.art).n}》` : ''}。【人物】→ 羁绊。`); }
+    if (st.hintSeen && st.hintSeen.ppSx) { const sx = L.sxInfo(st); tip('sx_' + L.pplOf(st).sx, `能和${L.npcName(st, d.id)}双修了：${sx.len} 个月修炼 ×${sx.m.toFixed(2)}，不花灵石${sx.art ? `，还有《${L.art(sx.art).n}》` : ''}。【人物】→ 羁绊。`); }
   }
 }
 // 底栏【人物】的角标：有委托能交、能双修
@@ -204,11 +204,11 @@ const peopleHints = [
     } },
   { id: 'ppDaolv', intro: true, when: () => pplCalm() && !!daolvReady(), target: '[data-nav="me"]', btn: '好', text: () => {
       const id = daolvReady(), ta = pplTa(id), m = L.retMult(st), ex = L.gainCalm(st) * (m - 1) * L.RET.len, A = L.art(L.DAOLV_ARTS[id][0]);
-      return `${esc(L.npcName(st, id))}好感 <b>${L.aff(st, id)}</b>，心里有你了：${ta}下回来访，就能<b>结为道侣</b>。道侣同行不占同伴位，每 <b>${L.SX.every}</b> 周天<b>双修</b>一次——等于一次不花灵石的闭关（眼下 ×${m.toFixed(2)}，多得约 <b>${fmt(ex)}</b> 修为），还教你${ta}的功法（头一门《${esc(A.n)}》）。苏、夜只能选一位。`;
+      return `${esc(L.npcName(st, id))}好感 <b>${L.aff(st, id)}</b>，心里有你了：${ta}下回来访，就能<b>结为道侣</b>。道侣同行不占同伴位，每 <b>${L.SX.every}</b> 月<b>双修</b>一次——等于一次不花灵石的闭关（眼下 ×${m.toFixed(2)}，多得约 <b>${fmt(ex)}</b> 修为），还教你${ta}的功法（头一门《${esc(A.n)}》）。苏、夜只能选一位。`;
     } },
   { id: 'ppSx', intro: true, when: () => pplCalm() && !!st.daolv && L.sxInfo(st).ok, target: '[data-nav="me"]', btn: '好', text: () => {
       const sx = L.sxInfo(st), id = st.daolv, A = sx.art && L.art(sx.art), c = L.retCost(st);
-      return `能和${esc(L.npcName(st, id))}<b>双修</b>了：${sx.len} 个周天修炼 <b>×${sx.m.toFixed(2)}</b>，不花灵石（闭关要 ${fmt(c)}）${A ? `，还能学到《${esc(A.n)}》` : ''}。每 ${L.SX.every} 周天一次。【人物】→ 羁绊，点${esc(L.npcName(st, id))}卡上的【双修】。`;
+      return `能和${esc(L.npcName(st, id))}<b>双修</b>了：${sx.len} 个月修炼 <b>×${sx.m.toFixed(2)}</b>，不花灵石（闭关要 ${fmt(c)}）${A ? `，还能学到《${esc(A.n)}》` : ''}。每 ${L.SX.every} 月一次。【人物】→ 羁绊，点${esc(L.npcName(st, id))}卡上的【双修】。`;
     } },
 ];
 HINTS.push(...peopleHints);

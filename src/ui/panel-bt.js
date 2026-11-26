@@ -30,7 +30,7 @@ function showBreakthrough(still) {
   if (btPills === null || btPills > max) btPills = btDefault();
   const n = btPills, rate = L.btRate(st, n), guard = L.btGuard(st), sure = !!st.flags.sureBt;
   const parts = L.btParts(st, n).map(([k, v]) => `<span>${esc(k)} ${k === '基础' ? L.pct(v) : '+' + L.pct(v)}</span>`).join('');
-  const fail = L.has(st, 'steady') ? `失败：道心坚定，修为只退到 95%，不负伤；下次成功率 +${L.pct(L.BT.fail)}。` : `失败不会身死：修为退到 70%，负伤 3 周天，下次成功率 +${L.pct(L.BT.fail)}。`;
+  const fail = L.has(st, 'steady') ? `失败：道心坚定，修为只退到 95%，不负伤；下次成功率 +${L.pct(L.BT.fail)}。` : `失败不会身死：修为退到 70%，负伤 3 月，下次成功率 +${L.pct(L.BT.fail)}。`;
   const body = `<div class="row">${myAvImg(66)}<div class="grow">
       <div>${esc(p.name)} · ${L.stageName(p)}</div>
       <div class="big seal">冲击${nxt}</div>
@@ -78,7 +78,7 @@ function afterBreakthrough(res) {
     sheet({
       title: res.tb ? '渡劫失败' : '突破失败', center: true,
       body: `<div class="row" style="justify-content:center;gap:12px">${myAvImg(78, undefined, 'filter:grayscale(.6)', 'sad')}${btStamp('败')}</div>
-        <p class="center">冲击${res.ascend ? '飞升' : L.REALMS[res.from + 1].n}失败（成功率 ${L.pct(res.rate)}）${L.has(st, 'steady') ? '，好在道心坚定，毫发无伤' : `，修为退到七成，负伤 ${p.inj} 周天`}。</p>
+        <p class="center">冲击${res.ascend ? '飞升' : L.REALMS[res.from + 1].n}失败（成功率 ${L.pct(res.rate)}）${L.has(st, 'steady') ? '，好在道心坚定，毫发无伤' : `，修为退到七成，负伤 ${p.inj} 月`}。</p>
         ${res.tb ? tribResultHTML(res) : ''}
         <p class="center seal">屡败屡战：下次成功率 +${L.pct(L.BT.fail)}（已累计 ${p.fails} 次）</p>`,
       foot: [{ t: '再接再厉', gold: true, fn: closeModal }],

@@ -12,21 +12,21 @@ function discImg(x, w, mood) {
 }
 const dHearts = x => '<span class="phearts">' + '♥'.repeat(x.heart) + '<i>' + '♥'.repeat(5 - x.heart) + '</i></span>';
 const discTTag = t => `<span class="tag" style="background:${['', '#9aa0a6', '#e6e1d3', '#62d26f', '#4aa8ff', '#c27dff'][t]}">${L.DISC_T[t].n}</span>`;
-// 到下一小层还要几个周天（成长为 0 或到顶时写原因）
+// 到下一小层还要几个月（成长为 0 或到顶时写原因）
 function discEta(x) {
   const g = L.discGrowRate(st, x), cap = L.discMax(st);
-  if (x.rest > st.tick) return `休养中，还要 ${x.rest - st.tick} 周天`;
+  if (x.rest > st.tick) return `休养中，还要 ${x.rest - st.tick} 月`;
   if (x.di >= cap) return `到顶了：徒弟最多到你的小层 − 4（${L.discStage({ di: cap })}）`;
   if (!g) return '';
   const left = Math.min(Math.floor(x.di) + 1, cap) - x.di;
-  return `成长 ${g.toFixed(3)} 小层/周天，约 ${Math.ceil(left / g)} 周天到下一层`;
+  return `成长 ${g.toFixed(3)} 小层/月，约 ${Math.ceil(left / g)} 月到下一层`;
 }
 function discJobLine(x, k) {
   const v = L.discJobVal(st, x, k);
-  if (k === 'exp') return `灵石 +${fmt(v.stones)}、灵草 +${v.herbs} / ${L.DISC_V.expEvery} 周天`;
+  if (k === 'exp') return `灵石 +${fmt(v.stones)}、灵草 +${v.herbs} / ${L.DISC_V.expEvery} 月`;
   if (k === 'home') return `被动灵石与灵草 +${L.pct(v.inc)}`;
-  if (k === 'duty') return `贡献 +${L.fmt1(v.contrib)} / 周天`;
-  if (k === 'cult') return `成长 ×${v.grow}（${(L.discGrowRate(st, Object.assign({}, x, { job: '' })) * v.grow).toFixed(3)} 小层/周天）`;
+  if (k === 'duty') return `贡献 +${L.fmt1(v.contrib)} / 月`;
+  if (k === 'cult') return `成长 ×${v.grow}（${(L.discGrowRate(st, Object.assign({}, x, { job: '' })) * v.grow).toFixed(3)} 小层/月）`;
   return '';
 }
 function discTabHTML() {
@@ -34,7 +34,7 @@ function discTabHTML() {
   if (!L.discOpen(st)) return emptyNoteHTML('vault', `真传弟子起可收徒，还差 <b>${Math.max(0, 2 - st.sect.rank)}</b> 级身份。`);
   if (discSel >= D.list.length) discSel = Math.max(0, D.list.length - 1);
   const cards = D.list.map((x, i) => `<button class="dcard${i === discSel ? ' sel' : ''}${L.discCanGrad(x) ? ' glow' : ''}" data-di="${i}">${discImg(x, pxs(48, 1))}<span class="nm">${esc(x.n)}</span><span>${L.discStage(x)}</span>${dHearts(x)}<span class="prole">${x.job ? icon16(L.DISC_JOB[x.job].icon, 1) + L.DISC_JOB[x.job].n : x.rest > st.tick ? '休养' : '闲着'}</span></button>`).join('')
-    + Array.from({ length: Math.max(0, cap - D.list.length) }, () => '<div class="dcard empty"><span class="aempty">空</span><span class="muted">宗门每 24 周天送候选</span></div>').join('')
+    + Array.from({ length: Math.max(0, cap - D.list.length) }, () => '<div class="dcard empty"><span class="aempty">空</span><span class="muted">宗门每 24 月送候选</span></div>').join('')
     + (nr > 0 ? `<div class="dcard empty lock"><span class="aempty">锁</span><span class="muted">${L.srankName(st, nr)}再收一人</span></div>` : '');
   let det = '';
   const x = D.list[discSel];
@@ -44,16 +44,16 @@ function discTabHTML() {
     det = `<div class="pdet ddet"><div class="row">${discImg(x, pxs(48, 1.5), L.discCanGrad(x) ? 'joy' : 'n')}<div class="grow"><div><b>${esc(x.n)}</b> ${discTTag(x.t)} <span class="chip">${T0.n}</span>${x.rookie ? ' <span class="chip warn">新秀</span>' : ''}</div>
       <div>${L.discStage(x)} · 战力 <b class="num">${fmt(L.discPow(st, x))}</b></div></div></div>
       <div class="muted">差事（一人一事）</div><div class="pbtns djobs">${jobs}</div>
-      <div class="gbtns"><button class="btn sm ${tw || L.discCanGrad(x) ? 'alt' : 'gold'}" id="discTeach" ${tw ? 'disabled' : ''}>传授<small>${tw ? esc(tw) : `${tl.length} 门圆满功法可教 · ${L.TEACH_LEN} 周天`}</small></button>
+      <div class="gbtns"><button class="btn sm ${tw || L.discCanGrad(x) ? 'alt' : 'gold'}" id="discTeach" ${tw ? 'disabled' : ''}>传授<small>${tw ? esc(tw) : `${tl.length} 门圆满功法可教 · ${L.TEACH_LEN} 月`}</small></button>
       <button class="btn sm ${L.discCanGrad(x) ? 'gold' : 'alt'}" id="discGrad" ${L.discCanGrad(x) ? '' : 'disabled'}>出师<small>${L.discCanGrad(x) ? `贡献 +${fmt(L.discGradContrib(st, x))}，桃李 +1` : `到金丹（现${L.discStage(x)}）`}</small></button></div>
       <details class="more"><summary>性情 · 成长</summary><div class="muted">${esc(T0.d)}${x.taught.length ? ` · 学过 ${x.taught.map(id => '《' + esc(L.art(id).n) + '》').join('')}` : ''}${x.lp ? ` · 听过讲法 ${x.lp} 回` : ''}<br>${esc(discEta(x))}</div></details></div>`;
   }
-  const cands = D.cand && !L.discFull(st) ? `<div class="sep"></div><div class="mhead"><span>拜师的孩子</span><span class="muted">${Math.max(0, L.DISC_V.every - (st.tick - D.candAt))} 周天后换一批</span></div>
+  const cands = D.cand && !L.discFull(st) ? `<div class="sep"></div><div class="mhead"><span>拜师的孩子</span><span class="muted">${Math.max(0, L.DISC_V.every - (st.tick - D.candAt))} 月后换一批</span></div>
     <div class="cands dcands">${D.cand.map((c, i) => `<div class="cand dcand">${discImg({ seed: c.seed, f: c.f, di: 0, tp: c.tp, rookie: c.rookie }, pxs(48, 1))}<div class="nm">${esc(c.n)}</div><div>${discTTag(c.t)}</div><div class="tr">${L.DISC_CAT_N[c.cat]} · ${L.TEMPERS[c.tp].n}</div><div class="tr">${esc(L.TEMPERS[c.tp].d)}</div><button class="btn sm alt" data-dtake="${i}">收徒</button></div>`).join('')}</div>
     <button class="btn sm alt" id="discPass" style="width:100%;min-height:44px">都不收</button>` : '';
   return `<div class="mhead"><span>门下 ${D.list.length}/${cap}</span><span class="muted">桃李 ${D.taoli}${L.trioOn(st) ? ' · 会武三人战' : st.sect.rank >= 6 ? ' · 收满两人会武改三人战' : ''}</span></div>
     ${D.list.length || cap ? `<div class="dcards">${cards}</div>` : ''}${det}${cands}
-    <details class="more"><summary>徒弟怎么长</summary><div class="muted">成长：每周天 ${L.DISC_V.grow} × 灵根 × (1 + 0.1 × 传授数)${L.daoDiscMult(st) > 1 ? ` × 道心·仁 ${L.daoDiscMult(st)}` : ''}，最多到你的小层 − 4。传授一门圆满功法：他战力 ×(1 + 0.2 × 传授数)，你的那门直接到化境。</div></details>`;
+    <details class="more"><summary>徒弟怎么长</summary><div class="muted">成长：每月 ${L.DISC_V.grow} × 灵根 × (1 + 0.1 × 传授数)${L.daoDiscMult(st) > 1 ? ` × 道心·仁 ${L.daoDiscMult(st)}` : ''}，最多到你的小层 − 4。传授一门圆满功法：他战力 ×(1 + 0.2 × 传授数)，你的那门直接到化境。</div></details>`;
 }
 function bindDiscTab(s) {
   s.querySelectorAll('[data-di]').forEach(b => b.onclick = () => { discSel = +b.dataset.di; SFX.tap(); showSect('disc'); });
@@ -73,9 +73,9 @@ function showDiscTeach() {
   const x = L.discList(st)[discSel]; if (!x) return;
   const pw0 = L.discPow(st, x), pw1 = L.discPow(st, Object.assign({}, x, { taught: x.taught.concat(['?']) }));
   const rows = L.discTeachList(st, x).map(id => { const A = L.art(id), lv = L.artLv(st, id); return `<button class="pjob dteach" data-dt="${id}">${artImg(id, 2)}<span class="grow"><b>《${esc(A.n)}》 <span class="muted">${L.MAST.n[lv]}</span></b><span>${esc(x.n)}战力 ${fmt(pw0)} → <b>${fmt(pw1)}</b>${lv < 4 ? '；教学相长：你的这门到<b>化境</b>' : ''}</span></span></button>`; }).join('');
-  const s = sheet({ title: '传授', body: `<div class="row">${discImg(x, pxs(48, 1))}<p class="grow" style="margin:0">把一门你练到圆满的功法传给<b>${esc(x.n)}</b>：花 ${L.TEACH_LEN} 个周天（不修炼、不能出门），每门只教一次。</p></div><div class="pjobs">${rows || '<p class="muted">你还没有能教他的圆满功法。</p>'}</div>`,
+  const s = sheet({ title: '传授', body: `<div class="row">${discImg(x, pxs(48, 1))}<p class="grow" style="margin:0">把一门你练到圆满的功法传给<b>${esc(x.n)}</b>：花 ${L.TEACH_LEN} 个月（不修炼、不能出门），每门只教一次。</p></div><div class="pjobs">${rows || '<p class="muted">你还没有能教他的圆满功法。</p>'}</div>`,
     foot: [{ t: '回门下', alt: true, fn: () => showSect('disc') }] });
-  s.querySelectorAll('[data-dt]').forEach(b => b.onclick = () => { if (!L.discTeach(st, x.u, b.dataset.dt)) return; SFX.gather(); banner('传授', `《${L.art(b.dataset.dt).n}》· ${L.TEACH_LEN} 周天`); closeModal(); });
+  s.querySelectorAll('[data-dt]').forEach(b => b.onclick = () => { if (!L.discTeach(st, x.u, b.dataset.dt)) return; SFX.gather(); banner('传授', `《${L.art(b.dataset.dt).n}》· ${L.TEACH_LEN} 月`); closeModal(); });
 }
 
 // ---------- 事件立绘：长老私事 / 冲突（favorMin）、圣子与宗主之争、徒弟事件 ----------
@@ -114,7 +114,7 @@ function dutyNum(k) {
 const sectHints = [
   { id: 'duty1', intro: true, when: () => sectCalm() && L.dutyOpen(st), target: '[data-nav="sect"]', btn: '好', text: () => {
       const k = L.duty(st), D = k && L.DUTIES[k];
-      return D ? `真传了，还领了<b>职司·${D.n}</b>：${dutyNum(k)}。五堂各管一摊，每届九宗会武（${L.nextMeet(st)} 周天后）之后能改，【宗门】→ 身份。`
+      return D ? `真传了，还领了<b>职司·${D.n}</b>：${dutyNum(k)}。五堂各管一摊，每届九宗会武（${L.nextMeet(st)} 月后）之后能改，【宗门】→ 身份。`
         : `真传了，能在五堂领<b>职司</b>：丹堂成丹率 +${L.pct(L.DUTY_V.alch)}、器堂强化 +${L.pct(L.DUTY_V.plus)}、战堂斩妖 +${L.DUTY_V.slay}……【宗门】→ 身份里选一个。`;
     } },
   { id: 'renmai1', intro: true, when: () => sectCalm() && st.sect.rank >= 1, target: '[data-nav="sect"]', btn: '好', text: () => {
@@ -123,7 +123,7 @@ const sectHints = [
     } },
   { id: 'disc1', intro: true, when: () => sectCalm() && L.discOpen(st) && !!(st.disc && st.disc.cand) && !L.discList(st).length, target: '[data-nav="sect"]', btn: '好', text: () => {
       const c = st.disc.cand.slice().sort((a, b) => b.t - a.t)[0], g = L.DISC_V.grow * L.DISC_T[c.t].m;
-      return `宗门送来三个拜师的孩子，【宗门】→ <b>门下</b>。${esc(c.n)}是${L.DISC_T[c.t].n}：每周天成长 <b>${g.toFixed(3)}</b> 小层，闭门苦修 ×${L.DISC_V.cult}；到金丹出师给贡献约 <b>${fmt(L.contribFor(L.homeRegion(st)) * L.DISC_V.gradC)}</b>，派去当值每周天 +${L.fmt1(L.contribFor(L.homeRegion(st)) * L.DISC_V.duty)}。`;
+      return `宗门送来三个拜师的孩子，【宗门】→ <b>门下</b>。${esc(c.n)}是${L.DISC_T[c.t].n}：每月成长 <b>${g.toFixed(3)}</b> 小层，闭门苦修 ×${L.DISC_V.cult}；到金丹出师给贡献约 <b>${fmt(L.contribFor(L.homeRegion(st)) * L.DISC_V.gradC)}</b>，派去当值每月 +${L.fmt1(L.contribFor(L.homeRegion(st)) * L.DISC_V.duty)}。`;
     } },
 ];
 HINTS.push(...sectHints);

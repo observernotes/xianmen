@@ -21,16 +21,16 @@ function masteryHTML(id, small) {
   const pg = L.artProg(st, id);
   return `<div class="mast">${bar(pg.f, pg.lv >= 3)}<span class="muted${small ? '' : ' num'}">${L.MAST.n[pg.lv]}${pg.lv < 4 ? ` · 还差 ${Math.ceil(pg.left)}` : ''}</span></div>`;
 }
-// 换上这门的变化（心法看修炼 / 周天，战技看战力）
+// 换上这门的变化（心法看修炼 / 月，战技看战力）
 function artDeltaText(id) {
   const A = L.art(id), d = L.artDelta(st, id);
-  if (A.k === 'x') { const v = d.g1 - d.g0; return Math.abs(v) < 0.05 ? '' : `<span class="${v > 0 ? 'jadet' : 'seal'}">修炼 ${v > 0 ? '+' : '−'}${dec(Math.abs(v))}/周天</span>`; }
+  if (A.k === 'x') { const v = d.g1 - d.g0; return Math.abs(v) < 0.05 ? '' : `<span class="${v > 0 ? 'jadet' : 'seal'}">修炼 ${v > 0 ? '+' : '−'}${dec(Math.abs(v))}/月</span>`; }
   const v = d.p1 - d.p0, pct = d.p1 / d.p0 - 1;
   if (Math.abs(pct) < 0.0005) return '';
   return `<span class="${v > 0 ? 'jadet' : 'seal'}">战力 ${v > 0 ? '+' : '−'}${fmt(Math.abs(v))}</span>`;
 }
 
-// 有更强的心法 / 战技没换上（【人物】角标“功”、老祖气泡用）：返回 { i, row } 或 null。每周天最多算一次
+// 有更强的心法 / 战技没换上（【人物】角标“功”、老祖气泡用）：返回 { i, row } 或 null。每月最多算一次
 let artRecCache = { t: -1, v: null };
 function artRec() {
   if (!st || !st.arts) return null;
@@ -41,12 +41,12 @@ function artRec() {
   artRecCache = { t: key, v };
   return v;
 }
-// 每周天：新出现的“更强的一门”老祖提一句（每门一次，不打断）
+// 每月：新出现的“更强的一门”老祖提一句（每门一次，不打断）
 function artRecTip() {
   const r = artRec();
   if (!r || L.busy(st)) return;
   const A = r.row.A, d = r.row.d;
-  tip('artrec_' + r.row.id, r.i === 0 ? `《${A.n}》比你现在的心法强：修炼 +${dec(d.g1 - d.g0)}/周天。去【人物】→ 功法点一下换上。` : `《${A.n}》比你现在的战技强：战力 ${fmt(d.p0)} → ${fmt(d.p1)}。去【人物】→ 功法点一下换上。`);
+  tip('artrec_' + r.row.id, r.i === 0 ? `《${A.n}》比你现在的心法强：修炼 +${dec(d.g1 - d.g0)}/月。去【人物】→ 功法点一下换上。` : `《${A.n}》比你现在的战技强：战力 ${fmt(d.p0)} → ${fmt(d.p1)}。去【人物】→ 功法点一下换上。`);
 }
 // ---------- 功法页 ----------
 let artSel = 0;
@@ -94,9 +94,9 @@ function showArts(sel, still) {
     + hints.map(c => `<div class="dexrow muted">？ + ？　${esc(L.comboHintText(c.id))}</div>`).join('');
   const rc = L.rongSum(st, 'cul'), ra = L.rongSum(st, 'atk');
   const frags = ['x_hongmeng', 'm_xingdou'].filter(id => !L.artOwned(st, id) && (st.arts.frag[id] || 0) > 0).map(id => `《${L.art(id).n}》残篇 ${st.arts.frag[id]}/3`).join(' · ');
-  const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 周天` : '点一门即换上';
+  const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 月` : '点一门即换上';
   const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>
-    ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 周天（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
+    ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 月（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
     ${list}`;   // 各门说明、共鸣图鉴、熟练与融会不再折叠在第一屏（§4.2）：点一门看它（换上前后的数），图鉴在【仙途】→ 记录
   const s = sheet({ title: shellTitle('gear'), body, still });
   bindMeTabs(s);

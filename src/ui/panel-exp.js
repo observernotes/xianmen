@@ -33,12 +33,12 @@ function showExp() {
     if (!open) { void lockedShown; continue; }   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
     if (L.bossReady(st, k)) {
       const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
-      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战可得首领材料${L.BOSS_MAT[k]} ×1（打造用）与灵石；每 ${L.BOSS_AGAIN} 周天一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
+      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战可得首领材料${L.BOSS_MAT[k]} ×1（打造用）与灵石；每 ${L.BOSS_AGAIN} 月一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
     }
     const c = defaultCell(st, k), f = L.expForecast(st, k, c.d, c.a);
     const bb = Math.max(0, ...[0, 1, 2].map(d => L.bestOf(st, k, d)));
     const el = L.elemKnown(st, k) && UI.isOpen('zhanji') ? ` · ${L.elemName(k)}` : '';
-    rows.push(`<div class="card" data-k="${k}"><div class="main"><div class="line"><span>${rg.n}</span>${best.k === k ? '<span class="chip ok">荐</span>' : ''}<span class="muted">${L.expLen(k)} 周天${el}</span></div>
+    rows.push(`<div class="card" data-k="${k}"><div class="main"><div class="line"><span>${rg.n}</span>${best.k === k ? '<span class="chip ok">荐</span>' : ''}<span class="muted">${L.expLen(k)} 月${el}</span></div>
       <div class="muted num">推荐战力 ${fmt(L.rec(k, c.d))}${bb ? ` · 最高 ${L.RATINGS[bb]}` : ''}</div></div>
       <div class="right">${rateChip(f)}<span class="muted">${L.DEPTHS[c.d]}·${L.APPR[c.a].n}</span></div></div>`);
   }
@@ -51,7 +51,7 @@ function showExp() {
 function showExpAway() {
   const e = st.exp, rg = L.REGIONS[e.k], pv = L.expPreview(st);
   const sum = st.expSum;
-  sheet({ title: '历练中', body: `<div class="card flat"><div class="main"><div>【${cellName(e.k, e.d)}】${L.APPR[e.a].n}${e.chain ? ` · 还要连续 ${e.chain} 趟` : ''}</div><div class="muted">${rg.desc}</div>${bar((e.total - e.left) / e.total, true)}<div class="muted">还需 ${e.left} 周天归来</div></div></div>
+  sheet({ title: '历练中', body: `<div class="card flat"><div class="main"><div>【${cellName(e.k, e.d)}】${L.APPR[e.a].n}${e.chain ? ` · 还要连续 ${e.chain} 趟` : ''}</div><div class="muted">${rg.desc}</div>${bar((e.total - e.left) / e.total, true)}<div class="muted">还需 ${e.left} 月归来</div></div></div>
     <dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(pv.stones)}</dd><dt>灵草</dt><dd class="num">+${fmt(pv.herbs)}</dd><dt>宝物</dt><dd class="num">${pv.finds ? pv.finds + ' 件（回来揭晓）' : '—'}</dd>${pv.xp > 0 ? `<dt>感悟</dt><dd class="num">+${fmt(pv.xp)}</dd>` : ''}</dl>
     ${sum ? `<p class="muted">之前 ${sum.n} 趟已得：灵石 ${fmt(sum.stones)}、灵草 ${fmt(sum.herbs)}</p>` : ''}
     <p class="muted">历练途中修炼 ×0.5；评价在出发时就定了，回来揭晓。撤回：本趟收获减半，没有宝物，立刻回家。</p>`,
@@ -69,7 +69,7 @@ function fightBossUI(k) {
     quote: `${B.n}：“${B.line}”`,
     winText: !res.win ? '' : res.again ? `再败${esc(B.n)}！<div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
       : `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText ? `<span>${esc(res.planText)}</span>` : ''}</div>${it ? gearLine(it) : ''}${res.art ? artLine(res.art) : ''}`,
-    loseText: '首领太强，重伤而归（负伤 4 周天）。变强之后再来！',
+    loseText: '首领太强，重伤而归（负伤 4 月）。变强之后再来！',
     done: closeModal,
   });
 }
@@ -94,7 +94,7 @@ function confirmExp(k, d, a, still) {
   const notes = [];
   if (f.first) notes.push('<div class="quote">第一趟老祖护着：必得甲</div>');
   if (f.warnFull) notes.push(`<div class="seal">修为已经满了，再出去是白跑（溢出的修为最多存下一层的两成）。先回来突破${L.REALMS[Math.min(st.p.r + 1, 8)].n}。</div>`);
-  if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个周天。</div>`);
+  if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个月。</div>`);
   // 大节点前（docs/KAIRO_PLAN.md §3.3 第 4 条）：回不来的行程不让出发；正好等长的提前一月赶回来（收获按走过的月数折算）
   const blk = L.expBlock ? L.expBlock(st, k) : null, cutI = !blk && L.expCut ? L.expCut(st, k) : null;
   if (blk) notes.push(`<div class="seal">${esc(blk.big.n)}还有 ${blk.left} ${UNIT}，这一趟要 ${f.len} ${UNIT}，回不来。</div>`);
@@ -115,7 +115,7 @@ function confirmExp(k, d, a, still) {
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
       ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
-      <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 周天${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
+      <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 月${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
       ${notes.join('')}${opts.join('')}
       ${dist}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
@@ -178,7 +178,7 @@ function deltaHTML(res) {
   const d = [];
   const arrow = (a, b) => (b > a ? '<span class="jadet">▲</span>' : '<span class="seal">▼</span>');
   if (res.pw1 !== undefined && fmt(res.pw1) !== fmt(res.pw0)) d.push(`<dt>战力</dt><dd class="num">${fmt(res.pw0)} → <b>${fmt(res.pw1)}</b> ${arrow(res.pw0, res.pw1)}</dd>`);
-  if (res.gain1 !== undefined && dec(res.gain1) !== dec(res.gain0)) d.push(`<dt>修炼/周天</dt><dd class="num">+${dec(res.gain0)} → <b>+${dec(res.gain1)}</b> ${arrow(res.gain0, res.gain1)}</dd>`);
+  if (res.gain1 !== undefined && dec(res.gain1) !== dec(res.gain0)) d.push(`<dt>修炼/月</dt><dd class="num">+${dec(res.gain0)} → <b>+${dec(res.gain1)}</b> ${arrow(res.gain0, res.gain1)}</dd>`);
   if (!st.pact && res.pw1 !== undefined) {
     const a = L.pactAssist(st), dm = L.duelPower(st, L.PACT_FOE) / L.power(st), p0 = L.duelP(st, res.pw0 * dm * a, L.PACT_POWER, L.PACT_FOE), p1 = L.duelP(st, res.pw1 * dm * a, L.PACT_POWER, L.PACT_FOE);
     if (L.pct(p0) !== L.pct(p1)) d.push(`<dt>约战胜算</dt><dd class="num">${L.pct(p0)} → <b>${L.pct(p1)}</b> ${arrow(p0, p1)}</dd>`);
@@ -194,7 +194,7 @@ function tripSnapNow() {
   if (!st || !st.exp) return;
   if (tripSnap && tripSnap.e === st.exp) return;
   const g = L.goalNow(st);
-  tripSnap = { e: st.exp, pw: L.power(st), xp: st.p.xp, r: st.p.r, s: st.p.s, need: L.pNeed(st.p), gv: g.bar.v, gt: g.bar.text, ch: g.ch, total: st.exp.total, pact: st.pact ? null : L.pactInfo(st).p };
+  tripSnap = { e: st.exp, pw: L.power(st), xp: st.p.xp, r: st.p.r, s: st.p.s, need: L.pNeed(st.p), gv: Math.max(0, Math.min(1, g.bar.v / (g.bar.max || 1))), gt: g.bar.text, ch: g.ch, total: st.exp.total, pact: st.pact ? null : L.pactInfo(st).p };
   if (st.exp.snap) Object.assign(tripSnap, { pw: st.exp.snap.pw !== undefined ? st.exp.snap.pw : tripSnap.pw, xp: st.exp.snap.xp !== undefined ? st.exp.snap.xp : tripSnap.xp });
 }
 function showExpResult(res) {
@@ -249,7 +249,7 @@ function showExpResult(res) {
   }
   // 离目标：本章目标条 前 → 后；下一个大节点还有几月、够再去几趟
   const g = L.goalNow(st), bn = L.bigNext(st);
-  const gv0 = sn && sn.ch === g.ch ? sn.gv : g.bar.v, gv1 = g.bar.v;
+  const nb1 = b => Math.max(0, Math.min(1, b.v / (b.max || 1))), gv1 = nb1(g.bar), gv0 = sn && sn.ch === g.ch ? sn.gv : gv1;
   const isPct = /%/.test(g.bar.text), pctOf = v => Math.round(v * (g.ch === 0 && !st.pact ? 80 : 100));
   lines.push(`<div class="ksec"><span>离目标</span></div>`);
   lines.push(`<div class="krow"><span class="k">${esc(cut((g.prog && g.prog[0] && g.prog[0].t) || g.bar.text.split(' ')[0] || '目标', 4))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
@@ -267,7 +267,7 @@ function showExpResult(res) {
     else if (L.expOpen(st, res.k, res.d, res.a) && !L.busy(st)) foot.push({ t: blk ? blk.why : '再去一趟 ▸', gold: !blk, disabled: !!blk, fn: () => { closeModal(); if (L.startExp(st, res.k, res.d, res.a)) SFX.coin(); } });
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
-  const s = sheet({ title: `历练归来<span class="hn">${esc(cellName(res.k, res.d))} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
+  const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });

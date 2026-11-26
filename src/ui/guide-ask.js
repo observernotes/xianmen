@@ -29,23 +29,23 @@ function askList() {
   // 1. 修为圆满
   if (L.isReady(st)) add(`修为圆满了。点金色的修为条冲<b>${nextName()}</b>，成功率 <b>${L.pct(btShownRate())}</b>${L.tribNeeded(st) ? '，从金丹起要渡雷劫，护劫手段都在突破页里' : ''}。`, () => showBreakthrough(), '去突破');
   else if (L.isFull(st) && st.exp) add(`修为已经满了，这趟回来就能冲<b>${nextName()}</b>；现在出门是白跑修为。`, () => showExp());
-  // 2. 大事 ≤ 6 周天且胜算 < 85%：锦囊第一条
+  // 2. 大事 ≤ 6 月且胜算 < 85%：锦囊第一条
   if (nb.left <= 6) {
     if (nb.k === 'pact') {
       const pi = nb.info, t0 = pactTips()[0];
-      if (pi.p < 0.85) add(`三年之约还剩 <b>${pi.left}</b> 个周天，胜算 <b>${L.pct(pi.p)}</b>。${t0 ? `锦囊头一条：${esc(t0.t)} → <b>${t0.extra || L.pct(t0.p)}</b>。` : '能做的都做了，硬上。'}`, () => showPact(), '看锦囊');
+      if (pi.p < 0.85) add(`三年之约还剩 <b>${pi.left}</b> 个月，胜算 <b>${L.pct(pi.p)}</b>。${t0 ? `锦囊头一条：${esc(t0.t)} → <b>${t0.extra || L.pct(t0.p)}</b>。` : '能做的都做了，硬上。'}`, () => showPact(), '看锦囊');
     } else if (nb.k === 'tour') {
       const tf = L.tourFoe && L.tourFoe(st);
       if (tf) {
         const S = L.duelPower(st, tf.foe), p0 = L.duelP(st, S, tf.Q, tf.foe), b = L.duelArtBest(st, tf.foe, tf.Q);
-        if (p0 < 0.85) add(`<b>${nb.left}</b> 个周天后论道，头一场多半是${esc(tf.rv.n)}（战力 <b>${fmt(tf.Q)}</b>），你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(p0)}</b>。${b && !b.same && b.p1 - b.p0 >= 0.03 ? `换战技《${esc(L.art(b.id).n)}》能到 <b>${L.pct(b.p1)}</b>。` : '多修一层、强化兵器都能补。'}`, () => showRivalCard(tf.id), '看他');
+        if (p0 < 0.85) add(`<b>${nb.left}</b> 个月后论道，头一场多半是${esc(tf.rv.n)}（战力 <b>${fmt(tf.Q)}</b>），你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(p0)}</b>。${b && !b.same && b.p1 - b.p0 >= 0.03 ? `换战技《${esc(L.art(b.id).n)}》能到 <b>${L.pct(b.p1)}</b>。` : '多修一层、强化兵器都能补。'}`, () => showRivalCard(tf.id), '看他');
       }
-    } else if (nb.k === 'meet' && st.sect) add(`<b>${nb.left}</b> 个周天后九宗会武，你代表${esc(L.sectOf(st).n)}（天下第 <b>${L.sectPos(st)}</b> 宗）出战。赢一场宗门升一位，俸禄跟着涨。`, () => showSect());
+    } else if (nb.k === 'meet' && st.sect) add(`<b>${nb.left}</b> 个月后九宗会武，你代表${esc(L.sectOf(st).n)}（天下第 <b>${L.sectPos(st)}</b> 宗）出战。赢一场宗门升一位，俸禄跟着涨。`, () => showSect());
   }
   // 3. 负伤
-  if (p.inj > 0) add(`负伤还要 <b>${p.inj}</b> 个周天：战力只剩六成、修炼减半。${L.canHeal(st) ? `服${L.healWith && L.healWith(st) === 'liaoshang' ? '疗伤丹' : '一枚破境丹'}立刻就好。` : '没丹可服，就在洞府歇着。'}`, () => showHome(), L.canHeal(st) ? '去服丹' : '前往');
+  if (p.inj > 0) add(`负伤还要 <b>${p.inj}</b> 个月：战力只剩六成、修炼减半。${L.canHeal(st) ? `服${L.healWith && L.healWith(st) === 'liaoshang' ? '疗伤丹' : '一枚破境丹'}立刻就好。` : '没丹可服，就在洞府歇着。'}`, () => showHome(), L.canHeal(st) ? '去服丹' : '前往');
   // 4. 访客
-  if (st.visitor && !st.retreat) add(`门口有人等着，还有 <b>${st.visitor.left}</b> 个周天就走了。点画面里的“！”。`, () => showVisitor(), '去见');
+  if (st.visitor && !st.retreat) add(`门口有人等着，还有 <b>${st.visitor.left}</b> 个月就走了。点画面里的“！”。`, () => showVisitor(), '去见');
   // 5. 宗门：能晋升 / 有任务能交 / 职司没选 / 有拜师的孩子
   if (L.canPromote(st)) add(`贡献够了，晋升<b>${L.srankName(st, st.sect.rank + 1)}</b>：俸禄 ×${L.SRANKS[st.sect.rank].pay} → <b>×${L.SRANKS[st.sect.rank + 1].pay}</b>。`, () => showSect(), '去晋升');
   else if (st.sect && (st.sect.tasks || []).some(t => L.taskCanDeliver(st, t))) { const t = st.sect.tasks.find(x => L.taskCanDeliver(st, x)); add(`宗门有差事能交了，交了给 <b>${fmt(t.rw)}</b> 贡献。`, () => showSect('task'), '去交付'); }
@@ -55,21 +55,21 @@ function askList() {
   const pend = st.gear && st.gear.pend.find(y => !y.hold);
   if (pend) add(`新得的【${esc(L.gearBase(pend.id).n)}】还没决定换不换：不选就熔炼成灵矿。`, () => showGear(), '去看');
   const ar = artRec();
-  if (ar) add(`《${esc(ar.row.A.n)}》比你装着的强：${ar.i === 0 ? `修炼 <b>+${dec(ar.row.d.g1 - ar.row.d.g0)}</b>/周天` : '战力更高'}。【人物】→ 功法点一下换上。`, () => showMe('art'), '去换');
+  if (ar) add(`《${esc(ar.row.A.n)}》比你装着的强：${ar.i === 0 ? `修炼 <b>+${dec(ar.row.d.g1 - ar.row.d.g0)}</b>/月` : '战力更高'}。【人物】→ 功法点一下换上。`, () => showMe('art'), '去换');
   if (st.pets && st.pets.some(L.petCanEvo)) { const pt = st.pets.find(L.petCanEvo); add(`【${esc(L.petName(pt))}】能<b>进化</b>了：品阶 <b>${L.petTier(pt)} → ${L.petTier(pt) + 1}</b>。去兽栏点它。`, () => showPets(), '去兽栏'); }
   // 7. 要渡劫了：渡劫阵
-  if (L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && !L.zhenWhere(st, 'f_dujie') && p.s === 3) add(`要渡劫了，把阵换成<b>渡劫阵</b>：承劫 <b>+${L.pct(L.formationVal(st, 'f_dujie'))}</b>，${L.ZV.switch} 个周天后生效。`, () => showZhen(), '去换阵');
+  if (L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && !L.zhenWhere(st, 'f_dujie') && p.s === 3) add(`要渡劫了，把阵换成<b>渡劫阵</b>：承劫 <b>+${L.pct(L.formationVal(st, 'f_dujie'))}</b>，${L.ZV.switch} 个月后生效。`, () => showZhen(), '去换阵');
   // 8. 寿元
-  if (L.desperate(st)) add(`寿元只剩 <b>${L.lifeTicks(st)}</b> 个周天！延寿丹 <b>${fmt(L.price(st, 'life'))}</b> 灵石一枚；或者现在就冲，绝境 +${L.pct(L.BT.desperate)}。`, () => showMarket(), '去坊市');
+  if (L.desperate(st)) add(`寿元只剩 <b>${L.lifeTicks(st)}</b> 个月！延寿丹 <b>${fmt(L.price(st, 'life'))}</b> 灵石一枚；或者现在就冲，绝境 +${L.pct(L.BT.desperate)}。`, () => showMarket(), '去坊市');
   // 9. 空闲：快升层就闭关，否则去“预计至少乙”的最高一格
   if (!busy && !L.isFull(st) && p.r <= L.MAXR) {
     const n = L.ticksToStage(st, L.si(p) + 1);
-    if (L.canRetreat(st) && n <= 6) { const ri = L.retInfo(st); add(`再过约 <b>${n}</b> 个周天升下一层。闭关 ${ri.len} 个周天、修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为（${ri.free ? '头一回免费' : fmt(ri.cost) + ' 灵石'}）。`, () => showHome(), '去闭关'); }
-    else { const b = L.expBest(st), rg = L.REGIONS[b.k]; add(`闲着也是闲着。去【${esc(rg.n)}·${L.DEPTHS[b.d]}】：预计评价 <b>${b.f.text}</b>，灵石约 <b>${fmt(b.f.stones)}</b>，${b.f.len} 个周天回来。`, () => confirmExp(b.k, b.d, b.a), '去历练'); }
+    if (L.canRetreat(st) && n <= 6) { const ri = L.retInfo(st); add(`再过约 <b>${n}</b> 个月升下一层。闭关 ${ri.len} 个月、修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为（${ri.free ? '头一回免费' : fmt(ri.cost) + ' 灵石'}）。`, () => showHome(), '去闭关'); }
+    else { const b = L.expBest(st), rg = L.REGIONS[b.k]; add(`闲着也是闲着。去【${esc(rg.n)}·${L.DEPTHS[b.d]}】：预计评价 <b>${b.f.text}</b>，灵石约 <b>${fmt(b.f.stones)}</b>，${b.f.len} 个月回来。`, () => confirmExp(b.k, b.d, b.a), '去历练'); }
   }
   // 10. SYSTEMS §17 追加：秘境、拍卖、行情、强化、炼丹
-  if (L.mjCan && L.mjCan(st) && !busy) add(`秘境开着，你有 <b>${L.mjTokens(st)}</b> 枚秘境令。里面时间不走，出来只算 ${L.mjCost(st)} 个周天。`, () => showRealm(), '去秘境');
-  if (L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res)) add(`拍卖会还开 <b>${st.auction.until - st.tick}</b> 个周天，还能出手 <b>${L.auctionBidsLeft(st)}</b> 次。没拿下不花钱。`, () => showMarket(), '去拍卖');
+  if (L.mjCan && L.mjCan(st) && !busy) add(`秘境开着，你有 <b>${L.mjTokens(st)}</b> 枚秘境令。里面时间不走，出来只算 ${L.mjCost(st)} 个月。`, () => showRealm(), '去秘境');
+  if (L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res)) add(`拍卖会还开 <b>${st.auction.until - st.tick}</b> 个月，还能出手 <b>${L.auctionBidsLeft(st)}</b> 次。没拿下不花钱。`, () => showMarket(), '去拍卖');
   if (L.sellOpen && L.sellOpen(st) && L.sellMult(st, 'herb') >= 1.2 && L.sellHave(st, 'herb') >= 20) add(`行情好：灵草 <b>×${mult2(L.sellMult(st, 'herb'))}</b>，你的 ${fmt(L.sellHave(st, 'herb'))} 株能换 <b>${fmt(L.sellValue(st, 'herb', L.sellHave(st, 'herb')))}</b> 灵石。`, () => showMarket(), '去卖');
   const gs = L.gearOpen(st, 'plus') && L.gearPlusHint(st, 0.8);
   if (gs) { const info = L.gearPlusInfo(st, gs); add(`灵矿够强化${L.GEAR_N[gs]} +${info.x.plus + 1}（成功率 <b>${L.pct(info.rate)}</b>）：战力 <b>${fmt(info.a.p)} → ${fmt(info.b.p)}</b>。`, () => showGear(), '去强化'); }
@@ -82,11 +82,11 @@ function askList() {
   if (q) add(`札记上这条：“${esc(L.questText(st, q))}”，做完赏 <b>${esc(L.rewardText(st, q.rw)) || '—'}</b>。`, () => (GO[q.go] || GO.exp)());
   // 13. 天下大势
   const w = L.world && L.world(st);
-  if (w) add(`天下大势：${esc(L.WORLD[w.id].n)}，还剩 <b>${w.until - st.tick}</b> 个周天。${esc(worldLine(w))}`, () => showCalendar(), '看年历');
+  if (w) add(`天下大势：${esc(L.WORLD[w.id].n)}，还剩 <b>${w.until - st.tick}</b> 个月。${esc(worldLine(w))}`, () => showCalendar(), '看年历');
   // 14. 都不成立：照现在这样稳着呢
   if (!out.length && p.r <= L.MAXR) {
     const n = L.ticksToStage(st, L.si(p) + 1);
-    add(`照现在这样，约 <b>${n}</b> 个周天后升${L.stageName({ r: p.s === 3 ? Math.min(9, p.r + 1) : p.r, s: (p.s + 1) % 4 })}，战力到 <b>${fmt(L.power(st) * (p.s === 3 ? btPowerMult() : L.P.pwStage))}</b>。稳着呢。${ASK_IDLE[st.tick % ASK_IDLE.length]}`, null);
+    add(`照现在这样，约 <b>${n}</b> 个月后升${L.stageName({ r: p.s === 3 ? Math.min(9, p.r + 1) : p.r, s: (p.s + 1) % 4 })}，战力到 <b>${fmt(L.power(st) * (p.s === 3 ? btPowerMult() : L.P.pwStage))}</b>。稳着呢。${ASK_IDLE[st.tick % ASK_IDLE.length]}`, null);
   }
   return out;
 }
@@ -101,23 +101,23 @@ function showAsk() {
   s.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => { SFX.tap(); const x = list[+b.dataset.ask]; closeModal(); if (x && x.go) x.go(); });
 }
 
-// ---------- 卡住检测与补齐的气泡（每周天，boot.js 的 onTick 调） ----------
-// 这些都是气泡，不暂停；同一条有自己的冷却（写进 key 里：同一窗口只冒一次），再统一受气泡调度的 3 周天间隔
+// ---------- 卡住检测与补齐的气泡（每月，boot.js 的 onTick 调） ----------
+// 这些都是气泡，不暂停；同一条有自己的冷却（写进 key 里：同一窗口只冒一次），再统一受气泡调度的 3 月间隔
 let idleRun = 0, readyRun = 0, stoneRun = 0, lastStones = 0, lastFails = 0;
 function guideTick() {
   chapSnap();
   if (!st || !st.guide || !st.guide.done || st.p.r > L.MAXR) return;
   const p = st.p, busy = L.busy(st), t = st.tick;
-  // S05：修为圆满、人在洞府、6 周天没突破（6 周天一次）
+  // S05：修为圆满、人在洞府、6 月没突破（6 月一次）
   readyRun = L.isReady(st) ? readyRun + 1 : 0;
   if (readyRun >= 6 && readyRun % 6 === 0) tip('s05_' + t, `还等什么？现在冲${nextName()}成功率 ${L.pct(btShownRate())}。点金色的修为条。`, { big: true });
-  // S07：不在历练、不在闭关、没圆满，连着 3 周天（6 周天一次）
+  // S07：不在历练、不在闭关、没圆满，连着 3 月（6 月一次）
   idleRun = !busy && !L.isFull(st) && !st.visitor ? idleRun + 1 : 0;
   if (idleRun === 3 || (idleRun > 3 && idleRun % 6 === 3)) {
     const b = L.expBest(st), ri = L.retOpen(st) ? L.retInfo(st) : null;
     tip('s07_' + Math.floor(t / 6), `闲着也是闲着。去【${L.REGIONS[b.k].n}·${L.DEPTHS[b.d]}】预计 ${b.f.text}${ri && L.canRetreat(st) ? `；想涨修为就闭关，${ri.free ? '这回免费' : fmt(ri.cost) + ' 灵石'}` : ''}。`);
   }
-  // S04：灵石 ≥ 最便宜升级价的 3 倍，且 6 周天没花过（12 周天一次）
+  // S04：灵石 ≥ 最便宜升级价的 3 倍，且 6 月没花过（12 月一次）
   // 推荐：聚灵阵 → 灵田 → 丹炉，都买不起或满级了才说最便宜的那一样
   const ups = L.HOME.filter(h => L.homeOpen(st, h.k) && st.home[h.k] < h.max).map(h => ({ k: h.k, c: L.hCost(h.k, st.home[h.k]), o: ['array', 'field', 'furnace'].indexOf(h.k) })).sort((a, b) => (a.o < 0) - (b.o < 0) || (a.o < 0 ? a.c - b.c : a.o - b.o));
   stoneRun = st.stones >= lastStones - 1 ? stoneRun + 1 : 0; lastStones = st.stones;
@@ -125,10 +125,10 @@ function guideTick() {
     const u = L.upInfo(st, ups[0].k);
     tip('s04_' + Math.floor(t / 24), `攒着 ${fmt(st.stones)} 灵石做什么？升【${(L.HOME.find(h => h.k === u.k) || {}).n || u.k}】${fmt(u.cost)} 灵石${u.note ? '：' + u.note : ''}。`);
   }
-  // S08：大事前 3 周天胜算 < 30%（每届一次）
+  // S08：大事前 3 月胜算 < 30%（每届一次）
   const nb = L.nextBig(st);
   if (nb.left === 3 && nb.k === 'pact' && nb.info.p < 0.3) { const t0 = pactTips()[0]; tip('s08_pact', `这回硬碰不过：胜算 ${L.pct(nb.info.p)}。${t0 ? `${t0.t} 能到 ${t0.extra || L.pct(t0.p)}，来得及。` : '先保住性命要紧。'}`, { big: true }); }
-  // S10：访客还剩 1 周天就走
+  // S10：访客还剩 1 月就走
   if (st.visitor && st.visitor.left === 1 && !st.retreat) tip('s10_' + t, '门口那位要走了。点画面里的“！”。', { big: true });
   // S06：突破连败 2 次
   const fails = (st.stats && st.stats.btFails) || 0;
@@ -146,14 +146,14 @@ function guideTick() {
   if ((st.stats.dings || 0) >= 1) tip('s11', '栽了吧。出发页那行“预计评价”写着丙～丁就别去，退一格稳拿乙。');
 }
 
-// ---------- 补齐的阻塞讲解：九宗会武前 6 周天（U09）；第一次三人会武前（宗主） ----------
+// ---------- 补齐的阻塞讲解：九宗会武前 6 月（U09）；第一次三人会武前（宗主） ----------
 registerGuide([
   { id: 'meetSoon', intro: true, urgent: true, target: BIG, btn: '好', when: () => !!st.sect && L.sectOf(st) && !st.sect.meets && !modalOpen() && !L.busy(st) && L.nextMeet(st) <= 6 && L.nextMeet(st) > 0, text: () => {
       const pos = L.sectPos(st), q = pos === 1 ? 2 : pos - 1, N = L.nineAt(st, q) || {}, Q = L.ninePower(st, q), fo = { kind: 'sect', id: N.id }, S = L.duelPower(st, fo);
-      return `<b>九宗会武</b>还有 <b>${L.nextMeet(st)}</b> 个周天。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
+      return `<b>九宗会武</b>还有 <b>${L.nextMeet(st)}</b> 个月。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
     } },
 ]);
-// 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个周天
+// 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个月
 for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
 // 分类：DESIGN 写成气泡的，从阻塞讲解改成气泡（不暂停、不占讲解名额）
 for (const id of ['market', 'furnace', 'me', 'heal', 'depth', 'tuna']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
@@ -164,14 +164,14 @@ for (const id of ['market', 'furnace', 'me', 'heal', 'depth', 'tuna']) { const h
 GO.codex = () => showCodex();
 
 // ---------- 章末结算卡（DESIGN §2.2 / §5.3“章末结算”）：本章主线完成时，等弹窗、讲解都空下来再弹 ----------
-// 每章开头的快照记在 st.flags.chapAt[ch]（周天、历练趟数、天骄榜、战力），只给这张卡用；旧档没有的按开局算
+// 每章开头的快照记在 st.flags.chapAt[ch]（月、历练趟数、天骄榜、战力），只给这张卡用；旧档没有的按开局算
 const chapPend = [];
 function chapSnap() {
   if (!st || !st.flags) return;
   const at = st.flags.chapAt || (st.flags.chapAt = {}), ch = Math.min(8, st.p.r);
   if (!at[ch]) at[ch] = { t: st.tick, exp: st.stats.exp || 0, rank: st.rank, pw: Math.round(L.power(st)) };
 }
-// 排队等弹：超过 6 个周天还没轮上（一直在忙）、或者已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
+// 排队等弹：超过 6 个月还没轮上（一直在忙）、或者已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
 function chapterDone(ch) { if (ch < L.chapterNow(st) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }
 function chapPump() {
   if (!chapPend.length || !st || !$('#guide').hidden || modalOpen() || cine || duelFx || !$('#intro').hidden) return;

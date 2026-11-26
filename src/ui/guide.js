@@ -3,8 +3,8 @@
  * 台词按 DESIGN §4.2～§4.3 的编号（E01… / U01… / S02…）。每句里的数字都是当场从逻辑层算的。 */
 // ---------- 戒中老祖的气泡（非阻塞，DESIGN §4.1 / §4.3） ----------
 // tip(key, text, { big, html })：每个 key 一生一次；进队列，由引导调度（下面 pumpBubble）一条一条放：
-// 每 BUBBLE_GAP 个周天最多一条（big：大事提醒插队），讲解说话时、弹窗开着时先等；冒出来 6 秒后收成头像上的“！”，
-// 点头像（问老祖）能重看最近几条。台词里的数字在冒出来那一刻已经算好；排队超过 15 个周天还没轮上的直接收进“刚才说的”。
+// 每 BUBBLE_GAP 个月最多一条（big：大事提醒插队），讲解说话时、弹窗开着时先等；冒出来 6 秒后收成头像上的“！”，
+// 点头像（问老祖）能重看最近几条。台词里的数字在冒出来那一刻已经算好；排队超过 15 个月还没轮上的直接收进“刚才说的”。
 const BUBBLE_GAP = 3, BUBBLE_MS = 6000, bubbleQ = [], bubbleLog = [];
 let bubbleCool = 0, bubbleCur = null, bubbleAt = 0, bubbleUnread = false;
 function tip(key, text, o) {
@@ -63,7 +63,7 @@ const GUIDE = [
 ];
 const nextName = () => (st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n);
 const muNext = () => { const n = L.nextTour(st), q = L.rivalRank(st, 'mu'); const Q = Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * (st.tick + n)); return { n, Q, p: L.duelChance(L.duelPower(st, L.PACT_FOE), Q) }; };
-// 讲解与提示（E10 起）。urgent 的不受“两条之间隔 2 周天”的限制；intro: true 的是功能介绍，从旧版本迁来的老玩家直接算看过
+// 讲解与提示（E10 起）。urgent 的不受“两条之间隔 2 月”的限制；intro: true 的是功能介绍，从旧版本迁来的老玩家直接算看过
 const HINTS = [
   // 头一回金丹雷劫前（SYSTEMS §9 / §17）：护劫手段 → 那一停（panel-trib.js 的 tribPause）→ 点它
   { id: 'trib', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()) && st.p.r >= 1 && !!document.querySelector('#tribAids'), target: '#tribAids', btn: '知道了', text: () => {
@@ -73,47 +73,47 @@ const HINTS = [
   { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满！点金色修为条突破`, until: () => /突破|天劫/.test(modalTitle()) || !!cine || !L.isReady(st) },
   { id: 'btGo', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: () => `点它。成了之后战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 <b>${fmt(L.lifespan(st))} → ${fmt(nextLife())}</b>。`, until: () => !!cine || !modalOpen() },
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
-      if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个周天</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个周天），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
+      if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个月</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个月），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
       const m = muNext();
-      return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${m.n} 个周天</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
+      return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${m.n} 个月</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
     } },
   { id: 'pactSoon', urgent: true, intro: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 12 && PI().left > 0, target: BIG, btn: '知道了', text: () => {
       const pi = PI(), tips = pactTips();
-      return `还剩 <b>${pi.left} 个周天</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，${exTa()} <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
+      return `还剩 <b>${pi.left} 个月</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，${exTa()} <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
         (tips.length ? '锦囊：' + tips.map(x => `${x.t} → <b>${x.extra ? x.extra : L.pct(x.p)}</b>`).join('；') + '。点这一格看详情。' : '稳了，到时候让全城看看谁是废物。');
     } },
-  { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每周天自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个周天</b>回本。`; } },
+  { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每月自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个月</b>回本。`; } },
   { id: 'retreat', intro: true, when: () => st.guide.done && L.retOpen(st) && !st.stats.retreat && !L.busy(st) && !modalOpen() && !L.isFull(st), target: '[data-nav="home"]', btn: '好', text: () => {
       const ri = L.retInfo(st);
-      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：${ri.len} 个周天，修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为。${ri.free ? '头一回老夫护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
+      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：${ri.len} 个月，修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为。${ri.free ? '头一回老夫护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
     } },
-  { id: 'retBtn', intro: true, when: () => modalTitle() === '洞府' && L.canRetreat(st) && !st.stats.retreat && !!document.querySelector('#btnRet'), target: '#btnRet', text: () => `点这里闭关：4 个周天修炼 <b>×${L.retInfo(st).m.toFixed(2)}</b>，期间不能出门。`, until: () => !!st.retreat || st.stats.retreat > 0 },
-  { id: 'visitor', intro: true, when: () => !!st.visitor && !modalOpen() && !L.busy(st), target: '#sceneWrap', btn: '好', text: () => `门口有人。点画面里门口的<b>【！】</b>看看。这种事不急，<b>${st.visitor.left} 个周天</b>内理他就行。` },
+  { id: 'retBtn', intro: true, when: () => modalTitle() === '洞府' && L.canRetreat(st) && !st.stats.retreat && !!document.querySelector('#btnRet'), target: '#btnRet', text: () => `点这里闭关：4 个月修炼 <b>×${L.retInfo(st).m.toFixed(2)}</b>，期间不能出门。`, until: () => !!st.retreat || st.stats.retreat > 0 },
+  { id: 'visitor', intro: true, when: () => !!st.visitor && !modalOpen() && !L.busy(st), target: '#sceneWrap', btn: '好', text: () => `门口有人。点画面里门口的<b>【！】</b>看看。这种事不急，<b>${st.visitor.left} 个月</b>内理他就行。` },
   { id: 'depth', intro: true, when: () => modalTitle() === R0() && L.depthOpen(st, 0, 1) && !L.firstTrip(st) && !!document.querySelector('#modal [data-d="1"]:not([disabled])'), target: '#modal [data-d="1"]', btn: '知道了', text: () => `上回评价过乙，<b>【腹地】</b>开了：推荐战力 <b>${fmt(L.rec(0, 1))}</b>，你 <b>${fmt(L.power(st))}</b>，灵石 ×${L.REW.d}。丁等会负伤，自己掂量。` },
-  { id: 'tuna', intro: true, when: () => L.tunaReady(st) && !modalOpen(), target: '#sceneWrap', btn: '好', text: () => `气满了。点一下画面里的你自己，运一个周天：立得 <b>${dec(L.gainCalm(st))}</b> 修为。` },
+  { id: 'tuna', intro: true, when: () => L.tunaReady(st) && !modalOpen(), target: '#sceneWrap', btn: '好', text: () => `气满了。点一下画面里的你自己，运一个月：立得 <b>${dec(L.gainCalm(st))}</b> 修为。` },
   { id: 'market', intro: true, when: () => st.guide.done && st.stats.exp >= 1 && !navLock('market') && !modalOpen(), target: '[data-nav="market"]', btn: '记住了', text: () => `<b>【坊市】</b>开了：破境丹 <b>${fmt(L.price(st, 'pill'))}</b> 灵石一枚（突破 +${L.pct(L.BT.pill)}），寻宝 <b>${fmt(L.price(st, 'box'))}</b> 一次。` },
   { id: 'furnace', intro: true, when: () => st.guide.done && L.homeOpen(st, 'furnace') && st.home.furnace === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => `<b>【丹炉】</b>和<b>【洞府】</b>扩建能开了。丹炉 <b>${fmt(L.hCost('furnace', 0))}</b> 灵石，每级突破 +${L.pct(L.BT.furnace)}，还能炼丹。筑基要破境丹，一枚 +${L.pct(L.BT.pill)}。` },
-  { id: 'alch', intro: true, when: () => st.home.furnace >= 1 && !modalOpen() && !st.exp && st.herbs >= L.herbCost(st, L.RECIPES[0]), target: '[data-nav="home"]', btn: '好', text: () => `丹炉有了，灵草 <b>${fmt(st.herbs)}</b> 株也够。<b>培元丹</b>立得 4 周天修为（${L.herbCost(st, L.RECIPES[0])} 灵草，丹毒 +${L.TOX.pill}）；破境丹 ${L.herbCost(st, L.RECIPES[1])} 灵草一炉；疗伤丹 ${L.herbCost(st, L.RECIPE.liaoshang)} 灵草，负伤时服，省下破境丹。成丹率 <b>${L.pct(L.alchRate(st))}</b>，炸炉只亏灵草。` },
-  { id: 'heal', when: () => st.guide.done && st.p.inj > 0 && L.canHeal(st) && !L.busy(st) && !modalOpen(), target: '[data-nav="home"]', btn: '好', text: () => `负伤了：战力只剩六成、修炼减半，还要 <b>${st.p.inj}</b> 个周天。去<b>【洞府】</b>服一枚${L.healWith(st) === 'liaoshang' ? `疗伤丹立刻就好（丹囊里 <b>${L.bagN(st, 'liaoshang')}</b> 枚）` : `破境丹立刻就好（你有 <b>${st.pills}</b> 枚）`}。` },
+  { id: 'alch', intro: true, when: () => st.home.furnace >= 1 && !modalOpen() && !st.exp && st.herbs >= L.herbCost(st, L.RECIPES[0]), target: '[data-nav="home"]', btn: '好', text: () => `丹炉有了，灵草 <b>${fmt(st.herbs)}</b> 株也够。<b>培元丹</b>立得 4 月修为（${L.herbCost(st, L.RECIPES[0])} 灵草，丹毒 +${L.TOX.pill}）；破境丹 ${L.herbCost(st, L.RECIPES[1])} 灵草一炉；疗伤丹 ${L.herbCost(st, L.RECIPE.liaoshang)} 灵草，负伤时服，省下破境丹。成丹率 <b>${L.pct(L.alchRate(st))}</b>，炸炉只亏灵草。` },
+  { id: 'heal', when: () => st.guide.done && st.p.inj > 0 && L.canHeal(st) && !L.busy(st) && !modalOpen(), target: '[data-nav="home"]', btn: '好', text: () => `负伤了：战力只剩六成、修炼减半，还要 <b>${st.p.inj}</b> 个月。去<b>【洞府】</b>服一枚${L.healWith(st) === 'liaoshang' ? `疗伤丹立刻就好（丹囊里 <b>${L.bagN(st, 'liaoshang')}</b> 枚）` : `破境丹立刻就好（你有 <b>${st.pills}</b> 枚）`}。` },
   { id: 'sect', intro: true, when: () => !!st.sect && !modalOpen(), target: '[data-nav="sect"]', btn: '好', text: () => { const t = (st.sect.tasks || []).find(x => x.rw > 0); return `入宗了。看<b>任务板</b>：三件差事${t ? `，做一件给 <b>${fmt(t.rw)}</b> 贡献` : ''}；累计 <b>${fmt(L.SRANKS[1].c)}</b> 贡献升内门，俸禄 ×${L.SRANKS[0].pay} → ×${L.SRANKS[1].pay}。`; } },
   { id: 'tourSoon', intro: true, when: () => st.pact && st.stats.tour === 0 && L.nextTour(st) <= 6 && !modalOpen() && st.rank > 1, target: BIG, btn: '好', text: () => {
       const q = st.rank - 1, rv = L.rivalAt(st, q), Q = L.rivalPower(st, q), S = L.duelPower(st, { kind: 'rival', q, id: rv && rv.id });
-      return `还有 <b>${L.nextTour(st)} 个周天</b>第 1 届论道。你前面是第 <b>${q}</b> 名${esc(rv ? rv.n : '')}，战力 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelChance(S, Q))}</b>。三场全胜最多能升 ${L.TOUR_STEP * 3} 名。`;
+      return `还有 <b>${L.nextTour(st)} 个月</b>第 1 届论道。你前面是第 <b>${q}</b> 名${esc(rv ? rv.n : '')}，战力 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelChance(S, Q))}</b>。三场全胜最多能升 ${L.TOUR_STEP * 3} 名。`;
     } },
   { id: 'me', intro: true, when: () => st.stats.tour >= 1 && !modalOpen(), target: '[data-nav="me"]', btn: '好', text: () => `你现在天骄榜第 <b>${st.rank}</b>。排名、宿敌都在<b>【人物】→ 天骄榜</b>，那里还有属性、人物好感和成就称号。` },
   { id: 'boss', when: () => !L.busy(st) && !modalOpen() && L.REGIONS.some((r, k) => L.bossReady(st, k)), target: '[data-nav="exp"]', btn: '好', text: () => {
       const k = L.REGIONS.findIndex((r, j) => L.bossReady(st, j)), B = L.BOSSES[k], Q = L.bossPower(k), S = L.duelPower(st, { kind: 'boss', k, el: L.REGIONS[k].el });
       return `${L.REGIONS[k].n}的首领<b>${B.n}</b>出来了，战力 <b>${fmt(Q)}</b>，你的胜算 <b>${L.pct(L.duelChance(S, Q))}</b>。掉天材地宝和专属法宝，去【历练】里挑战。`;
     } },
-  { id: 'life', when: () => L.desperate(st) && !modalOpen(), target: '#lifeBox', btn: '知道了', text: () => `寿元只剩 <b>${L.lifeTicks(st)}</b> 个周天！延寿丹还能吃 <b>${Math.max(0, 3 - (st.lifePills[st.p.r] || 0))}</b> 枚（${fmt(L.price(st, 'life'))} 灵石）；或者现在就冲，绝境 +${L.pct(L.BT.desperate)}。` },
+  { id: 'life', when: () => L.desperate(st) && !modalOpen(), target: '#lifeBox', btn: '知道了', text: () => `寿元只剩 <b>${L.lifeTicks(st)}</b> 个月！延寿丹还能吃 <b>${Math.max(0, 3 - (st.lifePills[st.p.r] || 0))}</b> 枚（${fmt(L.price(st, 'life'))} 灵石）；或者现在就冲，绝境 +${L.pct(L.BT.desperate)}。` },
   // ---------- 功法与五行（SYSTEMS §2 / §17）：每个解锁一次阻塞讲解，数字当场从逻辑层算 ----------
   { id: 'art1', intro: true, when: () => artCalm() && !!L.artSlots(st)[0], target: '[data-nav="me"]', btn: '好', text: () => {
       const id = L.artSlots(st)[0], c = artWithout(0, () => L.gain(st));
-      return `这是<b>功法</b>：心法管修炼。《${esc(L.art(id).n)}》修炼 <b>×${dec2(L.artXMult(st))}</b>：每周天 <b>+${dec(c.off)} → +${dec(c.on)}</b>。装着就涨熟练，到<b>小成</b>再强一成。【人物】→ 功法 里换。`;
+      return `这是<b>功法</b>：心法管修炼。《${esc(L.art(id).n)}》修炼 <b>×${dec2(L.artXMult(st))}</b>：每月 <b>+${dec(c.off)} → +${dec(c.on)}</b>。装着就涨熟练，到<b>小成</b>再强一成。【人物】→ 功法 里换。`;
     } },
   { id: 'art2', intro: true, when: () => artCalm() && Object.keys(st.arts.own).filter(id => L.art(id).k === 'x').length >= 2, target: '[data-nav="me"]', btn: '好', text: () => {
       const rows = L.artList(st, 0), rec = rows.find(r => r.rec), cur = rows.find(r => r.cur);
-      if (rec) return `功法不止一门。《${esc(rec.A.n)}》修炼 <b>×${dec2(1 + (L.ARTS[rec.A.t].m - 1) * L.MAST.mult[rec.lv])}</b>，比你现在的多 <b>+${dec(rec.d.g1 - rec.d.g0)}/周天</b>；练久了还有熟练。【人物】→ 功法，点一下就换（先转修 ${L.SWAP.len} 周天）。`;
+      if (rec) return `功法不止一门。《${esc(rec.A.n)}》修炼 <b>×${dec2(1 + (L.ARTS[rec.A.t].m - 1) * L.MAST.mult[rec.lv])}</b>，比你现在的多 <b>+${dec(rec.d.g1 - rec.d.g0)}/月</b>；练久了还有熟练。【人物】→ 功法，点一下就换（先转修 ${L.SWAP.len} 月）。`;
       const nw = rows.find(r => !r.cur);
       return `又得一门心法《${esc(nw.A.n)}》，不如你现在的《${esc(cur ? cur.A.n : '')}》（修炼 ×${dec2(L.artXMult(st))}），先收着。每门练到<b>圆满</b>都有一份融会：修炼 <b>+${(L.RONG.x[0] * 100).toFixed(1)}%</b>，卸下也保留。`;
     } },
@@ -151,7 +151,7 @@ const gearHints = [
       return `能<b>强化</b>了。灵矿别攒着：兵器强化 +${info.x.plus + 1}：战力 <b>${fmt(info.a.p)} → ${fmt(info.b.p)}</b>${pp}。${have}。【人物】→ 法宝，点兵器下面的【强化】，按住连强。`;
     } },
   { id: 'gearRobe', intro: true, when: () => artCalm() && L.gearOpen(st, 'r') && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
-      const x = st.gear.r, head = '<b>法衣槽</b>开了：法衣管护体——历练分数 <b>+1.5×阶</b>，三阶起负伤少 <b>1</b> 周天，金丹起还加天劫承劫。';
+      const x = st.gear.r, head = '<b>法衣槽</b>开了：法衣管护体——历练分数 <b>+1.5×阶</b>，三阶起负伤少 <b>1</b> 月，金丹起还加天劫承劫。';
       return head + (x ? `你身上的【${esc(L.gearBase(x.id).n)}】：${esc(L.gearMainText(st, x))}。` : `落日古墓掉法衣多一倍；一件三阶法衣就是历练分数 <b>+${dec(L.gearOScore(st, { t: 3, plus: 0 }))}</b>。`);
     } },
   { id: 'gearOrn', intro: true, when: () => artCalm() && L.gearOpen(st, 'o') && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
@@ -160,7 +160,7 @@ const gearHints = [
     } },
   { id: 'gearForge', intro: true, when: () => artCalm() && L.gearOpen(st, 'forge') && Object.keys(st.gear.plans).length > 0, target: '[data-nav="home"]', btn: '好', text: () => {
       const n = Object.keys(st.gear.plans).length, ok = L.PLANS.filter(P => !L.canForge(st, P.id));
-      return `<b>器炉</b>能开火了：器方 <b>${n}</b> 张，用首领材料和灵矿打出固定词条的专属法宝${ok.length ? `，眼下【${esc(ok[0].n)}】材料就够` : '；首领材料不够的，金丹后首领每 ' + L.BOSS_AGAIN + ' 周天能再打一次'}。【洞府】→ 器炉。`;
+      return `<b>器炉</b>能开火了：器方 <b>${n}</b> 张，用首领材料和灵矿打出固定词条的专属法宝${ok.length ? `，眼下【${esc(ok[0].n)}】材料就够` : '；首领材料不够的，金丹后首领每 ' + L.BOSS_AGAIN + ' 月能再打一次'}。【洞府】→ 器炉。`;
     } },
 ];
 HINTS.push(...gearHints);
@@ -169,26 +169,26 @@ const inMarket = sel => modalTitle() === '坊市' && !!document.querySelector(se
 const calHints = [
   { id: 'cal', intro: true, when: () => st.guide.done && L.calOpen(st) && !st.rebirth && !modalOpen() && !st.retreat && !st.run, target: BIG, btn: '好', text: () => {
       const S = L.SEASONS[L.season(st)];
-      return `筑基了，天时也看得见了：这一格点开是<b>年历</b>——论道每 ${L.TOUR_EVERY} 周天（下一届 <b>${L.nextTour(st)}</b> 周天后）、拍卖会、九宗会武、夏季秘境都排在上面。现在是<b>${S.n}</b>：${S.d}。`;
+      return `筑基了，天时也看得见了：这一格点开是<b>年历</b>——论道每 ${L.TOUR_EVERY} 月（下一届 <b>${L.nextTour(st)}</b> 月后）、拍卖会、九宗会武、夏季秘境都排在上面。现在是<b>${S.n}</b>：${S.d}。`;
     } },
   { id: 'world1', intro: true, when: () => st.guide.done && !!L.world(st) && !modalOpen() && !!document.querySelector('#worldTag:not([hidden])'), target: '#worldTag', btn: '好', text: () => {
       const w = L.world(st);
-      return `右上角这块牌子是<b>天下大势</b>：${L.WORLD[w.id].n}，还剩 <b>${w.until - st.tick}</b> 个周天——${esc(L.worldDesc(st, w))}。每年第 ${L.CAL.worldAt} 个周天看一次天象，点牌子看年历。`;
+      return `右上角这块牌子是<b>天下大势</b>：${L.WORLD[w.id].n}，还剩 <b>${w.until - st.tick}</b> 个月——${esc(L.worldDesc(st, w))}。每年第 ${L.CAL.worldAt} 个月看一次天象，点牌子看年历。`;
     } },
   { id: 'shelf', intro: true, when: () => st.guide.done && L.shelfOpen(st) && inMarket('#shelfRot'), target: '#shelfRot', btn: '知道了', text: () => {
       document.querySelector('#shelfRot').scrollIntoView({ block: 'nearest' });
       const rot = L.shelf(st).filter(r => !r.fixed && !r.lock && r.k);
-      return `下面这几格是<b>轮换货</b>：每届论道换一次，各限购几件。这届有${rot.length ? rot.map(r => `「${esc(r.n)}」${fmt(r.price)}`).join('、') : '的不多'}。<b>${L.restockIn(st)}</b> 个周天后换货。`;
+      return `下面这几格是<b>轮换货</b>：每届论道换一次，各限购几件。这届有${rot.length ? rot.map(r => `「${esc(r.n)}」${fmt(r.price)}`).join('、') : '的不多'}。<b>${L.restockIn(st)}</b> 个月后换货。`;
     } },
   { id: 'sell', intro: true, when: () => st.guide.done && L.sellOpen(st) && inMarket('#mktSell'), target: '#mktSell', btn: '知道了', text: () => {
       document.querySelector('#mktSell').scrollIntoView({ block: 'nearest' });
       const h = L.sellHave(st, 'herb');
-      return `筑基了，坊市能<b>卖东西</b>了：灵草现在 <b>×${mult2(L.sellMult(st, 'herb'))}</b>，你的 ${fmt(h)} 株能换 <b>${fmt(L.sellValue(st, 'herb', h))}</b> 灵石；破境丹一枚 <b>${fmt(L.sellPrice(st, 'pill'))}</b>。指数每 ${L.IDX.every} 个周天变一次，×1.2 以上再卖最划算。`;
+      return `筑基了，坊市能<b>卖东西</b>了：灵草现在 <b>×${mult2(L.sellMult(st, 'herb'))}</b>，你的 ${fmt(h)} 株能换 <b>${fmt(L.sellValue(st, 'herb', h))}</b> 灵石；破境丹一枚 <b>${fmt(L.sellPrice(st, 'pill'))}</b>。指数每 ${L.IDX.every} 个月变一次，×1.2 以上再卖最划算。`;
     } },
   { id: 'auction', intro: true, when: () => st.guide.done && L.auctionOpen(st) && inMarket('#aucBox'), target: '#aucBox', btn: '知道了', text: () => {
       document.querySelector('#aucBox').scrollIntoView({ block: 'nearest' });
       const it = st.auction.items.find(x => !x.res) || st.auction.items[0], b = L.bidInfo(st, st.auction.items.indexOf(it), 1);
-      return `拍卖会开 <b>${st.auction.until - st.tick}</b> 个周天，三件。每件三档出价：跟一口 <b>35%</b>、加价 <b>70%</b>、豪掷 <b>97%</b>，有人竞拍各 −15%——比如「${esc(it.n)}」加价 ${fmt(b.price)} 拿下 <b>${L.pct(b.p)}</b>。没拿下不花钱，一场只能出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`;
+      return `拍卖会开 <b>${st.auction.until - st.tick}</b> 个月，三件。每件三档出价：跟一口 <b>35%</b>、加价 <b>70%</b>、豪掷 <b>97%</b>，有人竞拍各 −15%——比如「${esc(it.n)}」加价 ${fmt(b.price)} 拿下 <b>${L.pct(b.p)}</b>。没拿下不花钱，一场只能出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`;
     } },
 ];
 HINTS.push(...calHints);
@@ -205,8 +205,8 @@ const petHints = [
   { id: 'pet2', intro: true, when: () => petCalm() && L.petCount(st) >= 2 && L.petJobsOpen(st), target: '[data-nav="home"]', btn: '好', text: () => {
       const i = st.pets.findIndex((p, j) => j !== st.petOut && p.job), q = st.pets[i >= 0 ? i : st.petOut === 0 ? 1 : 0];
       const k = q.job || L.petBestJob(st, q, true) || 'forage', J = L.PET_JOB[k], qi = st.pets.indexOf(q);
-      const fx = k === 'array' ? (() => { const [a, b] = petDelta(() => L.petSetJob(st, qi, ''), () => L.gain(st)); return `修炼 <b>+${dec(b)} → +${dec(a)}</b>/周天`; })() : esc(J.d(L.petTry(st, () => L.petSetJob(st, qi, k), () => L.petJobVal(st, k))));
-      return `第二只来了。出战只能一只，其余的派去洞府<b>岗位</b>：护阵（修炼）、觅食（兽粮）、守田、看炉、巡山，类型对口效果 <b>×1.5</b>。【${esc(L.petName(q))}】${q.job ? '已经在' : '最适合'}<b>${J.n}</b>：${fx}${L.petJobMatch(q, k) ? '（对口）' : ''}。连着 ${L.PET_N.idle} 周天没事干会掉好感。`;
+      const fx = k === 'array' ? (() => { const [a, b] = petDelta(() => L.petSetJob(st, qi, ''), () => L.gain(st)); return `修炼 <b>+${dec(b)} → +${dec(a)}</b>/月`; })() : esc(J.d(L.petTry(st, () => L.petSetJob(st, qi, k), () => L.petJobVal(st, k))));
+      return `第二只来了。出战只能一只，其余的派去洞府<b>岗位</b>：护阵（修炼）、觅食（兽粮）、守田、看炉、巡山，类型对口效果 <b>×1.5</b>。【${esc(L.petName(q))}】${q.job ? '已经在' : '最适合'}<b>${J.n}</b>：${fx}${L.petJobMatch(q, k) ? '（对口）' : ''}。连着 ${L.PET_N.idle} 月没事干会掉好感。`;
     } },
   { id: 'petEvo', urgent: true, intro: true, get target() { return modalOpen() ? '#modal .pbrs, #modal .choices' : '[data-nav="home"]'; }, btn: '知道了',
     when: () => st.guide.done && !!st.pets && st.pets.some(L.petCanEvo) && (modalOpen() ? petEvoOpen() : !L.busy(st) && !(st.storyQ || []).length), text: () => {
@@ -222,21 +222,21 @@ const alchCalm = () => st.guide.done && !modalOpen() && !L.busy(st) && !(st.stor
 const alchHints = [
   { id: 'crops', intro: true, when: () => alchCalm() && L.cropsOpen(st), target: '[data-nav="home"]', btn: '好', text: () => {
       const n = L.plotCount(st), per = L.fieldInc(st.home.field) / n;
-      return `灵田现在 <b>${n}</b> 块，全种着<b>灵稻</b>：每块每周天灵石 <b>+${dec(per)}</b>。点画面左下的田（或【洞府】→ 灵田）能改种：<b>灵草</b>每 3 周天收 <b>${dec(L.cropHarvest(st, 'herb'))}</b> 株，炼丹用——那块田就不结灵石了。灵田每 ${L.CROP_V.plotEvery} 级多一块，筑基后还有灵谷（兽粮）和药引作物。`;
+      return `灵田现在 <b>${n}</b> 块，全种着<b>灵稻</b>：每块每月灵石 <b>+${dec(per)}</b>。点画面左下的田（或【洞府】→ 灵田）能改种：<b>灵草</b>每 3 月收 <b>${dec(L.cropHarvest(st, 'herb'))}</b> 株，炼丹用——那块田就不结灵石了。灵田每 ${L.CROP_V.plotEvery} 级多一块，筑基后还有灵谷（兽粮）和药引作物。`;
     } },
   { id: 'yinGrid', intro: true, when: () => alchCalm() && L.yinOpen(st) && st.home.furnace >= 1, target: '[data-nav="home"]', btn: '好', text: () => {
       const f = L.CROP.fire, h = dec(L.cropHarvest(st, 'fire'));
-      return `<b>药引丹方</b>开了：两味药引配一炉，火、冰、雷、木、魂五味，5×5 共 <b>${L.YIN_GRID.length}</b> 格，没试过的写着“？”。【洞府】→ 炼丹房，点一格【试炼】：付那一格的材料，丹成就揭晓，记进图鉴，下一世还在。药引从灵田来——<b>赤炎果</b>（火引）、<b>寒霜莲</b>（冰引）能种了，每 ${f.cyc} 周天收 <b>${h}</b> 枚；你现在有火引 ${L.yinHave(st, 'fire')}、冰引 ${L.yinHave(st, 'ice')}。`;
+      return `<b>药引丹方</b>开了：两味药引配一炉，火、冰、雷、木、魂五味，5×5 共 <b>${L.YIN_GRID.length}</b> 格，没试过的写着“？”。【洞府】→ 炼丹房，点一格【试炼】：付那一格的材料，丹成就揭晓，记进图鉴，下一世还在。药引从灵田来——<b>赤炎果</b>（火引）、<b>寒霜莲</b>（冰引）能种了，每 ${f.cyc} 月收 <b>${h}</b> 枚；你现在有火引 ${L.yinHave(st, 'fire')}、冰引 ${L.yinHave(st, 'ice')}。`;
     } },
   { id: 'toxin', urgent: true, intro: true, when: () => st.guide.done && (st.toxin || 0) > 0 && !modalOpen() && !cine && !!document.querySelector('#toxBox:not([hidden])'), target: '#toxBox', btn: '知道了', text: () => {
       const t = Math.round(st.toxin), d = L.toxDecay(st);
-      return `看这个小葫芦：<b>丹毒 ${t}</b>/${L.TOX.max}。修炼、战斗类的丹每服一枚 +${L.TOX.pill}（上品 +${L.TOX.good}、极品 +${L.TOX.perfect}），突破时每枚破境丹 +${L.TOX.bt}；每周天退 <b>${dec(d)}</b>，照现在 ${Math.ceil(t / d)} 个周天退干净。过 <b>${L.TOX.half}</b> 再服药力减半，过 <b>${L.TOX.max}</b> 不能再服。根基类的丹不计丹毒。`;
+      return `看这个小葫芦：<b>丹毒 ${t}</b>/${L.TOX.max}。修炼、战斗类的丹每服一枚 +${L.TOX.pill}（上品 +${L.TOX.good}、极品 +${L.TOX.perfect}），突破时每枚破境丹 +${L.TOX.bt}；每月退 <b>${dec(d)}</b>，照现在 ${Math.ceil(t / d)} 个月退干净。过 <b>${L.TOX.half}</b> 再服药力减半，过 <b>${L.TOX.max}</b> 不能再服。根基类的丹不计丹毒。`;
     } },
 ];
 HINTS.push(...alchHints);
 HINTS.push(...homeHints);   // 洞府地块与阵法（panel-home.js）
-// 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每周天 +N”与顶栏一致）
-// 历练途中也能讲（人在路上照样能开【人物】换功法），闭关、负伤时不讲；以前要求“闲着”，机器人试玩里《引气诀》拖到第 150 周天才讲
+// 功法讲解的时机：引导做完、没有弹窗、人在洞府闲着、没负伤（台词里的“每月 +N”与顶栏一致）
+// 历练途中也能讲（人在路上照样能开【人物】换功法），闭关、负伤时不讲；以前要求“闲着”，机器人试玩里《引气诀》拖到第 150 月才讲
 const artCalm = () => st.guide.done && !modalOpen() && !st.retreat && !st.run && !(st.p.inj > 0) && !!st.arts;
 // 卸下第 i 槽前后各算一次 fn（讲解里的“a → b”）
 function artWithout(i, fn) {
@@ -247,12 +247,12 @@ function artWithout(i, fn) {
 }
 let activeHint = null, tempHint = null, guideShownId = '', guideHold = false, hintCool = 0;
 // ---------- 引导调度（全局）：同一时刻只说一件事 ----------
-// · 阻塞讲解一次一段；两段不紧急的之间至少隔 GUIDE_GAP 个周天，关掉弹窗 / 讲解之后再静 1.2 秒；
-// · urgent（约战将至、修为圆满、要渡劫、秘境里、天劫一停……）插队，不等周天冷却，只等 0.4 秒；
-// · 就着眼前面板讲的（目标在打开的弹窗里）面板开着才有意义，也不等周天冷却；
+// · 阻塞讲解一次一段；两段不紧急的之间至少隔 GUIDE_GAP 个月，关掉弹窗 / 讲解之后再静 1.2 秒；
+// · urgent（约战将至、修为圆满、要渡劫、秘境里、天劫一停……）插队，不等月冷却，只等 0.4 秒；
+// · 就着眼前面板讲的（目标在打开的弹窗里）面板开着才有意义，也不等月冷却；
 // · bubble: true 的讲解不阻塞，转成气泡（同样受气泡冷却）；
-// · core（DESIGN §4.2 的 E10～E14、U03、U05、U07：新手头一章的固定讲解）只隔 1 个周天、静 0.6 秒，免得错过时机；
-// · 刚读档 / 刚进游戏先静 2.5 秒、1 个周天，免得一进来连弹几段。
+// · core（DESIGN §4.2 的 E10～E14、U03、U05、U07：新手头一章的固定讲解）只隔 1 个月、静 0.6 秒，免得错过时机；
+// · 刚读档 / 刚进游戏先静 2.5 秒、1 个月，免得一进来连弹几段。
 // 别的片段加讲解：HINTS.push(...) 或 registerGuide(list, { before: 'id' })，字段：id、when()、text()、target、btn、until()、urgent、intro、bubble。
 const GUIDE_GAP = 3;
 let guideCurShown = null, hintCoolCore = 0, guideQuiet = 0, guideModalAt = 0, guideFor = null;
@@ -319,7 +319,7 @@ function advanceGuide(cur) {
   SFX.tap();
   guideQuiet = performance.now() + 1200;
   if (cur === tempHint) { tempHint = null; return; }
-  if (!cur.urgent) { hintCool = st.tick + GUIDE_GAP; hintCoolCore = st.tick + 1; }   // 两段不紧急的讲解之间至少隔 GUIDE_GAP 个周天，别连珠炮
+  if (!cur.urgent) { hintCool = st.tick + GUIDE_GAP; hintCoolCore = st.tick + 1; }   // 两段不紧急的讲解之间至少隔 GUIDE_GAP 个月，别连珠炮
   if (GUIDE.includes(cur)) { st.guide.step = GUIDE.indexOf(cur) + 1; return; }
   st.hintSeen[cur.id] = 1; activeHint = null;
 }
@@ -363,6 +363,8 @@ function updateGuide() {
     arrow.style.left = (L0 + W0 / 2) + 'px';
     arrow.style.top = (below ? T0 + H0 + 8 : T0 - 8 - 24) + 'px';
     if (below) { box.style.top = ''; box.style.bottom = '16px'; } else { box.style.bottom = ''; box.style.top = '16px'; }
+    // 手把手那一行（slim）指底栏时放在场景里，不挡顶栏、时间条和目标卡（开局第一眼要看见目标与差距，§5.4 0:03）
+    if (!cur.btn && !modalOpen()) { const so = $('#sceneOuter').getBoundingClientRect(); box.style.bottom = ''; box.style.top = Math.round(so.top / k + 48) + 'px'; }
   } else {
     spot.className = 'spot none'; spot.removeAttribute('style');
     arrow.hidden = true;
@@ -373,22 +375,22 @@ function showHelp() {
   const HELP_KEY = { '闭关与吐纳': 'retreat', '洞府': 'home', '阵法': 'zhen', '灵田': 'field', '功法与五行': 'arts', '法宝': 'gearCmp', '坊市': 'market', '历法与天下大势': 'cal', '宗门': 'sect', '天骄论道': 'tour', '奇遇与访客': 'visitor', '炼丹': 'furnace' };
   const sec = (ic, t, d) => (HELP_KEY[t] && !UI.isOpen(HELP_KEY[t]) ? '' : `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`);
   const body = [
-    sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每个周天涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
-    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
-    sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 周天修为。`),
-    sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
-    sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 周天。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
-    sec('build', '洞府', L.home2On() ? `顶部是地块：洞府 0 级 3 块，每扩建一截多一块，12 级 8 块。第一块固定是聚灵阵，其余点空地就能建：灵田、丹炉、器炉、兽栏、静室、藏经阁、灵泉、聚宝阁、迎客亭、传送阵——<b>地块比建筑少</b>，得挑。点一块地看它的等级、升级值多少、功能入口（炼丹房、灵田、打造、灵宠、闭关……）；拆掉退一半本钱，重建从一半等级起。洞府本体加寿元。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。` : '聚灵阵加修炼速度，灵田种作物，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几周天、几周天回本）。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。'),
-    sec('disc', '阵法', `聚灵阵上布一种阵法（炼虚起两种，第二种效果减半），强度随聚灵阵等级。平时布聚灵（修炼）；还有生财、护山、养兽、丹火、锻魂、渡劫、迷踪七张阵图，从坊市、宗门、秘境、奇遇、拍卖得来。换阵不花钱，${L.ZV.switch} 个周天后生效，这期间原来的阵照常管用。要渡劫了提前布渡劫阵（天劫承劫 +1%×聚灵阵等级），大量炼丹前布丹火阵。`),
-    sec('build', '灵田', `田数 = 1 + 灵田等级 ÷ ${L.CROP_V.plotEvery}（最多 ${L.CROP_V.plotMax} 块），每块种一种，熟了自动收、接着种。点画面里的田（或【洞府】→ 灵田）改种，【全部】一键改。灵稻结灵石（全种灵稻就是灵田的灵石收入），灵草 3 周天一收，灵谷（筑基）产兽粮，赤炎果、寒霜莲（筑基中期）、惊雷竹、长生藤（金丹）、养魂花（元婴）产五种药引。每种作物有旺季（+50%），每级灵田产量 +${Math.round(L.CROP_V.lvYield * 100)}%。种药引就是放弃那块田的灵石。`),
+    sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/月</b>（每个月涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/月</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
+    sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 月，下次 +${L.pct(L.BT.fail)}。`),
+    sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个月修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 月修为。`),
+    sec('flag', '三年之约', `第 ${L.PACT_TICK} 个月和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个月和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
+    sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤 3 月。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
+    sec('build', '洞府', L.home2On() ? `顶部是地块：洞府 0 级 3 块，每扩建一截多一块，12 级 8 块。第一块固定是聚灵阵，其余点空地就能建：灵田、丹炉、器炉、兽栏、静室、藏经阁、灵泉、聚宝阁、迎客亭、传送阵——<b>地块比建筑少</b>，得挑。点一块地看它的等级、升级值多少、功能入口（炼丹房、灵田、打造、灵宠、闭关……）；拆掉退一半本钱，重建从一半等级起。洞府本体加寿元。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。` : '聚灵阵加修炼速度，灵田种作物，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几月、几月回本）。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。'),
+    sec('disc', '阵法', `聚灵阵上布一种阵法（炼虚起两种，第二种效果减半），强度随聚灵阵等级。平时布聚灵（修炼）；还有生财、护山、养兽、丹火、锻魂、渡劫、迷踪七张阵图，从坊市、宗门、秘境、奇遇、拍卖得来。换阵不花钱，${L.ZV.switch} 个月后生效，这期间原来的阵照常管用。要渡劫了提前布渡劫阵（天劫承劫 +1%×聚灵阵等级），大量炼丹前布丹火阵。`),
+    sec('build', '灵田', `田数 = 1 + 灵田等级 ÷ ${L.CROP_V.plotEvery}（最多 ${L.CROP_V.plotMax} 块），每块种一种，熟了自动收、接着种。点画面里的田（或【洞府】→ 灵田）改种，【全部】一键改。灵稻结灵石（全种灵稻就是灵田的灵石收入），灵草 3 月一收，灵谷（筑基）产兽粮，赤炎果、寒霜莲（筑基中期）、惊雷竹、长生藤（金丹）、养魂花（元婴）产五种药引。每种作物有旺季（+50%），每级灵田产量 +${Math.round(L.CROP_V.lvYield * 100)}%。种药引就是放弃那块田的灵石。`),
     sec('disc', '功法与五行', `【人物】→ 功法：三个槽，点槽再点一门就换上。心法管修炼，战技管战力并定攻击属性（炼气后期开），秘术给特效（金丹开）。装着就涨熟练（入门→小成→大成→圆满→化境，倍率的超出部分最多 ×${L.MAST.mult[4]}），圆满留一份融会。两门同属 +${Math.round(L.GEN.two * 100)}%、三门 +${Math.round(L.GEN.three * 100)}%；特定几门凑在一起有名有姓的共鸣，试出来就记进图鉴。五行：金克木、木克土、土克水、水克火、火克金，克制历练分数 +${L.EL_EXP}、对决 ×${L.EL_DUEL[0]}，被克反之。`),
     sec('sword', '法宝', `【人物】→ 法宝：兵器（战力，开局）、法衣（历练分数、少负伤，筑基中期）、饰品（修炼 / 财运 / 气运 / 寿元，元婴）三格。新掉落弹对比卡：【换上】（强化继承一半）或【熔炼】成灵矿（4 × 2^阶），不选就熔炼；【锁定当前】以后更低阶的直接熔炼。每格下【强化】花灵矿和灵石，+0～+9，每级超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%。词条 16 种，天材地宝能重铸一条。化神后器炉用器方打造专属法宝。`),
-    sec('bag', '坊市', `货架六格：破境丹、寻宝（连续两次没提升，第三次必出更高一阶）、灵兽蛋常驻；另三格每届论道换货（灵矿、延寿丹、法衣、残篇、器方、打折的常驻货），各限购几件。筑基后能在<b>行情</b>里卖灵草、灵矿、破境丹：指数 ×0.6～×1.6，每 ${L.IDX.every} 周天变一次，秋季、大势另有涨落。金丹后每 ${L.AUCTION.every} 周天一场<b>拍卖会</b>：三档出价（35% / 70% / 97%，有人竞拍各 −15%），没拿下不花钱，一场出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`),
-    sec('flag', '历法与天下大势', `12 周天一年：1～3 春（灵草、访客多）、4～6 夏（秘境开放、兽类地图斩妖灵石 +15%）、7～9 秋（灵田灵石 +50%、行情 +0.2）、10～12 冬（闭关 +0.2，冬末论道）。每年第 ${L.CAL.worldAt} 个周天看天象，六成起一件<b>天下大势</b>（兽潮、灵气潮汐、魔劫……），持续 6～10 周天，场景右上角挂一块牌子。筑基后最右那格“大事”点开是<b>年历</b>。`),
-    sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 周天九宗会武，你代表本宗往上打。'),
-    sec('flag', '天骄论道', `三年之约之后每 ${L.TOUR_EVERY} 周天一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
-    sec('disc', '奇遇与访客', '历练途中可能遇到抉择；洞府门口有时会来访客（画面里的“！”），点它就能见，几个周天不理会自己走。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),
-    sec('pill', '炼丹', `【洞府】→ 炼丹房。基础丹：培元（立得修为）、破境（突破）、疗伤（收进丹囊，负伤时服）。筑基中期起两味药引配一炉：5×5 共 ${L.YIN_GRID.length} 格，没试过的点【试炼】，丹成就揭晓、记进图鉴（跨世保留）。丹分修炼、战斗、根基三类：战斗类（爆气丹、雷火丹）收进丹囊，服下管下一场对决或下一趟历练；根基类不计丹毒但每境界有次数。勾“续炼”的丹每 ${L.AUTO.every} 周天自动炼一炉（最多 ${L.AUTO.max} 种）。丹毒（状态栏的葫芦）：修炼、战斗类每枚 +${L.TOX.pill}，每周天退 ${L.TOX.decay}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服；清毒丹 −${L.TOX.cure}。九转金丹是秘方，要有人传授。`),
+    sec('bag', '坊市', `货架六格：破境丹、寻宝（连续两次没提升，第三次必出更高一阶）、灵兽蛋常驻；另三格每届论道换货（灵矿、延寿丹、法衣、残篇、器方、打折的常驻货），各限购几件。筑基后能在<b>行情</b>里卖灵草、灵矿、破境丹：指数 ×0.6～×1.6，每 ${L.IDX.every} 月变一次，秋季、大势另有涨落。金丹后每 ${L.AUCTION.every} 月一场<b>拍卖会</b>：三档出价（35% / 70% / 97%，有人竞拍各 −15%），没拿下不花钱，一场出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`),
+    sec('flag', '历法与天下大势', `12 月一年：1～3 春（灵草、访客多）、4～6 夏（秘境开放、兽类地图斩妖灵石 +15%）、7～9 秋（灵田灵石 +50%、行情 +0.2）、10～12 冬（闭关 +0.2，冬末论道）。每年第 ${L.CAL.worldAt} 个月看天象，六成起一件<b>天下大势</b>（兽潮、灵气潮汐、魔劫……），持续 6～10 月，场景右上角挂一块牌子。筑基后最右那格“大事”点开是<b>年历</b>。`),
+    sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 24 月九宗会武，你代表本宗往上打。'),
+    sec('flag', '天骄论道', `三年之约之后每 ${L.TOUR_EVERY} 月一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
+    sec('disc', '奇遇与访客', '历练途中可能遇到抉择；洞府门口有时会来访客（画面里的“！”），点它就能见，几个月不理会自己走。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),
+    sec('pill', '炼丹', `【洞府】→ 炼丹房。基础丹：培元（立得修为）、破境（突破）、疗伤（收进丹囊，负伤时服）。筑基中期起两味药引配一炉：5×5 共 ${L.YIN_GRID.length} 格，没试过的点【试炼】，丹成就揭晓、记进图鉴（跨世保留）。丹分修炼、战斗、根基三类：战斗类（爆气丹、雷火丹）收进丹囊，服下管下一场对决或下一趟历练；根基类不计丹毒但每境界有次数。勾“续炼”的丹每 ${L.AUTO.every} 月自动炼一炉（最多 ${L.AUTO.max} 种）。丹毒（状态栏的葫芦）：修炼、战斗类每枚 +${L.TOX.pill}，每月退 ${L.TOX.decay}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服；清毒丹 −${L.TOX.cure}。九转金丹是秘方，要有人传授。`),
     sec('life', '寿元与转世', '右上角沙漏是年龄/寿元。突破能大幅延寿；寿元耗尽会坐化，转世后天赋三选一。'),
     sec('sound', '其他', '右上角【×1】切换速度（×2、×4、暂停），音符按钮切换声音。底部札记栏可以点，告诉你下一步做什么、做完给什么。'),
   ].join('');
@@ -397,7 +399,7 @@ function showHelp() {
 const GO = {
   realm: () => showRealm(),
   exp: () => showExp(), home: () => showHome(), pets: () => showPets(), field: () => showField(), alch: () => (st.home.furnace ? showAlchemy() : showHome()), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
-  cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
+  cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个月升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };
 // 刚开的系统的小目标去哪做（札记的【前往】）
 const ONB_GO = { exp: 'exp', home: 'home', retreat: 'home', bt: 'cult', sect: 'sect', market: 'market', visitor: 'cult', field: 'field', gearCmp: 'gear', furnace: 'alch', arts: 'arts', trib: 'cult', pets: 'market', plus: 'gear', zhanji: 'arts', realm: 'realm', bond: 'me', plots: 'home', zhen: 'home', disc: 'sect' };

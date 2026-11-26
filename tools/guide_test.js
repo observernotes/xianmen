@@ -1,6 +1,8 @@
-// 新手引导流程测试：按真实玩家的点法走一遍新流程（DESIGN §2.4 / §4.2），逐步截图并核对台词里的数字
-// node tools/guide_test.js <输出目录> [设备名|desktop|360]
-// 速度档：SPEEDS = [1, 2, 4, 0]，setSpeed(2) 是 ×4，setSpeed(3) 是暂停
+// 新手引导流程测试（开罗式重整，docs/KAIRO_PLAN.md §5）：按真实玩家的点法走第一章，逐步截图并核对
+//   · 主画面：时间条 36 格 + 末格红、目标卡四样、固定五格（没开的灰着 + 一行条件）、“去”角标
+//   · 阻塞对话只剩清单：头三步手把手（只有金框和一行字 ≤ 16 字，没有“好”），之后全程不出现带【好】的老祖讲解
+//   · 在外零打断；结算卡有“战力 前 → 后”“离目标”；解锁卡【带我去】1 次点击到控件；装备 1 次点击；年报；突破走目标卡【去】；备战卡 → 三年之约 → 章末结算
+// node tools/guide_test.js <输出目录> [设备名|360]
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const out = process.argv[2]; const dev = process.argv[3] || 'Pixel 7';
@@ -15,187 +17,125 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.goto('file://' + path.join(__dirname, '..', 'dist', 'index.html'));
   await page.waitForTimeout(400);
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
-  await page.click('#goStart'); await page.waitForTimeout(800);
-  const shot = async n => { await page.waitForTimeout(350); await page.screenshot({ path: `${out}/${n}.png` }); };
-  const gtext = () => page.evaluate(() => document.getElementById('guide').hidden ? '(hidden)' : document.querySelector('#guide .gtext').textContent);
+  await page.click('#goStart'); await page.waitForTimeout(900);
+  const shot = async n => { await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${n}.png` }); };
   const ev = (fn, arg) => page.evaluate(fn, arg);
-  const tick = () => ev(() => window.__xm.st.tick);
-  const log = async n => { await page.waitForTimeout(300); const t = await gtext(); console.log(n, '| t' + await tick(), '|', t.slice(0, 60)); return t; };
-  const ok = async () => { await page.waitForSelector('#guide:not([hidden]) [data-g="ok"]', { timeout: 4000 }); await page.click('#guide [data-g="ok"]'); await page.waitForTimeout(200); };
-  const has = (t, s) => t.includes(s);
-  const dismiss = async () => { for (let i = 0; i < 6; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await log('hint'); await o.click(); await page.waitForTimeout(150); } };
-  // 关掉队列里冒出来的弹窗（主线剧情、成就等）：有选项点第一个能点的，否则点最后一个按钮
-  const drain = async () => {
-    for (let i = 0, guard = 0; i < 12 && guard < 80; guard++) {
-      await page.waitForTimeout(450);
-      if (await ev(() => window.__xm.cine)) continue;
-      i++;
-      const open = await ev(() => !document.getElementById('modal').hidden);
-      if (!open) return;
-      const ch = await page.$('#modal .choices .btn:not([disabled])');
-      if (ch) { await ch.click(); continue; }
-      const btns = await page.$$('#modal .foot .btn:not([disabled])');
-      if (btns.length) await btns[btns.length - 1].click(); else await ev(() => window.__xm.closeModal());
-    }
-  };
-  // 推进 n 个周天（两条非紧急提示之间至少隔 2 周天）
+  const gtext = () => ev(() => (document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent));
+  const modal = () => ev(() => (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?'));
+  // 全程记：带【好 / 知道了】按钮的老祖讲解（阻塞讲解）出现过几次
+  await ev(() => { window.__blk = 0; new MutationObserver(() => { if (!document.getElementById('guide').hidden && document.querySelector('#guide [data-g="ok"]')) window.__blk++; }).observe(document.getElementById('guide'), { attributes: true, childList: true, subtree: true }); });
+  // 推进 n 个月（逐月调 onTick，和真实时钟一样走 clock.js 的打断规则）
   const adv = n => ev(n => { const X = window.__xm; for (let i = 0; i < n; i++) { X.L.flow(X.st, 1); X.onTick(); } }, n);
+  const closeAll = async () => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
 
-  // E01：老祖说话时时间应当暂停
-  let t = await log('E01'); await shot('g01-welcome');
-  const t0 = await tick(); await page.waitForTimeout(6000); const t1 = await tick();
-  check(t0 === t1, `老祖说话时时间暂停（${t0}→${t1}）`);
-  await ok(); t = await log('E02'); await shot('g02-stakes');
-  const pi = await ev(() => { const { st, L } = window.__xm; const p = L.pactInfo(st); return { left: p.left, Q: L.fmt(p.Q), base: L.fmt(p.base), assist: p.assist, p: L.pct(p.p) }; });
-  check(has(t, `还剩 ${pi.left} 个周天`) && has(t, `战力 ${pi.Q}`) && has(t, `你 ${pi.base}`) && has(t, `胜算才 ${pi.p}`), `E02 数字：${pi.left} 周天 / 她 ${pi.Q} / 你 ${pi.base} / ${pi.p}`);
-  await ok(); t = await log('E03');
-  // 上手曲线（docs/ONBOARDING.md）：开局底栏只有【历练】，没开的入口、数值格直接不出现
-  const nav0 = await ev(() => [...document.querySelectorAll('#nav button')].filter(b => !b.hidden).map(b => b.dataset.nav).join(','));
-  check(nav0 === 'exp', `开局底栏只有历练（${nav0}）`);
-  check(await ev(() => document.querySelector('#stats [data-s="cul"]').hidden && document.querySelector('#stats [data-s="inc"]').hidden), '开局只有战力、大事两格');
-  await shot('g04-expnav');
-  await page.click('[data-nav="exp"]'); t = await log('E04'); await shot('g05-exppick');
-  check(has(t, '推荐战力 6') && has(t, '你 10'), 'E04 推荐战力 6、你 10');
-  check(await ev(() => document.querySelectorAll('#modal .card[data-k]').length === 1), '第一趟只有后山野林一格可选');
-  await page.click('#modal .card[data-k="0"]'); t = await log('E05'); await shot('g06-expgo');
-  const conf = await ev(() => ({ rate: document.querySelector('#expRate').textContent, segs: document.querySelectorAll('#modal .segb').length, fc: window.__xm.L.expForecast(window.__xm.st, 0, 0, 0).text }));
-  check(conf.rate === '甲' && conf.fc === '甲', `确认页预计评价 ${conf.rate}（逻辑 ${conf.fc}）`);
-  check(conf.segs === 0, `第一趟深度、行事都只有一样：整行不出现（${conf.segs}）`);
-  check(has(t, '甲'), 'E05 写明预计评价甲');
-  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(800); t = await log('E06'); await shot('g07-haul');
-  check(await ev(() => !!window.__xm.st.exp && !document.getElementById('haul').hidden), '出发后本趟收获条可见');
-  check(await ev(() => !!window.__xm.st.seenTips.haul && !window.__xm.guideHold), '收获条改成气泡（不暂停）');
-  // 等这一趟回来（直接快进）
-  await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); });
-  await page.waitForTimeout(700); await shot('g08-expresult');
-  const res = await ev(() => ({ btns: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent), stamp: (document.querySelector('#modal .stamp') || {}).textContent }));
-  check(res.stamp === '甲', `第一张结算卡盖印“甲”（${res.stamp}）`);
+  // ---------- 开局主画面 ----------
+  await shot('g01-start');
+  const m0 = await ev(() => ({
+    pips: document.querySelectorAll('#pips i').length, red: !!document.querySelector('#pips i:last-child.f'), big: document.getElementById('bigLeft').textContent,
+    ch: document.getElementById('gCh').textContent, t: document.getElementById('gT').textContent, bar: document.getElementById('gBar').textContent, nx: document.getElementById('gNext').textContent,
+    nav: [...document.querySelectorAll('#nav button')].map(x => x.dataset.nav + (x.classList.contains('lk') ? '(灰)' : '')).join(','), go: (document.querySelector('[data-nav="exp"] .badge') || {}).textContent,
+  }));
+  check(m0.pips === 36 && m0.red && /三年之约 还有 36 月/.test(m0.big), `时间条 36 格、末格红、“${m0.big}”`);
+  check(m0.ch === '第一章' && /三年之约/.test(m0.t) && /胜算 \d+% → 目标 80%/.test(m0.bar) && m0.nx.startsWith('下一步：'), `目标卡：${m0.ch} · ${m0.t} · ${m0.bar} · ${m0.nx}`);
+  check(m0.nav === 'exp,home(灰),gear(灰),world(灰),path', `开局五格都在、没开的灰着（${m0.nav}）`);
+  check(m0.go === '去', `【历练】挂“去”（${m0.go}）`);
+  // ---------- 头三步手把手 ----------
+  let t = await gtext();
+  const g1 = await ev(() => ({ ok: !!document.querySelector('#guide [data-g="ok"]'), hold: window.__xm.guideHold, slim: document.querySelector('#guide .gbox').classList.contains('slim') }));
+  check(t.length > 0 && t.length <= 16 && !g1.ok && g1.slim, `第 1 步：一行字（${t}，${t.length} 字）、没有“好”按钮`);
+  check(g1.hold, '手把手时停表');
+  await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); t = await gtext(); await shot('g02-exppick');
+  check(/后山野林/.test(t) && t.length <= 16, `第 2 步：${t}`);
+  check(await ev(() => document.querySelectorAll('#modal .card[data-k]').length === 1), '第一趟只有后山野林一格');
+  await page.click('#modal .card[data-k="0"]'); await page.waitForTimeout(300); t = await gtext(); await shot('g03-expgo');
+  const conf = await ev(() => ({ rate: document.querySelector('#expRate').textContent, fc: window.__xm.L.expForecast(window.__xm.st, 0, 0, 0).text }));
+  check(/出发/.test(t) && t.length <= 16, `第 3 步：${t}`);
+  check(conf.rate === '甲' && conf.fc === '甲', `确认页预计评价 ${conf.rate}`);
+  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(700); await shot('g04-travel');
+  const tr = await ev(() => ({ exp: !!window.__xm.st.exp, done: window.__xm.st.guide.done, pill: document.getElementById('scenePill').textContent, bar: !document.getElementById('tripBar').hidden, haul: !document.getElementById('haul').hidden }));
+  check(tr.exp && tr.done, '出发后引导做完');
+  check(/历练中/.test(tr.pill) && tr.bar && tr.haul, `在外：状态牌“${tr.pill}”、格子条、累计条`);
+  // 在外零打断：逐月推到最后一月前，期间不出任何弹层 / 气泡 / 讲解
+  const away = [];
+  for (let i = 0; i < 3; i++) { await adv(1); await page.waitForTimeout(250); away.push(await ev(() => [document.getElementById('modal').hidden ? '' : 'modal', document.getElementById('tip').hidden ? '' : 'tip', document.getElementById('guide').hidden ? '' : 'guide'].filter(Boolean).join('+'))); if (!(await ev(() => !!window.__xm.st.exp))) break; }
+  check(away.slice(0, -1).every(x => !x), `在外零打断（${away.map(x => x || '·').join(' ')}）`);
+  // ---------- 归来结算卡 ----------
+  if (await ev(() => !!window.__xm.st.exp)) { await ev(() => { const X = window.__xm; X.st.exp.left = 1; }); await adv(1); }
+  await page.waitForTimeout(800); await shot('g05-result');
+  const res = await ev(() => ({ title: (document.querySelector('#modal h2') || {}).textContent || '', body: (document.querySelector('#modal .body') || {}).textContent || '', btns: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent), stamp: (document.querySelector('#modal .kstamp') || {}).textContent }));
+  check(/历练归来/.test(res.title) && /用了 \d+ 月/.test(res.title), `结算卡标题：${res.title}`);
+  check(res.stamp === '甲', `评价印“${res.stamp}”`);
+  check(/战力\s*\d+\s*→\s*\d+/.test(res.body.replace(/\s+/g, ' ')) && /离目标/.test(res.body) && /还有 \d+ 月/.test(res.body), '结算卡：战力 前 → 后、离目标、还有 N 月');
+  check(/已戴上/.test(res.body), '第一件法宝：已戴上（不讲解）');
   check(res.btns.length === 1 && res.btns[0] === '回洞府', `第一张结算卡只有【回洞府】（${res.btns.join('/')}）`);
-  await page.click('#modal .foot .btn'); await page.waitForTimeout(600); t = await log('E07'); await shot('g09-afterexp');
-  const e7 = await ev(() => { const { st, L } = window.__xm; return { pw: L.fmt(L.power(st)) }; });
-  check(has(t, `→ ${e7.pw}`) && has(t, '洞府'), `E07+E08a 一段话：战力 → ${e7.pw}、去洞府`);
-  check(await ev(() => !document.querySelector('[data-nav="home"]').hidden), '第一趟回来【洞府】出现');
-  await shot('g10-homenav');
-  await page.click('[data-nav="home"]'); t = await log('E08b'); await shot('g11-homearray');
-  const e8 = await ev(() => { const { st, L } = window.__xm; const u = L.upInfo(st, 'array'); return { cost: L.fmt(u.cost) }; });
-  check(has(t, `${e8.cost} 灵石`), `E08b 聚灵阵价格 ${e8.cost}`);
+  await page.click('#modal .foot .btn'); await page.waitForTimeout(900);
+  // ---------- 解锁卡：洞府 · 聚灵阵 ----------
+  for (let i = 0; i < 6 && !(await page.$('#unlGo')); i++) { await page.waitForTimeout(400); }
+  await shot('g06-unlock');
+  const ul = await ev(() => { const u = document.querySelector('.unl'); return u ? u.textContent : ''; });
+  check(/解锁了/.test(ul) && /聚灵阵/.test(ul), `解锁卡：${ul.replace(/\s+/g, ' ').slice(0, 40)}`);
+  const navHome = await ev(() => !document.querySelector('[data-nav="home"]').classList.contains('lk'));
+  check(navHome, '【洞府】亮了');
+  if (await page.$('#unlGo')) { await page.click('#unlGo'); await page.waitForTimeout(500); }
+  await shot('g07-home-hl');
+  const hl = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', hl: !!document.getElementById('hl') && !document.getElementById('hl').hidden }));
+  check(/洞府/.test(hl.m) && hl.hl, `【带我去】1 次点击：洞府 + 金框（${hl.m}）`);
   await page.click('#modal button[data-k="array"]'); await page.waitForTimeout(300);
-  check(await ev(() => window.__xm.st.home.array === 1), '聚灵阵升到 1 级');
-  await page.click('#modal .close'); await page.waitForTimeout(300); t = await log('E09'); await shot('g12-quests');
-  check(has(t, '札记'), 'E09 指向札记');
-  await ok();
-  const done = await ev(() => window.__xm.st.guide.done);
-  console.log('guide done (E01–E09):', done);
-  check(done, '新手引导完成');
-
-  await ev(() => window.__xm.setSpeed(3)); await page.waitForTimeout(300); await dismiss();
-  await page.click('#goal'); await page.waitForTimeout(300); await shot('g13-quests-panel');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-  await page.click('#stats [data-s="big"]'); await page.waitForTimeout(300); await shot('g14-pact');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-  await page.click('#btnHelp'); await page.waitForTimeout(300); await shot('g15-help');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-  await page.click('#stats [data-s="atk"]'); await page.waitForTimeout(300); await shot('g16-growth');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-
-  // 第二趟：行事多了采药（洞府开了之后隔几个周天才开），确认页能选；寻宝没开就不出现
-  await ev(() => { const X = window.__xm; for (let i = 0; i < 4 && !X.L.unlocked(X.st, 'herb'); i++) { X.L.flow(X.st, 1); X.onTick(); } X.st.visitor = null; X.closeModal(); }); await page.waitForTimeout(400); await dismiss();
-  await page.click('[data-nav="exp"]'); await page.waitForTimeout(200); await page.click('#modal .card[data-k="0"]'); await page.waitForTimeout(300);
-  check(await ev(() => !!document.querySelector('#modal [data-a="2"]') && !document.querySelector('#modal [data-a="1"]')), '第二趟采药可选、寻宝不出现');
-  await page.click('#modal [data-a="2"]'); await page.waitForTimeout(250); await shot('g17-confirm-herb');
-  const fc2 = await ev(() => ({ ui: document.querySelector('#expRate').textContent, L: (() => { const { st, L } = window.__xm; return L.expForecast(st, 0, 0, 2).text; })() }));
-  check(fc2.ui === fc2.L, `采药预计评价与逻辑一致（${fc2.ui}）`);
-  await dismiss();   // 腹地开了的话，老祖就着确认页讲一句（不等周天冷却）
-  await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300);
-  await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); }); await page.waitForTimeout(700);
-  await shot('g18-result2');
-  const r2 = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent));
-  check(r2.includes('再探一次') || r2.includes('回去疗伤') || r2.includes('回去突破'), `第二张结算卡有【再探一次】（${r2.join('/')}）`);
-  await page.click('#modal .foot .btn.alt'); await page.waitForTimeout(500); await dismiss();
-
-  // E11 闭关：升到炼气中期、人在洞府
-  await ev(() => { const { st, L } = window.__xm; st.visitor = null; st.home.array = Math.max(2, st.home.array); st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); });
-  for (let i = 0; i < 4 && !(await gtext()).includes('闭关'); i++) { await dismiss(); await adv(1); await ev(() => { window.__xm.st.visitor = null; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); }
-  t = await log('E11'); console.log('   guide state', JSON.stringify(await ev(() => window.__xm.guideDbg)), await ev(() => { const { st, L } = window.__xm; return [L.retOpen(st), st.stats.retreat, L.busy(st), L.isFull(st), st.tick, L.stageName(st.p)].join(','); }));
-  check(has(t, '闭关') && has(t, '免费'), 'E11 讲闭关（头一回免费）');
-  check(await ev(() => !window.__xm.guideHold), 'E11 是“话 + 高亮动作”，不暂停');
-  await shot('g19-retreat-hint');
-  await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await shot('g20-home-retreat');
-  const ri = await ev(() => { const { st, L } = window.__xm; const r = L.retInfo(st); return { m: r.m.toFixed(2), free: r.free, extra: L.fmt(r.extra), ui: document.querySelector('#btnRet') && document.querySelector('#btnRet').textContent, card: document.querySelector('#modal .body').textContent }; });
-  check(ri.free && ri.ui === '免费' && ri.card.includes('×' + ri.m) && ri.card.includes('+' + ri.extra), `洞府闭关卡：免费、×${ri.m}、修为 +${ri.extra}`);
-  await page.click('#btnRet'); await page.waitForTimeout(300);
-  check(await ev(() => !!window.__xm.st.retreat), '开始闭关');
-  await ev(() => { const X = window.__xm; for (let i = 0; i < 4; i++) { X.L.flow(X.st, 1); X.onTick(); } }); await page.waitForTimeout(500); await dismiss();
-  check(await ev(() => !window.__xm.st.retreat && window.__xm.st.stats.retreat === 1), '闭关 4 周天后出关');
-  // 第二次闭关：要花灵石
-  await ev(() => { window.__xm.st.stones += 2000; window.__xm.closeModal(); }); await page.waitForTimeout(300); await dismiss();
-  await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await shot('g21-home-retreat2');
-  const ri2 = await ev(() => { const { st, L } = window.__xm; const r = L.retInfo(st); return { cost: L.fmt(r.cost), m: r.m.toFixed(2), m0: r.m0.toFixed(2), ui: document.querySelector('#btnRet').textContent }; });
-  check(ri2.ui.includes(ri2.cost), `第二次闭关价格 ${ri2.cost}（50×1.30^i）`);
-  check(ri2.m !== ri2.m0, `连着闭关疲劳：×${ri2.m0} → ×${ri2.m}`);
-  await ev(() => window.__xm.closeModal());
-  // 服丹疗伤
-  await ev(() => { const { st } = window.__xm; st.p.inj = 3; st.pills = Math.max(1, st.pills); }); await page.waitForTimeout(300); await dismiss();
-  await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await shot('g22-home-heal');
-  await page.click('#btnHeal'); await page.waitForTimeout(200);
-  check(await ev(() => window.__xm.st.p.inj === 0), '服丹疗伤后痊愈');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-
-  // E16：三年之约剩 12 周天内，锦囊三条
-  await ev(() => { const X = window.__xm; X.st.tick = 26; X.st.exp = null; X.st.retreat = null; }); await page.waitForTimeout(600); t = await log('E16'); await shot('g23-pactsoon');
-  const p16 = await ev(() => { const { st, L } = window.__xm; const p = L.pactInfo(st); return { left: p.left, S: L.fmt(p.S), p: L.pct(p.p) }; });
-  check(has(t, `还剩 ${p16.left} 个周天`) && has(t, `胜算 ${p16.p}`), `E16 数字：${p16.left} 周天 / ${p16.p}`);
-  await dismiss();
-  // E18：修为圆满 → 突破面板（老祖护法必成）→ 步进器
-  await ev(() => { const { st, L } = window.__xm; st.p.s = 3; st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); st.pills = 2; }); await page.waitForTimeout(500); t = await log('E18a');
-  check(has(t, '100%'), 'E18a 老祖护法 100%');
-  await page.click('#cult'); await page.waitForTimeout(400); t = await log('E18b'); await shot('g24-bt');
-  const bt = await ev(() => ({ rate: document.querySelector('#btRate').textContent, step: !!document.querySelector('#btStep'), life: document.querySelector('#modal .body').textContent.includes('200') }));
-  check(bt.rate === '100%' && !bt.step && bt.life, `突破面板：成功率 ${bt.rate}、老祖护法不摆步进器、写明寿元到 200`);
-  check(has(t, '×'), 'E18b 写明战力翻几倍');
+  check(await ev(() => window.__xm.st.home.array === 1), '聚灵阵升到 1 级（金框不挡点击）');
+  await closeAll();
+  // ---------- 装备：1 次点击 ----------
+  await page.click('[data-nav="gear"]'); await page.waitForTimeout(350); await shot('g08-gear');
+  check(await ev(() => /装备/.test(document.querySelector('#modal h2').textContent) && document.querySelectorAll('#modal .kslot').length >= 3 && !!document.querySelector('#modal [data-kdet="w"]')), '【装备】1 次点击：兵器 / 法衣 / 饰品三格');
+  check(await ev(() => document.querySelector('[data-nav="gear"]').classList.contains('on')), '面板浮在底栏之上，【装备】格点亮');
+  await page.click('[data-nav="path"]'); await page.waitForTimeout(350); await shot('g09-path');
+  check(await ev(() => !!document.querySelector('#modal .kpn.cur') && /第一章/.test(document.querySelector('#modal .kpn.cur').textContent)), '面板开着直接点【仙途】：路径页，当前章展开');
+  await closeAll();
+  // ---------- 一年：年报 ----------
+  await ev(() => { const X = window.__xm; X.st.visitor = null; });
+  for (let i = 0; i < 14 && !(await modal()).includes('年报'); i++) { await adv(1); await page.waitForTimeout(300); const m = await modal(); if (m && !m.includes('年报')) await closeAll(); }
+  await shot('g10-year');
+  const yr = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', b: (document.querySelector('#modal .body') || {}).textContent || '', tick: window.__xm.st.tick }));
+  check(/年报/.test(yr.m) && /战力/.test(yr.b) && /明年/.test(yr.b), `第 ${yr.tick} 月：年报（${yr.m}）`);
+  await closeAll();
+  // ---------- 修为圆满：目标卡“下一步：可以突破了”→【去】→ 突破面板 ----------
+  await ev(() => { const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.p.s = 3; st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); st.pills = 2; });
+  await page.waitForTimeout(700); await closeAll(); await page.waitForTimeout(300);
+  const nx = await ev(() => document.getElementById('gNext').textContent);
+  check(/突破/.test(nx), `目标卡：${nx}`);
+  await page.click('#gGo'); await page.waitForTimeout(400); await shot('g11-bt');
+  check(/突破/.test(await modal()), '目标卡【去】→ 突破面板');
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
   for (let i = 0; i < 30 && await ev(() => window.__xm.cine); i++) await page.waitForTimeout(200);
-  await page.waitForTimeout(400); await shot('g25-btres');
+  await page.waitForTimeout(400);
   check(await ev(() => window.__xm.st.p.r === 1), '突破筑基成功');
-  await page.click('#modal .foot .btn'); await drain(); await dismiss(); await drain();
-  // 金丹起的突破面板：步进器改成功率
-  await ev(() => { const { st, L } = window.__xm; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 3; st.flags.readyNotified = 1; }); await page.waitForTimeout(300); await dismiss();
-  await page.click('#cult'); await page.waitForTimeout(400);
-  // 头一回金丹雷劫前老祖讲护劫手段与“那一停”（阻塞，时间暂停），数字与逻辑一致
-  const tg = await gtext(), tgL = await ev(() => { const { st, L } = window.__xm; return { all: L.pct(L.tribRate(st, { pills: Math.min(3, st.pills), aids: 'all' })), base: L.pct(L.REALMS[st.p.r].rate), hold: window.__xm.guideHold }; });
-  check(has(tg, '护劫手段') && has(tg, `能到 ${tgL.all}`) && has(tg, `基础只有 ${tgL.base}`) && tgL.hold, `金丹雷劫讲解：护劫手段、全用上 ${tgL.all}、时间暂停`);
-  await ok(); const tp = await gtext();
-  check(has(tp, '停一下') && has(tp, '80%') && has(tp, '+10%'), `金丹雷劫讲解：那一停、八成准、临阵吞丹 +10%（${tp.slice(0, 30)}）`);
-  await dismiss(); await shot('g26-bt-jindan');
-  const st1 = await ev(() => document.querySelector('#btRate').textContent);
-  await page.click('#btStep [data-st="-1"]'); await page.waitForTimeout(250);
-  const st2 = await ev(() => ({ ui: document.querySelector('#btRate').textContent, n: +document.querySelector('#btStep b').textContent, L: (() => { const { st, L } = window.__xm; return L.pct(L.tribRate(st, window.__xm.tribOpts())); })() }));
-  check(st1 !== st2.ui && st2.ui === st2.L, `步进器 −1：${st1} → ${st2.ui}（逻辑 ${st2.L}，${st2.n} 枚）`);
-  await shot('g27-bt-step');
-  await ev(() => window.__xm.closeModal()); await dismiss();
-  // 三年之约
-  await ev(() => { const X = window.__xm; X.st.tick = 35; X.L.flow(X.st, 1); X.onTick(); X.setSpeed(0); });
-  await page.waitForTimeout(500); await shot('g28-pactduel');
-  // 对决在场景里演（duel-scene.js）：演完纸卷底部的【跳过】变成【继续】；没演完就先点【跳过】
-  check(await ev(() => !!document.querySelector('#modal.duel-m') && !!document.getElementById('duelUI')), '约战在场景里演（擂台、双方名字与战力）');
-  await page.waitForTimeout(1500); await shot('g29-pactres');
-  if (await ev(() => document.querySelector('#modal .foot .btn').textContent === '跳过')) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
-  check(await ev(() => /继续/.test(document.querySelector('#modal .foot .btn').textContent) && !!document.querySelector('#vsRes .big')), '对决演完：盖印、结果、【继续】');
-  await page.click('#modal .foot .btn'); await page.waitForTimeout(600); t = await log('E19'); await shot('g30-afterpact');
-  check(has(t, '天骄论道') || has(t, '第 1 届论道'), 'E19 讲天骄论道');
-  await dismiss();
-  // 三宗争徒：主按钮是【拜入 XX】
-  await ev(() => window.__xm.showInvite()); await page.waitForTimeout(300); await shot('g31-invite');
-  const inv = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => (x.classList.contains('gold') ? '*' : '') + x.textContent));
-  check(inv.some(x => x.startsWith('*拜入')), `三宗争徒主按钮：${inv.join(' / ')}`);
-  await page.click('#modal .cand[data-i="2"]'); await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
-  check(await ev(() => window.__xm.st.sect && window.__xm.st.sect.id === 'dao'), '拜入玄天道宗');
-  await drain(); await dismiss(); await drain();
-  await page.click('[data-nav="sect"]'); await page.waitForTimeout(300); await shot('g32-sect');
-
+  await closeAll();
+  // ---------- 三年之约：备战卡（前 1 月）→ 对决 → 章末结算 ----------
+  await ev(() => { const X = window.__xm; X.st.tick = 34; X.st.exp = null; X.st.retreat = null; X.st.visitor = null; });
+  await adv(1); await page.waitForTimeout(600); await shot('g12-prep');
+  const pm = await modal();
+  check(/备战/.test(pm), `第 35 月：备战卡（${pm || '没出'}）`);
+  if (/备战/.test(pm)) { await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400); }
+  await closeAll();
+  await ev(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); });
+  await page.waitForTimeout(600); await shot('g13-pact');
+  check(await ev(() => !!document.querySelector('#modal.duel-m')), '三年之约在场景里演');
+  await page.waitForTimeout(1500);
+  if (await ev(() => /跳过/.test((document.querySelector('#modal .foot .btn') || {}).textContent || ''))) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
+  await page.click('#modal .foot .btn'); await page.waitForTimeout(800);
+  let chEnd = '';
+  for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(); await page.waitForTimeout(500); }
+  await shot('g14-chapter');
+  const cb = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent).join('/'));
+  check(/第一章.*完/.test(chEnd) && /开始第二章/.test(cb), `章末结算：${chEnd} ·【${cb}】`);
+  await closeAll();
+  const g2 = await ev(() => ({ ch: document.getElementById('gCh').textContent, world: !document.querySelector('[data-nav="world"]').classList.contains('lk') }));
+  check(g2.ch === '第二章' && g2.world, `之后目标卡换成${g2.ch}、【江湖】亮起`);
+  await shot('g15-ch2');
+  const blk = await ev(() => window.__blk);
+  check(blk === 0, `全程没有带【好】的阻塞讲解（${blk} 次）`);
   console.log('guide done =', await ev(() => window.__xm.st.guide.done));
   console.log(errs.join('\n') || 'no errors');
   console.log(fails.length ? `${fails.length} 项未通过：\n` + fails.join('\n') : '全部通过');
   await b.close();
   if (fails.length || errs.length) process.exitCode = 1;
-})().catch(e => { console.error('FAIL', e.message.split('\n').filter(x => /intercept|waiting for|FAIL|Timeout/.test(x)).slice(0, 6).join('\n')); process.exit(1); });
+})().catch(e => { console.error('FAIL', e.message.split('\n').slice(0, 6).join('\n')); process.exit(1); });

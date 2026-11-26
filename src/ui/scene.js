@@ -38,7 +38,7 @@ function fitScene() {
 }
 let sceneU = 2, sceneCrop = 0;
 function phase() { return ((T / 120000) + 0.42) % 1; }
-// 四季按周天（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
+// 四季按月（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
 // ART.drawHome 按 st.year 的小数部分画四季：给它一个只改了 year 的视图，让画面的季节对上 L.season；
 // 灵田等级给 0（田改成作物制，由 panel-field.js 的 drawPlots 逐块画 ART.drawPlot）；丹炉也给 0（洞府分地块后丹炉和别的建筑一样由 panel-home.js 的 drawBuildings 摆，ART_API 阶段三·批次六）
@@ -76,7 +76,7 @@ function drawMeHome(x, y, realm) {
     R(bx - 3, by, 7, 9, '#3a1a14'); R(bx - 2, by + 1, 5, 7, '#fff6dc'); R(bx, by + 2, 1, 4, '#c8323c'); R(bx, by + 7, 1, 1, '#c8323c'); R(bx - 4, by + 7, 2, 2, '#3a1a14');
   }
 }
-// 吐纳环（DESIGN §3.2）：在洞府打坐时每周天蓄 1/6，蓄满发光，点自己释放。场景内的简画，美术接口到位后可换 ART.drawTunaRing
+// 吐纳环（DESIGN §3.2）：在洞府打坐时每月蓄 1/6，蓄满发光，点自己释放。场景内的简画，美术接口到位后可换 ART.drawTunaRing
 function drawTunaRing(x, y, part) {
   if (st.p.r > L.MAXR || L.busy(st) || L.isFull(st)) return;
   if (ART.drawTunaRing) { ART.drawTunaRing(x, y, Math.min(1, (st.tuna || 0) / L.TUNA_FULL), T, part); return; }

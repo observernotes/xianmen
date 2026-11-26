@@ -43,7 +43,7 @@ function gearDeltaRows(a, b, k) {
   const d = [], arrow = (x, y) => (y > x ? '<span class="jadet">▲</span>' : '<span class="seal">▼</span>');
   if (fmt(a.p) !== fmt(b.p)) d.push([0, `<dt>战力</dt><dd class="num">${fmt(a.p)} → <b>${fmt(b.p)}</b> ${arrow(a.p, b.p)}</dd>`]);
   if (a.pact !== undefined && a.pact !== null && L.pct(a.pact) !== L.pct(b.pact)) d.push([1, `<dt>约战胜算</dt><dd class="num">${L.pct(a.pact)} → <b>${L.pct(b.pact)}</b> ${arrow(a.pact, b.pact)}</dd>`]);
-  if (dec(a.g) !== dec(b.g)) d.push([2, `<dt>修炼/周天</dt><dd class="num">+${dec(a.g)} → <b>+${dec(b.g)}</b> ${arrow(a.g, b.g)}</dd>`]);
+  if (dec(a.g) !== dec(b.g)) d.push([2, `<dt>修炼/月</dt><dd class="num">+${dec(a.g)} → <b>+${dec(b.g)}</b> ${arrow(a.g, b.g)}</dd>`]);
   if (Math.abs(a.s - b.s) >= 0.05) d.push([3, `<dt>历练分数</dt><dd class="num">${sgn(a.s)} → <b>${sgn(b.s)}</b> ${arrow(a.s, b.s)}</dd>`]);
   if (a.inc !== undefined && Math.abs(a.inc - b.inc) > 0.004) d.push([4, `<dt>历练灵石</dt><dd class="num">×${dec2(a.inc)} → <b>×${dec2(b.inc)}</b> ${arrow(a.inc, b.inc)}</dd>`]);
   if (a.life !== undefined && fmt(a.life) !== fmt(b.life)) d.push([5, `<dt>寿元</dt><dd class="num">${fmt(a.life)} → <b>${fmt(b.life)}</b> 岁 ${arrow(a.life, b.life)}</dd>`]);
@@ -259,7 +259,7 @@ function showForge() {
   const zt = Object.keys(st.gear.zhentu).map(id => `《${L.ZHENTU[id]}》`).join('、');
   const s = sheet({ title: '器炉 · 打造', sub: `${open ? `器炉 ${L.forgeLv(st)} 级` : '打造' + L.gearOpenWhy(st, 'forge')} · 灵矿 ${fmt(st.ore || 0)}`,
     body: rows + (missRows ? `<details class="more"><summary>没得到的器方 ${miss.length} 张</summary>${missRows}</details>` : '')
-      + `<details class="more"><summary>器方、材料从哪来</summary><div class="muted">器方来自首领首杀、拍卖、宗门宝库与奇遇链；首领材料首杀 ×2，金丹后每 48 周天可再战一次 ×1。打成的法宝词条固定，走对比卡换上。器炉建成前借用丹炉等级。${zt ? `<br>阵图：${zt}` : ''}</div></details>`,
+      + `<details class="more"><summary>器方、材料从哪来</summary><div class="muted">器方来自首领首杀、拍卖、宗门宝库与奇遇链；首领材料首杀 ×2，金丹后每 48 月可再战一次 ×1。打成的法宝词条固定，走对比卡换上。器炉建成前借用丹炉等级。${zt ? `<br>阵图：${zt}` : ''}</div></details>`,
     foot: [{ t: '回法宝页', alt: true, fn: () => showGear() }] });
   s.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
     const it = L.forge(st, b.dataset.forge);

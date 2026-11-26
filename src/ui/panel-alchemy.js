@@ -1,5 +1,5 @@
 /* 废柴仙途 · 界面片段 panel-alchemy：炼丹房（【洞府】→ 炼丹房）：四页——【丹方格】上半是 5×5 药引格（对称，实际 15 格，ART.yinCell），下半是点中那一格的丹方与【炼制】/【试炼】；
- * 【修炼】【战斗】【根基】三页列出会炼的丹，一键【炼制】、勾“续炼”（每 3 周天自动一炉，最多 3 种）；丹囊里的爆气丹、雷火丹在战斗页服。
+ * 【修炼】【战斗】【根基】三页列出会炼的丹，一键【炼制】、勾“续炼”（每 3 月自动一炉，最多 3 种）；丹囊里的爆气丹、雷火丹在战斗页服。
  * 状态栏的丹毒小葫芦（ART.toxinGourd）也在这里。所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。数值全部取自 src/logic/alchemy.js。 */
 let alchTab = '', alchCell = null, alchMsg = '';
 const pillImg = (k, z) => { const c = ART.icon(k), s = pxs(16, z || 1.5); return c ? `<img class="px" src="${urlOf(c, 'ic|' + k)}" style="width:${s}px;height:${s}px;flex:none;vertical-align:middle" alt="">` : iconHTML('pill', s); };
@@ -94,13 +94,13 @@ function showAlchemy(still) {
       : emptyNoteHTML('pill', alchTab === 'z' ? '战斗丹要药引：去【丹方格】试出来。' : '还没有会炼的：去【丹方格】试炼。');
   }
   const auto = L.danOf(st).auto;
-  const rules = `<details class="more"><summary>续炼与丹毒 · 续炼 ${auto.length}/${L.AUTO.max}</summary><div class="muted">续炼：最多勾 ${L.AUTO.max} 种${auto.length ? '（' + auto.map(k => L.RECIPE[k].n).join('、') + '）' : ''}，每 ${L.AUTO.every} 周天材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。<br>丹毒每周天退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。<br>成丹分下、中、上、极四品，炸炉只亏材料。天材地宝 ${st.treasure}${L.friend(st, 'ge') ? '；葛老指点，成丹率更高' : ''}。</div></details>`;
+  const rules = `<details class="more"><summary>续炼与丹毒 · 续炼 ${auto.length}/${L.AUTO.max}</summary><div class="muted">续炼：最多勾 ${L.AUTO.max} 种${auto.length ? '（' + auto.map(k => L.RECIPE[k].n).join('、') + '）' : ''}，每 ${L.AUTO.every} 月材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。<br>丹毒每月退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。<br>成丹分下、中、上、极四品，炸炉只亏材料。天材地宝 ${st.treasure}${L.friend(st, 'ge') ? '；葛老指点，成丹率更高' : ''}。</div></details>`;
   const body = `<div class="tabs atabs">${tabs}</div>${alchMsg ? `<div class="quote">${alchMsg}</div>` : ''}${main}${rules}`;
   const s = sheet({ title: shellTitle('home'), still, sub: `灵草 ${fmt(st.herbs)} · 成丹 ${L.pct(rate)} · ${toxChip(st)}`, body: meTabs('alch') + body });
   alchMsg = '';
   s.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { SFX.tap(); alchTab = b.dataset.tab; showAlchemy(true); });
   s.querySelectorAll('[data-cell]').forEach(b => b.onclick = () => { SFX.tap(); alchCell = b.dataset.cell; showAlchemy(true); const d = $('#modal .adet'); if (d) d.scrollIntoView({ block: 'nearest' }); });
-  s.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => { SFX.tap(); const k = b.dataset.auto; L.setAuto(st, k, !L.autoOn(st, k)); alchMsg = L.autoOn(st, k) ? `${L.RECIPE[k].n}续炼：每 ${L.AUTO.every} 周天材料够就炼一炉` : `${L.RECIPE[k].n}不再续炼`; showAlchemy(true); });
+  s.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => { SFX.tap(); const k = b.dataset.auto; L.setAuto(st, k, !L.autoOn(st, k)); alchMsg = L.autoOn(st, k) ? `${L.RECIPE[k].n}续炼：每 ${L.AUTO.every} 月材料够就炼一炉` : `${L.RECIPE[k].n}不再续炼`; showAlchemy(true); });
   s.querySelectorAll('[data-take]').forEach(b => b.onclick = () => {
     const k = b.dataset.take, d = k === 'baoqi' ? baoqiDelta() : null, r = L.takePill(st, k);
     if (!r) return;
@@ -131,7 +131,7 @@ function brewUI(res) {
   const sp = document.createElement('button'); sp.className = 'res toxres'; sp.id = 'toxBox'; sp.title = '丹毒'; sp.setAttribute('aria-label', '丹毒'); sp.hidden = true;
   sp.innerHTML = '<img class="px" id="toxImg" alt=""><b id="vTox">0</b>';
   r2.appendChild(sp);
-  sp.onclick = () => { if (!st || cine) return; ac(); SFX.tap(); if (st.home.furnace) showAlchemy(); else tip('toxinNo', `丹毒 ${Math.round(st.toxin || 0)}：每周天退 ${dec(L.toxDecay(st))}。`); };
+  sp.onclick = () => { if (!st || cine) return; ac(); SFX.tap(); if (st.home.furnace) showAlchemy(); else tip('toxinNo', `丹毒 ${Math.round(st.toxin || 0)}：每月退 ${dec(L.toxDecay(st))}。`); };
 })();
 let toxShown = -1;
 function updateToxin() {

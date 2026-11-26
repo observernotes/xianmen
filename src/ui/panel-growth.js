@@ -14,8 +14,8 @@ function showGrowth(focus) {
     array: `下一级 ×${mx(L.arrayMult(st.home.array + 1))}，灵石最该花在这里。`,
     gear: '法宝三槽：兵器管战力，法衣管历练分数与负伤，饰品给修炼、财运、气运或寿元。来自历练掉落、首领、坊市寻宝、宗门宝库；灵矿强化，超出部分每级 +6%。',
     pet: '出战的灵宠给战力倍率：喂兽粮升级（每级超出部分 +5%），5 级进化、10 级觉醒各升一阶。灵宠来自坊市灵兽蛋、采药偶遇、奇遇与宗门；其余的派去洞府岗位干活。',
-    field: `灵石只来自种灵稻的田（现在 ${L.riceCount(st)}/${L.plotCount(st)} 块）；全种灵稻时下一级每周天 ${fmt(L.fieldInc(st.home.field + 1))} 灵石。灵草、兽粮、药引看【洞府】→ 灵田。`,
-    alch: '炼丹房的丹药：爆气丹管下一场对决或下一趟历练，聚灵丹管 6 周天修炼。',
+    field: `灵石只来自种灵稻的田（现在 ${L.riceCount(st)}/${L.plotCount(st)} 块）；全种灵稻时下一级每月 ${fmt(L.fieldInc(st.home.field + 1))} 灵石。灵草、兽粮、药引看【洞府】→ 灵田。`,
+    alch: '炼丹房的丹药：爆气丹管下一场对决或下一趟历练，聚灵丹管 6 月修炼。',
   };
   const sec = (key, title, total, baseName, base, parts, extra) => `<div class="grow-sec" id="g-${key}"><h3>${title}<span>${total}</span></h3>
     ${baseName ? row(baseName, fmt(base), '', '') : ''}${parts.map(([n, m, k]) => row(n, m, k && act[k] ? act[k]() : '', k && tips[k] ? tips[k] : '')).join('')}${extra || ''}</div>`;
@@ -23,13 +23,13 @@ function showGrowth(focus) {
   const btn = Math.min(L.BT.maxPills, st.pills), bt = L.tribNeeded(st) ? L.tribRate(st, { pills: btn }) : L.btRate(st, btn);   // 金丹起按天劫算（元婴劫起封顶，L.tribTop）
   const body = [
     `<div class="muted">每项数值 = 基础 × 各项加成。点右边的按钮直接去提升。</div>`,
-    sec('cul', '修炼速度', '+' + fmt(B.gain) + ' /周天', '境界基础（' + L.stageName(p) + '）', B.baseCul, B.cul,
-      row('运功吐纳', `${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}`, '', `在洞府打坐时吐纳环每周天蓄 1/${L.TUNA_FULL}，蓄满后点画面里的自己，立得 1 周天修为（+${dec(L.gainCalm(st))}）。`) +
-      row('闭关', L.retOpen(st) ? '×' + L.retInfo(st).m.toFixed(2) : '未解锁', goBtn('洞府', 'home'), `4 周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花费 ${fmt(L.retCost(st))} 灵石；连着闭关每次 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5。`)),
+    sec('cul', '修炼速度', '+' + fmt(B.gain) + ' /月', '境界基础（' + L.stageName(p) + '）', B.baseCul, B.cul,
+      row('运功吐纳', `${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}`, '', `在洞府打坐时吐纳环每月蓄 1/${L.TUNA_FULL}，蓄满后点画面里的自己，立得 1 月修为（+${dec(L.gainCalm(st))}）。`) +
+      row('闭关', L.retOpen(st) ? '×' + L.retInfo(st).m.toFixed(2) : '未解锁', goBtn('洞府', 'home'), `4 月修炼 ×${L.retBaseMult(st).toFixed(2)}，花费 ${fmt(L.retCost(st))} 灵石；连着闭关每次 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5。`)),
     sec('atk', '战力', fmt(B.power), '境界基础（' + L.stageName(p) + '）', B.baseAtk, B.atk,
       row('突破大境界', '大幅', '', '每升一个大境界，战力翻好几倍。战力决定历练成功率、论道和会武胜负。')),
-    sec('inc', '灵石收入', '+' + fmt(B.income) + ' /周天', '', 0, B.inc.map(([n, v, k]) => [n, '+' + fmt(v), k]),
-      row('历练', '大头', goBtn('去历练', 'exp'), '历练带回的灵石远比每周天收入多。') + (st.sect ? '' : row('宗门俸禄', '未入宗', '', '筑基后拜入宗门，每周天领俸禄。'))),
+    sec('inc', '灵石收入', '+' + fmt(B.income) + ' /月', '', 0, B.inc.map(([n, v, k]) => [n, '+' + fmt(v), k]),
+      row('历练', '大头', goBtn('去历练', 'exp'), '历练带回的灵石远比每月收入多。') + (st.sect ? '' : row('宗门俸禄', '未入宗', '', '筑基后拜入宗门，每月领俸禄。'))),
     `<div class="grow-sec" id="g-bt"><h3>冲击${nxt}成功率<span>${L.pct(bt)}</span></h3>
       ${L.btParts(st, btn).filter(([k]) => !/^(丹炉|破境丹)/.test(k)).map(([k, v]) => row(k, k === '基础' ? L.pct(v) : (v < 0 ? '−' : '+') + L.pct(Math.abs(v)), '', '')).join('')}
       ${L.tribNeeded(st) ? row('护劫手段', `眼下最多 +${L.pct(['fa', 'pet', 'daolv', 'zhen'].reduce((a, k) => { const A = L.aidInfo(st, k); return a + (A.ok ? A.v : 0); }, 0) + L.TRIB.maxPill * L.TRIB.pill)}`, '', `${L.tribTop(st) < 1 ? `天劫最多 ${L.pct(L.tribTop(st))}（每败一次 +${L.pct(L.BT.fail)}），超出的不算。` : ''}金丹起渡雷劫时用：祭法宝 +${L.pct(L.TRIB.fa)}、灵宠挡劫 +${L.pct(L.TRIB.pet)}、道侣护法 +${L.pct(L.TRIB.daolv)}、渡劫阵（聚灵阵每级 +1%），雷劫中途那一停还能临阵吞丹（每枚 +${L.pct(L.TRIB.pill)}，最多 ${L.TRIB.maxPill} 枚）。`) : ''}
@@ -59,11 +59,11 @@ function showBig() {
 function pactTips() {
   const pi = L.pactInfo(st), p = st.p, out = [];
   const with_ = (m, assist) => L.duelP(st, pi.base * m * (assist === undefined ? pi.assist : assist), pi.Q, L.PACT_FOE);
-  if (p.inj > 0) out.push({ t: '先疗伤', cost: L.canHeal(st) ? '破境丹 1 枚' : `歇 ${p.inj} 周天`, p: with_(1 / 0.6), go: 'home' });
+  if (p.inj > 0) out.push({ t: '先疗伤', cost: L.canHeal(st) ? '破境丹 1 枚' : `歇 ${p.inj} 月`, p: with_(1 / 0.6), go: 'home' });
   if (p.r === 0 && !L.isFull(st)) {
     const n = L.ticksToStage(st, L.si(p) + 1);
-    if (n < pi.left) out.push(p.s === 3 ? { t: '修满后突破筑基', cost: `约 ${n} 周天修满，再冲一次${L.btGuard(st) ? '（老祖护法必成）' : ''}`, p: with_(btPowerMult(), 1), go: L.retOpen(st) ? 'home' : 'exp' }
-      : { t: `修到炼气${L.STAGES[p.s + 1]}`, cost: `照现在约 ${n} 周天（闭关更快）`, p: with_(L.P.pwStage), go: L.retOpen(st) ? 'home' : 'exp' });
+    if (n < pi.left) out.push(p.s === 3 ? { t: '修满后突破筑基', cost: `约 ${n} 月修满，再冲一次${L.btGuard(st) ? '（老祖护法必成）' : ''}`, p: with_(btPowerMult(), 1), go: L.retOpen(st) ? 'home' : 'exp' }
+      : { t: `修到炼气${L.STAGES[p.s + 1]}`, cost: `照现在约 ${n} 月（闭关更快）`, p: with_(L.P.pwStage), go: L.retOpen(st) ? 'home' : 'exp' });
   }
   if (p.r === 0 && L.isFull(st)) out.push({ t: '突破筑基', cost: L.btGuard(st) ? '老祖护法必成' : '成功率 ' + L.pct(L.btRate(st, Math.min(3, st.pills))), p: with_(btPowerMult(), 1), go: 'cult' });
   // 法宝（SYSTEMS §3 / §17 锦囊候选）：换一件高一阶的兵器；兵器强化到下一级（一下完成，胜算当场重算）
@@ -78,7 +78,7 @@ function pactTips() {
   // 灵宠升到下一级（SYSTEMS §17 锦囊候选）：兽粮够就写一口气喂到下一级的胜算
   const op = L.petOut(st), oi = st.petOut;
   if (op && !L.petFeedWhy(st, oi) && (st.feed || 0) >= L.petNeed(op) - op.xp) { const m1 = L.petTry(st, () => { st.pets[oi].lv++; }, () => L.petAtkOf(st, st.pets[oi])); out.push({ t: `灵宠【${L.petName(op)}】升到 Lv${op.lv + 1}`, cost: `兽粮 ${fmt(Math.ceil(L.petNeed(op) - op.xp))}（你有 ${fmt(st.feed)}）`, p: with_(m1 / L.petAtkOf(st, op)), go: 'pets' }); }
-  if (L.canRetreat(st) && p.r === 0) { const ri = L.retInfo(st); if (ri.save > 0) out.push({ t: '闭关', cost: ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`, p: pi.p, extra: `本层提前 ${ri.save} 周天`, go: 'home' }); }
+  if (L.canRetreat(st) && p.r === 0) { const ri = L.retInfo(st); if (ri.save > 0) out.push({ t: '闭关', cost: ri.free ? '头一回免费' : `${fmt(ri.cost)} 灵石`, p: pi.p, extra: `本层提前 ${ri.save} 月`, go: 'home' }); }
   // 换成克制对手的战技（SYSTEMS §17 锦囊候选）：战技即换即生效，点【换上】一下完成
   const sw = zSwapTip(L.PACT_FOE, S => S * pi.assist, pi.Q);
   if (sw) out.push(sw);
@@ -114,7 +114,7 @@ function showPact() {
   const go = (t, k) => `<button class="btn sm alt" data-go="${k}">${t}</button>`;
   const tips = pactTips().map(x => row(x.t, x.extra ? x.extra : `${L.pct(pi.p)} → <b>${L.pct(x.p)}</b>`, go(x.btn || '前往', x.go), x.cost));
   const muEl = L.artSlotOpen(st, 1) && L.foeElKnown(st, L.PACT_FOE) ? ' ' + elChip(L.foeEl(L.PACT_FOE)) : '';
-  const body = `<p class="center">还剩 <b>${pi.left} 个周天</b>，${esc(st.exName)}在落霞城擂台等你。</p>
+  const body = `<p class="center">还剩 <b>${pi.left} 个月</b>，${esc(st.exName)}在落霞城擂台等你。</p>
     <div class="vs"><div class="side">${myAvImg(56)}<div>${esc(p.name)}</div><div class="num">${fmt(pi.base)}${pi.assist > 1 ? ` ×${pi.assist}` : ''}</div><div class="num jadet">= ${fmt(pi.S)}</div></div>
       <div class="vsx">VS</div>
       <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器${muEl}</div><div class="num seal">${fmt(pi.Q)}</div></div></div>

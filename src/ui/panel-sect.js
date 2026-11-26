@@ -12,7 +12,7 @@ function sectTabs(tab) {
 function showSect(tab) {
   const p = st.p;
   if (!st.sect) {
-    sheet({ title: shellTitle('world'), body: meTabs('sect') + `${emptyNoteHTML('vault', p.r >= 1 ? `散修一个。约 <b>${Math.max(0, (st.flags.inviteAt || 0) - st.tick)}</b> 周天后宗门再来招揽。` : '散修一个。筑基后三大宗门会来招揽。')}
+    sheet({ title: shellTitle('world'), body: meTabs('sect') + `${emptyNoteHTML('vault', p.r >= 1 ? `散修一个。约 <b>${Math.max(0, (st.flags.inviteAt || 0) - st.tick)}</b> 月后宗门再来招揽。` : '散修一个。筑基后三大宗门会来招揽。')}
       <div class="quote">戒中老祖：“急什么。等你筑基，那些宗门自会八抬大轿来请你。”</div>` });
     return;
   }
@@ -61,10 +61,10 @@ function sectIdHTML() {
   // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处；图标 ART.sectBuildIcon(k) 即 ART.icon('sb_' + k)
   const B0 = st.sect.build || {};
   const builds = sr >= 6 ? pnHead('宗主建设', `灵石 ${fmt(st.stones)}`) + '<div class="pn-list">' + L.BUILDS.map(b => { const lv = B0[b.k] || 0, c = L.buildCost(lv), ok = lv < 5 && st.stones >= c; return pnFold('bd-' + b.k, { ic: icon16(ART.icon('sb_' + b.k) ? 'sb_' + b.k : 'cave', 2), nm: b.n, badge: `<span class="chip">${lv}/5</span>`, right: `<button class="btn sm alt eq" data-build="${b.k}" ${ok ? '' : 'disabled'}>${lv >= 5 ? '已满' : fmt(c)}${lv >= 5 ? '' : '<small>灵石</small>'}</button>`, body: `<div class="pn-line">${esc(b.d)}</div>` }); }).join('') + '</div>' : '';
-  return `<div class="pn-stats"><div><small>身份</small><b>${L.srankName(st, sr)}</b></div><div><small>俸禄/周天</small><b class="num">${fmt(L.pay(st))}</b></div><div><small>可用贡献</small><b class="num">${fmt(st.sect.pts)}</b></div></div>
+  return `<div class="pn-stats"><div><small>身份</small><b>${L.srankName(st, sr)}</b></div><div><small>俸禄/月</small><b class="num">${fmt(L.pay(st))}</b></div><div><small>可用贡献</small><b class="num">${fmt(st.sect.pts)}</b></div></div>
     ${promo}${duty}${moTrade}${builds}
     ${UI.isOpen('vault') ? pnHead('人脉', `圣子、宗主要两位 ≥${L.FAV.promo}`, 'renmai') + `<div class="pn-list">${L.eldersOf(st).map(elderCard).join('')}</div>` : ''}
-    <details class="more"><summary>宗门加成 · 九宗排名</summary><div class="muted">宗门加成：${esc(sc.perk)}<br>身份阶梯：${L.SRANKS.map((r0, i) => (i === sr ? '【' + L.srankName(st, i) + '】' : L.srankName(st, i))).join(' → ')}<br>俸禄：每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 周天附一枚` : ''}；累计贡献 ${fmt(st.sect.total)}</div>${nineHTML()}
+    <details class="more"><summary>宗门加成 · 九宗排名</summary><div class="muted">宗门加成：${esc(sc.perk)}<br>身份阶梯：${L.SRANKS.map((r0, i) => (i === sr ? '【' + L.srankName(st, i) + '】' : L.srankName(st, i))).join(' → ')}<br>俸禄：每月 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 月附一枚` : ''}；累计贡献 ${fmt(st.sect.total)}</div>${nineHTML()}
     <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能挣贡献。${UI.isOpen('vault') ? `长老的支持来自他管的任务（每件 +${L.FAV.task}）、奇遇里的抉择、送礼（每位每届一次）；三位长老理念相冲，讨好一位常要得罪另一位。` : ''}${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div></details>`;
 }
 function bindSectId(s) {
@@ -94,7 +94,7 @@ function sectTaskHTML() {
     return pnFold('tk-' + i, { cls: t.done ? 'pn-off' : '', ic: el ? ptImg(el.img, pxs(32, 1)) : icon16(ART.icon('task') ? 'task' : 'flag', 2), nm: esc(L.taskText(st, t)), k: `<span class="goldt">${esc(L.taskReward(st, t))}</span>`, right: btn,
       body: el ? `<div class="pn-line">${esc(el.n)}管的事：做完支持 +${L.FAV.task}${t.fav ? `（已 +${t.fav.d}）` : ''}</div>` : '' });
   }).join('');
-  return pnHead('任务板', `${L.nextTour(st)} 周天后刷新`) + (tasks ? `<div class="pn-list">${tasks}</div>` : emptyNoteHTML('scroll', '这一届的任务都做完了，论道后刷新。'));
+  return pnHead('任务板', `${L.nextTour(st)} 月后刷新`) + (tasks ? `<div class="pn-list">${tasks}</div>` : emptyNoteHTML('scroll', '这一届的任务都做完了，论道后刷新。'));
 }
 function bindSectTask(s) {
   s.querySelectorAll('[data-tk]').forEach(b => b.onclick = () => { if (L.taskTake(st, +b.dataset.tk)) { SFX.tap(); if (st.retreat && (st.retreat.kind === 'teach' || st.retreat.kind === 'busy')) closeModal(); else showSect('task'); } });
@@ -118,8 +118,8 @@ function sectVaultHTML() {
       k: lock ? `<span class="seal">${esc(c.why)}</span>` : main, right: btn,
       body: `${c.A ? `<div class="pn-line">${elChip(c.A.el)} ${main}${c.A.k !== 'm' ? ' · ' + esc(L.artDesc(st, c.A.id)) : ''}</div>` : `<div class="pn-line">${esc(c.d)}</div>`}${c.s.lim > 1 ? `<div class="pn-line muted">这一批还剩 ${c.left} 件</div>` : ''}` });
   }).join('');
-  return `${pnHead(`宝库 · ${L.VAULT_ROT.n} 格`, `贡献 ${fmt(st.sect.pts)} · ${L.vaultRestockIn(st)} 周天换货`)}
-    ${st.sect.freePick > 0 ? `<div class="quote">札记赏你任选一件：功法、法宝不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}${vaultEmpty ? emptyNoteHTML('vault', cells ? `这一批能换的都换完了，${L.vaultRestockIn(st)} 周天后换货。` : `宝库还空着，${L.vaultRestockIn(st)} 周天后上货。`) : ''}<div id="vaultRot" class="pn-list">${cells}</div>
+  return `${pnHead(`宝库 · ${L.VAULT_ROT.n} 格`, `贡献 ${fmt(st.sect.pts)} · ${L.vaultRestockIn(st)} 月换货`)}
+    ${st.sect.freePick > 0 ? `<div class="quote">札记赏你任选一件：功法、法宝不收贡献（还有 ${st.sect.freePick} 次）</div>` : ''}${vaultEmpty ? emptyNoteHTML('vault', cells ? `这一批能换的都换完了，${L.vaultRestockIn(st)} 月后换货。` : `宝库还空着，${L.vaultRestockIn(st)} 月后上货。`) : ''}<div id="vaultRot" class="pn-list">${cells}</div>
     <details class="more"><summary>宝库怎么换货</summary><div class="muted">每届论道换一批：本宗秘传功法、宝库法宝（够格时是镇宗之宝）、本宗阵图与器方按身份开放，贡献是唯一的货币。</div></details>`;
 }
 function bindSectVault(s) {
@@ -136,8 +136,8 @@ function nineHTML() {
     const N = L.NINE.find(x => x.id === id), me = id === st.sect.id;
     return `<div class="${me ? 'me' : ''}"><b>第${i + 1}</b><span>${N.n}${me ? '（本宗）' : ` · ${N.champ}`}</span><span class="num">${me ? fmt(L.power(st)) : fmt(L.ninePower(st, i + 1))}</span></div>`;
   }).join('');
-  return `<div class="muted">天下九宗（九宗会武每 24 周天一届，你代表本宗出战）</div>
-    <dl class="grid2"><dt>宗门排名</dt><dd>天下第 ${pos} 宗 · 最高第 ${st.sect.best}（俸禄 ×${(1 + 0.08 * (9 - pos)).toFixed(2)}）</dd><dt>灵脉</dt><dd>${st.sect.veins || 0} 条（俸禄 +${(st.sect.veins || 0) * 25}%）</dd><dt>下届会武</dt><dd>${next} 周天后</dd></dl>
+  return `<div class="muted">天下九宗（九宗会武每 24 月一届，你代表本宗出战）</div>
+    <dl class="grid2"><dt>宗门排名</dt><dd>天下第 ${pos} 宗 · 最高第 ${st.sect.best}（俸禄 ×${(1 + 0.08 * (9 - pos)).toFixed(2)}）</dd><dt>灵脉</dt><dd>${st.sect.veins || 0} 条（俸禄 +${(st.sect.veins || 0) * 25}%）</dd><dt>下届会武</dt><dd>${next} 月后</dd></dl>
     <div class="ladder">${rows}</div>`;
 }
 const NINE_LOOK = { kunlun: 'yun', tianjian: 'chu', xuesha: 'xue' };
@@ -192,7 +192,7 @@ function doPromote() {
     banner('晋升' + title, sc.n);
     SFX.win();
     sheet({ title: '晋升', center: true, body: `<div class="center">${myAvImg(66)}</div><div class="center big goldt">${title}</div>
-      <p class="center">${sc.n}钟声九响，全宗弟子齐聚广场。从今日起，你便是${sc.n}${title}！</p><p class="center muted">俸禄提升至每周天 ${fmt(L.pay(st))} 灵石，宗门宝库开放更高品阶。</p>`,
+      <p class="center">${sc.n}钟声九响，全宗弟子齐聚广场。从今日起，你便是${sc.n}${title}！</p><p class="center muted">俸禄提升至每月 ${fmt(L.pay(st))} 灵石，宗门宝库开放更高品阶。</p>`,
       foot: [{ t: '谢宗门栽培', gold: true, fn: closeModal }] });
   };
   if (res.duel) {
@@ -218,7 +218,7 @@ function showInvite() {
       <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
       <div class="quote">戒中老祖：“当年天剑宗把你踢下山，如今人家抢着要你。痛快不痛快？”</div>`,
-    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 周天后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每周天 ${fmt(L.pay(st))}`); } }],
+    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 月后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
   const show = () => {

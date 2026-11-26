@@ -1,6 +1,6 @@
-/* 废柴仙途 · 界面片段 boot：每周天、主循环、输入、启动
+/* 废柴仙途 · 界面片段 boot：每月、主循环、输入、启动
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
-// ---------- 每周天 ----------
+// ---------- 每月 ----------
 let monthAcc = 0;
 function onTick() {
   const out = L.tick(st, true);
@@ -23,7 +23,8 @@ function onTick() {
     else if (r.kind === 'busy') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, r.note || (r.label || '') + '完毕', '#8ff5d0');
     else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
-  if (out.train) pushPopup(showTrain);
+  // 老祖特训不在阻塞清单（§5.1）：进纸鹤，玩家点开才见（GO_K.train）
+  if (out.train) { if (L.mailPush) { L.mailPush(st, { k: 'say', ic: 'quest', t: '老祖要给你特训', left: 4, go: 'train' }); say('老祖要给你特训：看纸鹤'); } else pushPopup(showTrain); }
   if (st.guide && st.guide.done && st.tick % 3 === 0 && UI.isOpen('arts') && !awayUI()) artRecTip();
   if (st.guide && st.guide.done && st.tick % 3 === 1 && UI.isOpen('plus') && !awayUI()) gearPlusTip();
   if (out.auction) notify('tick', { k: 'auction', t: '拍卖会开槌', left: L.AUCTION.len }, () => banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} ${UNIT} · 三件竞价`));
@@ -47,13 +48,13 @@ function onTick() {
   if (!awayUI()) guideTick();   // 卡住检测与补齐的老祖气泡（guide-ask.js）
   saveLocal();
 }
-// E17 老祖特训：约战剩余 ≤ 8 周天、胜算 < 60%、未筑基未圆满，第一世只此一次
+// E17 老祖特训：约战剩余 ≤ 8 月、胜算 < 60%、未筑基未圆满，第一世只此一次
 function showTrain() {
   if (!L.canTrain(st)) return;
   const pi = L.pactInfo(st);
   sheet({ title: '老祖特训', center: true, noClose: true,
-    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个周天，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个周天，修炼 <b>×3</b>，不收灵石。</p></div>`,
-    foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 周天 · 修炼 ×3`); } closeModal(); } }] });
+    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个月，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个月，修炼 <b>×3</b>，不收灵石。</p></div>`,
+    foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 月 · 修炼 ×3`); } closeModal(); } }] });
 }
 function showVisitor() {
   const ev = L.visitorEvent(st);
@@ -111,7 +112,7 @@ function sceneClick(e) {
       tone(784, 0, 0.12, 'triangle', 0.1);
       floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0');
       for (let k = 0; k < 16; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
-    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}，在洞府打坐时每周天蓄一格${L.tunaStep(st) > 1 ? '（引气诀蓄得快些）' : ''}`, '#9d93b8', false, true);
+    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}，在洞府打坐时每月蓄一格${L.tunaStep(st) > 1 ? '（引气诀蓄得快些）' : ''}`, '#9d93b8', false, true);
     return;
   }
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }
@@ -150,4 +151,4 @@ window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, 
   UI, get tickMs() { return tickMs(); }, notify, openMail, showPrep, showYearBasic, resumeClock, get autoStop() { return autoStop(); }, watch: null,
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
 Object.assign(window.__xm, { showArts, showBag, showPetAwake });
-Object.assign(window.__xm, { showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get pauseIdx() { return SPEEDS.indexOf(0); }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）
+Object.assign(window.__xm, { showGearDetail, showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get pauseIdx() { return SPEEDS.indexOf(0); }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）

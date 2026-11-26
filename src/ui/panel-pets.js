@@ -21,7 +21,7 @@ function petSprImg(p, k) {
   return `<img class="px" src="${urlOf(c, ['ps', p.sp, p.form || 0, p.aw ? 1 : 0].join('|'))}" style="width:${32 * z}px;height:${28 * z}px;flex:none" alt="">`;
 }
 const hearts = p => '<span class="phearts">' + '♥'.repeat(p.heart) + '<i>' + '♥'.repeat(5 - p.heart) + '</i></span>';
-const petRole = (i, p) => (L.petResting(st, p) ? `休养 ${p.rest - st.tick} 周天` : i === st.petOut ? '出战' : p.job ? L.PET_JOB[p.job].n : '闲着');   // 挡过天劫的休养中（无效果）
+const petRole = (i, p) => (L.petResting(st, p) ? `休养 ${p.rest - st.tick} 月` : i === st.petOut ? '出战' : p.job ? L.PET_JOB[p.job].n : '闲着');   // 挡过天劫的休养中（无效果）
 const petRoleIcon = (i, p) => icon16(i === st.petOut ? 'job_out' : p.job ? L.PET_JOB[p.job].icon : 'feed', 1);
 const petTierTag = t => `<span class="tag" style="background:${['#9aa0a6', '#e6e1d3', '#62d26f', '#4aa8ff', '#c27dff', '#ffcf3f', '#ff7a7a'][Math.min(6, t)]}">${t} 阶</span>`;
 // 一件事做之前 / 之后的数（不改存档）
@@ -31,10 +31,10 @@ function arrowNum(a, b, f) { f = f || fmt; return f(a) === f(b) ? f(a) : `${f(a)
 function jobEffect(i, k) {
   const mut = () => (k === 'out' ? L.petSetOut(st, i) : L.petSetJob(st, i, k));
   if (k === 'out') { const [a, b] = petDelta(mut, () => L.power(st)); return `战力 ${arrowNum(a, b)}`; }
-  if (k === 'array') { const [a, b] = petDelta(mut, () => L.gain(st)); return `修炼 +${arrowNum(a, b, dec)}/周天`; }
-  if (k === 'field') { const [a, b] = petDelta(mut, () => L.income(st)); return `灵石 +${arrowNum(a, b, dec)}/周天，作物产量 +${L.pct(L.petTry(st, mut, () => L.petJobVal(st, 'field')))}`; }
+  if (k === 'array') { const [a, b] = petDelta(mut, () => L.gain(st)); return `修炼 +${arrowNum(a, b, dec)}/月`; }
+  if (k === 'field') { const [a, b] = petDelta(mut, () => L.income(st)); return `灵石 +${arrowNum(a, b, dec)}/月，作物产量 +${L.pct(L.petTry(st, mut, () => L.petJobVal(st, 'field')))}`; }
   if (k === 'furnace') { const [a, b] = petDelta(mut, () => L.alchRate(st)); return `成丹率 ${arrowNum(a, b, L.pct)}`; }
-  if (k === 'forage') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'forage')); return `兽粮 +${dec(v)}/周天，偶尔叼回灵矿药引`; }
+  if (k === 'forage') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'forage')); return `兽粮 +${dec(v)}/月，偶尔叼回灵矿药引`; }
   if (k === 'patrol') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'patrol')); return `坏访客、盗贼 −${L.pct(v)}`; }
   return '';
 }
@@ -44,7 +44,7 @@ function petPendHTML() {
     const m = L.petAtkOf(st, p), left = 12 - (st.tick - (p.pendAt || 0));
     const rep = st.pets.map((x, i) => `<button class="btn sm alt" data-ppend="${j}:${i}">${esc(L.petName(x))}<small>Lv${x.lv} ×${mult2(L.petAtkOf(st, x))}</small></button>`).join('');
     return `<div class="pend pn-pend"><div class="row">${petCardImg(p.sp, 0, 0, 1.5)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b>${petTierTag(L.petTier(p))}${petElChip(L.PET_SP[p.sp].el)}</div>
-      <div class="pn-key">出战 <b>×${mult2(m)}</b></div><div class="muted">名册满了（${st.pets.length}/${L.petCap(st)}）${left > 0 ? ` · ${left} 周天后自己走` : ''}</div></div></div>
+      <div class="pn-key">出战 <b>×${mult2(m)}</b></div><div class="muted">名册满了（${st.pets.length}/${L.petCap(st)}）${left > 0 ? ` · ${left} 月后自己走` : ''}</div></div></div>
       <div class="gbtns"><button class="btn sm gold" data-ppend="${j}:-1">放生<small>兽粮 +${L.petReleaseFeed(p)}</small></button></div>
       <div class="muted">或者换掉一只：</div><div class="gbtns pn-rep">${rep}</div>
       <details class="more pn-more"><summary>它的天赋</summary><div class="jadet">${esc(L.petTalText(p))}</div><div class="muted">${L.PET_TY[L.PET_SP[p.sp].ty]}型 · ${L.PET_EL_N[L.PET_SP[p.sp].el]}</div></details></div>`;
@@ -104,7 +104,7 @@ function showPets(u, still) {
     const feedBtn = `<button class="btn sm ${why || evoGold ? 'alt' : 'gold'} pfeed" id="petFeed" ${why ? 'disabled' : ''}>${icon16('feed', 1)} 喂食<small>${why ? esc(why) : '兽粮 ' + n}</small></button>`;
     const evo = L.petCanEvo(p) ? `<button class="btn ${glow ? 'gold pglowb' : 'alt'}" id="petEvo">进化<small>${glow ? ' · 条件齐了' : ' · 看条件'}</small></button>`
       : L.petCanAwake(p) ? '<button class="btn gold pglowb" id="petAwake">觉醒</button>' : '';
-    const role = L.petResting(st, p) ? `<span class="seal">挡过天劫，休养 ${p.rest - st.tick} 周天</span>` : out ? `出战：战力 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：<b>${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}</b>` : '<span class="seal">闲着：久了会掉好感</span>';
+    const role = L.petResting(st, p) ? `<span class="seal">挡过天劫，休养 ${p.rest - st.tick} 月</span>` : out ? `出战：战力 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：<b>${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}</b>` : '<span class="seal">闲着：久了会掉好感</span>';
     const tal = L.PET_TAL[L.petTalId(p)];
     det = `<div class="pdet pn-pdet"><div class="row">${petSprImg(p, 2)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b>${petTierTag(L.petTier(p))}${petElChip(S.el)}${p.aw ? '<span class="chip warn">觉醒</span>' : ''}</div>
       <div class="pn-key">${role}</div></div></div>
@@ -112,7 +112,7 @@ function showPets(u, still) {
       <div class="gbtns pbtns">${outBtn}${jobBtn}${feedBtn}</div>${evo}
       <details class="more pn-more"><summary>天赋 · 好感 · 喂养</summary>
         <div><span class="chip">${L.PET_TY[S.ty]}型</span> <span class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</span></div>
-        <div class="muted">好感 ${hearts(p)} ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '；五心能挡天劫（+10%，挡完休养 12 周天）、不会出走' : '；闲着 24 周天会掉一心'}</div>
+        <div class="muted">好感 ${hearts(p)} ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '；五心能挡天劫（+10%，挡完休养 12 月）、不会出走' : '；闲着 24 月会掉一心'}</div>
         ${feedNote ? `<div class="muted">${feedNote}</div>` : ''}
         <div class="muted">点【喂食】喂一口，按住连喂。每级要兽粮 6 × 1.5^级 × 阶，每级让倍率的超出部分 +5%、岗位效果 +4%；5 级二选一进化（品阶 +1），10 级觉醒。出战每趟历练另得一级的一成经验（+${fmt(L.PET_N.tripXp * need)}），斩妖带回兽粮。</div>
       </details></div>`;

@@ -24,7 +24,8 @@ const TAB_ON = { dao: 'attr', ach: 'rec', codex: 'rec' };
 const meTabOpen = k => { const sh = TAB_SHELL[k], row = sh && SHELL_TABS[sh].find(x => x[0] === k); if (k === 'pets') return UI.isOpen('pets') || L.petCount(st) > 0; if (k === 'bag') return true; if (k === 'field') return L.plotCount(st) > 0; if (k === 'alch') return st.home.furnace > 0; if (k === 'zhen') return !!L.zhenOpen(st); if (k === 'bond') return UI.isOpen('bond') || Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]); return !row || !row[2] || UI.isOpen(row[2]); };
 function meTabs(tab) {
   const sh = TAB_SHELL[tab] || 'path', on = TAB_ON[tab] || tab;
-  const seen = st.flags.tabSeen || (st.flags.tabSeen = {});
+  if (!st.flags.tabSeen) { st.flags.tabSeen = {}; for (const sh in SHELL_TABS) for (const [k] of SHELL_TABS[sh]) if (meTabOpen(k)) st.flags.tabSeen[k] = 1; }   // 第一次：开着的都算看过
+  const seen = st.flags.tabSeen;
   const list = SHELL_TABS[sh].filter(([k]) => k === on || meTabOpen(k));
   if (meTabOpen(on)) seen[on] = 1;
   if (list.length < 2) return `<div class="ktabs" data-kshell="${sh}" hidden></div>`;

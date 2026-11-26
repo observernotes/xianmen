@@ -1,5 +1,5 @@
 // 冒烟测试 + 截图：node tools/shot.js <输出目录>
-// 速度档：SPEEDS = [1, 2, 4, 0]，setSpeed(3) 是暂停
+// 速度档：SPEEDS = [1, 2, 0]，setSpeed(3) 夹到最后一档 = 暂停（开罗式重整：底栏五格 历练 / 洞府 / 装备 / 江湖 / 仙途）
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const out = process.argv[2] || path.join(__dirname, '..', 'shots');
@@ -51,7 +51,7 @@ require('fs').mkdirSync(out, { recursive: true });
   });
   await close(); await page.waitForTimeout(1200);
   await page.screenshot({ path: out + '/04-home-mid.png' });
-  for (const [nav, name] of [['exp', '05-exp'], ['home', '06-home'], ['sect', '07-sect'], ['market', '08-market'], ['me', '09-me']]) {
+  for (const [nav, name] of [['exp', '05-exp'], ['home', '06-home'], ['gear', '07-gear'], ['world', '08-world'], ['path', '09-path']]) {
     await page.click(`[data-nav="${nav}"]`); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${name}.png` }); await page.click('.sheet .close'); await page.waitForTimeout(450);
   }
   // 功法页：三个大槽 + 列表；换上青木长生功、回春剑诀 → 共鸣「生生不息」揭晓
@@ -73,7 +73,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09e-arts-after.png' });
   await close();
   // 法宝页：三格 + 每格下【强化】；手机上不横向溢出、可点的都 ≥ 44 像素
-  await page.evaluate(() => window.__xm.showGear('w')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09f-gear.png' });
+  await page.evaluate(() => window.__xm.showGearDetail('w')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09f-gear.png' });
   const glay = await page.evaluate(() => {
     const body = document.querySelector('#modal .body'), bad = [];
     for (const el of document.querySelectorAll('#modal [data-gslot], #modal [data-plus], #modal [data-rf], #modal [data-glock], #modal #btnForge, #modal .tabs button')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 44 || r.width < 44)) bad.push(el.textContent.trim().slice(0, 8) + ' ' + Math.round(r.width) + '×' + Math.round(r.height)); }
@@ -108,10 +108,10 @@ require('fs').mkdirSync(out, { recursive: true });
     return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad, gold };
   }, [what, sel]);
   const pnCheck = (r, maxGold) => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); if (r.gold > maxGold) errors.push(`${r.what}同一屏有 ${r.gold} 个金按钮`); };
-  await page.evaluate(() => window.__xm.showMe('attr')); await page.waitForTimeout(250);
-  if (!(await page.$('#modal #btnBag'))) errors.push('人物属性页没有【包裹】入口');
+  await page.evaluate(() => window.__xm.showEquip('gear')); await page.waitForTimeout(250);
+  if (!(await page.$('#modal [data-kt="bag"]'))) errors.push('【装备】没有【包裹】分页');
   else {
-    await page.click('#modal #btnBag'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09h-bag.png' });
+    await page.click('#modal [data-kt="bag"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09h-bag.png' });
     pnCheck(await pnLay('包裹', '#modal .pn-tile, #modal button'), 1);
     const nt = await page.evaluate(() => document.querySelectorAll('#modal .pn-tile').length);
     if (nt < 4) errors.push('包裹里的格子太少：' + nt);
@@ -121,10 +121,10 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; window.__xm.showExpResult(res); });
   await page.waitForTimeout(1300); await page.screenshot({ path: out + '/09i-exp-gcmp.png' });
-  pnCheck(await pnLay('结算卡对比卡', '#modal [data-gcmp] button, #modal .foot .btn'), 1);
-  const gin = await page.evaluate(() => { const c = document.querySelector('#modal [data-gcmp] .gbtns'); if (!c) return null; const r = c.getBoundingClientRect(), b = document.querySelector('#modal .body').getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
+  pnCheck(await pnLay('结算卡对比卡', '#modal [data-krow] button, #modal .foot .btn'), 1);
+  const gin = await page.evaluate(() => { const c = document.querySelector('#modal [data-krow] [data-req]'); if (!c) return null; const r = c.getBoundingClientRect(), b = document.querySelector('#modal .body').getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
   if (!gin) errors.push('结算卡里的对比卡按钮没滚进第一屏：' + gin);
-  await page.evaluate(() => document.querySelector('#modal [data-gcmp] [data-gsm]').click()); await page.waitForTimeout(200);
+  await page.evaluate(() => document.querySelector('#modal [data-krow] [data-rkeep]').click()); await page.waitForTimeout(200);
   if (!(await page.evaluate(() => !!document.querySelector('#modal .foot .btn.gold')))) errors.push('对比卡决定后，结算卡的金按钮没换回来');
   await close();
   // ---------- 灵宠（SYSTEMS §4）：兽栏、派岗、进化二选一、名册满的放生替换、洞府场景里四只灵宠 ----------
@@ -134,9 +134,9 @@ require('fs').mkdirSync(out, { recursive: true });
     return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad };
   }, [sel, what]);
   const petLay = r => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); };
-  await page.click('[data-nav="home"]'); await page.waitForTimeout(250);
-  if (!(await page.$('#modal #btnPets'))) errors.push('洞府里没有【兽栏】入口');
-  await page.click('#modal #btnPets'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-pets.png' });
+  await page.click('[data-nav="gear"]'); await page.waitForTimeout(250);
+  if (!(await page.$('#modal [data-kt="pets"]'))) errors.push('【装备】里没有【灵宠】分页');
+  await page.click('#modal [data-kt="pets"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-pets.png' });
   petLay(await pet44('#modal .pcard[data-pi], #modal .pbtns .btn, #modal #petEvo', '兽栏'));
   pnCheck(await pnLay('兽栏', '#modal summary'), 1);   // 出战 / 派岗 / 喂食 / 进化 只有一个是金的
   const pc = await page.evaluate(() => ({ n: document.querySelectorAll('#modal .pcard[data-pi]').length, glow: document.querySelectorAll('#modal .pcard.glow').length }));
@@ -179,7 +179,7 @@ require('fs').mkdirSync(out, { recursive: true });
     st.disc.q = []; st.storyQ = [];
   });
   const sectLay = async (what) => petLay(await pet44('#modal [data-stab], #modal [data-gift], #modal [data-vr], #modal [data-tk], #modal [data-td], #modal [data-di], #modal [data-dj], #modal #discTeach, #modal #discGrad, #modal [data-dtake], #modal #discPass, #modal #btnDuty, #modal #btnPromo, #modal [data-duty], #modal [data-dt], #modal .close', what));
-  await page.click('[data-nav="sect"]'); await page.waitForTimeout(250);
+  await page.evaluate(() => window.__xm.showSect()); await page.waitForTimeout(250);
   await page.click('#modal [data-stab="id"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/30-sect-id.png' }); await sectLay('宗门·身份');
   const idUi = await page.evaluate(() => ({ elders: document.querySelectorAll('#modal .pn-it.elder').length, imgs: document.querySelectorAll('#modal .pn-it.elder img').length, duty: (document.querySelector('#dutyCard') || {}).textContent || '' }));
   if (idUi.elders !== 3 || idUi.imgs < 3 || !idUi.duty.includes('器堂')) errors.push('宗门·身份页：三位长老立绘与职司不对：' + JSON.stringify(idUi));
@@ -293,7 +293,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(400); await page.screenshot({ path: out + '/31-field.png' });
   lay44(await big44('#modal .fplot, #modal [data-crop], #modal .fscope button, #modal .close', '灵田'));
   const fp = await page.evaluate(() => ({ t: document.querySelector('#modal h2') && document.querySelector('#modal h2').textContent, n: document.querySelectorAll('#modal .fplot').length, sel: [...document.querySelectorAll('#modal .fplot')].findIndex(b => b.classList.contains('sel')), rows: document.querySelectorAll('#modal .crow').length, rec: !!document.querySelector('#modal .crow .chip.warn') }));
-  if (fp.t !== '灵田' || fp.n !== 5 || fp.sel !== 1 || fp.rows !== 8 || !fp.rec) errors.push('点田没打开灵田面板（应 5 块、选第 2 块、8 种作物、有“荐”）：' + JSON.stringify(fp));
+  if (!/灵田|洞府/.test(fp.t) || fp.n !== 5 || fp.sel !== 1 || fp.rows !== 8 || !fp.rec) errors.push('点田没打开灵田面板（应 5 块、选第 2 块、8 种作物、有“荐”）：' + JSON.stringify(fp));
   const inc0 = await page.evaluate(() => window.__xm.L.income(window.__xm.st));
   await page.click('#modal [data-crop="rice"]'); await page.waitForTimeout(300);
   const pl = await page.evaluate(() => ({ c: window.__xm.st.crops.plots[1].c, inc: window.__xm.L.income(window.__xm.st), msg: (document.querySelector('#modal .quote') || {}).textContent || '' }));
@@ -352,7 +352,7 @@ require('fs').mkdirSync(out, { recursive: true });
   if (calT.t !== '年历' || calT.strip !== 194 || calT.w < 194) errors.push('年历没有打开或时间轴不对：' + JSON.stringify(calT));
   lay44(await big44('#modal .calgo, #modal .close', '年历'));
   await close();
-  await page.click('[data-nav="market"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/22-shelf.png' });
+  await page.evaluate(() => window.__xm.showMarket()); await page.waitForTimeout(300); await page.screenshot({ path: out + '/22-shelf.png' });
   lay44(await big44('#modal .mbuy, #modal .close', '货架'));
   const shelfN = await page.evaluate(() => document.querySelectorAll('#modal .shelfrow').length);
   if (shelfN < 6) errors.push('货架不足 6 格：' + shelfN);
@@ -389,10 +389,12 @@ require('fs').mkdirSync(out, { recursive: true });
   if (!fl.run || fl.tok !== 1 || fl.n < 2) errors.push('进秘境后没有门卡：' + JSON.stringify(fl));
   if (fl.small) errors.push('秘境门卡不足 44px：' + fl.small);
   if (fl.page > 0) errors.push('秘境场景横向溢出 ' + fl.page + 'px');
-  if (!/每层.*扇门.*掉 \d+ 气血/.test(fl.hint)) errors.push('老祖第一句没讲门与气血：' + fl.hint.slice(0, 50));
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if (!/每层.*扇门.*掉 \d+ 气血/.test(fl.hint)) errors.push('老祖第一句没讲门与气血：' + fl.hint.slice(0, 50));
   for (let i = 0; i < 3; i++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(250); if (i < 2) await page.screenshot({ path: `${out}/27${'bc'[i]}-realm-elder.png` }); }
   const seen = await page.evaluate(() => ['realm1', 'realm2', 'realm3'].filter(h => window.__xm.st.hintSeen[h]).length);
-  if (seen !== 3) errors.push('老祖的三句没讲完：' + seen);
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if (seen !== 3) errors.push('老祖的三句没讲完：' + seen);
   // 一间战斗房：动画 → 飘字 → 下一层
   await page.evaluate(() => { const { st } = window.__xm; st.run.doors = [{ t: 'fight', unk: false }, { t: 'spring', unk: false }]; window.__xm_realm.syncRealmUI(true); });
   const hp0 = await page.evaluate(() => window.__xm.st.run.hp);
@@ -421,7 +423,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { const { st } = window.__xm; st.run.hp = 18; st.run.warned = 0; window.__xm_realm.syncRealmUI(true); window.__xm_realm.realmLowTip(); });
   await page.waitForTimeout(400); await page.screenshot({ path: out + '/32-realm-lowhp.png' });
   const low = await page.evaluate(() => (document.querySelector('#guide:not([hidden]) .gtext') || {}).textContent || '');
-  if (!/该走了.*\d+.*件/.test(low)) errors.push('低气血没有老祖气泡：' + low.slice(0, 40));
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if (!/该走了.*\d+.*件/.test(low)) errors.push('低气血没有老祖气泡：' + low.slice(0, 40));
   { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (o) { await o.click(); await page.waitForTimeout(200); } }
   // 守关 → 秘藏三选一 → 结算
   await page.evaluate(() => { const { st } = window.__xm; const r = st.run; r.floor = r.floors; r.max = 999; r.hp = 999; r.doors = [{ t: 'boss', unk: false }]; window.__xm_realm.syncRealmUI(true); });
@@ -557,7 +560,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await rvBuild('prep'); await page.evaluate(() => { delete window.__xm.st.hintSeen.rvKezhi; window.__xm.runTournament(); });
   for (let i = 0; i < 12 && (await page.evaluate(() => window.__xm.guideDbg.active)) !== 'rvKezhi'; i++) await page.waitForTimeout(250);
   await page.waitForTimeout(300); await page.screenshot({ path: out + '/72-rv-guide-kezhi.png' });
-  if ((await page.evaluate(() => window.__xm.guideDbg.active)) !== 'rvKezhi') errors.push('对决准备页的【换上】没有引出老祖的克制讲解');
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if ((await page.evaluate(() => window.__xm.guideDbg.active)) !== 'rvKezhi') errors.push('对决准备页的【换上】没有引出老祖的克制讲解');
   await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }); await close();
   // 全局 .sheet .foot .btn { min-height: 44px }：别的页的底部按钮没被挤坏（宿敌页之外抽三页量一下）
   for (const [fn, what] of [['showMe("attr")', '人物 · 属性（底部按钮）'], ['showMarket()', '坊市（底部按钮）'], ['showSect()', '宗门（底部按钮）']]) {
@@ -681,7 +685,8 @@ require('fs').mkdirSync(out, { recursive: true });
   }
   await page.waitForTimeout(300); await page.screenshot({ path: out + '/p09-gift-hint.png' }); 
   const gh = await page.evaluate(() => ({ dbg: window.__xm.guideDbg, gift: !!document.querySelector('#ppGift:not([disabled])'), vis: !document.querySelector('#guide').hidden, txt: (document.querySelector('#guide .gtext') || {}).textContent || '' }));
-  if (!gh.vis || !/送礼/.test(gh.txt)) errors.push('老祖没有讲送礼：' + JSON.stringify(gh));
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if (!gh.vis || !/送礼/.test(gh.txt)) errors.push('老祖没有讲送礼：' + JSON.stringify(gh));
   await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(400);
   await page.evaluate(() => { const { st } = window.__xm; st.visitor = null; st.tick -= 100; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }); await close();
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
@@ -738,7 +743,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(500); await close();
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40-codex.png' });
   await sLay('图鉴');
-  const cx1 = await page.evaluate(() => ({ cats: document.querySelectorAll('#cxGrid [data-cx]').length, cells: document.querySelectorAll('#cxBody .cxc').length, tabs: [...document.querySelectorAll('#modal .tabs button')].some(b => b.textContent === '图鉴') }));
+  const cx1 = await page.evaluate(() => ({ cats: document.querySelectorAll('#cxGrid [data-cx]').length, cells: document.querySelectorAll('#cxBody .cxc').length, tabs: [...document.querySelectorAll('#modal .ktabs button')].some(b => b.textContent.startsWith('记录')) }));
   if (cx1.cats !== 14 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
   await page.click('#modal [data-cx="chain"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40b-codex-chain.png' }); await sLay('图鉴·链');
   const cx2 = await page.evaluate(() => ({ chains: document.querySelectorAll('#cxBody .cxchain').length, segs: document.querySelectorAll('#cxBody .cxseg i').length }));
@@ -746,19 +751,20 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal [data-cx="event"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40c-codex-event.png' }); await sLay('图鉴·奇遇');
   await page.click('#modal [data-cx="rival"]'); await page.waitForTimeout(250); await sLay('图鉴·对手');
   await page.click('#modal [data-cx="pet"]'); await page.waitForTimeout(250); await sLay('图鉴·灵宠');
-  // 人物页的轮回按钮
-  await page.evaluate(() => window.__xm.showMe('attr')); await page.waitForTimeout(300);
+  // 轮回按钮（开罗式重整：在【仙途】→ 记录）
+  await page.evaluate(() => window.__xm.showRecord()); await page.waitForTimeout(300);
   if (!(await page.$('#btnReborn'))) errors.push('飞升后人物页没有【再入轮回】');
-  await page.evaluate(() => { const { st } = window.__xm; st.p.r = 3; window.__xm.showMe('attr'); }); await page.waitForTimeout(300);
+  await page.evaluate(() => { const { st } = window.__xm; st.p.r = 3; window.__xm.showRecord(); }); await page.waitForTimeout(300);
   if (!(await page.$('#btnBingjie')) || (await page.$('#btnReborn'))) errors.push('金丹期人物页应只有【兵解转世】');
   await page.screenshot({ path: out + '/40d-me-bingjie.png' }); lay44(await big44('#btnBingjie, #btnReborn', '人物·兵解按钮'));
-  await page.evaluate(() => { const { st } = window.__xm; st.p.r = 9; window.__xm.showMe('attr'); }); await page.waitForTimeout(300);
+  await page.evaluate(() => { const { st } = window.__xm; st.p.r = 9; window.__xm.showRecord(); }); await page.waitForTimeout(300);
   await page.evaluate(() => window.__xm.setSpeed(0));
   await page.click('#btnReborn'); await page.waitForTimeout(500); await page.screenshot({ path: out + '/41-settle.png' }); await sLay('结算');
   const se = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, tot: !!document.querySelector('#dgTotal'), dg: window.__xm.st.settle && window.__xm.st.settle.total, rows: document.querySelectorAll('#modal .dgrow').length }));
   if (se.t !== '轮回结算' || !se.tot || !(se.dg > 0) || se.rows < 5) errors.push('结算页不对：' + JSON.stringify(se));
   for (let i = 0; i < 8 && !/道果/.test(await sGuide()); i++) await page.waitForTimeout(250);
-  const g1 = await sGuide(); if (!/道果/.test(g1) || !g1.includes(String(se.dg).slice(0, 2))) errors.push('老祖讲 samsara1 缺失：' + g1.slice(0, 40));
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // const g1 = await sGuide(); if (!/道果/.test(g1) || !g1.includes(String(se.dg).slice(0, 2))) errors.push('老祖讲 samsara1 缺失：' + g1.slice(0, 40));
   await page.screenshot({ path: out + '/41b-settle-guide.png' }); await sAck(); await page.waitForTimeout(200);
   await page.evaluate(() => { window.__xm.st.meta.daoguo += 8000; });
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
@@ -772,7 +778,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.screenshot({ path: out + '/42b-legacy-picked.png' });
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
   for (let i = 0; i < 24 && !/点一个节点/.test(await sGuide()); i++) await page.waitForTimeout(250);
-  if (!/点一个节点/.test(await sGuide())) errors.push('老祖讲 hall1 缺失：' + JSON.stringify(await page.evaluate(() => ({ d: window.__xm.guideDbg, seen: window.__xm.st.hintSeen.hall1, t: document.querySelector('#modal h2').textContent, g: document.querySelector('#guide').hidden }))));
+  // 开罗式重整 §5.1：这段老祖讲解已删（阻塞对话只剩清单里的 11 种），不再断言
+  // if (!/点一个节点/.test(await sGuide())) errors.push('老祖讲 hall1 缺失：' + JSON.stringify(await page.evaluate(() => ({ d: window.__xm.guideDbg, seen: window.__xm.st.hintSeen.hall1, t: document.querySelector('#modal h2').textContent, g: document.querySelector('#guide').hidden }))));
   await sAck(); await page.waitForTimeout(200);
   await page.screenshot({ path: out + '/43-hall.png' }); await sLay('轮回殿');
   const hl = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, nodes: document.querySelectorAll('#hallGrid [data-h]').length, all: document.querySelectorAll('#modal [data-h]').length }));
@@ -810,7 +817,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 限时试炼：第 480 周天坐化页的文案；没有可传承的东西时传承页直接跳过
   await page.evaluate(() => { const { st } = window.__xm; st.tick = 480; window.__xm.showDeath(); }); await page.waitForTimeout(400); await page.screenshot({ path: out + '/49-death-limit.png' }); await sLay('限时坐化');
   const dl = await page.evaluate(() => document.querySelector('#modal').textContent);
-  if (!/天道试炼·限时：第 480 个周天到了/.test(dl)) errors.push('限时坐化页文案不对：' + dl.slice(0, 80));
+  if (!/天道试炼·限时：第 480 (个周天|个月)到了/.test(dl)) errors.push('限时坐化页文案不对：' + dl.slice(0, 80));
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400); await sAck();
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(500);
   const sk = await sTitle(); if (sk !== '轮回殿') errors.push('没有可传承的东西时应跳过传承页直接进轮回殿：' + sk);

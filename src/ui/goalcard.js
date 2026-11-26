@@ -49,10 +49,11 @@ L.goalNow = L.goalNow || function (st) {
 L.lifeMonths = L.lifeMonths || (st => { if (st.p.r > L.MAXR) return { m: Infinity, text: '不朽', red: false }; const m = L.lifeTicks(st); return { m, text: m >= 120 ? '寿元足' : `寿元 ${m} 月`, red: m <= 60 }; });
 L.bigNext = L.bigNext || (st => { const nb = L.nextBig(st); return nb ? { k: nb.k, n: nb.n, left: nb.left, p: nb.info && nb.info.p } : null; });
 L.timeBar = L.timeBar || function (st) {
-  const t = st.tick, y = Math.floor(t / 12) + 1, m = (t % 12) + 1, big = L.bigNext(st);
-  const pre = !st.pact && !st.rebirth, n = pre ? 36 : 12, cur = pre ? Math.min(35, t) : t % 12;
+  // 月份跟四季对齐（L.season：每年第 1～3 月春……第 10～12 月冬；第 t 月 = tick t，开局 tick 0 是头一年开春前的冬末）
+  const t = st.tick, k = Math.max(0, t - 1), y = Math.floor(k / 12) + 1, m = t ? (k % 12) + 1 : 12, big = L.bigNext(st);
+  const pre = !st.pact && !st.rebirth, n = pre ? 36 : 12, cur = pre ? Math.min(35, k) : k % 12;
   const cells = []; for (let i = 0; i < n; i++) cells.push({ s: i < cur ? 'past' : i === cur ? 'now' : 'future' });
-  if (big && cur + big.left < n) cells[cur + big.left] = { s: 'big', k: big.k };
+  if (big && (cur + big.left < n || (pre && big.k === 'pact'))) cells[Math.min(n - 1, cur + big.left)] = { s: 'big', k: big.k };   // 三年之约在第 36 月末：画在最后一格
   return { y, m, season: L.season(st), n, cur, cells, big, label: big ? `${big.n} 还有 ${big.left} ${MO()}` : '' };
 };
 L.mailbox = L.mailbox || (st => (st.inbox || []).filter(x => x.left === null || x.left === undefined || x.left > 0));
@@ -143,7 +144,7 @@ const GO_K = {
   world: () => showWorld(), rivals: () => showWorld('rank'), sect: () => showWorld('sect'), market: () => showWorld('market'), people: () => showWorld('people'),
   path: () => showPath(), attr: () => showPath('attr'), record: () => showPath('rec'), big: () => showBig(), prep: () => (typeof showPrep === 'function' ? showPrep() : showBig()),
   field: () => showField(), furnace: () => (st.home.furnace ? showAlchemy() : showHome()), zhen: () => (L.zhenOpen(st) ? showZhen() : showHome()), realm: () => showRealm(), cal: () => showCalendar(),
-  disc: () => showWorld('sect'), trib: () => (L.isReady(st) ? showBreakthrough() : showTribPrep ? showTribPrep() : showBig()), inbox: () => showInbox(), cult: () => GO_K.bt(), me: () => showPath('attr'), codex: () => showCodex(),
+  train: () => showTrain(), disc: () => showWorld('sect'), trib: () => (L.isReady(st) ? showBreakthrough() : showTribPrep ? showTribPrep() : showBig()), inbox: () => showInbox(), cult: () => GO_K.bt(), me: () => showPath('attr'), codex: () => showCodex(),
 };
 // 跳转键 → 底栏哪一格（底栏的“去”角标）
 const GO_NAV = { bt: '', exp: 'exp', realm: 'exp', home: 'home', field: 'home', furnace: 'home', zhen: 'home', gear: 'gear', arts: 'gear', pets: 'gear', bag: 'gear', world: 'world', rivals: 'world', sect: 'world', market: 'world', people: 'world', disc: 'world', path: 'path', attr: 'path', record: 'path', codex: 'path', cal: '', big: '', prep: '', inbox: '' };
@@ -183,7 +184,9 @@ function navState(nav) {
 // “新”：开了、还没在面板里看过（打开那一格就算看过）
 function navNewN(nav) {
   if (!st || !st.onb) return 0;
-  const seen = st.flags.navSeen || (st.flags.navSeen = {});
+  // 第一次见到（新档或旧档读进来）：已经开着的都算看过，只给之后新开的挂“新”
+  if (!st.flags.navSeen) { st.flags.navSeen = {}; for (const k in st.onb.at) st.flags.navSeen[k] = 1; }
+  const seen = st.flags.navSeen;
   let n = (NAV_KEYS[nav] || []).filter(k => st.onb.at[k] !== undefined && st.onb.at[k] > 0 && !seen[k] && !st.rebirth).length;
   if (nav === 'gear' && st.gear) n += st.gear.pend.filter(y => !y.hold).length + ((st.petPend || []).length);
   return n;
@@ -246,7 +249,7 @@ function renderMain() {
   if (pb.classList.contains('on') !== paused) { pb.classList.toggle('on', paused); pb.innerHTML = artIcon(paused ? 'play' : 'pause', 20); pb.setAttribute('aria-label', paused ? '继续' : '暂停'); }
   // 时间条：本章 36 格（第一章）或今年 12 格；大节点红格 + 右上角“还有 N 月”
   const tb = L.timeBar(st);
-  $('#date').textContent = `第${tb.y}年 · ${'春夏秋冬'[tb.season]} · ${tb.m}${MO()}`;
+  $('#date').textContent = st.tick ? `第${tb.y}年 · ${'春夏秋冬'[tb.season]} · ${tb.m}${MO()}` : `第1年 · 开春前`;
   const bl = $('#bigLeft'), lbl = tb.big ? tb.label || `${tb.big.n} 还有 ${tb.big.left} ${MO()}` : '';
   if (bl.textContent !== lbl) bl.textContent = lbl;
   bl.classList.toggle('gold', !!tb.big && tb.big.left > 6);
