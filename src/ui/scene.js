@@ -286,6 +286,7 @@ function floatText(x, y, text, color, big, small) {
 }
 function floatNext() { const f = floatQ.shift(); if (!f) return; floatBusy = 0; floatText(...f); if (floatQ.length) setTimeout(floatNext, 1120); }
 function floatRaw(x, y, text, color, big, small) {
+  sfxFloat(text);
   const el = document.createElement('div');
   el.className = 'float' + (big ? ' big' : '');
   el.style.left = (x / W * 100).toFixed(2) + '%'; el.style.top = ((y + OY) / H * 100).toFixed(2) + '%'; el.style.color = color || '#fff';

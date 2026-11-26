@@ -317,7 +317,7 @@ function bossResultUI(k, res) {
   const body = !res.win ? `<div class="center">${stampHTML(0, true)}</div><p class="center">${esc(B.n)}太强，重伤而归（负伤 4 ${MO()}）。变强之后再来！</p>`
     : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
     : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`;
-  if (res.win) SFX.win(); else SFX.fail();
+  if (res.win) SFX.victory(); else SFX.defeat();
   // 首领的牌（loot.js 的 L.bossLoot：首杀 3 张固定，再战 1 张）：就翻在这张卡上
   const cards = res.win && res.cards && res.cards.length ? res.cards : null;
   const s = sheet({ title: '首领 · ' + B.n, center: true, body: body + (cards ? lootFlipHTML(cards) : ''), foot: [{ t: '好', gold: true, fn: closeModal }] });

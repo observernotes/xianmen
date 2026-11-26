@@ -11,8 +11,8 @@ const SLOTS = L.slotStore({ get: k => localStorage.getItem(k), set: (k, v) => lo
 function saveLocal(why) { if (!st) return; try { st.savedAt = Date.now(); SLOTS.writeAuto(st, typeof why === 'string' ? why : ''); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function clearLocal() { try { SLOTS.retire(st); } catch (e) { /* ignore */ } }   // 重新开始：当前进度挤进自动 2，自动 1 空出来（手动档不动）
-function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx })); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
+function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {

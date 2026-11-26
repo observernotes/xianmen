@@ -105,7 +105,7 @@ function showUnlock(k) {
     body: `<div class="unl"><div class="ic"><img class="px" id="unlBurst" src="${urlOf(ART.burst(0), 'burst|0')}" style="width:${bz}px;height:${bz}px" alt="">${artIcon(C.ic, iz) || sysIcon(k, iz)}</div>
       <div class="big">解锁了！</div><div class="nm">${esc(C.n || e.n)}</div><div class="one">${one}</div><div class="way">${esc(way)}</div>
       <div class="kfoot"><button class="btn alt" id="unlOk">知道了</button><button class="btn gold" id="unlGo">带我去 ▸</button></div></div>` });
-  SFX.reveal(3);
+  SFX.unlock();
   let f = 0; clearInterval(burstTimer);
   burstTimer = setInterval(() => { const im = document.getElementById('unlBurst'); if (!im) { clearInterval(burstTimer); return; } f = 1 - f; im.src = urlOf(ART.burst(f), 'burst|' + f); }, 250);
   s.querySelector('#unlOk').onclick = () => { SFX.tap(); closeModal(); };

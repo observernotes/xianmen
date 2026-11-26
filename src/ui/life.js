@@ -28,6 +28,7 @@ function showAscension() {
 }
 function showDeath() {
   const p = st.p;
+  BGM.play('sorrow', { while: () => !$('#modal').hidden });   // 坐化到转世这一串弹窗：低回那首
   recordLife();
   saveLocal();
   const f = L.daoFruit(st), lim = L.trialOn(st, 'limit') && st.tick >= L.TRIAL_LIMIT;

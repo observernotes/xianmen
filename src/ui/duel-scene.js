@@ -119,7 +119,7 @@ function duelSkip() {
 function duelFinish(d) {
   if (d.ended) return;
   d.ended = true;
-  if (d.win) SFX.win(); else SFX.fail();
+  if (d.win) SFX.victory(); else SFX.defeat();
   if (d.onEnd) d.onEnd();
 }
 // ---------- 每帧（scene.js 的 drawScene 在对决时调这里） ----------

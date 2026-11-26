@@ -1049,6 +1049,13 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kslot .kb { flex: none; min-height: 44px; min-width: 52px; padding: 2px 8px; font: inherit; font-size: 15px; line-height: 1.15; cursor: pointer; border: 2px solid #2c2238; background: #f4c542; color: #2c2238; text-align: center; white-space: nowrap; }
 .kslot .kb small { color: #2c2238; margin: 0; font-size: 14px; }
 .kslot .kb.alt { background: #f6ecd2; }
+/* 设置里的音量格（audio.js / panel-me.js 的 volBar）：五根由矮到高的柱子，每根一个 28×44 的点按区 */
+.kslot.kvrow { padding: 0 6px 0 10px; }
+.kvol { display: flex; align-items: stretch; height: 44px; flex: none; cursor: pointer; }
+.kvol i { width: 28px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7px; }
+.kvol i b { display: block; width: 18px; border: 2px solid #2c2238; background: #d9c9a0; box-sizing: border-box; }
+.kvol i.on b { background: #f4c542; }
+.kvol i:nth-child(1) b { height: 10px; } .kvol i:nth-child(2) b { height: 15px; } .kvol i:nth-child(3) b { height: 20px; } .kvol i:nth-child(4) b { height: 25px; } .kvol i:nth-child(5) b { height: 30px; }
 .kslot .kb.red { background: #d8404a; color: #fff; }
 .kslot .kb:disabled { background: #e2d4ae; color: #a8987a; border-color: #b9a988; cursor: default; }
 .kslot .kb:disabled small { color: #a8987a; }
