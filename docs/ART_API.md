@@ -409,3 +409,16 @@
 
 - `src/ui/talk.js`：`tkFace`（对话场景左右两张立绘）；`src/ui/cine2.js` / `talk.js` 的特写带经 `ART.cutin` 自动用上。
 - 阶段十合计页面约 +36 KB。
+
+## HD-2D 渲染模块（src/fx/hd2d.js，设计见 docs/ART_HD2D.md）
+
+以上所有 `ART.*` 的名字与参数不变。`ART.setCtx(ctx)` 发现画布是 `#scene` 时自动交给 `HD2D` 接管：背景分层（天 / 远 / 中 / 地 / 前景）、人物层升 2 倍密度、景深、灯光、辉光、体积光、轮廓光、投影、粒子、调色。`HD2D.setQuality(0)` 或网址带 `?hd=0` 就是原来的画面。
+
+- 画质：`HD2D.setQuality(0～3 | 'auto')`（0 关 / 1 省 / 2 标准，默认 / 3 极致），`HD2D.q`、`HD2D.auto`、`HD2D.opts`（单项开关）、`HD2D.stats`。掉帧自动降级。
+- 高清模式下行为有变的接口：`ART.glow` 记成一盏平滑的灯（不再画抖动圆斑）；`ART.nightOverlay` 记环境光与灯表，由合成那一步去罩；`ART.drawHome / drawAdventure / drawDuelStage / drawRealm` 画完后场景画布上只剩透明的人物层（背景在别的层里）。
+- `ART.frame(kind).url` 在高清皮肤开着时是一张 SVG（固有尺寸仍 20×20、切片仍是 6，里面嵌 3 倍密度的像素图）；`.canvas` 仍是原来的 20×20 画布。
+- 半身像（缓存 key 以 `pt` 开头的画布）`toDataURL()` 给 2 倍密度的图；画布本身的 `width / height` 不变。
+- 新素材按 2 倍密度画：画布标 `c._hd = 2`，场景里 `ctx.drawImage(c, x, y)` 按逻辑尺寸落笔；大张静态底图标 `c._hdOK = 1` 允许自动升 2 倍。
+- 手动加光：`HD2D.light(x, y + OY, r, color, alpha)`；给别的舞台画布罩气氛层：`HD2D.stageFx(容器, 源画布, { motes, z })`；抠合成好的场景：`HD2D.snap(g, sx, sy, sw, sh, dx, dy, dw, dh)`。
+- 各场景的光照配置在 `HD2D.profiles`（`'adv:forest'`、`'duel:cloud'`、`'home'` …）：`blur` 各层虚化、`key` 主光、`rays` 体积光、`motes` 粒子、`grade` 调色、`fog` 空气透视、`vig` 暗角、`bloom` 辉光、`feet` 脚线（有则投影）、`gloss` 地面反光。
+- 工具：`node tools/hd2d_shots.js [目录] [only=…] [hd=3]` 出前后对比图；`node tools/hd2d_perf.js [节流倍数]` 量帧耗时。

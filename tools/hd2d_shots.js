@@ -1,4 +1,4 @@
-// HD-2D 样张与前后对比：node tools/hd2d_shots.js [输出目录=docs/hd2d_mock] [only=home,battle,talk,panel,...] [hd=3]
+// HD-2D 样张与前后对比：node tools/hd2d_shots.js [输出目录=docs/hd2d_mock] [only=home,battle,talk,panel,...] [hd=3] [dsf=2]
 // 每个画面出两张：*_before.png（?hd=0，原来的画面）、*_after.png（?hd=3），再拼一张 *_cmp.png（左旧右新）。设备 Pixel 7 竖屏。
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -7,6 +7,7 @@ const args = process.argv.slice(2);
 const out = args.find(a => !/^\w+=/.test(a)) || path.join(__dirname, '..', 'docs', 'hd2d_mock');
 const only = (args.find(a => a.startsWith('only=')) || '').slice(5).split(',').filter(Boolean);
 const HDQ = (args.find(a => a.startsWith('hd=')) || 'hd=3').slice(3);
+const DSF = parseFloat((args.find(a => a.startsWith('dsf=')) || '').slice(4)) || 0;   // 设备像素比（不写用 Pixel 7 的 2.625）
 const want = k => !only.length || only.includes(k);
 fs.mkdirSync(out, { recursive: true });
 const url = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
@@ -36,7 +37,7 @@ function midGame() {
   const browser = await chromium.launch();
   const errors = [];
   async function open(hd) {
-    const page = await (await browser.newContext({ ...devices['Pixel 7'] })).newPage();
+    const page = await (await browser.newContext(Object.assign({ ...devices['Pixel 7'] }, DSF ? { deviceScaleFactor: DSF } : {}))).newPage();
     page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
     page.on('pageerror', e => errors.push('pageerror: ' + e.message));
     await page.goto(url + '?hd=' + hd);
@@ -65,7 +66,13 @@ function midGame() {
     },
     talk: async (page) => {
       await page.evaluate(() => { const s = window.__xm.st; s.storyQ.length = 0; window.__xm_talk.fast = false; window.__xm_cine.fast = true; window.__xm.setSpeed(1); window.__xm_talk.play('s1_night'); });
-      await page.waitForTimeout(1800); await page.evaluate(() => window.__xm_talk.tap()); await page.waitForTimeout(1600);
+      await page.waitForTimeout(3200);
+    },
+    talk_cast: async (page) => {   // 点到有立绘的那一句
+      await page.evaluate(() => { const s = window.__xm.st; s.storyQ.length = 0; window.__xm_talk.fast = false; window.__xm_cine.fast = true; window.__xm.setSpeed(1); window.__xm_talk.play('s1_night'); });
+      await page.waitForTimeout(1500);
+      for (let i = 0; i < 16; i++) { if (await page.evaluate(() => !!document.querySelector('.tk-pt.on:not([hidden])'))) break; await page.evaluate(() => { window.__xm_talk.tap(); window.__xm_talk.tap(); }); await page.waitForTimeout(450); }
+      await page.waitForTimeout(1500);
     },
     panel: async (page, close) => { await close(); await page.evaluate(() => document.querySelector('[data-nav="gear"]').click()); await page.waitForTimeout(900); },
     panel_exp: async (page, close) => { await close(); await page.evaluate(() => document.querySelector('[data-nav="exp"]').click()); await page.waitForTimeout(900); },

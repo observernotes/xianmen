@@ -14,7 +14,10 @@ HD.S = S;
 HD.q = 0;                    // 当前画质档
 HD.on = false;               // 已接管场景画布
 HD.auto = true;              // 掉帧自动降档
+HD.selfLoop = true;          // 模块自己每帧合成；界面主循环显式调 HD2D.present(now) 时设成 false
+HD.half = false;             // 合成隔帧做（30 帧）：降档之前先试这个
 HD.ctx = null;               // 场景画布的 2d 上下文（= 人物层）
+HD.minQ = 0;                 // 自动降档的下限（0 = 实在带不动就退回原画面）
 HD.stats = { ms: 0, frame: 16.7, drops: 0, q: 0 };
 const doc = root.document;
 function mkc(w, h) { const c = doc.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
@@ -33,6 +36,7 @@ function readPref() {
 function defaultQ() {
   const nav = root.navigator || {}, cores = nav.hardwareConcurrency || 4, mem = nav.deviceMemory || 4;
   if (cores <= 2 || mem <= 1) return 1;
+  if (nav.webdriver) return 0;   // 自动化测试（无头浏览器没有 GPU，多出来的每帧开销会挪动那些按毫秒掐点的用例）：默认不开；测高清用 ?hd=1～3（tools/hd2d_*.js）
   return 2;
 }
 (function initPref() {
@@ -48,7 +52,7 @@ HD.setQuality = function (q, keep) {
   if (HD.onQuality) HD.onQuality(q);
   return q;
 };
-HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true };   // 单项开关（调试 / 降级）
+HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false };   // 单项开关（调试 / 降级）
 
 // ---------- 精灵升 2 倍密度：Scale2x（EPX）+ 缓存 ----------
 const upCache = new WeakMap();
@@ -126,6 +130,7 @@ function buf(name, w, h) { let b = bufs[name]; if (!b) b = bufs[name] = { c: mkc
 
 HD.attach = function (ctx) {
   if (!ctx || !ctx.canvas || ctx.canvas.id !== 'scene' || main) return false;
+  if (!ctx.getTransform || !root.WeakMap) { HD.q = 0; return false; }   // 太老的 WebView：不接管，原样画
   main = ctx.canvas; mctx = ctx; HD.ctx = ctx; logicH = main.height;
   const proto = root.HTMLCanvasElement.prototype, dh = Object.getOwnPropertyDescriptor(proto, 'height'), dw = Object.getOwnPropertyDescriptor(proto, 'width');
   raw = { setTransform: ctx.setTransform.bind(ctx), drawImage: ctx.drawImage.bind(ctx), getH: dh.get.bind(main), setH: dh.set.bind(main), getW: dw.get.bind(main), setW: dw.set.bind(main) };
@@ -133,13 +138,19 @@ HD.attach = function (ctx) {
   Object.defineProperty(main, 'height', { configurable: true, get() { return logicH; }, set(v) { logicH = v | 0; raw.setH(HD.on ? logicH * S : logicH); if (HD.on) { mctx.imageSmoothingEnabled = false; sizeLayers(); } } });
   ctx.setTransform = function (a, b, c, d, e, f) { if (!HD.on || arguments.length !== 6) return raw.setTransform.apply(null, arguments); return raw.setTransform(a * S, b * S, c * S, d * S, e * S, f * S); };
   ctx.drawImage = shimDraw(raw.drawImage);
+  // 别处把场景画布当成 200×H 的图来抠（过场拿洞府当底图：drawImage(场景, sx, sy, sw, sh, …)）：换成合成好的画面
+  const CP = root.CanvasRenderingContext2D.prototype, protoDraw = CP.drawImage;
+  CP.drawImage = function (img) {
+    if (img === main && HD.on && !inPresent && this !== mctx && arguments.length === 9) { const a = arguments; inPresent = true; try { HD.snap(this, a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8]); } finally { inPresent = false; } return; }
+    return protoDraw.apply(this, arguments);
+  };
   if (HD.q > 0) enable();
   root.requestAnimationFrame(loop);
   return true;
 };
 function sizeLayers() {
-  const w = 200 * S, h = logicH * S;
-  for (const n of LNAMES) { let L = layers[n]; if (!L) L = layers[n] = { c: mkc(w, h), used: false }; if (L.c.width !== w || L.c.height !== h) { L.c.width = w; L.c.height = h; } if (!L.g) { L.g = L.c.getContext('2d'); L.g.drawImage = shimDraw(L.g.drawImage.bind(L.g)); } L.g.imageSmoothingEnabled = false; }
+  for (const n of LNAMES) { const k = n === 'ground' ? S : 1, w = 200 * k, h = logicH * k;   // 只有焦平面（地面）用 2 倍密度；天 / 远 / 中 / 前景反正要虚化，1 倍就够
+    let L = layers[n]; if (!L) L = layers[n] = { c: mkc(w, h), used: false, k }; if (L.c.width !== w || L.c.height !== h) { L.c.width = w; L.c.height = h; } if (!L.g) { L.g = L.c.getContext('2d'); L.g.drawImage = shimDraw(L.g.drawImage.bind(L.g)); } L.g.imageSmoothingEnabled = false; }
   sizePresent(true);
 }
 function enable() {
@@ -163,13 +174,14 @@ function sizePresent(force) {
   if (!pc || !HD.on) return;
   const r = main.getBoundingClientRect(), dpr = root.devicePixelRatio || 1;
   let w;
-  if (HD.q >= 3) w = Math.round(r.width * dpr); else if (HD.q === 2) w = Math.min(Math.round(r.width * dpr), 800); else w = 200 * S;
+  if (HD.q >= 3) w = Math.round(r.width * dpr); else w = 200 * S;   // 1、2 档按高清像素（2 倍密度）合成，交给浏览器整数感放大；3 档按设备像素合成，光与粒子是真正平滑的
   if (!(w > 0)) w = 200 * S;
   w = Math.max(200 * S, w);
   const h = Math.round(w * logicH / 200);
   if (force || w !== Pw || h !== Ph) {
     Pw = w; Ph = h; if (pc.width !== w) pc.width = w; if (pc.height !== h) pc.height = h; pg = pc.getContext('2d');
-    pc.style.imageRendering = w % 200 === 0 && HD.q < 3 && Math.abs(r.width * dpr / w - Math.round(r.width * dpr / w)) < 0.01 ? 'pixelated' : 'auto';
+    pc.style.filter = HD.q >= 3 && HD.opts.grade ? 'contrast(1.07) saturate(1.12)' : '';
+    pc.style.imageRendering = HD.q < 3 ? 'pixelated' : 'auto';
   }
 }
 
@@ -181,7 +193,7 @@ HD.begin = function (kind, info) {
   if (!HD.on) return false;
   info = info || {};
   F.kind = kind; F.key = info.key || kind; F.OY = info.OY || 0; F.t = info.t || 0; F.age = 0; F.lights.length = 0; F.amb = null; F.dark = info.dark || 0;
-  F.sun = info.sun || null; F.moon = info.moon || null; F.key = null; F.rays = null; F.motes = null; F.gradeC = null; F.gradeA = undefined; F.sky = info.sky || null; F.scroll = info.scroll || 0; F.season = info.season || 0;
+  F.sun = info.sun || null; F.moon = info.moon || null; F.keyL = null; F.rays = null; F.motes = null; F.gradeC = null; F.gradeA = undefined; F.sky = info.sky || null; F.scroll = info.scroll || 0; F.season = info.season || 0;
   F.prof = profile(kind, F.key);
   const tr = mctx.getTransform();
   raw.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, 200 * S, logicH * S); mctx.setTransform(tr);
@@ -190,7 +202,7 @@ HD.begin = function (kind, info) {
 };
 HD.layer = function (name) {
   const L = layers[name] || layers.ground;
-  L.used = true; L.g.setTransform(mctx.getTransform()); L.g.globalAlpha = 1; L.g.globalCompositeOperation = 'source-over'; L.g.imageSmoothingEnabled = false;
+  L.used = true; const m = mctx.getTransform(), r = L.k / S; L.g.setTransform(m.a * r, m.b * r, m.c * r, m.d * r, m.e * r, m.f * r); L.g._k = L.k; L.g.globalAlpha = 1; L.g.globalCompositeOperation = 'source-over'; L.g.imageSmoothingEnabled = false;
   return L.g;
 };
 HD.end = function () { return mctx; };
@@ -275,14 +287,14 @@ function grainTex() {
 
 // ---------- 合成 ----------
 function softLayer(g, L, amt, dx, dy, zoom, name) {
-  // 把一层画到呈现画布：amt = 0 最近邻；0～1 之间在清晰底上叠一层半分辨率的柔化；≥1 只画四分之一分辨率的柔化
-  const w = Pw * zoom, h = Ph * zoom, x = (Pw - w) / 2 + dx, y = (Ph - h) / 2 + dy;
-  if (!HD.opts.dof || HD.q < 2) amt = amt >= 1 ? 0.99 : 0;
-  if (amt < 1) { g.imageSmoothingEnabled = false; g.drawImage(L.c, x, y, w, h); }
-  if (amt <= 0) return;
-  const div = amt >= 0.6 ? 4 : 2, b = buf('s_' + name, Math.ceil(L.c.width / S / div * 2), Math.ceil(L.c.height / S / div * 2));
-  b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(L.c, 0, 0, b.c.width, b.c.height);
-  g.imageSmoothingEnabled = true; g.globalAlpha = amt >= 1 ? 1 : Math.min(1, amt * 1.25); g.drawImage(b.c, x, y, w, h); g.globalAlpha = 1;
+  // 把一层画到呈现画布。amt = 0：最近邻（清晰）；amt ≥ 0.6：先缩到一半再双线性放大（虚）；之间：直接双线性放大（微虚）。3 档时中间量是“清晰底 + 一层柔化”
+  const w = Pw * zoom, h = Ph * zoom, x = (Pw - w) / 2 + dx, y = (Ph - h) / 2 + dy, q = HD.q;
+  if (!HD.opts.dof || q < 2) amt = amt >= 1 ? 0.99 : 0;
+  if (amt <= 0) { g.imageSmoothingEnabled = false; g.drawImage(L.c, x, y, w, h); return; }
+  if (q >= 3 && amt < 0.5) { g.imageSmoothingEnabled = false; g.drawImage(L.c, x, y, w, h); g.globalAlpha = Math.min(1, amt * 1.6); g.imageSmoothingEnabled = true; g.drawImage(L.c, x, y, w, h); g.globalAlpha = 1; return; }
+  g.imageSmoothingEnabled = true;
+  if (amt >= 0.6) { const b = buf('s_' + name, Math.ceil(L.c.width / 2), Math.ceil(L.c.height / 2)); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(L.c, 0, 0, b.c.width, b.c.height); g.drawImage(b.c, x, y, w, h); }
+  else g.drawImage(L.c, x, y, w, h);
 }
 function drawLight(g, l, u, mul) {
   const r = l.r * u * (l.kind === 2 ? 1.5 : l.kind === 1 ? 2.8 : 2.1), x = l.x * u, y = l.y * u, a = clamp(l.a * mul, 0, 1);
@@ -309,9 +321,12 @@ function drawMotes(g, m, t, u, OY, H) {
   }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
 }
-let lastNow = 0, slow = 0, fast = 0, camT = 0;
+let halfN = 0, lastNow = 0, slow = 0, fast = 0, covered = false, skipN = 0, inPresent = false;
 HD.present = function (now) {
   if (!HD.on || !pc) return;
+  inPresent = true; try { present(now); } finally { inPresent = false; }
+};
+function present(now) {
   now = now || root.performance.now();
   sizePresent(false);
   const g = pg, t0 = root.performance.now();
@@ -321,7 +336,7 @@ HD.present = function (now) {
     g.imageSmoothingEnabled = false; g.clearRect(0, 0, Pw, Ph); g.drawImage(main, 0, 0, Pw, Ph); return;
   }
   const P = F.prof || BASE, u = Pw / 200, OY = F.OY, H = logicH, t = now, O = HD.opts, q = HD.q;
-  const key = F.key || P.key;
+  const key = F.keyL || P.key;
   const cx = O.cam ? (Math.sin(t / 9100) * 1.6 + Math.sin(t / 23000) * 1.1) * u : 0, cy = O.cam ? Math.sin(t / 13000) * 0.6 * u : 0;
   const lay = n => layers[n].used ? layers[n] : null;
   // 1 天空
@@ -341,7 +356,7 @@ HD.present = function (now) {
   L = lay('ground');
   if (L) {
     g.imageSmoothingEnabled = false; g.drawImage(L.c, 0, 0, Pw, Ph);
-    if (P.tilt && O.dof && q >= 2) {
+    if (P.tilt && O.dof && q >= 3) {
       const b = buf('tilt', 200, H); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(L.c, 0, 0, 200, H);
       b.g.globalCompositeOperation = 'destination-in'; const gr = b.g.createLinearGradient(0, P.tilt[0] + OY, 0, P.tilt[1] + OY); gr.addColorStop(0, 'rgba(0,0,0,.85)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); b.g.fillStyle = gr; b.g.fillRect(0, 0, 200, H);
       g.imageSmoothingEnabled = true; g.drawImage(b.c, 0, 0, Pw, Ph);
@@ -391,28 +406,32 @@ HD.present = function (now) {
   for (const l of F.lights) if (l.kind !== 2) drawLight(g, l, u, l.kind === 1 ? 1.5 : 0.8);
   g.globalCompositeOperation = 'lighter';
   g.globalAlpha = 1;
-  // 11 体积光
-  const rays = F.rays || P.rays;
-  if (rays && O.rays && q >= 2 && rays.a > 0.01) {
-    const tx = rayTex(rays.c), len = (H + 40) * u * 1.25;
-    for (let i = 0; i < 2; i++) {
-      const sway = Math.sin(t / (5200 + i * 2900) + i * 2) * 0.05, al = rays.a * (0.75 + 0.25 * Math.sin(t / (1900 + i * 1300) + i * 4));
-      g.save(); g.translate(rays.x * u, (rays.y + OY * 0.6) * u); g.rotate(-(rays.dir || 0) + sway + (i ? 0.08 : 0)); g.globalAlpha = clamp(al, 0, 1);
-      g.drawImage(tx, -len * (rays.spread || 1) / 2, 0, len * (rays.spread || 1), len); g.restore();
-    }
-  }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  // 12 辉光：缩小 → 自乘（只留高光）→ 再缩小糊开 → 加回去
-  if (O.bloom && q >= 2 && P.bloom > 0) {
-    const bw = Math.ceil(Pw / 4), bh = Math.ceil(Ph / 4), a = buf('bloomA', bw, bh), b = buf('bloomB', Math.ceil(bw / 2.5), Math.ceil(bh / 2.5));
-    a.g.globalCompositeOperation = 'copy'; a.g.imageSmoothingEnabled = true; a.g.drawImage(pc, 0, 0, bw, bh);
-    a.g.globalCompositeOperation = 'multiply'; a.g.drawImage(a.c, 0, 0); a.g.drawImage(a.c, 0, 0);
-    b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(a.c, 0, 0, b.c.width, b.c.height);
-    g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.globalAlpha = P.bloom; g.drawImage(b.c, 0, 0, Pw, Ph); g.globalAlpha = P.bloom * 0.5; g.drawImage(a.c, 0, 0, Pw, Ph);
-    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  // 11 光缓冲（四分之一分辨率，一次加回去）：辉光 = 各层缩小 → 自乘两次只留高光 → 再缩一半糊开；体积光也画在这里面（本来就是软的）
+  const rays = F.rays || P.rays, doBloom = O.bloom && q >= 2 && P.bloom > 0, doRays = rays && O.rays && q >= 2 && rays.a > 0.01;
+  if (doBloom || doRays) {
+    const bw = Math.ceil(Pw / (q >= 3 ? 4 : 5)), bh = Math.ceil(bw * H / 200), a = buf('bloomA', bw, bh), ag = a.g, ub = bw / 200;
+    ag.setTransform(1, 0, 0, 1, 0, 0); ag.globalAlpha = 1; ag.globalCompositeOperation = 'source-over'; ag.fillStyle = '#000'; ag.fillRect(0, 0, bw, bh);
+    if (doBloom) {
+      ag.imageSmoothingEnabled = true;
+      for (const n of ['sky', 'ground']) { const L2 = lay(n); if (L2) ag.drawImage(L2.c, 0, 0, bw, bh); }
+      ag.drawImage(main, 0, 0, bw, bh);
+      ag.globalCompositeOperation = 'multiply'; ag.drawImage(a.c, 0, 0); ag.drawImage(a.c, 0, 0);
+      ag.globalCompositeOperation = 'source-over'; ag.globalAlpha = clamp(1 - P.bloom * 1.1, 0, 1); ag.fillRect(0, 0, bw, bh); ag.globalAlpha = 1;
+      const b = buf('bloomB', Math.ceil(bw / 2), Math.ceil(bh / 2)); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(a.c, 0, 0, b.c.width, b.c.height);
+      ag.globalCompositeOperation = 'lighter'; ag.globalAlpha = 0.8; ag.drawImage(b.c, 0, 0, bw, bh); ag.globalAlpha = 1;
+    }
+    if (doRays) {
+      const tx = rayTex(rays.c), len = (H + 40) * ub * 1.25;
+      ag.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 2; i++) {
+        const sway = Math.sin(t / (5200 + i * 2900) + i * 2) * 0.05, al = rays.a * (0.75 + 0.25 * Math.sin(t / (1900 + i * 1300) + i * 4));
+        ag.save(); ag.translate(rays.x * ub, (rays.y + OY * 0.6) * ub); ag.rotate(-(rays.dir || 0) + sway + (i ? 0.08 : 0)); ag.globalAlpha = clamp(al, 0, 1);
+        ag.drawImage(tx, -len * (rays.spread || 1) / 2, 0, len * (rays.spread || 1), len); ag.restore();
+      }
+    }
+    g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.drawImage(a.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
   }
-  // 12b 对比：画面自己以“叠加”方式压一遍（S 形曲线，亮的更亮、暗的更沉、颜色更浓）
-  if (O.grade && q >= 2) { g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.22 * (1 - F.dark * 0.7); g.imageSmoothingEnabled = false; g.drawImage(pc, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
   // 13 高清粒子
   const motes = F.motes || P.motes;
   if (motes && O.parts) drawMotes(g, motes, t, u, OY, H);
@@ -420,27 +439,31 @@ HD.present = function (now) {
   if (O.grade) {
     if (P.grade && q >= 2) { g.globalCompositeOperation = 'soft-light'; g.fillStyle = hexA(F.gradeC || P.grade.c, P.grade.a * (F.gradeA === undefined ? 1 : F.gradeA)); g.fillRect(0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
     g.imageSmoothingEnabled = true; g.globalAlpha = clamp(P.vig + F.dark * 0.2, 0, 1); g.drawImage(vigTex(), 0, 0, Pw, Ph); g.globalAlpha = 1;
-    if (q >= 2) { g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.07; const gt = grainTex(), ox = (hash((t / 50) | 0) * 128) | 0, oy = (hash(((t / 50) | 0) + 9) * 128) | 0, gs = Math.max(1, Math.round(u / S)) * 128; for (let y = -oy * gs / 128; y < Ph; y += gs) for (let x = -ox * gs / 128; x < Pw; x += gs) g.drawImage(gt, x, y, gs, gs); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
-    if (q >= 3) {   // 色差：红通道沿径向外扩一点点
+    if (q >= 3) { g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.07; const gt = grainTex(), ox = (hash((t / 50) | 0) * 128) | 0, oy = (hash(((t / 50) | 0) + 9) * 128) | 0, gs = Math.max(1, Math.round(u / S)) * 128; for (let y = -oy * gs / 128; y < Ph; y += gs) for (let x = -ox * gs / 128; x < Pw; x += gs) g.drawImage(gt, x, y, gs, gs); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+    if (q >= 3 && O.ca) {   // 色差：红通道沿径向外扩一点点（要回读整张画面，软件光栅下很贵，默认关）
       const cb = buf('ca', Pw, Ph); cb.g.globalCompositeOperation = 'copy'; cb.g.drawImage(pc, 0, 0); cb.g.globalCompositeOperation = 'multiply'; cb.g.fillStyle = '#ff0000'; cb.g.fillRect(0, 0, Pw, Ph);
       g.globalCompositeOperation = 'multiply'; g.fillStyle = '#00ffff'; g.fillRect(0, 0, Pw, Ph);
       g.globalCompositeOperation = 'lighter'; const z = 1.0022; g.imageSmoothingEnabled = true; g.drawImage(cb.c, -(z - 1) * Pw / 2, -(z - 1) * Ph / 2, Pw * z, Ph * z); g.globalCompositeOperation = 'source-over';
     }
   }
   HD.stats.ms += (root.performance.now() - t0 - HD.stats.ms) * 0.1;
-};
+}
 function loop(now) {
   root.requestAnimationFrame(loop);
   if (!HD.on) { lastNow = now; return; }
   const dt = now - lastNow; lastNow = now;
   if (pc.offsetParent === null && pc.getClientRects().length === 0) return;   // 场景不在屏上
-  HD.present(now);
+  if (covered) return;
+  if (HD.half && (++halfN & 1)) return;                                                          // 对话 / 过场盖着整屏：不合成
+  const md = doc.getElementById('modal'); if (md && !md.hidden && (++skipN % 6)) return;   // 弹窗压着：六帧合成一次
+  if (HD.selfLoop) HD.present(now);
   // 帧间隔的滑动平均；持续掉帧就降一档（只降不升，换场景也不反复横跳）
   if (dt > 0 && dt < 500) {
     HD.stats.frame += (dt - HD.stats.frame) * 0.05;
     if (HD.auto && !root.document.hidden) {
       if (dt > 26) slow++; else fast++;
-      if (slow + fast >= 150) { if (slow > 90 && HD.q > 1) { HD.stats.drops++; HD.setQuality(HD.q - 1, true); } slow = 0; fast = 0; }
+      if (slow + fast >= 150) { if (slow > 90) { HD.stats.drops++; if (!HD.half && HD.q >= 2) HD.half = true; else if (HD.q > HD.minQ) { HD.selfLoop = true;          // 模块自己每帧合成；界面主循环显式调 HD2D.present(now) 时设成 false
+HD.half = false; HD.setQuality(HD.q - 1, true); } } slow = 0; fast = 0; }
     }
   }
 }
@@ -479,20 +502,21 @@ HD.frame = function (c, kind, fill) {
   const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + c.width + "' height='" + c.height + "' viewBox='0 0 " + c.width + ' ' + c.height + "'><image width='" + c.width + "' height='" + c.height + "' href='" + o.toDataURL() + "' style='image-rendering:pixelated'/></svg>";
   return 'data:image/svg+xml;base64,' + root.btoa(svg);
 };
+// 加投影的那些规则前缀写成 :where(.hd2d)（不加权重）：界面自己用 box-shadow 画的选中框、提示框照样盖得过它
 const SKIN_CSS = `
 body.hd2d { background: radial-gradient(130% 70% at 50% 0%, #241d3c 0%, #120f1c 52%, #08060e 100%) fixed; }
-.hd2d .hud { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 10px 22px rgba(4,3,10,.5); }
+:where(.hd2d) .hud { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 10px 22px rgba(4,3,10,.5); }
 .hd2d #sceneWrap { box-shadow: 0 0 0 2px #0b0912, 0 0 0 3px #4a3f6e, 0 14px 30px rgba(0,0,0,.6); }
 .hd2d #cult .xbar { box-shadow: 0 0 0 2px #0b0912, inset 0 2px 0 0 #120e1c, 0 0 10px rgba(76,203,159,.25); }
 .hd2d #cult .xbar i { background: linear-gradient(#d8fff0 0 2px, #8ff5d0 2px 5px, #4ccb9f 5px 11px, #2f9a76 11px 14px, #1f7a5c 14px); box-shadow: 0 0 8px rgba(143,245,208,.55); }
 .hd2d #cult.ready .xbar i { background: linear-gradient(#fffbe0 0 2px, #fff2a8 2px 5px, #f4c542 5px 11px, #c08a1a 11px 14px, #96680e 14px); box-shadow: 0 0 10px rgba(255,226,120,.7); }
 .hd2d #cult #realm { text-shadow: 2px 2px 0 #0b0912, 0 0 12px rgba(255,220,150,.35); }
 .hd2d #nav button img { filter: drop-shadow(0 2px 0 rgba(0,0,0,.5)) drop-shadow(0 0 5px rgba(140,160,255,.22)); }
-.hd2d #nav button { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 8px 16px rgba(4,3,10,.45); }
-.hd2d .sheet { box-shadow: 0 0 0 1px rgba(20,10,4,.6), 0 -10px 40px rgba(0,0,0,.55), 0 0 90px rgba(255,214,140,.1); }
+:where(.hd2d) #nav button { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 8px 16px rgba(4,3,10,.45); }
+:where(.hd2d) .sheet { box-shadow: 0 0 0 1px rgba(20,10,4,.6), 0 -10px 40px rgba(0,0,0,.55), 0 0 90px rgba(255,214,140,.1); }
 .hd2d .sheet header h2 { text-shadow: 0 1px 0 rgba(255,255,255,.6); }
-.hd2d .btn { text-shadow: 0 1px 0 rgba(255,255,255,.28); }
-.hd2d .btn.gold, .hd2d #cult.ready { box-shadow: 0 3px 0 rgba(60,30,0,.5), 0 0 16px rgba(255,205,90,.38); }
+:where(.hd2d) .btn { text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+:where(.hd2d) .btn.gold, :where(.hd2d) #cult.ready { box-shadow: 0 3px 0 rgba(60,30,0,.5), 0 0 16px rgba(255,205,90,.38); }
 .hd2d .res b, .hd2d #stats b { text-shadow: 0 0 8px currentColor; }
 .hd2d #modal { background-image: radial-gradient(120% 80% at 50% 40%, rgba(8,6,16,.5), rgba(4,3,10,.86)); }
 .hd2d .float { text-shadow: 2px 2px 0 #0b0912, 0 0 10px currentColor; }
@@ -500,9 +524,8 @@ body.hd2d { background: radial-gradient(130% 70% at 50% 0%, #241d3c 0%, #120f1c 
   background: linear-gradient(#3a2010, #8a5428 22%, #e8bc7a 42%, #a8703a 62%, #4a2a12) top / 100% calc(4 * var(--u2)) no-repeat,
     linear-gradient(#4a2a12, #a8703a 38%, #e8bc7a 58%, #8a5428 78%, #3a2010) bottom / 100% calc(4 * var(--u2)) no-repeat,
     radial-gradient(120% 90% at 50% 18%, rgba(255,250,230,.34) 0%, rgba(255,250,230,0) 46%, rgba(132,88,36,.2) 100%), var(--hd-paper, none); }
-.hd2d .card { box-shadow: 0 2px 0 rgba(90,60,30,.28), 0 4px 10px rgba(90,60,30,.16); }
-.hd2d .tk-box { box-shadow: 0 6px 0 rgba(4,3,10,.5), 0 0 34px rgba(110,120,255,.2); }
-.hd2d .tk-pt { filter: drop-shadow(0 0 14px rgba(160,180,255,.18)); }
+:where(.hd2d) .card { box-shadow: 0 2px 0 rgba(90,60,30,.28), 0 4px 10px rgba(90,60,30,.16); }
+:where(.hd2d) .tk-box { box-shadow: 0 6px 0 rgba(4,3,10,.5), 0 0 34px rgba(110,120,255,.2); }
 `;
 HD.skin = function (on) {
   if (!doc || !doc.body) return;
@@ -518,6 +541,66 @@ HD.skin = function (on) {
   doc.body.classList.toggle('hd2d', !!on);
 };
 if (doc && HD.skinOn()) { if (doc.body) HD.skin(); else doc.addEventListener('DOMContentLoaded', () => HD.skin()); }
+// ---------- 对话 / 过场舞台：在它们自己的画布上面罩一层气氛（辉光、浮尘、暗角、颗粒），不碰它们的绘制 ----------
+// 对话（.tk-stage 里的 .tk-cv）和过场（.cn-wrap 里的 .cn-cv）一挂上来就自动加；HD2D.stageFx(容器, 源画布, 选项) 也可以手动给别的舞台加
+const stages = [];
+let stageN = 0;
+HD.stageFx = function (host, src, o) {
+  if (!host || !src || host.querySelector('.hd-fx')) return null;
+  o = o || {};
+  const c = mkc(8, 8); c.className = 'hd-fx'; c.setAttribute('aria-hidden', 'true');
+  // 画布整张以“滤色”叠上去（黑 = 不改变底下的画面），所以里面只管往黑底上加光；暗角另用一个渐变层
+  c.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;image-rendering:auto;mix-blend-mode:screen;z-index:' + (o.z === undefined ? 2 : o.z) + ';';
+  const v = doc.createElement('div'); v.className = 'hd-vig'; v.setAttribute('aria-hidden', 'true');
+  v.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;background:radial-gradient(95% 75% at 50% 46%, rgba(8,6,20,0) 42%, rgba(8,6,20,.2) 70%, rgba(8,6,20,.62) 100%);z-index:' + (o.z === undefined ? 2 : o.z) + ';';
+  if (o.after) { o.after.parentNode.insertBefore(v, o.after.nextSibling); o.after.parentNode.insertBefore(c, o.after.nextSibling); } else { host.appendChild(c); host.appendChild(v); }
+  c._vig = v;
+  const s = { host, src, c, o }; stages.push(s);
+  if (stages.length === 1) root.requestAnimationFrame(stageLoop);
+  return s;
+};
+// 立绘画布（对话里的 .tk-pt，界面按固有尺寸画、用 CSS 定大小）：就地换成 2 倍密度 + 体积明暗；界面重画后（尺寸被改回去）下一帧再换
+function upInPlace(c) {
+  if (c.hidden || c.width < 8 || c.width + 'x' + c.height === c._upW) return;
+  const u = scale2x(c, true); if (!u) return;
+  c.width = u.width; c.height = u.height; c._upW = u.width + 'x' + u.height;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(u, 0, 0);
+}
+function stageLoop(now) {
+  for (let i = stages.length - 1; i >= 0; i--) { const s = stages[i]; if (!s.c.isConnected || !s.src.isConnected) { if (s.c.parentNode) s.c.parentNode.removeChild(s.c); if (s.c._vig.parentNode) s.c._vig.parentNode.removeChild(s.c._vig); stages.splice(i, 1); } }
+  if (!stages.length) return;
+  root.requestAnimationFrame(stageLoop);
+  if (HD.q < 1) { for (const s of stages) { s.c.style.display = 'none'; s.c._vig.style.display = 'none'; } return; }
+  if (HD.q < 3 && (++stageN & 1)) return;   // 气氛层 30 帧就够
+  for (const s of stages) {
+    if (HD.opts.upres) for (const p of s.host.querySelectorAll('canvas.tk-pt')) upInPlace(p);
+    const c = s.c, cw = s.host.clientWidth, ch = s.host.clientHeight; if (!cw || !ch) continue;
+    c.style.display = 'block'; c._vig.style.display = HD.opts.grade ? 'block' : 'none';
+    const k = HD.q >= 3 ? 1.5 : HD.q === 2 ? 1 : 0.5, w = Math.round(cw * k), h = Math.round(ch * k);
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const g = c.getContext('2d'), u = w / 200;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    const sr = s.src.getBoundingClientRect(), hr = s.host.getBoundingClientRect(), dx = (sr.left - hr.left) * k, dy = (sr.top - hr.top) * k, dw = sr.width * k, dh = sr.height * k;
+    if (HD.q >= 2 && HD.opts.bloom && s.src.width > 1) {
+      const bw = Math.ceil(w / 6), bh = Math.ceil(h / 6), a = buf('stA', bw, bh), b = buf('stB', Math.ceil(bw / 2), Math.ceil(bh / 2));
+      a.g.globalCompositeOperation = 'copy'; a.g.imageSmoothingEnabled = true; a.g.fillStyle = '#000'; a.g.fillRect(0, 0, bw, bh); a.g.globalCompositeOperation = 'source-over'; a.g.drawImage(s.src, dx / 6, dy / 6, dw / 6, dh / 6);
+      a.g.globalCompositeOperation = 'multiply'; a.g.drawImage(a.c, 0, 0); a.g.drawImage(a.c, 0, 0);
+      b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(a.c, 0, 0, b.c.width, b.c.height);
+      g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.globalAlpha = 0.6; g.drawImage(b.c, 0, 0, w, h); g.globalAlpha = 0.3; g.drawImage(a.c, 0, 0, w, h); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    }
+    if (HD.opts.parts) drawMotes(g, s.o.motes || { n: 26, c: '#fff2d8', kind: 'dust' }, now, u, 0, Math.ceil(h / u));
+  }
+}
+if (doc && root.MutationObserver) {
+  const scan = () => {
+    covered = !!doc.querySelector('.tk-wrap, .cn-wrap');
+    if (HD.q < 1) return;
+    const tk = doc.querySelector('.tk-stage'); if (tk && !tk.querySelector('.hd-fx')) { const cv = tk.querySelector('.tk-cv'); if (cv) HD.stageFx(tk, cv, { z: 2 }); }
+    const cn = doc.querySelector('.cn-wrap'); if (cn && !cn.querySelector('.hd-fx')) { const cv = cn.querySelector('.cn-cv'); if (cv) HD.stageFx(cn, cv, { z: 0, after: cv }); }
+  };
+  const start = () => new root.MutationObserver(scan).observe(doc.body, { childList: true });
+  if (doc.body) start(); else doc.addEventListener('DOMContentLoaded', start);
+}
 // 把当前合成好的画面按 200×H 的逻辑坐标画进别的画布（过场拿洞府当底图时用）
 HD.snap = function (g, sx, sy, sw, sh, dx, dy, dw, dh) {
   const src = HD.on && pc && F.age <= 4 ? pc : main, k = (HD.on && src === pc ? Pw : HD.on ? 200 * S : 200) / 200;

@@ -196,3 +196,7 @@ python3 tools/build.py
 ## 字体
 
 像素字体使用 TakWolf 的 [Fusion Pixel](https://github.com/TakWolf/fusion-pixel-font)（SIL Open Font License 1.1，见 `tools/FONT-LICENSE.txt`）。打包时裁剪为游戏所需字符与 GB2312 一级常用字，并按 OFL 要求改名为 XPixel。
+
+## HD-2D 画面（docs/ART_HD2D.md）
+
+`src/fx/hd2d.js` 是一层叠在像素画上的渲染模块：场景分层合成（景深、视差）、动态灯光与辉光、体积光、轮廓光、投影、高清粒子、电影调色；人物精灵自动升到 2 倍像素密度，界面九宫格升到 3 倍密度。纯 Canvas 2D，四档画质（网址 `?hd=0～3`，或 `HD2D.setQuality`），掉帧自动降级，关掉就是原来的画面。构建时 `tools/build.py` 把 `src/fx/*.js` 接在 `src/art.js` 后面。样张在 `docs/hd2d_mock/`（`node tools/hd2d_shots.js` 重出），帧耗时 `node tools/hd2d_perf.js`。

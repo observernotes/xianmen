@@ -193,7 +193,9 @@ function palette(look, robe, trim, extra) {
   }, extra || {});
 }
 const cache = new Map();
-function cached(key, fn) { let c = cache.get(key); if (!c) { c = fn(); cache.set(key, c); if (c && c.getContext) c._st = 1; } return c; }   // _st：定稿的静态精灵（HD2D 据此升 2 倍密度）
+function cached(key, fn) { let c = cache.get(key); if (!c) { c = fn(); cache.set(key, c); if (c && c.getContext) { c._st = 1; if (typeof key === 'string' && key.slice(0, 2) === 'pt') c.toDataURL = hdDataURL; } } return c; }
+// 半身像放进 <img> 时（界面都按 48 的整数倍给了宽高）：高清皮肤开着就给 2 倍密度的那张
+function hdDataURL() { const h = root.HD2D, P = root.HTMLCanvasElement.prototype.toDataURL; if (h && h.skinOn() && h.opts.upres) { const u = h.up(this); if (u) return P.apply(u, arguments); } return P.apply(this, arguments); }   // _st：定稿的静态精灵（HD2D 据此升 2 倍密度）
 ART.clearCache = () => { cache.clear(); layerCache.clear(); };
 const layerCache = new Map();
 
@@ -473,7 +475,7 @@ ART.setCtx = (c, w) => { ctx = c; W = w; if (root.HD2D && c && c.canvas && c.can
 function hdBegin(kind, info) { const h = root.HD2D; if (!h || !h.on) return null; if (ctx !== h.ctx) { if (!h.owns || !h.owns(ctx)) return null; ctx = h.ctx; } return h.begin(kind, info) ? h : null; }
 function hdL(h, name) { if (h) ctx = h.layer(name); }
 function hdEnd(h) { if (h) ctx = h.end(); }
-function hdPt(x, y) { const m = ctx.getTransform(), k = root.HD2D.S; return [(m.a * x + m.c * y + m.e) / k, (m.b * x + m.d * y + m.f) / k]; }
+function hdPt(x, y) { const m = ctx.getTransform(), k = ctx._k || root.HD2D.S; return [(m.a * x + m.c * y + m.e) / k, (m.b * x + m.d * y + m.f) / k]; }
 // 临时把绘制目标切到离屏画布
 function on(c, fn) { const pc = ctx, pw = W; ctx = c.getContext('2d'); W = c.width; try { fn(ctx); } finally { ctx = pc; W = pw; } return c; }
 function atop(fn) { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; fn(); ctx.restore(); }
@@ -1005,7 +1007,7 @@ function hdHomeLight(hd, sky, sunX, sunY, moonX, moonY, season, night) {
   F.sun = sunUp ? { x: sunX, y: sunY, a: 0.5 + 0.5 * low, c: warm } : null;
   F.moon = moonY < 84 ? { x: moonX, y: moonY, a: 1 - day } : null;
   const lx = sunUp ? sunX : moonX, ly = sunUp ? sunY : moonY;
-  F.key = { dx: lx < 100 ? -1 : 1, dy: -1, c: sunUp ? warm : '#a8c0ff', a: sunUp ? 0.35 + 0.3 * low : 0.4 };
+  F.keyL = { dx: lx < 100 ? -1 : 1, dy: -1, c: sunUp ? warm : '#a8c0ff', a: sunUp ? 0.35 + 0.3 * low : 0.4 };
   F.rays = { x: lx, y: ly, c: sunUp ? warm : '#9ab0ff', a: sunUp ? 0.07 + 0.2 * low * day : 0.09 * (1 - day), spread: 1.25, dir: Math.atan2(104 - lx, 150 - ly) };
   F.motes = night ? (season === 1 ? { n: 26, c: '#e8ff7a', kind: 'fly' } : { n: 18, c: '#b8c8ff', kind: 'wisp' }) : { n: 30, c: lerpC('#fff6d8', '#ffc890', low), kind: 'dust' };
   F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 1.2;
@@ -1568,7 +1570,7 @@ ART.drawAdventure = function (bgKey, t, OY, scroll) {
       vgrad(0, 0, 200, OY + 130, ramp(A.sky, 7), 0.34);
       if (A.stars) { const r = seeded(77); for (let i = 0; i < 50 * A.stars; i++) { const x = Math.floor(r() * 200), y = Math.floor(r() * (OY + 100)), b = r(); R(x, y, 1, 1, b > 0.7 ? '#ffffff' : b > 0.4 ? '#c0c8f0' : '#7078b0'); } }
     });
-    for (const l of layers) l.c._hdOK = 1;
+    for (const l of layers) if (l.f >= 0.4) l.c._hdOK = 1;   // 近景与地表升 2 倍密度；远的反正要虚化
     advCur = { key, OY, layers, sky };
   }
   const hd = hdBegin('adv', { key, OY, t, scroll });
