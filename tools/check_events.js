@@ -16,6 +16,8 @@ const SOURCES = [['src/events.js', require(path.join(ROOT, 'events.js'))]]
   .concat(L.CONTENT_FILES.map(f => ['src/content/' + f + '.js', require(path.join(ROOT, 'content', f + '.js'))]));
 const EVENTS = [].concat(...SOURCES.map(x => x[1]));
 const fileOf = new Map();
+// 共用场景的空位里登记的段落（globalThis.STORY_SLOTS）：按对话的规格查一遍
+const checkSlots = () => { const R = globalThis.STORY_SLOTS || {}; for (const id of Object.keys(R)) for (const x of R[id]) { if (!x || typeof x.who !== 'string' || !Array.isArray(x.say)) { err(id, '空位段落要有 who 与 say'); continue; } const n = checkTalk(id, x.say, `空位 ${x.who}`); if (n > 12) err(id, `空位 ${x.who} 一段过长（${n} 句 > 12）`); if (x.echo !== undefined && (typeof x.echo !== 'string' || len(x.echo) > 16)) err(id, `空位 ${x.who} echo 要 ≤ 16 字`); } };
 for (const [f, list] of SOURCES) for (const e of list) fileOf.set(e, f);
 
 const NPCS = ['su', 'ye', 'chu', 'ge', 'bai', 'mo'];
@@ -92,7 +94,8 @@ function checkTalk(id, talk, where) {
         if (len(plain) > TALK_LIM.line) err(id, `${w} 一句过长 ${len(plain)}/${TALK_LIM.line}：${text.slice(0, 16)}…`);
         if (/老夫/.test(text) && p[0] === 'elder') err(id, `${w} 老祖自称一律“本座”：${text.slice(0, 16)}`);
       } else if (it && typeof it === 'object') {
-        if (it.say) k += walk(it.say, w);
+        if ('slot' in it) { if (typeof it.slot !== 'string' || !it.slot) err(id, `${w} slot 要写谁的空位（'su' / '*'）`); k += walk(it.say || [], w) || (it.max || 1) * 4; }   // 共用场景的空位（L.storySlot）：没写缺省时按每段 4 句估
+        else if (it.say) k += walk(it.say, w);
         else if (it.pick) { let mx = 0; for (const o of it.pick) mx = Math.max(mx, walk(o.say || [], w)); k += mx; }
         else if ('black' in it) { k++; if (typeof it.black !== 'string' || len(it.black.replace(/[*|]/g, '')) > 24) err(id, `${w} 黑屏字幕要 ≤ 24 字`); }
         else if (!TALK_CMD.some(c => c in it)) err(id, `${w} 不认识的指令：${JSON.stringify(it).slice(0, 40)}`);
@@ -338,5 +341,6 @@ if (report) {
   if (process.argv.includes('list')) for (const [e, m] of gated) console.log(`${m.length ? '  闸 ' : '  上 '}${e.id.padEnd(24)} ${m.join(' ')}`);
 }
 if (warns.length) { console.log(`\n警告 ${warns.length}:`); warns.slice(0, 40).forEach(w => console.log('  ! ' + w)); if (warns.length > 40) console.log(`  … 另有 ${warns.length - 40} 条`); }
+checkSlots();
 if (errors.length) { console.log(`\n错误 ${errors.length}:`); errors.forEach(x => console.log('  x ' + x)); process.exit(1); }
 console.log('\n校验通过');

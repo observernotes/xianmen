@@ -748,7 +748,7 @@ LIST.push(
         ['ye', '明天来的人里，有几个我认得。圣宗的旧账。'], ['ye:cold', '你守你的门。那几个，归我。'],
         ['me', '这是我的仗。'], ['ye:joy', '谁说帮你了。我顺路。'],
         { bgm: '' }, ['ye:sad', '……*别死*。', { slow: 1 }], ['ye:joy', '骗你的。死了我也不哭。', { fast: 1 }] ] }] },
-      { say: [{ slot: 'friend', say: [
+      { say: [{ slot: '*', max: 1, say: [
         ['nar', '没有人来。屋里只有你，和一枚戒指。'], ['elder', '怕？'], ['me', '有一点。'],
         ['elder', '本座当年守过一回山。一个人。'], ['elder:cold', '守住了。回头一看，身后没有人。', { soft: 1 }],
         { bgm: '' }, ['elder', '你不一样。|你身后有*本座*。', { slow: 1 }], ['elder:ang', '……别感动。本座是没地方去。', { fast: 1 }] ] }] },
@@ -1240,6 +1240,12 @@ LIST.push(
     { t: '添一盏灯', dao: 'w', ok: { talk: [['nar', '你什么也没说，添了一盏灯。'], ['elder', '费油。', { soft: 1 }], ['nar', '他没让你吹。']], text: '你添了一盏灯。“费油。”他没让你吹。', fx: { xp: 5 } } },
   ] },
 );
+
+// 两盏灯（样稿）：只认识一位时出单人版（段落在空位里，B 线填）；选项跟着在场的人走
+{ const ev = byId('s4_two_lamps'); if (ev && !ev._sm2) { Object.defineProperty(ev, '_sm2', { value: 1, enumerable: false });
+  delete ev.need; ev.cond = 'any:su_met|ye_met';
+  ev.talk = [{ pick: [{ if: ['su_met', 'ye_met'], say: ev.talk }, { say: [{ slot: '*', max: 1, say: [['nar', '你肋下的伤还没好。门响了一声，又没了动静。'], ['elder', '有人来过。放下东西就走了。']] }] }] }];
+  ev.choices[0].cond = 'su_met'; ev.choices[1].cond = 'ye_met'; ev.choices[2].t = '哪样也不动'; ev.choices[2].ok.text = '你哪样也没动。老祖在戒里笑了半夜。'; } }
 
 // ==== 以上各章；下面打补丁并导出 ====
 for (const id in PATCH) {
