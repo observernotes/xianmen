@@ -119,7 +119,7 @@ require('fs').mkdirSync(out, { recursive: true });
     if (!(await page.$('#modal #bagGo'))) errors.push('包裹：灵矿没有【去强化】');
   }
   await close();
-  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; window.__xm.showExpResult(res); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; res.cards = null; window.__xm.showExpResult(res);   /* 牌里的法宝翻开后在牌下出对比行（loot.js）；这里量牌以外的对比行 */ });
   await page.waitForTimeout(1300); await page.screenshot({ path: out + '/09i-exp-gcmp.png' });
   pnCheck(await pnLay('结算卡对比卡', '#modal [data-krow] button, #modal .foot .btn'), 1);
   const gin = await page.evaluate(() => { const c = document.querySelector('#modal [data-krow] [data-req]'); if (!c) return null; const r = c.getBoundingClientRect(), b = document.querySelector('#modal .body').getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
@@ -523,7 +523,7 @@ require('fs').mkdirSync(out, { recursive: true });
       tune(10);   // 榜上第 10 名的战力和你差不多，新秀（第 11 名）才是个真对手
       for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); }
       if (kind === 'rookie') { for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); s.rv2.rk.el = 'shui'; s.rv2.rk.known = 1; }
-      else { s.grudge.zhao = 80; s.grudge.xue = -50; s.beaten.zhao = 1; s.meta.rival.zhao = { art: 1, gear: 1 }; s.rv2.pool.push({ id: 'rkP', n: '墨寒舟', s: '青玄剑宗', el: 'huo', g: 60, gear: { n: '裂空剑', aff: 'fengrui' }, at: 200 }); s.rv2.friends.push({ n: '白小雨', s: '落霞法阁', el: 'mu', at: 100, gifts: 2 }); }
+      else { s.grudge.zhao = 80; s.grudge.xue = -50; s.beaten.zhao = 1; s.meta.rival.zhao = { art: 1, gear: 1 }; s.rv2.pool.push({ id: 'rkP', n: '墨寒舟', s: '青玄剑宗', el: 'huo', g: 60, gear: { n: '裂空剑', aff: 'huixin' }, at: 200 }); s.rv2.friends.push({ n: '白小雨', s: '落霞法阁', el: 'mu', at: 100, gifts: 2 }); }
       s.storyQ = [];
     } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
@@ -762,7 +762,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40-codex.png' });
   await sLay('图鉴');
   const cx1 = await page.evaluate(() => ({ cats: document.querySelectorAll('#cxGrid [data-cx]').length, cells: document.querySelectorAll('#cxBody .cxc').length, tabs: [...document.querySelectorAll('#modal .ktabs button')].some(b => b.textContent.startsWith('记录')) }));
-  if (cx1.cats !== 14 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
+  if (cx1.cats !== 15 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
   await page.click('#modal [data-cx="chain"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40b-codex-chain.png' }); await sLay('图鉴·链');
   const cx2 = await page.evaluate(() => ({ chains: document.querySelectorAll('#cxBody .cxchain').length, segs: document.querySelectorAll('#cxBody .cxseg i').length }));
   if (cx2.chains !== 10 || cx2.segs !== 48) errors.push('图鉴·链页应有 10 条 48 段：' + JSON.stringify(cx2));
