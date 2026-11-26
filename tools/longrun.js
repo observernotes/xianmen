@@ -299,11 +299,13 @@ const path = require('path');
       if (q) { q.click(); ppl.pq++; await sleep(150); const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click(); await sleep(150); }
       if (modal()) X.closeModal();
     }
+    let cineWait = 0;
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (guard % 100 === 99) console.log(`LR drain guard=${guard} modal=${modal()} title=${(document.querySelector('#modal h2') || {}).textContent} cine=${!!X.cine} duel=${!!X.duelFx}`);
         if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
-        if (X.cine) { await sleep(120); continue; }
+        if (X.cine) { if (++cineWait > 8) { const sk = document.querySelector('.cn-skip'); if (sk) { sk.click(); cineWait = 0; } } await sleep(120); continue; }   // 过场（cine2）等 1 秒还没完就点右上角“跳过”
+        cineWait = 0;
         if (X.duelFx && !X.duelFx.ended) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
         if (!modal()) { await sleep(450); if (!modal() && !X.cine) { chainEnds.push({ tick: X.st.tick, q: X.st.storyQ.length, ids: X.st.storyQ.slice(0, 3) }); return; } continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;

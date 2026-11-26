@@ -304,7 +304,8 @@ async function apSection(quick) {
       // ---- 断言 ----
       const who = route.id;
       for (const p of lossRuns) chk(p.tick === 36 && p.climax === 36, `${who}：（约战输的那一局）输了的戏 c1_climax 在第 36 月当场放（${p.climax}）`, 'B');
-      const reached = st.p.r >= 9 || L.chapterNow(st) >= 5;
+      const asc = L.STORY_ASC ? L.STORY_ASC.some(f => (st.eflags || {})[f]) : L.chapterNow(st) >= 8;   // 天门前作出了选择 = 主线的结局
+      const reached = st.p.r >= 9 && L.chapterNow(st) >= 8 && asc;   // 境界与章已脱钩：境界到了不算，要主线也走到第 9 章并作出天门前的抉择
       say(`${who}：境界 ${st.p.r} · 第 ${L.chapterNow(st) + 1} 章 · ${L.seasonNo(st)} 季 · 章 ${W.ch.map(c => `${c.to + 1}@${c.tick}`).join(' ')}${W.joinAt ? ` · 拜山门 ${W.joinAt}` : ''}${W.err ? ' · ' + W.err : ''}`);
       chk(!W.err, `${who}：全程无报错 / 链不卡死` + (W.err ? '：' + W.err : ''), 'D');
       // Z1-a 出现过的剧情：关键类当场放完（出现与结算在同一条链），中段 ≤ 1 季
@@ -338,7 +339,7 @@ async function apSection(quick) {
       } else chk(false, `${who}：没有 L.mainActs，判不了“每季都有主线动作”`, 'B');
       const worst = Math.max(0, ...Object.entries(W.chLen).filter(([c]) => +c < L.chapterNow(st)).map(([, v]) => v));
       chk(worst <= 60, `${who}：单章最长 ${worst} 季（H8 ≤ 60）`, 'B');
-      chk(reached && st.p.r >= 9, `${who}：主线走到结局——飞升（境界 ${st.p.r}，第 ${L.chapterNow(st) + 1} 章${W.deaths ? '，坐化' : ''}，${L.seasonNo(st)} 季）`, 'B');
+      chk(reached, `${who}：主线走到结局——第 9 章 + 渡劫飞升 + 天门前的抉择（境界 ${st.p.r}，第 ${L.chapterNow(st) + 1} 章，天门抉择 ${asc ? '有' : '没有'}${W.deaths ? '，坐化' : ''}，${L.seasonNo(st)} 季）`, 'B');
       if (W.miss.spent) chk(false, `${who}：${W.miss.spent} 季“花掉的点（含自动打坐）+ 事件占的点 < 3”（点漏掉了）`, 'A');
       if (W.miss.bossInj) chk(false, `${who}：首领战败负伤不到 7 月（${W.miss.bossInj} 次）`, 'A');
       rowsOut.push({ who, asc: st.p.r >= 9, seasons: L.seasonNo(st), pact: W.pact, due: dueIds.length, late: late.length });
