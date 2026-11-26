@@ -179,7 +179,7 @@ function btPlay(ev) {
       case 'pill': floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', true); line = `吞下疗伤丹 +${fmt(x.dmg)}`; break;
       case 'heal': floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', false, true); break;
       case 'summon': line = x.n; break;
-      case 'miss': case 'guard': case 'budong': case 'escape': case 'exec': case 'root': case 'stun': floatRaw(fi >= 0 ? fx : BTS.xMe, fy - 20, x.n || { root: '缠住', stun: '晕', exec: '斩杀' }[x.t] || '', '#fff2a8', false, true); break;
+      case 'miss': case 'guard': case 'budong': case 'escape': case 'exec': case 'root': case 'stun': case 'spread': floatRaw(fi >= 0 ? fx : BTS.xMe, fy - 20, x.n || { root: '缠住', stun: '晕', exec: '斩杀' }[x.t] || '', '#fff2a8', false, true); break;
       case 'burst': floatRaw(fx, fy - 24, '引爆 ' + fmt(x.dmg), '#ffe39a', true); break;
       case 'flee': line = '撤！带着到手的东西回去'; break;
       case 'timeout': line = '久战不下，撤了'; break;

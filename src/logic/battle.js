@@ -236,6 +236,8 @@ L.btPower = function (st, k, d, a) {
   return T * Math.pow(2, pts / L.BAT.ptsPer2);
 };
 const affN = (st, id) => (L.gearAffN ? L.gearAffN(st, id) : 0);
+// 引擎认的战斗词条（COMBAT_LOOT §5.2；刷宝线 L.AFFIX 里 b: 1 的那 14 条，加上藏锋）
+const BT_AFF = ['huixin', 'lianji', 'xixue', 'pozhao', 'xiansheng', 'xushi', 'fengsheng', 'yinbao', 'jianren', 'fanzhen', 'tiebi', 'huiqi', 'jixing', 'yangshang', 'cangfeng'];
 const goldOf = st => { const g = {}; if (st.gear) for (const s of L.GEAR_SLOTS || []) { const x = st.gear[s]; if (x && x.gold) g[x.gold] = 1; } return g; };
 L.defEl = function (st) { const r = st.gear && st.gear.r; if (r && r.el) return r.el; const x = L.artSlots(st)[0]; return x ? L.art(x).el || '' : ''; };
 L.btMe = function (st, T) {
@@ -248,12 +250,23 @@ L.btMe = function (st, T) {
   // 绝招：圆满的战技换成奥义（§3.2）
   let ult = Object.assign({}, L.ULT_BASE);
   if (z && z.lv >= MASTER_AOYI) ult = { id: 'aoyi_' + z.id, n: z.n + '·奥义', el: z.el, m: 3.5, fx: z.fx, kind: 'ult', eff: z.eff, aoyi: true };
-  const hpM = 1 + 0.12 * affN(st, 'jianren') + (L.btHpMods ? L.btHpMods(st) : 0);
-  const aff = {}; for (const id of ['huixin', 'lianji', 'xixue', 'pozhao', 'xiansheng', 'xushi', 'fengsheng', 'yinbao', 'fanzhen', 'tiebi', 'huiqi', 'jixing', 'yangshang', 'cangfeng']) { const n = affN(st, id); if (n) aff[id] = n; }
-  const ke = {}; for (const e of L.ELEM_KEYS) { const n = affN(st, 'ke_' + e); if (n) ke[e] = n; }
+  // 法宝上的战斗词条、金词条、开锋：一律读刷宝线的 L.gearBattle(st)（gear.js；接口见 COMBAT_LOOT.md 末尾），没有时退回逐条数
+  const gb = L.gearBattle ? L.gearBattle(st) : { aff: Object.fromEntries(L.AFFIX_IDS ? L.AFFIX_IDS.map(id => [id, affN(st, id)]) : []), gold: Object.keys(goldOf(st)), edge: { feng: 0, ling: 0, ren: 0 } };
+  const ga = gb.aff || {}, edge = Object.assign({ feng: 0, ling: 0, ren: 0 }, gb.edge || {});
+  const aff = {}; for (const id of BT_AFF) if (ga[id]) aff[id] = ga[id];
+  const ke = {}; for (const e of L.ELEM_KEYS) if (ga['ke_' + e]) ke[e] = ga['ke_' + e];
+  const gold = {}; for (const g of gb.gold || []) gold[g] = 1;
+  const hpM = 1 + 0.12 * (aff.jianren || 0) + (L.EDGE ? L.EDGE.ren.v : 0.08) * edge.ren + (L.btHpMods ? L.btHpMods(st) : 0);
+  // 开锋·锋：伤害 +6%（每次）；开锋·灵：器技冷却 −1
+  const dmgM = 1 + (L.EDGE ? L.EDGE.feng.v : 0.06) * edge.feng;
+  const wsk = skills.find(x => x.kind === 'w');
+  if (wsk && edge.ling) wsk.cd = Math.max(2, wsk.cd - edge.ling);
+  // 金词条·归一：战技和器技同属性时，两招各 +20%
+  const zsk = skills.find(x => x.kind === 'z');
+  if (gold.guiyi && zsk && wsk && zsk.el && zsk.el === wsk.el) { zsk.m *= 1.2; wsk.m *= 1.2; zsk.guiyi = wsk.guiyi = true; }
   // 印记（§4.3，金丹起）：带属性的招在目标身上留印，用克它的属性再打 = 引爆
   const mark = Math.max(st.p.r, (st.flags && st.flags.maxR) || 0) >= 2 || (st.rebirth || 0) > 0;
-  return { T, atk: Math.sqrt(T), hpMax: L.BAT.hpK * Math.sqrt(T) * hpM, el: L.defEl(st), skills, ult, pas, aff, ke, gold: goldOf(st), mark };
+  return { T, atk: Math.sqrt(T), hpMax: L.BAT.hpK * Math.sqrt(T) * hpM, el: L.defEl(st), skills, ult, pas, aff, ke, gold, edge, dmgM, mark };
 };
 
 // ---------- 引擎 ----------
@@ -284,12 +297,12 @@ function addSt(f, k, v, n) { const x = hasSt(f, k); if (x) { x.n = Math.max(x.n,
 // 我方打出一下：返回伤害，处理罩、暴击、状态
 function hitFoe(B, f, mv, m, ev, cutN) {
   const C = L.BAT, me = B.me, R = B.rng, el = mv.el || '';
-  let d = B.atk * m;
+  let d = B.atk * m * (me.dmgM || 1);
   const em = mv.kind === 'n' ? 1 : elM(me, el, f.el);
   const ke = em > 1, beike = em < 1;
   d *= em;
   if (ke && f.trait === 'fearfire' && el === 'huo') d *= 1.2;
-  if (el && f.el && me.ke[f.el]) d *= 1 + L.EL_B.keAff * me.ke[f.el];
+  if (f.el && me.ke[f.el]) d *= 1 + L.EL_B.keAff * me.ke[f.el];   // 词条“克 X”：打 X 系 +20%（普攻也算）
   if (el === 'huo') d *= 1 + (pasK(me, 'fire') || 0);
   if (mv.kind === 'z') d *= 1 + (pasK(me, 'zhan') || 0);
   d *= 1 - C.vari / 2 + C.vari * R();
@@ -383,11 +396,18 @@ function doMove(B, mv, ev) {
   if (mv.guard) B.guard = mv.guard;
   if (mv.reflect) B.reflect = mv.reflect;
   if (mv.skip) { f.stun = Math.max(f.stun, mv.skip); f.charge = 0; }
-  for (const g of targets) if (g.hp <= 0 && !g.deadEv) { g.deadEv = 1; B.kills.push(g.id); ev.push({ t: 'dead', who: B.foes.indexOf(g), id: g.id }); if (mv.killHeal) B.hp = Math.min(B.max, B.hp + B.max * mv.killHeal); if (B.me.gold.shisha) B.rage = Math.min(100, B.rage + 50); }
+  for (const g of targets) if (g.hp <= 0 && !g.deadEv) { g.deadEv = 1; B.kills.push(g.id); liaoyuan(B, g, ev); ev.push({ t: 'dead', who: B.foes.indexOf(g), id: g.id }); if (mv.killHeal) B.hp = Math.min(B.max, B.hp + B.max * mv.killHeal); if (B.me.gold.shisha) B.rage = Math.min(100, B.rage + 50); }
   // 普攻连击（词条）
-  if (mv.kind === 'n' && B.me.aff.lianji && B.rng() < 0.2 * B.me.aff.lianji && f.hp > 0) { const r = hitFoe(B, f, mv, 1, ev); ev.push({ t: 'hit', who: 'me', id: 'lianji', n: '连击', dmg: Math.round(r.d) }); if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); ev.push({ t: 'dead', who: B.foes.indexOf(f), id: f.id }); } }
+  if (mv.kind === 'n' && B.me.aff.lianji && B.rng() < 0.2 * B.me.aff.lianji && f.hp > 0) { const r = hitFoe(B, f, mv, 1, ev); ev.push({ t: 'hit', who: 'me', id: 'lianji', n: '连击', dmg: Math.round(r.d) }); if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); liaoyuan(B, f, ev); ev.push({ t: 'dead', who: B.foes.indexOf(f), id: f.id }); } }
 }
 const NORMAL = { id: 'n', n: '普攻', kind: 'n', m: 1, el: '' };
+// 金词条·燎原：带灼烧的一只倒下，灼烧传给下一只活着的
+function liaoyuan(B, f, ev) {
+  if (!B.me.gold.liaoyuan) return;
+  const b = hasSt(f, 'burn'); if (!b) return;
+  const nx = alive(B).find(g => g !== f); if (!nx) return;
+  addSt(nx, 'burn', b.v, Math.max(1, b.n)); if (ev) ev.push({ t: 'spread', who: B.foes.indexOf(nx), n: '燎原' });
+}
 L.battleStep = function (B, inp) {
   if (B.done) return [];
   inp = inp || {};
@@ -415,7 +435,7 @@ L.battleStep = function (B, inp) {
   // 分身术：每 3 轮补一下 ×0.5
   if (miK(me, 'clone') && B.round % 3 === 0 && alive(B).length) doMove(B, { id: 'm_fenshen', n: '分身', kind: 'n', m: 0.5, el: '' }, ev);
   // 灼烧
-  for (const f of alive(B)) { const b = hasSt(f, 'burn'); if (b) { const d = B.atk * b.v; f.hp -= d; ev.push({ t: 'dot', who: B.foes.indexOf(f), dmg: Math.round(d) }); if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); ev.push({ t: 'dead', who: B.foes.indexOf(f), id: f.id }); } } }
+  for (const f of alive(B)) { const b = hasSt(f, 'burn'); if (b) { const d = B.atk * b.v; f.hp -= d; ev.push({ t: 'dot', who: B.foes.indexOf(f), dmg: Math.round(d) }); if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); liaoyuan(B, f, ev); ev.push({ t: 'dead', who: B.foes.indexOf(f), id: f.id }); } } }
   // 召唤（狼王血少于一半，召两只野狼）
   for (const f of alive(B)) if (f.summon && !f.sumDone && f.hp < f.max * 0.5) { f.sumDone = true; for (let j = 0; j < 2; j++) { const w = L.btFoe(f.summon, f.Q / L.BAT.boss.q * 0.6 / L.BAT.mob.q, { hpM: 0.4 }); w.atk = w.atk0; B.foes.push(w); } ev.push({ t: 'summon', who: B.foes.indexOf(f), n: '召来两只野狼' }); }
   if (!alive(B).length) { B.done = true; B.win = true; ev.push({ t: 'win' }); tickSt(B); return ev; }
@@ -444,7 +464,7 @@ L.battleStep = function (B, inp) {
     if (me.aff.fanzhen) f.hp -= d * 0.15 * me.aff.fanzhen;
     B.rage = Math.min(100, B.rage + C.rage[1]);
     ev.push({ t: heavy ? 'heavy' : 'fhit', who: i, dmg: Math.round(d), el: fe, ke: !!(fe && de && L.elKe(fe, de)) });
-    if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); ev.push({ t: 'dead', who: i, id: f.id }); }
+    if (f.hp <= 0 && !f.deadEv) { f.deadEv = 1; B.kills.push(f.id); liaoyuan(B, f, ev); ev.push({ t: 'dead', who: i, id: f.id }); }
     if (B.hp <= 0) {
       if (B.budong) { B.budong = false; B.budongUsed = true; B.hp = 1; ev.push({ t: 'budong', who: 'me', n: '不动' }); continue; }
       if (miK(me, 'escape') && !B.escaped) { B.escaped = true; B.done = true; B.fled = true; B.hp = 1; ev.push({ t: 'escape', who: 'me', n: '血遁' }); return ev; }
