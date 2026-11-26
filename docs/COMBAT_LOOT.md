@@ -697,3 +697,70 @@
 建议的提交顺序：P0-1（引擎先在 sim 里跑通 §8.3 的表）→ P0-7 → P0-2、P0-3 → P0-6 → P0-4、P0-5 → P1。每一步 `node tools/sim.js all 200` 的三年之约门槛都要过。
 
 **本方案没有做、留给实施时照例补的内容表**：第二章以后各地点的怪物（名字、五行、特性、招牌掉落）按 §7.2 的格式每张图三行，写进 `docs/CONTENT.md` 新一节；其小人在画出来之前用现有的 `ART.wolf / foeMan / drawOrb / drawSnake` 换色 + `ART.eliteAura` 顶替。
+
+---
+
+## 接口（线 C1「战斗」与 C2「刷宝 + 炼器」、C3「过场」之间；C1 维护）
+
+> 原则：C1 只往 `src/logic/battle.js`（新）、`src/logic/expedition.js`、`src/ui/battle.js`（新）里写战斗；不动 `gear.js` 的词条表与掉落。C2 提供下面标“C2”的函数；C1 用 `if (L.xxx)` 判断，没有就走兜底（合并后删兜底）。
+
+### 1. 历练一趟（`st.exp`，C1）
+
+```
+st.exp = { k, d, a, left, total,            // 原有：地点、深度、行事、剩几个月、共几个月（= 节点数）
+  plan,                                       // 原有：u[]、enc、cx 等预掷数（评价不再预掷：plan.rnd 不用了）
+  seed,                                       // 出发时生成；节点 i 的引擎用 seed + i 播种（同种子同按键 → 结果逐轮一致）
+  nodes: [ { t } ],                           // t: 'fight' | 'elite' | 'boss' | 'treasure' | 'herb' | 'home'；长度 = total
+  ni,                                         // 当前节点序号（0 起）；= 已走完的节点数
+  hp, rage,                                   // 气血（0～1，占上限的比例）、怒气（0～100），一路带着走
+  bt: { fights, won, dead, fled, brk, pill, eliteWin, bossWin, ke, beike, kills: [foeId], mats: { core: { mu: 1 } } },
+  pol }                                       // 'auto' | 'smart'：没人看着时（sim、速战、读档跳过）节点由 L.battleAuto 按它打
+```
+
+- `L.expNodes(st, k, d, a, len)` → 节点表；`L.expNodeFoes(st, e, i)` → 这一节点的敌人数组（见 3）。
+- 每过一个月（`L.tick`）消费一个节点：节点还没打（界面没接管）就 `L.expNodeRun(st)` 用 `L.battleAuto(B, e.pol)` 打完；界面打完一场调 `L.expNodeDone(st, res)` 记下结果，然后照常 `onTick()` 过月。
+- 倒下（`res.dead`）或撤（`res.fled`）：这一趟在本月结束（`e.left = 1`），结算照 §2.3 / §2.2。
+- 评价：`L.expRating(e)` 按 §2.3（丁 / 丙 / 乙 / 甲 / 天 = 0～4），`expCalc` 的 `rating` 用它；`L.RATE_M` 不变。
+
+### 2. 一场战斗（`B` 与结果 `res`，C1）
+
+```
+B = L.battleNew(st, foes, seed, opt)          // opt: { hp, rage, pills, pact, ult0, first }，hp / rage 为一路带来的值
+ev = L.battleStep(B, { ult, pill, flee })     // 推进一轮，返回事件数组：
+     { t: 'hit'|'skill'|'ult'|'charge'|'heavy'|'break'|'shield'|'ke'|'beike'|'chain'|'dead'|'pill'|'stun'|'dot'|'heal'|'crit'|'miss',
+       who: 'me'|foe 序号, id: 招式 id, n: 招名, dmg, el, hp, sh, … }
+res = L.battleAuto(B, policy)                 // 'auto'：怒气满就放；'smart'：留绝招破招、血少吞丹
+res = L.battleResult(B)
+  = { win, dead, fled, hp /*0～1*/, rage, rounds, brk /*破招次数*/, ke, beike, pill, kills: [foeId], elite, boss,
+      mats: { core: { mu: 1 } },              // 精英 / 首领掉的灵核（§6.2）：C2 入库
+      used: { 招式id: 次数 } }                // 熟练：C1 自己调 L.addMastery
+```
+
+- 我方属性：`L.btMe(st)` → `{ atk, hpMax, el /*护体*/, skills: [战技, 器技, 秘术], ult, pas }`；招式由 `L.artSkill(st, id)`、`L.gearSkill(x)` 给（C1，写在 `battle.js` 里，不改 `gear.js`）。
+- 法宝上会影响战斗的字段（C2 写进法宝对象，C1 只读）：`x.el`（淬灵后的五行，空则用底子的）、`x.star`（0～3）、`x.gold`（金词条 id）、`x.aff`（词条 id 数组）、`x.edge`（开锋，P1）。
+- 战斗类词条 id（C2 在 `L.AFFIX` 里用这些名字，C1 的引擎按名字生效）：`huixin` 会心、`lianji` 连击、`xixue` 吸血、`pozhao` 破罩、`xiansheng` 先声、`xushi` 蓄势、`fengsheng` 逢生、`yinbao` 引爆、`jianren` 坚韧、`fanzhen` 反震、`tiebi` 铁壁、`huiqi` 回气、`jixing` 疾行、`yangshang` 养伤；`ke_jin` 等改为“打该系 +20%”；`cangfeng` 被克不减伤。金词条 id：`fenguang` 分光、`huixiang` 回响、`budong` 不动、`jieshi` 借势、`shisha` 嗜杀、`liaoyuan` 燎原、`guiyi` 归一、`huajin` 化劲。
+
+### 3. 怪物表（C1）
+
+- `L.FOES[id] = { id, n, el, kind: 'mob'|'elite'|'boss', art /*画法*/, trait }`；`L.CELL_FOES[k][d] = { mobs: [id], elite: id, trait, sig /*本地招牌*/, core /*灵核五行*/ }`。
+- `sig` 写成 `{ kind: 'art', id: 'z_qingteng' }` 或 `{ kind: 'gear', base: 'w1_0', el, star }`，C2 的掉落表直接读它当第 2 格。
+
+### 4. 归途翻牌（C2 提供，C1 调用）
+
+```
+cards = L.tripLoot(st, trip)                  // C2：算掉落、保底、心愿，并且直接发放（入库 / 进 st.gear.pend），返回翻牌列表
+  trip = { k, d, a, rating, won, eliteWin, eliteId, eliteEl, boss: bool, bossFirst: bool, treasure /*宝节点数*/,
+           seq /*第一世第几趟，1 起*/, must: [ { kind: 'gear', base, el } | { kind: 'art', id } | { kind: 'gear', minStar: 1 } ], recall }
+  cards[i] = { kind: 'gear'|'art'|'frag'|'core'|'ore'|'pill'|'herb'|'treasure'|'rune'|'plan'|'mat', item /*发放后的对象*/, tier, stars, el, wish: bool, value /*排序用*/ }
+showLootFlip(cards, done)                     // C2 界面：翻牌仪式；C1 的结算卡在评价章后调它，done() 后接“你变强了”
+L.matsAdd(st, mats)                           // C2：战斗掉的灵核等入库（st.mats.core）
+```
+
+- `trip.must`：第一章保底脚本由 C1 定（§7.3：第 1 趟精钢剑、第 2 趟《裂金斩》、第 3 趟第一件 ★），C2 必须把它们排进牌里。
+- C1 的兜底：没有 `L.tripLoot` 时按原 `o.drops` 发放并用原光柱揭晓；没有 `L.matsAdd` 时 `st.mats.core[el] += n`。
+- 灵石、灵草、灵矿、修为这些每趟都有的仍由 C1 的 `expCalc` 算（不占牌），结算卡牌上方一行给。
+
+### 5. 过场（C3）
+
+- 战斗画面在“人生第一次按大按钮”时调 `playCine('ult', …)`（若存在，返回 Promise，C1 等它播完再出招）；首领首杀后调 `playCine('boss', { k })`。
+- 三年之约（P1-1 换引擎后）：开打前 `playCine('pact0')`，胜后 `playCine('pact1')`，由 C3 在 `duels.js` 的约战流程里接；C1 只保证约战结果对象不变（`L.pactDuel(st)` → `{ win, … }`）。
