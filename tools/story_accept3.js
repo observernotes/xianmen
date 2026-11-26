@@ -186,8 +186,9 @@ function runCase(c) {
     }
     if (c.overspend && L.apLeft(st) === 0) for (const id of ['exp', 'retreat', 'sit']) { const snap = JSON.stringify(st); const why = L.apWhy(st, id); const r = L.act(st, id); if (r || !why || JSON.stringify(st) !== snap) { fail(`点数用完后 L.act('${id}') 没被拒绝干净（why = “${why}”，返回 ${r ? '非空' : '空'}，状态${JSON.stringify(st) !== snap ? '变了' : '没变'}）`); break; } }
     if (L.isReady(st) && !(c.cap !== undefined && st.p.r >= c.cap) && !(st.p.r === 8 && L.chapterNow(st) < 8 && !c.soft)) { const t0 = st.tick; ADAPTER.breakthrough(st); if (st.tick !== t0) fail('突破之后时间走了'); watch(); settle('act'); }
+    if (st.p.r >= 9) break;   // 刚飞升：这一世到此为止，不再过季
     const t0 = st.tick; L.seasonEnd(st);
-    if (st.tick !== t0 + 3 || st.tick % 3) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
+    if ((st.tick !== t0 + 3 || st.tick % 3) && st.p.age < L.lifespan(st)) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
     watch(); settle('season');
     if (c.lose && st.pact) L.PACT_POWER = pp;
     const ch = L.chapterNow(st); if (!c.soft && chAt[ch] !== undefined && st.tick - chAt[ch] > 180 && !st.quest.done.c8_m) { fail(`第 ${ch + 1} 章超过 60 季还没做完（H8）：主线行动 ${(L.mainActs(st) || []).map(a => a.t + (a.ok ? '✓' : '✗' + a.why)).join(' / ')}`); break; }

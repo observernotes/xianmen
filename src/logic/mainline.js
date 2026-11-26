@@ -373,11 +373,14 @@ function bossActs(st) {
   }
   return [];
 }
-const grow = st => {
+// 补差距的行动：差的是修为（第九章渡劫、或修为圆满前）就先闭关，差的是战力就先历练
+const grow = (st, xpFirst) => {
   const a = [];
   let c = null; try { c = L.expBest(st, 0); } catch (err) { c = null; }
-  if (c) a.push(mk(st, { id: 'grow:exp', t: `历练变强 · ${regName(c.k)}`, grow: true, do: { id: 'exp', args: { k: c.k, d: c.d, a: c.a } } }));
-  if (L.ACTS && L.ACTS.retreat && !apWhy(st, 'retreat')) a.push(mk(st, { id: 'grow:retreat', t: '闭关', grow: true, do: { id: 'retreat' } }));
+  const ex = c ? mk(st, { id: 'grow:exp', t: `历练变强 · ${regName(c.k)}`, grow: true, do: { id: 'exp', args: { k: c.k, d: c.d, a: c.a } } }) : null;
+  const rt = L.ACTS && L.ACTS.retreat && !apWhy(st, 'retreat') && !L.isFull(st) ? mk(st, { id: 'grow:retreat', t: '闭关（修为）', grow: true, do: { id: 'retreat' } }) : null;
+  let m = 2; try { m = L.retMult(st); } catch (err) { m = 2; }
+  for (const x of xpFirst && m >= 1.9 ? [rt, ex] : [ex, rt]) if (x) a.push(x);   // 连着闭关有疲劳（retMult 往下掉）：先出门走一趟
   a.push(mk(st, { id: 'grow:sit', t: '打坐', grow: true, do: { id: 'sit' } }));
   return a;
 };
@@ -438,7 +441,7 @@ L.mainActs = function (st, opt) {
   if (opt.side && !st.sect && !L.knockWhy(st)) for (const sc of L.sectsFor(st)) push(mk(st, { id: 'join:' + sc.id, t: `拜山门 · ${sc.n}`, side: true, do: { id: 'join', args: { id: sc.id } } }));
   // 差什么时：表尾跟能补差距的行动（主线行动都做不了，或胜算不到六成）
   const good = out.some(o => o.ok && !o.grow && !o.side && (o.p === undefined || o.p >= 0.6));
-  if (!good) for (const g of grow(st)) push(g);
+  if (!good) for (const g of grow(st, pending(st, ch).some(x => x.k === 'asc'))) push(g);
   return out;
 };
 const warP = st => { try { const foe = { kind: 'war', id: 'tianjian' }; return L.duelP(st, L.duelPower(st, foe) * L.wardMult(st), L.warPower(st), foe); } catch (err) { return 0; } };

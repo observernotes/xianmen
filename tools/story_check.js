@@ -419,6 +419,7 @@ function chainPlay(who, mk, o) {
       if (!r) break;
     }
     if (L.isReady(st) && !(st.p.r === 8 && L.chapterNow(st) < 8)) { if (L.tribNeeded(st)) { const v = L.tribStart(st, { pills: Math.min(3, st.pills), aids: 'all' }); if (v) L.tribFinish(st, { fa: 1, pet: 1, daolv: 1, pills: 0 }); } else L.breakthrough(st, Math.min(3, st.pills)); watchK(); settle('act'); }
+    if (st.p.r >= 9) break;
     const t0 = st.tick; L.seasonEnd(st);
     if (st.tick !== t0 + 3 && !(st.p.age >= L.lifespan(st))) h(`季末结算后 tick ${t0} → ${st.tick}`);
     watchK(); settle('season');
