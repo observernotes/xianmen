@@ -21,9 +21,10 @@ function showPrep(info) {
   const tips = prepTips(b);
   const pBar = b.p !== undefined ? `<div class="muted">胜算 <b class="num">${L.pct(b.p)}</b></div>${bar(b.p, b.p >= 0.8)}` : '';
   const vs = b.foe ? `<div class="row" style="justify-content:space-between"><span>你 <b class="num">${fmt(b.S || L.power(st))}</b></span><span class="muted">对</span><span>${esc(b.foe.n)} <b class="num">${fmt(b.foe.pw)}</b></span></div>` : `<div class="center">战力 <b class="num">${fmt(L.power(st))}</b></div>`;
+  const assist = b.k === 'pact' && L.pactAssist(st) > 1 ? `<div class="center muted">你的战力含老祖借力 ×${L.pactAssist(st)}</div>` : '';
   const tipRows = tips.map((t, i) => `<div class="row" style="justify-content:space-between;min-height:44px"><span class="grow">${esc(t.t)}${t.p !== undefined ? ` → <b class="num">${L.pct(t.p)}</b>` : ''}</span><button class="btn alt" data-ptip="${i}">去</button></div>`).join('');
   const s = sheet({ title: `备战 · ${b.n}`, center: true, noClose: true,
-    body: `<div class="center muted">还有 ${Math.max(1, b.left)} ${UNIT}</div>${vs}${pBar}${tipRows ? '<div class="muted">锦囊</div>' + tipRows : ''}`,
+    body: `<div class="center muted">还有 ${Math.max(1, b.left)} ${UNIT}</div>${vs}${assist}${pBar}${tipRows ? '<div class="muted">锦囊</div>' + tipRows : ''}`,
     foot: [{ t: '再准备一下', alt: true, fn: () => { closeModal(); } }, { t: '就这样上', gold: true, fn: () => { resumeClock(); closeModal(); } }] });
   s.querySelectorAll('[data-ptip]').forEach(el => el.onclick = () => {
     const t = tips[+el.dataset.ptip]; SFX.tap();
