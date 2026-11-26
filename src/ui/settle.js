@@ -23,7 +23,7 @@ function openMail(item) {
 }
 
 // ---------- 结算链 ----------
-let chainOn = false, chainWhy = '', chainCur = null, chainN = 0;
+let chainOn = false, chainWhy = '', chainCur = null, chainN = 0, chainTicked = false;
 let seasonLog = [];   // 这一季做过的事（季末卡上那一行“这一季：历练 1 趟 · 乙 ｜ 首领 ✓”）
 // 有阻塞层开着（弹窗、过场、对话场景、对决、开场、历练演出、首领战）：链等它关掉
 const chainBusy = () => !$('#modal').hidden || !!cine || !!duelFx || !$('#intro').hidden || (typeof tk !== 'undefined' && !!tk) || (typeof cn !== 'undefined' && !!cn)
@@ -33,7 +33,7 @@ const busyUI = () => !st || chainOn || chainBusy() || !!st.run || queue.length >
 function settle(why) {
   if (!st) return;
   L.chainOpen(st, why || 'act');
-  chainOn = true; chainWhy = why || 'act'; chainN = 0;
+  chainOn = true; chainWhy = why || 'act'; chainN = 0; chainTicked = false;
   chainPump();
   updateHUD();
 }
@@ -80,6 +80,8 @@ function chainPump() {
     if (x) { L.blockDone(st, x); chainCur = x; chainN++; showBlock(x); continue; }
     // 逻辑层给完了：链尾的解锁卡（AP_PLAN §4.2 第 6 级 / §4.6）。手把手那三步还在讲的时候先不出（它们只等这一下，不看真实时间）
     if (!L.CHAIN_FULL && unlockQ.length && $('#guide').hidden) { const k = unlockQ.shift(); chainCur = { kind: 'unlock', id: k }; chainN++; showUnlock(k); continue; }
+    // A1 的缺省链不判节拍：行动的链收尾前看一眼本章节拍（climax / end / open 到了就当场放，不等季末的 L.tick；AP_PLAN §4.3）。线 B 的完整版接手后不走这里
+    if (chainOn && !chainTicked && !L.CHAIN_FULL && L.storyTick && chainWhy !== 'season') { chainTicked = true; if (L.storyTick(st) > 0) continue; }
     if (chainOn) { chainOn = false; chainEnd(chainWhy); if (chainBusy() || queue.length) continue; }
     if (chainAfter) { const fn = chainAfter; chainAfter = null; fn(); continue; }
     return false;

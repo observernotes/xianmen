@@ -4,9 +4,10 @@
 //         pactlose 约战输了 · wuzong 无宗试炼 · random 随机选择（剧情、弹窗、上门都随手点）· oldsave 2.3.2 旧档（散修第三章、赵乾没打）读进来接着玩
 // 主线上的每一步都只点界面：剧情抉择点弹窗里的选项、入宗点“三张帖子”或三宗争徒弹窗或宗门页【投帖】、晋升点目标卡【去】再点高亮的【晋升】、
 //   宿敌点目标卡【去】进宿敌卡再点【下战书】、上门点【应战】、论道 / 会武 / 来犯 / 约战都是弹窗里点【登台】【跳过】；不调 L.joinSect / L.tournament / L.promote 这类逻辑捷径。
-// 测试钩子：时间用 L.flow + __xm.onTick() 逐月快进（和 longrun.js 一样）；转世出身、天道试炼、旧档用 __xm.loadState 装进去；约战输了那条在约战前把慕容的战力调高；
+// 测试钩子：时间按季推进（docs/AP_PLAN.md）：每季把行动点花在界面上（目标卡【去】、首领、历练出发 / 闭关），再点【下一季】（__xm.nextSeason）；
+//   历练当场打完（__xm_bt.all() 把这一趟剩下的节点自动打完，结算卡照常从结算链出）；转世出身、天道试炼、旧档用 __xm.loadState 装进去；约战输了那条在约战前把慕容的战力调高；
 //   修炼的杂事（买破境丹、升聚灵阵、选历练地图）照 longrun.js 用逻辑层算好再点界面的出发 / 突破，或直接买。
-// 每局断言：每章在“每章上限月”内推进（记下每章用时）；目标卡【去】指到主线一步时，打开的面板里真有那个按钮；全程无报错；走到第九章或飞升。
+// 每局断言：每章在“每章上限月”内推进（200 月 ≈ 67 季，记下每章用时）；关键事件 → 对应剧情 ≤ 0 季（同一季、同一条结算链）；目标卡【去】指到主线一步时，打开的面板里真有那个按钮；全程无报错；走到第九章或飞升。
 const { chromium } = require('playwright');
 const path = require('path');
 const arg = process.argv.slice(2);
@@ -37,7 +38,7 @@ async function play(route, seed) {
       const mark = w => { const c = X.cineState; window.__pt = { w, tick: X.st && X.st.tick, t: title(), cine: !!X.cine, ck: c ? Object.keys(c).slice(0, 6).join(',') + ':' + (c.kind || c.k || c.type || c.id || '') : '' }; };
       const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
       const log = m => console.log('PT ' + m);
-      X.setSpeed(X.pauseIdx);   // 时间由下面逐月推进
+      const apL = () => L.apLeft(X.st);
       window.__xm_talk.fast = true; window.__xm_cine.fast = true;   // 对话、过场快放（走弹窗）
       // ---------- 局面 ----------
       if (R === 'sanxiu' || R === 'wuzong') {
@@ -158,26 +159,31 @@ async function play(route, seed) {
         if (st.pills < 2 && st.stones > L.price(st, 'pill') * 4) L.buy(st, 'pill');
         if (L.lifeLow(st) && L.marketOpen(st, 'life') && st.stones > L.price(st, 'life')) L.buy(st, 'life');
         if (st.home.furnace) for (const k of ['xisui', 'jiuzhuan', 'juling', 'pojing']) if (!L.canCraft(st, k) && (k !== 'jiuzhuan' || st.p.r >= 5)) { L.craft(st, k); break; }
-        if (L.tunaReady(st)) L.tuna(st);
         L.gearAutoAll(st);
-        // 主线：目标卡【去】
-        if (!L.busy(st) && !modal()) await goMain();
-        if (n % 6 === 3 && !L.busy(st) && !modal()) await sectTasks();
-        // 首领：打得过就打（点界面）
-        if (!L.busy(st) && !modal()) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.6) { X.fightBossUI(k); await drain(); break; }
-        // 出门：闭关或历练（点界面的出发）
-        if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !modal()) {
-          if (trips >= 2 && L.canRetreat(st)) { trips = 0; L.startRetreat(st); }
-          else { const c = L.expBest(st, 0); if (c) { X.showExp(); await sleep(20); if (document.querySelector('#modal .choices')) { stat.storyAtDoor = (stat.storyAtDoor || 0) + 1; await drain(); } else X.confirmExp(c.k, c.d, c.a); await sleep(20); const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click(); await sleep(40); if (X.st.exp) trips++; else X.closeModal(); } }
+        // 关键事件发生的月份（高潮条件第一次成立、入宗）：每做完一件事就看一次，对应的剧情要在同一条结算链里接上
+        const km = () => { const s0 = X.st; for (let c = 0; c < 9; c++) if (stat.km.cl[c] === undefined) { let ok = false; try { ok = L.STORY_CLIMAX[c](s0); } catch (e) { ok = false; } if (ok) stat.km.cl[c] = s0.tick; } if (stat.km.join === undefined && s0.sect) stat.km.join = s0.tick; };
+        // 主线：目标卡【去】（下战书 / 投帖花 1 点；晋升不花点）
+        if (!L.busy(st) && !modal()) { await goMain(); km(); }
+        if (n % 2 === 1 && !L.busy(st) && !modal()) { await sectTasks(); km(); }
+        // 首领：打得过就打（点界面，1 点）
+        if (!L.busy(st) && !modal() && apL() >= L.AP.boss) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.6) { X.fightBossUI(k); await sleep(60); for (let w = 0; w < 400 && window.__xm_bt.on; w++) { window.__xm_bt.finish(); await sleep(15); } await drain(); km(); break; }
+        // 剩下的点：闭关或历练（点界面的出发；一趟当场打完）
+        for (let g = 0; g < 3 && apL() >= 2 && !L.busy(X.st) && !L.isReady(X.st) && !L.isFull(X.st) && X.st.p.inj <= 0 && !modal(); g++) {
+          if (trips >= 2 && L.canRetreat(X.st)) { trips = 0; X.doAct('retreat'); await sleep(40); await drain(); km(); continue; }
+          const c = L.expBest(X.st, 0); if (!c) break;
+          X.showExp(); await sleep(20);
+          if (document.querySelector('#modal .choices')) { stat.storyAtDoor = (stat.storyAtDoor || 0) + 1; await drain(); continue; }
+          X.confirmExp(c.k, c.d, c.a); await sleep(20);
+          const go = [...document.querySelectorAll('#modal .foot .btn.gold:not([disabled])')].find(b => /出发/.test(b.textContent)); if (go) go.click(); await sleep(40);
+          if (X.st.exp) { trips++; window.__xm_bt.all(); await sleep(40); } else X.closeModal();
+          await drain(); km();
         }
-        L.flow(st, 1);
-        X.onTick();
+        // 过季：点【下一季】（剩下的点自动打坐）→ 季末卡 → 大事 → 季初
+        if (!modal() && !L.busy(X.st)) { document.querySelector('#btnNext').click(); await sleep(30); }
         await drain();
-        // 关键事件发生的月份（高潮条件第一次成立、入宗）：对应的剧情要立刻接上
-        for (let c = 0; c < 9; c++) if (stat.km.cl[c] === undefined) { let ok = false; try { ok = L.STORY_CLIMAX[c](st); } catch (e) { ok = false; } if (ok) stat.km.cl[c] = st.tick; }
-        if (stat.km.join === undefined && st.sect) stat.km.join = st.tick;
+        km();
         if (stat.t0 !== undefined && stat.foeAt === undefined && st.mainG && (st.beaten.zhao || stat.visits)) stat.foeAt = st.tick - stat.t0;
-        if (cfg.dbg > 1 && st.tick < 60) log(`dbg t${st.tick} exp=${!!st.exp}${st.exp ? '/' + st.exp.left + '/c' + (st.exp.chain || 0) : ''} ret=${!!st.retreat} q=${st.storyQ.length} canInt=${L.canInterrupt(st)} last=${st.clk && st.clk.last} modal=${modal()}`);
+        if (cfg.dbg > 1 && st.tick < 60) log(`dbg t${st.tick} ap=${apL()} exp=${!!st.exp} q=${st.storyQ.length} chain=${X.chainOn} modal=${modal()}`);
       }
       const st = X.st;
       // 关键事件 → 剧情的延迟：事件那个月（章还没到的，从进这一章那个月）到挂在高潮节拍上的戏播完
@@ -192,7 +198,7 @@ async function play(route, seed) {
       if (stat.km.join !== undefined) stat.lag.push({ id: 'join', ev: stat.km.join, beat: stat.km.join, shown: stat.res.story_sect === undefined ? null : stat.res.story_sect, scene: 'story_sect' });
       stat.beat = JSON.stringify((st.story || {}).beat); stat.storyQ = st.storyQ.join(); stat.storyIds = Object.keys(st.evDone).filter(id => (L.eventById(id) || {}).where === 'story');
       return Object.assign(stat, { tick: st.tick, r: st.p.r, ch: L.chapterNow(st), asc: st.p.r >= 9, sect: st.sect ? st.sect.id : '', lone: L.loneRoute(st), path_san: !!st.eflags.path_san, ease: L.mainEase(st), ending: st.p.r >= 9 ? L.endingOf(st).id : '' });
-    }, { route, seed, maxT: MAXT, logEvery: +process.env.PT_LOG || 120, dbg: +process.env.PT_DBG || 0, uiBt: !!process.env.PT_UIBT });
+    }, { route, seed, maxT: Math.ceil(MAXT / 3), logEvery: +process.env.PT_LOG || 120, dbg: +process.env.PT_DBG || 0, uiBt: !!process.env.PT_UIBT });
   } catch (e) { res = { err: e.message }; }
   if (beat) clearInterval(beat);
   await browser.close();
@@ -215,8 +221,9 @@ async function play(route, seed) {
     else dur.push(`${N[8]}${s.tick - (s.chAt[8] || s.tick)}（飞升）`);
     if (!(s.asc || s.ch >= 8)) F(`${s.tick} 月只走到第${N[s.ch]}章`);
     if (s.goMiss.length) F('目标卡【去】指到的按钮不在：' + s.goMiss.slice(0, 4).join('、'));
-    const LAG = 1;
-    for (const g of s.lag || []) { if (g.beat !== undefined && g.beat >= 0 && g.beat - g.ev > LAG) F(`${g.id}：事件在第 ${g.ev} 月，节拍第 ${g.beat} 月才放（> ${LAG}）`); if (g.shown !== null && g.shown - g.ev > LAG) F(`${g.id}：事件在第 ${g.ev} 月，${g.scene} 第 ${g.shown} 月才播（> ${LAG}）`); }
+    // 关键事件 → 剧情 ≤ 0 季：剧情的那一季不晚于事件的那一季（AP_PLAN §4.1：0 个行动、0 季）
+    const sz = m => Math.floor(m / 3), LAG = 0;
+    for (const g of s.lag || []) { if (g.beat !== undefined && g.beat >= 0 && sz(g.beat) - sz(g.ev) > LAG) F(`${g.id}：事件在第 ${g.ev} 月，节拍第 ${g.beat} 月才放（晚 ${sz(g.beat) - sz(g.ev)} 季）`); if (g.shown !== null && sz(g.shown) - sz(g.ev) > LAG) F(`${g.id}：事件在第 ${g.ev} 月，${g.scene} 第 ${g.shown} 月才播（晚 ${sz(g.shown) - sz(g.ev)} 季）`); }
     if (x.errors.length) F('页面报错：' + x.errors.slice(0, 3).join(' | '));
     if (['sanxiu', 'nosect', 'wuzong'].includes(r) && s.sect) F('不入宗的路线入了宗');
     if (r === 'nosect' && !/哪家也不去/.test(s.picks.s2_invite || '')) F(`三张帖子没选“哪家也不去”（${s.picks.s2_invite}）`);
@@ -224,7 +231,7 @@ async function play(route, seed) {
     if (r === 'guided' && !s.sect) F('照引导玩却没入宗');
     if (r === 'oldsave') { if (!s.rescue || !s.rescue.rescue || !s.rescue.invite) F('旧档读进来没救场（' + JSON.stringify(s.rescue) + '）'); if (!(s.visits > 0 || s.chals > 0)) F('旧档读进来赵乾既没上门、也没能下战书'); }
     if (process.env.PT_LOG) console.log('  剧情：' + (s.storyIds || []).join(' ') + ' 节拍 ' + s.beat + ' 队列 ' + s.storyQ);
-    console.log(`  ${r.padEnd(9)} ${s.asc ? '飞升' : '第' + N[s.ch] + '章'} ${s.tick} 月 境界 ${s.r}${s.ending ? ' 结局 ' + s.ending : ''} · ${s.sect ? '宗门 ' + s.sect : s.lone ? '散修' : '无宗门'} · 每章用时 ${dur.join(' ')} · 目标卡主线一步 ${s.goMain} 次 · 入宗 ${s.joins} · 晋升 ${s.promos} · 下战书 ${s.chals} · 上门 ${s.visits} · 帖子弹窗 ${s.invites} · 老祖提示 ${s.hints} · 降要求 ${s.eases} · 剧情 ${s.story} 场 · 关键事件→剧情 ${(s.lag || []).filter(g => g.shown !== null).map(g => g.id.replace('_climax', '') + '+' + (g.shown - g.ev)).join(' ')} · ${x.sec} 秒${s.rescue ? ' · 旧档：读档即降到 ' + s.rescue.e + ' 级、补帖 ' + s.rescue.invite : ''}`);
+    console.log(`  ${r.padEnd(9)} ${s.asc ? '飞升' : '第' + N[s.ch] + '章'} ${s.tick} 月 境界 ${s.r}${s.ending ? ' 结局 ' + s.ending : ''} · ${s.sect ? '宗门 ' + s.sect : s.lone ? '散修' : '无宗门'} · 每章用时 ${dur.join(' ')} · 目标卡主线一步 ${s.goMain} 次 · 入宗 ${s.joins} · 晋升 ${s.promos} · 下战书 ${s.chals} · 上门 ${s.visits} · 帖子弹窗 ${s.invites} · 老祖提示 ${s.hints} · 降要求 ${s.eases} · 剧情 ${s.story} 场 · 关键事件→剧情（季） ${(s.lag || []).filter(g => g.shown !== null).map(g => g.id.replace('_climax', '') + '+' + Math.max(0, Math.floor(g.shown / 3) - Math.floor(g.ev / 3))).join(' ')} · ${x.sec} 秒${s.rescue ? ' · 旧档：读档即降到 ' + s.rescue.e + ' 级、补帖 ' + s.rescue.invite : ''}`);
   }
   console.log(`共 ${routes.length} 局，${Math.round((Date.now() - T0) / 1000)} 秒`);
   if (fails.length) { console.log(`失败 ${fails.length} 条：`); for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }

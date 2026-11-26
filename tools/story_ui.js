@@ -1,5 +1,5 @@
 // 剧情界面（docs/STORY_PLAN.md §6、§8；src/ui/talk.js）测试与截图：node tools/story_ui.js [输出目录=docs/story_mock] ["Pixel 7"|360]
-// 断言：对话场景——播的时候停表；点一下出完 / 下一句；【跳过】跳到选项、选项跳不过去；有条件的选项灰着并写明缺什么；版式（按钮 ≥ 44px、没有横向溢出、台词不超过两行）；
+// 断言：对话场景——播的时候【下一季】不可点（时间不再自己走，docs/AP_PLAN.md §8.4）；打赢赵乾的结果卡关掉后 500ms 内出的是 s3_zhao_fall（零延迟）；点一下出完 / 下一句；【跳过】跳到选项、选项跳不过去；有条件的选项灰着并写明缺什么；版式（按钮 ≥ 44px、没有横向溢出、台词不超过两行）；
 //       选完落到结算卡，标志位置上；数据式分镜 ⑪～㉝ 每段都能画出每个镜头；飞升 → 结局卡（八个结局各出一张，正文 120～200 字）。
 //       D 线：后日谈逐张翻、结算页、再登天门、图鉴结局页、回忆分组、转世开场（前缘、问过天）。
 // 默认（playwright）对话与过场是“快放”的：本脚本把 window.__xm_talk.fast / __xm_cine.fast 设为 false 才看得到画面。
@@ -21,7 +21,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const ev = (fn, a) => page.evaluate(fn, a);
   for (let i = 0; i < 14; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
   await page.click('#goStart'); await page.waitForTimeout(800);
-  await ev(() => { const X = window.__xm; X.st.guide.done = true; X.st.guide.step = 999; X.closeModal(); X.setSpeed(1); window.__xm_talk.fast = false; });
+  await ev(() => { const X = window.__xm; X.st.guide.done = true; X.st.guide.step = 999; X.closeModal(); window.__xm_talk.fast = false; });
   const on = () => ev(() => window.__xm_talk.on);
   const shot = n => page.screenshot({ path: `${out}/${tag}_${n}.png` });
   const layout = () => ev(() => {
@@ -41,7 +41,9 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.waitForTimeout(700);
   let o = await on(); check(o && o.id === 's1_night', `对话场景播起来了（${o && o.id}）`);
   const a0 = await xp(); await page.waitForTimeout(900); const a1 = await xp();
-  check(a0 === a1, '对话在播的时候停表');
+  const nb = await ev(() => ({ dis: document.getElementById('btnNext').disabled, busy: window.__xm.busyUI, t0: window.__xm.st.tick }));
+  await ev(() => window.__xm.nextSeason(true));
+  check(a0 === a1 && nb.dis && nb.busy && (await ev(() => window.__xm.st.tick)) === nb.t0, '对话在播的时候【下一季】不可点、时间不动');
   await shot('talk_1_line');
   let l = await layout();
   check(l && l.skH >= 44 && l.skW >= 44 && !l.over && l.lines <= 2 && l.bottom < l.vh - 20, `版式：跳过 ${l && Math.round(l.skW)}×${l && Math.round(l.skH)}、台词 ${l && l.lines} 行、画面 ${l && Math.round(l.cvW)}px、没有溢出`);
@@ -190,6 +192,36 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     check(rb.aff >= 20 && rb.sky && rb.m === 2 && rb.mult && rb.line.length > 10 && rb.fate === 2, `转世开场：苏 ${rb.aff} 好感（前缘），问过天道果 ×1.10，老祖：“${rb.line.slice(0, 16)}…”`);
     await shot('rebirth_open');
     await ev(() => window.__xm.closeModal());
+  }
+  // ---------- 零延迟（AP_PLAN §4.3 / §8.4）：【下战书 · 赵乾】打赢，结果卡关掉后 500ms 内出现的是 s3_zhao_fall ----------
+  {
+    const fx = JSON.parse(require('fs').readFileSync(path.join(__dirname, 'story_fixtures', 'syn_ch3_nosect_beatzhao.json'), 'utf8'));
+    await ev(s => { const X = window.__xm; X.closeModal(); window.__xm_talk.close && window.__xm_talk.close(); window.__xm_cine.fast = true;
+      s = s.st || s;
+      // 读进来之前把赵乾改回“没打过”：第三章的高潮、收尾和章末都还没出（其余照存档）
+      delete s.beaten.zhao; if (s.eflags) delete s.eflags.beat_zhao; s.storyQ = []; if (s.path) s.path.hold = [];
+      for (const id of ['s3_zhao_fall', 's3_end', 's3_zhao_eve']) if (s.evDone) delete s.evDone[id];
+      if (s.story && s.story.beat) for (const k of Object.keys(s.story.beat)) if (/^c3_(climax|end)$|^c[4-9]_/.test(k)) delete s.story.beat[k];
+      if (s.flags && s.flags.chEnd) for (const k of Object.keys(s.flags.chEnd)) if (+k >= 2) delete s.flags.chEnd[k];
+      s.ap = { left: 3, stride: 0, debt: 0, seq: 0, pend: [], log: {}, migrated: 1 }; s.flags.apHint = 1;
+      X.loadState(s); }, fx);
+    // 读档的那条链先出完（压着的戏、迁移提示）
+    await ev(() => { window.__xm_talk.fast = true; });
+    for (let i = 0; i < 30; i++) { const busy = await ev(() => window.__xm.busyUI || !!window.__xm_talk.on); if (!busy) break; await ev(() => { if (window.__xm_talk.on) { window.__xm_talk.close(); return; } const b = [...document.querySelectorAll('#modal .choices .btn:not([disabled]), #modal .foot .btn:not([disabled])')]; if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(450); }
+    const pre = await ev(() => { const { st, L } = window.__xm, I = L.challengeInfo(st, 'zhao'); return { ch: L.chapterNow(st), why: I && I.why, ap: st.ap.left, q: st.storyQ.slice() }; });
+    // 造出来的局面：第三章开章那场（story_r2）按“早就播过了”算，队列清空——赢下来之后链里只该有这一仗引出的戏
+    await ev(() => { const s = window.__xm.st; s.evDone.story_r2 = 1; s.storyQ.length = 0; });
+    await ev(() => { window.__xm_talk.fast = false; const L = window.__xm.L; window.__dw0 = L.duelWin; L.duelWin = () => true; window.__xm.doAct('duel', { id: 'zhao' }); L.duelWin = window.__dw0; });
+    await page.waitForTimeout(600);
+    for (let i = 0; i < 8 && await ev(() => !!window.__xm.duelFx); i++) { await ev(() => window.__xm.duelSkip()); await page.waitForTimeout(300); }
+    await page.waitForTimeout(300);
+    const card = await ev(() => (document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '');
+    await page.click('#modal .foot .btn'); const t0 = Date.now();
+    let got = null; for (let i = 0; i < 25 && !got; i++) { await page.waitForTimeout(20); got = await ev(() => (window.__xm_talk.on ? window.__xm_talk.on.id : '') || ((document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '')); }
+    const dt = Date.now() - t0;
+    check(pre.ch === 2 && !pre.why && got === 's3_zhao_fall' && dt <= 500, `打赢赵乾（第 ${pre.ch + 1} 章，结果卡“${card}”）关掉后 ${dt}ms 出的是 ${got || '（什么都没有）'}`);
+    await shot('chain_zhao_fall');
+    await ev(() => { window.__xm_talk.close && window.__xm_talk.close(); window.__xm.closeModal(); });
   }
   check(!errs.length, '没有脚本报错' + (errs.length ? '：' + errs.slice(0, 3).join(' | ') : ''));
   await b.close();

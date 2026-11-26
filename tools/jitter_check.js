@@ -123,17 +123,14 @@ function analyze(rec, allow) {
       if (!ok || process.env.JV) { for (const e of r.ev) console.log('         · ' + e); for (const s of r.srcs) console.log('         ~ ' + s); }
     };
     const click = sel => () => page.click(sel);
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
 
     // ===== 开局：第一趟（手把手）→ 结算卡（翻牌、对比行）=====
     await scen('开局·历练出发页', null, click('[data-nav="exp"]'));
     await scen('出发页→确认页', null, click('#modal .card[data-k="0"]'));
     const BT_OK = ['scene', 'goal', 'cult', 'stats', 'tick'];   // 进出战斗：修为条、数值格、传讯换成战斗条，场景让高度——一下到位；顶栏、时间条、底栏不动
     await scen('确认页→出发(战斗画面)', null, click('#modal .foot .btn.gold'), { ms: 900, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(0));
     await scen('战斗进行', null, () => wait(1500), { ms: 300, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
-    await scen('战斗结束→结算卡', null, () => ev(() => { const X = window.__xm; if (X.st.exp) { X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); } }), { ms: 1200, allow: BT_OK });
+    await scen('战斗结束→结算卡', null, () => ev(() => window.__xm_bt.all()), { ms: 1200, allow: BT_OK });
     await scen('结算卡翻牌', null, () => ev(() => { const b = document.querySelector('#modal .lt-flip'); if (b && b.flipAll) b.flipAll(); }), { ms: 1800 });
     await scen('结算卡关闭→下一张', null, () => ev(() => window.__xm.closeModal()), { ms: 900 });
     await closeAll();
@@ -159,7 +156,6 @@ function analyze(rec, allow) {
       window.__xm.closeModal();
     });
     await closeAll();
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
 
     // ===== 底栏五格互点（开着一个面板时直接点另一格）=====
     await scen('底栏·打开历练', null, click('[data-nav="exp"]'));
@@ -226,11 +222,9 @@ function analyze(rec, allow) {
     // ===== 历练出发页 → 战斗 → 结算 =====
     await scen('出发页', null, click('[data-nav="exp"]'));
     await scen('出发页→确认页(中期)', null, click('#modal .card[data-k="0"]'));
-    await ev(() => window.__xm.setSpeed(0));
     await scen('确认页→战斗(中期)', null, click('#modal .foot .btn.gold'), { ms: 2500, allow: BT_OK });
     await scen('战斗进行(中期)', null, () => wait(1500), { ms: 300, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
-    await scen('战斗→结算卡(中期)', null, () => ev(() => { const X = window.__xm; if (X.st.exp) { X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); } }), { ms: 1200, allow: BT_OK });
+    await scen('战斗→结算卡(中期)', null, () => ev(() => window.__xm_bt.all()), { ms: 1200, allow: BT_OK });
     await scen('结算卡翻牌(中期)', null, () => ev(() => { const b = document.querySelector('#modal .lt-flip'); if (b && b.flipAll) b.flipAll(); }), { ms: 2200 });
     await closeAll();
     // ===== 过场结束接结果卡（突破）=====

@@ -9,17 +9,17 @@ function retreatCard() {
   if (!L.retOpen(st)) return '';   // 没开的不出现（docs/ONBOARDING.md §2.3）
   const ri = L.retInfo(st), ab = apBtn('retreat'), why = ri.why || ab.why, ok = !why, got = ri.gotNow !== undefined ? ri.gotNow : ri.extra, mo = got / Math.max(1e-9, L.gainCalm(st));
   const tired = ri.tired ? `<div class="pn-line seal">连着第 ${ri.streak + 1} 次闭关：倍率 ×${ri.m0.toFixed(2)} → ×${ri.m.toFixed(2)}（出门历练一趟就恢复）</div>` : '';
-  return pnFold('ret', { ic: iconHTML('disc', 30), nm: `闭关 ${ab.tag}`, badge: `<span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span>`,
+  return pnFold('ret', { ic: iconHTML('disc', 30), nm: '闭关', badge: `<span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span>`,
     k: ok ? `修为 <b class="pn-up">+${fmt(got)}</b>（约 ${L.fmt1(mo)} 月）` : `<span class="seal">${esc(why)}</span>`,
-    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" data-ap="${ab.n}" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}</button>`,
+    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" data-ap="${ab.n}" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}${ab.tag}</button>`,
     body: `<div class="pn-line">当场出关：比打坐多得修为 +${fmt(got)}${ri.save ? '，本层提前一截' : ''}</div>${tired}
       <div class="pn-line">出关 ${L.pct(ri.epi)} 顿悟，再得 ${L.RET.epiTicks} 月修为${L.home2On() ? (st.home.room ? ` · 静室 Lv${st.home.room}` : L.homeUnlocked(st, 'room') ? ' · 建静室能加倍率' : '') : ''}</div>` });
 }
 function sitCard() {
   if (st.p.r > L.MAXR) return '';
   const ab = apBtn('sit'), g = L.sitGain(st, 1);
-  return pnRow({ ic: iconHTML('disc', 30), nm: `打坐 ${ab.tag}`, k: `修为 <b class="pn-up">+${fmt(g)}</b>${L.sitMult(st) > 1 ? `（引气诀 ×${L.fmt1(L.sitMult(st))}）` : ''}`,
-    right: `<button class="btn sm ${ab.why ? 'alt' : 'gold'}" id="btnSit" data-ap="${ab.n}" ${ab.why ? 'disabled' : ''}>打坐</button>` });
+  return pnRow({ ic: iconHTML('disc', 30), nm: '打坐', k: `修为 <b class="pn-up">+${fmt(g)}</b>${L.sitMult(st) > 1 ? `（引气诀 ×${L.fmt1(L.sitMult(st))}）` : ''}`,
+    right: `<button class="btn sm ${ab.why ? 'alt' : 'gold'}" id="btnSit" data-ap="${ab.n}" ${ab.why ? 'disabled' : ''}>打坐${ab.tag}</button>` });
 }
 function healCard() {
   if (!(st.p.inj > 0)) return '';
