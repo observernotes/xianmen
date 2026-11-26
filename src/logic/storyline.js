@@ -53,6 +53,20 @@ function cond1(st, c) {
 }
 L.storyCond = (st, c) => (c === undefined || c === null ? true : Array.isArray(c) ? c.every(x => cond1(st, x)) : cond1(st, c));
 
+// ---------- 共用场景的空位（STORY_PLAN §10） ----------
+// 写手线往 STORY_SLOTS['场景 id'] 里放 { who, if, echo, say }（内容文件里写 globalThis.STORY_SLOTS，node 与浏览器是同一张表）；
+// 场景的 talk 里写 { slot: '场景 id', n: 3 }：从上往下取条件满足的，每人至多一段，取前 n 段（n 缺省 3）；{ slot, who: 'zhao' } 只取那个人的一段。
+L.STORY_SLOTS = globalThis.STORY_SLOTS || (globalThis.STORY_SLOTS = {});
+L.storySlots = function (st, id, n, who) {
+  const out = [], seen = {};
+  for (const x of L.STORY_SLOTS[id] || []) {
+    if (who && x.who !== who) continue;
+    if (seen[x.who] || !L.storyCond(st, x.if)) continue;
+    seen[x.who] = 1; out.push(x); if (out.length >= (n || 3)) break;
+  }
+  return out;
+};
+
 // ---------- 有条件的选项 ----------
 const moSide = st => L.aff(st, 'ye') >= 60 || L.storyPath(st) === 'mo' || (L.grudge ? L.grudge(st, 'xue') : 0) <= -40;
 const zhengSide = st => L.aff(st, 'su') >= 60 || (L.storyPath(st) === 'zheng' && st.sect.rank >= 2) || !!E(st).tiankuo_ally;

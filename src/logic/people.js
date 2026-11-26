@@ -343,6 +343,16 @@ L.COMP = {
   mo: { n: '禁地负伤减半', d: '禁地的负伤风险减半' },
   tian: { n: '斩妖分数 +6', d: '斩妖时历练分数 +6（宿敌线的“同行·楚天阔”）' },
 };
+// 远行（STORY P12、P13）：人走了，同伴位写“远行中”，顺路的来访换成书信（chu_letter / su_letter / bai_home，ev_story_people.js）。
+// 楚狂下山、苏留在济世堂：story.js 的 L.npcAway（来访与同行都停）。小九回雪见坡（bai_away）只是不能跟着出门——她还会回来探亲；
+// 九尾成了（bai_nine）或跟你回了家（bai_stay）就不算远行了。
+const FAR_WHY = { chu: '远行中：下山走天下去了，偶尔有信', su: '远行中：留在了济世堂，偶尔有信', bai: '远行中：回雪见坡长尾巴去了，偶尔回来探亲' };
+L.npcFar = function (st, id) {
+  const e = (st && st.eflags) || {};
+  if (id === 'bai') return !!e.bai_away && !e.bai_nine && !e.bai_stay;
+  return typeof L.npcAway === 'function' && L.npcAway(st, id);
+};
+L.npcFarWhy = (st, id) => (L.npcFar(st, id) ? FAR_WHY[id] || '远行中' : '');
 L.COMP_V = { ye: 1.2, yeLeap: 1.5, chu: 10, mo: 0.5, bai: 0.1 };
 const daolvOn = (st, id) => !!st.daolv && st.daolv === id && !(L.daolvBlocked && L.daolvBlocked(st)) && !(typeof L.trialOn === 'function' && L.trialOn(st, 'gu'));
 // 能不能放进同伴位：四心（仁三级 90 即五心也算）、不是道侣（道侣本来就跟着）
@@ -352,6 +362,7 @@ L.compWhy = function (st, id) {
   if (lone(st)) return '天道试炼·孤星：不带同伴';
   if (id === 'tian') return st.eflags && st.eflags.tiankuo_ally ? '' : '楚天阔化敌为友之后才肯同行';
   if (!L.NPCS[id] || !L.met(st, id)) return '还不认识';
+  if (L.npcFar(st, id)) return L.npcFarWhy(st, id);
   if (st.daolv === id) return '道侣本就同行，不占同伴位';
   if (L.hearts(st, id) < 4) return `四心（好感 80）才肯跟你出门，现在 ${L.aff(st, id)}`;
   return '';
@@ -373,7 +384,7 @@ const compNow = st => {
   if (st.run) return st.run.comp !== undefined ? st.run.comp : compSel(st);
   return compSel(st);
 };
-L.companionOn = (st, id) => ON() && (compNow(st) === id || daolvOn(st, id));
+L.companionOn = (st, id) => ON() && !(id === 'bai' && L.npcFar(st, id)) && (compNow(st) === id || daolvOn(st, id));
 // 这一趟同行的人（同伴位 + 道侣），界面用
 L.compList = st => { const a = []; const c = compNow(st); if (c) a.push(c); if (st.daolv && daolvOn(st, st.daolv) && ON() && !a.includes(st.daolv)) a.push(st.daolv); return a; };
 // 楚狂：斩妖分数 +10（L.addExpMod，确认页的预计评价也算上）
