@@ -140,8 +140,8 @@ async function play(route, seed) {
         // 突破：点界面
         if (L.isReady(st) && !L.busy(st)) {
           while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) L.buy(st, 'pill');
-          // 筑基点界面的突破；之后的雷劫过场在无头浏览器里一场要几十秒以上，照 longrun.js 直接结算（修炼不是主线，心魔劫照样当剧情弹）
-          if (uiBt < 1 && !L.tribNeeded(st)) {
+          // 突破的过场在无头浏览器里按真实时间放（机器忙时一场几分钟），照 longrun.js 直接结算（PT_UIBT=1 时筑基那一回点界面；修炼不是主线，心魔劫照样当剧情弹）
+          if (cfg.uiBt && uiBt < 1 && !L.tribNeeded(st)) {
             uiBt++; X.showBreakthrough(); await sleep(30);
             for (const b of [...document.querySelectorAll('#modal [data-aid]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(20); }
             const go = document.querySelector('#modal .foot .btn.gold:not([disabled])'); if (go) go.click(); else X.closeModal();
@@ -192,7 +192,7 @@ async function play(route, seed) {
       if (stat.km.join !== undefined) stat.lag.push({ id: 'join', ev: stat.km.join, beat: stat.km.join, shown: stat.res.story_sect === undefined ? null : stat.res.story_sect, scene: 'story_sect' });
       stat.beat = JSON.stringify((st.story || {}).beat); stat.storyQ = st.storyQ.join(); stat.storyIds = Object.keys(st.evDone).filter(id => (L.eventById(id) || {}).where === 'story');
       return Object.assign(stat, { tick: st.tick, r: st.p.r, ch: L.chapterNow(st), asc: st.p.r >= 9, sect: st.sect ? st.sect.id : '', lone: L.loneRoute(st), path_san: !!st.eflags.path_san, ease: L.mainEase(st), ending: st.p.r >= 9 ? L.endingOf(st).id : '' });
-    }, { route, seed, maxT: MAXT, logEvery: +process.env.PT_LOG || 120, dbg: +process.env.PT_DBG || 0 });
+    }, { route, seed, maxT: MAXT, logEvery: +process.env.PT_LOG || 120, dbg: +process.env.PT_DBG || 0, uiBt: !!process.env.PT_UIBT });
   } catch (e) { res = { err: e.message }; }
   if (beat) clearInterval(beat);
   await browser.close();
