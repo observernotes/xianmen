@@ -13,7 +13,7 @@
  *   D 老祖身世线（STORY.md §3 的“确定”几件）按揭示顺序：r1 < r2 < r3 < r4 < r5 < r6 < 隔空传音 < r7 < r8；万剑低眉在 r3 之后。
  *   E 不卡死：照引导玩的每一章主线都在合理月数内完成（单章 ≤ 420 月），每个出身都走到飞升或至少第六章。
  *   G 串联层：八个抉择场景齐全、节拍都挂得上、预设路线各落在预期的结局、有条件的选项、每个故事标志位至少两处回声（第 9 节）。
- *   F 解锁卡跟着章走：第一世按表解锁（非“已经发生”的强制解锁）的那一刻，当前章 ≥ 这一项的 ch。 */
+ *   F 解锁卡跟着章走：第一世按表解锁（非“已经发生”的强制解锁）的那一刻，当前章 ≥ 这一项的 ch（原门槛满足后等满 L.ONB_CH_WAIT 月的除外）。 */
 'use strict';
 const path = require('path');
 const { run, L } = require(path.join(__dirname, 'sim.js'));
@@ -38,7 +38,8 @@ let cur = null;
   const k = os0.apply(this, arguments);
   if (cur && st === cur.st && before && !(st.rebirth > 0)) for (const e of L.ONB) if (before[e.k] === undefined && st.onb.at[e.k] !== undefined) {
     let forced = false; try { forced = !!(e.force && e.force(st)); } catch (err) { forced = false; }
-    if (!forced && e.ch !== undefined && L.chapterNow(st) < e.ch) cur.onbBad.push(`${e.k}（第 ${e.ch + 1} 章的，开在第 ${L.chapterNow(st) + 1} 章）`);
+    const waited = st.onb.rdy && st.onb.rdy[e.k] !== undefined && st.tick - st.onb.rdy[e.k] >= L.ONB_CH_WAIT;   // 原门槛满足后等满 L.ONB_CH_WAIT 月的，按设计放行
+    if (!forced && !waited && e.ch !== undefined && L.chapterNow(st) < e.ch) cur.onbBad.push(`${e.k}（第 ${e.ch + 1} 章的，开在第 ${L.chapterNow(st) + 1} 章）`);
   }
   return k;
 }; }
@@ -80,7 +81,7 @@ function judge(w, o) {
   for (let n = 1; n <= Math.min(8, sr); n++) if (!st.evDone['story_r' + n] && !st.storyQ.includes('story_r' + n)) fail(w.who, `story_r${n} 没出（第 ${L.chapterNow(st) + 1} 章）`);
   // D：身世线揭示顺序
   const li = ids.filter(id => LORE.includes(id)).map(id => LORE.indexOf(id));
-  for (let i = 1; i < li.length; i++) if (li[i] < li[i - 1]) { fail(w.who, `身世线错序：${ids.filter(id => LORE.includes(id)).join(' → ')}`); break; }
+  for (let i = 1; i < li.length; i++) if (li[i] < li[i - 1]) { fail(w.who, `身世线错序：${w.story.filter(x => LORE.includes(x.id)).map(x => `${x.id}@${x.t}/章${x.ch + 1}`).join(' → ')}`); break; }
   const b5 = ids.indexOf('story_boss5'), r3 = ids.indexOf('story_r3');
   if (b5 >= 0 && (r3 < 0 || b5 < r3)) fail(w.who, '万剑低眉出在 story_r3 之前');
   // E：不卡死

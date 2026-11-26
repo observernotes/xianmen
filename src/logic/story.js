@@ -2,7 +2,8 @@
  * 模块写法见 src/logic.js 顶部说明。排在 path 之后（读 L.chapterNow），包 L.fireTrigger / L.fill / L.applyFx / L.eligible / L.tribPre / L.tick / L.resolveChoice。
  *
  *   按章触发（通用机制，新剧情直接用）：剧情触发键 K 若在 L.STORY_CH(K) 里有章号 c（realm:N → N；boss:5 → 4；demon:3 → 5.9；trib:1 → 2.1），
- *     就要“触发条件成立 且 当前章 ≥ c”才放：境界先到、章没到时记在 st.path.hold，章到了按 c 的先后补发——realm:N 剧情永远按章顺序、各一次，不因境界超前提前或错过。
+ *     就要“触发条件成立 且 当前章 ≥ c”才放：境界先到、章没到时记在 st.path.hold，章到了按 c 的先后一个一个补发（前一个放出的剧情结算完才放下一个）——
+ *     realm:N 剧情永远按章顺序、各一次，不因境界超前提前或错过。
  *     心魔劫（雷劫前那一关，L.tribPre）同理：章没到就这一劫先不出心魔，记下来章到了再当剧情放。新加按章走的键：往 CH_KEY 里登记一行。
  *   L.storyR(st)：剧情用的境界 = min(境界, 当前章)；事件的 minR / maxR、chains.js 的“补放剧情步”、这里的补发都看它（身世线、人物线的境界窗口跟着章走）。
  *   补发：realm:N 的剧情里带条件（need）的（story_r6_mo 要墨家遗书走完、tianheng_1 要 st_truth……），条件后来才满足时，只要还没出过就补进剧情队列（P09）。
@@ -34,14 +35,21 @@ const ROOKIE_RE = /^rookie:/;
   return ft0(st, key);
 }; }
 // 章到了：按章序补发记着的剧情键
+let resolving = 0;   // 剧情结算中（L.resolveChoice 里会先判章、后补发同键剧情）：等结算完再放
 L.storyRelease = function (st) {
+  if (resolving) return 0;
   if (!st || !st.path || !Array.isArray(st.path.hold) || !st.path.hold.length) return 0;
   const ch = L.chapterNow(st), h = st.path.hold;
   const due = h.filter(k => L.STORY_CH(k) <= ch).sort((a, b) => L.STORY_CH(a) - L.STORY_CH(b));
   if (!due.length) return 0;
-  st.path.hold = h.filter(k => !due.includes(k));
-  for (const k of due) L.fireTrigger(st, k);
-  return due.length;
+  // 一次只放一个键，等它放出来的剧情都结算完（队列里没有按章的剧情了）再放下一个：
+  // 同一键的后续剧情（story_r6 → tianheng_1）是前一段结算后才补发的，几个键一起放会被后一章的剧情插队
+  const pend = st.storyQ.some(id => { const ev = L.eventById(id); return ev && L.STORY_CH(ev.trigger) >= 0; });
+  if (pend) return 0;
+  const k = due[0];
+  st.path.hold = h.filter(x => x !== k);
+  L.fireTrigger(st, k);
+  return 1;
 };
 // 条件后来才满足的 realm:N 剧情：补进剧情队列（只补 N ≤ 剧情境界的，按 N 的顺序）
 const REALM_RE = /^realm:(\d)$/;
@@ -167,7 +175,9 @@ if (typeof L.companionOn === 'function') { const f0 = L.companionOn; L.companion
 
 // ---------- 结算之后的几件 ----------
 { const rc0 = L.resolveChoice; L.resolveChoice = function (st, ev, idx) {
-  const res = rc0.apply(this, arguments);
+  let res; resolving++;
+  try { res = rc0.apply(this, arguments); } finally { resolving--; }
+  if (!resolving) L.storyRelease(st);
   if (res && st.eflags && st.eflags.trial_hint && st.meta && !st.meta.trialHint) st.meta.trialHint = 1;   // P24：云无极的“上面的规矩”也算试炼提示
   return res;
 }; }

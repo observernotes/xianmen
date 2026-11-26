@@ -137,10 +137,13 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(/章.*完/); await page.waitForTimeout(500); }   // 中途冒出的翻牌、过场等关掉，章末卡留着
   await shot('g14-chapter');
   const cb = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent).join('/'));
-  check(/第一章.*完/.test(chEnd) && /开始第二章/.test(cb), `章末结算：${chEnd} ·【${cb}】`);
+  // 约战输了（引导型约一成）：章只由主线推进，第一章不结束（主线改成“论道击败对手”），不弹章末卡
+  const lost = await ev(() => window.__xm.st.pact < 0);
+  if (lost) check(!/章.*完/.test(chEnd), `约战输了：不弹章末卡、仍在第一章（${chEnd || '没弹'}）`);
+  else check(/第一章.*完/.test(chEnd) && /开始第二章/.test(cb), `章末结算：${chEnd} ·【${cb}】`);
   await closeAll();
   const g2 = await ev(() => ({ ch: document.getElementById('gCh').textContent, world: !document.querySelector('[data-nav="world"]').classList.contains('lk') }));
-  check(g2.ch === '第二章' && g2.world, `之后目标卡换成${g2.ch}、【江湖】亮起`);
+  check(g2.ch === (lost ? '第一章' : '第二章') && g2.world, `之后目标卡换成${g2.ch}、【江湖】亮起`);
   await shot('g15-ch2');
   const blk = await ev(() => window.__blk);
   check(blk === 0, `全程没有带【好】的阻塞讲解（${blk} 次）`);

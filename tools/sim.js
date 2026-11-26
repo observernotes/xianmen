@@ -71,6 +71,10 @@ const RIV2 = !arg.includes('norivals2');
 if (arg.includes('nopeople2')) L.PEOPLE2_ON = false;
 // noonb：关掉上手曲线（L.ONB_ON = false：各系统一到原门槛就开，回到 2.0.0 的节奏），与默认对照量 docs/ONBOARDING.md 这一刀的影响
 if (arg.includes('noonb')) L.ONB_ON = false;
+// nochwait：解锁卡不按章（L.ONB_CH_WAIT = 0），与默认对照量“解锁卡按章开”对节奏的影响
+if (arg.includes('nochwait')) L.ONB_CH_WAIT = 0;
+// nochgate：剧情、事件窗口不按章（L.CH_GATE = false：realm:N 剧情踏入境界就放，事件按境界判），只作对照
+if (arg.includes('nochgate')) L.CH_GATE = false;
 // notrip：历练回到分数制（L.TRIP_ON = false：没有节点与回合战，评价照旧预掷），与默认对照量 docs/COMBAT_LOOT.md 这一刀
 if (arg.includes('notrip')) L.TRIP_ON = false;
 // noke：guided 出发前不换克制（COMBAT_LOOT §4.4 的对照）

@@ -31,6 +31,7 @@ const metAny = st => Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]);
 const EXTRA_B = ['forge', 'pen', 'room', 'library', 'spring', 'vault', 'pavilion', 'portal'];
 
 // 间隔（月）。系统之间另有 L.TIME.unlockGapMonths 的下限（解锁卡之间 ≥ 8 月；真实时间那一半由界面登记 L.onbHold 判，见 src/ui/clock.js）
+L.ONB_CH_WAIT = 36;   // 0 = 不按章（sim 对照）
 L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn: 3 };
 // ---------- 时钟（docs/KAIRO_PLAN.md §3.2 / §3.4 的旋钮）：×1 时一月多少秒 ----------
 // idle 在洞府打坐、trip 历练、away 闭关 / 特训 / 讲道；转世后用 reborn 那一组。unlockGapMonths / unlockGapSec：两张解锁卡之间的最短间隔；
@@ -125,7 +126,12 @@ L.onbStep = function (st) {
     if (o.at[e.k] !== undefined || !(e.start || call(e.base, st))) continue;
     if (e.par && o.at[e.par] === undefined) continue;
     if (!reborn && e.i > E.bt.i && !st.pact) continue;   // 第一章只有历练、洞府、闭关、突破（和采药）：其余的都等三年之约之后
-    if (!reborn && e.ch !== undefined && L.chapterNow && L.chapterNow(st) < e.ch) continue;   // 解锁卡按章开（path.js 给每项标了 ch）：境界超前、主线没跟上时，后面章的系统先不开
+    // 解锁卡按章开（path.js 给每项标了 ch）：境界超前、主线没跟上时，后面章的系统先不开；
+    // 但原门槛满足后最多等 L.ONB_CH_WAIT 个月（主线卡住的玩家不至于一直拿不到系统）。o.rdy[k]：原门槛第一次满足的月
+    if (!reborn && L.ONB_CH_WAIT > 0 && e.ch !== undefined && L.chapterNow && L.chapterNow(st) < e.ch) {
+      const rd = o.rdy || (o.rdy = {}); if (rd[e.k] === undefined) rd[e.k] = st.tick;
+      if (st.tick - rd[e.k] < L.ONB_CH_WAIT) continue;
+    }
     if (e.sys && sysWait) continue;   // 上一个系统还没掌握：别的系统等着，子项可以先开
     const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着
