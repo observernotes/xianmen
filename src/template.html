@@ -1114,6 +1114,23 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kmail { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 4px 6px; font-size: 15px; }
 .kmail .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kmail .s { color: #8a7a5c; font-size: 14px; white-space: nowrap; }
+/* ---------- 线 C3 高光过场（cine2.js，docs/COMBAT_LOOT.md §9） ---------- */
+.cn-wrap { position: fixed; inset: 0; z-index: 40; background: #07050c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+#intro .cn-wrap.cn-in { position: fixed; inset: 0; max-width: none; width: auto; gap: 0; z-index: 40; }
+.cn-cv { display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #1b1326, 0 0 0 4px #3a3155; }
+.cn-sub { min-height: 28px; margin-top: 16px; padding: 0 12px; font-size: 18px; line-height: 28px; color: #f6ecd0; white-space: nowrap; text-align: center; letter-spacing: 1px; text-shadow: 2px 2px 0 #1b1326; }
+.cn-pips { display: flex; gap: 6px; margin-top: 10px; }
+.cn-pips i { width: 8px; height: 8px; background: #3a3155; box-shadow: 0 0 0 1px #1b1326; }
+.cn-pips i.on { background: var(--gold); }
+.cn-hint { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; }
+.cn-skip { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); min-width: 88px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(27, 19, 38, .85); border: 0; box-shadow: 0 0 0 2px #55506e; cursor: pointer; }
+.cn-skip:active { background: #3a3155; }
+.cn-rc { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-top: 6px; }
+.cn-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; padding: 6px 4px; font: inherit; color: var(--paper-ink); background: rgba(27, 19, 38, .06); border: 0; box-shadow: 0 0 0 2px #b98a4c; cursor: pointer; }
+.cn-tile .cn-th { display: flex; align-items: center; justify-content: center; background: #07050c; overflow: hidden; }
+.cn-tile .cn-th i { font-style: normal; color: #55506e; font-size: 20px; }
+.cn-tile .cn-nm { font-size: 14px; white-space: nowrap; }
+.cn-tile.off { cursor: default; opacity: .7; box-shadow: 0 0 0 2px #8a8496; }
 /* ---------- 战斗线 C1：历练的节点与回合战（src/ui/battle.js，docs/COMBAT_LOOT.md §2，示意图 02_battle.png） ---------- */
 body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar { display: none !important; }
 #bt { display: flex; flex-direction: column; gap: 4px; flex: none; }
