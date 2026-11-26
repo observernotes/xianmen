@@ -785,3 +785,13 @@ L.matsAdd(st, mats)                           // C2：战斗掉的灵核等入�
 - 对决（P1-1）：`L.duelWin(st, S, Q, foe, p, opt)` 取代各处的 `R() < p`：胜率仍是 `L.duelP` 的 p（备战卡与 sim 都认它），胜负由一场回合战打出来（按招式签名缓存“战力比 → 胜率”表，反查出让胜率等于 p 的战力比）。最近一场 `L.duelLast = { seed, Q, p, foe, opt, res, win }`；`L.duelBattle(st, Q, foe, p, seed, opt)` 可重放。`L.DUEL_ON = false` 回到掷骰。
 - 存档：`st.exp` 的节点字段（见 1）；`st.meta.foes`（见过的敌人，跨世）；`st.flags.btSeen`（第一次看到蓄力 / 罩 / 克 / 怒气满的停顿）；`st.flags.autoUlt`（第二章起“怒气满了自动放”）；`st.stats.btKe`（打出过“克”，解锁表“战技·五行”的掌握信号）；`st.btPol`（sim 的自动策略）。
 - 开关：`L.TRIP_ON = false`（sim 的 `notrip`）回到预掷分数制；sim 另有 `noke`、`pp=` / `pa=`（临时改 `PACT_POWER / PACT_ASSIST`）。
+
+### 6. 刷宝 + 炼器线 C2 实际提供的（C2 维护）
+
+- `L.tripLoot(st, trip)`：照第 4 条；另认 `trip.hp`（归来气血，趁势深入要 ≥ 50%）、`trip.deeper`（'win' / 'lose'）、`trip.deeperOnly`、`trip.deeperPrev`（上一趟还没决定的法宝 u，输了隔一件丢）。返回的数组另挂 `cards.n`（各来源的牌数）、`cards.wishHit`、`cards.deeper`、`cards.deeperLost`。牌另带 `name`、`n`（堆数）、`gold`、`slot`（掉落表第几格）、`first`（这一格第一次掉）、`sig`、`must`。人生第一趟只翻 `must` 那一张。
+- `L.bossLoot(st, k, first)`：`L.fightBoss` 里调（C1 的包装照旧拿到 `res.cards`）；首领结算卡 `bossResultUI` 上直接翻。
+- `L.matsAdd(st, { core: { mu: 1 }, rune, ore })`；`st.mats.core`、`st.mats.rune`（器纹石）。
+- 法宝上：`x.star`（0～3）、`x.el`（淬灵后的五行，没淬过不写）、`x.gold`、`x.aff`、`x.edge`（['feng'|'ling'|'ren']）；`L.gearEl(x)`；`L.gearBattle(st)` → `{ aff: { id: 件数 }, gold: [id], edge: { feng, ling, ren }, el, star }`，引擎读它最省事。开锋的数：`L.EDGE`（锋 伤害 +6% / 灵 器技冷却 −1 / 韧 气血 +8%）。
+- 掉落表：`L.cellInfo(k, d)` 优先读 `L.CELL_FOES[k][d].sig / core` 与 `L.FOES[elite].el`；`L.dropTable(st, k, d)` 4 格（禁地 5 格）。心愿 `st.wish`、`L.setWish`、`L.wishInfo`、`L.wishOpen`；解锁表里可加子项 `wish`（par: exp，base: `L.wishOpen`）与 `infuse`（par: plus，base: `st => L.gearOpen(st, 'infuse')`）——界面已经按 `UI.isOpen('wish')` 判了。
+- 趁势深入：`L.deeperOk(st, trip)`、`L.startDeeper(st, res)`（开一段 2 月、节点 `[elite, home]`、气血接着上一趟的）；结算卡上一行【去 ▸】。
+- 界面：`lootFlipHTML(cards)` + `lootFlipRun(root, cards, opt)`（嵌在结算卡里，评价章之后）、`showLootFlip(cards, done, opt)`（单独一张）、`lootPrepHTML(k, d)` + `bindLootPrep`（出发页）、`showGearDetail(slot, still, tab)`（炼器台，tab：'plus' | 'infuse' | 'reroll'）。

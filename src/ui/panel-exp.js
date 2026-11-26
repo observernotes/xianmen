@@ -203,6 +203,7 @@ function tripSnapNow() {
   if (st.exp.snap) Object.assign(tripSnap, { pw: st.exp.snap.pw !== undefined ? st.exp.snap.pw : tripSnap.pw, xp: st.exp.snap.xp !== undefined ? st.exp.snap.xp : tripSnap.xp });
 }
 function showExpResult(res) {
+  // 归途翻牌就在这张结算卡上（评价章之后、“你变强了”之前；示意图 04_loot.png）：见下面的 lootFlipHTML / lootFlipRun（src/ui/loot.js）
   lastExp = res;
   const rg = L.REGIONS[res.k];
   if (res.legacy) {
@@ -236,7 +237,12 @@ function showExpResult(res) {
   if (loot.length) lines.push(`<div class="kloot">${loot.slice(0, 4).map(x => `<div>${x}</div>`).join('')}</div>` + (loot.length > 4 ? `<div class="kloot">${loot.slice(4, 8).map(x => `<div>${x}</div>`).join('')}</div>` : ''));
   // 归途翻牌（src/ui/loot.js；牌里的法宝、功法翻开后在牌下出对比行），牌以外的（灵宠、仙府秘藏）照旧一行一件
   const cards = res.sum ? res.sum.cards : res.cards, inCards = new Set((cards || []).map(c => c.item).filter(Boolean));
+  const dz = res.deeper || (res.cards && res.cards.deeper), dLost = res.deeperLost || (res.cards && res.cards.deeperLost);
+  if (dz) lines.push(`<div class="krow"><span class="k">趁势深入</span><span class="v ${dz === 'win' ? 'kup' : 'kdn'}">${dz === 'win' ? '赢了 · 多翻 2 张' : `输了${dLost && dLost.length ? ' · 丢了' + esc(dLost.join('、')) : ''}`}</span></div>`);
   if (cards && cards.length) lines.push(lootFlipHTML(cards));
+  // 趁势深入（loot.js 的 L.startDeeper，§5.7）：甲以上、下一层还有，不回家直接打下一层的精英
+  const deepOk = !dz && !res.sum && !res.first && L.startDeeper && L.deeperOk(st, L.tripOf(res)) && !(L.tripBlock && L.tripBlock(st, L.DEEPER.len, false));
+  if (deepOk) lines.push(`<div class="kslot lt-deep"><div class="mid"><div class="nm">再深一层 · ${L.DEPTHS[res.d + 1]}精英</div><small>赢：多翻 2 张、星率 ×1.5 · 输：牌丢一半</small></div><button class="kb" id="ltDeep">去 ▸<br><small>+${L.DEEPER.len} ${MO()}</small></button></div>`);
   // 新法宝 / 功法 / 灵宠：第一件“已戴上”；待定的【换上】【先收着】（先收着 = 留在【装备】的“新到”里，不熔）
   for (const it of res.items) {
     if (inCards.has(it)) continue;
@@ -285,6 +291,7 @@ function showExpResult(res) {
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   if (cards && cards.length) lootFlipRun(s, cards, { onWish: () => { closeModal(); confirmExp(res.k, res.d, res.a); } });
+  const dp = s.querySelector('#ltDeep'); if (dp) dp.onclick = () => { if (L.startDeeper(st, res)) { SFX.coin(); closeModal(); updateHUD(); } };
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   s.querySelectorAll('[data-btgo]').forEach(b => b.onclick = () => { const id = b.dataset.btgo; if (L.equipArt(st, id)) { SFX.coin(); b.outerHTML = `<span class="chip ok">已换上《${esc(L.art(id).n)}》</span>`; } });
@@ -306,8 +313,9 @@ function bossResultUI(k, res) {
     : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
     : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`;
   if (res.win) SFX.win(); else SFX.fail();
-  // 首领的牌（刷宝线 loot.js 的 L.bossLoot）：看完战果再翻
-  const flip = res.win && res.cards && res.cards.length && typeof showLootFlip === 'function';
-  const s = sheet({ title: '首领 · ' + B.n, center: true, body, foot: [{ t: flip ? '翻牌 ▸' : '好', gold: true, fn: () => { if (flip) showLootFlip(res.cards, null, { title: `${esc(B.n)} · 翻牌` }); else closeModal(); } }] });
+  // 首领的牌（loot.js 的 L.bossLoot：首杀 3 张固定，再战 1 张）：就翻在这张卡上
+  const cards = res.win && res.cards && res.cards.length ? res.cards : null;
+  const s = sheet({ title: '首领 · ' + B.n, center: true, body: body + (cards ? lootFlipHTML(cards) : ''), foot: [{ t: '好', gold: true, fn: closeModal }] });
+  if (cards) lootFlipRun(s, cards);
   if (typeof bindEquipButtons === 'function') bindEquipButtons(s);
 }

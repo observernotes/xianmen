@@ -39,7 +39,7 @@ function lootFlipHTML(cards, opt) {
       <canvas class="px lt-beam" width="24" height="48" style="width:${Math.round(24 * z)}px;height:${Math.round(48 * z)}px;left:${Math.round(1 * z)}px;bottom:${Math.round(2 * z)}px"></canvas>
       <img class="px lt-face" src="${lootBack(0)}" style="width:${W}px;height:${H}px" alt=""></div>`).join('');
   return `<div class="lt-flip" id="${id}"><div class="lt-cards" style="min-height:${H + Math.round(14 * z)}px">${cells}</div>
-    <div class="lt-hint">${cards.length > 1 ? `点牌翻开 · 还有 <span class="num">${cards.length}</span> 张` : '点牌翻开'}</div><div class="lt-after"></div></div>`;
+    <div class="lt-hint">${cards.length > 1 ? `点牌翻开 · 还有 <span class="num">${cards.length}</span> 张` : '点牌翻开'}${cards.some(c => c.kind === 'gear' && c.item && c.item.equip) ? ' · 兵器已戴上' : ''}</div><div class="lt-after"></div></div>`;
 }
 // 翻开一张之后，牌下面那一行：比身上强的法宝【换上】【收】，不如身上的【熔】为主；新功法一行；心愿达成一条红框
 function lootAfterRow(c) {
@@ -125,7 +125,7 @@ function lootFlipRun(root, cards, opt) {
   });
   const left = () => {
     const n = open.filter(x => !x).length;
-    if (hint) hint.innerHTML = n ? `点牌翻开 · 还有 <span class="num">${n}</span> 张` : '全部翻开';
+    if (hint) hint.innerHTML = n ? `点牌翻开 · 还有 <span class="num">${n}</span> 张` : '全部翻开';   // 翻开以后“已戴上”写在牌下那一行
     if (!n && busy === 0 && opt.onAll) { const f0 = opt.onAll; opt.onAll = null; f0(); }
   };
   const all = async () => { for (let i = 0; i < cards.length; i++) if (!open[i]) { await reveal(i, true); await new Promise(r => setTimeout(r, 160)); } };

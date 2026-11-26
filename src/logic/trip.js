@@ -195,8 +195,9 @@ L.tripDist = function (st, k, d, a) {
   if (e.seq === 1) must.push({ kind: 'gear', base: 'w1_0', el: 'jin' });
   if (e.seq === 2 && !L.artOwned(st, 'z_liejin')) must.push({ kind: 'art', id: 'z_liejin' });
   if (e.seq === 3) must.push({ kind: 'gear', minStar: 1 });
-  res.trip = { k: e.k, d: e.d, a: e.a, rating: res.rating, won: b.won, eliteWin: b.eliteWin, eliteId: b.eliteId, eliteEl: b.eliteEl, boss: false, bossFirst: false, treasure: b.treasure, seq: e.seq, must, recall: !!e.recall, seed: e.seed };
-  if (L.tripLoot && !e.recall) { res.cards = L.tripLoot(st, res.trip) || []; }
+  res.trip = { k: e.k, d: e.d, a: e.a, rating: res.rating, won: b.won, eliteWin: b.eliteWin, eliteId: b.eliteId, eliteEl: b.eliteEl, boss: false, bossFirst: false, treasure: b.treasure, seq: e.seq, must, recall: !!e.recall, seed: e.seed, hp: res.bt.hp,
+    deeper: e.deeper ? (b.eliteWin && !e.recall ? 'win' : 'lose') : undefined, deeperOnly: !!e.deeper, deeperPrev: e.deeper && e.deeper.prevU };   // 趁势深入（loot.js 的 L.startDeeper）
+  if (L.tripLoot && (!e.recall || e.deeper)) { res.cards = L.tripLoot(st, res.trip) || []; }
   else if (!e.recall) {
     // 兜底（刷宝线合并前）：第 2 趟必得《裂金斩》
     for (const m of must) if (m.kind === 'art' && !L.artOwned(st, m.id)) { const it = L.giveArt(st, m.id, { src: 'exp' }); if (it) res.items.push(it); }
