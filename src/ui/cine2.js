@@ -58,7 +58,7 @@ function cnSealCv(s, size, col) {
   const pad = Math.round(size / 3), w = s.length * size + pad * 2, h = size + pad * 2, c = cnCv(w, h), g = c.getContext('2d');
   g.fillStyle = col || '#c8323c'; g.fillRect(1, 0, w - 2, h); g.fillRect(0, 1, w, h - 2);
   g.fillStyle = '#f4c542'; g.fillRect(2, 2, w - 4, 1); g.fillRect(2, h - 3, w - 4, 1); g.fillRect(2, 2, 1, h - 4); g.fillRect(w - 3, 2, 1, h - 4);
-  g.font = `${size}px XPixel, monospace`; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#fff6e0'; g.fillText(s, w / 2, h / 2 + 1);
+  g.font = `${size}px XPixel, monospace`; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#fff6e0'; g.fillText(s, w / 2, h / 2);
   cnSealC.set(k, c); return c;
 }
 function cnSeal(g, s, cx, cy, size, t, col) {
