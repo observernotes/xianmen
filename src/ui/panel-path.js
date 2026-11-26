@@ -103,7 +103,7 @@ function showInbox() {
   const rows = list.map((x, i) => `<div class="kmail">${artIcon(x.ic || MAIL_IC[x.k] || 'mail', 24)}<span class="grow klog">${esc(cut(x.t, 14))}</span>${x.left !== null && x.left !== undefined ? `<span class="s">${x.left} ${MO()}</span>` : ''}<button class="btn sm ${i ? 'alt' : 'gold'}" data-mail="${i}">看</button></div>`).join('');
   const visit = st.visitor && !list.some(x => x.k === 'visitor') ? `<div class="kmail">${artIcon('buddy', 24)}<span class="grow">门口有人来访</span><span class="s">${st.visitor.left} ${MO()}</span><button class="btn sm gold" id="kVisit">看</button></div>` : '';
   const said = sayLog.slice(0, 4).map(x => `<div class="krow klog" style="font-size:14px"><span class="k" style="width:40px">${x.m}${MO()}</span><span class="v">${esc(x.text)}</span></div>`).join('');
-  const elder = bubbleLog.slice(0, 1).map(b => `<div class="ksay klog">${elderImg(24)}<span>${b.text}</span></div>`).join('');
+  const elder = bubbleLog.slice(0, 4).map(b => `<div class="ksay klog">${elderImg(24)}<span>${b.text}</span></div>`).join('');
   const s = sheet({ title: `${artIcon('mail', 24)} 纸鹤`, body: (visit + rows || emptyNoteHTML('scroll', '没有新消息。')) + (said ? `<div class="ksec"><span>传讯</span></div>${said}` : '') + (elder ? `<div class="ksec"><span>老祖说过</span></div>${elder}` : '') });
   bubbleUnread = false;
   s.querySelectorAll('[data-mail]').forEach(b => b.onclick = () => {

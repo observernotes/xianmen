@@ -288,7 +288,7 @@
 
 ## 阶段八·变强页
 
-配合 `docs/KAIRO_PLAN.md` §10“变强页重做”。用在界面里的样子见 `docs/kairo_mock/g1_goal.png`～`g3_stuck.png`（源 `growth.html`，`node tools/growth_shots.js` 重新生成）。代码在 `src/art.js` 末尾“阶段八”一节，只追加、没动已有接口。尚未接线。
+配合 `docs/KAIRO_PLAN.md` §10“变强页重做”。用在界面里的样子见 `docs/kairo_mock/g1_goal.png`～`g3_stuck.png`（源 `growth.html`，`node tools/growth_shots.js` 重新生成）。代码在 `src/art.js` 末尾“阶段八”一节，只追加、没动已有接口。已接线：`src/ui/panel-growth.js`（`advCards` 用 `adv_rec` / `adv_gap` / `adv_swap`，明细折叠行用 `adv_ledger`）。
 
 新图标（`ART.icon(name)`，16×16，已进 `ART.iconNames()`）：
 

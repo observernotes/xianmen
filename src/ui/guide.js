@@ -78,9 +78,9 @@ const HINTS = [
       return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${m.n} 个月</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
     } },
   { id: 'pactSoon', urgent: true, intro: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 12 && PI().left > 0, target: BIG, btn: '知道了', text: () => {
-      const pi = PI(), tips = pactTips();
+      const pi = PI(), tips = L.advise(st, 'goal').acts.filter(a => a.id !== 'idle' && !a.gap);   // 锦囊 = 变强页目标页签的动作卡（docs/KAIRO_PLAN.md §10.5）
       return `还剩 <b>${pi.left} 个月</b>。你 ${fmt(pi.base)}${pi.assist > 1 ? `×${pi.assist}` : ''} = <b>${fmt(pi.S)}</b>，${exTa()} <b>${fmt(pi.Q)}</b>，胜算 <b>${L.pct(pi.p)}</b>。` +
-        (tips.length ? '锦囊：' + tips.map(x => `${x.t} → <b>${x.extra ? x.extra : L.pct(x.p)}</b>`).join('；') + '。点这一格看详情。' : '稳了，到时候让全城看看谁是废物。');
+        (tips.length ? '锦囊：' + tips.map(x => `${esc(x.say)} <b>${esc(x.gain.text)}</b>`).join('；') + '。点老祖看详情。' : '稳了，到时候让全城看看谁是废物。');
     } },
   { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每月自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个月</b>回本。`; } },
   { id: 'retreat', intro: true, when: () => st.guide.done && L.retOpen(st) && !st.stats.retreat && !L.busy(st) && !modalOpen() && !L.isFull(st), target: '[data-nav="home"]', btn: '好', text: () => {
@@ -424,4 +424,4 @@ function showQuests() {
     (GO[q.go] || GO.exp)();
   });
 }
-$('#goal').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showQuests(); });
+// 札记的入口在【仙途 → 设置】（原来点目标卡开札记，和目标卡自己的展开 / 路径 / 变强页抢同一次点击；KAIRO_PLAN §10.3）

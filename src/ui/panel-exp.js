@@ -254,6 +254,10 @@ function showExpResult(res) {
   lines.push(`<div class="ksec"><span>离目标</span></div>`);
   lines.push(`<div class="krow"><span class="k">${esc(cut((g.prog && g.prog[0] && g.prog[0].t) || g.bar.text.split(' ')[0] || '目标', 4))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
   if (bn) { const n = Math.floor(Math.max(0, bn.left - 1) / Math.max(1, L.expLen(res.k, st))); lines.push(`<div class="krow"><span class="k">${esc(cut(bn.n, 5))}</span><span class="v kdn">还有 ${bn.left} ${MO()}</span><span class="s">可去 ${n} 趟</span></div>`); }
+  // 丁 / 丙（卡住）：变强建议的第一张（头就是这一格，KAIRO_PLAN §10.7），【去换】进变强页
+  let stuckA = null;
+  if (!res.first && !res.recall && res.rating <= 1) { const A = L.advise(st, 'goal'); stuckA = A.head.kind === 'stuck' && A.acts[0] && A.acts[0].id !== 'idle' ? A.acts[0] : null; }
+  if (stuckA) lines.push(`<div class="kslot"><div class="cell">${gwIc(stuckA.icon, 32)}</div><div class="mid"><div class="nm">${esc(stuckA.say)}</div><small>${esc(stuckA.gain.text)} ${esc(stuckA.gain.sub || '')}</small></div><button class="kb alt" id="kGrow">${/^(swap|art|equip|infuse)/.test(stuckA.cls) ? '去换' : '去看'}</button></div>`);
   // 你不在时：纸鹤汇总（线 1 的 L.mailAway）
   const awayT = L.mailAwayText ? L.mailAwayText(st) : '';
   if (awayT) { lines.push(`<div class="kaway">${artIcon('mail', 16)}<span class="klog">${esc(awayT)}</span></div>`); if (L.mailAwayClear) L.mailAwayClear(st); }
@@ -270,6 +274,7 @@ function showExpResult(res) {
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
+  { const kg = s.querySelector('#kGrow'); if (kg) kg.onclick = () => { SFX.tap(); closeModal(); showGrowth('goal'); }; }
   s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价

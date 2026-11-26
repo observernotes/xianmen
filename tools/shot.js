@@ -704,11 +704,13 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); await page.screenshot({ path: out + '/19-newlife.png' });
   const meta = await page.evaluate(() => Object.keys(window.__xm.st.meta.aff).length);
   if (meta < 15) errors.push('转世后相性图鉴没有保留（' + meta + '）');
-  // ---------- 界面改版 A / B 线：问老祖、章末卡、场景内对决（纸卷在下、场景在上）、人物页分页；手机上不横向溢出、可点的 ≥ 44 像素 ----------
+  // ---------- 界面改版 A / B 线：变强页（原问老祖）、章末卡、场景内对决（纸卷在下、场景在上）、人物页分页；手机上不横向溢出、可点的 ≥ 44 像素 ----------
   await close(); await page.waitForTimeout(500);
   await page.evaluate(() => { const { st } = window.__xm; st.guide = { step: 99, done: true }; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.storyQ = []; st.exp = null; st.retreat = null; document.querySelector('#tip').hidden = true; });
-  await page.evaluate(() => window.__xm.showAsk()); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-ask.png' });
-  lay44(await big44('#modal [data-ask], #modal .foot .btn, #modal .close', '问老祖'));
+  await page.evaluate(() => window.__xm.showGrowth('goal')); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-growth.png' });
+  lay44(await big44('#modal [data-adv], #modal .gw-tabs button, #modal .gw-det summary, #modal .close', '变强页'));
+  await page.evaluate(() => { window.__xm.closeModal(); window.__xm.showGrowth('cul', { detail: true }); }); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-growth-cul.png' });
+  lay44(await big44('#modal [data-adv], #modal .gw-tabs button, #modal .close', '变强页 · 修炼明细'));
   await close();
   await page.evaluate(() => window.__xm.showChapterCard(0)); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-chapter-card.png' });
   lay44(await big44('#modal .foot .btn', '章末卡'));

@@ -64,11 +64,6 @@ L.onbHold = (s, e) => {
   return watchSec() - lastCardSec < L.TIME.unlockGapSec;
 };
 function clockHook(type, k) { if (type === 'unlock' && st && !st.rebirth) { const e = L.ONB_K[k]; if (e && e.sys && k !== 'exp' && k !== 'bt') lastCardSec = watchSec(); } }
-// 目标卡的锦囊：三年之约前胜算不够时，“下一步”取 pactTips() 的第一条
-L.GOAL_TIP = (s, big) => {
-  if (s !== st || !big || big.k !== 'pact' || typeof pactTips !== 'function') return null;
-  try { const t = pactTips()[0]; return t ? { t: t.t, go: String(t.go || 'exp').split(':')[0], hl: null, tip: t } : null; } catch (e) { return null; }
-};
 // ---------- 在外零打断的兜底（包已有的几个调度函数；线 2 改掉了哪个就跳过哪个） ----------
 const bannerRaw = banner;
 banner = function (text, sub, color, lock) { if (awayUI()) { if (st) L.mailPush(st, { k: 'misc', t: String(text).slice(0, 14) }); return; } bannerRaw(text, sub, color, lock); };
