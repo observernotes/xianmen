@@ -178,6 +178,7 @@ const path = require('path');
       const st = X.st;
       X.showSect('disc'); await sleep(40);
       const tk = document.querySelector('#modal [data-dtake]');
+      if (st.stats && st.stats.discTaken > 0) seen['收徒'] = 1;   // 候选多半先由“拜师的孩子”事件弹窗（disc:candidates）让机器人选掉，门下页里不一定还剩候选
       if (tk) { tk.click(); discTaken++; seen['收徒'] = 1; await sleep(450); await drain(); X.showSect('disc'); await sleep(40); }
       for (let i = 0; i < (st.disc ? st.disc.list.length : 0); i++) {
         const c = document.querySelector(`#modal .dcard[data-di="${i}"]`); if (!c) break;
