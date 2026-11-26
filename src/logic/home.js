@@ -11,7 +11,7 @@
  *   建筑效果（每级，L.HV）：器炉 强化成功率 +2%、强化灵矿 −3%、5 级开打造（gear.js 的 L.forgeLv）；兽栏 喂养 +8%、岗位 +5%（pets.js）；
  *     静室 闭关倍率 +0.05（原洞府本体的 +0.05/级挪到这里，SYSTEMS 写 +0.08，见 BALANCE_TODO）、顿悟 +2%；藏经阁 熟练 +10%、每级揭示一条共鸣提示（arts.js 的 L.libraryLv / L.comboHint）；
  *     灵泉 负伤每 2 级少养 1 月、丹毒消退 +0.5（alchemy.js 早就读 st.home.spring）、寿元流逝 −1%；聚宝阁 被动灵石 +6%、出售价 +3%；
- *     迎客亭 访客 +10%、来访好感 +1；传送阵 3 级历练时长 −1、6 级已通关地图的禁地直接开、9 级秘境不耗月（realm.js 读 st.home.portal）。
+ *     迎客亭 访客 +10%、来访好感 +1；传送阵 3 级脚力 +25%（原历练时长 −1）、6 级已通关地图的禁地直接开、9 级秘境只花 1 点（realm.js 的 L.mjAp）。
  *   加载早于 calendar / market / realm / alchemy / pets 的那些接入点在 buildings.js（排在后面，包一层）。
  *   L.HOME2_ON = false（sim 的 nohome2）：回到地块之前——只有聚灵阵、灵田、丹炉、洞府四项，闭关仍按洞府等级、器炉借丹炉等级、阵法只有聚灵。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -45,7 +45,7 @@ L.HOME = [
   { k: 'spring', n: '灵泉', base: 3000, grow: 2.1, max: 10, nu: true, unlock: '金丹可建', d: lv => (lv ? `负伤少养 ${Math.floor(lv / L.HV.springInj)} 月 · 丹毒每月多退 ${x2(lv * L.HV.springTox)} · 寿元流逝 −${pc(lv * L.HV.springAge)}` : '养伤、退丹毒、延缓寿元流逝') },
   { k: 'vault', n: '聚宝阁', base: 400, grow: 1.85, max: 12, nu: true, unlock: '筑基后期可建', d: lv => (lv ? `被动灵石 +${pc(lv * L.HV.vaultInc)} · 出售价 +${pc(lv * L.HV.vaultSell)}` : '被动灵石与坊市出售价') },
   { k: 'pavilion', n: '迎客亭', base: 20000, grow: 2.2, max: 8, nu: true, unlock: '元婴可建', d: lv => (lv ? `访客 +${pc(lv * L.HV.pavVisit)} · 来访好感 +${L.HV.pavAff}` : '访客来得更勤，来访的人好感多给') },
-  { k: 'portal', n: '传送阵', base: 300000, grow: 4, max: 9, nu: true, unlock: '化神可建', d: lv => (lv ? [`${lv >= 3 ? '✓' : '3 级'} 历练时长 −1`, `${lv >= 6 ? '✓' : '6 级'} 已通关地图的禁地直接去`, `${lv >= 9 ? '✓' : '9 级'} 秘境不耗月`].join(' · ') : '3 级历练时长 −1；6 级直达禁地；9 级秘境不耗月') },
+  { k: 'portal', n: '传送阵', base: 300000, grow: 4, max: 9, nu: true, unlock: '化神可建', d: lv => (lv ? [`${lv >= 3 ? '✓' : '3 级'} 脚力 +25%`, `${lv >= 6 ? '✓' : '6 级'} 已通关地图的禁地直接去`, `${lv >= 9 ? '✓' : '9 级'} 秘境只花 1 点`].join(' · ') : '3 级脚力 +25%；6 级直达禁地；9 级秘境只花 1 点') },
   { k: 'cave', n: '洞府', base: 200, grow: 2.2, max: 12, body: true, unlock: '炼气后期可扩建', d: lv => `寿元 +${lv * 5}% · 地块 ${L.homePlotMaxAt(lv)} 块 · ${caveName(lv)}${ON() ? '' : ` · 闭关 ×${(2 + 0.05 * lv).toFixed(2)}`}` },
 ];
 const B = {}; for (const b of L.HOME) B[b.k] = b;
@@ -253,7 +253,7 @@ L.homeDelta = function (st, k, a, b) {
   if (k === 'spring') return `丹毒每月退 ${x2(L.toxDecay(st))} → ${x2(L.toxDecay(st) + (b - a) * H.springTox)}，寿元流逝 −${pc(a * H.springAge)} → −${pc(b * H.springAge)}${Math.floor(b / H.springInj) > Math.floor(a / H.springInj) ? '，负伤少养 1 月' : ''}`;
   if (k === 'vault') { const v = L.income(st), m = 1 + a * H.vaultInc; return `灵石 +${L.fmt1(v)} → +${L.fmt1(v / m * (1 + b * H.vaultInc))}/月，出售价 +${pc(a * H.vaultSell)} → +${pc(b * H.vaultSell)}`; }
   if (k === 'pavilion') return `访客 +${pc(a * H.pavVisit)} → +${pc(b * H.pavVisit)}${a ? '' : '，来访好感 +1'}`;
-  if (k === 'portal') { const s = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗月']].find(x => a < x[0] && b >= x[0]); const n = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗月']].find(x => b < x[0]); return s ? `开：${s[1]}` : n ? `${n[0]} 级开${n[1]}` : '已全开'; }
+  if (k === 'portal') { const s = [[H.portalLen, '脚力 +25%'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境只花 1 点']].find(x => a < x[0] && b >= x[0]); const n = [[H.portalLen, '脚力 +25%'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境只花 1 点']].find(x => b < x[0]); return s ? `开：${s[1]}` : n ? `${n[0]} 级开${n[1]}` : '已全开'; }
   return '';
 };
 

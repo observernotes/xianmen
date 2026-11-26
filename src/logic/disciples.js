@@ -144,7 +144,7 @@ L.discSetJob = function (st, u, k) {
   return true;
 };
 
-// ---------- 传授：你圆满的一门功法，每门一次，花 2 月 ----------
+// ---------- 传授：你圆满的一门功法，每门一次，花 1 点行动点当场教完（ap.js 的行动 'errand'；L.TEACH_LEN 只留作旧文案的数） ----------
 L.TEACH_LEN = 2;
 L.discTeachList = (st, x) => Object.keys(st.arts.own).filter(id => L.art(id) && L.artLv(st, id) >= 3 && !x.taught.includes(id)).sort((a, b) => L.art(b).t - L.art(a).t);
 L.discTeachWhy = function (st, x, id) {
