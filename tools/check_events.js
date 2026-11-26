@@ -94,6 +94,7 @@ function checkTalk(id, talk, where) {
       } else if (it && typeof it === 'object') {
         if (it.say) k += walk(it.say, w);
         else if (it.pick) { let mx = 0; for (const o of it.pick) mx = Math.max(mx, walk(o.say || [], w)); k += mx; }
+        else if (it.slot) { if (typeof it.slot !== 'string') err(id, `${w} slot 要写场景 id`); k += 5 * (it.who ? 1 : (it.n || 3)); }   // 空位：一段按 5 句估
         else if ('black' in it) { k++; if (typeof it.black !== 'string' || len(it.black.replace(/[*|]/g, '')) > 24) err(id, `${w} 黑屏字幕要 ≤ 24 字`); }
         else if (!TALK_CMD.some(c => c in it)) err(id, `${w} 不认识的指令：${JSON.stringify(it).slice(0, 40)}`);
         if (it.echo !== undefined && (typeof it.echo !== 'string' || len(it.echo) > 16)) err(id, `${w} echo 要 ≤ 16 字`);
@@ -106,6 +107,13 @@ function checkTalk(id, talk, where) {
 }
 const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined || c.daoMin || c.gate || c.cond !== undefined);
 
+// 共用场景的空位（STORY_SLOTS，STORY_PLAN §10）：写法与台词同样查
+for (const sid of Object.keys(globalThis.STORY_SLOTS || {})) for (const [i, x] of globalThis.STORY_SLOTS[sid].entries()) {
+  const id = `slot:${sid}#${i}`;
+  if (!x || typeof x.who !== 'string' || !Array.isArray(x.say)) { err(id, '空位要写 { who, if, say }'); continue; }
+  checkTalk(id, x.say, 'say');
+  if (x.echo !== undefined && (typeof x.echo !== 'string' || len(x.echo) > 16)) err(id, 'echo 要 ≤ 16 字');
+}
 for (const [f, list] of SOURCES) if (!Array.isArray(list)) { console.error(`${f} 没有导出数组`); process.exit(1); }
 
 // 所有能置上的 flag：事件 fx.flag + 链自动 flag + 引擎 flag
@@ -286,8 +294,10 @@ for (const e of EVENTS) {
 
   // 戒中老祖在 realm:8 诀别，之后的随机事件不应再让他开口（“血河老祖”是魔宗长老，不算）
   const joined = allText.join('');
-  const elder = e.speaker === 'elder' || /(?<!血河)老祖/.test(joined);
-  if (e.where !== 'story' && elder && !(e.maxR <= 7)) err(id, '提到老祖的随机事件需 maxR ≤ 7');
+  // 章节与境界脱钩以后，诀别发生在第九章开章（st_farewell），不一定是境界 8：写了 not: ['st_farewell'] 的也算守住了（STORY P08）；“老祖我”是血河老祖的自称
+  const elder = e.speaker === 'elder' || /(?<!血河)老祖(?!我)/.test(joined);
+  const noFarewell = (e.not || []).includes('st_farewell');
+  if (e.where !== 'story' && elder && !(e.maxR <= 7) && !noFarewell) err(id, '提到老祖的随机事件需 maxR ≤ 7（或 not: st_farewell）');
   if (e.where === 'story' && e.trigger && !/^(realm|demon|trib|sb):/.test(e.trigger) && e.trigger !== 'ascend' && elder && !(e.maxR <= 7)) err(id, '非境界触发的剧情提到老祖需 maxR ≤ 7');
   // 人称：su/ye 与主角不用他/她
   for (const n of ['su', 'ye']) if (joined.includes(`{${n}}`)) {
