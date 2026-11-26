@@ -1160,6 +1160,19 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar { dis
 .bt-swap { display: flex; flex-direction: column; gap: 4px; }
 .bt-swr { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; font: inherit; font-size: 14px; color: var(--text); background: #1b1326; border: 2px solid #55506e; cursor: pointer; text-align: left; }
 .bt-swr.hot { border-color: var(--gold); color: #fff2a8; }
+
+/* 目标卡默认收起成一行（章 + 下一步 + 【去】，下面一条细进度线）；点卡片展开成三行，再点收起 */
+#goal .ch2 { display: none; flex: none; font-size: 14px; line-height: 18px; color: #1b1326; background: var(--gold); padding: 0 5px; }
+#goal .gtog { flex: none; color: var(--muted); font-size: 12px; width: 14px; text-align: center; }
+#goal:not(.open) { padding: 2px 6px 3px; cursor: pointer; }
+#goal:not(.open) .g1 { display: none; }
+#goal:not(.open) .g3 { margin-top: 0; }
+#goal:not(.open) .g3 img { display: none; }
+#goal:not(.open) .ch2 { display: inline-block; }
+#goal:not(.open) .gbar { height: 4px; margin-top: 2px; box-shadow: none; }
+#goal:not(.open) .gbar em { display: none; }
+#goal.open { cursor: pointer; }
+#goal.open .gtog { transform: rotate(180deg); }
 </style>
 
 <div id="app">
@@ -1200,7 +1213,7 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar { dis
   <div id="goal" class="hud" aria-label="目标卡">
     <div class="g1"><span class="ch" id="gCh">第一章</span><span class="t" id="gT">赢下三年之约</span></div>
     <div class="gbar"><i id="gFill"></i><em id="gBar"></em></div>
-    <div class="g3"><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><button class="go" id="gGo">去 ▸</button></div>
+    <div class="g3"><span class="ch ch2" id="gCh2">一</span><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><span class="gtog" aria-hidden="true">▾</span><button class="go" id="gGo">去 ▸</button></div>
   </div>
   <button id="tick" aria-label="传讯：点开纸鹤看历史"></button>
   <div id="nav">
