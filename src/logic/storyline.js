@@ -37,6 +37,7 @@ function cond1(st, c) {
   let m;
   if ((m = /^any:(.+)$/.exec(c))) return m[1].split('|').some(x => cond1(st, x));   // 任一满足：'any:war_zheng|war_mo|war_stop'、'any:aff:su>=40|aff:ye>=40'
   if ((m = /^path:(\w+)$/.exec(c))) return L.storyPath(st) === m[1];
+  if ((m = /^sect:(\w+)$/.exec(c))) return m[1] === 'none' ? !st.sect : !!st.sect && st.sect.id === m[1];   // 在哪一宗
   if ((m = /^daolv:(\w+)$/.exec(c))) return m[1] === 'none' ? !st.daolv : m[1] === 'any' ? !!st.daolv : st.daolv === m[1];
   if ((m = /^origin:(\w+)$/.exec(c))) return (st.origin || 'qitu') === m[1];
   if ((m = /^aff:(\w+)>=aff:(\w+)$/.exec(c))) return L.aff(st, m[1]) >= L.aff(st, m[2]);
