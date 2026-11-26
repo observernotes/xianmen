@@ -152,6 +152,7 @@ L.unpackSave = function (text) {
   }
   const a = new Uint8Array(out);
   if (sum(a) !== ck) return null;
-  try { return unutf8(a); } catch (e) { return null; }
+  let json; try { json = unutf8(a); } catch (e) { return null; }
+  return L.packSave(json) === text ? json : null;   // 末尾填充位被改了（内容碰巧没变）也算坏串：重新打包必须逐字一致
 };
 });
