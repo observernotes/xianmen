@@ -68,7 +68,7 @@ UI_PARTS = [
     "panel-people",  # 人物卡（喜好、委托、同伴、道侣双修）、来访送礼、历练同伴位、委托完成卡；送礼 / 委托 / 同伴 / 道侣 / 双修的老祖讲解（排在 guide 后）
     "guide-ask",     # 问老祖（三条建议 + 最近的气泡）、场景右下角的老祖头像、卡住检测气泡（S 系列）、补齐的讲解（会武前、改气泡的分类）（排在所有讲解之后）
     "onboard",       # 上手曲线：UI.isOpen(key) 读逻辑层的解锁表；讲解加“开了才讲”、解锁横幅、子项气泡、单角标（排在 guide-ask 之后）
-    "clock",         # 时间流逝的界面一半：notify() 打断节流与纸鹤、自动停、解锁卡的真实时间间隔、年报最小版（docs/KAIRO_PLAN.md §3）
+    "settle",        # 季度回合与结算链：nextSeason()（点【下一季】）、seasonFx、季末卡、settle() 按 L.nextBlock 一张接一张出、读档后的第一条链与迁移提示、行动点一行（docs/AP_PLAN.md §4.2 / §6）
     "panel-prep",    # 大节点前 1 月的备战卡
     "intro",         # 开场与起名
     "cine2",         # 高光过场（docs/COMBAT_LOOT.md §9）：十段像素过场播放器、只播一次、在外排队、回忆（包一层接各触发点，排在 boot 前）

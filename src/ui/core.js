@@ -20,13 +20,15 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = L.fmt;
-// ×1 时一月的真实毫秒数：按时钟三态取（docs/KAIRO_PLAN.md §3.2；旋钮在 src/logic/onboard.js 的 L.TIME）——打坐 15 秒、历练 8 秒、闭关类 3 秒，转世后减半
-const TICK_MS_BASE = 15000;
-const tickMs = () => (st && L.monthSec ? L.monthSec(st) * 1000 : TICK_MS_BASE);
-const SPEEDS = [1, 2, 4, 0];   // ×1 / ×2 / ×4 / 暂停
-const UNIT = L.UNIT || '月';   // 时间单位：界面上一律叫“月”（原来的“月”）
+// 时间不再自己走（docs/AP_PLAN.md §6.3）：没有速度档、没有每月的真实秒数。一回合 = 一季，时间只在点【下一季】时推进（settle.js 的 nextSeason）。
+// 界面上的时长一律写“季”（AP_PLAN §1.4）：月数 m 过 seasons(m) = ceil(m / 3)；修为的量仍可以写“N 月修为”（那是量词）
+const UNIT = '季';
+const seasons = m => Math.max(0, Math.ceil((+m || 0) / 3));
+// “还剩多久”（负伤、增益、访客）：本季末 / 下季末 / N 季。底层每个季末连扣 3 个月，m ≤ 3 的这一季季末就到
+const seasonsT = m => { const n = seasons(m); return n <= 1 ? '本季末' : n === 2 ? '下季末' : `${n} 季`; };
+let btSpeed = 1;      // 战斗演出速度 ×1 / ×2（仙途 · 设置；只影响演出，存在偏好里）
+let sitAsk = false;   // 【下一季】剩点时要不要确认（默认不确认）
 let st = null;
-let speedIdx = 0;
 let cine = null;
 const queue = [];
 let soundMode = 0;

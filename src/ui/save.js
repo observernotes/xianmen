@@ -11,8 +11,9 @@ const SLOTS = L.slotStore({ get: k => localStorage.getItem(k), set: (k, v) => lo
 function saveLocal(why) { if (!st) return; try { st.savedAt = Date.now(); SLOTS.writeAuto(st, typeof why === 'string' ? why : ''); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function clearLocal() { try { SLOTS.retire(st); } catch (e) { /* ignore */ } }   // 重新开始：当前进度挤进自动 2，自动 1 空出来（手动档不动）
-function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
+// 偏好：音量、战斗演出速度、【下一季】剩点要不要确认。旧的速度档 speedIdx 不再读（AP_PLAN §7）
+function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, btSpeed, sitAsk, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.btSpeed === 2) btSpeed = 2; sitAsk = !!p.sitAsk; } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {
@@ -72,5 +73,7 @@ function loadState(s) {
   renderFeed(); updateHUD();
   // 渡到一半关了页面：预掷还在 st.trib.cur 里，接着渡（结果不变）
   if (st.trib && st.trib.cur) { const v = L.tribView(st); if (v) setTimeout(() => { if (!cine && st.trib.cur) startTribCine(v); }, 600); }
+  // 读档后的第一条结算链（AP_PLAN §4.2 存档点 / §7）：没出完的卡、旧档迁移压着的历练结算与大事、被旧节流压着的戏，接着出（settle.js）
+  else setTimeout(() => { if (st === m) settleLoad(); }, 300);
   return true;
 }

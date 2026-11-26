@@ -74,10 +74,9 @@ function swapKeep(el, html) {
   return n;
 }
 function pushPopup(fn) { queue.push(fn); processQueue(); }
+// 弹窗队列与结算链共用一个泵：先出 queue 里排着的，再按 L.nextBlock 出结算链（settle.js 的 chainPump；剧情 st.storyQ 也由它连着出完，不再一次只取一条）
 function processQueue() {
   if (!$('#modal').hidden || cine || !$('#intro').hidden) return;
-  const fn = queue.shift();
-  if (fn) { fn(); return; }
-  if (st && st.storyQ && st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) showChoice(ev); }
+  chainPump();
 }
 const bar = (v, gold) => `<div class="bar ${gold ? 'gold' : ''}"><i style="width:${Math.max(0, Math.min(100, v * 100)).toFixed(1)}%"></i></div>`;

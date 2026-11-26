@@ -1480,6 +1480,27 @@ body.bt-on #nav { margin-top: auto; }
 .kslot.sv .sv-t { flex: none; min-width: 24px; text-align: right; color: #8a7a5c; font-size: 14px; line-height: 1.2; }
 .kslot.sv:active { background: #fbe6d8; }
 .svtxt { display: block; width: 100%; box-sizing: border-box; height: 120px; margin: 6px 0; font: 14px/1.3 monospace; word-break: break-all; background: #fff6dc; color: #2c2238; border: 2px solid #a8742a; padding: 4px; resize: none; }
+/* ---------- 行动点一行（docs/AP_PLAN.md §6.1）：左三颗菱形（实心 = 还有），右【下一季 ▸】；点花完变金呼吸，本季末有大事写【赴约 ▸】红边 ---------- */
+#apRow { flex: none; display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 2px 4px 2px 8px; box-sizing: border-box; }
+#apRow .apk { flex: none; font-size: 14px; color: var(--muted); }
+#apRow .aps { flex: 1; min-width: 0; font-size: 20px; line-height: 24px; letter-spacing: 2px; color: var(--gold); white-space: nowrap; }
+#apRow .aps i { font-style: normal; } #apRow .aps i.off { color: #55506e; } #apRow .aps i.debt { color: #8a3a44; }
+#apRow .apbt { flex: none; min-height: 44px; min-width: 60px; padding: 0 10px; font: inherit; font-size: 15px; color: #1b1326; background: var(--gold); border: 2px solid #fff2a8; cursor: pointer; animation: apBreath 1.6s steps(4) infinite; }
+#apRow .apbt[hidden] { display: none; }
+#apRow .apnext { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; min-width: 120px; padding: 0 12px; font: inherit; color: var(--text); background: #2a2240; border: 2px solid #55506e; cursor: pointer; }
+#apRow .apnext b { font-weight: normal; font-size: 16px; line-height: 18px; }
+#apRow .apnext small { font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
+#apRow .apnext.done { background: var(--gold); color: #1b1326; border-color: #fff2a8; animation: apBreath 1.6s steps(4) infinite; }
+#apRow .apnext.done small { color: #4a3a20; }
+#apRow .apnext.big { border-color: #ff6a5a; box-shadow: 0 0 0 2px #d8404a; }
+#apRow .apnext:disabled { opacity: .5; cursor: default; animation: none; }
+#apRow .apnext:active { transform: translateY(1px); }
+@keyframes apBreath { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+body.bt-on #apRow { display: none !important; }
+/* 花点的按钮：右上角菱形角标 ◆N（data-ap；AP_PLAN §6.1） */
+.apc { display: inline-block; margin-left: 4px; font-size: .85em; color: var(--gold); white-space: nowrap; }
+.btn .apc, .kb .apc { color: inherit; opacity: .9; }
+#goal .go .apc { color: #ffe39a; }
 </style>
 
 <div id="app">
@@ -1490,10 +1511,9 @@ body.bt-on #nav { margin-top: auto; }
       <span class="res" id="lifeBox" title="寿元"><img class="px" data-art="life" alt=""><b id="vLife">寿元足</b></span>
       <span class="sp"></span>
       <button class="ib" id="btnMail" aria-label="纸鹤：消息匣"><img class="px" data-art="mail" alt=""><span class="dot" id="mailN" hidden>0</span></button>
-      <button class="ib" id="btnPause" aria-label="暂停"><img class="px" data-art="pause" alt=""></button>
     </div>
   </div>
-  <button id="time" class="hud" aria-label="时间条：点开看年历"><span class="l1"><span id="date">第1年 · 春 · 1月</span><span id="bigLeft" class="r"></span></span><span class="pips" id="pips"></span></button>
+  <button id="time" class="hud" aria-label="时间条：点开看年历"><span class="l1"><span id="date">第 1 年 · 春</span><span id="bigLeft" class="r"></span></span><span class="pips" id="pips"></span></button>
   <div id="sceneOuter">
     <div id="sceneWrap">
       <canvas id="scene" width="200" height="160"></canvas>
@@ -1501,7 +1521,6 @@ body.bt-on #nav { margin-top: auto; }
       <div id="flash"></div>
     </div>
     <div id="scenePill" class="spill"></div>
-    <button class="sbtn" id="btnSpeed" aria-label="游戏速度">×1</button>
     <div id="tip" hidden></div>
     <div id="banner"></div>
     <div id="haul" hidden></div>
@@ -1523,6 +1542,7 @@ body.bt-on #nav { margin-top: auto; }
     <div class="g3"><span class="ch ch2" id="gCh2">一</span><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><span class="gtog" aria-hidden="true">▾</span><button class="go" id="gGo">去 ▸</button></div>
   </div>
   <button id="tick" aria-label="传讯：点开纸鹤看历史"></button>
+  <div id="apRow" class="hud" aria-label="行动点"><span class="apk">行动点</span><span class="aps" id="apPips" data-ap="3"></span><button id="btnBt" class="apbt" hidden>突破</button><button id="btnNext" class="apnext"><b id="nextT">下一季 ▸</b><small id="nextS"></small></button></div>
   <div id="nav">
     <button data-nav="exp"><img class="px" data-art="exp" data-sz="30" alt=""><span>历练</span><small class="lkw"></small></button>
     <button data-nav="home"><img class="px" data-art="home" data-sz="30" alt=""><span>洞府</span><small class="lkw"></small></button>

@@ -25,7 +25,7 @@ function fitScene() {
   const short = app.clientHeight < 760;
   app.classList.toggle('short', short);
   const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
-  const others = ['#top', '#time', '#cult', '#stats', '#bt', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
+  const others = ['#top', '#time', '#cult', '#stats', '#bt', '#goal', '#tick', '#apRow', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
   const nIn = [...app.children].filter(e => { const c = getComputedStyle(e); return c.display !== 'none' && c.position !== 'absolute' && c.position !== 'fixed'; }).length;   // 打仗时修为条、数值格、传讯收起，少两道缝
   const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * Math.max(1, nIn - 1);
   let n = UPX;
@@ -44,7 +44,7 @@ let sceneU = 2, sceneCrop = 0;
 // 场景四周那几块（顶栏、时间条、修为条、数值格、战斗条、目标卡、传讯、底栏）高度一变就重新排场景（tools/jitter_check.js）：
 // 目标卡展开 / 收起、底栏格子开锁（多一行“几时开”）、战斗条换行……不再把底栏挤出屏幕、也不留下几帧错位（ResizeObserver 在画出来之前回调）
 const sceneRO = window.ResizeObserver ? new ResizeObserver(() => fitScene()) : null;
-if (sceneRO) for (const q of ['#top', '#time', '#cult', '#stats', '#goal', '#tick', '#nav']) { const e = $(q); if (e) sceneRO.observe(e); }
+if (sceneRO) for (const q of ['#top', '#time', '#cult', '#stats', '#goal', '#tick', '#apRow', '#nav']) { const e = $(q); if (e) sceneRO.observe(e); }
 function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按月（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
