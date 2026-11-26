@@ -349,7 +349,8 @@ for (let s = 1; s <= N; s++) {
 //   另打印：关键剧情 shown − due 的分布（应全为 0）、每条路线每章用了几季。
 const HSUM = { lag: {}, mid: {}, chap: [] };
 const KEY_RE = /^sb:c\d_(open|climax|end|pre)$|^sb:c2_mid1$|^(beat|boss|trib|demon|srank|rank|war_eve):|^(sect|daolv|pact_eve)$/;
-const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['zhao', st => !!st.beaten.zhao, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu, ['s5_tiankuo_fall']], ['war', st => !!st.flags.warWon, ['s6_after']]]
+// 击败点名的人：那场戏是那一章的高潮——人在前一章就打赢了的（论道上碰到），戏在那一章开章的同一条链里接着出，所以“成立”= 打赢了且章到了
+const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']], ['war', st => !!st.flags.warWon, ['s6_after']]]
   .concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => ['m' + (i - 1), st => !!st.quest.done['c' + (i - 1) + '_m'], ['story_r' + i]]));
 function chainPlay(who, mk, o) {
   o = o || {};
@@ -435,9 +436,10 @@ function chainPlay(who, mk, o) {
   }
   if (due.pact && !o.fixture && !st.rebirth) for (const id of ['s1_pact_after', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && st.pact > 0) h(`H5 ${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq}（约战第 ${due.pact.tick} 月 / seq ${due.pact.seq}）`);
   for (const b in st.story.beat) if (st.story.beat[b] === -1 && /^(c1_climax|c2_mid1|c3_climax|c7_mid2|c7_climax|c8_mid2|c8_climax|c9_climax|c\d_open)$/.test(b) && !o.fixture) h(`H3 带抉择的节拍 ${b} 被记成“错过”`);
-  const fin = !!st.quest.done.c8_m;
+  const fin = !!st.quest.done.c8_m || st.p.r >= 9;
   if (o.reach !== undefined && !fin && L.chapterNow(st) < o.reach && st.p.r < 9) h(`H8 ${sN} 季（境界 ${st.p.r}）只走到第 ${L.chapterNow(st) + 1} 章（要第 ${o.reach + 1} 章）`);
   const per = []; for (let i = 1; i < chAt.length; i++) if (chAt[i] !== undefined && chAt[i - 1] !== undefined) per.push(Math.round((chAt[i] - chAt[i - 1]) / 3));
+  { const last = chAt.length - 1; if (last >= 0 && chAt[last] !== undefined) per.push(Math.round((st.tick - chAt[last]) / 3) + (fin ? '' : '+')); }
   HSUM.chap.push({ who, per, end: fin ? '完' : `第 ${L.chapterNow(st) + 1} 章`, seasons: sN, r: st.p.r });
   sum.runs++; if (st.p.r >= 9) sum.asc++; sum.chMax.push(L.chapterNow(st));
   if (V) console.log(`  ${who.padEnd(22)} ${sN} 季 · 境界 ${st.p.r} · ${fin ? '九章做完' : '第 ' + (L.chapterNow(st) + 1) + ' 章'} · 每章季数 ${per.join('/')}`);

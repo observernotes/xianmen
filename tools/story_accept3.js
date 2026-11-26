@@ -107,7 +107,7 @@ const ADAPTER = {
 };
 
 // ---------- 跑 ----------
-const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && st.bestRank <= 60, ['s2_rank']], ['zhao', st => !!st.beaten.zhao, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu, ['s5_tiankuo_fall']],
+const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && st.bestRank <= 60, ['s2_rank']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']],   // 线 B 核对：这两场是第三 / 第五章的高潮；在前一章（论道上）就打赢了的，戏在那一章开章的同一条链里接着出，“成立”= 打赢了且章到了
   ['war', st => !!st.flags.warWon, ['s6_after']]].concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => ['m' + (i - 1), st => !!st.quest.done['c' + (i - 1) + '_m'], ['story_r' + i]]));
 function runCase(c) {
   const fails = [], warns = [];
@@ -199,7 +199,7 @@ function runCase(c) {
   for (const [k, , evs] of KEYEV) { if (!due[k]) continue; const id = evs.find(e => shown[e]); if (!id) { if (evs.some(e => { const ev = L.eventById(e); return ev && (!ev.origin || ev.origin === (st.origin || 'qitu')) && !st.evDone[e]; }) && seq() - due[k].seq > 4 && !/^(zhao|pact)$/.test(k)) fail(`关键剧情没出：${k}（第 ${due[k].tick} 月）→ ${evs.join('/')}`); continue; } const d = shown[id].seq - due[k].seq; if (d !== 0) fail(`剧情滞后（H1）：${k} 在 seq ${due[k].seq}（第 ${due[k].tick} 月）成立，${id} 在 seq ${shown[id].seq}（第 ${shown[id].tick} 月）才出，隔 ${d} 个行动`); }
   const lag = (st.story && st.story.lag) || {}; for (const id in lag) { const ev = L.eventById(id), x = lag[id]; if (ev && /^sb:c\d_(open|climax|end)$/.test(ev.trigger || '') && x.shown - x.due !== 0) fail(`st.story.lag：${id} shown − due = ${x.shown - x.due}`); }
   if (!st.story || !st.story.lag) warn('逻辑层没有记 st.story.lag（AP_PLAN §8.3），H1 只按验收方自己的口径查了');
-  if (due.pact && !c.fixture && c.life === 1) { if (due.pact.tick !== 36) fail(`三年之约在第 ${due.pact.tick} 月了结（应 36）`); for (const id of ['s1_pact_after', 's1_pact_lost', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && !(c.lose && id === 'story_r1')) fail(`H5：${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq} 才出（约战在第 36 月 / seq ${due.pact.seq}）`); if (!c.lose && chAt[1] !== 36) fail(`H5：第二章在第 ${chAt[1]} 月才开（应 36）`); }
+  if (due.pact && !c.fixture && c.life === 1 && st.beaten.mu && shown.s1_pact_after) { /* 线 B 核对：H5 只对“约战赢了”的局（输了的局第二章在补回慕容那一战之后开，归 H1 的 m0 → story_r1 查） */ if (due.pact.tick !== 36) fail(`三年之约在第 ${due.pact.tick} 月了结（应 36）`); for (const id of ['s1_pact_after', 's1_pact_lost', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && !(c.lose && id === 'story_r1')) fail(`H5：${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq} 才出（约战在第 36 月 / seq ${due.pact.seq}）`); if (!c.lose && chAt[1] !== 36) fail(`H5：第二章在第 ${chAt[1]} 月才开（应 36）`); }
   for (const b in (st.story && st.story.beat) || {}) if (st.story.beat[b] === -1 && /^(c1_climax|c2_mid1|c3_climax|c5_mid3|c7_mid2|c7_climax|c8_mid2|c8_climax|c9_climax|c\d_open)$/.test(b) && !c.fixture) fail(`带抉择的节拍 ${b} 被记成“错过”（H3）`);
   const fin = !!st.quest.done.c8_m, reached = fin ? 9 : L.chapterNow(st);
   if (reached < c.reach) fail(`${seasons} 季（境界 ${st.p.r}）只走到第 ${L.chapterNow(st) + 1} 章，要求${c.reach >= 9 ? '九章做完' : '至少第 ' + (c.reach + 1) + ' 章'}；主线行动：${st.p.r < 9 ? (L.mainActs(st) || []).map(a => a.t + (a.ok ? '✓' : '✗' + a.why)).join(' / ') : '（已飞升）'}`);
