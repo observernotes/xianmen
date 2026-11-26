@@ -57,6 +57,10 @@ function showArts(sel, still) {
   if (sel !== undefined && sel !== null) artSel = sel;
   const sl = L.artSlots(st);
   const openSlots = [0, 1, 2].filter(i => L.artSlotOpen(st, i));
+  if (!openSlots.length) {   // 还没有任何功法：分页照样在，告诉玩家去哪里得
+    sheet({ title: '装备', body: meTabs('art') + emptyNoteHTML('scroll', '还没有功法 · 历练、奇遇里能得到第一门心法') });
+    return;
+  }
   if (!openSlots.includes(artSel)) artSel = 0;
   const slots = openSlots.map(i => {
     const id = sl[i], A = id && L.art(id);
