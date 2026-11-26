@@ -24,8 +24,17 @@ function chainRows() {
 function showCodex(cat) {
   if (cat) cxCat = cat;
   const list = L.codexList(st);
-  if (!list.some(c => c.id === cxCat)) cxCat = 'map';
+  if (!list.some(c => c.id === cxCat) && cxCat !== 'drop') cxCat = 'map';
   const grid = list.filter(c => c.avail || c.id === cxCat).map(c => `<button class="cxcat${c.id === cxCat ? ' on' : ''}${c.full ? ' full' : ''}${c.avail ? '' : ' off'}" data-cx="${c.id}">${cxIcon(c.id)}<span class="nm">${esc(c.n)}</span><span class="num">${c.avail ? `${c.got}/${c.total}` : '未开'}</span></button>`).join('');
+  // 掉落（刷宝线 C2，src/ui/loot.js）：各地点的掉落格，亮 = 掉过；不计入完成度
+  const dropN = Object.values((st.meta && st.meta.drop) || {}).reduce((n, v) => { for (let b = v; b; b >>= 1) n += b & 1; return n; }, 0);
+  const grid2 = grid + `<button class="cxcat${cxCat === 'drop' ? ' on' : ''}" data-cx="drop">${artIcon('wish', 24)}<span class="nm">掉落</span><span class="num">${dropN}</span></button>`;
+  if (cxCat === 'drop') {
+    const s = sheet({ title: shellTitle('path'), still: !!cat && !!document.querySelector('#modal #cxGrid'), body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid2}</div><div class="cxbody" id="cxBody"><div class="cxhead"><div class="grow"><b>掉落</b> ${dropN} 格<div class="muted">每个地方掉什么：亮的掉过，黑的还没见过。出发页能钉心愿。</div></div></div>${lootCodexHTML()}</div>` });
+    bindMeTabs(s);
+    s.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { SFX.tap(); showCodex(b.dataset.cx); });
+    return;
+  }
   const C = L.CODEX_CAT[cxCat], info = list.find(c => c.id === cxCat), G = L.CX_GRP[cxCat];
   let body = `<div class="cxhead">${cxIcon(cxCat, 2)}<div class="grow"><b>${esc(C.n)}</b> ${info.avail ? `${info.got}/${info.total}` : ''}<div class="muted">${esc(C.d)}</div>
     ${G ? `<div class="${info.grp ? 'jadet' : 'muted'}">集齐：${esc(G.d)}（永久）＋轮回道果 +${L.CX_V.grp}${info.grp ? ' · 已得' : ''}</div>` : ''}</div></div>`;
@@ -33,7 +42,7 @@ function showCodex(cat) {
   else if (cxCat === 'chain') body += chainRows();
   else body += C.cells(st).map(g => `${g.g ? `<div class="cxg">${esc(g.g)}</div>` : ''}<div class="cxcells">${g.list.map(x => `<span class="cxc${x.on ? ' on' : ''}" title="${esc(x.d || '')}">${esc(x.n)}${x.v ? `<i>${esc(x.v)}</i>` : ''}</span>`).join('')}</div>`).join('');
   const again = !!cat && !!document.querySelector('#modal #cxGrid');
-  const s = sheet({ title: shellTitle('path'), still: again, body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid}</div><div class="cxbody" id="cxBody">${body}</div>` });
+  const s = sheet({ title: shellTitle('path'), still: again, body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid2}</div><div class="cxbody" id="cxBody">${body}</div>` });
   bindMeTabs(s);
   s.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { SFX.tap(); showCodex(b.dataset.cx); });
   if (again) { const bd = s.querySelector('.body'), cb = s.querySelector('#cxBody'); if (bd && cb) bd.scrollTop = cb.offsetTop - bd.offsetTop - 8; }
