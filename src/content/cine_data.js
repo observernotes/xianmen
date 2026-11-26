@@ -151,11 +151,11 @@ root.XM_CINE_DATA = function (A) {
 if (typeof module !== 'undefined' && module.exports) module.exports = [];
 })(typeof window !== 'undefined' ? window : globalThis);
 
-/* ===== A 线：主线过场 ⑭～⑰、⑳、㉒、㉔ 的纯数据版（挂 window.CINE_DATA_X，talk.js 并进 CINE_DATA：同名的盖掉底稿）。
+/* ===== A 线：主线过场 ⑭～⑰、⑳、㉒、㉔ 的纯数据版（并进上面的 XM_CINE_DATA，同名的盖掉 talk.js 自带的底稿）。
  * 纯数据，不画图；要画东西的（结局）用上面的 XM_CINE_DATA。 ===== */
 (function (root) {
 'use strict';
-const X = root.CINE_DATA_X = root.CINE_DATA_X || {};
+const X = {};
 const VISITOR = 'any:daolv:any|aff:su>=60|aff:ye>=60|aff:chu>=60|aff:ge>=60|aff:bai>=60|aff:mo>=60';   // 飞升前夜有没有人来敲门（与 story_ascend 的判断一致）
 Object.assign(X, {
   // ⑭ 夜半黑衣（story_r2 之前）：窗前的剪影 → 伸向戒指的手 → 墨色与金色两条特写带上下对切
@@ -194,4 +194,6 @@ Object.assign(X, {
     { if: VISITOR, bg: 'cg:door:1', ms: 5000, sub: '“明天，还回来吗？”', sfx: [[400, 'tap'], [900, 'tap'], [1800, 'bell']] },
     { if: '!' + VISITOR, bg: 'cg:door:0', dim: 0.3, ms: 5000, sub: '没有人来。', sfx: [[600, 'wind']] }] },
 });
+// 并进同一个接口：talk.js 取 XM_CINE_DATA(画图工具) 的结果，同名的段盖掉自带的底稿
+{ const f0 = root.XM_CINE_DATA; root.XM_CINE_DATA = A => Object.assign({}, typeof f0 === 'function' ? f0(A) : {}, X); }
 })(typeof window !== 'undefined' ? window : globalThis);

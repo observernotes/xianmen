@@ -525,8 +525,6 @@ const CINE_DATA = {
   end_zhige: { n: '止戈', no: '㉝', bgm: 'home', thumb: 'end:zhige', shots: [
     { bg: 'end:zhige', cam: 'push', ms: 6000, sub: '“那一年，没有打起来。”', sfx: [[600, 'bell']] }] },
 };
-// 内容文件里的分镜（src/content/cine_data.js：同名的盖掉上面的，新的接在后面）
-Object.assign(CINE_DATA, window.CINE_DATA_X || {});
 // 写手线的分镜：src/content/cine_data.js 挂 window.XM_CINE_DATA = 画图工具 => { 段 id: 数据 }；同名的段盖掉上面的（㉖～㉝ 结局在那边）
 const CN_API = { ART, L, img: cnImg, feet: cnFeet, dim: cnDim, text: cnText, lines: cnLines, seal: cnSeal, gather: cnGather, bolt: cnBolt, ease: cnEase, k: cnK, mix: cnMix, clamp: cnClamp, cv: cnCv, bg: cnBgOf,
   me: cnMe, meFt: cnMeFt, fd: CN_FD, disciple: cnDisciple, st: () => st, cond: c => !!st && L.storyCond(st, c) };

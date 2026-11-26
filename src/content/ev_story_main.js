@@ -503,7 +503,7 @@ LIST.push(
  * open story_r4 → mid1 s5_mo_ask → mid2 s5_meet → climax s5_tiankuo_fall → mid3 tiankuo_3（抉择四）→ end s5_end；另：story_boss5（首杀剑冢）
  * ============================================================ */
 Object.assign(PATCH, {
-  story_r4: { scene: 'cave', bgm: 'sorrow', cine: 'yujian', gist: '墨无痕拍下半块玉简：可曾信过墨离？',
+  story_r4: { scene: 'cave', bgm: 'fate', cine: 'yujian', gist: '墨无痕拍下半块玉简：可曾信过墨离？',
     talk: [
       ['nar', '化神那天，墨无痕是从正门进来的。头一回。'], ['mo', '我不坐。'],
       ['nar', '他把一样东西拍在了桌上。', { sfx: 'clang' }],
@@ -649,11 +649,11 @@ Object.assign(PATCH, {
         { say: [['nar', '阵前捧着画轴的，是楚天阔。他的手在抖。']] },
       ] },
       ['?:执法长老', '——*请祖师*！', { loud: 1 }],
-      ['nar', '一幅长卷在阵前展开。画中人白衣，负剑，眉眼温和。', { sfx: 'paper', zoom: 1.4, x: 130, y: 50 }], ['nar', '三千弟子，齐齐跪了下去。'], { zoom: 0 },
-      { bgm: '' }, ['nar', '戒指冷得像冰。|然后，*烫*了起来。', { slow: 1, sfx: 'heart' }],
+      ['nar', '一幅长卷在阵前展开。画中人白衣，负剑，眉眼温和。', { sfx: 'paper', zoom: 1.4, x: 130, y: 50, ms: 2200 }], ['nar', '三千弟子，齐齐跪了下去。'], { zoom: 0 },
+      { bgm: '' }, { bars: 1 }, ['nar', '戒指冷得像冰。|然后，*烫*了起来。', { slow: 1, sfx: 'heart' }],
       ['elder:shock', '……'], ['elder:cold', '陆。|天。|*衡*。', { slow: 1, sfx: 'drum' }],
       ['me', '您认得画上的人？'], ['elder:ang', '认得？本座一招一式*教出来*的！', { loud: 1 }],
-      ['elder:cold+shade', '本座的|*好大徒弟*。', { slow: 1, sfx: 'sting' }], { bgm: 'boss' },
+      ['elder:cold+shade', '本座的|*好大徒弟*。', { slow: 1, sfx: 'sting' }], { bars: 0 }, { bgm: 'fate' },
       ['elder:ang', '偷了本座的剑，开了一座山。还敢把脸画出来，叫人跪！'],
     ],
     res: {
@@ -713,13 +713,13 @@ LIST.push(
     { t: '什么也不说', dao: 'w', ok: { talk: [['nar', '你什么也没说。'], ['nar', '有些账，清了就是清了。']], text: '你什么也没说。有些账，清了就是清了。', fx: { xp: 5, flag: 'raid_intel' } } },
   ] },
 // mid2（念了休书）阵中故人
-{ id: 's6_mu_blade', origin: 'qitu', where: 'story', trigger: 'sb:c6_mid2', need: ['mu_shame'], chMax: 5, title: '阵中故人', scene: 'field', bgm: 'boss', gist: '阵前拦你的人，是慕容家的。',
+{ id: 's6_mu_blade', origin: 'qitu', where: 'story', trigger: 'sb:c6_mid2', need: ['mu_shame'], chMax: 5, title: '阵中故人', scene: 'field', bgm: 'tense', gist: '阵前拦你的人，是慕容家的。',
   text: '天剑宗的前锋到了隘口，打头的是慕容家的客卿。最前面那个你认得：“你念休书那天，慕容家就没有退路了。”',
   talk: [
     { sfx: 'wardrum' }, ['nar', '天剑宗的前锋到了隘口。打头的，不是天剑宗的人。'], ['nar', '蓝衣，七剑穗。慕容家的客卿。'],
     { bgm: '' }, ['nar', '最前面那个，你认得。', { zoom: 1.5, x: 150, y: 80, sfx: 'heart' }], { zoom: 0 },
     ['mu:cold', '{name}。'], ['me', '你怎么在这儿。'], ['mu', '慕容家归附了天剑宗。我是慕容家的人。'],
-    ['mu:cold', '你念休书那天，|慕容家就*没有退路*了。', { slow: 1, sfx: 'sting' }], { bgm: 'boss' },
+    ['mu:cold', '你念休书那天，|慕容家就*没有退路*了。', { slow: 1, sfx: 'sting' }], { bgm: 'tense' },
     ['mu', '全城都听见了。没有人再敢结亲，也没有人再敢结盟。'], ['mu:sad', '只有天剑宗敢要。要的不是我。是三百客卿。'],
     ['elder:cold', '……小子。这一笔，是你自己写的。'],
     ['mu:ang', '拔剑。|这一回，我不会输得那么难看。'],
@@ -731,7 +731,7 @@ LIST.push(
     { t: '“让开。”', dao: 'r', ok: { talk: [['me', '让开。我不想跟你打第二次。'], ['mu:cold', '你不想？'], ['mu:ang', '那天你念的时候，问过我*想不想*吗？', { loud: 1 }], { bgm: '' }, ['nar', '你没有话可以回。'], ['nar', '剑举了很久，终究没有落下来。'], ['mu', '山门见。到时候，别留手。']], text: '“那天你念的时候，问过我想不想吗？”你没有话可以回。', fx: { xp: 5 } } },
   ] },
 // pre 守山前夜（空位：su / ye / friend）
-{ id: 's6_eve', where: 'story', trigger: 'sb:c6_pre', chMax: 5, title: '守山前夜', scene: 'cave', bgm: 'home', gist: '明天，他们就到了。你睡不着。',
+{ id: 's6_eve', where: 'story', trigger: 'sb:c6_pre', chMax: 5, title: '守山前夜', scene: 'cave', bgm: 'tender', gist: '明天，他们就到了。你睡不着。',
   text: '明天，天剑宗的人就到了。剑擦过了，阵补过了，该睡了。你睡不着。',
   talk: [
     ['nar', '明天，他们就到了。'], ['nar', '剑擦过了。阵补过了。该睡了。|你睡不着。', { sfx: 'fire' }],
@@ -807,13 +807,13 @@ Object.assign(PATCH, {
   // 三千年并进 s7_mo_wine
   mo_4: { cond: NEVER },
   // 隔空传音：他说“你我是同一种人”
-  tianheng_1: { scene: 'cave', bgm: 'boss', gist: '陆天衡隔空传音：宗主之位，换那枚戒指。',
+  tianheng_1: { scene: 'cave', bgm: 'tense', gist: '陆天衡隔空传音：宗主之位，换那枚戒指。',
     talk: [
-      { bgm: '' }, { dim: 0.3 }, ['nar', '夜里，有人说话。|不是戒指。', { slow: 1, sfx: 'wind' }],
+      { bgm: '' }, { dim: 0.3 }, { bars: 1 }, ['nar', '夜里，有人说话。|不是戒指。', { slow: 1, sfx: 'wind' }],
       ['tianheng:n+mono', '小友。深夜叨扰。'], ['tianheng:n+mono', '我是陆天衡。'],
       ['nar', '声音很轻，很讲道理。像个脾气很好的长辈。'], ['nar', '戒指冷得像冰。', { sfx: 'heart', zoom: 1.5, x: 60, y: 96 }], { zoom: 0 },
       ['tianheng:n+mono', '两块玉简，你合上了。我知道。'], ['tianheng:n+mono', '你看见的，是真的。我不辩。'],
-      { bgm: 'boss' }, ['tianheng:joy+mono', '所以我来谈一笔买卖。|天剑宗宗主之位，换那枚戒指。'],
+      { bgm: 'tense' }, ['tianheng:joy+mono', '所以我来谈一笔买卖。|天剑宗宗主之位，换那枚戒指。'],
       ['me:cold', '拿偷来的东西，换我的东西。'], ['tianheng:n+mono', '偷。……是偷。'],
       ['tianheng:n+mono', '可你想过没有。你替他拼命，他给过你什么？'], ['tianheng:n+mono', '一枚戒指，半部剑典，三千年的旧恨。'],
       { bgm: '' }, ['tianheng:sad+mono', '你我是*同一种人*。杂灵根。被人叫废柴。', { slow: 1, sfx: 'sting' }],
@@ -823,7 +823,7 @@ Object.assign(PATCH, {
         { if: 'vow_justice', echo: '你说过，先让天下人知道', say: [['tianheng:n+mono', '你抄了九份旧案，要送去九宗。'], ['tianheng:n+mono', '送吧。我等着看，有几家敢拆。']] },
         { if: 'vow_letgo', echo: '你叫过他一声师父', say: [['tianheng:n+mono', '我听说，你劝他放下。'], ['tianheng:shock+mono', '……', { slow: 1 }], ['nar', '那一头，头一回没有接上话。']] },
       ] },
-      ['nar', '戒指里，老祖一个字也没有说。'], ['tianheng:n+mono', '何必替一个死人拼命。|你考虑。'], { dim: 0 },
+      ['nar', '戒指里，老祖一个字也没有说。'], ['tianheng:n+mono', '何必替一个死人拼命。|你考虑。'], { dim: 0 }, { bars: 0 },
     ],
     res: {
       0: { ok: [['me:ang', '他教你握剑。你从背后给了他一剑。'], ['me:ang', '你开宗立派三千年，*不敢*练第十式。', { loud: 1 }], ['me:cold', '你管这叫同一种人？'], { bgm: '' }, ['tianheng:n+mono', '……'], ['tianheng:sad+mono', '可惜。', { soft: 1 }], ['nar', '声音散了。'], ['elder:cold', '……骂得好。'], ['elder:sad', '第十式。|他真的没敢练。', { soft: 1 }]] },
@@ -849,7 +849,7 @@ Object.assign(PATCH, {
 });
 LIST.push(
 // mid1 一杯酒（并 mo_4）
-{ id: 's7_mo_wine', where: 'story', trigger: 'sb:c7_mid1', need: ['st_truth'], not: ['mo_bond'], npc: 'mo', title: '一杯酒', scene: 'grave', bgm: 'sorrow', gist: '墨家祖坟前，墨无痕摘下了面巾。',
+{ id: 's7_mo_wine', where: 'story', trigger: 'sb:c7_mid1', need: ['st_truth'], not: ['mo_bond'], npc: 'mo', title: '一杯酒', scene: 'grave', bgm: 'farewell', gist: '墨家祖坟前，墨无痕摘下了面巾。',
   text: '墨家的祖坟里，四十二块碑，没有一块刻着“墨离”。老祖说：“替本座，给墨家后人倒杯酒。”墨无痕摘下了面巾。',
   talk: [
     { sfx: 'wind' }, ['nar', '墨家的祖坟，在一座没有名字的山上。'], ['nar', '三千年。四十二块碑。|没有一块，刻着“墨离”。'],
@@ -873,7 +873,7 @@ LIST.push(
       text: '“是为师错怪了阿离。”戒中声音很轻。墨无痕朝着戒指，端端正正磕了三个头。', fx: { aff: { mo: 18 }, flag: 'mo_bond' } } },
   ] },
 // pre 檄文与战书
-{ id: 's7_war_call', where: 'story', trigger: 'sb:c7_pre', need: ['st_truth'], not: ['war_zheng', 'war_mo', 'war_stop'], title: '两封信', scene: 'hall', bgm: 'boss', gist: '檄文和战书同一天到。每个人都问你站哪边。',
+{ id: 's7_war_call', where: 'story', trigger: 'sb:c7_pre', need: ['st_truth'], not: ['war_zheng', 'war_mo', 'war_stop'], title: '两封信', scene: 'hall', bgm: 'tense', gist: '檄文和战书同一天到。每个人都问你站哪边。',
   text: '同一天到了两封信。蓝的是《讨魔檄》，落款“盟主陆天衡”；红的只有一行：“来喝酒。——血无涯”。他把九宗绑上战车，就为了在乱军里把你和戒指一起抹掉。',
   talk: [
     ['nar', '同一天，到了两封信。', { sfx: 'paper' }],
@@ -955,7 +955,7 @@ LIST.push(
  * open story_r7 → mid1 s8_steps（空位：阶上的人）→ mid2 tiankuo_4 → pre s8_lu_talk → climax tianheng_2（样稿，抉择七）→ mid3 s8_grave；ch_sword_6（奇遇链）→ end s8_end
  * ============================================================ */
 Object.assign(PATCH, {
-  story_r7: { bgm: 'vow', gist: '问剑天剑宗。护山大阵，自己开了。',
+  story_r7: { bgm: 'epic', gist: '问剑天剑宗。护山大阵，自己开了。',
     talk: [
       { sfx: 'wind' }, ['nar', '天剑宗的山门，比画上还高。'], ['nar', '墨无痕走在你右边。没有戴面巾。'],
       { pick: [
@@ -974,7 +974,7 @@ Object.assign(PATCH, {
         { say: [['tian:cold', '我回来认了错。师父让我守碑。'], ['tian:sad', '别过来。……我出剑会偏。可我得出。']] },
       ] },
       ['mo', '墨家祖训，寻戒三千年。今日，戒指回来了。'],
-      ['mo:cold', '这块碑上，凿掉过一个名字。|请贵宗，*刻回去*。', { slow: 1 }], { bgm: 'vow' },
+      ['mo:cold', '这块碑上，凿掉过一个名字。|请贵宗，*刻回去*。', { slow: 1 }], { bgm: 'tense' },
       ['elder:cold', '碑是本座立的。上头的字，一半是假的。'], ['elder:ang', '砸不砸，你定。'],
     ],
     res: {
@@ -1022,7 +1022,7 @@ Object.assign(PATCH, {
 });
 LIST.push(
 // mid1 九百级石阶（回声集中点：阶上的人从空位里取三位）
-{ id: 's8_steps', where: 'story', trigger: 'sb:c8_mid1', need: ['st_justice'], title: '九百级石阶', scene: 'tjgate', bgm: 'vow', gist: '九百级石阶，每一段都有人等着。',
+{ id: 's8_steps', where: 'story', trigger: 'sb:c8_mid1', need: ['st_justice'], title: '九百级石阶', scene: 'tjgate', bgm: 'epic', gist: '九百级石阶，每一段都有人等着。',
   text: '祖师殿在山顶，还有九百级石阶。你一级一级往上走，每隔一段，阶边就站着一个你认得的人。',
   talk: [
     { sfx: 'wind' }, ['nar', '祖师殿在山顶。还有九百级石阶。'], ['nar', '你一级一级往上走。每隔一段，阶边就站着一个人。'],
@@ -1032,23 +1032,23 @@ LIST.push(
       { if: 'war_mo', echo: '你向蓝旗拔了剑', say: [['nar', '你身后跟着红旗下的人。天剑宗的弟子咬着牙，一级一级往后退。']] },
       { if: 'war_stop', echo: '你把剑插在了两军正中', say: [['nar', '阶下站着两拨人。蓝的，红的。隔着三步，谁也没动手。']] },
     ] },
-    { bgm: '' }, ['nar', '最后一级。', { slow: 1, sfx: 'heart', zoom: 1.4, x: 100, y: 30 }], { zoom: 0 },
+    { bgm: '' }, ['nar', '最后一级。', { slow: 1, sfx: 'heart', zoom: 1.4, x: 100, y: 30, ms: 2400 }], { zoom: 0 },
     ['elder', '到了。'], ['elder:cold', '这九百级，是本座当年领着两个徒弟，|一级一级*凿*出来的。', { slow: 1 }],
   ],
   choices: [
-    { t: '“走。”', dao: 'k', ok: { talk: [{ bgm: 'vow' }, ['elder', '走。']], text: '最后一级。老祖说：到了。', fx: { xp: 6 } } },
-    { t: '回头看一眼', dao: 'r', ok: { talk: [['nar', '九百级。每一段都有人。'], ['nar', '你来的时候，是一个人。', { slow: 1 }], { bgm: 'vow' }, ['elder', '看够了就走。|——本座也看了一眼。', { soft: 1 }]], text: '九百级，每一段都有人。你来的时候，是一个人。', fx: { xp: 6 } } },
+    { t: '“走。”', dao: 'k', ok: { talk: [{ bgm: 'epic' }, ['elder', '走。']], text: '最后一级。老祖说：到了。', fx: { xp: 6 } } },
+    { t: '回头看一眼', dao: 'r', ok: { talk: [['nar', '九百级。每一段都有人。'], ['nar', '你来的时候，是一个人。', { slow: 1 }], { bgm: 'epic' }, ['elder', '看够了就走。|——本座也看了一眼。', { soft: 1 }]], text: '九百级，每一段都有人。你来的时候，是一个人。', fx: { xp: 6 } } },
   ] },
 // pre 师徒三千年后头一回说话：他叫“师尊”，老祖没应
-{ id: 's8_lu_talk', where: 'story', trigger: 'sb:c8_pre', need: ['st_justice'], not: ['tianheng_dead', 'tianheng_crippled', 'tianheng_exposed', 'tianheng_spared'], title: '师尊', scene: 'stele', bgm: 'sorrow', gist: '陆天衡朝着戒指跪下，叫了一声师尊。',
+{ id: 's8_lu_talk', where: 'story', trigger: 'sb:c8_pre', need: ['st_justice'], not: ['tianheng_dead', 'tianheng_crippled', 'tianheng_exposed', 'tianheng_spared'], title: '师尊', scene: 'stele', bgm: 'tense', gist: '陆天衡朝着戒指跪下，叫了一声师尊。',
   text: '碑前只剩三个人：一个站着，一个跪着，一个在戒指里。陆天衡叫了一声“师尊”。戒指没有应。',
   talk: [
     { pick: [{ if: 'st_stele_broken', say: [{ scene: 'stele2' }] }, { say: [{ scene: 'stele' }] }] },
-    { bgm: '' }, ['nar', '碑前只剩三个人。|一个站着，一个跪着，一个在戒指里。', { sfx: 'wind' }],
+    { bgm: '' }, { bars: 1 }, ['nar', '碑前只剩三个人。|一个站着，一个跪着，一个在戒指里。', { sfx: 'wind' }],
     ['nar', '陆天衡跪下了。朝着你的手。', { zoom: 1.5, x: 60, y: 96 }],
     ['tianheng', '*师尊*。', { slow: 1 }], ['nar', '戒指没有动静。', { sfx: 'heart' }], { zoom: 0 },
     ['tianheng', '弟子天衡，给师尊请安。'], ['nar', '没有人应。'],
-    { bgm: 'sorrow' }, ['tianheng:sad', '……三千年了。师尊还是不肯看我。'],
+    { bgm: 'fate' }, ['tianheng:sad', '……三千年了。师尊还是不肯看我。'],
     ['tianheng', '那年您渡劫前夜，把他叫进屋里，传了下卷。'], ['tianheng', '我在门外，站了一夜。'],
     ['tianheng:cold', '我入门比他早十年。端茶，磨剑，守炉。您说我周全。'],
     ['tianheng:sad', '周全。|周全的人，就只配*周全*。', { slow: 1, sfx: 'sting' }],
@@ -1061,14 +1061,14 @@ LIST.push(
     ] },
     { bgm: '' }, ['tianheng:sad', '师尊。弟子只求您应一声。|*骂*也行。', { slow: 1 }],
     ['nar', '戒指贴着你的指根。是冷的。', { sfx: 'heart' }], ['nar', '老祖开口了。只对你。'],
-    ['elder:cold', '告诉他：本座没有话。'], ['elder:sad', '……本座怕一开口，|就*骂不出来*了。', { slow: 1, soft: 1 }],
+    ['elder:cold', '告诉他：本座没有话。'], ['elder:sad', '……本座怕一开口，|就*骂不出来*了。', { slow: 1, soft: 1 }], { bars: 0 },
   ],
   choices: [
     { t: '把前一句告诉他', dao: 'w', ok: { talk: [['me', '他说，他没有话。'], ['tianheng:sad', '……没有话。'], ['tianheng:joy', '也好。他从前对我，话也不多。'], ['nar', '陆天衡的手，伸向了腰间那截断剑。']], text: '“他说，他没有话。”“……也好。他从前对我，话也不多。”', fx: { xp: 6 } } },
     { t: '什么也不传', dao: 'r', ok: { talk: [['nar', '你没有传这句话。'], ['nar', '有些话，得他自己说。'], ['nar', '陆天衡等了很久。然后，手伸向了腰间那截断剑。']], text: '你没有传这句话。有些话，得他自己说。', fx: { xp: 6 } } },
   ] },
 // mid3 坟前（并 mo_5）
-{ id: 's8_grave', where: 'story', trigger: 'sb:c8_mid3', cond: LU_ANY, npc: 'mo', title: '不悔', scene: 'grave', bgm: 'sorrow', gist: '墨离的衣冠冢前，老祖敬了一杯酒。',
+{ id: 's8_grave', where: 'story', trigger: 'sb:c8_mid3', cond: LU_ANY, npc: 'mo', title: '不悔', scene: 'grave', bgm: 'farewell', gist: '墨离的衣冠冢前，老祖敬了一杯酒。',
   text: '墨家祖坟的最高处多了一座新坟，没有尸骨，只有衣冠。墨无痕递来一口墨色长剑：“先祖佩剑，名‘不悔’。按辈分，我得叫你一声小师叔祖。只叫这一次。”',
   talk: [
     { sfx: 'wind' }, ['nar', '墨家祖坟的最高处，多了一座新坟。|没有尸骨，只有衣冠。'],
@@ -1082,7 +1082,7 @@ LIST.push(
     ['nar', '他从背后解下一口剑。墨色，无鞘。'], ['mo', '先祖佩剑，名“*不悔*”。', { slow: 1, sfx: 'clang' }],
     ['mo', '按辈分，我得叫你一声小师叔祖。'], ['mo:cold', '只叫这一次。'],
     { bgm: '' }, ['elder', '……酒。'], ['nar', '你倒了三杯。一杯洒在坟前。'],
-    ['elder:sad+tear', '这杯，|敬*阿离*。', { slow: 1, sfx: 'bell' }], { bgm: 'sorrow' },
+    ['elder:sad+tear', '这杯，|敬*阿离*。', { slow: 1, sfx: 'bell' }], { bgm: 'farewell' },
   ],
   choices: [
     { t: '收下', ok: { talk: [['mo', '小师叔祖。'], ['nar', '他叫得咬牙切齿。'], ['nar', '剑入手温润。三千年的剑意，认了你这个同门。', { sfx: 'gather' }], ['elder:joy', '辈分没乱。叫得好。']],
@@ -1131,14 +1131,14 @@ slot('s8_steps', [
 const VISITOR = 'any:daolv:any|aff:su>=60|aff:ye>=60|aff:chu>=60|aff:ge>=60|aff:bai>=60|aff:mo>=60';
 Object.assign(PATCH, {
   // 空戒：从随机来访改成第九章的中段（诀别之后一定会有这一夜）
-  home_empty_ring: { where: 'story', trigger: 'sb:c9_mid1', visit: undefined, once: undefined, weight: undefined, scene: 'cave', bgm: 'sorrow', gist: '你对着戒指说了半天话。再没有人骂你话多。',
+  home_empty_ring: { where: 'story', trigger: 'sb:c9_mid1', visit: undefined, once: undefined, weight: undefined, scene: 'cave', bgm: 'farewell', gist: '你对着戒指说了半天话。再没有人骂你话多。',
     talk: [
       ['nar', '你对着戒指，说了半天的话。'], ['me', '雷云又厚了一层。'], ['me', '隔壁那个散修搬走了。嫌这儿老打雷。'], ['me', '晚饭的鱼，有点咸。'],
       { bgm: '' }, ['nar', '戒指安安静静。', { sfx: 'heart', zoom: 1.5, x: 60, y: 96 }], ['nar', '再没有人骂你*话多*。', { slow: 1 }], { zoom: 0 },
     ],
     res: {
-      0: { ok: [['me', '那年在{cradle}，您问我想说点什么。'], ['me', '我现在想说的，比那时候多。'], { bgm: 'sorrow' }, ['nar', '心口那道剑意，轻轻颤了一下。', { sfx: 'gather' }], ['nar', '像有人，“哼”了一声。']] },
-      1: { ok: [['nar', '你把戒指擦了一遍。最后那一点锈，没有擦。'], ['me', '规矩第一条。我记着呢。'], { bgm: 'sorrow' }, ['me', '看好了，师父。|我替您上去*看看*。', { slow: 1 }]],
+      0: { ok: [['me', '那年在{cradle}，您问我想说点什么。'], ['me', '我现在想说的，比那时候多。'], { bgm: 'farewell' }, ['nar', '心口那道剑意，轻轻颤了一下。', { sfx: 'gather' }], ['nar', '像有人，“哼”了一声。']] },
+      1: { ok: [['nar', '你把戒指擦了一遍。最后那一点锈，没有擦。'], ['me', '规矩第一条。我记着呢。'], { bgm: 'farewell' }, ['me', '看好了，师父。|我替您上去*看看*。', { slow: 1 }]],
         okText: '你把戒指擦了一遍，留着最后那一点锈：“看好了，师父。我替您上去看看。”' },
     } },
   // 天外有天：陪他看天也算一条天外线索
@@ -1174,7 +1174,7 @@ Object.assign(PATCH, {
 });
 LIST.push(
 // mid1（留魂）剑里的人
-{ id: 's9_sword_talk', where: 'story', trigger: 'sb:c9_mid1', need: ['elder_kept'], speaker: 'elder', title: '剑里的人', scene: 'cave', bgm: 'home', gist: '剑里的人嫌剑鞘硌得慌。',
+{ id: 's9_sword_talk', where: 'story', trigger: 'sb:c9_mid1', need: ['elder_kept'], speaker: 'elder', title: '剑里的人', scene: 'cave', bgm: 'tender', gist: '剑里的人嫌剑鞘硌得慌。',
   text: '玄霄挂在墙上。夜里，剑鞘里有人翻身：“硌。谁做的鞘，里头连层绒都不衬！”',
   talk: [
     ['nar', '玄霄挂在墙上。夜里，剑鞘里有人翻身。', { sfx: 'clang' }],
@@ -1182,7 +1182,7 @@ LIST.push(
     ['me', '剑鞘是装剑的。'], ['elder', '现在是装本座的。', { fast: 1 }],
     ['nar', '你往鞘里垫了一层旧衣。'], ['elder', '……还行。'],
     { bgm: '' }, ['elder:cold', '小子。本座在戒指里住了三千年。'],
-    ['elder:sad', '这是头一回，|住的地方有人*问*硌不硌。', { slow: 1, soft: 1, zoom: 1.4, x: 150, y: 70 }], { zoom: 0 }, { bgm: 'home' },
+    ['elder:sad', '这是头一回，|住的地方有人*问*硌不硌。', { slow: 1, soft: 1, zoom: 1.4, x: 150, y: 70 }], { zoom: 0 }, { bgm: 'tender' },
     ['elder:ang', '——别感动。往左挪挪，压着本座的胡子了。', { fast: 1 }],
   ],
   choices: [
