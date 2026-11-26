@@ -5,7 +5,7 @@
  *   输入三个：大按钮（绝招）、丹、撤。关键时刻（怒气满且对面在蓄力）：第一章停住等你，之后 2.5 秒慢镜头。
  *   第一次看到蓄力 / 罩 / 克制 / 怒气满，各停一次、屏幕中央一行字（st.flags.btSeen），不出老祖对话框。
  *   画面下方 #bt（样式前缀 .bt-，追加在 template.html 末尾）在战斗时顶替修为条与数值格（body.bt-on）。 */
-const BTS = { round: 1000, first: 1400, walk: 1500, gather: 2400, end: 650, slow: 2500, hint: 2600, xMe: 56, foot: 128, xFoe: 140, gapFoe: 24 };
+const BTS = { round: 1000, first: 1400, walk: 1500, gather: 2400, end: 650, slow: 2500, hint: 2600, xMe: 56, foot: 128, xFoe: 134, gapFoe: 32 };
 let btv = null;
 const btOn = () => !!(st && ((st.exp && st.exp.nodes && L.TRIP_ON !== false && !st.run) || (btv && btv.mode === 'boss')));
 // 首领战（§8.4 P0）：不在历练途中，打的时候时间不走；打完把结果交给 L.fightBoss(st, k, { res })
@@ -95,6 +95,7 @@ function btBegin() {
     btShow(); return;
   }
   const f0 = v.B.foes[0];
+  if (f0.kind !== 'mob') { floatRaw(BTS.xFoe, 64, `${f0.kind === 'boss' ? '首领' : '精英'} · ${f0.n}`, '#ff9a8a', true); shake(); }
   btLog(`${v.B.foes.map(f => f.n).join('、')}${v.B.foes.length > 1 ? '' : ''}拦路 · ${v.B.momText}`);
   SFX.gong();
   // 第一次见罩：停一次
@@ -124,8 +125,14 @@ function btRound() {
 const BT_RAGE = '怒气满了：按大按钮';
 // 点停顿那一行（或点画面）：放过去；“怒气满了”那一次只能按大按钮
 function btTapHold() { if (btv && btv.hold && btv.hold.text && btv.hold.text !== BT_RAGE) { btRelease(); SFX.tap(); return true; } return !!(btv && btv.hold); }
-function btHold(text, auto) { btv.hold = { text, auto, left: auto }; btShow(); SFX.reveal(1); }
-function btRelease() { if (!btv || !btv.hold) return; btv.hold = null; btv.acc = 1e9; btShow(); }
+function btHold(text, auto) { btv.hold = { text, auto, left: auto }; btShow(); btCenter(text); SFX.reveal(1); }
+function btRelease() { if (!btv || !btv.hold) return; btv.hold = null; btv.acc = 1e9; btShow(); btCenter(''); }
+// 停顿时屏幕中央的一行字（≤ 12 字，§2.2“第一次看得懂”）：盖在场景上，点画面或点下面那一行放过去
+function btCenter(t) {
+  let el = $('#btCenter');
+  if (!el) { el = document.createElement('div'); el.id = 'btCenter'; el.className = 'bt-center'; $('#sceneWrap').appendChild(el); }
+  el.textContent = t || ''; el.hidden = !t;
+}
 // 输入
 function btUlt() {
   const v = btv; if (!v || !v.B || v.ph !== 'fight' || v.B.rage < 100) return;
@@ -141,7 +148,7 @@ function btUlt() {
 function btPill() { const v = btv; if (!v || !v.B || v.B.pillUsed || v.B.pills <= 0) return; v.q.pill = true; btRelease(); SFX.tap(); }
 function btFlee() { const v = btv; if (!v || !v.B || v.ph !== 'fight') return; v.q.flee = true; btRelease(); SFX.tap(); }
 // ---------- 事件演出 ----------
-function btFoeX(B, i) { return BTS.xFoe + i * BTS.gapFoe - (B.foes.length > 2 ? 12 : 0); }
+function btFoeX(B, i) { return BTS.xFoe + i * BTS.gapFoe - (B.foes.length > 2 ? 22 : 0); }
 function btPlay(ev) {
   const v = btv, B = v.B, now = T;
   let line = '';
@@ -166,7 +173,7 @@ function btPlay(ev) {
       case 'break': v.fx.push({ name: 'brk', el: '', x: fx, t0: now }); floatRaw(fx, fy - 28, '罩碎', '#7fe0f0', true); shake(); break;
       case 'brk': floatRaw(fx, fy - 30, '破招', '#ffe39a', true); flash(0.7); SFX.gong(); line = '破招！重击被打断'; break;
       case 'charge': floatRaw(fx, fy - 26, x.n || '蓄力！', '#ff6a5a', true); v.foeAct[fi] = now; if (btFirst('charge')) btHold('它在蓄力：放绝招打断它', BTS.hint); line = `${B.foes[fi].n}在蓄力`; break;
-      case 'fhit': case 'heavy': v.foeAct[fi] = now; v.meHit = now; floatRaw(BTS.xMe, fy - 4, '−' + fmt(x.dmg), x.t === 'heavy' ? '#ff6a5a' : '#ffb0a8', x.t === 'heavy', x.t !== 'heavy'); if (x.t === 'heavy') { shake(); SFX.hit(); line = `重击 −${fmt(x.dmg)}`; } break;
+      case 'fhit': case 'heavy': v.foeAct[fi] = now; v.meHit = now; if (x.ke) { const hb = $('#btHp'); if (hb && hb.parentNode) { hb.parentNode.classList.remove('kehit'); void hb.parentNode.offsetWidth; hb.parentNode.classList.add('kehit'); } } floatRaw(BTS.xMe, fy - 4, '−' + fmt(x.dmg), x.t === 'heavy' ? '#ff6a5a' : '#ffb0a8', x.t === 'heavy', x.t !== 'heavy'); if (x.t === 'heavy') { shake(); SFX.hit(); line = `重击 −${fmt(x.dmg)}`; } break;
       case 'dot': floatRaw(fx, fy, fmt(x.dmg), '#ff9a4a', false, true); break;
       case 'dead': if (x.who === 'me') { line = '你倒下了'; } else { v.deadAt[fi] = now; } break;
       case 'pill': floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', true); line = `吞下疗伤丹 +${fmt(x.dmg)}`; break;
@@ -224,7 +231,7 @@ function drawBtScene(dt) {
     ctx.globalAlpha = 1;
     if (f.hp <= 0) return;
     // 血条、罩格、五行徽、蓄力
-    const top = foot - (S.ay || 24) - 10, bw = 26, bx = Math.round(x - bw / 2);
+    const top = foot - (S.ay || 24) - 10, bw = B.foes.length > 1 ? 20 : 26, bx = Math.round(x - bw / 2);
     R(bx - 1, top - 1, bw + 2, 5, '#1b1326'); R(bx, top, bw, 3, '#3a3155'); R(bx, top, Math.max(0, Math.round(bw * f.hp / f.max)), 3, f.kind === 'mob' ? '#e06a5a' : '#ff4a4a');
     if (ART.elemBadge && f.el) ctx.drawImage(ART.elemBadge(f.el), bx - 11, top - 4);
     if (ART.shieldPip && f.shMax) for (let j = 0; j < f.shMax; j++) ctx.drawImage(ART.shieldPip(j < f.sh), bx + j * 8, top - 10);
@@ -264,7 +271,7 @@ function btEl() {
   return el;
 }
 function btStop() {
-  btv = null;
+  btv = null; btCenter('');
   const el = $('#bt'); if (el && !el.hidden) { el.hidden = true; document.body.classList.remove('bt-on'); fitScene(); }
 }
 const BT_SK_KIND = { z: 'zhan', w: 'qi', mi: 'mi' };

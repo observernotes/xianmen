@@ -127,6 +127,23 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => document.querySelector('#modal [data-krow] [data-rkeep]').click()); await page.waitForTimeout(200);
   if (!(await page.evaluate(() => !!document.querySelector('#modal .foot .btn.gold')))) errors.push('对比卡决定后，结算卡的金按钮没换回来');
   await close();
+  // ---------- 回合战（docs/COMBAT_LOOT.md §2）：出发页的敌人格与克制条、战斗画面（#bt）、44px 与横向溢出 ----------
+  await page.evaluate(() => { const { st } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.confirmExp && window.__xm.confirmExp(1, 0, 0); });
+  await page.waitForTimeout(400); await page.screenshot({ path: out + '/09k-exp-prep.png' });
+  if (await page.evaluate(() => !!window.__xm.confirmExp && !document.querySelector('#modal .bt-foes'))) errors.push('出发页没有“会遇到”的敌人格');
+  await close();
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.setSpeed(0); L.startExp(st, 1, 0, 0); });
+  for (let i = 0; i < 30 && !(await page.evaluate(() => { const { st } = window.__xm; return !!(st.exp && document.querySelector('#bt:not([hidden]) .bt-big')); })); i++) await page.waitForTimeout(200);
+  await page.waitForTimeout(2600); await page.screenshot({ path: out + '/09l-battle.png' });
+  const btl = await page.evaluate(() => {
+    const bt = document.getElementById('bt'); if (!bt || bt.hidden) return null;
+    const bad = [...bt.querySelectorAll('button')].filter(b => b.offsetParent).filter(b => { const r = b.getBoundingClientRect(); return r.height < 44 || r.width < 44; }).map(b => b.textContent.trim().slice(0, 6));
+    return { bad, page: document.documentElement.scrollWidth - window.innerWidth, hp: !!document.getElementById('btHp'), rage: !!document.getElementById('btRg'), sk: bt.querySelectorAll('.bt-sk').length };
+  });
+  if (!btl) errors.push('历练途中没有出战斗画面（#bt）');
+  else { if (btl.bad.length) errors.push('战斗画面按钮不足 44px：' + btl.bad.join('，')); if (btl.page > 0) errors.push('战斗画面横向溢出 ' + btl.page + 'px'); if (!btl.hp || !btl.rage || btl.sk !== 3) errors.push('战斗画面缺气血 / 怒气 / 三个招式格'); }
+  await page.evaluate(() => { const { st, L } = window.__xm; window.__xm.setSpeed(3); if (st.exp) { st.exp.recall = 1; st.exp = null; } });
+  await page.waitForTimeout(300); await close();
   // ---------- 灵宠（SYSTEMS §4）：兽栏、派岗、进化二选一、名册满的放生替换、洞府场景里四只灵宠 ----------
   const pet44 = (sel, what) => page.evaluate(([sel, what]) => {
     const body = document.querySelector('#modal .body'), bad = [];
