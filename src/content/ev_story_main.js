@@ -275,7 +275,7 @@ LIST.push(
 
 /* ============================================================
  * 第三章 旧怨
- * open story_r2 → mid1 s3_ring_doubt → mid2 mo_1（来访）→ mid3 s3_zhao_eve → climax s3_zhao_fall（样稿）→ end s3_end；另：story_trib1（头一回雷劫）
+ * open story_r2 → mid1 s3_ring_doubt → mid2 mo_1（来访）→ pre s3_zhao_eve → climax s3_zhao_fall（样稿）→ end s3_end；另：story_trib1（头一回雷劫）
  * ============================================================ */
 Object.assign(PATCH, {
   story_r2: { scene: 'cave', bgm: 'boss', cine: 'heiyi', gist: '夜半有人来夺戒：“你不知道里面关着什么。”',
@@ -344,8 +344,8 @@ LIST.push(
     { t: '点头，留个心眼', dao: 'w', ok: { talk: [['me', '没有。您没害过我。'], ['nar', '你点了头。可那个“关”字，你没有忘。'], ['elder:cold', '……你那点心思，本座看不出来？'], { bgm: '' }, ['elder:sad', '留着吧。|本座当年要是也留一个，就不在这儿了。', { slow: 1, soft: 1 }]], text: '你点了头。可那个“关”字，你没有忘。', fx: { xp: 4, flag: 'elder_doubt' } } },
     { t: '“墨家和您什么仇？”', dao: 'k', ok: { talk: [['elder:ang', '*够了*！', { loud: 1, sfx: 'thunder' }], ['elder:ang', '逆徒的后人，也配让本座提？'], ['nar', '戒指烫了一下，然后彻底冷了。'], { black: '老祖三天没有理你。' }, ['nar', '第四天清晨。'], ['elder:cold', '……起来。练剑。']], text: '“逆徒的后人，也配让本座提？”老祖三天没有理你。', fx: { xp: 3 } } },
   ] },
-// mid3 论道前夜的盘口
-{ id: 's3_zhao_eve', origin: 'qitu', where: 'story', trigger: 'sb:c3_mid3', not: ['beat_zhao'], chMax: 2, title: '一赔九', scene: 'gate', bgm: 'town', gist: '论道前夜有人开盘口：押你输，一赔九。',
+// pre 论道前夜的盘口
+{ id: 's3_zhao_eve', origin: 'qitu', where: 'story', trigger: 'sb:c3_pre', not: ['beat_zhao'], chMax: 2, title: '一赔九', scene: 'gate', bgm: 'town', gist: '论道前夜有人开盘口：押你输，一赔九。',
   text: '金丹论道的前一夜，山门外有人开了盘口。赵乾一赔一，你一赔九。押你的那一边是空的。',
   talk: [
     ['nar', '金丹论道的前一夜。山门外有人支了张桌子。', { sfx: 'luo' }],
@@ -1205,6 +1205,41 @@ slot('s9_farewells', [
   { who: 'tian', if: 'tiankuo_sect', echo: '你给他指了一座山', say: [{ scene: 'gate' }, ['nar', '东边的山上，钟响了九下。'], ['nar', '问剑山的规矩：送人，不下山。钟替人送。']] },
   { who: 'ring', if: 'st_farewell', say: [{ scene: 'temple' }, ['nar', '你去了一趟{cradle}。屋顶还是漏的。'], ['nar', '你把戒指放在漏雨的那块地方，又拿了起来。'], ['me', '带着吧。']] },
 ]);
+
+// 第七章 mid3：那一夜之后（抉择五的头一处回声，三版）
+LIST.push(
+{ id: 's7_vow', where: 'story', trigger: 'sb:c7_mid3', need: ['st_truth'], cond: 'any:vow_blood|vow_justice|vow_letgo', chMax: 6, speaker: 'elder', title: '那一夜之后', scene: 'cave', bgm: 'sorrow', gist: '知道真相之后，老祖变了一点。',
+  text: '知道真相的那一夜之后，老祖变了一点。你说过的那句话，他一直记着。',
+  talk: [
+    { pick: [
+      { if: 'vow_blood', echo: '你说过，一剑了断', say: [
+        ['nar', '那一夜之后，老祖只做一件事。'], ['nar', '教你杀人的剑。', { sfx: 'clang' }],
+        ['elder:cold', '第十式。本座从没教过人。'], ['elder', '天衡没学到。阿离……没来得及。'], ['me', '这一式叫什么。'],
+        { bgm: '' }, ['elder:cold+shade', '没有名字。|本座创它，是为了*清理门户*。', { slow: 1, sfx: 'sting', zoom: 1.5, x: 60, y: 96 }], { zoom: 0 },
+        ['nar', '你练了一夜。剑意冷得院里的水缸结了冰。'], { bgm: 'sorrow' },
+        ['elder:sad', '……太像了。', { soft: 1 }], ['me', '像谁？'], ['elder:ang', '练你的。', { fast: 1 }] ] },
+      { if: 'vow_justice', echo: '你说过，先让天下人知道', say: [
+        ['nar', '桌上摊着九叠纸。你在抄旧案。第九份。', { sfx: 'paper' }],
+        ['elder:ang', '这个“弑”字，又写错了！多一撇！', { fast: 1 }], ['me', '您念得太快。'], ['elder', '本座念了三千年，快不了。'],
+        ['nar', '他一句一句地念。雷落到第几道，谁站在哪边，剑从哪里来。'],
+        { bgm: '' }, ['nar', '念到“师尊小心”四个字，停住了。', { sfx: 'heart', zoom: 1.5, x: 60, y: 96 }],
+        ['elder:sad', '……这四个字，|你写*大*一点。', { slow: 1 }], { zoom: 0 }, { bgm: 'sorrow' },
+        ['elder:sad', '让九宗的人，都看得见。'] ] },
+      { echo: '你叫过他一声师父', say: [
+        ['nar', '那一夜之后，老祖三天没有说话。'], { black: '第四天。' },
+        ['elder', '……小子。'], ['me', '在。'],
+        ['elder:sad', '本座想了三天。两个都想了。大的，小的。'], ['elder:sad', '大的那个，七岁上山，鞋是破的。|本座给他补过。'],
+        ['elder', '恨了三千年，把这个忘了。'],
+        { bgm: '' }, ['elder:sad', '……*也是*。', { slow: 1, soft: 1, sfx: 'heart', zoom: 1.5, x: 60, y: 96 }], { zoom: 0 },
+        ['me', '什么？'], ['elder:ang', '你说的那句。“都过去了。”本座说：也是。', { fast: 1 }], { bgm: 'sorrow' },
+        ['elder:cold', '可账，还是要当面算。'] ] },
+    ] },
+  ],
+  choices: [
+    { t: '“我陪着。”', dao: 'r', ok: { talk: [['elder', '……嗯。']], text: '“我陪着。”戒指“嗯”了一声。', fx: { xp: 5 } } },
+    { t: '添一盏灯', dao: 'w', ok: { talk: [['nar', '你什么也没说，添了一盏灯。'], ['elder', '费油。', { soft: 1 }], ['nar', '他没让你吹。']], text: '你添了一盏灯。“费油。”他没让你吹。', fx: { xp: 5 } } },
+  ] },
+);
 
 // ==== 以上各章；下面打补丁并导出 ====
 for (const id in PATCH) {

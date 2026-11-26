@@ -207,6 +207,29 @@ for (let s = 1; s <= N; s++) {
   const beats = new Set(L.STORY_BEATS.map(b => b.id)), used = new Set();
   for (const e of evs) if (e.where === 'story' && /^sb:/.test(e.trigger || '')) { const k = e.trigger.slice(3); used.add(k); if (k !== 'mid' && !beats.has(k)) fail(who, `${e.id} 挂在不存在的节拍 ${k} 上`); }
   for (const k of ['c1_open', 'c1_climax', 'c2_open', 'c2_mid1', 'c3_open', 'c3_climax', 'c4_open', 'c5_open', 'c5_mid3', 'c6_open', 'c7_open', 'c7_mid2', 'c7_climax', 'c8_open', 'c8_mid2', 'c8_climax', 'c9_open', 'c9_climax']) if (!used.has(k)) fail(who, `节拍 ${k} 上没有场景`);
+  // §10 验收 1：九章每章的节拍位都挂了对话场景（几个位子由系统触发键上的那场戏顶着：约战前夜、墨色剑帖、击败云无极、飞升前夜；第一章的章末并进第二章开章）；每章主线对话场景 ≥ 6
+  { const EQUIV = { c1_pre: 'story_pact_eve', c1_end: 'story_r1', c3_mid2: 'mo_1', c9_mid3: 'yun_3', c9_pre: 'story_ascend' };
+    const EXTRA = { 0: ['story_pact_eve'], 1: ['story_sect'], 2: ['mo_1', 'story_trib1'], 3: ['sect_succession'], 4: ['story_boss5'], 5: ['zhao_3'], 7: ['ch_sword_6'], 8: ['yun_3', 'story_ascend'] };
+    const talkOn = k => evs.some(e => e.where === 'story' && e.trigger === 'sb:' + k && e.talk);
+    const has = id => talkOn(id) || !!(EQUIV[id] && byId(EQUIV[id]) && byId(EQUIV[id]).talk);
+    // open / pre / climax / end 必须有；中段至少两个（空着的中段位让给人物戏 sb:mid）
+    for (const b of L.STORY_BEATS) if (!/^mid/.test(b.slot) && !has(b.id)) fail(who, `节拍 ${b.id} 上没有对话场景`);
+    for (let ch = 0; ch < 9; ch++) { const n = L.STORY_BEATS.filter(b => b.ch === ch && /^mid/.test(b.slot) && has(b.id)).length; if (n < 2) fail(who, `第 ${ch + 1} 章的中段只有 ${n} 个位子挂了场景（要 ≥ 2）`); }
+    for (let ch = 0; ch < 9; ch++) { const n = evs.filter(e => e.talk && new RegExp('^sb:c' + (ch + 1) + '_').test(e.trigger || '')).length + (EXTRA[ch] || []).filter(id => byId(id) && byId(id).talk).length; if (n < 6) fail(who, `第 ${ch + 1} 章主线对话场景只有 ${n} 场（要 ≥ 6）`); }
+    // 口吻（§10 验收 4）：只查带对话的场景与共用场景的空位
+    const lines = [];   // { id, who, text, qitu }
+    const walkT = (id, t, qitu) => { for (const it of t || []) { if (Array.isArray(it)) lines.push({ id, who: it[0].split(':')[0], text: it[1], qitu }); else if (it && it.black) lines.push({ id, who: 'nar', text: it.black, qitu }); else if (it) { if (it.say) walkT(id, it.say, qitu); if (it.pick) for (const o of it.pick) walkT(id, o.say, qitu); } } };
+    for (const e of evs) if (e.talk) { const q = e.origin === 'qitu'; walkT(e.id, e.talk, q); for (const c of e.choices) for (const br of ['ok', 'fail']) if (c[br]) walkT(e.id, c[br].talk, q); }
+    for (const id in (L.STORY_SLOTS || {})) for (const x of L.STORY_SLOTS[id]) walkT(id + '·空位', x.say, x.who === 'mu' || x.who === 'zhao');
+    const ws = lines.filter(x => /为师/.test(x.text)); if (ws.length > 5) fail(who, `“为师”出现 ${ws.length} 次（全剧 ≤ 5）：${ws.map(x => x.id).join('、')}`);
+    for (const x of lines) {
+      const plain = x.text.replace(/[*|]/g, '');
+      if (x.who === 'elder' && /老夫/.test(plain)) fail(who, `${x.id} 老祖说了“老夫”`);
+      if (x.who === 'chu') for (const seg of plain.split(/[。！？…，、—]+/)) if ([...seg].length > 8) fail(who, `${x.id} 楚狂的句子超过八个字：${seg}`);
+      if (x.who === 'tianheng' && /本座|墨离/.test(plain)) fail(who, `${x.id} 陆天衡说了“本座 / 墨离”：${plain.slice(0, 14)}`);
+      if (!/^(s1_|story_pact_eve)/.test(x.id) && /三年前|三年来/.test(plain)) fail(who, `${x.id} 第一章以外出现“三年前 / 三年来”：${plain.slice(0, 14)}`);
+      if (!x.qitu && /天剑宗外门|破庙|退婚|慕容/.test(plain)) fail(who, `${x.id} 不是弃徒专属的戏却写死了弃徒的词：${plain.slice(0, 14)}`);
+    } }
   // 主线目标不写境界：第七、八、九章只看故事标志位
   { const st = L.newState({ name: '测试' }); st.p.r = 9; for (let i = 0; i < 9; i++) st.quest.done['c' + i + '_m'] = i < 6 ? 1 : 0;
     if (L.CHAPTERS[6].main.c(st) || L.CHAPTERS[7].main.c(st) || L.CHAPTERS[8].main.c(st)) fail(who, '境界到了、故事没走，第七～九章的主线却算完成了');
