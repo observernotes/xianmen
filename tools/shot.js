@@ -328,7 +328,7 @@ require('fs').mkdirSync(out, { recursive: true });
   lay44(await big44('#modal .mbuy, #modal .close', '货架'));
   const shelfN = await page.evaluate(() => document.querySelectorAll('#modal .shelfrow').length);
   if (shelfN < 6) errors.push('货架不足 6 格：' + shelfN);
-  await page.evaluate(() => document.querySelector('#mktSell').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/23-sell.png' });
+  await page.click('#modal [data-mtab="sell"]'); await page.waitForTimeout(150); await page.evaluate(() => document.querySelector('#mktSell').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/23-sell.png' });
   lay44(await big44('#modal [data-sell]', '行情'));
   // 指数 1.4 + 秋 0.2，大旱 ×1.6 → ×2.56
   const herb0 = await page.evaluate(() => ({ h: window.__xm.st.herbs, s: window.__xm.st.stones, m: window.__xm.L.sellMult(window.__xm.st, 'herb'), txt: document.querySelector('#modal [data-good="herb"]').textContent }));
@@ -336,7 +336,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal [data-sell="herb:0.5"]'); await page.waitForTimeout(300);
   const herb1 = await page.evaluate(() => ({ h: window.__xm.st.herbs, s: window.__xm.st.stones }));
   if (herb1.h !== herb0.h - Math.floor(herb0.h / 2) || herb1.s <= herb0.s) errors.push('卖一半没生效：' + JSON.stringify([herb0, herb1]));
-  await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/24-auction.png' });
+  await page.click('#modal [data-mtab="auc"]'); await page.waitForTimeout(150); await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/24-auction.png' });
   lay44(await big44('#modal .bidb', '拍卖'));
   const nb = await page.evaluate(() => document.querySelectorAll('#modal .bidb').length);
   if (nb !== 9) errors.push('三件拍品各三档出价，应有 9 个按钮：' + nb);

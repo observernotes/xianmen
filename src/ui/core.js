@@ -176,5 +176,12 @@ function pnDelta(label, a, b, f, lower) {
   const good = lower ? b < a : b > a;
   return `${label} ${fa} → <b class="${good ? 'pn-up' : 'pn-dn'}">${fb}</b>`;
 }
+// 卡片上的一行要短：取第一个逗号 / 分号 / 括号之前的部分，还长就截断加“…”（全文放进卡片明细）
+function pnShort(s, n) {
+  s = String(s || ''); n = n || 14;
+  const m = s.split(/[，；。（(]/)[0];
+  const t = m.length >= 4 ? m : s;
+  return t.length > n ? t.slice(0, n - 1) + '…' : t;
+}
 // 分组小标题：左名字，右一个小字
 function pnHead(name, right, id) { return `<div class="pn-hd"${id ? ` id="${id}"` : ''}><span>${name}</span>${right ? `<span class="muted">${right}</span>` : ''}</div>`; }

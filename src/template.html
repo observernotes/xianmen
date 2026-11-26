@@ -839,6 +839,10 @@ details.pn-it[open] > summary.pn-row::after { content: '▾'; }
 .sheet .body .pn-hero .pn-line, .sheet .body .pn-k .muted, .sheet .body .pn-k.muted { font-size: var(--fs-m); }
 .pn-line1 { font-size: var(--fs-m); color: var(--paper-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pn-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+/* 卡里套卡（拍品、选中的丹方）：里层不再画框 */
+.lot .pn-it, .pn-hero .pn-it { box-shadow: none; background: none; }
+.lot .pn-row { padding: 0; min-height: 44px; }
+.sheet .body .lot .lotcomp .muted, .sheet .body .lot .lotcomp span { font-size: var(--fs); }
 /* 三格数（宗门身份页、秘境入口等）：小字标签 + 中字数 */
 .pn-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
 .pn-stats > div { background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; padding: 4px 6px; display: flex; flex-direction: column; min-width: 0; }
