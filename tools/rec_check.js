@@ -88,17 +88,17 @@ function logic() {
   }
   // 3. 三年之约前（还有 2 月）：慕容是水 → 土克水
   {
-    // 行动点制下 sim 按季推进（maxT 落在季末），所以不按 maxT 取，而是逐月看：约战没打、离约战 ≤ L.REC.big 月、人在洞府的最后一个月
+    // 行动点制下 sim 按季推进（maxT 落在季末），所以不按 maxT 取，而是逐月看：约战没打、离约战 ≤ L.ART_REC.big 月、人在洞府的最后一个月
     let found = null;
-    sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK + 3, onTick: s => { const b = L.bigNext(s); if (!s.pact && b && b.k === 'pact' && b.left <= L.REC.big && b.left >= 1) found = clone(s); } });
-    check(!!found, `三年之约前：取到约战前 ≤ ${L.REC.big} 月的存档（第 ${found && found.tick} 月，还有 ${found && L.bigNext(found).left} 月）`);
+    sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK + 3, onTick: s => { const b = L.bigNext(s); if (!s.pact && b && b.k === 'pact' && b.left <= L.ART_REC.big && b.left >= 1) found = clone(s); } });
+    check(!!found, `三年之约前：取到约战前 ≤ ${L.ART_REC.big} 月的存档（第 ${found && found.tick} 月，还有 ${found && L.bigNext(found).left} 月）`);
     let st = idle(give(found));
     st.arts.slot[1] = 'z_liaoyuan';
     const pi = L.pactInfo(st), foe = { foe: L.PACT_FOE, Q: pi.Q, scale: S => S * L.pactAssist(st) };
     const E = agree('三年之约前', st, foe);
     // 推的那门胜算在最高的一档（胜算封顶 97% 时几门同档，档里比通用战力）
     const pOf = id => L.artTry(st, id, () => L.pactInfo(st).p), ps = Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').map(pOf), top = Math.max(...ps);
-    check(E.rc && E.rc.ctx.kind === 'duel' && E.rc.ctx.big === 'pact' && !!E.r && pOf(E.r) >= top - L.REC.pEps, `三年之约前：情境 ${E.rc && E.rc.ctx.kind}/${E.rc && E.rc.ctx.big}，推《${name(E.r)}》胜算 ${L.pct(pOf(E.r || L.artSlots(st)[1]))}（最高 ${L.pct(top)}；${E.rc && E.rc.why}）`);
+    check(E.rc && E.rc.ctx.kind === 'duel' && E.rc.ctx.big === 'pact' && !!E.r && pOf(E.r) >= top - L.ART_REC.pEps, `三年之约前：情境 ${E.rc && E.rc.ctx.kind}/${E.rc && E.rc.ctx.big}，推《${name(E.r)}》胜算 ${L.pct(pOf(E.r || L.artSlots(st)[1]))}（最高 ${L.pct(top)}；${E.rc && E.rc.why}）`);
     stable('三年之约前', st, 2);
     out.pact = st;
   }
