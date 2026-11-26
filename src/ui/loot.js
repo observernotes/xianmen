@@ -75,6 +75,11 @@ function lootFlipRun(root, cards, opt) {
   const els = [...box.querySelectorAll('.lt-c')], hint = box.querySelector('.lt-hint'), after = box.querySelector('.lt-after');
   const open = new Array(cards.length).fill(false);
   let nOpen = 0, busy = 0, f = 0;
+  // 牌下那几行先量好高度占住：翻一张多一行时卷轴不往上蹿、下面的“你变强了”不往下挤（tools/jitter_check.js）
+  if (after && !after.childElementCount) {
+    const hs = cards.map(c => lootAfterRow(c) + (c.wish ? `<div class="lt-wish">${artIcon('wish', 20)}<span class="grow"><b>心愿达成！</b></span>${opt.onWish ? '<button class="lt-wbtn">再钉一件 ▸</button>' : ''}</div>` : '')).join('');
+    if (hs) { after.style.visibility = 'hidden'; after.innerHTML = hs; const h = after.offsetHeight; after.innerHTML = ''; after.style.visibility = ''; if (h) after.style.minHeight = h + 'px'; }
+  }
   // 带星的牌背：两帧每 250 毫秒换一次 + 左右抖 1 像素（CSS .lt-hot）；第一次看到时轻轻响一下
   const shiver = setInterval(() => {
     if (!box.isConnected) { clearInterval(shiver); return; }
@@ -140,7 +145,7 @@ function lootFlipRun(root, cards, opt) {
 }
 // 牌下面那几行的按钮：换上 / 熔 / 收（收 = 留在【装备】的“新到”里，不熔）
 function bindLootRows(root) {
-  const done = (u, msg) => { const r = root.querySelector(`[data-lrow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
+  const done = (u, msg) => { const r = root.querySelector(`[data-lrow="${u}"]`); if (r) swapKeep(r, `<div class="krow"><span class="v kup">${msg}</span></div>`); updateHUD(); };
   root.querySelectorAll('[data-lteq]').forEach(b => b.onclick = () => { const u = +b.dataset.lteq, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   root.querySelectorAll('[data-ltsm]').forEach(b => b.onclick = () => { const u = +b.dataset.ltsm, r = L.gearDecide(st, u, 'smelt'); if (!r) return; SFX.coin(); done(u, `熔成灵矿 +${fmt(r.smelt)}${r.x.star ? ` · 器纹石 +${r.x.star}` : ''}`); });
   root.querySelectorAll('[data-ltkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.ltkeep, '收进【装备】的“新到”'); });

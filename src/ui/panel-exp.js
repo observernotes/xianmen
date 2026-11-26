@@ -296,7 +296,7 @@ function showExpResult(res) {
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   if (cards && cards.length) lootFlipRun(s, cards, { onWish: () => { closeModal(); confirmExp(res.k, res.d, res.a); } });
   const dp = s.querySelector('#ltDeep'); if (dp) dp.onclick = () => { if (L.startDeeper(st, res)) { SFX.coin(); closeModal(); updateHUD(); } };
-  const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
+  const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) swapKeep(r, `<div class="krow"><span class="v kup">${msg}</span></div>`); updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   { const kg = s.querySelector('#kGrow'); if (kg) kg.onclick = () => { SFX.tap(); closeModal(); showGrowth('goal'); }; }
   s.querySelectorAll('[data-btgo]').forEach(b => b.onclick = () => { SFX.tap(); closeModal(); showGrowth('goal'); });   // 【去换】→ 变强页，头就是这一格（KAIRO_PLAN §10.7）

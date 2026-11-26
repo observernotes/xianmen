@@ -76,6 +76,7 @@ function showGrowth(focus, opt) {
   s.querySelectorAll('[data-gtab]').forEach(b => b.onclick = () => { SFX.tap(); showGrowth(b.dataset.gtab); });
   s.querySelectorAll('[data-gdr]').forEach(r => r.onclick = e => { e.stopPropagation(); SFX.tap(); gwPop(s, r, A, again); });
   if (opt.detail) { const d = s.querySelector('details.gw-det'); if (d) setTimeout(() => d.scrollIntoView({ block: 'end' }), 0); }
+  { const d = s.querySelector('details.gw-det'); if (d) d.addEventListener('toggle', () => { if (d.open && !opt.detail) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); opt.detail = false; }); }   // 展开明细：“明细”那一行不动，正文滚到看得见（卷轴固定高度，jitter_check）
 }
 // 明细：≤ 6 行（图标 + 名字 + 条 + ×倍数），按贡献排；能提升的行尾 ▲、条上金色斜纹是“做了以后多出来的一段”；×1 的几项合成一行
 const GW_KEY = { array: ['up:array'], field: ['up:field'], furnace: ['up:furnace'], cave: ['up:cave'], art: ['art0', 'art1'], gear: ['equip', 'plus', 'infuse'], pet: ['pet'], alch: ['pill'] };

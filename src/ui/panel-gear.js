@@ -108,7 +108,7 @@ function bindGearButtons(root) {
     const card = b.closest('[data-gcmp]');
     const nm = esc(L.gearBase(r.x.id).n);
     const msg = how === 'equip' ? `<span class="chip ok">已换上</span> ${nm}${r.plus ? `（继承 +${r.plus}）` : ''}${r.prev ? `，旧的熔成灵矿 +${r.smelt}` : ''}` : `<span class="chip">已熔炼</span> ${nm} → 灵矿 +${r.smelt}${how === 'lock' ? `；${L.GEAR_N[r.slot]}已锁定，更低阶的直接熔炼` : ''}`;
-    if (card) card.outerHTML = `<div class="quote gdone">${msg}</div>`;
+    if (card) swapKeep(card, `<div class="quote gdone">${msg}</div>`);
     if (how === 'equip') { const pw = L.power(st); floatText(100, 82, `战力 → ${fmt(pw)}`, '#ff9a8a', false, true); }
     gearFootSync(root);
     updateHUD();

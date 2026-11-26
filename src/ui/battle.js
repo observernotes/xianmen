@@ -261,6 +261,7 @@ function btEl() {
   if (!el) {
     el = document.createElement('div'); el.id = 'bt'; el.hidden = true;
     const after = $('#cult'); after.parentNode.insertBefore(el, after);
+    if (sceneRO) sceneRO.observe(el);   // 战斗条高度变了（换行、出“点一下继续”）场景跟着排（scene.js）
     el.addEventListener('click', ev => {
       const b = ev.target.closest('[data-bt]'); if (!b || b.disabled) return;
       ac(); const k = b.dataset.bt;
