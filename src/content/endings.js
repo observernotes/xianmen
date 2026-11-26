@@ -84,7 +84,7 @@ const END = {
         '{Y}没走门。{Y}从门楣上翻下来，落在你前头，回头冲你笑。',
         '“我赌你不敢松手。”',
         '你握紧了些。',
-        '“……赢了。”{Y}低头看了看那只手，“头一回，赢了不想说‘骗你的’。”',
+        '“……赢了。”{Y}低头看了看那只手，“往后都不骗你了。——骗你的。偶尔还骗。”',
         '很多年前有人隔着一扇门问：明天，还回来吗？',
         '不用回来了。要等的人，就在身边。',
         '后来天上多了一轮红月。魔门的孩子说，那是少主在上面喝酒——旁边有人替{Y}拎着坛子。',
@@ -284,7 +284,7 @@ const LIST = [
     ['nar', '你在人间，又过了这些年。'], ['nar', '屋顶修过了。|该送的人，也都送过了。', { slow: 1 }],
     { if: 'elder_kept', echo: '剑里住着一个人', say: [['elder', '又来？上回是谁扭头就走的。'], ['me:joy', '上回屋顶没修。'], ['elder:joy', '……哼。这回本座不拦你。', { bgm: 'ascend' }]] },
     { if: 'daolv:su', echo: '有人在等你回家', say: [['su', '看我做什么。药箱我背着呢。'], ['su:joy+blush', '你去哪儿，诊金收到哪儿。——走不走？', { bgm: 'ascend' }]] },
-    { if: 'daolv:ye', echo: '有人在等你回家', say: [['ye:joy', '磨蹭什么。这门我早想翻了。'], ['ye:blush', '……你不走，我一个人翻有什么意思。', { soft: 1, bgm: 'ascend' }]] },
+    { if: 'daolv:ye', echo: '有人在等你回家', say: [['ye:joy', '磨蹭什么。这门我早想翻了。'], ['ye:sad+blush', '……你不走，我一个人翻有什么意思。', { soft: 1, bgm: 'ascend' }]] },
     { if: ['!elder_kept', 'daolv:none'], say: [['nar', '身后没有人催你。', { bgm: 'ascend' }], ['nar', '是你自己觉得，可以了。']] },
     { zoom: 1.5, x: 100, y: 56 }, { black: '你回头看了一眼。' }, { zoom: 0 },
     ['nar', '山下的灯，比上回*多*。', { slow: 1, fx: 'glow', sfx: 'bell' }],
@@ -340,7 +340,8 @@ function install(L, END0, EPI0) {
     return r;
   };
   EPI0.length = 0;
-  for (const [who, pt, list] of EPI) EPI0.push([who, list.map(x => [st => cond(st, x[0]), x[1]])]);
+  // L.EPILOGUE 留作登记表（tools/story_check.js 数“谁读了哪个标志位”）：条件是数组的拆成几行，各记一个；真正出卡走下面的 L.epilogue
+  for (const [who, pt, list] of EPI) EPI0.push([who, [].concat(...list.map(x => [].concat(x[0]).map(c => [c, x[1]])))]);
   L.epilogue = function (st) {
     const out = [];
     for (const [who, pt, list] of EPI) for (const x of list) if (cond(st, x[0])) {

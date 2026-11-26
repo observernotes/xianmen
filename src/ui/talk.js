@@ -200,7 +200,7 @@ function tkPicks() {
     const res = L.resolveChoice(st, ev, ci); if (!res) return;
     const br = c[res.ok ? 'ok' : 'fail'] || c.ok || {};
     box.hidden = true; T.picking = false; T.root.classList.remove('picking', 'keypick'); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进'; T.dimT = 0; T.skipping = false;
-    const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); if (br.cine && !res.duel) cnAfter(playCine(br.cine, {}), card); else if (br.cine) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(br.cine, {}); }); else card(); };
+    const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); const bc = br.cine && String(br.cine).replace('{daolv}', st.daolv || 'su');   /* 'jieqi_{daolv}'：按道侣取版本 */ if (bc && !res.duel) cnAfter(playCine(bc, {}), card); else if (bc) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(bc, {}); }); else card(); };
     // 当场的回响：关键抉择闪一下，黑屏上落一句你选的话，再接结果里的台词
     const lines = tkFlat(br.talk || []);
     if (c.key) { SFX.clang(); tkFlash(); lines.unshift({ who: 'black', mood: 'n', fx: '', text: '—— ' + tkPlain(L.fill(st, c.t)).replace(/^“|”$/g, ''), o: { auto: 1100 }, echo: '' }); } else SFX.tap();
@@ -438,7 +438,7 @@ const CN_API = { ART, L, img: cnImg, feet: cnFeet, dim: cnDim, text: cnText, lin
 if (typeof window.XM_CINE_DATA === 'function') { try { Object.assign(CINE_DATA, window.XM_CINE_DATA(CN_API)); } catch (e) { console.error('cine_data', e); } }
 for (const id in CINE_DATA) {
   const D = CINE_DATA[id];
-  CINE[id] = { n: D.n, no: D.no, s: Math.round(D.shots.reduce((a, s) => a + (s.ms || 4000), 0) / 1000), thumb: () => cnBgOf(D.thumb), shots: () => cnFromData(D) };
+  CINE[id] = { n: D.n, no: D.no, grp: D.grp, s: Math.round(D.shots.reduce((a, s) => a + (s.ms || 4000), 0) / 1000), thumb: () => cnBgOf(D.thumb), shots: () => cnFromData(D) };
   CN_BGM[id] = D.bgm || 'vow'; CN_ORDER.push(id);
 }
 // 玩家正看着的那一刻就播（不等回洞府）：天门、结局、最后一课

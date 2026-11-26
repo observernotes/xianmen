@@ -21,6 +21,39 @@ function chainRows() {
       <div class="cxseg">${seg}</div><div class="muted">${hint}${c.times ? ` · 历世走完 ${c.times} 次` : ''}</div>${!c.finished ? `<div class="muted">终点：${esc(c.fin)}</div>` : ''}</div>`;
   }).join('');
 }
+// 结局页（STORY_PLAN §3）：一个结局一格——点亮的是结局画面、名字、那一句话、第几世头一回见、见过几回；没点亮的是黑的，只有一句不剧透的暗示。
+// 点亮的点开：正文（按缺省的走法）与【重看过场】。记录在 st.meta.endings（samsara.js 的 L.metaLife），旧档只有图鉴里的“点亮过”。
+const END_ORDER = ['ascend', 'summit', 'daolv', 'hermit', 'shitu', 'mozun', 'gufeng', 'wentian', 'rest'];
+const endList = () => L.ENDINGS.slice().sort((a, b) => (END_ORDER.indexOf(a.id) + 99) % 99 - (END_ORDER.indexOf(b.id) + 99) % 99);
+const endLit = id => !!((st.meta.cx && st.meta.cx.end && st.meta.cx.end[id]) || (st.meta.endings && st.meta.endings[id]));
+const endPicOf = (id, who) => (id === 'daolv' ? 'daolv_' + (who || 'su') : (L.STORY_END[id] && L.STORY_END[id].pic) || id);
+const endCineOf = (id, who) => (id === 'ascend' ? 'feisheng' : id === 'rest' ? 'lunhui' : id === 'daolv' ? 'end_daolv_' + (who || 'su') : id === 'hermit' ? 'end_dixian' : 'end_' + id);
+function endThumb(id, who, w) {
+  const k = endPicOf(id, who); let c = null; try { c = ART.endingPic ? ART.endingPic(k) : ART.backdrop(k); } catch (e) { c = null; }
+  return c ? `<img class="px" src="${urlOf(c, 'endpic|' + k)}" style="width:${w}px;height:${w * 0.6}px" alt="">` : '';
+}
+function endingGallery() {
+  const rec = st.meta.endings || {}, w = pxFit(200, 132);
+  return `<div class="endg">${endList().map(e => {
+    const on = endLit(e.id), r = rec[e.id] || {}, X = L.STORY_END[e.id] || {};
+    const sub = on ? `${r.life ? `第 ${r.life} 世` : '前世'}${r.n > 1 ? ` · ${r.n} 回` : ''}${r.tags && r.tags.length ? ' · ' + r.tags.join('、') : ''}` : '还没有见过';
+    return `<button class="endg-t${on ? ' on' : ''}" data-end="${e.id}" ${on ? '' : 'aria-disabled="true"'}>
+      <span class="endg-pic" style="width:${w}px;height:${w * 0.6}px">${on ? endThumb(e.id, r.who, w) : '<i>？</i>'}</span>
+      <b>${on ? esc(e.n) : '？？？'}</b><span class="endg-l">${esc(on ? X.line || e.d || '' : X.hint || '')}</span><span class="endg-s">${esc(sub)}</span></button>`;
+  }).join('')}</div>`;
+}
+function showEndingCard(id) {
+  const e = L.ENDING[id], r = (st.meta.endings || {})[id] || {}; if (!e || !endLit(id)) return;
+  const fake = { eflags: {}, p: st.p, npc: st.npc, meta: st.meta, origin: st.origin, exName: st.exName, daolv: id === 'daolv' ? r.who || 'su' : null, sect: st.sect, flags: {}, rebirth: st.rebirth };
+  let paras = []; try { paras = L.endingParas ? L.endingParas(fake, id) : [L.STORY_END[id].text]; } catch (err) { paras = [(L.STORY_END[id] || {}).text || e.d]; }
+  const cid = endCineOf(id, r.who), can = typeof CINE !== 'undefined' && !!CINE[cid] && (typeof cineSeen !== 'function' || cineSeen(cid) || id === 'rest');
+  const w = pxFit(200, 300);
+  sheet({ title: esc(e.n), center: true,
+    body: `<div class="end-pic" style="width:${w}px;height:${w * 0.6}px">${endThumb(id, r.who, w)}</div>
+      <div class="end-text still">${paras.map((t, i) => `<p class="${/^“/.test(t) ? 'say' : ''}${i === paras.length - 1 ? ' last' : ''}">${esc(t)}</p>`).join('')}</div>
+      <p class="center muted">${r.life ? `第 ${r.life} 世头一回见` : '前世见过'}${r.n > 1 ? ` · 一共 ${r.n} 回` : ''}。换一种走法，正文里的几句会跟着变。</p>`,
+    foot: [{ t: '回图鉴', alt: true, fn: () => showCodex('ending') }].concat(can ? [{ t: '重看过场 ▸', gold: true, fn: () => { closeModal(); cnAfter(cinePlay(cid, {}, { recall: true, force: true }), () => showEndingCard(id)); } }] : []) });
+}
 function showCodex(cat) {
   if (cat) cxCat = cat;
   const list = L.codexList(st);
@@ -40,11 +73,13 @@ function showCodex(cat) {
     ${G ? `<div class="${info.grp ? 'jadet' : 'muted'}">集齐：${esc(G.d)}（永久）＋轮回道果 +${L.CX_V.grp}${info.grp ? ' · 已得' : ''}</div>` : ''}</div></div>`;
   if (!info.avail) body += '<p class="muted center">这一类还没开放（人物喜好要等送礼系统接上）。</p>';
   else if (cxCat === 'chain') body += chainRows();
+  else if (cxCat === 'ending') body += endingGallery();
   else body += C.cells(st).map(g => `${g.g ? `<div class="cxg">${esc(g.g)}</div>` : ''}<div class="cxcells">${g.list.map(x => `<span class="cxc${x.on ? ' on' : ''}" title="${esc(x.d || '')}">${esc(x.n)}${x.v ? `<i>${esc(x.v)}</i>` : ''}</span>`).join('')}</div>`).join('');
   const again = !!cat && !!document.querySelector('#modal #cxGrid');
   const s = sheet({ title: shellTitle('path'), still: again, body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid2}</div><div class="cxbody" id="cxBody">${body}</div>` });
   bindMeTabs(s);
   s.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { SFX.tap(); showCodex(b.dataset.cx); });
+  s.querySelectorAll('[data-end]').forEach(b => b.onclick = () => { SFX.tap(); showEndingCard(b.dataset.end); });
   if (again) { const bd = s.querySelector('.body'), cb = s.querySelector('#cxBody'); if (bd && cb) bd.scrollTop = cb.offsetTop - bd.offsetTop - 8; }
 }
 
