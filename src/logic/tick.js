@@ -1,4 +1,4 @@
-/* 废柴仙途 · 逻辑模块 tick：时间推进：每周天结算
+/* 废柴仙途 · 逻辑模块 tick：时间推进：每月结算
  * 模块写法见 src/logic.js 顶部说明。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
@@ -14,7 +14,7 @@ L.flow = function (st, f) {
   if (st.p.r <= L.MAXR) st.p.age += L.REALMS[st.p.r].mpt * f * L.ageRate(st);
   st.year += L.REALMS[Math.min(st.p.r, 8)].mpt * f;
 };
-// 一趟历练中途的遭遇：第 ceil(len/2) 周天，60% 概率，前两趟不触发
+// 一趟历练中途的遭遇：第 ceil(len/2) 月，60% 概率，前两趟不触发
 L.ENC_P = 0.6;
 L.tick = function (st, cont) {
   const out = { exp: null, event: null, tourney: false, pact: false, death: false, invite: false, war: false };
@@ -27,13 +27,13 @@ L.tick = function (st, cont) {
   L.gearTick(st);
   // 历法：大势到期 / 每轮 t%12 = 2 掷新的一件、换季（calendar.js）
   L.calTick(st, out);
-  // 秘境：每个夏季头一个周天送一枚秘境令（realm.js）
+  // 秘境：每个夏季头一个月送一枚秘境令（realm.js）
   if (L.mjTick) L.mjTick(st, out);
   // 洞府：阵法布好生效、灵泉养伤、地块满了的提醒、阵图来源（buildings.js / formation.js）
   if (L.homeTick) L.homeTick(st, out);
   // 灵宠：好感、觅食、闲着掉心与出走、争窝、名册满时没决定的新灵宠（pets.js）
   L.petTick(st, out);
-  // 增益；灵田作物长一周天、熟了自动收（crops.js）；丹毒消退、自动续炼（alchemy.js）
+  // 增益；灵田作物长一月、熟了自动收（crops.js）；丹毒消退、自动续炼（alchemy.js）
   for (const bf of st.buffs) bf.left--;
   st.buffs = st.buffs.filter(bf => bf.left > 0);
   L.cropTick(st, out);
@@ -61,7 +61,7 @@ L.tick = function (st, cont) {
     st.retreat.left--;
     if (st.retreat.left <= 0) { out.retreat = L.endRetreat(st, true); if (out.retreat.visitor) out.visitor = out.retreat.visitor; }
   }
-  // 访客：闭关时顺延；新手期等第一次闭关出关（或第 20 周天后）才开始有人上门
+  // 访客：闭关时顺延；新手期等第一次闭关出关（或第 20 月后）才开始有人上门
   // 在外（历练 / 闭关）时等待不减：从你回到洞府起算（docs/KAIRO_PLAN.md §3.3 第 3 条）
   if (st.visitor) {
     if (!st.exp && !st.retreat && --st.visitor.left <= 0) out.visitorGone = L.visitorLeave(st);
@@ -76,7 +76,7 @@ L.tick = function (st, cont) {
   if (L.rivalTick) L.rivalTick(st, out);
   if (st.sect) {
     const sc = L.sectOf(st);
-    // 丹霞谷：每 6 周天俸禄附一枚破境丹（手里不足 L.DAN_PILL_CAP 枚时才发，免得越攒越多）
+    // 丹霞谷：每 6 月俸禄附一枚破境丹（手里不足 L.DAN_PILL_CAP 枚时才发，免得越攒越多）
     if (sc.pill && st.tick % 6 === 0 && st.pills < L.DAN_PILL_CAP) st.pills++;
     if (!st.flags.warWon && st.sect.rank >= 2 && p.r >= 5 && st.tick >= (st.flags.war || 0) && !L.busy(st)) { out.war = true; st.flags.war = st.tick + 9999; }
     if (L.canPromote(st) && !st.flags.promoNote) { st.flags.promoNote = 1; emit('promote', st.sect.rank + 1); }
@@ -88,7 +88,7 @@ L.tick = function (st, cont) {
   if (L.sectTick) L.sectTick(st, out);
   // 人物：二心、四心的委托，丹方类委托的进度，双修到时候了（people.js）
   if (L.peopleTick) L.peopleTick(st, out);
-  // 坊市：行情游走（每 6 周天）、货架换货（每届论道）、拍卖散场与开槌（market.js）
+  // 坊市：行情游走（每 6 月）、货架换货（每届论道）、拍卖散场与开槌（market.js）
   L.marketTick(st, out);
   for (const nw of L.RIVAL_NEWS) if (nw[0] === st.tick && !st.beaten[nw[1]]) L.log(st, nw[2]);
   if (p.r <= L.MAXR && p.age >= L.lifespan(st)) out.death = true;

@@ -5,7 +5,7 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 吐纳：在洞府打坐时每周天蓄 1/6，蓄满后点自己，立得 1 周天修为
+// 吐纳：在洞府打坐时每月蓄 1/6，蓄满后点自己，立得 1 月修为
 L.TUNA_FULL = 6;
 L.tunaReady = st => (st.tuna || 0) >= L.TUNA_FULL && !L.busy(st) && !L.isFull(st) && st.p.r <= L.MAXR;
 L.tuna = function (st) {
@@ -43,7 +43,7 @@ L.btRate = function (st, n) {
 };
 
 // ---------- 突破 ----------
-// n：服几枚破境丹（0～3；true 表示尽量多）。失败：修为退到 70%，负伤 3 周天，下次 +10%
+// n：服几枚破境丹（0～3；true 表示尽量多）。失败：修为退到 70%，负伤 3 月，下次 +10%
 // 金丹起要渡雷劫（SYSTEMS §9）：界面拆成 L.tribStart（预掷）→ 临场一停 → L.tribFinish（补手段、结算），见 trib.js；
 // 这里一口气走完（sim、旧调用）：opts = { aids: { fa, pet, daolv, zhen } | 'all', extra: { pills, fa, pet, daolv } | 'all' }
 L.breakthrough = function (st, n, opts) {
@@ -61,7 +61,7 @@ L.breakthrough = function (st, n, opts) {
   if (st.retreat) st.retreat = null;
   return L.btResolve(st, R() < rate, { rate, pills: n, guard, sure });
 };
-// 掷完之后的结算（筑基的一次掷与天劫共用）：成了升境界、觉醒、触发剧情；败了修为退到 70%、负伤 3 周天、下次 +10%
+// 掷完之后的结算（筑基的一次掷与天劫共用）：成了升境界、觉醒、触发剧情；败了修为退到 70%、负伤 3 月、下次 +10%
 // o = { rate, pills, guard, sure }
 L.btResolve = function (st, ok, o) {
   const p = st.p, guard = !!o.guard, sure = !!o.sure, n = o.pills || 0;
@@ -108,8 +108,8 @@ L.btResolve = function (st, ok, o) {
 };
 
 // ---------- 闭关与疗伤 ----------
-// 4 周天，修炼 ×(2 + 0.05×洞府等级)；花费 50 × 1.30^i 灵石（SYSTEMS §18；第一次免费，玄天道宗 −30%）；
-// 出关 30% 概率顿悟（玄天道宗 45%），再得 2 周天修为。
+// 4 月，修炼 ×(2 + 0.05×洞府等级)；花费 50 × 1.30^i 灵石（SYSTEMS §18；第一次免费，玄天道宗 −30%）；
+// 出关 30% 概率顿悟（玄天道宗 45%），再得 2 月修为。
 // 闭关疲劳：两趟历练之间连着闭关，从第二次起每次倍率 −0.5（最低 ×1.25）；出门历练一趟就清零（劳逸结合）。
 L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
 // SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”移到静室（home.js 的 L.roomRet；nohome2 时仍按洞府等级）
@@ -135,8 +135,8 @@ L.retWhy = function (st) {
   return '';
 };
 L.canRetreat = st => !L.retWhy(st);
-// 闭关值不值：多得多少修为、提前几周天升层
-// m 本次倍率；m0 不计疲劳的倍率；extra 比打坐多得的修为；save 本层提前几周天；total 这 4 周天共得多少修为
+// 闭关值不值：多得多少修为、提前几月升层
+// m 本次倍率；m0 不计疲劳的倍率；extra 比打坐多得的修为；save 本层提前几月；total 这 4 月共得多少修为
 L.retInfo = function (st) {
   const m = L.retMult(st), m0 = L.retBaseMult(st), base = L.gainCalm(st);
   const extra = base * (m - 1) * L.RET.len;
@@ -157,10 +157,10 @@ L.startRetreat = function (st, opt) {
   if (!special) st.flags.retStreak = L.retStreak(st) + 1;
   if (opt.task !== undefined) st.retreat.task = opt.task;
   st.tuna = 0;
-  L.log(st, opt.kind === 'train' ? '老祖亲自特训：4 周天，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟 4 周天' : `闭关 ${L.RET.len} 周天，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
+  L.log(st, opt.kind === 'train' ? '老祖亲自特训：4 月，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟 4 月' : `闭关 ${L.RET.len} 月，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
   return true;
 };
-// 闭关栏里写的名字（sect2.js 的 'busy'：讲法、传授、事件占住的几个周天，带 label）
+// 闭关栏里写的名字（sect2.js 的 'busy'：讲法、传授、事件占住的几个月，带 label）
 L.retName = r => (!r ? '' : r.kind === 'train' ? '老祖特训' : r.kind === 'teach' ? '指点师弟' : r.kind === 'busy' ? r.label || '有事在身' : '闭关');
 // done = 坐满了；提前出关不退灵石，也没有顿悟
 L.endRetreat = function (st, done) {
@@ -187,7 +187,7 @@ L.endRetreat = function (st, done) {
   L.checkQuests(st);
   return res;
 };
-// 老祖特训（E17）：约战剩余 ≤ 8 周天、胜算 < 60%、未筑基未圆满、人在洞府，第一世只此一次，不收灵石
+// 老祖特训（E17）：约战剩余 ≤ 8 月、胜算 < 60%、未筑基未圆满、人在洞府，第一世只此一次，不收灵石
 L.canTrain = function (st) {
   if (st.rebirth > 0 || st.pact || st.flags.trained || st.p.r > 0 || L.busy(st) || L.isFull(st)) return false;
   const pi = L.pactInfo(st);

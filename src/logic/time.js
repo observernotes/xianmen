@@ -1,7 +1,7 @@
 /* 废柴仙途 · 逻辑模块 time：时间流逝（docs/KAIRO_PLAN.md §3）——一个“月”、三态时钟、大节点预告与备战、出发拦截、纸鹤消息匣、打断节流
  * 模块写法见 src/logic.js 顶部说明。排在 path 之后（包 L.tick、L.startExp、L.startRetreat、L.startBusy、L.startTrain、L.flow）。
  *
- *   单位：界面上的“周天”都叫“月”（L.UNIT）；3 月一季、12 月一年；日历年 = floor(tick / 12) + 1。逻辑层的 tick 不改名、不改数值。
+ *   单位：界面上的“月”都叫“月”（L.UNIT）；3 月一季、12 月一年；日历年 = floor(tick / 12) + 1。逻辑层的 tick 不改名、不改数值。
  *   三态：L.clockMode(st) → 'idle'（打坐）| 'trip'（历练）| 'away'（闭关、特训、讲道……）；“停”由界面判（面板、聚光、秘境、自动停）。
  *         ×1 一月多少秒：L.monthSec(st)（onboard.js 的 L.TIME）。
  *   大节点：L.bigList(st) → 三年之约、天骄论道（每 12 月）、九宗会武（每 24 月）、天剑宗来犯（排上日子以后）。

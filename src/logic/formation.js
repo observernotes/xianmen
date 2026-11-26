@@ -1,9 +1,9 @@
 /* 废柴仙途 · 逻辑模块 formation：阵法（docs/SYSTEMS.md §6.3，CONTENT §6）
  * 模块写法见 src/logic.js 顶部说明。
  *
- *   聚灵阵地块上布一种阵法（炼虚起第二阵位，效果 ×0.5）；强度 L = 聚灵阵等级。切换免费，3 周天后生效（这 3 周天里旧阵照常管用，界面写“布阵中”）。
+ *   聚灵阵地块上布一种阵法（炼虚起第二阵位，效果 ×0.5）；强度 L = 聚灵阵等级。切换免费，3 月后生效（这 3 月里旧阵照常管用，界面写“布阵中”）。
  *   阵法筑基后期开放（转世后全开；第二阵位始终要炼虚）。阵图存在 st.gear.zhentu（法宝那一刀起事件 fx.plan 就记在这里，story_trib1 给渡劫阵）；聚灵阵自带。
- *   st.home.zhen = [{ id 正在生效的, nx 布阵中的, at 哪个周天生效 }, { 第二阵位 }]；st.home.zlast 最近换过的阵位；st.home.zboost { id, until } 阵势 +20%（formation_boost）
+ *   st.home.zhen = [{ id 正在生效的, nx 布阵中的, at 哪个月生效 }, { 第二阵位 }]；st.home.zlast 最近换过的阵位；st.home.zboost { id, until } 阵势 +20%（formation_boost）
  *   效果（L = 聚灵阵等级，k = 1 主阵位 / 0.5 第二阵位，阵势 +20% 时再 ×1.2；求雨停阵时全部失效）：
  *     聚灵 修炼 ×(1 + (1.08^L − 1) × k)；生财 被动灵石 +3%×L（≤ 60%）、出售价 +10%；护山 盗贼 / 寻仇上门 −5%×L（≤ 80%）、宗门战事战力 ×(1 + 1%×L)；
  *     养兽 灵宠经验 +4%×L、岗位 +1%×L；丹火 成丹率 +1%×L（≤ 15%）、上品以上 +0.5%×L；锻魂 功法熟练 +3%×L；渡劫 天劫承劫 +1%×L（≤ 15%，trib.js 的护劫手段）；
@@ -28,7 +28,7 @@ L.ZHEN = [
   { id: 'f_yangshou', short: '养兽', src: '万妖山脉·妖市（腹地）、拍卖', use: '灵宠经验与岗位' },
   { id: 'f_danhuo', short: '丹火', src: '葛老三心、丹经旧事', use: '大量炼丹前：成丹率与品质' },
   { id: 'f_duanhun', short: '锻魂', src: '剑气秘境', use: '功法熟练' },
-  { id: 'f_dujie', short: '渡劫', src: '第一次雷劫后老祖传授', use: '渡劫前 3 周天：天劫承劫' },
+  { id: 'f_dujie', short: '渡劫', src: '第一次雷劫后老祖传授', use: '渡劫前 3 月：天劫承劫' },
   { id: 'f_mizong', short: '迷踪', src: '仙府秘藏、太古仙府、拍卖', use: '访客少、奇遇把握、秘境陷阱减半' },
 ];
 const Z = {}; for (const x of L.ZHEN) Z[x.id] = x;
@@ -63,7 +63,7 @@ L.zhenK = function (st, id) {
   return k;
 };
 L.formationReady = (st, id) => L.zhenK(st, id) > 0;
-// 布在哪个阵位、生效没有：{ slot, on 生效中, pend 布阵中（还剩几周天）}
+// 布在哪个阵位、生效没有：{ slot, on 生效中, pend 布阵中（还剩几月）}
 L.zhenWhere = function (st, id) {
   const z = zs(st);
   for (let i = 0; i < 2; i++) { if (z[i].id === id && (i === 0 || L.zhenSlots(st) >= 2)) return { slot: i, on: true, pend: 0 }; if (z[i].nx === id) return { slot: i, on: false, pend: Math.max(1, z[i].at - st.tick) }; }
@@ -108,8 +108,8 @@ L.formationWhy = function (st, id) {
   if (L.formationReady(st, id)) return '';
   if (!L.zhenOpen(st)) return '筑基后期开放阵法';
   const w = L.zhenWhere(st, id);
-  if (w) return `布阵中，还要 ${w.pend} 周天`;
-  return `【洞府】聚灵阵上布${L.zhenName(id)}（${L.ZV.switch} 周天后生效）`;
+  if (w) return `布阵中，还要 ${w.pend} 月`;
+  return `【洞府】聚灵阵上布${L.zhenName(id)}（${L.ZV.switch} 月后生效）`;
 };
 
 // ---------- 换阵 ----------
@@ -121,7 +121,7 @@ L.zhenSetWhy = function (st, slot, id) {
   if (!L.zhenOwned(st, id)) return '还没有这张阵图';
   const z = zs(st), s = z[slot], o = z[1 - slot];
   if (o.id === id || o.nx === id) return '另一个阵位布着它';
-  if (s.nx === id) return `正在布，还要 ${Math.max(1, s.at - st.tick)} 周天`;
+  if (s.nx === id) return `正在布，还要 ${Math.max(1, s.at - st.tick)} 月`;
   if (s.id === id && !s.nx) return '已经布着';
   return '';
 };
@@ -134,11 +134,11 @@ L.zhenSet = function (st, slot, id) {
   s.nx = id; s.at = st.tick + L.ZV.switch;
   st.home.zlast = slot;
   st.stats.zhenSet = (st.stats.zhenSet || 0) + 1;
-  L.log(st, `聚灵阵上改布${L.zhenName(id)}：${L.ZV.switch} 周天后生效（${L.zhenEffect(st, id, slot ? L.ZV.second : 1)}）${from ? `，在那之前${L.zhenName(from)}照常` : ''}`, 'jade');
+  L.log(st, `聚灵阵上改布${L.zhenName(id)}：${L.ZV.switch} 月后生效（${L.zhenEffect(st, id, slot ? L.ZV.second : 1)}）${from ? `，在那之前${L.zhenName(from)}照常` : ''}`, 'jade');
   if (R() < L.ZV.failP) L.fireTrigger(st, 'formation_fail');
   return { slot, id, at: s.at, from };
 };
-// 每周天（buildings.js 的 L.homeTick 调）：布阵到时生效
+// 每月（buildings.js 的 L.homeTick 调）：布阵到时生效
 L.zhenTick = function (st, out) {
   if (!ON()) return;
   const z = zs(st);
@@ -156,7 +156,7 @@ L.zhenTick = function (st, out) {
 // 聚灵：重新登记聚灵阵那一项（同 id 覆盖 home.js 的兜底）
 L.addCulMod('array', 30, st => {
   const lv = st.home.array;
-  if (L.arrayPaused(st)) return [`聚灵阵 Lv${lv}（停阵求雨，剩 ${st.cal.pause - st.tick} 周天）`, 1, 'array'];
+  if (L.arrayPaused(st)) return [`聚灵阵 Lv${lv}（停阵求雨，剩 ${st.cal.pause - st.tick} 月）`, 1, 'array'];
   const k = L.zhenK(st, 'f_juling');
   if (!k) { const z = zs(st); return [`聚灵阵 Lv${lv}（布着${L.zhenName(z[0].id) || '别的阵'}，不聚灵）`, 1, 'array']; }
   return [`聚灵阵 Lv${lv}${k < 1 ? '（第二阵位）' : k > 1 ? '（阵势 +20%）' : ''}`, L.zhenNum(st, 'f_juling', k).cul, 'array'];
@@ -198,7 +198,7 @@ wrap('givePlan', b => (st, id) => {
 // 别的线要发阵图时用（宗门执法长老、宝库……）
 L.zhenGive = (st, id) => L.givePlan(st, id);
 
-// ---------- 事件能力：切阵出岔子（home_formation_fail）；formation_boost 阵势 +20%（12 周天）、formation_redo 再多布 3 周天 ----------
+// ---------- 事件能力：切阵出岔子（home_formation_fail）；formation_boost 阵势 +20%（12 月）、formation_redo 再多布 3 月 ----------
 L.supportTrigger('formation_fail');
 const flagPrev = L.CAPS.fx.flag;
 L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
@@ -208,9 +208,9 @@ L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
     delete st.eflags[f];
     const z = zs(st), i = st.home.zlast || 0, s = z[i], id = s.nx || s.id;
     if (!id) continue;
-    if (f === 'formation_boost') { const from = s.nx ? s.at : st.tick; st.home.zboost = { id, until: from + L.ZV.boostLen }; out.push(`${L.zhenName(id)}阵势 +${Math.round(L.ZV.boost * 100)}%（生效后 ${L.ZV.boostLen} 周天）`); }
-    else if (s.nx) { s.at = Math.max(s.at, st.tick) + L.ZV.switch; out.push(`${L.zhenName(id)}要再布 ${L.ZV.switch} 周天（${Math.max(1, s.at - st.tick)} 周天后生效）`); }
-    else { s.nx = s.id; s.id = ''; s.at = st.tick + L.ZV.switch; out.push(`${L.zhenName(id)}撤了重布，${L.ZV.switch} 周天后生效`); }
+    if (f === 'formation_boost') { const from = s.nx ? s.at : st.tick; st.home.zboost = { id, until: from + L.ZV.boostLen }; out.push(`${L.zhenName(id)}阵势 +${Math.round(L.ZV.boost * 100)}%（生效后 ${L.ZV.boostLen} 月）`); }
+    else if (s.nx) { s.at = Math.max(s.at, st.tick) + L.ZV.switch; out.push(`${L.zhenName(id)}要再布 ${L.ZV.switch} 月（${Math.max(1, s.at - st.tick)} 月后生效）`); }
+    else { s.nx = s.id; s.id = ''; s.at = st.tick + L.ZV.switch; out.push(`${L.zhenName(id)}撤了重布，${L.ZV.switch} 月后生效`); }
   }
 } });
 });

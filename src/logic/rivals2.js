@@ -4,11 +4,11 @@
  *     ≥ 60：历练途中伏击（ev_rivals2.js 的 rv_ambush_*）、拍卖会上抬价（L.rivalBid，market.js 读）、宗门战事带头（L.rivalLeads，sect.js 读）；
  *     ≤ −40：化敌为友（楚天阔同行 L.rivalAllyOn、慕容和解 mu_3 / mu_5、赵乾倒戈：置 zhao_owes → 天剑宗来犯前报信 zhao_3）。
  *   宿敌的奇遇：每届论道之间（t%12 = 6）每位没打赢过的宿敌 12% 得一次 ×1.05，与拍卖合计每人上限 ×1.3（L.rivalBoost），进天骄榜快讯。
- *   新秀（化神起）：每 36 周天天骄榜上冒出一位（L.ROOKIE），从你下方 20 名起每届论道 +8 名追你；追到 5 名内上门下战书（new_2），
- *     追到身后强制一战（out.rookie → 界面 runRookie）：【指点】他成友善路人、之后送礼（指点后 24 周天 new_4）；【打压】赢了得他法宝上的一条词条，
+ *   新秀（化神起）：每 36 月天骄榜上冒出一位（L.ROOKIE），从你下方 20 名起每届论道 +8 名追你；追到 5 名内上门下战书（new_2），
+ *     追到身后强制一战（out.rookie → 界面 runRookie）：【指点】他成友善路人、之后送礼（指点后 24 月 new_4）；【打压】赢了得他法宝上的一条词条，
  *     他的恩怨（60）进池子 st.rv2.pool（rv_ambush_rk 伏击、L.rivalLeads 带头）；输了他挤到你前面一名。
- *   st.rv2 = { rk 正在追你的新秀 | null, rkN 出过几位, rkNext 下一位最早的周天, pool 结了仇的新秀 [{ id, n, s, el, g, gear }], friends 指点过的 [{ n, s, el, at }],
- *              g60 / gLo 第一次 ≥60 / ≤−40 的周天, refP 上届论道时你的战力（新秀战力的参照）, trouble 指点后闯祸的周天, ambush 伏击次数, qy 宿敌奇遇次数, gifts 新秀送礼次数 }
+ *   st.rv2 = { rk 正在追你的新秀 | null, rkN 出过几位, rkNext 下一位最早的月, pool 结了仇的新秀 [{ id, n, s, el, g, gear }], friends 指点过的 [{ n, s, el, at }],
+ *              g60 / gLo 第一次 ≥60 / ≤−40 的月, refP 上届论道时你的战力（新秀战力的参照）, trouble 指点后闯祸的月, ambush 伏击次数, qy 宿敌奇遇次数, gifts 新秀送礼次数 }
  *   st.meta.rival = { mu: { art, gear } … }：图鉴（跨世保留），见 rivals.js 的 L.rivalKnow / L.rivalKnown。
  *   L.RIVALS2_ON = false（tools/sim.js 的 norivals2）：恩怨不驱动任何东西、没有新秀、宿敌不得奇遇、法宝不克你、guided 论道前不按克制换战技。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -206,7 +206,7 @@ function rivalQy(st) {
 
 // ---------- 新秀（化神起） ----------
 // gap：出现在你下方几名；climb：每届论道往上追几名；near：追到几名内上门下战书；lo：刚出现时战力 = 参照战力 × lo，追三届升到 × f（0.92～1.06）
-L.ROOKIE = { minR: 4, every: 36, gap: 20, climb: 8, near: 5, lo: 0.45, f: [0.92, 1.06], firstDelay: 6, after: 12, poolMax: 6, friendsMax: 4, giftEvery: 24, giftP: 0.15, trouble: 24 };   // 送礼：每位每 24 周天 15%，一份 ≈ 3 周天收入（一位 ≈ 收入 +2%，最多记 4 位）
+L.ROOKIE = { minR: 4, every: 36, gap: 20, climb: 8, near: 5, lo: 0.45, f: [0.92, 1.06], firstDelay: 6, after: 12, poolMax: 6, friendsMax: 4, giftEvery: 24, giftP: 0.15, trouble: 24 };   // 送礼：每位每 24 月 15%，一份 ≈ 3 月收入（一位 ≈ 收入 +2%，最多记 4 位）
 const RK_SA = '青玄紫太灵万九赤寒落星凌归无金碧幽云烈苍昆神浩元'.split('');
 const RK_SB = ['剑宗', '法阁', '虚宫', '霄宫', '机阁', '极殿', '霞宗', '元宗', '炎门', '冰谷', '灵宗', '华派', '鼎派', '花谷', '阳宗', '月宫', '雷殿', '道院', '剑阁'];
 const RK_GA = ['青锋', '赤霄', '寒星', '裂空', '惊雷', '碧落', '断水', '照夜', '流火', '镇岳'], RK_GB = ['剑', '刀', '枪', '环', '扇', '尺', '戟'];
@@ -327,12 +327,12 @@ L.supportFx('rookie', { ok: v => ['win', 'lose', 'teach'].includes(v), apply: (s
   if (r && r.text) out.push(r.text);
   if (r && v === 'lose') out.push(`天骄榜 → 第 ${st.rank}`);
 } });
-// 新秀的剧情触发键：出现、追到 5 名内、被打压之后、指点后 24 周天
+// 新秀的剧情触发键：出现、追到 5 名内、被打压之后、指点后 24 月
 L.supportTrigger('rookie:');
 L.supportTrigger('war_eve:');
 
-// ---------- 每周天（tick.js 调，排在宗门的来犯判定之前） ----------
-// 天剑宗来犯前 6 周天（war_eve:tianjian）：头一回满足来犯条件时先排日子、先来一封信
+// ---------- 每月（tick.js 调，排在宗门的来犯判定之前） ----------
+// 天剑宗来犯前 6 月（war_eve:tianjian）：头一回满足来犯条件时先排日子、先来一封信
 function warEve(st) {
   if (!st.sect || st.flags.warWon || st.flags.warEve) return;
   if (!(st.sect.rank >= 2 && st.p.r >= 5)) return;
@@ -343,7 +343,7 @@ function warEve(st) {
 L.rivalTick = function (st, out) {
   const r = rv(st);
   warEve(st);
-  // 陆天衡假意答应（tianheng_1 的 raid_delay）：天剑宗来犯推迟 24 周天
+  // 陆天衡假意答应（tianheng_1 的 raid_delay）：天剑宗来犯推迟 24 月
   if (st.eflags && st.eflags.raid_delay) { delete st.eflags.raid_delay; if (!st.flags.warWon) st.flags.war = Math.max(st.flags.war || 0, st.tick) + 24; }
   if (!ON()) return;
   rivalQy(st);
@@ -353,7 +353,7 @@ L.rivalTick = function (st, out) {
     if (!r.rk && st.tick >= r.rkNext) { const rk = rookieSpawn(st); if (rk) out.rookieNew = rk; else r.rkNext = st.tick + K.after; }
     if (r.rk && r.rk.due && !st.exp && !st.run && !st.retreat) out.rookie = true;
   }
-  // 指点过的新秀：24 周天后闯祸（new_4）；之后每 24 周天可能托人送礼
+  // 指点过的新秀：24 月后闯祸（new_4）；之后每 24 月可能托人送礼
   if (r.trouble !== null && r.trouble !== undefined && st.tick >= r.trouble) { r.trouble = null; if (st.eflags.rookie_taught) L.fireTrigger(st, 'rookie:trouble'); }
   if (st.tick % K.giftEvery === 3) for (const f of r.friends) {
     if (st.tick - f.at < K.giftEvery || R() >= K.giftP) continue;

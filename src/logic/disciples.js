@@ -1,17 +1,17 @@
 /* 废柴仙途 · 逻辑模块 disciples：徒弟（docs/SYSTEMS.md §11，CONTENT §14.3 徒弟 12 个事件）
  * 模块写法见 src/logic.js 顶部说明。
  *
- *   st.disc = { list: [徒弟], cand: [三个候选] | null, candAt 上回送候选的周天, u 编号, q: [{ id 事件, u 徒弟 }] 排着的徒弟事件, focus 当前事件说的是谁, taoli 本世出师人数 }
+ *   st.disc = { list: [徒弟], cand: [三个候选] | null, candAt 上回送候选的月, u 编号, q: [{ id 事件, u 徒弟 }] 排着的徒弟事件, focus 当前事件说的是谁, taoli 本世出师人数 }
  *   徒弟 = { u, n 名, f 女, t 灵根 1～5 档, tp 性情（L.TEMPERS 的键）, cat 候选里的那一类, di 小层（可带小数）, grow 成长永久加成, heart 师徒情分 0～5,
- *           job 差事 '' | exp 代师历练 | home 打理洞府 | duty 宗门当值 | cult 闭门苦修, jb 差事收益加成, taught [传过的功法], lp 听过几回讲法, rest 休养到第几周天,
- *           ev { 已经走过的事件 }, seed 头像, at 入门周天, acc 当值贡献的零头, jt 代师历练的周天计数, rookie 新秀出身 }
+ *           job 差事 '' | exp 代师历练 | home 打理洞府 | duty 宗门当值 | cult 闭门苦修, jb 差事收益加成, taught [传过的功法], lp 听过几回讲法, rest 休养到第几月,
+ *           ev { 已经走过的事件 }, seed 头像, at 入门月, acc 当值贡献的零头, jt 代师历练的月计数, rookie 新秀出身 }
  *   st.meta.taoli = { n 历世出师人数, list: [{ n, tp, t, how, life }] }（跨世保留；下一世入宗时他作为前辈来一趟）
  *
- *   名额：真传 1、长老 2、宗主 3。真传起每 24 周天宗门送来 3 个候选（壮实 / 机灵 / 安静各一个：姓名、灵根、性情），三选一或都不要（sect_candidates 事件或【门下】里点）。
- *   成长：每周天 0.02 × 灵根倍率 × (1 + 0.1 × 传授数) × (1 + 成长加成) × 性情 × 道心·仁 × 闭门苦修 ×2，上限为师父的小层 − 4。
- *   差事（一人一事）：代师历练（每 6 周天带回家门口那张图一趟乙等灵石的 30% 和些灵草）、打理洞府（被动灵石与灵田灵草 +8%）、
- *         宗门当值（每周天贡献 = 一趟乙等历练的 0.3）、闭门苦修（成长 ×2）。
- *   传授：你圆满（或化境）的一门功法传给一个徒弟（每门一次，花 2 周天）：他的战力 ×(1 + 0.2 × 传授数)、成长 +10%；你的这门功法直接升到化境（教学相长）。
+ *   名额：真传 1、长老 2、宗主 3。真传起每 24 月宗门送来 3 个候选（壮实 / 机灵 / 安静各一个：姓名、灵根、性情），三选一或都不要（sect_candidates 事件或【门下】里点）。
+ *   成长：每月 0.02 × 灵根倍率 × (1 + 0.1 × 传授数) × (1 + 成长加成) × 性情 × 道心·仁 × 闭门苦修 ×2，上限为师父的小层 − 4。
+ *   差事（一人一事）：代师历练（每 6 月带回家门口那张图一趟乙等灵石的 30% 和些灵草）、打理洞府（被动灵石与灵田灵草 +8%）、
+ *         宗门当值（每月贡献 = 一趟乙等历练的 0.3）、闭门苦修（成长 ×2）。
+ *   传授：你圆满（或化境）的一门功法传给一个徒弟（每门一次，花 2 月）：他的战力 ×(1 + 0.2 × 传授数)、成长 +10%；你的这门功法直接升到化境（教学相长）。
  *   战力 = 他那一小层的基础战力 × 1.5 × (1 + 0.2 × 传授数) × (1 + 0.05 × 听过的讲法) × 性情。
  *   出师：小层 ≥ 8（金丹）可【出师】（disc_graduate 辞行事件）：离开名册，给一大笔贡献和一个“桃李”（L.discGraduated(st) 本世出师人数，轮回道果由轮回那一刀读）。
  *   性情事件（disc:*）：每名徒弟各走一遍，按性情触发（莽 / 贪玩 闯祸、聪慧 发问、滑 倒卖、痴 走火、孤傲 顶撞、仁厚 散丹、贪玩 偷懒），另有 冲关（跨大境界）、
@@ -42,9 +42,9 @@ L.DISC_CAT = { strong: ['mang', 'qin'], clever: ['hui', 'hua', 'wan'], quiet: ['
 L.DISC_CAT_N = { strong: '壮实', clever: '机灵', quiet: '安静' };
 L.DISC_T = [null, { n: '伪灵根', m: 0.7 }, { n: '杂灵根', m: 1.0 }, { n: '双灵根', m: 1.25 }, { n: '单灵根', m: 1.5 }, { n: '天灵根', m: 1.8 }];
 L.DISC_JOB = {
-  exp: { n: '代师历练', icon: 'job_out', d: '每 6 周天带回一趟乙等灵石的 30%' },
+  exp: { n: '代师历练', icon: 'job_out', d: '每 6 月带回一趟乙等灵石的 30%' },
   home: { n: '打理洞府', icon: 'job_field', d: '被动灵石与灵田灵草 +8%' },
-  duty: { n: '宗门当值', icon: 'post_fa', d: '每周天贡献 = 一趟乙等历练的 0.3' },
+  duty: { n: '宗门当值', icon: 'post_fa', d: '每月贡献 = 一趟乙等历练的 0.3' },
   cult: { n: '闭门苦修', icon: 'job_array', d: '成长 ×2' },
 };
 L.DISC_V = { grow: 0.02, teach: 0.1, teachPow: 0.2, pow: 1.5, lecture: 0.05, expShare: 0.3, expEvery: 6, home: 0.08, duty: 0.3, cult: 2, every: 24, gradDi: 8, gradC: 8, evP: 1 / 30, evGap: 18 };
@@ -144,7 +144,7 @@ L.discSetJob = function (st, u, k) {
   return true;
 };
 
-// ---------- 传授：你圆满的一门功法，每门一次，花 2 周天 ----------
+// ---------- 传授：你圆满的一门功法，每门一次，花 2 月 ----------
 L.TEACH_LEN = 2;
 L.discTeachList = (st, x) => Object.keys(st.arts.own).filter(id => L.art(id) && L.artLv(st, id) >= 3 && !x.taught.includes(id)).sort((a, b) => L.art(b).t - L.art(a).t);
 L.discTeachWhy = function (st, x, id) {
@@ -265,7 +265,7 @@ L.supportFx('disc', { ok: v => !!v && typeof v === 'object' && Object.keys(v).le
   if (v.grow) { x.grow += v.grow; out.push(`${x.n}：成长 +${L.pct(v.grow)}`); }
   if (v.lv) { const s0 = L.discStage(x); x.di = Math.min(35, Math.floor(x.di) + v.lv + (x.di % 1)); out.push(`${x.n}：${s0} → ${L.discStage(x)}`); }
   if (v.heart) { x.heart = clamp(x.heart + v.heart, 0, 5); out.push(`${x.n}：情分 ${v.heart > 0 ? '+' : ''}${v.heart}`); }
-  if (v.inj) { x.rest = Math.max(x.rest, st.tick) + v.inj; out.push(`${x.n}：休养 ${v.inj} 周天`); }
+  if (v.inj) { x.rest = Math.max(x.rest, st.tick) + v.inj; out.push(`${x.n}：休养 ${v.inj} 月`); }
   if (v.job) { x.jb += v.job; out.push(`${x.n}：差事收益 +${L.pct(v.job)}`); }
   if (v.out) {
     if (L.discCanGrad(x)) { const g = L.discGraduate(st, x.u, 'event'); if (g) out.push(`${x.n}出师：贡献 +${fmt(g.contrib)}，桃李 ${g.taoli}`); }
@@ -280,7 +280,7 @@ L.discAskGrad = function (st, u) {
   return { grad: L.discGraduate(st, u) };
 };
 
-// ---------- 每周天（sect2.js 的 L.sectTick 调） ----------
+// ---------- 每月（sect2.js 的 L.sectTick 调） ----------
 L.discTick = function (st, out) {
   const d = ensure(st);
   prune(st);
@@ -293,7 +293,7 @@ L.discTick = function (st, out) {
     if (g) { st.flags.taoliVisit = 1; const v = Math.floor(Math.max(L.income(st), 20) * 20); st.stones += v; L.log(st, `前世的徒弟${g.n}如今已是一方前辈，听说“师父”转世入了宗门，托人送来灵石 ${fmt(v)}：“当年那${g.how === 'grad_sword' ? '把剑' : g.how === 'grad_meal' ? '顿饭' : '句话'}，弟子一直记着。”`, 'gold'); out.taoliVisit = g; }
   }
   if (!L.discOpen(st)) return;
-  // 候选：每 24 周天一批，名册有空位才送
+  // 候选：每 24 月一批，名册有空位才送
   if (!L.discFull(st) && st.tick - d.candAt >= L.DISC_V.every) { L.rollCands(st); out.discCand = true; L.log(st, '宗门送来三个拜师的孩子，在【宗门】→ 门下', 'gold'); L.discFire(st, 'disc:candidates', null); }
   else if (L.discFull(st) && d.cand) d.cand = null;
   const cap = L.discMax(st);
@@ -304,7 +304,7 @@ L.discTick = function (st, out) {
     // 差事
     if (x.job === 'exp' && ++x.jt >= L.DISC_V.expEvery) { x.jt = 0; const v = L.discJobVal(st, x, 'exp'); st.stones += v.stones; st.herbs += v.herbs; L.log(st, `${x.n}代师历练归来：灵石 +${fmt(v.stones)}、灵草 +${v.herbs}`, 'jade'); }
     if (x.job === 'duty' && st.sect) { x.acc += L.discJobVal(st, x, 'duty').contrib; const n = Math.floor(x.acc); if (n > 0) { x.acc -= n; L.addContrib(st, n); } }
-    // 事件：冲关（跨大境界）、挖角（小层 ≥ 8）、绑架（因果未了 24 周天以上）、性情
+    // 事件：冲关（跨大境界）、挖角（小层 ≥ 8）、绑架（因果未了 24 月以上）、性情
     if (L.discRealm(x) > r0 && Math.floor(di0) < Math.floor(x.di) && !x.ev.break) { x.ev.break = 1; L.discFire(st, 'disc:break', x); continue; }
     if (x.di >= L.DISC_V.gradDi && !x.ev.poach) { x.ev.poach = 1; L.discFire(st, 'disc:poach', x); continue; }
     if (st.tick - (x.evAt || x.at) < L.DISC_V.evGap || R() >= L.DISC_V.evP) continue;

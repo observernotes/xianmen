@@ -6,7 +6,7 @@ const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
 // ---------- 札记：每个大境界一章（一个主线目标 + 一串小任务） ----------
-// off: 依赖还没做的系统，暂不显示也不结算；c: 完成条件；rw: 奖励 { stones, inc（×当时每周天收入）, pills, herbs, treasure, contrib, title, vault }；go: 界面【前往】去哪
+// off: 依赖还没做的系统，暂不显示也不结算；c: 完成条件；rw: 奖励 { stones, inc（×当时每月收入）, pills, herbs, treasure, contrib, title, vault }；go: 界面【前往】去哪
 const mr = st => st.flags.maxR || 0;
 L.mr = mr;
 const maxI = st => Math.max(st.flags.maxI || 0, L.si(st.p));

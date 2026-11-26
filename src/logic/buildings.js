@@ -1,14 +1,14 @@
-/* 废柴仙途 · 逻辑模块 buildings：洞府建筑接进别的系统、每周天的洞府事、阵图的来源、旧档迁移、洞府事件（docs/SYSTEMS.md §6.1、§6.3，CONTENT §14.5）
+/* 废柴仙途 · 逻辑模块 buildings：洞府建筑接进别的系统、每月的洞府事、阵图的来源、旧档迁移、洞府事件（docs/SYSTEMS.md §6.1、§6.3，CONTENT §14.5）
  * 模块写法见 src/logic.js 顶部说明。数据与建造 / 拆除在 home.js，阵法在 formation.js；这里排在各系统后面，只包一层、不改它们的内部。
  *
  *   兽栏 喂养 +8%/级（pets.js 的 L.petFeedEff）、岗位 +5%/级（pets.js 的 jobV 读 L.penJobMult）；养兽阵也走这两处。
  *   聚宝阁 出售价 +3%/级（market.js 的 L.sellParts；被动灵石在 home.js 的 incMul）。
  *   迎客亭 访客 +10%/级（calendar.js 的 L.calVisitMult）、来访好感 +1（L.visitFavorBonus，fx.aff 的钩子；人物线读它）。
- *   传送阵 3 级历练时长 −1（L.expLen）、6 级已通关地图（外围评价乙）的禁地直接开（L.depthOpen）、9 级秘境不耗周天（realm.js 读 st.home.portal）。
- *   灵泉 新添的伤每 2 级少养 1 周天（L.homeTick）；泉中鱼 spring_fish 丹毒每周天多退 0.5。
+ *   传送阵 3 级历练时长 −1（L.expLen）、6 级已通关地图（外围评价乙）的禁地直接开（L.depthOpen）、9 级秘境不耗月（realm.js 读 st.home.portal）。
+ *   灵泉 新添的伤每 2 级少养 1 月（L.homeTick）；泉中鱼 spring_fish 丹毒每月多退 0.5。
  *   阵图来源：生财阵 坊市轮换货（market.js 的 L.zhenShopOk）；迷踪 / 护山 / 养兽 拍卖（L.zhenAucLot）；迷踪 仙府秘藏（realm.js 的 L.mjChestExtra）；
  *            养兽 万妖山脉腹地（妖市）、太古仙府任一深度评价乙以上时偶得（L.resolveExp）；丹火 葛老三心；锻魂 剑气秘境；渡劫 story_trib1。
- *   事件：plot_full（地块满了又有新建筑能建，12 周天后，home_plot_full）、build:<建筑>（建成 / 藏经阁升级：home_spring、home_library_note）；
+ *   事件：plot_full（地块满了又有新建筑能建，12 月后，home_plot_full）、build:<建筑>（建成 / 藏经阁升级：home_spring、home_library_note）；
  *        一次性 flag tut_rebuild（界面打开拆建）、pen_discount（下一次兽栏七折，替掉灵宠那一刀先收着的“喂养 +8%”）；常驻 flag spring_fish；home_neighbor 要洞府 ≥ 4 级。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
@@ -66,17 +66,17 @@ wrap('resolveExp', b => st => {
   return res;
 });
 
-// ---------- 每周天（tick.js 调） ----------
+// ---------- 每月（tick.js 调） ----------
 L.homeTick = function (st, out) {
   const h = st.home, p = st.p;
   L.homePlots(st);
   L.zhenTick(st, out);
   if (!ON()) return;
-  // 灵泉：新添的伤每 2 级少养 1 周天（至少养 1 周天）
+  // 灵泉：新添的伤每 2 级少养 1 月（至少养 1 月）
   const cut = Math.floor((h.spring || 0) / V().springInj);
   if (cut > 0 && p.inj > (h.inj0 || 0)) { const v = Math.max(1, p.inj - cut); if (v < p.inj) { if (out) out.springHeal = p.inj - v; p.inj = v; } }
   h.inj0 = p.inj;
-  // 地块满了、又有解锁了没建的：满 12 周天后老祖吐槽一次（home_plot_full，每世一次）
+  // 地块满了、又有解锁了没建的：满 12 月后老祖吐槽一次（home_plot_full，每世一次）
   const full = L.homePlotFree(st) === 0 && L.homeUnbuilt(st).length > 0;
   if (!full) h.full = -1;
   else if (!(h.full >= 0)) h.full = st.tick;
@@ -133,7 +133,7 @@ L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
   for (const f of all) {
     if (f === 'pen_discount' && mine.length) { delete st.eflags[f]; st.home.disc.pen = 0.7; out.push(`兽栏下一次${st.home.pen ? '升级' : '建造'}七折（${L.fmt(L.homeCost(st, 'pen'))} 灵石）`); }
     else if (f === 'tut_rebuild') { delete st.eflags[f]; st.home.tut = 1; out.push('【洞府】里点一块地，能拆能建'); }
-    else if (f === 'spring_fish') out.push(`丹毒每周天多退 ${V().springTox}`);
+    else if (f === 'spring_fish') out.push(`丹毒每月多退 ${V().springTox}`);
   }
 } });
 });

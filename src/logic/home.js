@@ -5,13 +5,13 @@
  *   st.home = { cave 洞府本体等级, array / field / furnace / forge / pen / room / library / spring / vault / pavilion / portal 各建筑等级（0 = 没建）,
  *               plots ['array', 'field', null, …] 地块上建的是什么（长度 ≥ 地块数；旧档地块不够时超额保留，直到拆掉）,
  *               rec { 建筑: 拆掉时记下的一半等级（重建从这一级起）}, spent { 建筑: 累计花了多少灵石（拆除返还一半）},
- *               disc { 建筑: 下一次建造 / 升级的价格倍数（pen_discount 兽栏七折）}, zhen 阵法（formation.js）, full 地块满了从哪个周天起, inj0 上周天的负伤 }
+ *               disc { 建筑: 下一次建造 / 升级的价格倍数（pen_discount 兽栏七折）}, zhen 阵法（formation.js）, full 地块满了从哪个月起, inj0 上月的负伤 }
  *   建造 = 点空地块 → 点建筑：付 base × grow^0，等级 = max(1, 记下的一半等级)；升级付 base × grow^lv；拆除返还累计花费的 50%。
  *   L.upgrade(st, k) 对还没建的建筑 = 建在第一块空地上（札记、老祖讲解、旧调用都走它）。
  *   建筑效果（每级，L.HV）：器炉 强化成功率 +2%、强化灵矿 −3%、5 级开打造（gear.js 的 L.forgeLv）；兽栏 喂养 +8%、岗位 +5%（pets.js）；
  *     静室 闭关倍率 +0.05（原洞府本体的 +0.05/级挪到这里，SYSTEMS 写 +0.08，见 BALANCE_TODO）、顿悟 +2%；藏经阁 熟练 +10%、每级揭示一条共鸣提示（arts.js 的 L.libraryLv / L.comboHint）；
- *     灵泉 负伤每 2 级少养 1 周天、丹毒消退 +0.5（alchemy.js 早就读 st.home.spring）、寿元流逝 −1%；聚宝阁 被动灵石 +6%、出售价 +3%；
- *     迎客亭 访客 +10%、来访好感 +1；传送阵 3 级历练时长 −1、6 级已通关地图的禁地直接开、9 级秘境不耗周天（realm.js 读 st.home.portal）。
+ *     灵泉 负伤每 2 级少养 1 月、丹毒消退 +0.5（alchemy.js 早就读 st.home.spring）、寿元流逝 −1%；聚宝阁 被动灵石 +6%、出售价 +3%；
+ *     迎客亭 访客 +10%、来访好感 +1；传送阵 3 级历练时长 −1、6 级已通关地图的禁地直接开、9 级秘境不耗月（realm.js 读 st.home.portal）。
  *   加载早于 calendar / market / realm / alchemy / pets 的那些接入点在 buildings.js（排在后面，包一层）。
  *   L.HOME2_ON = false（sim 的 nohome2）：回到地块之前——只有聚灵阵、灵田、丹炉、洞府四项，闭关仍按洞府等级、器炉借丹炉等级、阵法只有聚灵。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -35,17 +35,17 @@ const x2 = v => (Math.round(v * 100) / 100).toString();
 // open：解锁（SYSTEMS §0 的时点，转世后全开）；nu：地块制之后才有的新建筑（nohome2 时不能建）
 L.HOME = [
   { k: 'array', n: '聚灵阵', base: 40, grow: 1.62, max: 30, fixed: true, unlock: '先出去历练一趟', d: lv => `阵法强度 Lv${lv} · 聚灵：修炼 ×${L.arrayMult(lv).toFixed(2)}` },
-  // 灵田：田数 1 + floor(lv/4)（至多 6 块），每块种一种作物（crops.js）；全种灵稻时每周天灵石 = L.fieldInc(lv)
-  { k: 'field', n: '灵田', base: 50, grow: 1.6, max: 30, unlock: '历练两趟后可开垦', d: lv => (lv ? `田 ${Math.min(6, 1 + Math.floor(lv / 4))} 块 · 全种灵稻每周天灵石 ${L.fmt(L.fieldInc(lv))} · 作物产量 +${lv * 8}%` : '开垦后种灵稻（灵石）或灵草，筑基后还有灵谷与药引') },
+  // 灵田：田数 1 + floor(lv/4)（至多 6 块），每块种一种作物（crops.js）；全种灵稻时每月灵石 = L.fieldInc(lv)
+  { k: 'field', n: '灵田', base: 50, grow: 1.6, max: 30, unlock: '历练两趟后可开垦', d: lv => (lv ? `田 ${Math.min(6, 1 + Math.floor(lv / 4))} 块 · 全种灵稻每月灵石 ${L.fmt(L.fieldInc(lv))} · 作物产量 +${lv * 8}%` : '开垦后种灵稻（灵石）或灵草，筑基后还有灵谷与药引') },
   { k: 'furnace', n: '丹炉', base: 120, grow: 1.75, max: 20, unlock: '炼气后期可建', d: lv => (lv ? `成丹率 ${60 + lv * 3}% · 突破成功率 +${lv}%` : '建成后开启炼丹房，并提升突破成功率') },
   { k: 'forge', n: '器炉', base: 150, grow: 1.8, max: 15, nu: true, unlock: '炼气圆满可建', d: lv => (lv ? `强化成功率 +${pc(lv * L.HV.forgeRate)} · 强化灵矿 −${pc(Math.min(L.HV.forgeOreCap, lv * L.HV.forgeOre))}${lv >= L.FORGE_LV ? ' · 能打造' : ` · ${L.FORGE_LV} 级开打造`}` : `强化更稳更省矿，${L.FORGE_LV} 级起按器方打造专属法宝`) },
   { k: 'pen', n: '兽栏', base: 200, grow: 1.9, max: 12, nu: true, unlock: '筑基后可建', d: lv => (lv ? `喂养效率 +${pc(lv * L.HV.penFeed)} · 岗位效果 +${pc(lv * L.HV.penJob)}` : '灵宠喂得更快、岗位干得更好') },
   { k: 'room', n: '静室', base: 300, grow: 1.9, max: 12, nu: true, unlock: '筑基后期可建', d: lv => (lv ? `闭关倍率 +${x2(lv * L.HV.roomRet)} · 顿悟 +${pc(lv * L.HV.roomEpi)}` : '闭关倍率与顿悟') },
   { k: 'library', n: '藏经阁', base: 3000, grow: 2.1, max: 10, nu: true, unlock: '金丹可建', d: lv => (lv ? `功法熟练 +${pc(lv * L.HV.lib)} · 已揭示共鸣提示 ${lv} 条` : '功法熟练更快，每级揭示一条共鸣提示') },
-  { k: 'spring', n: '灵泉', base: 3000, grow: 2.1, max: 10, nu: true, unlock: '金丹可建', d: lv => (lv ? `负伤少养 ${Math.floor(lv / L.HV.springInj)} 周天 · 丹毒每周天多退 ${x2(lv * L.HV.springTox)} · 寿元流逝 −${pc(lv * L.HV.springAge)}` : '养伤、退丹毒、延缓寿元流逝') },
+  { k: 'spring', n: '灵泉', base: 3000, grow: 2.1, max: 10, nu: true, unlock: '金丹可建', d: lv => (lv ? `负伤少养 ${Math.floor(lv / L.HV.springInj)} 月 · 丹毒每月多退 ${x2(lv * L.HV.springTox)} · 寿元流逝 −${pc(lv * L.HV.springAge)}` : '养伤、退丹毒、延缓寿元流逝') },
   { k: 'vault', n: '聚宝阁', base: 400, grow: 1.85, max: 12, nu: true, unlock: '筑基后期可建', d: lv => (lv ? `被动灵石 +${pc(lv * L.HV.vaultInc)} · 出售价 +${pc(lv * L.HV.vaultSell)}` : '被动灵石与坊市出售价') },
   { k: 'pavilion', n: '迎客亭', base: 20000, grow: 2.2, max: 8, nu: true, unlock: '元婴可建', d: lv => (lv ? `访客 +${pc(lv * L.HV.pavVisit)} · 来访好感 +${L.HV.pavAff}` : '访客来得更勤，来访的人好感多给') },
-  { k: 'portal', n: '传送阵', base: 300000, grow: 4, max: 9, nu: true, unlock: '化神可建', d: lv => (lv ? [`${lv >= 3 ? '✓' : '3 级'} 历练时长 −1`, `${lv >= 6 ? '✓' : '6 级'} 已通关地图的禁地直接去`, `${lv >= 9 ? '✓' : '9 级'} 秘境不耗周天`].join(' · ') : '3 级历练时长 −1；6 级直达禁地；9 级秘境不耗周天') },
+  { k: 'portal', n: '传送阵', base: 300000, grow: 4, max: 9, nu: true, unlock: '化神可建', d: lv => (lv ? [`${lv >= 3 ? '✓' : '3 级'} 历练时长 −1`, `${lv >= 6 ? '✓' : '6 级'} 已通关地图的禁地直接去`, `${lv >= 9 ? '✓' : '9 级'} 秘境不耗月`].join(' · ') : '3 级历练时长 −1；6 级直达禁地；9 级秘境不耗月') },
   { k: 'cave', n: '洞府', base: 200, grow: 2.2, max: 12, body: true, unlock: '炼气后期可扩建', d: lv => `寿元 +${lv * 5}% · 地块 ${L.homePlotMaxAt(lv)} 块 · ${caveName(lv)}${ON() ? '' : ` · 闭关 ×${(2 + 0.05 * lv).toFixed(2)}`}` },
 ];
 const B = {}; for (const b of L.HOME) B[b.k] = b;
@@ -59,10 +59,10 @@ L.arrayMult = lv => Math.pow(1.08, lv);
 L.fieldInc = lv => (lv > 0 ? 6 * Math.pow(1.42, lv) : 0);
 L.vein = r => 4 * Math.pow(2.5, Math.min(r, 8));
 // 聚灵阵的修炼加成随阵法走：布着聚灵阵才有 ×1.08^lv（formation.js 重新登记这一项；这里是阵法模块没装时的兜底）
-L.addCulMod('array', 30, st => (L.arrayPaused(st) ? [`聚灵阵 Lv${st.home.array}（停阵求雨，剩 ${st.cal.pause - st.tick} 周天）`, 1, 'array'] : ['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']));
+L.addCulMod('array', 30, st => (L.arrayPaused(st) ? [`聚灵阵 Lv${st.home.array}（停阵求雨，剩 ${st.cal.pause - st.tick} 月）`, 1, 'array'] : ['聚灵阵 Lv' + st.home.array, L.arrayMult(st.home.array), 'array']));
 // 灵田的灵石只来自灵稻（crops.js 的 L.fieldStoneInc = L.fieldInc × 灵稻块数 / 田数；全种灵稻 = 旧公式）
 L.addIncSrc('field', 10, st => [`灵田 Lv${st.home.field}${L.plotCount(st) && L.riceCount(st) < L.plotCount(st) ? `·灵稻 ${L.riceCount(st)}/${L.plotCount(st)} 块` : ''}`, L.fieldStoneInc(st), 'field']);
-// 聚宝阁：被动灵石（灵田、灵脉、俸禄……整个每周天收入）+6%/级
+// 聚宝阁：被动灵石（灵田、灵脉、俸禄……整个每月收入）+6%/级
 L.addIncMul('vault', 47, st => (ON() && st.home.vault ? [`聚宝阁 Lv${st.home.vault}`, 1 + L.HV.vaultInc * st.home.vault, 'home'] : null));
 
 // ---------- 解锁 ----------
@@ -216,7 +216,7 @@ L.demolish = function (st, k) {
   return { k, lv, back, keep, i };
 };
 
-// ---------- 升级值不值：聚灵阵看“每周天多多少修为、这一层提前几周天”，灵田看“几周天回本”，其余写“前 → 后” ----------
+// ---------- 升级值不值：聚灵阵看“每月多多少修为、这一层提前几月”，灵田看“几月回本”，其余写“前 → 后” ----------
 L.upInfo = function (st, k) {
   const b = B[k], lv = st.home[k] || 0, isB = b.body || k === 'array' || built(st, k);
   const o = { k, lv, built: isB, max: isB && lv >= b.max, cost: 0, lock: L.homeLock(st, k), note: '' };
@@ -228,14 +228,14 @@ L.upInfo = function (st, k) {
     const g = L.gainCalm(st), on = L.zhenK ? L.zhenK(st, 'f_juling') : 1, g1 = g * (1 + (L.arrayMult(lv + 1) / L.arrayMult(lv) - 1) * (on > 0 ? 1 : 0)), left = Math.max(0, L.pNeed(st.p) - st.p.xp);
     o.d0 = g; o.d1 = g1;
     const save = g > 0 && !L.isFull(st) ? left / g - left / g1 : 0;
-    o.note = on > 0 ? `修炼 +${L.fmt1(g1 - g)}/周天` + (save >= 0.5 ? `，本层提前 ${Math.round(save)} 周天` : '') : '阵法强度 +1（现在没布聚灵阵）';
+    o.note = on > 0 ? `修炼 +${L.fmt1(g1 - g)}/月` + (save >= 0.5 ? `，本层提前 ${Math.round(save)} 月` : '') : '阵法强度 +1（现在没布聚灵阵）';
   } else if (k === 'field') {
     // 按现在的灵稻份额算（全种灵稻 = 旧公式）；多开一块田时新田默认灵稻
     const n0 = L.plotCount(st), n1 = Math.min(L.CROP_V.plotMax, 1 + Math.floor(nx / L.CROP_V.plotEvery)), rice = L.riceCount(st);
     const s0 = n0 ? rice / n0 : 0, s1 = n1 ? (rice + (n1 - n0)) / n1 : 0;
     const d = L.fieldInc(nx) * s1 - L.fieldInc(lv) * s0;
     o.d0 = L.fieldInc(lv) * s0; o.d1 = L.fieldInc(nx) * s1; o.payback = d > 0 ? Math.ceil(o.cost / d) : Infinity;
-    o.note = (d > 0 ? `灵石 +${L.fmt1(d)}/周天，${o.payback} 周天回本` : '田里没种灵稻：只加作物产量') + (n1 > n0 ? '；多开一块田' : '') + (lv ? `；作物产量 +${Math.round(L.CROP_V.lvYield * 100)}%` : '');
+    o.note = (d > 0 ? `灵石 +${L.fmt1(d)}/月，${o.payback} 月回本` : '田里没种灵稻：只加作物产量') + (n1 > n0 ? '；多开一块田' : '') + (lv ? `；作物产量 +${Math.round(L.CROP_V.lvYield * 100)}%` : '');
     const nb = L.nextBig(st);
     if (nb && nb.left < o.payback && nb.left <= 12) o.note += '（赶不上这一届）';
   } else if (k === 'furnace') o.note = lv ? '成丹率 +3%，突破 +1%' : '开启炼丹房：培元丹、破境丹、疗伤丹';
@@ -250,10 +250,10 @@ L.homeDelta = function (st, k, a, b) {
   if (k === 'pen') return `喂养 +${pc(a * H.penFeed)} → +${pc(b * H.penFeed)}，岗位 +${pc(a * H.penJob)} → +${pc(b * H.penJob)}`;
   if (k === 'room') { const m = L.retBaseMult(st), d = (b - a) * H.roomRet; return `闭关倍率 ×${m.toFixed(2)} → ×${(m + d).toFixed(2)}，顿悟 +${pc(a * H.roomEpi)} → +${pc(b * H.roomEpi)}`; }
   if (k === 'library') return `功法熟练 +${pc(a * H.lib)} → +${pc(b * H.lib)}，再揭示 ${b - a} 条共鸣提示`;
-  if (k === 'spring') return `丹毒每周天退 ${x2(L.toxDecay(st))} → ${x2(L.toxDecay(st) + (b - a) * H.springTox)}，寿元流逝 −${pc(a * H.springAge)} → −${pc(b * H.springAge)}${Math.floor(b / H.springInj) > Math.floor(a / H.springInj) ? '，负伤少养 1 周天' : ''}`;
-  if (k === 'vault') { const v = L.income(st), m = 1 + a * H.vaultInc; return `灵石 +${L.fmt1(v)} → +${L.fmt1(v / m * (1 + b * H.vaultInc))}/周天，出售价 +${pc(a * H.vaultSell)} → +${pc(b * H.vaultSell)}`; }
+  if (k === 'spring') return `丹毒每月退 ${x2(L.toxDecay(st))} → ${x2(L.toxDecay(st) + (b - a) * H.springTox)}，寿元流逝 −${pc(a * H.springAge)} → −${pc(b * H.springAge)}${Math.floor(b / H.springInj) > Math.floor(a / H.springInj) ? '，负伤少养 1 月' : ''}`;
+  if (k === 'vault') { const v = L.income(st), m = 1 + a * H.vaultInc; return `灵石 +${L.fmt1(v)} → +${L.fmt1(v / m * (1 + b * H.vaultInc))}/月，出售价 +${pc(a * H.vaultSell)} → +${pc(b * H.vaultSell)}`; }
   if (k === 'pavilion') return `访客 +${pc(a * H.pavVisit)} → +${pc(b * H.pavVisit)}${a ? '' : '，来访好感 +1'}`;
-  if (k === 'portal') { const s = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗周天']].find(x => a < x[0] && b >= x[0]); const n = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗周天']].find(x => b < x[0]); return s ? `开：${s[1]}` : n ? `${n[0]} 级开${n[1]}` : '已全开'; }
+  if (k === 'portal') { const s = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗月']].find(x => a < x[0] && b >= x[0]); const n = [[H.portalLen, '历练时长 −1'], [H.portalDeep, '禁地直达'], [H.portalRealm, '秘境不耗月']].find(x => b < x[0]); return s ? `开：${s[1]}` : n ? `${n[0]} 级开${n[1]}` : '已全开'; }
   return '';
 };
 

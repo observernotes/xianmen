@@ -46,7 +46,7 @@ L.addMod = function (kind, id, order, fn) {
 L.addCulMod = (id, order, fn) => L.addMod('cul', id, order, fn);
 // 战力倍率（含负伤 ×0.6）
 L.addAtkMod = (id, order, fn) => L.addMod('atk', id, order, fn);
-// 每周天灵石来源（加法）与收入倍率（乘法）
+// 每月灵石来源（加法）与收入倍率（乘法）
 L.addIncSrc = (id, order, fn) => L.addMod('inc', id, order, fn);
 L.addIncMul = (id, order, fn) => L.addMod('incMul', id, order, fn);
 // 历练分数加减：fn(st, k, d, a) → [显示名, 分数]（同伴、五行、法衣、词条、道心…）
@@ -85,17 +85,17 @@ L.supportFx = cap('fx'); L.supportElig = cap('elig'); L.supportChoice = cap('cho
 L.supportTrigger = key => cap('trigger')(key); L.supportWhere = w => cap('where')(w);
 
 // ---------- 数值参数（模型见 docs/DESIGN.md §3；常数由 tools/sim.js 校准） ----------
-// g0/gGrow：倍率为 1 时每周天修为 = g0 × gGrow^i；pw*：战力 = pw0 × pwStage^i × pwRealm^r
+// g0/gGrow：倍率为 1 时每月修为 = g0 × gGrow^i；pw*：战力 = pw0 × pwStage^i × pwRealm^r
 const P = L.P = { g0: 10, gGrow: 1.30, pw0: 10, pwStage: 1.5, pwRealm: 1.8 };
-// TR：该境界在倍率 1 下的总周天；SW：四个小层各占的比例
+// TR：该境界在倍率 1 下的总月；SW：四个小层各占的比例
 // （SYSTEMS §18：为后续系统的加成留出预算，比 v1 的 [50,150,400,820,1500,2500,4200,6800,10000] 拉长）
 // 最终校准（docs/BALANCE_TODO.md）：金丹起 [500,1100,2200,3900,7000,12000,18500] → 下面这组，guided 飞升 523 → 约 620，各境界落进 DESIGN §2.5；
-// 炼气、筑基不动——炼气连着三年之约（idle 15%～25%），筑基再长 idle 就坐化在筑基（寿元 200 年只够 112 个周天）
+// 炼气、筑基不动——炼气连着三年之约（idle 15%～25%），筑基再长 idle 就坐化在筑基（寿元 200 年只够 112 个月）
 L.TR = [50, 170, 615, 1750, 2850, 4650, 8700, 12300, 19800];
 L.SW = [0.19, 0.23, 0.27, 0.31];
 
 // ---------- 静态数据 ----------
-// rate: 冲击下一境界的基础成功率（v1 §3.8）；life: 该境界寿元（年）；mpt: 一个周天流逝的年数（炼气期 12 周天一年）
+// rate: 冲击下一境界的基础成功率（v1 §3.8）；life: 该境界寿元（年）；mpt: 一个月流逝的年数（炼气期 12 月一年）
 // 合体 life 6000 → 4000（数值校准：DESIGN §3.12 要 lazy “合体以后至少亮一次寿元红灯”，原来 lazy 合体期最多只用到寿元的六成；guided 用到约五成，不受影响）
 // SYSTEMS §18 第 4 条：筑基→金丹起的 rate 整体 −0.10（v1 是 0.60/0.50/…/0.20），由天劫的护劫手段补回（trib.js：祭法宝、灵宠挡劫、道侣护法、临阵吞丹、渡劫阵）
 L.REALMS = [

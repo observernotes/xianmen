@@ -122,7 +122,10 @@ src/events.js     奇遇与主线事件数据（tools/check_events.js 校验）
 src/content/      事件扩展包（events-engine 的 L.CONTENT_FILES 列出加载顺序，node 与 dist 都加载）；
                   事件用到的每个写法都要有系统用 L.supportFx / supportElig / supportTrigger… 登记过才会出现
 src/art.js        像素美术：精灵、洞府场景、历练场景（全部代码绘制）
-src/ui/           界面片段（共用一个作用域），按 tools/build.py 的 UI_PARTS 顺序拼接
+src/ui/           界面片段（共用一个作用域），按 tools/build.py 的 UI_PARTS 顺序拼接。开罗式重整（docs/KAIRO_PLAN.md §4～§7）的界面在：
+                  goalcard 主画面（时间条、目标卡三行、一行传讯、固定五格底栏与两种角标、面板浮在底栏之上、hlOnly 金框、目标卡【去】的跳转表）、
+                  panel-equip【装备】（法宝 · 功法 · 灵宠 · 包裹）、panel-me 外壳分页条（装备 / 江湖 / 仙途 / 洞府四组）与【仙途】属性 · 记录 · 设置、
+                  panel-path【仙途】路径页、章末结算、年报、纸鹤列表、onboard 解锁卡（阻塞讲解只留头三步与突破金框）、panel-exp 新结算卡
 src/template.html 样式与页面骨架
 tools/build.py    裁剪像素字体并打包成单文件 → dist/
 tools/sim.js      数值模拟：node tools/sim.js（三种策略 × 200 种子汇总）；node tools/sim.js guided 1 v 7（单局逐 12 周天）；
@@ -142,7 +145,9 @@ tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【�
                   每 24 周天进宗门：门下收徒、派差事、出师、偶尔传授，身份页领职司、给长老送礼，宝库里的功法法宝买得起就换；
                   每 12 周天点开一块田、一半时候改种推荐的作物，药引格里有能试的就【试炼】一格；
                   每 12 周天进【洞府】有空地就点空地建“荐”的那一样，阵法页按“荐”布阵：快渡劫时布渡劫阵、渡完换回聚灵阵），检查全程无报错且飞升
-tools/guide_test.js 按真实玩家的点法走一遍新手引导，逐步截图
+tools/guide_test.js 按真实玩家的点法走第一章（开罗式引导）：头三步手把手、在外零打断、结算卡、解锁卡【带我去】、装备 1 次点击、年报、备战卡、章末，逐步截图
+tools/kairo_check.js 面板版式断言（KAIRO_PLAN §4.2 / §7）：各面板第一屏 ≤ 60 字、≤ 6 个按钮、没有小于 14px 的字、不横向溢出；装备 / 功法 / 灵宠的点击数；node tools/kairo_check.js <目录> ["Pixel 7"|360]
+tools/kairo_shots.js 开罗式重整前后对照截图（开局、出发、结算、第一章中段、装备、路径、在外、年报）
 tools/guide30.js  前 30 分钟节奏：照着老祖走的机器人玩到约第 200 周天，每段讲解截图，写出讲解 / 气泡 / 对决的时间表并核对节奏（约战前讲解段数、同一周天不连讲、句句带数）
 tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对比卡、强化与保底、继承、词条、熔炼、fx.ore / fx.plus、打造、v4 → v5 迁移）、人物分页、
                   历法与坊市（四季效果、十二种大势的效果与到期、通缉令赏金、货架轮换与限购、行情卖价、竞价结果与宿敌加成、坊市事件、年历与大势小牌、

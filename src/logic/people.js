@@ -11,12 +11,12 @@
  *   同伴（DESIGN §7.4，四心同行）：st.ppl.comp 选一位四心的人，每趟历练、每次秘境都带上（出发时记在 st.exp.comp / st.run.comp）；
  *         道侣同行不占同伴位。效果：苏 本趟不负伤 / 夜 灵石 ×1.2、越级奖励 ×1.5 / 楚狂 斩妖分数 +10 / 葛老 灵草 ×2、采药带回一味稀有药引 /
  *         白小九 途中遭遇必出、把握 +10%（秘境多一扇门，realm.js 的 L.mjBai）/ 墨无痕 禁地负伤风险减半。L.companionOn(st, id) 给别的模块读。
- *   道侣：仍由 su_5 / ye_5 的 fx.daolv 结成（苏、夜互斥，没选的那位有 su_left / ye_left 与本刀的 pp_*_left2）。结成后每 12 周天一次【双修】：
+ *   道侣：仍由 su_5 / ye_5 的 fx.daolv 结成（苏、夜互斥，没选的那位有 su_left / ye_left 与本刀的 pp_*_left2）。结成后每 12 月一次【双修】：
  *         等同一次不花灵石的闭关（倍率、疲劳、顿悟都照闭关，L.startRetreat），并得对方一门功法（L.giveArt；都会了就是熟练 +20）。
  *         常驻的“道侣双修 修炼 ×1.25”改成 ×1.1（双修动作补回来）；L.PEOPLE2_ON = false（sim 的 nopeople2）时一切照旧。
  * 事件能力：elig.heart（ev.npc 至少几心）、elig.comp（这趟同行的是谁）、触发键 shuangxiu:<id>（第一次双修）；pp_* 事件在 nopeople2 时不出。
  * 接入点（加载时包一层）：L.addAff、L.startExp、L.resolveExp、L.expForecast、L.expStoneMult、L.leapMult、L.choiceLuck、L.craft、L.fightBoss、
- *   L.mjEnter、L.mjPick、L.mjAfterEvent、L.retName、L.eligible、L.newState、L.newMeta。tick.js 每周天调 L.peopleTick；save.js 调 L.migratePeople（幂等）。 */
+ *   L.mjEnter、L.mjPick、L.mjAfterEvent、L.retName、L.eligible、L.newState、L.newMeta。tick.js 每月调 L.peopleTick；save.js 调 L.migratePeople（幂等）。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
@@ -32,7 +32,7 @@ L.compName = (st, id) => (id === 'tian' ? '楚天阔' : L.npcName(st, id));
 L.HEART_N = ['相识', '一心相识', '二心来访', '三心知己', '四心同行', '五心终章'];
 
 // ---------- 状态 ----------
-// st.ppl = { q: { 人物: { 1: 委托, 2: 委托 } }, comp 同伴, sx 上次双修的周天, sxN 双修次数, gifts 送礼次数, ga: { 人物: [送过的功法抄本] }, qn 完成的委托数, note: { 已讲过的提示 } }
+// st.ppl = { q: { 人物: { 1: 委托, 2: 委托 } }, comp 同伴, sx 上次双修的月, sxN 双修次数, gifts 送礼次数, ga: { 人物: [送过的功法抄本] }, qn 完成的委托数, note: { 已讲过的提示 } }
 L.newPeople = () => ({ q: {}, comp: null, sx: -99, sxN: 0, gifts: 0, ga: {}, qn: 0, note: {} });
 function ppl(st) {
   let p = st.ppl;
@@ -473,7 +473,7 @@ L.addAtkMod('friend_ye', 80, st => (L.friend(st, 'ye') ? ['知己·' + L.npcName
 L.addAtkMod('friend_chu', 81, st => (L.friend(st, 'chu') ? ['知己·楚狂', L.friendV(st, 'chu'), ''] : null));
 
 // ---------- 道侣与双修 ----------
-// 双修：每 12 周天一次，等同一次不花灵石的闭关；送你对方一门功法（按表的次序，没有的先给；都会了 → 熟练 +20）
+// 双修：每 12 月一次，等同一次不花灵石的闭关；送你对方一门功法（按表的次序，没有的先给；都会了 → 熟练 +20）
 L.SX = { every: 12, cul: 1.1 };
 L.DAOLV_ARTS = { su: ['x_qingmu', 'z_huichun', 'm_baicao', 'x_changchun'], ye: ['z_liehuo', 'x_lieyang', 'm_xuedun', 'z_fentian'] };
 // 常驻的道侣加成：×1.25 → ×1.1（双修动作补回来；nopeople2 时照旧 ×1.25）
@@ -489,7 +489,7 @@ L.sxWhy = function (st) {
   if (L.daolvBlocked && L.daolvBlocked(st)) return '太上无情：双修失效';
   if (st.p.r > L.MAXR) return '已证大道';
   const left = L.sxLeft(st);
-  if (left > 0) return `还要 ${left} 周天`;
+  if (left > 0) return `还要 ${left} 月`;
   if (L.busy(st)) return '眼下有事在身';
   if (L.isFull(st)) return '修为已圆满，先去突破';
   return '';
@@ -512,13 +512,13 @@ L.shuangxiu = function (st) {
   P.sx = st.tick; P.sxN++;
   st.stats.shuangxiu = (st.stats.shuangxiu || 0) + 1;
   const it = a ? L.giveArt(st, a, { src: 'daolv' }) : null;
-  L.log(st, `与${L.npcName(st, id)}双修 ${L.RET.len} 周天（修炼 ×${st.retreat.m.toFixed(2)}，不花灵石）${it ? '：' + L.artItemText(st, it) : ''}`, 'gold');
+  L.log(st, `与${L.npcName(st, id)}双修 ${L.RET.len} 月（修炼 ×${st.retreat.m.toFixed(2)}，不花灵石）${it ? '：' + L.artItemText(st, it) : ''}`, 'gold');
   if (first) L.fireTrigger(st, 'shuangxiu:' + id);
   return { id, it, m: st.retreat.m, first };
 };
 wrap('retName', b => r => (r && r.sx ? '双修' : b(r)));
 
-// ---------- 每周天 ----------
+// ---------- 每月 ----------
 L.peopleTick = function (st, out) {
   if (!ON() || st.p.r > L.MAXR) return;
   for (const id of L.PPL) if (st.npc && st.npc[id]) pqCheck(st, id);

@@ -77,7 +77,7 @@ const path = require('path');
     }
     // 法宝页：兵器、法衣、饰品下的【强化】能点就点（每格最多 6 下，像个肯花灵矿的玩家）
     async function gearRound() {
-      X.showMe('gear'); await sleep(40);
+      X.showGearDetail('w'); await sleep(40);
       for (const s of ['w', 'r', 'o']) for (let i = 0; i < 6; i++) {
         if (!i) { const cell = document.querySelector(`#modal [data-gslot="${s}"]`); if (!cell) break; cell.click(); await sleep(30); }   // 【强化】只在选中的那格下（面板重做 A 线）
         const b = document.querySelector(`#modal [data-plus="${s}"]:not([disabled])`); if (!b) break;
@@ -88,6 +88,14 @@ const path = require('path');
     }
     // 对比卡：更强就【换上】，否则【熔炼】；偶尔【锁定当前】
     async function drainCards() {
+      // 开罗式重整：新到的法宝留在【装备】→ 法宝的“新到”一行（【换上】data-keq /【熔】data-ksm），结算卡上是【换上】/【先收着】
+      for (let g = 0; g < 8; g++) {
+        X.showEquip('gear'); await sleep(30);
+        const k = document.querySelector('#modal [data-keq]'); if (!k) break;
+        const up = !!k.closest('.kslot.hot');
+        (up ? k : document.querySelector('#modal [data-ksm]')).click(); if (up) gEq++; else gSmelt++;
+        seen['对比卡'] = 1; await sleep(30);
+      }
       for (let g = 0; g < 8; g++) {
         const c = document.querySelector('#modal [data-gcmp]'); if (!c) return;
         const u = c.dataset.gcmp;
@@ -335,7 +343,7 @@ const path = require('path');
       // 大势起了：点右上角的小牌看年历；筑基后每 24 周天点一次“大事”牌
       const tag = document.querySelector('#worldTag:not([hidden])');
       if (tag && tag.offsetParent && st.cal && st.cal.w && st.cal.w.at === st.tick && !X.cine && !modal()) { tag.click(); calOpen++; seen['年历'] = 1; await sleep(60); X.closeModal(); await sleep(450); await drain(); }
-      else if (n % 24 === 13 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#stats [data-s="big"]').click(); calOpen++; await sleep(60); if (title() === '年历') { seen['年历'] = 1; X.closeModal(); await sleep(450); } await drain(); }
+      else if (n % 24 === 13 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#time').click(); calOpen++; await sleep(60); if (title() === '年历') { seen['年历'] = 1; X.closeModal(); await sleep(450); } await drain(); }
       if (st.sect) {
         if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { X.doPromote(); await drain(); }
         st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i); if (L.taskCanDeliver(st, t) && st.pills >= 2) L.taskDeliver(st, i); });

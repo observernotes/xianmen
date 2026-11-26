@@ -6,7 +6,7 @@
  *   稳：突破 +3%（L.addBtMod）/ 闭关花费 −15%（L.retCost）/ 天劫临场提示十成准（trib.js 的 L.tribHintAcc）
  *   仁：来访好感 +1（fx.aff）/ 徒弟成长 +20%（L.daoDiscMult，徒弟系统读）/ 人物五心只要好感 90（L.hearts）
  * 因果：杀、夺、负人的选项 fx.karma: '因果id' 记一条（带当事人，L.KARMA），会回来——仇家上门（src/content/ev_karma.js，事件字段 karma: n
- *   = 有一条 n 周天前结下、还没了的因果）、心魔劫的题目（trib.js 的 L.demonQuestion）、轮回时的“业”（L.karmaRebirth）。
+ *   = 有一条 n 月前结下、还没了的因果）、心魔劫的题目（trib.js 的 L.demonQuestion）、轮回时的“业”（L.karmaRebirth）。
  *   fx.unkarma: 'any' 了结最早的一条（心魔劫里就是题目那一条），也可以写具体的因果 id。
  * 事件文本占位符 {kwho} / {kwhat}：最早那条没了的因果的当事人 / 当时做了什么（寻仇事件用）。
  * 资格字段 daoMin: { k|w|r: n }（事件级与选项级）：该道心至少 n 笔。
@@ -52,7 +52,7 @@ L.supportChoice('dao', { apply: (st, v) => { L.addDao(st, v, 1); } });
 { const leap0 = L.leapMult; L.leapMult = st => leap0(st) * (L.daoLv(st, 'k') >= 1 ? L.DAO_V.leap : 1); }
 // 狂二级：对决胜算下限 3% → 8%
 L.addDuelPMod('dao_k', 30, st => (L.daoLv(st, 'k') >= 2 ? { lo: L.DAO_V.lo, n: '道心·狂' } : null));
-// 狂三级：丁等时“以伤换命”再战一次——按预掷的随机数重掷一次运气分；翻到丙以上就算数（换一周天轻伤），还是丁就照丁等结算
+// 狂三级：丁等时“以伤换命”再战一次——按预掷的随机数重掷一次运气分；翻到丙以上就算数（换一月轻伤），还是丁就照丁等结算
 L.expRefight = function (st, pl, score) {
   if (L.daoLv(st, 'k') < 3) return null;
   const u = pl.u || [], v = ((u[0] || 0) * 613 + (u[5] || 0) * 97) % 1;   // 从已掷的数派生，不多耗随机数
@@ -149,7 +149,7 @@ L.supportFx('unkarma', { ok: v => typeof v === 'string' && v.length > 0, apply: 
   const rec = L.unkarma(st, v, curChoice && curChoice.ev ? curChoice.ev.id : '');
   out.push(rec ? `了结因果：${rec.who}` : '心里那笔账，本就是空的');
 } });
-// 事件字段 karma: n —— 有一条 n 周天前结下、还没了的因果（寻仇要过些日子才找得上门）
+// 事件字段 karma: n —— 有一条 n 月前结下、还没了的因果（寻仇要过些日子才找得上门）
 L.supportElig('karma', { ok: v => v > 0, test: (st, v) => { const o = L.karmaOpen(st)[0]; return !!o && st.tick - o.tick >= v; } });
 // 占位符 {kwho} / {kwhat}：最早那条没了的因果
 { const fill0 = L.fill; L.fill = function (st, text) {

@@ -8,7 +8,7 @@ const P = L.P;
 // 宗门
 L.SECTS = [
   { id: 'jian', n: '太虚剑宗', d: '天下剑修圣地', perk: '战力 ×1.2；斩妖相性高一档；宝库法宝便宜三成', fit: '适合：爱历练', atk: 1.2, cul: 1, bt: 0, color: '#4aa8ff' },
-  { id: 'dan', n: '丹霞谷', d: '丹道第一宗门', perk: '突破 +10%；成丹率 +15%、丹效 ×1.3；手里破境丹不足 6 枚时，每 6 周天俸禄附一枚', fit: '适合：爱炼丹', atk: 1, cul: 1, bt: 0.1, pill: true, color: '#ff8a5c' },
+  { id: 'dan', n: '丹霞谷', d: '丹道第一宗门', perk: '突破 +10%；成丹率 +15%、丹效 ×1.3；手里破境丹不足 6 枚时，每 6 月俸禄附一枚', fit: '适合：爱炼丹', atk: 1, cul: 1, bt: 0.1, pill: true, color: '#ff8a5c' },
   { id: 'dao', n: '玄天道宗', d: '传承万年的道法正宗', perk: '修炼 ×1.2；闭关花费 −30%，顿悟概率 30%→45%', fit: '适合：爱闭关', atk: 1, cul: 1.2, bt: 0, color: '#c27dff' },
 ];
 L.DAN_PILL_CAP = 6;
@@ -222,9 +222,9 @@ L.sectMeet = function (st) {
   return res;
 };
 
-// ---------- 宗门任务板：每届论道（12 周天）刷新 3 个，可同时接 ----------
+// ---------- 宗门任务板：每届论道（12 月）刷新 3 个，可同时接 ----------
 // ty: exp 指定地点行事评价乙 / herbs 上交灵草 / pill 上交破境丹 / tour 论道赢一场 / boss 击败首领
-//     act 闭关·炼丹两次·越级一次 / escort 护送同门（本趟灵石归宗门，贡献 ×3）/ teach 指点师弟（4 周天，贡献 ×2）
+//     act 闭关·炼丹两次·越级一次 / escort 护送同门（本趟灵石归宗门，贡献 ×3）/ teach 指点师弟（4 月，贡献 ×2）
 L.TASK_N = { exp: '历练', herbs: '上交灵草', pill: '上交丹药', tour: '论道', boss: '讨伐首领', act: '修行', escort: '护送同门', teach: '指点师弟' };
 L.rollTasks = function (st) {
   const sc = st.sect; if (!sc) return;
@@ -267,7 +267,7 @@ L.taskText = function (st, t) {
     case 'boss': return `击败【${L.REGIONS[t.k].n}】首领${L.BOSSES[t.k].n}`;
     case 'act': return t.sub === 'retreat' ? '闭关 1 次' : t.sub === 'craft' ? `炼丹 2 次（${t.prog}/2）` : '越级历练成功 1 次';
     case 'escort': return `护送同门去【${L.REGIONS[t.k].n}】（本趟灵石归宗门，贡献 ×3）`;
-    case 'teach': return '指点师弟（4 周天不涨修为，贡献 ×2）';
+    case 'teach': return '指点师弟（4 月不涨修为，贡献 ×2）';
   }
   return L.TASK_X[t.ty] ? L.TASK_X[t.ty].text(st, t) : '';
 };

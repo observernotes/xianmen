@@ -121,7 +121,7 @@ L.migrate = function (s) {
     // 以前的章节直接记为已完成（不补发奖励）；当前章节照常结算
     for (let r = 0; r < Math.min(p.r, 9); r++) { const ch = L.CHAPTERS[r]; for (const q of ch.tasks.concat([ch.main])) if (q.c(st)) s.quest.done[q.id] = 1; }
     if (s.sect) { s.sect.tasks = s.sect.tasks || []; s.sect.build = s.sect.build || { ward: 0, lib: 0, vein: 0 }; s.sect.freePick = s.sect.freePick || 0; L.sectOf(s); }
-    // 时间线：新版一个周天流逝的年数变了，别让人一读档就坐化
+    // 时间线：新版一个月流逝的年数变了，别让人一读档就坐化
     if (p.r <= L.MAXR && p.age > L.lifespan(s) * 0.85) p.age = L.lifespan(s) * 0.85;
     if (s.pact && s.rank > 72 && s.beaten.mu) { /* 名次照旧 */ }
     s.flags.fromV2 = 1;

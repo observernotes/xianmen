@@ -9,8 +9,8 @@
  * 预掷存在 st.trib.cur 里：渡到一半读档，接着渡，结果不变。
  *
  * 留给还没做的系统的钩子（有就用，没有就显示“开放后可用”）：
- *   灵宠挡劫  L.petCanShield(st) → 能挡劫的那只（名字，没有给 null）；L.petShield(st, 周天) 让它挡劫并休养；L.petShieldBonus(st) 天赋另加（pets.js 已接上）
- *   渡劫阵    L.formationReady(st, 'f_dujie') → 提前 3 周天布好了没有（阵图记在 st.gear.zhentu.f_dujie，story_trib1 给）
+ *   灵宠挡劫  L.petCanShield(st) → 能挡劫的那只（名字，没有给 null）；L.petShield(st, 月) 让它挡劫并休养；L.petShieldBonus(st) 天赋另加（pets.js 已接上）
+ *   渡劫阵    L.formationReady(st, 'f_dujie') → 提前 3 月布好了没有（阵图记在 st.gear.zhentu.f_dujie，story_trib1 给）
  *   丹毒      L.addToxin(st, n, 'trib')；没有丹毒系统时记在 st.trib.toxin，等丹毒上线时折进去
  */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -66,7 +66,7 @@ L.aidInfo = function (st, k) {
     const who = L.petCanShield ? L.petCanShield(st) : null;
     o.v = L.TRIB.pet + (who && L.petShieldBonus ? L.petShieldBonus(st) : 0); o.ok = !!who; o.who = who ? petName(who) : '';
     o.why = !L.petCanShield ? '灵宠名册开放后可用（要 5 心）' : '没有 5 心、没在休养的灵宠';
-    o.cost = `${o.who || '该灵宠'}休养 ${L.TRIB.petRest} 周天`;
+    o.cost = `${o.who || '该灵宠'}休养 ${L.TRIB.petRest} 月`;
   } else if (k === 'daolv') {
     const used = !!t.daolv[r], blocked = !!(L.daolvBlocked && L.daolvBlocked(st));
     o.v = L.TRIB.daolv; o.ok = !!st.daolv && !used && !blocked;
@@ -76,8 +76,8 @@ L.aidInfo = function (st, k) {
     const has = !!(g.zhentu && g.zhentu.f_dujie);
     o.v = L.formationVal ? L.formationVal(st, 'f_dujie') : Math.min(L.TRIB.zhenCap, L.TRIB.zhen * (st.home.array || 0));
     o.ok = has && !!(L.formationReady && L.formationReady(st, 'f_dujie'));
-    o.why = !has ? '尚无渡劫阵图' : L.formationWhy ? L.formationWhy(st, 'f_dujie') : '阵法开放后可布阵（需提前 3 周天）';
-    o.cost = `聚灵阵每级 +1%，上限 +${Math.round(L.TRIB.zhenCap * 100)}%；需提前 3 周天布阵`;
+    o.why = !has ? '尚无渡劫阵图' : L.formationWhy ? L.formationWhy(st, 'f_dujie') : '阵法开放后可布阵（需提前 3 月）';
+    o.cost = `聚灵阵每级 +1%，上限 +${Math.round(L.TRIB.zhenCap * 100)}%；需提前 3 月布阵`;
   } else if (k === 'pill') {
     o.v = L.TRIB.pill; o.max = Math.min(L.TRIB.maxPill, st.pills); o.ok = o.max > 0; o.why = '没有破境丹了';
     o.cost = `每枚 +${Math.round(L.TRIB.pill * 100)}%，最多 ${L.TRIB.maxPill} 枚（在 ${L.BT.maxPills} 枚之外）；丹毒 +${L.TRIB.toxin}/枚`;

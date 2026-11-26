@@ -104,7 +104,7 @@ L.expForecast = function (st, k, d, a) {
   const dist = [1 - pGE(L.RATE_TH[0]), pGE(L.RATE_TH[0]) - pGE(L.RATE_TH[1]), pGE(L.RATE_TH[1]) - pGE(L.RATE_TH[2]), pGE(L.RATE_TH[2]) - pGE(L.RATE_TH[3]), pGE(L.RATE_TH[3])];
   // 六阶法衣：丁等 30% 改判丙
   const ds = L.gearDingSave(st); if (ds) { dist[1] += dist[0] * ds; dist[0] *= 1 - ds; }
-  // 负伤风险：丁等的概率 × 没躲过的份（敛息术）；血遁、潜渊（禁地）、护主（每 12 周天一次）丁等不负伤
+  // 负伤风险：丁等的概率 × 没躲过的份（敛息术）；血遁、潜渊（禁地）、护主（每 12 月一次）丁等不负伤
   const injP = ax.xuedun || ax.c18 || L.gearHuzhuReady(st) ? 0 : 1 - ax.injAvoid;
   let lo = L.ratingOf(base - 12), hi = L.ratingOf(base + 12 - 1e-9), risk = dist[0] * injP, em = 0;
   if (first) { lo = hi = 3; risk = 0; em = L.RATE_M[3]; }
@@ -163,7 +163,7 @@ function expCalc(st, e) {
   const o = { k, d, a, score, rating, ratio: pl.ratio, parts: { pow: pl.pow, luck: pl.rnd + (pl.adj || 0), aff: pl.aff, guts: pl.guts } };
   // 六阶法衣：丁等 30% 改判丙（u[8]；旧档没有就从 u[0] 派生一个）
   if (rating === 0) { const u8 = u[8] === undefined ? (u[0] * 977) % 1 : u[8]; if (u8 < L.gearDingSave(st)) { rating = 1; o.robeSave = true; } }
-  // 道心·狂三级：丁等“以伤换命”再战一次（dao.js 的 L.expRefight 按预掷的数重掷运气分），翻到丙以上就算数、换一周天轻伤
+  // 道心·狂三级：丁等“以伤换命”再战一次（dao.js 的 L.expRefight 按预掷的数重掷运气分），翻到丙以上就算数、换一月轻伤
   if (rating === 0 && pl.fix === undefined && L.expRefight) { const r2 = L.expRefight(st, pl, score); if (r2 !== null) { o.refight = r2 > 0 ? 'win' : 'lose'; if (r2 > 0) rating = r2; } }
   const m = L.RATE_M[rating];
   const leap = pl.ratio < ax.leap && rating >= 2;
@@ -196,7 +196,7 @@ function expCalc(st, e) {
     else o.injury = Math.max(1, Math.round(3 * ax.injMul) - L.gearInjCut(st));
   }
   o.contrib = st.sect ? Math.floor(L.contribFor(k) * m * (leap ? L.leapMult(st) : 1) * (e.escort !== undefined ? 3 : 1)) : 0;
-  o.xpTicks = a === 0 ? m : 0;   // 斩妖：归来得 1 周天修为 × 奖励倍率（战斗感悟）
+  o.xpTicks = a === 0 ? m : 0;   // 斩妖：归来得 1 月修为 × 奖励倍率（战斗感悟）
   return o;
 }
 // 途中 HUD 用：这一趟到目前为止“看得见”的收获
@@ -269,7 +269,7 @@ L.resolveExp = function (st) {
     if (res.injury) { st.p.inj = Math.max(st.p.inj, res.injury); res.inj = res.injury; }
     if (res.xuedun && st.p.r <= L.MAXR) { const y = L.lifespan(st) * res.xuedun; st.p.age += y; res.lifeCost = y; }
   }
-  // 回春剑诀：每趟归来负伤 −1 周天
+  // 回春剑诀：每趟归来负伤 −1 月
   const heal = L.artExp(st, k, d, a).heal;
   if (heal && st.p.inj > 0) { const n = L.probRound(heal); st.p.inj = Math.max(0, st.p.inj - n); res.healed = n; }
   if (e.encEv) res.enc = true;
@@ -280,7 +280,7 @@ L.resolveExp = function (st) {
   }
   const tag = `${L.REGIONS[k].n}·${L.DEPTHS[d]}`;
   if (e.recall) L.log(st, `【${tag}】中途折返，收获减半`);
-  else L.log(st, `【${tag}】${L.APPR[a].n}归来，评价「${L.RATINGS[res.rating]}」${res.leap ? '（越级）' : ''}，灵石+${L.fmt(res.stones)}${res.inj ? `，负伤 ${res.inj} 周天` : ''}`, res.rating >= 3 ? 'gold' : res.rating >= 2 ? 'jade' : res.rating === 0 ? 'red' : '');
+  else L.log(st, `【${tag}】${L.APPR[a].n}归来，评价「${L.RATINGS[res.rating]}」${res.leap ? '（越级）' : ''}，灵石+${L.fmt(res.stones)}${res.inj ? `，负伤 ${res.inj} 月` : ''}`, res.rating >= 3 ? 'gold' : res.rating >= 2 ? 'jade' : res.rating === 0 ? 'red' : '');
   res.pw0 = pw0; res.pw1 = L.power(st); res.gain0 = gain0; res.gain1 = L.gain(st);
   res.chain = e.chain || 0;
   L.checkQuests(st);
@@ -318,7 +318,7 @@ L.BOSSES = [
   { n: '混沌魔神残影', line: '……天地未开时，吾已在此。', t: '开天之人', drop: '混沌残刃' },
 ];
 // 某张图禁地评价乙以上一次后，首领现身。战力 = 禁地推荐 × 1.6
-// 金丹后首领每 48 周天可重打一次（CONTENT §1：只掉首领材料 ×1 和灵石；打造用）
+// 金丹后首领每 48 月可重打一次（CONTENT §1：只掉首领材料 ×1 和灵石；打造用）
 L.BOSS_AGAIN = 48;
 L.bossAgain = (st, k) => !!st.bosses[k] && (st.rebirth > 0 || L.mr(st) >= 2) && st.tick - ((st.bossAt || {})[k] === undefined ? -999 : st.bossAt[k]) >= L.BOSS_AGAIN;
 L.bossReady = (st, k) => L.bestOf(st, k, 2) >= 2 && (!st.bosses[k] || L.bossAgain(st, k));

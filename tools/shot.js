@@ -134,6 +134,7 @@ require('fs').mkdirSync(out, { recursive: true });
     return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad };
   }, [sel, what]);
   const petLay = r => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); };
+  await page.evaluate(() => { window.__xm.st.petPend = []; });   // 前面结算卡里随机掉的灵宠（名册满）不算在这一段
   await page.click('[data-nav="gear"]'); await page.waitForTimeout(250);
   if (!(await page.$('#modal [data-kt="pets"]'))) errors.push('【装备】里没有【灵宠】分页');
   await page.click('#modal [data-kt="pets"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-pets.png' });

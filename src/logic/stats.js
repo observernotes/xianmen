@@ -14,9 +14,9 @@ L.addCulMod('reb', 60, st => (L.rebCul(st) > 1 ? ['宿慧（轮回）', L.rebCul
 L.addAtkMod('reb', 60, st => (L.rebAtk(st) > 1 ? ['根骨（轮回）', L.rebAtk(st), ''] : null));
 L.addCulMod('bonus', 70, st => (st.bonus && st.bonus.cul ? ['机缘加成', 1 + st.bonus.cul, ''] : null));
 L.addAtkMod('bonus', 70, st => (st.bonus && st.bonus.atk ? ['机缘加成', 1 + st.bonus.atk, ''] : null));
-L.addCulMod('buffs', 90, st => (st.buffs || []).filter(b => b.cul).map(b => ['丹药增益（剩' + b.left + '周天）', b.cul, '']));
-L.addAtkMod('buffs', 90, st => (st.buffs || []).filter(b => b.atk).map(b => ['增益（剩' + b.left + '周天）', b.atk, '']));
-L.addAtkMod('inj', 100, st => (st.p.inj > 0 ? ['负伤（剩' + st.p.inj + '周天）', L.injAtk(st), ''] : null));
+L.addCulMod('buffs', 90, st => (st.buffs || []).filter(b => b.cul).map(b => ['丹药增益（剩' + b.left + '月）', b.cul, '']));
+L.addAtkMod('buffs', 90, st => (st.buffs || []).filter(b => b.atk).map(b => ['增益（剩' + b.left + '月）', b.atk, '']));
+L.addAtkMod('inj', 100, st => (st.p.inj > 0 ? ['负伤（剩' + st.p.inj + '月）', L.injAtk(st), ''] : null));
 L.addIncSrc('vein', 20, st => ['灵脉（' + L.REALMS[Math.min(st.p.r, 8)].n + '）', L.vein(st.p.r), '']);
 L.addIncMul('koi', 50, st => (L.has(st, 'koi') ? ['天赋·锦鲤附体', 1.5, ''] : null));
 
@@ -25,9 +25,9 @@ L.statusParts = function (st) {
   const a = [];
   if (st.exp) a.push(['历练途中', L.expCulMult(st), '']);
   const sw = L.artSwapLeft(st);
-  if (sw > 0) a.push(['心法转修（剩' + sw + '周天）', L.SWAP.m, 'art']);
-  if (st.retreat) a.push([L.retName(st.retreat) + '（剩' + st.retreat.left + '周天）', st.retreat.m, '']);
-  if (st.p.inj > 0) a.push(['负伤（剩' + st.p.inj + '周天）', 0.5, '']);
+  if (sw > 0) a.push(['心法转修（剩' + sw + '月）', L.SWAP.m, 'art']);
+  if (st.retreat) a.push([L.retName(st.retreat) + '（剩' + st.retreat.left + '月）', st.retreat.m, '']);
+  if (st.p.inj > 0) a.push(['负伤（剩' + st.p.inj + '月）', 0.5, '']);
   return a;
 };
 L.statusMult = st => L.modProd(L.statusParts(st));
@@ -52,9 +52,9 @@ L.incParts = function (st) {
   return L.modParts('inc', st).map(x => [x[0], x[1] * m, x[2]]);
 };
 L.income = st => L.modSum(L.incParts(st));
-// 升到下一小层（或圆满）还要几个周天，按当前速度
+// 升到下一小层（或圆满）还要几个月，按当前速度
 L.ticksToNext = st => { const g = L.gain(st); return g > 0 ? Math.max(0, Math.ceil((L.pNeed(st.p) - st.p.xp) / g)) : Infinity; };
-// 照现在的速度（不算闭关、历练），升到 si 还要几个周天
+// 照现在的速度（不算闭关、历练），升到 si 还要几个月
 L.ticksToStage = function (st, si) {
   const p = st.p, g = L.gainCalm(st);
   if (!(g > 0)) return Infinity;

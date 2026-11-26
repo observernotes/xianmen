@@ -63,8 +63,8 @@ const pc = v => { const x = Math.round(v * 1000) / 10; return (Number.isInteger(
 const n2 = v => String(Math.round(v * 100) / 100);
 L.ARTL = [
   // 心法（修炼倍率按阶 L.ARTS[t].m）
-  { id: 'x_changchun', n: '长春功', k: 'x', t: 1, el: 'mu', v: 1, d: v => `负伤每周天多恢复 ${n2(v)} 周天`, src: '寻宝·历练', pool: 'drop' },
-  { id: 'x_yinqi', n: '引气诀', k: 'x', t: 1, el: '', v: 1, d: v => `吐纳环蓄满快 ${n2(v)} 周天（6 → ${n2(6 - v)}）`, src: '开局后首次寻宝保底', pool: 'drop' },
+  { id: 'x_changchun', n: '长春功', k: 'x', t: 1, el: 'mu', v: 1, d: v => `负伤每月多恢复 ${n2(v)} 月`, src: '寻宝·历练', pool: 'drop' },
+  { id: 'x_yinqi', n: '引气诀', k: 'x', t: 1, el: '', v: 1, d: v => `吐纳环蓄满快 ${n2(v)} 月（6 → ${n2(6 - v)}）`, src: '开局后首次寻宝保底', pool: 'drop' },
   { id: 'x_qingmu', n: '青木长生功', k: 'x', t: 2, el: 'mu', v: 0.08, d: v => `寿元流逝 −${pc(v)}`, src: '寻宝·历练', pool: 'drop' },
   { id: 'x_lieyang', n: '烈阳诀', k: 'x', t: 2, el: 'huo', v: 0.2, d: v => `闭关倍率 +${n2(v)}`, src: '丹霞谷宝库（内门）', pool: 'vault', sect: 'dan', rank: 1 },
   { id: 'x_houtu', n: '厚土载物经', k: 'x', t: 3, el: 'tu', v: 0.15, d: v => `突破失败修为只退到 ${pc(Math.min(0.95, 0.7 + v))}`, src: '寻宝·历练', pool: 'drop' },
@@ -72,8 +72,8 @@ L.ARTL = [
   // 天劫系统（SYSTEMS §9）上线前：“承劫 +6%”先折成金丹起的突破成功率
   { id: 'x_jiuzhuan', n: '九转玄功', k: 'x', t: 4, el: 'jin', v: 0.06, d: v => `冲击金丹及以上 +${pc(v)}（天劫上线后改为承劫）`, src: '太虚剑宗宝库（长老）', pool: 'vault', sect: 'jian', rank: 4 },
   { id: 'x_zifu', n: '紫府天书', k: 'x', t: 4, el: 'huo', v: 0.15, d: v => `闭关顿悟概率 +${pc(v)}`, src: '丹霞谷宝库（长老）', pool: 'vault', sect: 'dan', rank: 4 },
-  // 丹毒（SYSTEMS §5）上线前：“丹毒每周天多消 2”先折成炼丹省灵草
-  { id: 'x_taiyi', n: '太乙真经', k: 'x', t: 5, el: 'shui', v: 0.10, d: v => `炼丹灵草 −${pc(v)}（丹毒上线后改为每周天多消 2 点）`, src: '玄天道宗宝库（圣子）', pool: 'vault', sect: 'dao', rank: 3 },
+  // 丹毒（SYSTEMS §5）上线前：“丹毒每月多消 2”先折成炼丹省灵草
+  { id: 'x_taiyi', n: '太乙真经', k: 'x', t: 5, el: 'shui', v: 0.10, d: v => `炼丹灵草 −${pc(v)}（丹毒上线后改为每月多消 2 点）`, src: '玄天道宗宝库（圣子）', pool: 'vault', sect: 'dao', rank: 3 },
   // 秘境独有（realm.js）：任意主题合计通关 3 次后进秘藏
   { id: 'x_hunyuan', n: '混元道经', k: 'x', t: 5, el: 'tu', v: 1, d: () => '三槽视为同属性：必得通用共鸣 +10%', src: '秘境秘藏（任意主题合计通关 3 次后）', pool: 'realm' },
   { id: 'x_hongmeng', n: '鸿蒙造化经', k: 'x', t: 6, el: '', v: 1, d: v => `全部功法熟练速度 ×${n2(1 + v)}`, src: '残篇 ×3：混沌裂隙、拍卖、星墟仙人链', pool: 'frag' },
@@ -81,11 +81,11 @@ L.ARTL = [
   // 战技（战力倍率 L.ZHAN_M[t-1]，并决定攻击属性）
   { id: 'z_wuxing', n: '五行拳经', k: 'z', t: 1, el: 'tu', v: 0, d: () => '无特效', src: '寻宝·历练', pool: 'drop' },
   { id: 'z_liuyun', n: '流云剑法', k: 'z', t: 1, el: 'shui', v: 2, d: v => `历练分数 +${n2(v)}`, src: '寻宝·历练', pool: 'drop' },
-  { id: 'z_huichun', n: '回春剑诀', k: 'z', t: 2, el: 'mu', v: 1, d: v => `每趟历练归来负伤 −${n2(v)} 周天`, src: '寻宝·历练', pool: 'drop' },
+  { id: 'z_huichun', n: '回春剑诀', k: 'z', t: 2, el: 'mu', v: 1, d: v => `每趟历练归来负伤 −${n2(v)} 月`, src: '寻宝·历练', pool: 'drop' },
   { id: 'z_liehuo', n: '烈火刀', k: 'z', t: 2, el: 'huo', v: 0.10, d: v => `斩妖灵石 +${pc(v)}`, src: '寻宝·历练、血煞秘境', pool: 'drop', mo: true },
   { id: 'z_gengjin', n: '庚金指', k: 'z', t: 3, el: 'jin', v: 0.1, d: v => `越级判定线 0.6 → ${n2(0.6 + v)}`, src: '太虚剑宗宝库（内门）', pool: 'vault', sect: 'jian', rank: 1 },
-  // 秘境战斗气血损失 −20%×熟练（realm.js 的 L.mjDmg）；历练负伤周天也 −20%
-  { id: 'z_hanyue', n: '撼岳拳', k: 'z', t: 3, el: 'tu', v: 0.2, d: v => `秘境战斗气血损失 −${pc(v)}，历练负伤周天 −${pc(v)}`, src: '寻宝·历练', pool: 'drop' },
+  // 秘境战斗气血损失 −20%×熟练（realm.js 的 L.mjDmg）；历练负伤月也 −20%
+  { id: 'z_hanyue', n: '撼岳拳', k: 'z', t: 3, el: 'tu', v: 0.2, d: v => `秘境战斗气血损失 −${pc(v)}，历练负伤月 −${pc(v)}`, src: '寻宝·历练', pool: 'drop' },
   { id: 'z_wanjian', n: '万剑归宗', k: 'z', t: 4, el: 'jin', v: 6, d: v => `斩妖分数 +${n2(v)}`, src: '太虚剑宗宝库（圣子）', pool: 'vault', sect: 'jian', rank: 3 },
   { id: 'z_fentian', n: '焚天诀', k: 'z', t: 4, el: 'huo', v: 0.1, d: v => `对首领战力 ×${n2(1 + v)}`, src: '血煞秘境（四阶掉落）、熔火秘境秘藏', pool: 'drop', mo: true },
   // 秘境独有（百草秘藏）：秘境气血上限 +30×熟练（realm.js 的 L.mjMaxHp）；负伤时的战力折损也减轻
@@ -95,7 +95,7 @@ L.ARTL = [
   { id: 'z_xuanxiao_jian', n: '玄霄剑典·剑卷', k: 'z', t: 6, el: 'jin', v: 0.02, d: v => `对决胜算上限 97% → ${pc(Math.min(0.99, 0.97 + v))}`, src: '老祖旧剑链终点（与器方《玄霄》一起传授）', pool: 'story' },
   // 秘术（无裸倍率，只有特效）
   { id: 'm_lianxi', n: '敛息术', k: 'm', t: 1, el: 'shui', v: 0.5, d: v => `负伤风险 −${pc(Math.min(0.9, v))}`, src: '寻宝·历练', pool: 'drop' },
-  { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `历练时长 −${Math.round(v)} 周天（最少 3）`, src: '寻宝·历练', pool: 'drop' },
+  { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `历练时长 −${Math.round(v)} 月（最少 3）`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_xunlong', n: '寻龙诀', k: 'm', t: 2, el: 'tu', v: 0.25, d: v => `寻宝行事掉率 +${pc(v)}，天材地宝 ×${n2(1 + 2 * v)}`, src: '藏宝图链（暂也由二阶掉落）', pool: 'drop' },
   { id: 'm_baicao', n: '百草经', k: 'm', t: 2, el: 'mu', v: 0.5, d: v => `采药灵草 +${pc(v)}（带回药引待药引系统）`, src: '丹霞谷宝库（圣子）', pool: 'vault', sect: 'dan', rank: 3 },
   // 秘境独有（幽泉秘藏）：秘境每层多一扇门、“？”门直接显形（realm.js）；历练相性与地图五行也不用试就显形
@@ -108,7 +108,7 @@ L.ARTL = [
   // 心魔劫（SYSTEMS §9）上线前：“心魔劫必过”先折成冲击元婴及以上的成功率
   { id: 'm_wangqing', n: '太上忘情录', k: 'm', t: 5, el: '', v: 0.05, d: v => `冲击元婴及以上 +${pc(v)}（心魔劫上线后改为必过）；好感获取 −30%`, src: '玄天道宗宝库（太上长老）', pool: 'vault', sect: 'dao', rank: 5 },
   // 四季（SYSTEMS §7，calendar.js 的 L.seasonAmp）：季节加成翻倍
-  { id: 'm_xingdou', n: '周天星斗大法', k: 'm', t: 6, el: '', v: 1, d: () => '四季的季节加成翻倍（春灵草访客、夏兽类地图、秋灵稻行情、冬闭关）', src: '残篇 ×3：天外星墟禁地、坊市、拍卖', pool: 'frag' },
+  { id: 'm_xingdou', n: '月星斗大法', k: 'm', t: 6, el: '', v: 1, d: () => '四季的季节加成翻倍（春灵草访客、夏兽类地图、秋灵稻行情、冬闭关）', src: '残篇 ×3：天外星墟禁地、坊市、拍卖', pool: 'frag' },
 ];
 const ART = {};
 for (const A of L.ARTL) ART[A.id] = A;
@@ -331,7 +331,7 @@ L.addBtMod('art', 55, st => {
   return a.length ? a : null;
 });
 L.btKeep = st => Math.min(0.95, 0.7 + L.artV(st, 'x_houtu'));
-// 状态：历练途中修炼 ×0.5（太虚引气诀 → ×0.7）；心法转修 2 周天 ×0.5
+// 状态：历练途中修炼 ×0.5（太虚引气诀 → ×0.7）；心法转修 2 月 ×0.5
 L.expCulMult = st => Math.min(1, 0.5 + L.artV(st, 'x_taixu'));
 L.SWAP = { len: 2, m: 0.5 };
 L.artSwapLeft = st => (ON() && st.arts ? Math.max(0, st.arts.swapAt + L.SWAP.len - st.tick) : 0);
@@ -339,7 +339,7 @@ L.artSwapLeft = st => (ON() && st.arts ? Math.max(0, st.arts.swapAt + L.SWAP.len
 // 星河倒悬（c12）的冬季 +0.5 在 calendar.js 的 L.calRetBonus
 L.artRetBonus = st => L.artV(st, 'x_lieyang');
 L.artEpi = st => L.artV(st, 'x_zifu');
-// 吐纳环每周天蓄多少格（满格 6）：引气诀让它 6 → 5 周天蓄满
+// 吐纳环每月蓄多少格（满格 6）：引气诀让它 6 → 5 月蓄满
 L.tunaStep = st => { const v = L.artV(st, 'x_yinqi'); return v > 0 ? L.TUNA_FULL / (L.TUNA_FULL - Math.min(3, v)) : 1; };
 // 寿元流逝：青木长生功 −8%、生生不息再 −10%
 L.ageRate = st => (1 - L.artV(st, 'x_qingmu')) * (L.comboOn(st, 'c1') ? 0.9 : 1);
@@ -391,7 +391,7 @@ L.artExpLen = function (st, base) {
 L.probRound = v => Math.floor(v) + (R() < v - Math.floor(v) ? 1 : 0);
 
 // ---------- 熟练 ----------
-// 装备着的功法每周天 +1（心法在闭关中 +2）；战技每趟斩妖历练另 +2；鸿蒙造化经让全部 ×2；藏经阁每级 +10%
+// 装备着的功法每月 +1（心法在闭关中 +2）；战技每趟斩妖历练另 +2；鸿蒙造化经让全部 ×2；藏经阁每级 +10%
 // TODO SYSTEMS §6.1：洞府藏经阁建成后把等级接进 L.libraryLv，并按级揭示共鸣提示（L.comboHint）
 L.libraryLv = () => 0;
 // 法宝词条「通灵」每条 +15%（gear.js）
@@ -428,7 +428,7 @@ L.artCheckOpen = function (st) {
     emit('slotOpen', i);
   }
 };
-// 每周天：槽位解锁、熟练、长春功 / 生生不息的额外疗伤
+// 每月：槽位解锁、熟练、长春功 / 生生不息的额外疗伤
 L.artTick = function (st) {
   if (!st.arts) return;
   L.artCheckOpen(st);
@@ -443,7 +443,7 @@ L.artTick = function (st) {
 };
 
 // ---------- 装备 ----------
-// 点槽 → 点功法：L.equipArt 即时生效（心法更换后 2 周天修炼 ×0.5“转修”）；第一次凑齐的有名共鸣记入 st.meta.combo
+// 点槽 → 点功法：L.equipArt 即时生效（心法更换后 2 月修炼 ×0.5“转修”）；第一次凑齐的有名共鸣记入 st.meta.combo
 L.equipArt = function (st, id) {
   if (!ART[id] || !L.artOwned(st, id)) return null;
   const i = SLOT_OF[ART[id].k];
@@ -534,7 +534,7 @@ L.artApply = function (st, sl, minX) {
 
 // ---------- 获得 ----------
 // 来源（SYSTEMS §2）：寻宝与历练掉具体的一门（L.rollArt）；宗门宝库各宗独有（L.vaultArts）；首领首杀（L.bossArt）；
-// 奇遇 fx.art；拍卖。重复获得 → 熟练 +20；仙、神阶的鸿蒙造化经、周天星斗大法以三片残篇的形式来，集齐自动合成
+// 奇遇 fx.art；拍卖。重复获得 → 熟练 +20；仙、神阶的鸿蒙造化经、月星斗大法以三片残篇的形式来，集齐自动合成
 L.artItemText = function (st, it) {
   if (!it || !it.art) return '';
   const A = ART[it.art], nm = `${L.artTierName(A.t)}${L.ART_CAT[A.k]}《${A.n}》`;

@@ -255,8 +255,8 @@ function showExpResult(res) {
   lines.push(`<div class="krow"><span class="k">${esc(cut((g.prog && g.prog[0] && g.prog[0].t) || g.bar.text.split(' ')[0] || '目标', 4))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
   if (bn) { const n = Math.floor(Math.max(0, bn.left - 1) / Math.max(1, L.expLen(res.k, st))); lines.push(`<div class="krow"><span class="k">${esc(cut(bn.n, 5))}</span><span class="v kdn">还有 ${bn.left} ${MO()}</span><span class="s">可去 ${n} 趟</span></div>`); }
   // 你不在时：纸鹤汇总（线 1 的 L.mailAway）
-  const away = L.mailAway ? L.mailAway(st) : [];
-  if (away && away.length) { lines.push(`<div class="kaway">${artIcon('mail', 16)}<span>你不在时：${away.slice(0, 3).map(x => esc(cut(x.t, 10))).join(' · ')}</span></div>`); if (L.mailAwayClear) L.mailAwayClear(st); }
+  const awayT = L.mailAwayText ? L.mailAwayText(st) : '';
+  if (awayT) { lines.push(`<div class="kaway">${artIcon('mail', 16)}<span class="klog">${esc(awayT)}</span></div>`); if (L.mailAwayClear) L.mailAwayClear(st); }
   if (res.rating >= 2) SFX.coin(); else SFX.fail();
   // 第一张只有【回洞府】；修为圆满换成【回去突破】，负伤换成【回去疗伤】，否则【再去一趟 ▸】
   const foot = [{ t: '回洞府', alt: true, fn: closeModal }];

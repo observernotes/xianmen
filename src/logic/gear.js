@@ -1,7 +1,7 @@
 /* 废柴仙途 · 逻辑模块 gear：法宝三槽、词条、强化、重铸、打造、熔炼与灵矿（docs/SYSTEMS.md §3，docs/CONTENT.md §3、§5.2）
  * 模块写法见 src/logic.js 顶部说明。
  *   st.gear = { w 兵器, r 法衣, o 饰品（各为一件或 null）, pend 待决定的掉落, lock 锁定当前（更低阶的掉落自动熔炼）,
- *               plans 器方, zhentu 阵图（阵法系统上线前先收着）, mats 首领材料 { 首领序号: 件数 }, uid, huzhu 护主上次生效的周天,
+ *               plans 器方, zhentu 阵图（阵法系统上线前先收着）, mats 首领材料 { 首领序号: 件数 }, uid, huzhu 护主上次生效的月,
  *               rf 重铸的二选一（待定）, last 最近一次强化的花费（forge_refund2 返还用）, vaultU 宝库镇宗法宝已领 }
  *   一件法宝 = { u 编号, id 底子（L.gearBase(id)：名字、槽、阶、五行、固定词条）, slot, t 阶, plus 强化 0～9, aff 词条 id 数组, fail 连续强化失败次数（保底） }
  *   st.ore 灵矿（强化、打造用）：历练（斩妖 ×1.5，黑风岭 ×2、剑冢 ×3、星墟 ×4）、熔炼 4 × 2^阶、首领、事件、坊市一筐、宗门器堂。
@@ -34,9 +34,9 @@ L.AFFIX = {
   ke_jin: { n: '克金', el: 'jin', slots: 'w' }, ke_mu: { n: '克木', el: 'mu', slots: 'w' }, ke_shui: { n: '克水', el: 'shui', slots: 'w' },
   ke_huo: { n: '克火', el: 'huo', slots: 'w' }, ke_tu: { n: '克土', el: 'tu', slots: 'w' },
   cangfeng: { n: '藏锋', d: '被五行克制时不受惩罚', slots: 'wr' },
-  huzhu: { n: '护主', d: '丁等不负伤（每 12 周天一次）', slots: 'ro' },
+  huzhu: { n: '护主', d: '丁等不负伤（每 12 月一次）', slots: 'ro' },
   zhenjie: { n: '镇劫', d: '天劫承劫 +5%', slots: 'ro' },
-  qingling: { n: '轻灵', d: '历练时长 −1（最少 2 周天）', slots: 'wr', minT: 3 },
+  qingling: { n: '轻灵', d: '历练时长 −1（最少 2 月）', slots: 'wr', minT: 3 },
   jucai: { n: '聚财', d: '历练灵石 +12%', slots: 'wro' },
   xunzhen: { n: '寻珍', d: '历练法宝功法掉率 +15%', slots: 'wro' },
   cailing: { n: '采灵', d: '历练灵草 +30%', slots: 'ro' },
@@ -173,7 +173,7 @@ const plusOf = x => (ON() ? x.plus || 0 : 0);
 const pm = x => 1 + L.PLUS.step * plusOf(x);
 // 兵器：战力 1 + (阶倍率 − 1) × (1 + 6% × 强化)
 L.gearWM = (x, plus) => { if (!x) return 1; const m = L.WEAPONS[x.t].m; return 1 + (m - 1) * (1 + L.PLUS.step * (plus === undefined ? plusOf(x) : plus)); };
-// 法衣：历练分数 +1.5×阶、负伤周天 −1（阶 ≥ 3）、天劫承劫 +3%×阶（阶 ≥ 5 再 +5%）、六阶丁等 30% 改判丙；厚德载物（c5）全部效果 ×1.5
+// 法衣：历练分数 +1.5×阶、负伤月 −1（阶 ≥ 3）、天劫承劫 +3%×阶（阶 ≥ 5 再 +5%）、六阶丁等 30% 改判丙；厚德载物（c5）全部效果 ×1.5
 const c5 = st => (L.comboOn(st, 'c5') ? 1.5 : 1);
 L.gearOScore = (st, x) => (x ? 1.5 * x.t * pm(x) * c5(st) : 0);
 L.gearOTrib = (st, x) => (x ? (3 * x.t * pm(x) + (x.t >= 5 ? 5 : 0)) * c5(st) : 0);
@@ -192,7 +192,7 @@ L.gearMainText = function (st, x, plus) {
   if (x.slot === 'w') return `战力 ×${(Math.round(L.gearWM(y) * 100) / 100)}`;
   if (x.slot === 'r') {
     const a = [`历练分数 +${n1(L.gearOScore(st, y))}`];
-    if (L.gearOInj(y)) a.push('负伤 −1 周天');
+    if (L.gearOInj(y)) a.push('负伤 −1 月');
     a.push(`承劫 +${n1(L.gearOTrib(st, y))}%`);
     if (x.t >= 6) a.push('丁等 30% 改判丙');
     return a.join(' · ');
@@ -240,7 +240,7 @@ L.gearExp = function (st) {
 };
 // 历练时长：轻灵 −1（最少 2）
 L.gearExpLen = (st, n) => (st && L.gearAffN(st, 'qingling') ? Math.max(2, Math.min(n, n - 1)) : n);
-// 负伤：法衣三阶起少 1 周天；护主每 12 周天挡一次丁等负伤；六阶法衣丁等 30% 改判丙
+// 负伤：法衣三阶起少 1 月；护主每 12 月挡一次丁等负伤；六阶法衣丁等 30% 改判丙
 L.gearInjCut = st => L.gearOInj(eq(st, 'r'));
 L.gearHuzhuReady = st => L.gearAffN(st, 'huzhu') > 0 && st.tick - (st.gear.huzhu === undefined ? -99 : st.gear.huzhu) >= L.AFF_V.huzhuCd;
 L.gearDingSave = st => { const o = ON() && eq(st, 'r'); return o && o.t >= 6 ? 0.3 : 0; };
@@ -456,7 +456,7 @@ L.planOwned = (st, id) => !!(st.gear && st.gear.plans[id]);
 L.planOre = P => (P.ore ? Math.ceil(P.ore * Math.pow(1.5, P.t)) : 0);
 L.planNeeds = function (st, id) {
   const P = L.PLAN[id], g = st.gear, out = [];
-  for (const k in P.mats) out.push({ t: `${L.BOSS_MAT[k]} ×${P.mats[k]}`, have: g.mats[k] || 0, need: P.mats[k], ok: (g.mats[k] || 0) >= P.mats[k], src: `${L.BOSSES[k].n}（首杀 ×2，之后每 48 周天再战 ×1）` });
+  for (const k in P.mats) out.push({ t: `${L.BOSS_MAT[k]} ×${P.mats[k]}`, have: g.mats[k] || 0, need: P.mats[k], ok: (g.mats[k] || 0) >= P.mats[k], src: `${L.BOSSES[k].n}（首杀 ×2，之后每 48 月再战 ×1）` });
   const o = L.planOre(P); if (o) out.push({ t: `灵矿 ${L.fmt(o)}`, have: st.ore || 0, need: o, ok: (st.ore || 0) >= o });
   for (const y in P.yin || {}) out.push({ t: `${L.YIN_N[y]} ×${P.yin[y]}`, have: L.yinHave(st, y), need: P.yin[y], ok: L.yinHave(st, y) >= P.yin[y], src: '灵田药引作物、坊市、觅食的灵宠' });
   if (P.sword) out.push({ t: `老祖旧剑残片 ×${P.sword}`, have: L.swordFrags(st), need: P.sword, ok: L.swordFrags(st) >= P.sword, src: '老祖的旧剑链' });
@@ -496,7 +496,7 @@ L.givePlan = function (st, id) {
 };
 L.giveMat = (st, k, n) => { st.gear.mats[k] = (st.gear.mats[k] || 0) + n; return n; };
 
-// ---------- 每周天：过期没决定的掉落按“更好就换、否则熔炼”结清（正常游玩里对比卡关掉就熔炼，这里只是兜底） ----------
+// ---------- 每月：过期没决定的掉落按“更好就换、否则熔炼”结清（正常游玩里对比卡关掉就熔炼，这里只是兜底） ----------
 L.GEAR_PEND_TTL = 40;
 // 收着的（槽没开时得到的首领专属等）：槽一开，空着就直接戴上，否则转成一张普通的对比卡
 L.gearTick = function (st) {

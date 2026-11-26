@@ -4,7 +4,7 @@
  * 链事件就是普通事件加 chain: '链id', step: n（events-engine 完成第 n 步自动置 flag「链短名_n」，下一步 need 它）。
  * 这里补“进度引擎”，保证链能走完、不会永远卡住：
  *   - L.chainProgress(st) 每条链做到第几步、下一步是哪件事、在哪儿触发（洞府来客 / 某张图的历练途中 / 踏入某境界）。
- *   - 催一下：链开了头（或出身自带的那条），下一步能出、而且距上一步已过 L.CHAIN_V.due 个周天时，
+ *   - 催一下：链开了头（或出身自带的那条），下一步能出、而且距上一步已过 L.CHAIN_V.due 个月时，
  *     访客与途中遭遇有 L.CHAIN_V.p 的机会直接挑它（L.pickEvent 包一层）。第一世三年之约之前不催。
  *   - 境界上限放宽：链的第 n 步（n ≥ 2）在上一步做完以后不再看 maxR（中途升了境界不至于把链卡死）；第 1 步照旧。
  *   - 同一步只做一次：某一步的 flag 已经有了，这一步的其它版本（出身专属的第 1 步等）不再出。
@@ -12,7 +12,7 @@
  *   - 同一触发键的剧情要读前一段剧情刚置的 flag（story_r7 置 st_justice，tianheng_2 要它）：剧情事件结算完，把它的 realm:N 再发一次（只会补上新满足条件的）。
  *   - 终点：每条链走完记进 st.meta.chain（跨世），附带的“链成”奖励见 L.CHAINS[].fin（阵图、灵宠进化材料、天道试炼提示）；
  *     各步本来的 fx（功法、器方、九转秘方…）照旧。
- * 存档：st.chain = { at: { 链id: 上一步的周天 } }（每世）；st.meta.chain = { 链id: { best 最多做到几步, done 走完几次 } }（跨世）。
+ * 存档：st.chain = { at: { 链id: 上一步的月 } }（每世）；st.meta.chain = { 链id: { best 最多做到几步, done 走完几次 } }（跨世）。
  *   L.migrateChains 幂等，save.js 调一行。sim 对照：L.CHAINS_ON = false（node tools/sim.js all 200 nochains）链事件一概不出。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';

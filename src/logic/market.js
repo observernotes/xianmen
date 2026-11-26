@@ -1,8 +1,8 @@
 /* 废柴仙途 · 逻辑模块 market：坊市货架、行情（出售）、拍卖竞价、坊市事件（docs/SYSTEMS.md §10，docs/CONTENT.md §14.7）
  * 模块写法见 src/logic.js 顶部说明。
  *   货架 6 格：3 格常驻（破境丹、寻宝、灵兽蛋），3 格每届论道（t%12 = 0）从池子里轮换，各限购 1～3 件；寿元不足三成时老板另备一枚“加急”延寿丹。
- *   行情（筑基）：灵草、灵矿、破境丹可卖，各有指数 0.6～1.6，每 6 周天游走一步（±0.2），秋季 +0.2、大势另乘；【卖一半】【全卖】。
- *   拍卖（金丹）：每 24 周天（t%24 = 8 起 6 周天）一场 3 件，起拍价约 12 周天收入；60% 的拍品有一位有名字的竞拍者；
+ *   行情（筑基）：灵草、灵矿、破境丹可卖，各有指数 0.6～1.6，每 6 月游走一步（±0.2），秋季 +0.2、大势另乘；【卖一半】【全卖】。
+ *   拍卖（金丹）：每 24 月（t%24 = 8 起 6 月）一场 3 件，起拍价约 12 月收入；60% 的拍品有一位有名字的竞拍者；
  *     出价三档：跟一口 ×1.0 / 35%，加价 ×1.4 / 70%，豪掷 ×2.0 / 97%，有竞拍者各 −15%；没拿下不花钱；一场只能出手两次。
  *     竞拍者拿走的（你没拿下、或到散场也没人出手）：宿敌与天骄榜上的人战力永久 ×1.04，下届论道的台词里会提起（rivals.js）。
  *   st.market = { cyc 本届货架是第几届, rot 轮换格 [{ k, lim, sold, off 折扣, tier / art / plan }], disc 本届折扣（mkt_discount 的九折）, discNext, extra 下一届多一格,
@@ -98,7 +98,7 @@ function rowDesc(st, s) {
   if (s.k === 'ore') return `一筐 ${L.fmt(L.oreBasket(st))} · 手里 ${L.fmt(st.ore || 0)}`;
   if (s.k === 'feed') return `一袋 ${L.feedSack(st)} · 手里 ${L.fmt(st.feed || 0)}`;
   if (s.k === 'yin' && s.yin) return `${L.YIN_N[s.yin]} ×${L.YIN_PACK} · 手里 ${L.yinHave(st, s.yin)}`;
-  if (s.k === 'seed' && s.crop) { const C = L.CROP[s.crop]; return L.cropOpen(st, s.crop) ? '已经能种了' : `提前解锁（本来${C.lock.replace('解锁', '')}）：${C.cyc} 周天一收，产${L.cropOutN(C)}`; }
+  if (s.k === 'seed' && s.crop) { const C = L.CROP[s.crop]; return L.cropOpen(st, s.crop) ? '已经能种了' : `提前解锁（本来${C.lock.replace('解锁', '')}）：${C.cyc} 月一收，产${L.cropOutN(C)}`; }
   if (s.k === 'egg') return L.eggDesc(st);
   if (s.k === 'life') return `寿元 +10% · 本境界已服 ${lifeUsed(st)}/3`;
   if (s.k === 'robe') return `现在 ${L.gearTier(st, 'r') ? L.gearTierName('r', L.gearTier(st, 'r')) : '空'}；随机词条，走对比卡`;
@@ -148,7 +148,7 @@ L.oreBuyLeft = st => L.shelf(st).filter(r => r.k === 'ore' && !r.lock).reduce((a
 
 // ---------- 买 ----------
 // 寻宝保底（和拍卖）能补到的最高阶：L.BOX_CAP + 境界（法宝至多 7 阶、功法至多 6 阶）。
-// v1 写的是 2 + r；寻宝便宜、拍卖每 24 周天一次，按 2 算时功法化神就满、法宝炼虚就满，改 1（tools/sim.js 校准）
+// v1 写的是 2 + r；寻宝便宜、拍卖每 24 月一次，按 2 算时功法化神就满、法宝炼虚就满，改 1（tools/sim.js 校准）
 // 功法按阶抽一门具体的（arts.js 的 L.rollArt）；保底给最落后的已开槽补高一阶的一门（L.artPity）。
 // 法宝：随机给一件开了的槽（按阶抽一件，带词条，走对比卡）；保底给最弱的一槽补下一阶（L.gearWeakest / L.gearNextTier）
 L.BOX_CAP = 1;
@@ -264,7 +264,7 @@ L.sell = function (st, k, frac) {
   L.checkQuests(st);
   return { k, n, stones: v, mult: L.sellMult(st, k) };
 };
-// 行情每 6 周天游走一步：±0.2，越偏离 1 越容易往回走
+// 行情每 6 月游走一步：±0.2，越偏离 1 越容易往回走
 function walk(st) {
   const m = mk(st);
   for (const k of L.SELL_KEYS) {
@@ -273,7 +273,7 @@ function walk(st) {
   }
 }
 
-// ---------- 拍卖会（金丹解锁）：每 24 周天一次，开 6 周天，三件，竞价 ----------
+// ---------- 拍卖会（金丹解锁）：每 24 月一次，开 6 月，三件，竞价 ----------
 L.AUCTION = { every: 24, at: 8, len: 6, price: 12, bids: 2, compP: 0.6, compCut: 0.15, boost: 1.04, consign: 8,
   tiers: [{ n: '跟一口', m: 1.0, p: 0.35, icon: 'bid1' }, { n: '加价', m: 1.4, p: 0.70, icon: 'bid2' }, { n: '豪掷', m: 2.0, p: 0.97, icon: 'bid3' }] };
 L.auctionOpen = st => !!st.auction && st.tick < st.auction.until;
@@ -306,7 +306,7 @@ function rollAuction(st) {
   if (p.r >= 4 && ap.length) { const id = pick(ap); pool.push({ k: 'plan', plan: id, n: `器方《${L.PLAN[id].n}》`, m: 0.9 }); }
   const pa = L.artPity(st, L.boxCap(st, 'a'));
   if (pa) { const A = L.art(pa); pool.push({ k: 'a', art: pa, tier: A.t, n: `${L.artTierName(A.t)}${L.ART_CAT[A.k]}《${A.n}》`, m: 1.2 }); }
-  // 化神起偶有神阶残篇（鸿蒙造化经、周天星斗大法，三片合一）
+  // 化神起偶有神阶残篇（鸿蒙造化经、月星斗大法，三片合一）
   const fr = fragIds(st);
   if (p.r >= 4 && fr.length) { const id = pick(fr); pool.push({ k: 'frag', art: id, tier: 6, n: `《${L.art(id).n}》残篇（${(st.arts.frag[id] || 0)}/3）`, m: 1.4 }); }
   if (L.petCount(st) < L.petCap(st)) { const el = pick(L.PET_EGG_ELS); pool.push({ k: 'egg', el, n: `${L.eggName(st, el)}（品阶高一档）`, m: 1 }); }
@@ -407,7 +407,7 @@ L.auctionClose = function (st) {
 };
 
 // ---------- 坊市事件（where: 'market'）：换货、买轮换货、开拍、宿敌在场、送拍。排进 st.market.evQ，坊市界面打开时弹 ----------
-// p：触发概率；life：在队里留几个周天（默认到下一次换货）
+// p：触发概率；life：在队里留几个月（默认到下一次换货）
 L.marketTrigger = function (st, key, p, life) {
   if (p !== undefined && R() >= p) return null;
   const m = mk(st);
@@ -427,7 +427,7 @@ L.marketEvent = function (st) {
 };
 L.marketEventDone = (st, id) => { const m = mk(st); m.evQ = (m.evQ || []).filter(x => x.id !== id); };
 
-// ---------- 每周天（tick.js 调）：行情游走、换货、拍卖散场与开槌 ----------
+// ---------- 每月（tick.js 调）：行情游走、换货、拍卖散场与开槌 ----------
 L.marketTick = function (st, out) {
   const m = mk(st);
   if (st.tick % L.IDX.every === 0) walk(st);
@@ -435,7 +435,7 @@ L.marketTick = function (st, out) {
   if (st.auction && st.tick >= st.auction.until) { out.aucEnd = L.auctionClose(st); st.auction = null; }
   if (L.mr(st) >= 2 && st.p.r <= L.MAXR && st.tick % L.AUCTION.every === L.AUCTION.at) {
     rollAuction(st); out.auction = true;
-    L.log(st, `坊市拍卖会开槌，为期 ${L.AUCTION.len} 周天`, 'gold');
+    L.log(st, `坊市拍卖会开槌，为期 ${L.AUCTION.len} 月`, 'gold');
   }
   void m;
 };

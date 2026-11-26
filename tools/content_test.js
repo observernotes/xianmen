@@ -72,14 +72,14 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   // 宗门：任务板接取与交付
   await page.evaluate(() => { const { st } = window.__xm; st.sect.tasks = [{ ty: 'herbs', n: 24, need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { pills: 1 } }, { ty: 'pill', n: 1, need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { herbs: 10 } }, { ty: 'act', sub: 'retreat', need: 1, prog: 0, taken: 0, done: 0, rw: 50, bonus: { inc: 3 } }]; st.pills = 3; });
-  await page.click('[data-nav="sect"]'); await page.waitForTimeout(300); await shot('c11-sect');
+  await page.evaluate(() => window.__xm.showSect()); await page.waitForTimeout(300); await shot('c11-sect');
   await page.click('#modal [data-stab="task"]'); await page.waitForTimeout(300);
   await page.click('#modal [data-tk="0"]'); await page.waitForTimeout(300);
   await page.click('#modal [data-td="0"]'); await page.waitForTimeout(300); await shot('c11b-sect-task');
   expect(await page.evaluate(() => window.__xm.st.sect.tasks[0].done === 1), '宗门任务交付完成');
   await close();
   // 拍卖会（竞价）：点【加价】出一次价
-  await page.evaluate(() => { const { st, L } = window.__xm; st.p.r = 3; L.rollAuction(st); if (st.market) st.market.evQ = []; }); await page.click('[data-nav="market"]'); await page.waitForTimeout(300); await page.click('#modal [data-mtab="auc"]'); await page.waitForTimeout(150); await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(100); await shot('c12-auction');
+  await page.evaluate(() => { const { st, L } = window.__xm; st.p.r = 3; L.rollAuction(st); if (st.market) st.market.evQ = []; }); await page.evaluate(() => window.__xm.showMarket()); await page.waitForTimeout(300); await page.click('#modal [data-mtab="auc"]'); await page.waitForTimeout(150); await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(100); await shot('c12-auction');
   const au = await page.$('#modal [data-bid$=":1"]:not([disabled])'); if (au) { await au.click(); await page.waitForTimeout(900); }
   expect(await page.evaluate(() => window.__xm.st.auction.bids === 1), '拍卖会点【加价】出了一次价');
   await close();
@@ -193,7 +193,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const lk = await page.evaluate(() => { const { st, L } = window.__xm; L.gearLock(st, 'w', true); const it = L.gearDrop(st, 'w', 2, { base: 'w2_1' }); const it2 = L.gearDrop(st, 'w', 4, { base: 'w4_0' }); const r = { auto: !!it.auto, smelt: it.smelt, pend2: !!it2.pend }; L.gearDecide(st, it2.u, 'smelt'); L.gearLock(st, 'w', false); return r; });
   expect(lk.auto && lk.smelt === 16 && lk.pend2, `锁定当前：二阶直接熔炼 +${lk.smelt}，同阶照样弹卡`);
   // 强化：法宝页【强化】按钮，预览写的“战力 a → b”与实际一致；+0→+1 必成
-  await page.evaluate(() => window.__xm.showGear('w')); await page.waitForTimeout(300); await shot('c23-gear-page');
+  await page.evaluate(() => window.__xm.showGearDetail('w')); await page.waitForTimeout(300); await shot('c23-gear-page');
   const pv = await page.evaluate(() => { const d = [...document.querySelectorAll('#modal .gplusinfo dl.delta dt')].find(x => x.textContent === '战力'); return d ? d.nextElementSibling.querySelector('b').textContent : null; });
   await page.click('#modal [data-plus="w"]'); await page.waitForTimeout(400); await shot('c24-gear-plus');
   const pv1 = await page.evaluate(() => { const { st, L } = window.__xm; return { p: L.fmt(L.power(st)), plus: st.gear.w.plus, msg: (document.querySelector('#modal .gdet .quote') || {}).textContent || '' }; });
@@ -400,7 +400,7 @@ require('fs').mkdirSync(out, { recursive: true });
     return { a: a && a.id, b: b && b.id, q: st.market.evQ.map(x => x.id).join() };
   });
   expect(me0.a === 'mkt_fake' && me0.b === 'mkt_haggle', `坊市事件入队：${me0.q}`);
-  await page.click('[data-nav="market"]'); await page.waitForTimeout(400); await shot('c27-market-event');
+  await page.evaluate(() => window.__xm.showMarket()); await page.waitForTimeout(400); await shot('c27-market-event');
   const me1 = await page.evaluate(() => document.querySelector('#modal h2').textContent);
   expect(me1.includes('标错的价'), `打开坊市先弹坊市事件（${me1}）`);
   await page.click('#modal button[data-c="1"]'); await page.waitForTimeout(300);
@@ -425,7 +425,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const cal = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: !!document.querySelector('#calStrip'), rows: [...document.querySelectorAll('#modal [data-cal]')].map(x => x.dataset.cal).join(), txt: document.querySelector('#modal .body').textContent }));
   expect(cal.t === '年历' && cal.strip && cal.rows.includes('dao') && cal.rows.includes('auc') && cal.rows.includes('war') && cal.rows.includes('realm') && cal.rows.includes('world') && cal.txt.includes('兽潮'), `年历：${cal.rows}`);
   await close();
-  await page.click('#stats [data-s="big"]'); await page.waitForTimeout(300);
+  await page.click('#time'); await page.waitForTimeout(300);
   expect(await page.evaluate(() => document.querySelector('#modal h2').textContent === '年历'), '筑基后“大事”牌点开是年历');
   await close();
   // 老祖在每件大势开始时的一句“该干什么”：12 种都带数字，没有 undefined / NaN
@@ -977,7 +977,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const dc = await sHint('disc1', "st.disc = null; L.rollCands(st); st.disc.cand[0].t = 5;");
   const dcN = await page.evaluate(() => { const c = window.__xm.st.disc.cand[0]; return { n: c.n, g: (0.02 * 1.8).toFixed(3) }; });
   expect(dc.g.includes(dcN.n) && dc.g.includes('门下') && dc.g.includes(dcN.g) && dc.hold, `第一个徒弟讲解：${dc.g.slice(0, 40)}（暂停 ${dc.hold}）`);
-  await page.click('[data-nav="sect"]'); await page.waitForTimeout(300);
+  await page.evaluate(() => window.__xm.showSect()); await page.waitForTimeout(300);
   await page.click('#modal [data-stab="id"]'); await page.waitForTimeout(300); await shot('c42-sect-id');
   const tabs = await page.evaluate(() => [...document.querySelectorAll('#modal [data-stab]')].map(b => b.textContent.replace(/！/, '').trim()).join());
   expect(tabs === '身份,任务板,宝库,门下', '宗门四个分页：' + tabs);
@@ -3105,7 +3105,8 @@ require('fs').mkdirSync(out, { recursive: true });
         await pg.waitForTimeout(25);
       }
       expect(lk.seen && lk.goneAt > 0 && lk.goneAt - lk.firstAt >= 200 && lk.goneAt - lk.firstAt <= 700 && lk.unlock, `阶段四 1 底栏解锁：.lkbrk 出现后约 330ms 撤掉、.unlock 流程照旧：${JSON.stringify(lk)}（解锁前 ${lockedBefore}）`);
-      // 2 声音三态
+      // 2 声音三态（开罗式重整：声音键在【仙途】→ 设置）
+      await ev(() => window.__xm.showSettings()); await pg.waitForTimeout(200);
       const snd = [];
       for (let i = 0; i < 3; i++) {
         snd.push(await ev(() => { const b = document.getElementById('btnSound'), im = b.querySelector('img'); const L = ['声音：音乐与音效', '声音：仅音效', '声音：静音'], k = L.indexOf(b.getAttribute('aria-label')); const want = ['snd_on', 'snd_sfx', 'snd_off'].map(n => window.__xm.ART.icon(n).toDataURL()); return { label: b.getAttribute('aria-label'), idx: k, imgMatch: !!im && k >= 0 && im.src === want[k], distinct: new Set(want).size }; }));

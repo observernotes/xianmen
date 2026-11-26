@@ -184,7 +184,7 @@ L.addBtMod('codex', 76, st => { const v = grpSum(st, 'bt'); return v ? ['图鉴�
   if (res && ev && !ev.chain && !auto && ['home', 'exp', 'realm', 'market'].includes(ev.where)) CX(st).ev[ev.id] = 1;
   return res;
 }; }
-// 手里已有的（旧档、开局送的、迁移）补记；每周天顺手做一次，很便宜
+// 手里已有的（旧档、开局送的、迁移）补记；每月顺手做一次，很便宜
 function seed(st) {
   const c = CX(st);
   if (st.arts) for (const id in st.arts.own) if (L.art(id)) c.art[id] = 1;
@@ -200,7 +200,7 @@ function seed(st) {
 }
 L.codexSeed = seed;
 L.codexEnding = function (st, ids) { const c = CX(st), fresh = []; for (const id of ids || []) if (L.ENDING[id] && !c.end[id]) { c.end[id] = 1; fresh.push(id); } return fresh; };
-// 新格、成组：每周天看一次。新格记进 st.cxNews（老祖的讲解与气泡读），成组给加成并写日志
+// 新格、成组：每月看一次。新格记进 st.cxNews（老祖的讲解与气泡读），成组给加成并写日志
 L.codexCheck = function (st, out) {
   seed(st);
   const c = CX(st), cnt = st.cxCnt && typeof st.cxCnt === 'object' ? st.cxCnt : null, now = {};

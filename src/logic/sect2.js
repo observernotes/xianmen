@@ -2,20 +2,20 @@
  * 模块写法见 src/logic.js 顶部说明。
  *
  *   任务板：sect.js 的 8 类之外再登记 4 类（L.TASK_X）——炼器（强化到 +3 以上一次，或上交灵矿）、驯兽（上交兽粮，或带指定属性的灵宠出战一趟）、
- *           探秘（有秘境时：本季秘境闯过 N 层；没有时：去家门口最远一张图的禁地寻宝一趟，评价乙以上）、讲法（以一门圆满功法讲道 2 周天，贡献 ×2，徒弟各得进益）。
- *   宝库轮换：6 格，每届论道（12 周天）换一次——本宗功法、宝库法宝（够格时先给镇宗法宝）、本宗阵图 / 器方、破境丹、灵矿（或灵草）、再随机一格；
+ *           探秘（有秘境时：本季秘境闯过 N 层；没有时：去家门口最远一张图的禁地寻宝一趟，评价乙以上）、讲法（以一门圆满功法讲道 2 月，贡献 ×2，徒弟各得进益）。
+ *   宝库轮换：6 格，每届论道（12 月）换一次——本宗功法、宝库法宝（够格时先给镇宗法宝）、本宗阵图 / 器方、破境丹、灵矿（或灵草）、再随机一格；
  *           按身份开放（不够格的照样摆着，写“X 可换”），贡献是唯一的货币。管库执事的悄悄话（vault_tip）：下一届法宝那格高一阶。
  *   职司（真传起，选一个，每届会武后可改）：丹堂 / 器堂 / 战堂 / 执法堂 / 外事堂，效果包在炼丹、强化、熔炼、历练、论道、访客、货架、拍卖上。
  *   人脉：每宗三位长老（L.ELDERS），支持 0～100（入宗时各 10）。来自对应类型的宗门任务（+3）、事件（fx.favor：a / b / c 是本宗第 1 / 2 / 3 位，或写长老 id）、
  *         送礼（每位每届一次 +6，天材地宝 +9，只送得到 40；他的对头 −2）。≥ 40 得小恩惠（每届一份东西或一项常驻加成），第一次到 80 得绝学（功法、器方、阵图）。
  *         圣子之争、宗主之位要至少两位长老 ≥ 50（L.addPromoReq）；圣子之争前夜（sect:heir）三位长老来谈条件，谁也不站（heir_none）就改成累计贡献多两成；
  *         宗主之争（sect:lord）还回镇宗法宝（lord_gift）补一票。
- *   血煞魔宗（第四宗，L.SECTS 追加）：魔门遗孤出身、或夜璃好感 ≥ 40、或魔修欠你一条命（mo_owe）时才会来招揽；越级奖励 ×3、负伤周天 ×2、因果可换贡献；
+ *   血煞魔宗（第四宗，L.SECTS 追加）：魔门遗孤出身、或夜璃好感 ≥ 40、或魔修欠你一条命（mo_owe）时才会来招揽；越级奖励 ×3、负伤月 ×2、因果可换贡献；
  *         正道会盟、正魔大战这类事件不出。
  * 事件能力：fx.favor / fx.duty / fx.busy，资格 favorMin，触发键 sect:heir / sect:lord；一次性 flag vault_tip、heir_none、lord_vote、lord_gift、lord_duel、war_feint。
  * 接入点（加载时包一层）：L.joinSect、L.promote、L.alchRate、L.gearPlusRate、L.gearPlusCost、L.gearSmeltOre、L.sellParts、L.buyMult、L.bidInfo、L.calVisitMult、
  *   L.spawnVisitor、L.tournament、L.resolveExp、L.gearPlus、L.retCost、L.addMastery、L.leapMult、L.fieldHerbMult、L.marketTick、L.endRetreat、L.eligible、L.resolveChoice。
- *   tick.js 每周天调 L.sectTick；save.js 调 L.migrateSect2（缺的补默认值，可重复调用，不升存档版本）。 */
+ *   tick.js 每月调 L.sectTick；save.js 调 L.migrateSect2（缺的补默认值，可重复调用，不升存档版本）。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
@@ -25,7 +25,7 @@ const wrap = (name, f) => { const base = L[name]; if (typeof base !== 'function'
 let lastSt = null;   // 不带 st 的函数（L.gearSmeltOre）从这里读
 
 // ---------- 血煞魔宗：第四宗 ----------
-L.SECTS.push({ id: 'xuesha', n: '血煞魔宗', d: '魔道第一宗，强者为尊', perk: '越级奖励 ×3；负伤周天 ×2；手里的因果可以换贡献（每条 +50 起）', fit: '适合：爱越级', atk: 1, cul: 1, bt: 0, color: '#c8323c', mo: true });
+L.SECTS.push({ id: 'xuesha', n: '血煞魔宗', d: '魔道第一宗，强者为尊', perk: '越级奖励 ×3；负伤月 ×2；手里的因果可以换贡献（每条 +50 起）', fit: '适合：爱越级', atk: 1, cul: 1, bt: 0, color: '#c8323c', mo: true });
 L.MO_V = { leap: 1.5, karma: 50 };
 // 魔门遗孤出身、夜璃好感 ≥ 40、或救过的魔修欠你一条命（su_q2 的 mo_owe）
 L.sectJoinable = (st, id) => id !== 'xuesha' || st.origin === 'moyi' || L.aff(st, 'ye') >= 40 || !!(st.eflags && st.eflags.mo_owe);
@@ -124,7 +124,7 @@ L.elderFavDesc = function (st, x, lv) {
     case 'world': return `天象早知：天下大势期间历练分数 +${s.v}`;
     case 'leap': return `越级奖励再 +${L.pct(s.v)}`;
     case 'bid': return `拍卖拿下把握 +${L.pct(s.v)}`;
-    case 'tox': return `丹毒每周天多消 ${s.v}（毒亦是药）`;
+    case 'tox': return `丹毒每月多消 ${s.v}（毒亦是药）`;
   }
   return '';
 };
@@ -230,7 +230,7 @@ L.duty = st => (st.sect && L.dutyOpen(st) && st.sect.duty) || '';
 L.dutyWhy = function (st) {
   if (!L.dutyOpen(st)) return '真传弟子才有职司';
   ensure(st);
-  if (st.sect.duty && st.sect.meets <= st.sect.dutyMeet) return `下届会武后才能改（${L.nextMeet(st)} 周天后）`;
+  if (st.sect.duty && st.sect.meets <= st.sect.dutyMeet) return `下届会武后才能改（${L.nextMeet(st)} 月后）`;
   return '';
 };
 L.setDuty = function (st, k, free) {
@@ -370,13 +370,13 @@ L.TASK_X.explore = {
   },
   text: (st, t) => (t.realm ? `探秘：本季秘境闯过 ${t.n} 层` : `探秘：去【${L.REGIONS[t.k].n}】禁地寻宝一趟，评价乙以上`),
 };
-// 讲法：手里有一门圆满（或化境）的功法；接下就开讲，2 周天不修炼、不能出门
+// 讲法：手里有一门圆满（或化境）的功法；接下就开讲，2 月不修炼、不能出门
 L.LECTURE_LEN = 2;
 const bestRipe = st => Object.keys(st.arts.own).filter(id => L.art(id) && L.artLv(st, id) >= 3).sort((a, b) => L.art(b).t - L.art(a).t)[0] || null;
 L.TASK_X.lecture = {
   n: '讲法', w: st => (bestRipe(st) ? 1.5 : 0),
   init: (st, t, std) => { t.art = bestRipe(st); t.rw = std * 2; },
-  text: (st, t) => `讲法：以《${L.art(t.art).n}》讲道 ${L.LECTURE_LEN} 周天（不修炼），贡献 ×2，徒弟各得进益`,
+  text: (st, t) => `讲法：以《${L.art(t.art).n}》讲道 ${L.LECTURE_LEN} 月（不修炼），贡献 ×2，徒弟各得进益`,
   take: (st, t, i) => L.startBusy(st, L.LECTURE_LEN, 'lecture', '讲法', { task: i }),
 };
 for (const ty in L.TASK_X) L.TASK_N[ty] = L.TASK_X[ty].n;
@@ -402,12 +402,12 @@ if (typeof L.mjPick === 'function' && typeof L.mjUnlocked === 'function') {
 L.taskActFav = st => (L.duty(st) === 'dan' ? 'craft' : null);
 L.taskPoolMod = (st, pool) => { if (L.duty(st) === 'dan') { const x = pool.find(p => p[0] === 'act'); if (x) x[1] *= 1.6; } };
 
-// ---------- 被占住的几个周天（讲法、传授、事件 fx.busy）：st.retreat.kind = 'busy'，修炼 ×0、不能出门 ----------
+// ---------- 被占住的几个月（讲法、传授、事件 fx.busy）：st.retreat.kind = 'busy'，修炼 ×0、不能出门 ----------
 L.startBusy = function (st, n, what, label, data) {
   if (L.busy(st) || st.p.r > L.MAXR || !(n > 0)) return false;
   st.retreat = Object.assign({ kind: 'busy', what, label, left: n, total: n, m: 0, got: 0 }, data || {});
   st.tuna = 0;
-  L.log(st, `${label}：${n} 个周天`, 'jade');
+  L.log(st, `${label}：${n} 个月`, 'jade');
   return true;
 };
 wrap('endRetreat', b => (st, done) => {
@@ -534,11 +534,11 @@ L.supportFx('favor', { ok: favOk, apply: (st, v, out) => {
 L.supportElig('favorMin', { ok: v => Array.isArray(v) && v.length === 2 && !!ALL_E[v[0]] && v[1] >= 0 && v[1] <= 100, test: (st, v) => !!st.sect && ALL_E[v[0]].sect === st.sect.id && (L.favor(st, v[0]) || 0) >= v[1] });
 L.supportFx('duty', { ok: v => !!L.DUTIES[v], apply: (st, v, out) => { if (L.setDuty(st, v, true)) out.push(`职司：${L.DUTIES[v].n}`); } });
 L.supportFx('busy', { ok: v => Number.isInteger(v) && v > 0 && v <= 12, apply: (st, v, out, fx, ctx) => {
-  if (L.startBusy(st, v, 'event', ctx && ctx.ev ? L.fill(st, ctx.ev.title) : '奔忙')) out.push(`占住 ${v} 个周天（不修炼、不能出门）`);
+  if (L.startBusy(st, v, 'event', ctx && ctx.ev ? L.fill(st, ctx.ev.title) : '奔忙')) out.push(`占住 ${v} 个月（不修炼、不能出门）`);
 } });
 L.supportTrigger('sect:');
 
-// ---------- 每周天（tick.js 调） ----------
+// ---------- 每月（tick.js 调） ----------
 L.sectTick = function (st, out) {
   if (!st.sect) return;
   const sc = ensure(st); lastSt = st;
@@ -547,7 +547,7 @@ L.sectTick = function (st, out) {
   // 圣子之争 / 宗主之争的前夜：除了人脉以外都够了，三位长老来谈条件（各一次）
   if (sc.rank === 2 && !sc.heirEv && L.promoBaseOk(st)) { sc.heirEv = 1; L.fireTrigger(st, 'sect:heir'); out.heirEve = true; }
   if (sc.rank === 5 && !sc.lordEv && L.promoBaseOk(st)) { sc.lordEv = 1; L.fireTrigger(st, 'sect:lord'); out.lordEve = true; }
-  // 魔宗：负伤周天 ×2（每两个周天才好一点）
+  // 魔宗：负伤月 ×2（每两个月才好一点）
   if (sc.id === 'xuesha' && st.p.inj > 0 && st.tick % 2 === 0) st.p.inj++;
   if (L.discTick) L.discTick(st, out);
 };

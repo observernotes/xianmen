@@ -2,23 +2,23 @@
  * 模块写法见 src/logic.js 顶部说明。
  *
  *   st.pets = [{ u 编号, sp 种, form 0 初始 / 1 分支 A / 2 分支 B, lv 1～10, xp, heart 0～5, hp 好感进度 0～1, job '' | 守田 field | 看炉 furnace | 护阵 array | 觅食 forage | 巡山 patrol,
- *               aw 觉醒, idle 连续闲着的周天, deep { 地图: 出战时去过几趟禁地 } }]
+ *               aw 觉醒, idle 连续闲着的月, deep { 地图: 出战时去过几趟禁地 } }]
  *   st.petOut = 出战那只的序号（−1 = 没有）；st.feed 兽粮；st.petPend 名册满时等你【放生 / 替换】的新灵宠；st.petFocus 触发剧情事件的那只（编号）
  *   st.meta.petEvo { 'p_hu_a': 1 … } 试出来的进化分支（跨世保留，未试过的分支在进化卡上写“？”）；st.meta.petSeen 见过的种
  *
  *   名册上限：筑基 1、金丹 2、元婴 3、合体 4（炼气时奇遇给的那一只也算 1）。出战 1 只：倍率与天赋生效；其余每只占一个岗位（一岗一只，类型对口 ×1.5）。
  *   倍率：1 + (L.PETS[阶].m − 1) × (1 + 5% × (级 − 1)) × (1 + 2% × 心) × 驭兽诀；阶 = 种的初阶 + 进化 1 + 觉醒 1（上限 6）。
  *   每级要兽粮 6 × 1.5^级 × 阶；出战的每趟历练另得一级的 10%。5 级二选一分支进化（条件满足卡片发光），10 级觉醒（天赋 ×1.5、阶 +1、光环）。
- *   好感：出战每 36 周天一心、在岗每 72 周天一心、喂食、事件；连续 24 周天既不出战也没岗位 −1 心；0 心再闲 24 周天叼碗出走（pet_runaway），
- *         事件用过以后再闲 24 周天就真的走了；5 心不会走，并能“挡劫”：天劫的护劫手段 +10%，挡完休养 12 周天（L.petCanShield / L.petShield，trib.js 调；休养期间出战倍率、岗位、天赋都不算）。
- *   兽粮：斩妖历练（1 + 地图）× 评价倍率、觅食岗位 0.5/周天、坊市轮换货“兽粮一袋”、宗门宝库、奇遇、放生。
+ *   好感：出战每 36 月一心、在岗每 72 月一心、喂食、事件；连续 24 月既不出战也没岗位 −1 心；0 心再闲 24 月叼碗出走（pet_runaway），
+ *         事件用过以后再闲 24 月就真的走了；5 心不会走，并能“挡劫”：天劫的护劫手段 +10%，挡完休养 12 月（L.petCanShield / L.petShield，trib.js 调；休养期间出战倍率、岗位、天赋都不算）。
+ *   兽粮：斩妖历练（1 + 地图）× 评价倍率、觅食岗位 0.5/月、坊市轮换货“兽粮一袋”、宗门宝库、奇遇、放生。
  *   药引（SYSTEMS §5，crops.js 的 st.mats.yin）：进化条件里的药引付真的药引；觅食偶尔叼回一枚。守田加灵田作物产量（crops.js 的 L.cropParts）与灵稻的灵石；看炉加成丹率。
  *
  * 接入点（本模块加载时包一层，别的模块不用改）：items 的 L.giveItem / L.itemText 的灵宠分支在 items.js 里转到这里；
  *   L.resolveExp（出战经验、斩妖兽粮、禁地趟数、青羽雀）、L.craft（下品丹 → pet_sick）、L.eligible / L.choiceShown（灵宠事件的前提、进化分支的条件）、
  *   L.spawnVisitor（巡山）、L.ageRate、L.alchRate、L.retBaseMult、L.choiceLuck、L.leapMult、L.expLen、L.gearDingSave、L.gearInjCut、L.expStoneMult、
  *   L.lifespan、L.affKnown、L.elemKnown、L.expElem、L.duelElem、L.gearAffN、L.addAff、L.addMastery、L.gearSmeltOre、L.toxDecay、L.vaultCost / L.vaultBuy（天赋与岗位）。
- *   tick.js 每周天调 L.petTick；save.js 调 L.migratePets（没有 st.pets 时把旧的 st.p.pet 折成名册，可重复调用）；market.js 的灵兽蛋与“兽粮一袋”调 L.petEgg / L.feedSack。
+ *   tick.js 每月调 L.petTick；save.js 调 L.migratePets（没有 st.pets 时把旧的 st.p.pet 折成名册，可重复调用）；market.js 的灵兽蛋与“兽粮一袋”调 L.petEgg / L.feedSack。
  *   L.PETS_ON = false（sim 的 nopets）：只剩种的初阶倍率，没有等级、进化、好感、岗位与天赋，量 SYSTEMS §18 的预算。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
@@ -38,14 +38,14 @@ L.PET_TAL = {
   realmUnk: { k: 'add', v: 0.04, d: () => '秘境“？”门少一半' },   // realm.js 的 L.mjUnkP 读（有就减半）
   leap: { k: 'mul', v: 1.2, d: v => `越级奖励 +${pc(v - 1)}` },
   herbx: { k: 'add', v: 0.1, d: v => `历练 ${pc(v)} 多带一份灵草` },
-  explen: { k: 'flag', v: 1, d: () => '历练时长 −1 周天（最少 2）' },
+  explen: { k: 'flag', v: 1, d: () => '历练时长 −1 月（最少 2）' },
   visitAff: { k: 'add', v: 1, d: v => `人物好感每次多 +${Math.round(v)}` },
   dingSave: { k: 'add', v: 0.3, d: v => `丁等 ${pc(v)} 改判丙等` },
   robe: { k: 'add', v: 0.3, d: v => `法衣效果 +${pc(v)}（历练分数）` },
   smelt: { k: 'mul', v: 1.5, d: v => `熔炼灵矿 +${pc(v - 1)}` },
   age: { k: 'add', v: 0.04, d: v => `寿元流逝 −${pc(v)}` },
   tribGuard: { k: 'add', v: 0.05, d: v => `挡劫不必 5 心，挡劫再 +${pc(v)}（天劫的护劫手段）` },
-  injCut2: { k: 'add', v: 2, d: v => `负伤周天 −${Math.round(v)}` },
+  injCut2: { k: 'add', v: 2, d: v => `负伤月 −${Math.round(v)}` },
   slay4: { k: 'add', v: 4, d: v => `斩妖历练分数 +${r2(v)}` },
   boss: { k: 'mul', v: 1.1, d: v => `对首领战力 ×${r2(v)}` },
   duelP2: { k: 'add', v: 0.02, d: v => `对决胜算 +${pc(v)}` },
@@ -56,7 +56,7 @@ L.PET_TAL = {
   duelP3: { k: 'add', v: 0.03, d: v => `先手：对决胜算 +${pc(v)}` },
   affixW: { k: 'mul', v: 1.3, d: v => `兵器词条效果 ×${r2(v)}` },
   cul4: { k: 'mul', v: 1.04, d: v => `修炼 +${pc(v - 1)}` },
-  toxin: { k: 'add', v: 1, d: v => `丹毒每周天多退 ${Math.round(v)}` },
+  toxin: { k: 'add', v: 1, d: v => `丹毒每月多退 ${Math.round(v)}` },
   life5: { k: 'mul', v: 1.05, d: v => `寿元 +${pc(v - 1)}` },
   waterMap: { k: 'add', v: 8, d: v => `水属性地图历练分数 +${r2(v)}` },
   atk11: { k: 'mul', v: 1.1, d: v => `出战战力倍率再 ×${r2(v)}` },
@@ -114,7 +114,7 @@ const hasBranch = sp => !!L.PET_SP[sp].a;
 // ---------- 岗位（一岗一只；类型对口 ×1.5；每级 +4%、每心 +2%） ----------
 L.PET_JOBS = [
   { k: 'array', n: '护阵', ty: 'hu', icon: 'job_array', v: 0.05, need: st => st.home.array >= 1, lock: '先升聚灵阵', d: v => `修炼 +${pc(v)}` },
-  { k: 'forage', n: '觅食', ty: 'xun', icon: 'job_forage', v: 0.5, need: () => true, d: v => `兽粮 +${r2(v)}/周天，偶尔叼回灵矿或药引` },
+  { k: 'forage', n: '觅食', ty: 'xun', icon: 'job_forage', v: 0.5, need: () => true, d: v => `兽粮 +${r2(v)}/月，偶尔叼回灵矿或药引` },
   { k: 'field', n: '守田', ty: 'xun', icon: 'job_field', v: 0.15, need: st => st.home.field >= 1, lock: '先开灵田', d: v => `灵田作物产量与灵稻灵石 +${pc(v)}` },
   { k: 'furnace', n: '看炉', ty: 'ling', icon: 'job_furnace', v: 0.06, need: st => st.home.furnace >= 1, lock: '先建丹炉', d: v => `成丹率 +${pc(v)}` },
   { k: 'patrol', n: '巡山', ty: 'zhan', icon: 'job_patrol', v: 0.5, need: () => true, d: v => `坏访客、盗贼 −${pc(Math.min(0.9, v))}` },
@@ -318,7 +318,7 @@ L.petPendDecide = function (st, j, i) {
   L.checkQuests(st);
   return { replaced: old, feed: f, p };
 };
-// 没决定的超过 12 周天自己走了（放生）
+// 没决定的超过 12 月自己走了（放生）
 const PEND_TTL = 12;
 
 // ---------- 出战与岗位 ----------
@@ -480,7 +480,7 @@ L.petTry = function (st, mut, fn) {
   try { mut(); return fn(); } finally { const o = JSON.parse(snap); o.pets.forEach((p, i) => Object.assign(st.pets[i] || (st.pets[i] = {}), p)); st.pets.length = o.pets.length; st.petOut = o.out; }
 };
 
-// ---------- 每周天 ----------
+// ---------- 每月 ----------
 L.petTick = function (st, out) {
   ensure(st);
   if (!st.pets.length && !st.petPend.length) return;
@@ -492,8 +492,8 @@ L.petTick = function (st, out) {
     if (!ON()) continue;
     p.idle++;
     if (p.heart >= 5) continue;
-    if (p.heart > 0) { p.z = 0; if (p.idle % N.idle === 0) { p.heart--; L.log(st, `【${L.petName(p)}】闲了 ${p.idle} 个周天，好感 −1（${p.heart} 心）：派个岗或带它出战`, 'red'); } continue; }
-    // 0 心还闲着：再过 24 周天叼着碗站到门口（pet_runaway，每世一次），事件用过以后再闲 24 周天就真走了
+    if (p.heart > 0) { p.z = 0; if (p.idle % N.idle === 0) { p.heart--; L.log(st, `【${L.petName(p)}】闲了 ${p.idle} 个月，好感 −1（${p.heart} 心）：派个岗或带它出战`, 'red'); } continue; }
+    // 0 心还闲着：再过 24 月叼着碗站到门口（pet_runaway，每世一次），事件用过以后再闲 24 月就真走了
     p.z = (p.z || 0) + 1;
     if (p.z === N.leave && !st.evDone.pet_runaway && !st.storyQ.includes('pet_runaway')) { st.petFocus = p.u; L.fireTrigger(st, 'pet_runaway'); }
     else if (p.z >= N.leave * 2) { removeAt(st, i); L.log(st, `【${L.petName(p)}】叼着食碗走了，再没回来`, 'red'); if (out) out.petLeft = p; }
@@ -510,7 +510,7 @@ L.petTick = function (st, out) {
   }
   // 名册 ≥ 2：两只争窝（pet_fight，每届论道后 25%）
   if (st.pets.length >= 2 && st.tick % 12 === 6 && !st.evDone.pet_fight && R() < N.fight) { st.petFocus = st.pets.reduce((a, b) => (b.u > a.u ? b : a)).u; L.fireTrigger(st, 'pet_fight'); }
-  // 名册满时没决定的新灵宠：12 周天后自己走（放生）
+  // 名册满时没决定的新灵宠：12 月后自己走（放生）
   for (let j = st.petPend.length - 1; j >= 0; j--) if (st.tick - (st.petPend[j].pendAt || 0) >= PEND_TTL) L.petPendDecide(st, j);
   if (st.petOut < 0 && st.pets.length && !L.petJobsOpen(st)) st.petOut = 0;
 };
@@ -592,7 +592,7 @@ L.addBtMod('pet', 57, st => {
 });
 // ---------- 天劫：灵宠挡劫（SYSTEMS §9）----------
 // 5 心、没在休养的那只能挡一次天劫（+10%；负碑灵龟的“挡劫”天赋不必 5 心，再加天赋值）；出战的优先，其次心最多的。
-// 挡完休养 12 周天：L.petAtkOf、岗位、天赋都跳过它（无效果）
+// 挡完休养 12 月：L.petAtkOf、岗位、天赋都跳过它（无效果）
 L.petResting = (st, p) => !!p && (p.rest || 0) > st.tick;
 function shieldPet(st) {
   if (!ON() || !st.pets || !st.pets.length || st.p.r < 1) return null;
@@ -605,7 +605,7 @@ L.petShieldBonus = st => { const p = shieldPet(st); return p && L.petTalId(p) ==
 L.petShield = function (st, n) {
   const p = shieldPet(st); if (!p) return null;
   p.rest = st.tick + n;
-  L.log(st, `【${L.petName(p)}】替你挡下一道雷，休养 ${n} 个周天`, 'jade');
+  L.log(st, `【${L.petName(p)}】替你挡下一道雷，休养 ${n} 个月`, 'jade');
   return p;
 };
 

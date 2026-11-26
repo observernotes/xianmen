@@ -6,9 +6,9 @@
  *         葛老、丹经、事件的 fx.recipe（'need' = 随机揭晓一格没试过的；或指定丹方 id）直接告诉你某一格。九转金丹只能靠 fx.recipe 学到。
  *   三类（ART.pillGroup 同）：修 x = 修炼类、战 z = 战斗类（计丹毒）；根 g = 根基类（不计丹毒，有每境界次数上限）。
  *   服用：修炼类与根基类炼成即服；战斗类（爆气、雷火）与疗伤丹收进丹囊 st.dan.bag，到时候再服——爆气丹管下一场对决或下一趟历练，雷火丹管下一趟历练。
- *   丹毒 st.toxin（0～100；天劫临阵吞丹也走 L.addToxin，旧档 st.trib.toxin 折进来）：每服一枚修炼 / 战斗类 +15（上品 +10、极品 +5），突破时服的破境丹每枚 +10；每周天 −2（灵泉每级再 −0.5，白鹤类灵宠天赋另加）。
+ *   丹毒 st.toxin（0～100；天劫临阵吞丹也走 L.addToxin，旧档 st.trib.toxin 折进来）：每服一枚修炼 / 战斗类 +15（上品 +10、极品 +5），突破时服的破境丹每枚 +10；每月 −2（灵泉每级再 −0.5，白鹤类灵宠天赋另加）。
  *         服之前已 > 60：药力减半；服了会超过 100：不能服。
- *   自动续炼：最多勾 3 种，每 3 周天材料够就各炼一炉（修炼类在丹毒会过 60 时跳过，战斗类丹囊里各留 3 枚为止）。
+ *   自动续炼：最多勾 3 种，每 3 月材料够就各炼一炉（修炼类在丹毒会过 60 时跳过，战斗类丹囊里各留 3 枚为止）。
  *   st.dan = { bag { 丹方: [品质…] }, next { baoqi 战力倍率, leihuo 分数, wudao 顿悟倍率, bingxin 突破加成, dingshen 承劫加成 }, cnt { 丹方+境界: 次数 }, auto [丹方…] }
  *   成丹率与品质沿用 L.alchRate、L.QUAL（看炉灵宠、丹火诀、丹道大会、葛老加成）；L.ALCH_ON = false（sim 的 noalch）：没有药引丹、没有丹毒。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -25,7 +25,7 @@ const ON = () => L.ALCH_ON !== false;
 L.RECIPES = [
   // 培元丹、聚灵丹的灵草价由 tools/sim.js 校准（CONTENT 写 10 / 16：勤快玩家炼气期四分之一的修为来自培元丹、聚灵丹几乎常驻）。
   // 丹毒上线后试过调回去，但丹毒很少卡住（引导型平均 6～16），聚灵丹的门槛是火引冰引和灵草：16 时引导型聚灵覆盖四成多、飞升快 6%，40 与合并前持平
-  { k: 'peiyuan', n: '培元丹', g: 'x', d: '服下立得 4 周天修为', herbs: 24, lv: 1 },
+  { k: 'peiyuan', n: '培元丹', g: 'x', d: '服下立得 4 月修为', herbs: 24, lv: 1 },
   { k: 'pojing', n: '破境丹', g: 'g', d: '突破时每枚成功率 +15%（一次最多三枚，每枚丹毒 +10）', herbs: 8, lv: 1 },
   { k: 'liaoshang', n: '疗伤丹', g: 'g', d: '收进丹囊；负伤时服一枚立刻痊愈', herbs: 6, lv: 1, bag: 1 },
   { k: 'baoqi', n: '爆气丹', g: 'z', yin: ['fire', 'fire'], d: '收进丹囊；服下后下一场对决或下一趟历练战力 ×1.3', herbs: 12, lv: 3, bag: 1 },
@@ -33,9 +33,9 @@ L.RECIPES = [
   { k: 'cuiti', n: '淬体丹', g: 'g', yin: ['thunder', 'thunder'], d: '永久战力 +1%（每境界 3 枚）', herbs: 16, lv: 5, per: 3 },
   { k: 'yanshou', n: '延寿丹', g: 'g', yin: ['wood', 'wood'], d: '寿元 +8%（与坊市共用每境界三枚上限）', herbs: 12, lv: 5 },
   { k: 'yanghun', n: '养魂丹', g: 'x', yin: ['soul', 'soul'], d: '装着的三门功法熟练各 +15', herbs: 16, lv: 8 },
-  { k: 'juling', n: '聚灵丹', g: 'x', yin: ['fire', 'ice'], d: '接下来 6 周天修炼速度 ×1.5', herbs: 40, lv: 3 },
+  { k: 'juling', n: '聚灵丹', g: 'x', yin: ['fire', 'ice'], d: '接下来 6 月修炼速度 ×1.5', herbs: 40, lv: 3 },
   { k: 'leihuo', n: '雷火丹', g: 'z', yin: ['fire', 'thunder'], d: '收进丹囊；服下后下一趟历练分数 +10', herbs: 14, lv: 3, bag: 1 },
-  { k: 'baicao', n: '百草丹', g: 'x', yin: ['fire', 'wood'], d: '接下来 6 周天灵田作物产量 ×2', herbs: 10, lv: 3 },
+  { k: 'baicao', n: '百草丹', g: 'x', yin: ['fire', 'wood'], d: '接下来 6 月灵田作物产量 ×2', herbs: 10, lv: 3 },
   { k: 'wudao', n: '悟道丹', g: 'x', yin: ['fire', 'soul'], d: '下一次闭关坐满必顿悟，顿悟 ×2', herbs: 20, lv: 8 },
   { k: 'pozhang', n: '破障丹', g: 'g', yin: ['ice', 'thunder'], d: '立得一次“屡败屡战”：突破 +10%（每境界 1 枚）', herbs: 18, lv: 8, per: 1 },
   { k: 'qingdu', n: '清毒丹', g: 'g', yin: ['ice', 'wood'], d: '丹毒 −40', herbs: 8, lv: 3 },
@@ -94,7 +94,7 @@ L.toxAdd = q => (q >= 3 ? L.TOX.perfect : q === 2 ? L.TOX.good : L.TOX.pill);
 L.toxHalf = st => (st.toxin || 0) > L.TOX.half;
 // 服了会超过上限（按最坏的 +15 算）
 L.toxFull = (st, add) => (st.toxin || 0) + (add === undefined ? L.TOX.pill : add) > L.TOX.max;
-// 每周天消退：2 + 灵泉 0.5/级（洞府建筑上线后的 st.home.spring）；pets.js 包一层加白鹤类天赋
+// 每月消退：2 + 灵泉 0.5/级（洞府建筑上线后的 st.home.spring）；pets.js 包一层加白鹤类天赋
 L.toxDecay = st => L.TOX.decay + L.TOX.spring * ((st.home && st.home.spring) || 0);
 // src：来源（'bt' 突破的破境丹、'trib' 天劫临阵吞丹…），只作说明
 L.addToxin = function (st, v, src) {
@@ -137,7 +137,7 @@ L.useWhy = function (st, k) {
   if (k === 'jiuzhuan' && st.flags.sureBt) return '已有一枚九转金丹';
   if ((k === 'bingxin' || k === 'dingshen' || k === 'wudao') && L.danNext(st, k)) return '上一枚的药力还没用掉';
   // 聚灵丹、百草丹不叠：药力还在就别再服
-  if (k === 'juling' || k === 'baicao') { const b = (st.buffs || []).find(x => x.src === k); if (b) return `药力还在（剩 ${b.left} 周天）`; }
+  if (k === 'juling' || k === 'baicao') { const b = (st.buffs || []).find(x => x.src === k); if (b) return `药力还在（剩 ${b.left} 月）`; }
   if (k === 'huaxing') { const pt = L.petOut(st) || (st.pets || [])[0]; if (!pt) return '没有灵宠'; if (L.petMaxLv(pt) <= pt.lv) return pt.lv >= L.PET_N.lvMax ? '灵宠已满级' : '灵宠要先进化'; }
   if (k === 'zhuyan' && !zhuyanTo(st)) return '还没有结识的人';
   if (k === 'yanghun' && !L.artSlots(st).some(Boolean)) return '没装功法';
@@ -194,8 +194,8 @@ function take(st, k, q) {
   out.half = half;
   if (k === 'peiyuan') { const g = L.gainCalm(st) * 4 * m; L.addXp(st, g); out.fx = '修为 +' + L.fmt(g); }
   else if (k === 'pojing') { const n = q === 3 ? 2 : 1; st.pills += n; out.fx = '破境丹 +' + n; }
-  else if (k === 'juling') { const t = Math.max(1, Math.round(6 * m)); const c = q === 3 ? 2 : 1.5; st.buffs.push({ cul: c, left: t, src: 'juling' }); out.fx = `修炼速度 ×${c}（${t} 周天）`; }
-  else if (k === 'baicao') { const t = Math.max(1, Math.round(6 * m)); st.buffs.push({ field: L.CROP_V.baicao, left: t, src: 'baicao' }); out.fx = `灵田作物产量 ×${L.CROP_V.baicao}（${t} 周天）`; }
+  else if (k === 'juling') { const t = Math.max(1, Math.round(6 * m)); const c = q === 3 ? 2 : 1.5; st.buffs.push({ cul: c, left: t, src: 'juling' }); out.fx = `修炼速度 ×${c}（${t} 月）`; }
+  else if (k === 'baicao') { const t = Math.max(1, Math.round(6 * m)); st.buffs.push({ field: L.CROP_V.baicao, left: t, src: 'baicao' }); out.fx = `灵田作物产量 ×${L.CROP_V.baicao}（${t} 月）`; }
   else if (k === 'yanghun') { const n = Math.round(15 * m); const ids = L.artSlots(st).filter(Boolean); for (const id of ids) L.addMastery(st, id, n); out.fx = `${ids.map(id => '《' + L.art(id).n + '》').join('')}熟练各 +${n}`; }
   else if (k === 'wudao') { d.next.wudao = m; out.fx = `下一次闭关坐满必顿悟，顿悟 ×${L.fmt1(2 * m)}`; }
   else if (k === 'baoqi') { d.next.baoqi = 1 + 0.3 * m; out.fx = `下一场对决或下一趟历练战力 ×${d.next.baoqi.toFixed(2)}`; }

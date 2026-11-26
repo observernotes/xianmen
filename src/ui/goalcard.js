@@ -197,16 +197,18 @@ let navCur = '';
 function navOpenPanel(nav) { navCur = nav; navSeen(nav); }
 function syncNav() {
   const g = st ? L.goalNow(st) : null, goNav = g && g.next && g.next.go ? GO_NAV[g.next.go] || '' : '';
-  $$('#nav button').forEach(b => {
-    const n = b.dataset.nav, s = navState(n), nn = s.open ? navNewN(n) : 0;
+  // 底栏同一时刻只挂一个角标（§4.1）：目标卡“下一步”指向的那一格挂“去”；没有“去”时，第一格有新东西的挂“新 N”；其余有新东西的只描一圈淡金边
+  const info = $$('#nav button').map(b => { const n = b.dataset.nav, s = navState(n); return { b, n, s, nn: s.open ? navNewN(n) : 0, go: s.open && goNav === n && !(modalOpen() && navCur === n) }; });
+  const goOne = info.find(x => x.go), newOne = goOne ? null : info.find(x => x.nn > 0 && !(modalOpen() && navCur === x.n));
+  for (const x of info) {
+    const b = x.b, n = x.n, s = x.s;
     b.classList.toggle('lk', !s.open);
     const w = b.querySelector('.lkw'); if (w && w.textContent !== (s.why || '')) w.textContent = s.why || '';
     b.classList.toggle('on', modalOpen() && navCur === n);
-    const go = s.open && goNav === n && !(modalOpen() && navCur === n);
-    b.classList.toggle('gonow', go);
-    b.classList.toggle('new', nn > 0 && !go);
-    setBadge(n, go ? '去' : nn > 0 ? '新' + nn : '');
-  });
+    b.classList.toggle('gonow', x === goOne);
+    b.classList.toggle('new', x.nn > 0 && x !== goOne);
+    setBadge(n, x === goOne ? '去' : x === newOne ? '新' + x.nn : '');
+  }
   const m = $('#modal'), on = !m.hidden && !!navCur && !m.classList.contains('duel-m') && !m.classList.contains('mid');
   if (m.classList.contains('nav-m') !== on) m.classList.toggle('nav-m', on);
   const nh = $('#nav').getBoundingClientRect(); document.documentElement.style.setProperty('--navh', Math.round(window.innerHeight - nh.top + 4) + 'px');

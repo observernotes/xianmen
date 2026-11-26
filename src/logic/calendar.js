@@ -1,11 +1,11 @@
 /* 废柴仙途 · 逻辑模块 calendar：历法（四季、固定历）与天下大势（docs/SYSTEMS.md §7，docs/CONTENT.md §8）
  * 模块写法见 src/logic.js 顶部说明。
- *   四季：12 周天一轮，t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬（与 ART.seasonOf 一致，场景美术按它画）。
+ *   四季：12 月一轮，t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬（与 ART.seasonOf 一致，场景美术按它画）。
  *     春：灵田灵草 +50%、访客 +30%；夏：秘境开放（4～9）、兽类地图斩妖灵石 +15%；秋：灵田灵石 +50%、行情 +0.2；冬：闭关倍率 +0.2，年末论道。
  *     灵田作物各有旺季（SYSTEMS §6.2，crops.js 的 L.cropSeason）：春 灵草、惊雷竹、长生藤；夏 灵谷、赤炎果；秋 灵稻（灵石）；冬 寒霜莲、养魂花，旺季产量 +50%。
- *     周天星斗大法（m_xingdou）：季节加成翻倍。星河倒悬（共鸣 c12）：冬季闭关再 +0.5。
- *   固定历（24 周天一个大周期）：论道 t%12 = 0；拍卖会 t%24 = 8 起 6 周天；九宗会武 t%24 = 18；货架与任务板每届论道后刷新；秘境每个夏季开放。
- *   天下大势：每轮 t%12 = 2 掷一次，60% 发生一件（权重见 L.WORLDS），持续 6～10 周天；存在 st.cal = { w 当前大势, prev 上一件, n {id: 本世次数}, seen {季节: 1} }。
+ *     月星斗大法（m_xingdou）：季节加成翻倍。星河倒悬（共鸣 c12）：冬季闭关再 +0.5。
+ *   固定历（24 月一个大周期）：论道 t%12 = 0；拍卖会 t%24 = 8 起 6 月；九宗会武 t%24 = 18；货架与任务板每届论道后刷新；秘境每个夏季开放。
+ *   天下大势：每轮 t%12 = 2 掷一次，60% 发生一件（权重见 L.WORLDS），持续 6～10 月；存在 st.cal = { w 当前大势, prev 上一件, n {id: 本世次数}, seen {季节: 1} }。
  *     一件大势 = { id, at 开始, until 结束（不含）, k 矿脉现世的地图, who / q 通缉令的路人与名次, tourAt 通缉令认到哪届论道, share 灵气潮汐合用, got 仙府秘藏已得 }
  *   历法与大势在筑基、且三年之约打完后（或转世后）生效（SYSTEMS §0 解锁表“筑基初期：历法与天下大势”；约战前“大事”牌仍是约战锦囊）；
  *   在那之前场景照样有四季，只是不结算。
@@ -27,13 +27,13 @@ L.SEASON_V = { herb: 0.5, visit: 0.3, beast: 0.15, rice: 0.5, price: 0.2, ret: 0
 L.seasonOf = t => { const m = ((t % 12) + 12) % 12; return m >= 1 && m <= 3 ? 0 : m >= 4 && m <= 6 ? 1 : m >= 7 && m <= 9 ? 2 : 3; };
 L.season = st => L.seasonOf(st.tick);
 L.seasonKey = st => L.SEASONS[L.season(st)].id;
-// 本季还剩几个周天（含本周天）；下一季从哪个周天开始
+// 本季还剩几个月（含本月）；下一季从哪个月开始
 L.seasonLeft = st => { const m = ((st.tick % 12) + 12) % 12; const end = m === 0 ? 0 : Math.ceil(m / 3) * 3; return (end === 0 ? 0 : end - m) + 1; };
 // 第一世要筑基、并且三年之约打完（之前“大事”牌还是约战的锦囊，老祖也只顾着约战）；转世后一开始就有
 // L.CAL_ON = false：四季与大势全关（tools/sim.js 的 nocal 用它量这一刀的影响）
 L.CAL_ON = true;
 L.calOpen = st => L.CAL_ON !== false && (st.rebirth > 0 || (mr(st) >= 1 && !!st.pact));
-// 周天星斗大法：季节加成翻倍
+// 月星斗大法：季节加成翻倍
 L.seasonAmp = st => (L.artOn(st, 'm_xingdou') ? 2 : 1);
 const sOn = (st, k) => L.calOpen(st) && L.season(st) === k;
 L.seasonFx = function (st) {
@@ -44,7 +44,7 @@ L.seasonFx = function (st) {
 L.beastMap = k => ['beast', 'snake'].includes(L.REGIONS[k].foe);
 
 // ---------- 天下大势（CONTENT §8） ----------
-// len 持续周天；w 权重；open(st) 出现条件；max 每世最多几次
+// len 持续月；w 权重；open(st) 出现条件；max 每世最多几次
 L.CAL = { every: 12, worldAt: 2, worldP: 0.6, bounty: 20 };
 L.WORLDS = [
   { id: 'w_shouchao', n: '兽潮', len: 8, w: 1, open: st => mr(st) >= 1, d: '木属性地图斩妖：灵石 ×1.8，评价分数 −8' },
@@ -98,11 +98,11 @@ function rollWorld(st) {
     w.who = L.rivalAt(st, q).n; w.tourAt = (Math.floor(st.tick / L.TOUR_EVERY) + 1) * L.TOUR_EVERY;
   }
   c.w = w; c.n[W.id] = (c.n[W.id] || 0) + 1;
-  L.log(st, `天下大势：【${W.n}】，${W.len} 个周天——${L.worldDesc(st, w)}`, 'gold');
+  L.log(st, `天下大势：【${W.n}】，${W.len} 个月——${L.worldDesc(st, w)}`, 'gold');
   return w;
 }
 L.rollWorld = rollWorld;
-// 每周天（tick.js 在 L.gearTick 之后调）：大势到期、t%12 = 2 掷新的一件、换季
+// 每月（tick.js 在 L.gearTick 之后调）：大势到期、t%12 = 2 掷新的一件、换季
 L.calTick = function (st, out) {
   const c = cal(st);
   if (c.w && st.tick >= c.w.until) { c.prev = c.w; c.w = null; out.worldEnd = c.prev.id; }
@@ -120,7 +120,7 @@ L.addCulMod('world', 75, st => {
   const w = L.world(st);
   return ['大势·灵气潮汐' + (w.share ? '（合用）' : ''), 1 + (w.share ? L.WORLD_V.lingchaoShare : L.WORLD_V.lingchao), ''];
 });
-// 灵田：秋灵稻（灵石）+50%；大旱 −40%（周天星斗翻倍季节项）。只算种灵稻的那几块（crops.js 的 L.fieldStoneInc）；
+// 灵田：秋灵稻（灵石）+50%；大旱 −40%（月星斗翻倍季节项）。只算种灵稻的那几块（crops.js 的 L.fieldStoneInc）；
 // 其余作物的旺季与大旱在 crops.js 的产量里（L.cropParts）
 L.addIncSrc('season_field', 11, st => {
   if (!st.home.field || !L.riceCount(st)) return null;
@@ -151,7 +151,7 @@ L.calRetDone = function (st) {
 };
 // 炼丹：丹道大会成丹率 +10%
 L.calAlch = st => (L.worldOn(st, 'w_danhui') ? L.WORLD_V.danhuiAlch : 0);
-// 聚灵阵停阵（world_dahan「布阵求雨」：聚灵阵停 3 周天）
+// 聚灵阵停阵（world_dahan「布阵求雨」：聚灵阵停 3 月）
 L.arrayPaused = st => !!st.cal && st.tick < (st.cal.pause || -1);
 // 历练：出发时算好（存进 plan.cx，途中大势结束也按出发时的算）
 // stone / herb / ore 收获倍率，rec 推荐战力倍率，tier 寻宝掉落 +1 阶的概率倍率，treasure 天材地宝个数倍率，notes 说明
@@ -217,7 +217,7 @@ L.calMarks = function (st, n) {
   const t = st.tick, out = [];
   // 论道（三年之约之前标约战那一格）
   for (let i = 0; i < n; i++) { const tt = t + i; if (!st.pact && tt === L.PACT_TICK) out.push({ at: i, len: 1, kind: 'dao' }); else if (tt % L.TOUR_EVERY === 0 && tt > L.PACT_TICK && i > 0) out.push({ at: i, len: 1, kind: 'dao' }); }
-  // 拍卖会（金丹后）：开 6 周天
+  // 拍卖会（金丹后）：开 6 月
   if (st.rebirth > 0 || mr(st) >= 2) {
     if (L.auctionOpen(st)) out.push({ at: 0, len: Math.min(n, st.auction.until - t), kind: 'auc' });
     for (let i = 1; i < n; i++) if ((t + i) % L.AUCTION.every === L.AUCTION.at) out.push({ at: i, len: Math.min(L.AUCTION.len, n - i), kind: 'auc' });
@@ -230,26 +230,26 @@ L.calMarks = function (st, n) {
   const w = L.world(st); if (w) out.push({ at: 0, len: Math.min(n, w.until - t), kind: 'world' });
   return out;
 };
-// 秘境的夏季窗口：还有几个周天开（0 = 正开着）、开着的话还剩几个周天
+// 秘境的夏季窗口：还有几个月开（0 = 正开着）、开着的话还剩几个月
 L.realmWindow = function (st) {
   const m = ((st.tick % 12) + 12) % 12;
   if (m >= 4 && m <= 9) return { open: true, left: 10 - m };
   return { open: false, in: m < 4 ? 4 - m : 16 - m };
 };
-// 下一次掷大势还有几个周天
+// 下一次掷大势还有几个月
 L.nextWorldRoll = st => { const m = ((st.tick % 12) + 12) % 12; return m < L.CAL.worldAt ? L.CAL.worldAt - m : 12 + L.CAL.worldAt - m; };
 
 // ---------- 事件能力（docs/EVENT_INTEGRATION.md）：季节、大势 ----------
 // elig.season：只在该季节出现；elig.world：只在该大势期间出现（events-engine 的 L.eligible 调 test）
 L.supportElig('season', { ok: v => L.SEASONS.some(s => s.id === v), test: (st, v) => L.seasonKey(st) === v });
 L.supportElig('world', { ok: v => !!L.WORLD[v], test: (st, v) => L.worldOn(st, v) });
-// 一次性钩子 flag：lingchao_share 本次潮汐修炼加成 30% → 15%；array_pause3 聚灵阵停 3 周天（本次仁记 2 次）
+// 一次性钩子 flag：lingchao_share 本次潮汐修炼加成 30% → 15%；array_pause3 聚灵阵停 3 月（本次仁记 2 次）
 const flagPrev = L.CAPS.fx.flag;
 L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
   if (flagPrev && flagPrev.apply) flagPrev.apply(st, v, out, fx, ctx);
   for (const f of [].concat(v)) {
     if (f === 'lingchao_share') { delete st.eflags.lingchao_share; const w = L.world(st); if (w && w.id === 'w_lingchao') { w.share = 1; out.push('灵气潮汐加成 30% → 15%（与人合用）'); } }
-    if (f === 'array_pause3') { delete st.eflags.array_pause3; cal(st).pause = st.tick + 3; st.dao = st.dao || { k: 0, w: 0, r: 0 }; st.dao.r = (st.dao.r || 0) + 1; out.push('聚灵阵停阵 3 周天'); }
+    if (f === 'array_pause3') { delete st.eflags.array_pause3; cal(st).pause = st.tick + 3; st.dao = st.dao || { k: 0, w: 0, r: 0 }; st.dao.r = (st.dao.r || 0) + 1; out.push('聚灵阵停阵 3 月'); }
   }
 } });
 });

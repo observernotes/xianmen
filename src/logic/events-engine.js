@@ -79,7 +79,7 @@ for (const t of ['realm:', 'sect', 'pet', 'daolv', 'rank:', 'npc:', 'boss:']) L.
 // 本模块新接的剧情触发键：首次击败宿敌、晋升身份、约战前夜、第一次渡雷劫
 for (const t of ['beat:', 'srank:', 'pact_eve', 'trib:']) L.supportTrigger(t);
 for (const k of ['minR', 'maxR', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'bg']) L.supportElig(k);
-// 新资格字段：冷却（默认 40 周天）、宗门身份下限、天骄榜名次上限、奇遇链（完成第 n 步自动置「链短名_n」）
+// 新资格字段：冷却（默认 40 月）、宗门身份下限、天骄榜名次上限、奇遇链（完成第 n 步自动置「链短名_n」）
 L.supportElig('cooldown', { ok: v => v > 0 });
 L.supportElig('srankMin', { ok: v => v >= 0 && v < 7 });
 L.supportElig('rankMax', { ok: v => v >= 1 });
@@ -95,7 +95,7 @@ L.supportFx('item', { ok: v => ['w', 'a', 'pet', 'need', 'r', 'o'].includes(v) }
 L.supportFx('buff', { ok: v => !!v && (v.cul > 0 || v.atk > 0) });
 
 // ---------- 资格 ----------
-L.EV_COOL = 40;   // 随机事件默认冷却（周天），事件可用 cooldown 覆盖
+L.EV_COOL = 40;   // 随机事件默认冷却（月），事件可用 cooldown 覆盖
 L.eligible = function (st, ev, where, ctx) {
   ctx = ctx || {};
   if (ev.where !== where) return false;
@@ -161,8 +161,8 @@ L.costText = function (st, cost) {
   for (const k in cost) { const c = L.CAPS.cost[k]; if (c && c.text) a.push(c.text(st, cost[k])); }
   return a.join('、');
 };
-// 事件里的 xp: N 表示 N × L.EV_XP 个周天的修为（打坐速度，不计闭关、历练的状态）。
-// 0.3：途中遭遇（每趟 60%）和访客（每周天 10%）加起来很密，按 1 算时奇遇占了勤快玩家三成修为（tools/sim.js 校准）
+// 事件里的 xp: N 表示 N × L.EV_XP 个月的修为（打坐速度，不计闭关、历练的状态）。
+// 0.3：途中遭遇（每趟 60%）和访客（每月 10%）加起来很密，按 1 算时奇遇占了勤快玩家三成修为（tools/sim.js 校准）
 L.EV_XP = 0.3;
 L.applyFx = function (st, fx, ctx) {
   const out = [];
@@ -174,7 +174,7 @@ L.applyFx = function (st, fx, ctx) {
   if (fx.herbs) { const v = Math.round(fx.herbs * L.herbScale(st)); st.herbs = Math.max(0, st.herbs + v); out.push('灵草 ' + (v > 0 ? '+' : '') + f(v)); }
   if (fx.treasure) { st.treasure = Math.max(0, st.treasure + fx.treasure); out.push('天材地宝 ' + (fx.treasure > 0 ? '+' : '') + fx.treasure); }
   if (fx.life && p.r <= L.MAXR) { const v = Math.round(L.REALMS[p.r].life * fx.life / 100); st.lifeBonus += v; out.push('寿元 ' + (v >= 0 ? '+' : '') + f(v) + ' 年'); }
-  if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push('负伤 ' + fx.inj + ' 周天'); }
+  if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push('负伤 ' + fx.inj + ' 月'); }
   if (fx.item) {
     const kind = fx.item, up = fx.itemUp || 0;
     const base = kind === 'a' || kind === 'pet' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.75);
@@ -188,7 +188,7 @@ L.applyFx = function (st, fx, ctx) {
   if (fx.aff) for (const id in fx.aff) { const d = L.addAff(st, id, fx.aff[id]); if (d) out.push(`好感 ${L.npcName(st, id)} ${d > 0 ? '+' : ''}${d}`); }
   if (fx.flag) for (const fl of [].concat(fx.flag)) st.eflags[fl] = 1;
   if (fx.unflag) for (const fl of [].concat(fx.unflag)) delete st.eflags[fl];
-  if (fx.buff) { st.buffs.push({ cul: fx.buff.cul, atk: fx.buff.atk, left: fx.buff.ticks || 6 }); out.push(fx.buff.cul ? `修炼速度 ×${fx.buff.cul}（${fx.buff.ticks || 6} 周天）` : `战力 ×${fx.buff.atk}（${fx.buff.ticks || 6} 周天）`); }
+  if (fx.buff) { st.buffs.push({ cul: fx.buff.cul, atk: fx.buff.atk, left: fx.buff.ticks || 6 }); out.push(fx.buff.cul ? `修炼速度 ×${fx.buff.cul}（${fx.buff.ticks || 6} 月）` : `战力 ×${fx.buff.atk}（${fx.buff.ticks || 6} 月）`); }
   if (fx.cul) { st.bonus.cul += fx.cul; out.push(`永久修炼速度 +${Math.round(fx.cul * 100)}%`); }
   if (fx.power) { st.bonus.atk += fx.power; out.push(`永久战力 +${Math.round(fx.power * 100)}%`); }
   if (fx.vein && st.sect) { st.sect.veins = (st.sect.veins || 0) + fx.vein; out.push(`宗门灵脉 +${fx.vein}（俸禄 +${fx.vein * 25}%）`); }
@@ -244,7 +244,7 @@ L.resolveChoice = function (st, ev, idx) {
 };
 
 // ---------- 访客（洞府奇遇） ----------
-// 每周天 10% 概率来一位，停留 6 周天，同时最多一位；过期按不花钱的选项自动结算
+// 每月 10% 概率来一位，停留 6 月，同时最多一位；过期按不花钱的选项自动结算
 L.VISIT = { p: 0.10, stay: 6 };
 L.spawnVisitor = function (st) {
   if (st.visitor) return null;

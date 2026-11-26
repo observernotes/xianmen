@@ -2,7 +2,7 @@
  * 模块写法见 src/logic.js 顶部说明。名字一律用 mj（秘境）：L.REALMS 是境界表，别混。
  *
  *   进入：筑基中期解锁（第一世还要三年之约打完；转世后全开）；每年夏季（t % 12 = 4～9，calendar.js 的 L.realmWindow）开放；耗 1 枚秘境令（最多持 3，
- *     每个夏季头一个周天送 1 枚，坊市轮换货架也卖）。仙府现世（大势 w_xianfu）期间另可免令进一次：8 层、秘藏四选一。
+ *     每个夏季头一个月送 1 枚，坊市轮换货架也卖）。仙府现世（大势 w_xianfu）期间另可免令进一次：8 层、秘藏四选一。
  *   主题按年轮换（剑气·金 / 百草·木 / 熔火·火 / 幽泉·水），决定敌人五行、背景与秘藏池。
  *   一局：层数 6 + (r ≥ 4) + (r ≥ 6)；带入气血 100（法衣每阶 +5，四阶起再 +10；青帝剑 +30）；
  *     每层 2 扇门（装着天眼通或白小九同行时 3 扇），30% 是“？”门（气运饰品每阶少 5 点；天眼通全显）；最后一层固定守关。
@@ -10,13 +10,13 @@
  *     掉血 = clamp(30 × (层战力 / 我)^1.2, 5, 70) × 房间倍率 × (1 − 撼岳拳)；“我” = 战力 × 五行克制（×1.15 / ×0.87，SYSTEMS §1）。
  *     （§8 写的是 rec(k, 1)。tools/sim.js 量过：guided 每个夏天的战力中位数只有 rec(家门口, 1) 的 0.6 倍，第一层就掉 55 气血，
  *      两间战斗房出局，守关永远打不过；改用外围 rec(k, 0)，中段的人走到 3～4 层，境界末的人能通关。）
- *   每过一层可以【继续深入】或【带着 N 件收获离开】；气血归零 = 重伤出局：本局收获丢六成，负伤 4 周天。
- *   局中时间暂停（界面不走时）；整局结算后流逝 3 周天（L.mjCost，传送阵 9 级免除），存档随时可续（状态在 st.run）。
+ *   每过一层可以【继续深入】或【带着 N 件收获离开】；气血归零 = 重伤出局：本局收获丢六成，负伤 4 月。
+ *   局中时间暂停（界面不走时）；整局结算后流逝 3 月（L.mjCost，传送阵 9 级免除），存档随时可续（状态在 st.run）。
  *   记录（跨世，st.meta.mj）：每个主题的最深层数与通关次数；首次通关给称号；任意主题合计通关 3 次后秘藏可出《混元道经》。
  *
  *   st.run = { theme, k 家门口地图, floor 当前层（1 起）, floors, hp, max, doors [{ t 类型, unk 是否“？” }], phase 'door'|'event'|'shop'|'chest',
  *              loot [{ stones, ore, herbs, yin, treasure, pills, item: [kind, tier], frag, t 说明 }], fl { run_* 标记 }, ev 待处理的奇遇,
- *              shop [{ k, n, d, price }], chest [{ k, id, n, d }], cleared 已过层数, xf 仙府, rooms 进过的房间数, at 进入的周天 }
+ *              shop [{ k, n, d, price }], chest [{ k, id, n, d }], cleared 已过层数, xf 仙府, rooms 进过的房间数, at 进入的月 }
  *   st.mj = { token, giftYr 本年已送令, eggs 灵宠蛋（灵宠名册上线前先记着种）, runs, clears }
  *   st.meta.mj = { th: { jianqi: { deep, clears } … }, clears 合计 } */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
@@ -74,7 +74,7 @@ L.mjThRec = (st, id) => { const r = rec(st); return r.th[id] || (r.th[id] = { de
 L.mjUnlocked = st => L.MJ_ON !== false && (st.rebirth > 0 || (mi(st) >= L.MJ.unlockI && !!st.pact));
 L.mjTokens = st => (st.mj ? st.mj.token || 0 : 0);
 L.mjAddToken = function (st, n) { const m = mj(st), b = m.token || 0; m.token = clamp(b + n, 0, L.MJ.tokenMax); return m.token - b; };
-// 今年的主题：按年（12 周天一年）轮换
+// 今年的主题：按年（12 月一年）轮换
 L.mjThemeNow = st => L.MJ_THEMES[((Math.floor(st.tick / 12) % 4) + 4) % 4];
 L.mjFloors = st => 6 + (st.p.r >= 4 ? 1 : 0) + (st.p.r >= 6 ? 1 : 0);
 // 仙府现世：大势期间免令进一次（每件大势一次）
@@ -89,7 +89,7 @@ L.mjWhy = function (st, xf) {
   if (st.retreat) return '闭关中进不了秘境';
   if (xf) return L.mjXianfu(st) ? '' : '仙府只在“仙府现世”期间开一次';
   const w = L.realmWindow(st);
-  if (!w.open) return `入夏才开（还有 ${w.in} 周天）`;
+  if (!w.open) return `入夏才开（还有 ${w.in} 月）`;
   if (L.mjTokens(st) < 1) return '没有秘境令（每个夏季送一枚，坊市轮换货架也有）';
   return '';
 };
@@ -417,7 +417,7 @@ function chestDesc(st, o) {
   else if (o.k === 'pet') { const P = petInfo(o.id), c = curPet(st); o.n = `灵宠蛋【${P[0]}】`; o.d = `${L.PETS[P[1]].n}，孵出来就是你的${c ? `（出战的${c[0]}是${L.PETS[c[1]].n}）` : ''}`; }
   else if (o.k === 'treasure') { o.n = `天材地宝 ×${o.n}`; o.d = `手里 ${st.treasure}，洗髓、九转、重铸都用它`; o.cnt = 2; }
   else if (o.k === 'yin') { o.n = `${yinN(o.id)} ×${o.n}`; o.d = '炼丹、打造用的药引'; o.cnt = 3; }
-  else if (o.k === 'stones') { o.v = Math.floor(Math.max(L.income(st), 20) * o.n); o.n = `灵石 ${L.fmt(o.v)}`; o.d = `约 ${15} 个周天的收入`; }
+  else if (o.k === 'stones') { o.v = Math.floor(Math.max(L.income(st), 20) * o.n); o.n = `灵石 ${L.fmt(o.v)}`; o.d = `约 ${15} 个月的收入`; }
   return o;
 }
 // 老祖推荐哪一项（序号 + 一句带数字的理由）
@@ -488,7 +488,7 @@ function finish(st, how) {
   st.run = null;
   for (const f in st.eflags || {}) if (/^run_/.test(f)) delete st.eflags[f];
   const nm = run.xf ? '仙府' : th.n + '秘境';
-  if (how === 'wipe') L.log(st, `${nm}第 ${run.floor} 层重伤出局，收获丢了六成，负伤 ${L.MJ.wipeInj} 周天`, 'red');
+  if (how === 'wipe') L.log(st, `${nm}第 ${run.floor} 层重伤出局，收获丢了六成，负伤 ${L.MJ.wipeInj} 月`, 'red');
   else if (how === 'clear') L.log(st, `打穿${nm}（${run.floors} 层），带回 ${n} 件收获`, 'gold');
   else L.log(st, `从${nm}第 ${run.floor} 层全身而退，带回 ${n} 件收获`, 'jade');
   emit('mjEnd', sum);
@@ -496,7 +496,7 @@ function finish(st, how) {
   return sum;
 }
 
-// ---------- 每周天：夏季送令 ----------
+// ---------- 每月：夏季送令 ----------
 L.mjTick = function (st, out) {
   if (!L.mjUnlocked(st) || st.p.r > L.MAXR) return;
   const w = L.realmWindow(st), yr = Math.floor(st.tick / 12), m = mj(st);
@@ -504,7 +504,7 @@ L.mjTick = function (st, out) {
     m.giftYr = yr;
     const got = L.mjAddToken(st, 1);
     out.mjOpen = { theme: L.mjThemeNow(st).id, got, left: w.left };
-    L.log(st, `入夏，${L.mjThemeNow(st).n}秘境开了（${w.left} 周天）${got ? '，送来一枚秘境令' : '（秘境令已满 3 枚）'}`, 'gold');
+    L.log(st, `入夏，${L.mjThemeNow(st).n}秘境开了（${w.left} 月）${got ? '，送来一枚秘境令' : '（秘境令已满 3 枚）'}`, 'gold');
   }
 };
 

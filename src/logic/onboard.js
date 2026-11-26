@@ -4,12 +4,12 @@
  * 各包一层“并且已解锁”，所以界面、逻辑、sim 看到的是同一份开放状态。
  *
  * 规则（第一世；转世后 L.unlocked 一律为真，只剩各系统原来的门槛）：
- *   · 表 L.ONB 按顺序排；每周天（以及动手之后）看一次：第一个“原门槛已满足、还没解锁”的条目，满足下面两条就解锁它，一次只解锁一个——
- *     ① 离上一次解锁至少 gap 个周天（系统 L.ONB_GAP.sys，子项 L.ONB_GAP.sub）；
- *     ② 系统（sys）要等上一个系统“掌握”：master(st) 为真（用过几次 / 达成某结果），或解锁后过了 maxWait 个周天（玩家不理它也不会卡死）。
+ *   · 表 L.ONB 按顺序排；每月（以及动手之后）看一次：第一个“原门槛已满足、还没解锁”的条目，满足下面两条就解锁它，一次只解锁一个——
+ *     ① 离上一次解锁至少 gap 个月（系统 L.ONB_GAP.sys，子项 L.ONB_GAP.sub）；
+ *     ② 系统（sys）要等上一个系统“掌握”：master(st) 为真（用过几次 / 达成某结果），或解锁后过了 maxWait 个月（玩家不理它也不会卡死）。
  *        子项（sub，例如历练的采药、坊市的行情）只等它的父系统解锁，不占“掌握”。
  *   · force(st) 为真的（突破、三年之约、入宗、遇见人物、拿到灵宠……）立刻解锁，不等间隔——那件事已经发生了，界面不能装作没有。
- *   · 存档 st.onb = { at: { key: 解锁时的周天 }, m: { key: 掌握时的周天 }, last: 上次解锁的周天, c: { 计数 } }；
+ *   · 存档 st.onb = { at: { key: 解锁时的月 }, m: { key: 掌握时的月 }, last: 上次解锁的月, c: { 计数 } }；
  *     旧档（没有 st.onb）：原门槛已满足的全部算已解锁、已掌握（老玩家的东西不会消失），L.migrateOnb 幂等。
  *   · 解锁时 emit('unlock', key)，掌握时 emit('master', key)；界面（src/ui/guide.js 的 UI.isOpen）据此决定底栏入口、分页、按钮、HUD 格、角标、问老祖、札记显示与否。
  * sim 对照：L.ONB_ON = false（node tools/sim.js all 200 noonb）回到上一版：各系统一到原门槛就开。 */
@@ -44,12 +44,12 @@ L.monthSec = function (st) {
 };
 L.TICK_SEC = st => L.monthSec(st);   // 旧名（界面、测试脚本还在读）
 // k：键；n：名字；sys：系统（true）/ 子项（false，par 是父系统）；base：原门槛；force：已经发生了，立刻开；
-// master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个周天就当掌握了
+// master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个月就当掌握了
 L.ONB = [
   // ---- 第一章：三年之约之前只开这四样（DESIGN §2.4 的脚本收窄） ----
   { k: 'exp', n: '历练', sys: true, start: true, master: st => S(st, 'exp') >= 1, goal: '外出历练一次' },
   { k: 'home', n: '洞府·聚灵阵', sys: true, base: st => S(st, 'exp') >= 1, master: st => st.home.array >= 2, goal: '聚灵阵升到 2 级', maxWait: 10 },
-  { k: 'herb', n: '行事·采药', par: 'home', gap: 4, base: st => S(st, 'exp') >= 1 },   // 采药开得早晚直接改约战战力（多斩妖多掉法宝），钉在洞府开后 4 周天
+  { k: 'herb', n: '行事·采药', par: 'home', gap: 4, base: st => S(st, 'exp') >= 1 },   // 采药开得早晚直接改约战战力（多斩妖多掉法宝），钉在洞府开后 4 月
   { k: 'retreat', n: '闭关', sys: true, base: st => O.retOpen(st), master: st => S(st, 'retreat') >= 1, goal: '闭关一次', maxWait: 10 },
   { k: 'bt', n: '突破', sys: true, base: st => L.isReady(st), force: st => L.isReady(st) || mr(st) >= 1, master: st => mr(st) >= 1, goal: '突破筑基' },
   // ---- 三年之约之后：一次一样，掌握了再开下一样 ----
@@ -106,7 +106,7 @@ L.onbShown = (st, k) => (!E[k] || !ON() ? true : L.unlocked(st, k));   // 关掉
 L.onbMastered = (st, k) => { const o = ob(st); return o.m[k] !== undefined; };
 const lastSys = st => { const o = ob(st); let best = null; for (const e of L.ONB) if (e.sys && o.at[e.k] !== undefined && (!best || o.at[e.k] >= o.at[best.k])) best = e; return best; };
 const masteredNow = (st, e) => { const o = ob(st); return o.m[e.k] !== undefined || call(e.master, st) || st.tick - o.at[e.k] >= (e.maxWait || 12); };
-// 每周天（L.tick 末尾）和动手之后调：记掌握、按规则至多解锁一样（force 的不限）
+// 每月（L.tick 末尾）和动手之后调：记掌握、按规则至多解锁一样（force 的不限）
 L.onbStep = function (st) {
   if (!ON() || !st || !st.p) return null;
   const o = ob(st);
@@ -114,7 +114,7 @@ L.onbStep = function (st) {
   const reborn = (st.rebirth || 0) > 0;
   let got = null;
   for (const e of L.ONB) if (o.at[e.k] === undefined && call(e.force, st)) { o.at[e.k] = st.tick; o.last = Math.max(o.last, st.tick); if (e.sys && e.k !== 'bt') o.ls = st.tick; emit('unlock', e.k); got = got || e.k; }
-  // 转世后“快开”：不讲解、不等掌握、不等三年之约，原门槛到了就按表的顺序每 L.ONB_GAP.reborn 个周天开一样
+  // 转世后“快开”：不讲解、不等掌握、不等三年之约，原门槛到了就按表的顺序每 L.ONB_GAP.reborn 个月开一样
   const ls = lastSys(st), sysWait = !reborn && !!ls && !masteredNow(st, ls);
   for (const e of L.ONB) {
     if (o.at[e.k] !== undefined || !(e.start || call(e.base, st))) continue;

@@ -101,7 +101,7 @@ function showPets(u, still) {
     const evoGold = glow || L.petCanAwake(p);
     const outBtn = out ? `<button class="btn sm alt" disabled>出战中</button>` : `<button class="btn sm alt" id="petOut">${icon16('job_out', 1)} 出战<small>${petOutGain(i)}</small></button>`;
     const jobBtn = L.petJobsOpen(st) ? `<button class="btn sm alt" id="petJob">${icon16(p.job ? L.PET_JOB[p.job].icon : 'job_forage', 1)} 派岗<small>${p.job ? L.PET_JOB[p.job].n : '没派'}</small></button>` : '';
-    const feedBtn = `<button class="btn sm ${why || evoGold ? 'alt' : 'gold'} pfeed" id="petFeed" ${why ? 'disabled' : ''}>${icon16('feed', 1)} 喂食<small>${why ? esc(why) : '兽粮 ' + n}</small></button>`;
+    const feedBtn = `<button class="btn sm ${why || evoGold || (st.petPend || []).length ? 'alt' : 'gold'} pfeed" id="petFeed" ${why ? 'disabled' : ''}>${icon16('feed', 1)} 喂食<small>${why ? esc(why) : '兽粮 ' + n}</small></button>`;
     const evo = L.petCanEvo(p) ? `<button class="btn ${glow ? 'gold pglowb' : 'alt'}" id="petEvo">进化<small>${glow ? ' · 条件齐了' : ' · 看条件'}</small></button>`
       : L.petCanAwake(p) ? '<button class="btn gold pglowb" id="petAwake">觉醒</button>' : '';
     const role = L.petResting(st, p) ? `<span class="seal">挡过天劫，休养 ${p.rest - st.tick} 月</span>` : out ? `出战：战力 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：<b>${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}</b>` : '<span class="seal">闲着：久了会掉好感</span>';
