@@ -1198,6 +1198,59 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .cn-tile .cn-th i { font-style: normal; color: #55506e; font-size: 20px; }
 .cn-tile .cn-nm { font-size: 14px; white-space: nowrap; }
 .cn-tile.off { cursor: default; opacity: .7; box-shadow: 0 0 0 2px #8a8496; }
+/* 回忆按段归组（cine2.js showCineRecall）：一排分组、同段的几个版本并成一格 */
+.cn-grps { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.cn-grp { flex: 1 1 28%; min-height: 44px; padding: 4px 6px; font: inherit; font-size: 15px; color: var(--paper-ink); background: rgba(27, 19, 38, .06); border: 0; box-shadow: 0 0 0 2px #b98a4c; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.cn-grp .num { font-size: 14px; color: var(--paper-mute); }
+.cn-grp.on { background: #3a3155; color: #f6ecd0; box-shadow: 0 0 0 2px #1b1326, inset 0 -3px 0 var(--gold); }
+.cn-grp.on .num { color: var(--gold); }
+.cn-seg { display: flex; flex-direction: column; gap: 4px; }
+.cn-seg .cn-tile { width: 100%; }
+.cn-tile .cn-nm small { font-size: 14px; color: var(--paper-mute); }
+.cn-vers { display: flex; gap: 4px; }
+.cn-ver { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 2px; font: inherit; font-size: 14px; color: var(--paper-ink); background: #fff6dc; border: 0; box-shadow: 0 0 0 2px #b98a4c; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-ver.off { background: rgba(27, 19, 38, .1); color: #8a8496; box-shadow: 0 0 0 2px #8a8496; cursor: default; }
+/* ---------- D 线：结局卡三页、后日谈、图鉴结局页、转世开场（life.js、panel-codex.js） ---------- */
+.end-pic { position: relative; margin: 0 auto 6px; background: #07050c; box-shadow: 0 0 0 2px #1b1326, 0 0 0 4px #b98a4c; }
+.end-pic img { display: block; }
+.end-seal { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; font-size: 18px; letter-spacing: 2px; color: #fff6e0; background: #c8323c; box-shadow: 0 0 0 1px #f4c542, 0 0 0 3px #8a1e2e; animation: endSeal .28s steps(4) .5s both; }
+@keyframes endSeal { from { transform: scale(2.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.end-name { margin-top: 8px; }
+.end-tags { margin: 2px 0 0; display: flex; gap: 6px; justify-content: center; }
+.end-tags span { padding: 0 8px; font-size: 14px; color: #fff6e0; background: #55506e; box-shadow: 0 0 0 1px #1b1326; }
+.end-text { margin: 10px 2px 6px; padding: 8px 10px; background: rgba(27, 19, 38, .06); box-shadow: inset 3px 0 0 #b98a4c; }
+.end-text p { margin: 0 0 9px; font-size: 16px; line-height: 26px; text-align: left; opacity: 0; animation: endIn .7s ease-out forwards; animation-delay: calc(.5s + var(--i, 0) * .55s); }
+.end-text p.say { color: #6a4a1a; padding-left: 6px; }
+.end-text p.last { margin-bottom: 0; font-size: 17px; color: #8a1e2e; }
+.end-text.still p { opacity: 1; animation: none; }
+.end-dao { opacity: 0; animation: endIn .7s ease-out forwards; animation-delay: calc(.5s + var(--i, 0) * .55s); font-size: 14px; }
+@keyframes endIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.end-count { margin: 6px 0; font-size: 15px; }
+.end-count img { vertical-align: -3px; }
+.epi-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; cursor: pointer; min-height: 120px; }
+.epi-card { display: flex; gap: 10px; align-items: flex-start; padding: 8px; background: rgba(27, 19, 38, .05); box-shadow: 0 0 0 2px #c8b48c; opacity: .72; }
+.epi-card.new { opacity: 1; background: #fff6dc; box-shadow: 0 0 0 2px #b98a4c, 0 3px 0 0 rgba(27, 19, 38, .18); animation: endIn .45s ease-out; }
+.epi-pt { flex: none; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #2a2238; box-shadow: 0 0 0 2px #1b1326; }
+.epi-pt.ic { background: #3a3155; }
+.epi-tx { flex: 1; min-width: 0; text-align: left; }
+.epi-tx b { font-weight: normal; color: #8a1e2e; font-size: 15px; }
+.epi-tx p { margin: 2px 0 0; font-size: 15px; line-height: 24px; }
+.epi-tip { font-size: 14px; margin: 8px 0 0; cursor: pointer; }
+.gate-row { margin-bottom: 6px; padding: 6px; background: rgba(244, 197, 66, .14); box-shadow: 0 0 0 2px #b98a4c; }
+.gate-row img { vertical-align: -3px; }
+.reb-line { margin: 8px 0; }
+.reb-fate { margin: 4px 0; font-size: 15px; text-align: left; color: #2a6a5a; }
+.reb-fate img { vertical-align: -3px; }
+.endg { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 6px; }
+.endg-t { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 44px; padding: 6px 4px; font: inherit; color: var(--paper-ink); background: rgba(27, 19, 38, .06); border: 0; box-shadow: 0 0 0 2px #8a8496; cursor: default; text-align: center; }
+.endg-t.on { background: #fff6dc; box-shadow: 0 0 0 2px #b98a4c; cursor: pointer; }
+.endg-pic { display: flex; align-items: center; justify-content: center; background: #07050c; overflow: hidden; }
+.endg-pic i { font-style: normal; color: #55506e; font-size: 20px; }
+.endg-t b { font-weight: normal; font-size: 15px; color: #8a1e2e; }
+.endg-t:not(.on) b { color: #6a6478; }
+.endg-l { font-size: 14px; line-height: 20px; }
+.endg-t:not(.on) .endg-l { color: #6a6478; }
+.endg-s { font-size: 14px; color: var(--paper-mute); }
 /* ---------- 战斗线 C1：历练的节点与回合战（src/ui/battle.js，docs/COMBAT_LOOT.md §2，示意图 02_battle.png） ---------- */
 body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body.bt-on #tick { display: none !important; }
 #bt { display: flex; flex-direction: column; gap: 4px; flex: none; }

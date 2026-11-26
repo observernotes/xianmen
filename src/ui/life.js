@@ -10,25 +10,74 @@ function recordLife() {
 }
 const endName = id => (L.ENDING[id] ? L.ENDING[id].n : '');
 function bdImg(kind, w) { const c = ART.backdrop ? ART.backdrop(kind) : null; return c ? `<img class="px" src="${urlOf(c, 'bd|' + kind)}" style="width:${w}px;height:${Math.round(w * c.height / c.width)}px;display:block;margin:0 auto" alt="">` : ''; }
+// 结局卡分三页（STORY_PLAN §3）：① 结局画面 + 正文（一段一段浮出来）→ ② 后日谈（一张一张翻，可跳过）→ ③ 这一世（结算与去留）。
+// showAscension() 外面包着过场与“天门”那场戏（cine2.js、talk.js）；页与页之间直接调下面几个函数，不再经过它们。
+function endPicHTML(E, want) {
+  const pic = ART.endingPic ? ART.endingPic(E.pic) : null; if (!pic) return bdImg(E.bg, 200);
+  const pw = pxFit(200, want || 300);
+  return `<div class="end-pic" style="width:${pw}px;height:${pw * 0.6}px"><img class="px" src="${urlOf(pic, 'endpic|' + E.pic)}" style="width:${pw}px;height:${pw * 0.6}px" alt="">${E.seal ? `<span class="end-seal">${esc(E.seal)}</span>` : ''}</div>`;
+}
+function epiPtHTML(c) {
+  if (!c.pt || !ART.portraitX) return `<span class="epi-pt ic">${artIcon('ending', 32)}</span>`;
+  const alt = (c.pt === 'su' || c.pt === 'ye' || c.pt === 'mu') && !!(st.p.look && st.p.look.f);
+  let cv = null; try { cv = ART.portraitX(c.pt, c.mood || 'n', c.fx || '', alt); } catch (e) { cv = null; }
+  if (!cv) return `<span class="epi-pt ic">${artIcon('ending', 32)}</span>`;
+  const w = pxFit(48, 48);
+  return `<span class="epi-pt"><img class="px" src="${urlOf(cv, ['epi', c.pt, c.mood, c.fx, alt ? 1 : 0].join('|'))}" style="width:${w}px;height:${w}px" alt=""></span>`;
+}
+const epiCardHTML = c => `<div class="epi-card">${epiPtHTML(c)}<div class="epi-tx"><b>${esc(c.who)}</b><p>${esc(c.text)}</p></div></div>`;
 function showAscension() {
-  const p = st.p;
   recordLife();
   saveLocal();
-  const ends = L.endingsOf(st), f = L.daoFruit(st);
-  // 主结局、副标签、后日谈（storyline.js 的 L.endingOf / L.epilogue；STORY_PLAN §3）
-  const E = L.endingOf(st), epi = L.epilogue(st), pic = ART.endingPic ? ART.endingPic(E.pic) : null, pw = pxFit(200, 300);
-  const stay = !!st.eflags.asc_stay;
+  endPage();
+}
+// ① 结局
+function endPage() {
+  const p = st.p, E = L.endingOf(st), epi = L.epilogue(st);
+  const paras = E.paras || [L.fill(st, E.text)];
+  sheet({ title: '结局', center: true, noClose: true,
+    body: `${endPicHTML(E)}
+      <div class="center big goldt end-name">${esc(p.name)} · ${esc(E.n)}</div>${E.tags.length ? `<p class="center end-tags">${E.tags.map(t => `<span>${esc(t)}</span>`).join('')}</p>` : ''}
+      <div class="end-text">${paras.map((t, i) => `<p class="${/^“/.test(t) ? 'say' : ''}${i === paras.length - 1 ? ' last' : ''}" style="--i:${i}">${esc(t)}</p>`).join('')}</div>
+      <p class="center muted end-dao" id="daoEnding" style="--i:${paras.length + 1}">${esc(L.daoEnding(st))}</p>`,
+    foot: [{ t: epi.length ? '后日谈 ▸' : '这一世 ▸', gold: true, fn: () => (epi.length ? epiPage() : endSummary()) }] });
+}
+// ② 后日谈：点一下翻一张，翻过的留在上面
+function epiPage() {
+  const epi = L.epilogue(st); let i = 0;
+  if (!epi.length) return endSummary();
+  const s = sheet({ title: '后日谈', center: true, noClose: true,
+    body: `<div class="ksec"><span>后来</span><span id="epiN"></span></div><div class="epi-list" id="epiList"></div><p class="center muted epi-tip" id="epiTip">点一下，翻下一张</p>`,
+    foot: [{ t: '跳过', alt: true, fn: endSummary }, { t: '下一张 ▸', gold: true, fn: () => next() }] });
+  const list = s.querySelector('#epiList'), nb = s.querySelector('[data-fi="1"]'), cnt = s.querySelector('#epiN'), tip = s.querySelector('#epiTip');
+  function next() {
+    if (i >= epi.length) return endSummary();
+    list.querySelectorAll('.epi-card.new').forEach(x => x.classList.remove('new'));
+    list.insertAdjacentHTML('beforeend', epiCardHTML(epi[i])); const el = list.lastElementChild; el.classList.add('new'); i++;
+    cnt.textContent = `${i} / ${epi.length}`;
+    if (i >= epi.length) { nb.textContent = '这一世 ▸'; tip.textContent = ''; }
+    if (i > 1) SFX.tap();
+    const bd = s.querySelector('.body'); if (bd) bd.scrollTop = bd.scrollHeight;
+  }
+  list.onclick = () => next(); tip.onclick = () => next();
+  next();
+}
+// ③ 这一世
+function endSummary() {
+  const p = st.p, ends = L.endingsOf(st), f = L.daoFruit(st), E = L.endingOf(st), stay = !!st.eflags.asc_stay;
+  const rec = st.meta.endings || {}, seen = L.ENDINGS.filter(e => e.id !== 'rest' && (rec[e.id] || e.id === E.id)).length, fresh = !rec[E.id];
+  const all = L.ENDINGS.filter(e => e.id !== 'rest').length;
   sheet({ title: esc(E.n), center: true, noClose: true,
-    body: `${pic ? `<img class="px" src="${urlOf(pic, 'endpic|' + E.pic)}" style="width:${pw}px;height:${pw * 0.6}px;display:block;margin:0 auto" alt="">` : bdImg(E.bg, 200)}
-      <div class="center big goldt">${esc(p.name)} · ${esc(E.n)}</div>${E.tags.length ? `<p class="center muted" style="margin:2px 0">${E.tags.map(esc).join(' · ')}</p>` : ''}
-      <p class="center">${esc(L.fill(st, E.text))}</p>
-      <p class="center" id="daoEnding">${esc(L.daoEnding(st))}</p>
-      ${epi.length ? `<div class="ksec"><span>后日谈</span></div>${epi.map(c => `<div class="quote" style="text-align:left"><b>${esc(c.who)}</b>　${esc(L.fill(st, c.text))}</div>`).join('')}` : ''}
+    body: `${endPicHTML(E, 200)}
+      <div class="center big goldt">${esc(p.name)} · ${esc(E.n)}</div>${E.line ? `<p class="center muted" style="margin:2px 0">${esc(E.line)}</p>` : ''}
       <dl class="grid2"><dt>结局</dt><dd>${ends.map(endName).join(' · ')}</dd><dt>修仙</dt><dd>${Math.floor(st.year) + 1} 年 · ${fmt(p.age)} 岁</dd><dt>天骄榜</dt><dd>最高第 ${st.bestRank}</dd><dt>宗门</dt><dd>${st.sect ? L.sectOf(st).n + L.srankName(st, st.sect.rank) : '散修'}</dd>
         <dt>道基</dt><dd>+${Math.round(L.daoji(st) * 100)}%${st.trib && st.trib.dan ? ' · ' + esc(st.trib.dan) : ''}</dd>${L.karmaOpen(st).length ? `<dt>因果</dt><dd>未了 ${L.karmaOpen(st).length} 条</dd>` : ''}
         <dt>道果</dt><dd class="goldt">约 ${fmt(f.total)}（其中图鉴 +${fmt(f.codex)}）</dd></dl>
-      <div class="quote">${stay ? '你留在了人间。日子照旧过；哪天想走了，在【人物】里再入轮回。' : '恭喜通关！再入轮回：结算道果、在轮回殿换永久加成，选出身、命格与天道试炼，开始新的一世。也可以留在此世，之后在【人物】里再入轮回。'}</div>`,
-    foot: [{ t: '留在此世', alt: true, fn: closeModal }, { t: '再入轮回', gold: true, fn: () => rebirthFlow('ascend') }] });
+      <p class="center end-count">${artIcon('ending', 16)} 见过的结局 <b>${seen}</b> / ${all}${fresh ? ' · <span class="goldt">这一个是头一回</span>' : ''}</p>
+      <div class="quote">${stay ? '你留在了人间。日子照旧过；哪天想走了，在【仙途 → 记录】里【再登天门】，或是再入轮回。' : '恭喜通关！别的路通向别的结局——抉择的选项上，选过的会有个小点。再入轮回：结算道果、在轮回殿换永久加成，选出身、命格与天道试炼，开始新的一世。'}</div>
+      <p class="center"><button class="btn sm alt" id="endBack">回看结局与后日谈</button></p>`,
+    foot: stay ? [{ t: '回人间', gold: true, fn: closeModal }, { t: '再入轮回', alt: true, fn: () => rebirthFlow('ascend') }] : [{ t: '留在此世', alt: true, fn: closeModal }, { t: '再入轮回', gold: true, fn: () => rebirthFlow('ascend') }] });
+  const bk = document.querySelector('#modal #endBack'); if (bk) bk.onclick = () => { SFX.tap(); endPage(); };
 }
 function showDeath() {
   const p = st.p;
@@ -36,21 +85,32 @@ function showDeath() {
   recordLife();
   saveLocal();
   const f = L.daoFruit(st), lim = L.trialOn(st, 'limit') && st.tick >= L.TRIAL_LIMIT;
+  // 那一句按老祖在不在换（P08）：诀别之后戒指是凉的，只剩心口那一点剑意；留魂时是剑里的人；转世过的，他“好像送过你不止一回”
+  const line = L.restLine ? L.restLine(st) : '戒中老祖：“别灰心。本座护住你一缕真灵，带着这一世的感悟，再来一次！”';
   sheet({ title: '坐化', center: true, noClose: true,
     body: `${bdImg('rest', 200)}<div class="center">${myAvImg(66, undefined, 'filter:grayscale(1)')}</div>
       <p class="center">${lim ? `天道试炼·限时：第 ${L.TRIAL_LIMIT} 个月到了。` : '寿元耗尽。'}${esc(p.name)}于洞府中静静坐化，享年 ${Math.floor(p.age)} 岁，止步${L.stageName(p)}。</p>
       <p class="center goldt">这一世可带走道果约 ${fmt(f.total)}</p>
-      ${st.eflags && st.eflags.st_farewell ? '<div class="quote">戒中剑意轻轻一颤，护住你一缕真灵。再来一次。</div>' : '<div class="quote">戒中老祖：“别灰心。本座护住你一缕真灵，带着这一世的感悟，再来一次！”</div>'}`,
+      <div class="quote">${esc(line)}</div>`,
     foot: [{ t: '转世重修', gold: true, fn: () => rebirthFlow('rest') }] });
 }
 // 人物页：飞升后“再入轮回”，金丹以后“兵解转世”（二次确认）
 function lifeRebirthHTML() {
   const dg = L.daoguo(st), rb = st.p.r >= 9 ? '<button class="btn gold" id="btnReborn">再入轮回 ▸</button>' : st.p.r >= 2 ? '<button class="btn sm alt" id="btnBingjie">兵解转世</button>' : '';
+  // 转身留在人间之后：再走一次天门（只剩“踏进去”和“问天”）
+  const gate = st.p.r >= 9 && st.eflags.asc_stay && L.eventById('s9_gate_again') ? `<div class="row gate-row"><span class="grow">${artIcon('ending', 16)} 你留在了人间。天上的门还开着一条缝。</span><button class="btn alt" id="btnGate">再登天门 ▸</button></div>` : '';
   if (!rb && !dg && !st.rebirth) return '';
-  return `<div class="sep"></div><div class="row"><span class="grow">轮回殿：道果 <b>${fmt(dg)}</b>${st.trials && st.trials.length ? ` · 试炼 ${st.trials.map(id => esc(L.TRIAL[id].n)).join('、')}` : ''}${st.origin && st.origin !== 'qitu' ? ` · 出身 ${esc(L.originOf(st).n)}` : ''}</span>${rb}</div>`;
+  return `<div class="sep"></div>${gate}<div class="row"><span class="grow">轮回殿：道果 <b>${fmt(dg)}</b>${st.trials && st.trials.length ? ` · 试炼 ${st.trials.map(id => esc(L.TRIAL[id].n)).join('、')}` : ''}${st.origin && st.origin !== 'qitu' ? ` · 出身 ${esc(L.originOf(st).n)}` : ''}${L.skyBorn && L.skyBorn(st) ? ' · 问过天' : ''}</span>${rb}</div>`;
+}
+function gateAgain() {
+  const ev = L.eventById('s9_gate_again'); if (!ev || !st.eflags.asc_stay) return;
+  delete st.evDone[ev.id];
+  closeModal();
+  showChoice(ev, () => { closeModal(); L.checkQuests(st); if (!st.eflags.asc_stay) showAscension(); });
 }
 function bindLifeRebirth(s) {
   const a = s.querySelector('#btnReborn'); if (a) a.onclick = () => { SFX.tap(); rebirthFlow('ascend'); };
+  const g = s.querySelector('#btnGate'); if (g) g.onclick = () => { SFX.tap(); gateAgain(); };
   const b = s.querySelector('#btnBingjie');
   if (b) b.onclick = () => { SFX.tap(); const f = L.daoFruit(st); sheet({ title: '兵解', center: true, body: `<p>散去这一世的修为，带着 <b>${fmt(f.total)}</b> 道果转世重修？这一世到此为止，不能反悔。</p>`, foot: [{ t: '再想想', alt: true, fn: () => showMe() }, { t: '兵解', fn: () => sheet({ title: '兵解', center: true, body: '<p class="center seal">真的兵解吗？</p>', foot: [{ t: '算了', alt: true, fn: () => showMe() }, { t: '兵解转世', fn: () => { recordLife(); rebirthFlow('bingjie'); } }] }) }] }); };
 }
@@ -171,8 +231,13 @@ function doRebirth() {
 // 出身开场：一张出身小画 + 三句 + 约战是谁
 function showOpening() {
   const O = L.originOf(st), pt = L.pactText(st);
+  // 转世版开章（P32）：他不记得你，可“看你顺眼得有些没道理”——那一句按上一世怎么收的场换；前缘：上一世五心的人，这一世开局一心
+  const sleep = L.trialOn(st, 'sleep'), prev = st.meta && st.meta.prev;
+  const echo = st.rebirth > 0 && L.rebirthLine ? `<div class="quote reb-line">${esc(sleep ? '戒指烫了一下，又沉了下去。这一世，他睡得很沉。' : L.rebirthLine(st, prev))}</div>` : '';
+  const fate = (st.fate || []).map(id => (L.fateLine ? L.fateLine(st, id) : '')).filter(Boolean).map(t => `<p class="reb-fate">${artIcon('echo', 16)} ${esc(t)}</p>`).join('');
+  const sky = L.skyBorn && L.skyBorn(st) ? `<p class="reb-fate">${artIcon('ending', 16)} 你问过天。这一世，你知道题面：道果 ×${L.SKY_MULT.toFixed(2)}。</p>` : '';
   sheet({ title: O.n, center: true, noClose: true,
-    body: `<div class="center">${originImg(st.origin || 'qitu', 192)}</div>${O.open.map(t => `<p>${esc(t)}</p>`).join('')}
+    body: `<div class="center">${originImg(st.origin || 'qitu', 192)}</div>${O.open.map(t => `<p>${esc(t)}</p>`).join('')}${echo}${fate}${sky}
       <div class="quote">第 ${L.PACT_TICK} 个月，${pt ? `${esc(pt.title)}：${esc(pt.who)}` : `三年之约：${esc(st.exName)}`}，战力 ${fmt(L.PACT_POWER)}。${st.trials.length ? `<br>天道试炼：${st.trials.map(id => esc(L.TRIAL[id].n)).join('、')}${st.trialEl ? `（封了${L.elName(st.trialEl)}系）` : ''}` : ''}</div>`,
     foot: [{ t: '踏入仙途', gold: true, fn: closeModal }] });
 }
