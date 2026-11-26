@@ -153,6 +153,14 @@ tools/story_ui.js    剧情界面检查与截图（对话场景播放器、数�
 tools/story_shots.js 剧情美术预览（docs/story_mock/art_preview.png）：node tools/story_shots.js
 tools/preview.js  美术预览：渲染 tools/preview.html 里的精灵与场景
 tools/shot.js     Playwright 冒烟测试与截图
+tools/story_accept.js    主线可走通性验收（逻辑层，矩阵与结论见 docs/STORY_ACCEPTANCE.md）：借 sim 的策略打怪升级，但把逻辑捷径全堵上——入宗只能走“三宗争徒弹窗”或“三张帖子”
+                  的选项、剧情只在洞府弹、灰选项不能选、解锁卡的真实时间间隔按 ×1 / ×4 折进去、飞升后补“天门”；每月跑死锁探测器（tools/story_probe.js）。
+                  `node tools/story_accept.js [quick] [only=<正则>] [list] [v] [json=<文件>]`，约 10 分钟；2.4.0-beta1 上的基线 121 / 134（失败的 13 条是回归用例）
+tools/story_accept_ui.js 同一件事的真实界面版（Playwright）：时间只在真人那边也会走的时候推进，主线相关的每一步只点按钮；另量“关键事件 → 对应剧情”隔了几个月。
+                  `node tools/story_accept_ui.js [only=<正则>] [list] [dist=<旧构建的 index.html>] [until=<月>] [json=<文件>]`，约 30 分钟
+tools/story_accept3.js   3.0（行动点制，docs/AP_PLAN.md）的验收：只用 L.act / L.seasonEnd / L.nextBlock / L.mainActs 玩，查零延迟、三年之约同 tick、mainActs 非空等硬断言；
+                  3.0 的接口没合进来时以退出码 2 结束。`node tools/story_accept3.js [list]`
+tools/story_fixtures/    旧存档样本（2.3.1 / 2.3.2 / 2.4.0-beta1 真跑出来的，另有一份照用户描述手工拼的），上面三个脚本的旧档用例读它
 tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【换上】、每 24 周天在功法页点“荐”；法宝对比卡更强就换、否则熔炼、偶尔锁定，
                   每 12 周天去法宝页点【强化】；每 6 周天逛坊市：处理坊市事件、卖多的破境丹、买轮换货、拍卖会出价；大势起了点小牌看年历；
                   每 12 周天进兽栏：出战最强的、空着的派岗、喂兽粮、发光的点进化、名册满时放生或替换；天劫准备页把手段全点上、心魔劫随手选、那一停补满再继续；
