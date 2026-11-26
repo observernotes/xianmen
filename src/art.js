@@ -193,7 +193,7 @@ function palette(look, robe, trim, extra) {
   }, extra || {});
 }
 const cache = new Map();
-function cached(key, fn) { let c = cache.get(key); if (!c) { c = fn(); cache.set(key, c); } return c; }
+function cached(key, fn) { let c = cache.get(key); if (!c) { c = fn(); cache.set(key, c); if (c && c.getContext) c._st = 1; } return c; }   // _st：定稿的静态精灵（HD2D 据此升 2 倍密度）
 ART.clearCache = () => { cache.clear(); layerCache.clear(); };
 const layerCache = new Map();
 
@@ -468,7 +468,12 @@ function disc(cx, cy, r, c) { ctx.fillStyle = c; cx = Math.round(cx); cy = Math.
 function ellipse(cx, cy, rx, ry, c) { ctx.fillStyle = c; cx = Math.round(cx); cy = Math.round(cy); for (let y = -ry; y <= ry; y++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry + 0.01)))); ctx.fillRect(cx - w, cy + y, w * 2 + 1, 1); } }
 function line(x0, y0, x1, y1, c, th) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); th = th || 1; for (let i = 0; i <= n; i++) R(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, th, th, c); }
 ART.R = R; ART.disc = disc;
-ART.setCtx = (c, w) => { ctx = c; W = w; };
+ART.setCtx = (c, w) => { ctx = c; W = w; if (root.HD2D && c && c.canvas && c.canvas.id === 'scene') root.HD2D.attach(c); };
+// HD-2D（src/fx/hd2d.js）：当前在往主场景画、且高清合成开着时，背景按层分开画（天 / 远 / 中 / 地 / 前景），画完把 ctx 还给人物层
+function hdBegin(kind, info) { const h = root.HD2D; if (!h || !h.on) return null; if (ctx !== h.ctx) { if (!h.owns || !h.owns(ctx)) return null; ctx = h.ctx; } return h.begin(kind, info) ? h : null; }
+function hdL(h, name) { if (h) ctx = h.layer(name); }
+function hdEnd(h) { if (h) ctx = h.end(); }
+function hdPt(x, y) { const m = ctx.getTransform(), k = root.HD2D.S; return [(m.a * x + m.c * y + m.e) / k, (m.b * x + m.d * y + m.f) / k]; }
 // 临时把绘制目标切到离屏画布
 function on(c, fn) { const pc = ctx, pw = W; ctx = c.getContext('2d'); W = c.width; try { fn(ctx); } finally { ctx = pc; W = pw; } return c; }
 function atop(fn) { ctx.save(); ctx.globalCompositeOperation = 'source-atop'; fn(); ctx.restore(); }
@@ -519,6 +524,7 @@ function paintRidge(arr, yb, cTop, cBot, o) {
   ctx.drawImage(tmp, o.x || 0, 0);
 }
 function glow(x, y, r, c, a) {
+  const h = root.HD2D; if (h && h.on && (ctx === h.ctx || (h.owns && h.owns(ctx)))) { const p = hdPt(x, y); h.light(p[0], p[1], r, c, Math.min(1, a * 0.9), 2); return; }   // 高清合成时改成一盏平滑的灯
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = 3; i >= 1; i--) { ctx.globalAlpha = a * (0.22 + (3 - i) * 0.18); disc(x, y, Math.round(r * i / 3), c); }
   ctx.restore();
@@ -992,13 +998,27 @@ function homeLayers(st, sky, OY, season) {
 const SUN = () => cached('sun', () => on(mk(31, 31), () => { for (const [r, l] of [[13, 2], [11, 6]]) { ctx.globalAlpha = 0.55; ctx.fillStyle = pat('#fff0b8', l); for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); ctx.fillRect(15 - w, 15 + y, w * 2 + 1, 1); } } ctx.globalAlpha = 1; disc(15, 15, 8, '#ffe89a'); disc(15, 15, 7, '#fff4c8'); disc(14, 14, 4, '#fffdf0'); }));
 const MOON = () => cached('moon', () => on(mk(27, 27), () => { for (const [r, l] of [[11, 2], [9, 6]]) { ctx.globalAlpha = 0.5; ctx.fillStyle = pat('#b8c8ff', l); for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); ctx.fillRect(13 - w, 13 + y, w * 2 + 1, 1); } } ctx.globalAlpha = 1; disc(13, 13, 7, '#dfe6ff'); disc(12, 12, 6, '#f6f8ff'); R(10, 10, 2, 2, '#d0d8f4'); R(15, 13, 3, 2, '#d0d8f4'); R(11, 16, 2, 1, '#d0d8f4'); R(16, 9, 1, 1, '#d0d8f4'); dR(14, 8, 6, 12, '#c4cef0', 4); }));
 let lastHome = null;
+// 洞府的主光 / 体积光 / 浮尘 / 调色跟着昼夜与季节走
+function hdHomeLight(hd, sky, sunX, sunY, moonX, moonY, season, night) {
+  const F = hd.F, day = Math.max(0, Math.min(1, (sky.light - 0.42) / 0.5)), low = Math.max(0, Math.min(1, (sunY + 20) / 80));   // low：太阳越低越接近 1
+  const sunUp = sunY < 84, warm = lerpC('#fff4d0', '#ffb070', low);
+  F.sun = sunUp ? { x: sunX, y: sunY, a: 0.5 + 0.5 * low, c: warm } : null;
+  F.moon = moonY < 84 ? { x: moonX, y: moonY, a: 1 - day } : null;
+  const lx = sunUp ? sunX : moonX, ly = sunUp ? sunY : moonY;
+  F.key = { dx: lx < 100 ? -1 : 1, dy: -1, c: sunUp ? warm : '#a8c0ff', a: sunUp ? 0.35 + 0.3 * low : 0.4 };
+  F.rays = { x: lx, y: ly, c: sunUp ? warm : '#9ab0ff', a: sunUp ? 0.07 + 0.2 * low * day : 0.09 * (1 - day), spread: 1.25, dir: Math.atan2(104 - lx, 150 - ly) };
+  F.motes = night ? (season === 1 ? { n: 26, c: '#e8ff7a', kind: 'fly' } : { n: 18, c: '#b8c8ff', kind: 'wisp' }) : { n: 30, c: lerpC('#fff6d8', '#ffc890', low), kind: 'dust' };
+  F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 1.2;
+}
 
 // 洞府场景主绘制。返回需要叠加光照的点
 ART.drawHome = function (st, t, OY, parts, opts) {
-  const ph = opts.phase, skyNow = ART.skyAt(ph), night = skyNow.light < 0.6, dark = 1 - skyNow.light;
+  const ph = root.HD2D && root.HD2D.debugPhase !== undefined ? root.HD2D.debugPhase : opts.phase, skyNow = ART.skyAt(ph), night = skyNow.light < 0.6, dark = 1 - skyNow.light;
   const sky = ART.skyAt(Math.round(ph * 240) / 240);
   const season = Math.floor(((st.year || 0) % 1) * 4);
   const f = homeLayers(st, sky, OY, season), info = f.terr.info, amb = f.amb;
+  const hd = hdBegin('home', { OY, t, season, sky: skyNow, dark });
+  hdL(hd, 'sky');
   ctx.drawImage(f.sky, 0, -OY);
   // 星
   if (skyNow.light < 0.78) {
@@ -1018,12 +1038,18 @@ ART.drawHome = function (st, t, OY, parts, opts) {
   if (sunY < 90) ctx.drawImage(SUN(), Math.round(sunX) - 15, Math.round(sunY) - 15);
   const moonX = 100 + Math.sin(ang) * 86, moonY = top + (1 - Math.cos(ang)) * 46;
   if (moonY < 90) ctx.drawImage(MOON(), Math.round(moonX) - 13, Math.round(moonY) - 13);
+  if (hd) hdHomeLight(hd, skyNow, sunX, sunY, moonX, moonY, season, night);
   // 云
   for (const c of CLOUDS) { const spr = f.clouds[c.k], x = ((c.x + t * c.s) % 290) - 50; ctx.drawImage(spr, Math.round(x), Math.round(c.y - OY * (c.far ? 0.5 : 0.25))); }
+  hdL(hd, 'far');
   ctx.drawImage(f.mount, 0, 0);
   // 流动的山岚
   ctx.globalAlpha = 0.45; for (const [y, sp, o] of [[58, 0.004, 0], [74, 0.007, 90], [90, 0.011, 170]]) { const x = -(((t * sp + o) % 260) | 0); ctx.drawImage(f.mist, x, y); ctx.drawImage(f.mist, x + 260, y); } ctx.globalAlpha = 1;
-  ctx.drawImage(f.terrT, 0, 0);
+  hdL(hd, 'ground');
+  if (hd) {   // 高清：静态地形升 2 倍密度后直接画，环境光每帧现染（不必每个相位重做一张）
+    f.terr.c._hdOK = 1; ctx.drawImage(f.terr.c, 0, 0);
+    if (skyNow.amb !== '#ffffff') { ctx.globalCompositeOperation = 'multiply'; R(0, 0, 200, 96, skyNow.amb); ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(f.terr.c, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
+  } else ctx.drawImage(f.terrT, 0, 0);
   // 瀑布（颜色随环境光变化）
   const wc = ['#ffffff', '#d4ecff', '#9fcdf0', '#6fa8dc'].map(c => mulC(c, amb));
   const fall = (x0, y0, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (((y * 2 + x * 5 - Math.floor(t / 45) * 2 + x * x * 3) % 11) + 11) % 11; R(x0 + x, y0 + y, 1, 1, k < 2 ? wc[0] : k < 5 ? wc[1] : k < 9 ? wc[2] : wc[3]); } };
@@ -1052,8 +1078,10 @@ ART.drawHome = function (st, t, OY, parts, opts) {
   for (const g2 of info.glows) if (g2.always || dark > 0.2) lights.push(g2);
   if (furnaceTop) lights.push({ x: 166, y: 130, r: 11, c: furnaceTop.c, a: 0.55 });
   // 前沿云海
+  hdL(hd, 'fore');
   for (let i = 0; i < 9; i++) { const spr = f.sea[i % 3], sp2 = 0.0018 + (i % 3) * 0.0012, x = ((i * 41 + t * sp2) % 290) - 60; ctx.drawImage(spr, Math.round(x), 146 + (i % 3) * 3 + Math.round(Math.sin(t / 1900 + i) * 1)); }
   R(0, 158, 200, 3, f.seaC);
+  hdEnd(hd);
   lastHome = { sky: skyNow };
   return { sky: skyNow, night, furnaceTop, lights };
 };
@@ -1061,6 +1089,7 @@ ART.drawHome = function (st, t, OY, parts, opts) {
 // 夜间：地面以环境光正片叠底（保留色彩，偏蓝），再点亮光源
 ART.nightOverlay = function (sky, OY, H, lights) {
   const dark = 1 - sky.light;
+  if (root.HD2D && root.HD2D.on && ctx === root.HD2D.ctx) { root.HD2D.night(sky, lights); return; }
   if (sky.amb && sky.amb !== '#ffffff') { ctx.save(); ctx.globalCompositeOperation = 'multiply'; R(0, 96, W, 64, sky.amb); ctx.restore(); }
   else if (!sky.amb && dark > 0.02) { ctx.globalAlpha = dark * 0.62; R(0, -OY, W, H, '#080a24'); ctx.globalAlpha = 1; }
   for (const l of lights || []) glow(Math.round(l.x), Math.round(l.y), l.r, l.c, l.a * (0.35 + dark));
@@ -1539,13 +1568,19 @@ ART.drawAdventure = function (bgKey, t, OY, scroll) {
       vgrad(0, 0, 200, OY + 130, ramp(A.sky, 7), 0.34);
       if (A.stars) { const r = seeded(77); for (let i = 0; i < 50 * A.stars; i++) { const x = Math.floor(r() * 200), y = Math.floor(r() * (OY + 100)), b = r(); R(x, y, 1, 1, b > 0.7 ? '#ffffff' : b > 0.4 ? '#c0c8f0' : '#7078b0'); } }
     });
+    for (const l of layers) l.c._hdOK = 1;
     advCur = { key, OY, layers, sky };
   }
+  const hd = hdBegin('adv', { key, OY, t, scroll });
+  try {
+  hdL(hd, 'sky');
   ctx.drawImage(advCur.sky, 0, -OY);
   for (const l of advCur.layers) if (l.pre) drawStrip(l.c, scroll * l.f, -TOPPAD);
   if (A.back) A.back(t, OY, scroll);
-  for (const l of advCur.layers) if (!l.pre) drawStrip(l.c, scroll * l.f, l.y !== undefined ? l.y : -TOPPAD);
+  for (const l of advCur.layers) if (!l.pre) { hdL(hd, l.f < 0.15 ? 'far' : l.f < 0.4 ? 'mid' : 'ground'); drawStrip(l.c, scroll * l.f, l.y !== undefined ? l.y : -TOPPAD); }
+  hdL(hd, 'ground');
   if (A.fx) A.fx(t, OY, scroll);
+  } finally { hdEnd(hd); }
 };
 
 // ---------- 灵体（剑灵 / 星兽）与蛟龙 ----------
@@ -2246,7 +2281,7 @@ ART.frame = function (kind) {
   const F = FRAMES[kind]; if (!F) return null;
   return cached('frame|' + kind, () => {
     const b = new Buf(20, 20); F.draw(b); const c = b.cv();
-    return { url: c.toDataURL(), slice: 6, size: 20, fill: F.fill, ink: F.ink || (kind === 'hud' ? '#efe3c4' : '#3b2b1f'), canvas: c };
+    return { url: root.HD2D && root.HD2D.skinOn() ? root.HD2D.frame(c, kind, F.fill) : c.toDataURL(), slice: 6, size: 20, fill: F.fill, ink: F.ink || (kind === 'hud' ? '#efe3c4' : '#3b2b1f'), canvas: c };
   });
 };
 ART.frameKinds = () => Object.keys(FRAMES);
@@ -2515,10 +2550,14 @@ ART.drawDuelStage = function (kind, t, OY) {
       if (S.stars) { const r = seeded(77); for (let i = 0; i < 40; i++) { const x = Math.floor(r() * 200), y = Math.floor(r() * (OY + 70)); R(x, y, 1, 1, r() > 0.6 ? '#ffffff' : '#9aa2dc'); } }
       ctx.translate(0, OY); S.build();
     });
-    stageCur = { kind, OY, c };
+    c._hdOK = 1; stageCur = { kind, OY, c };
   }
+  const hd = hdBegin('duel', { key: kind, OY, t });
+  try {
+  hdL(hd, 'ground');
   ctx.drawImage(stageCur.c, 0, -OY);
   S.fx(t || 0);
+  } finally { hdEnd(hd); }
 };
 ART.duelStages = () => Object.keys(STAGES);
 
