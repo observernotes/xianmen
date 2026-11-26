@@ -214,6 +214,23 @@ L.storyTick = function (st) {
 { const wc0 = L.warChapter; L.warChapter = st => wc0(st) && !(st.flags && st.flags.warWon); }
 { const tk1 = L.tick; L.tick = function (st, cont) { if (st && st.flags && !st.flags.warWon && (any(st, L.STORY_LU) || E(st).war_stop) && L.chapterNow(st) > 5) st.flags.warWon = st.flags.warWon || 1; return tk1(st, cont); }; }
 
+// 按章记着的系统剧情键（boss:5 万剑低眉、trib:1 渡劫阵图、demon:3）：除了章要到，前面各章的开章剧情也得先出过——
+// 一口气补主线时开章是一个月补一场，章先到了、戏还排着队，这几场不能插到它们前头（万剑低眉要在“残缺的剑诀”之后）
+const openDone = (st, key) => {
+  const need = L.STORY_CH ? L.STORY_CH(key) : -1; if (need < 0 || /^realm:/.test(key)) return true;
+  const lim = Number.isInteger(need) ? need - 1 : Math.floor(need);
+  for (let n = 1; n <= lim; n++) { const ev = L.eventById('story_r' + n); if (ev && !st.evDone[ev.id]) return false; }
+  return true;
+};
+{ const ft2 = L.fireTrigger; L.fireTrigger = function (st, key) {
+  if (st && st.p && st.path && L.STORYLINE !== false && L.CH_GATE !== false && !openDone(st, key)) { if (!Array.isArray(st.path.hold)) st.path.hold = []; if (!st.path.hold.includes(key)) st.path.hold.push(key); return; }
+  return ft2(st, key);
+}; }
+{ const sr0 = L.storyRelease; if (sr0) L.storyRelease = function (st) {
+  if (st && st.path && Array.isArray(st.path.hold) && L.STORYLINE !== false) { const ch = L.chapterNow(st); const due = st.path.hold.filter(k => L.STORY_CH(k) <= ch).sort((x, y) => L.STORY_CH(x) - L.STORY_CH(y))[0]; if (due !== undefined && !openDone(st, due)) return 0; }
+  return sr0.apply(this, arguments);
+}; }
+
 // ---------- 境界先到、戏还没到：老祖先把东西传了 ----------
 // 主线剧情跟着章走，可剧情里给的功法、灵根、永久加成是修行本身要用的——境界超前的人（不爱做主线的）不该因为戏没到就少一截战力。
 // 踏入境界 N 时，第 N 章的开章剧情（story_rN）还没出：先按它头一个带这些奖励的选项发掉（功法 / 灵根 / 永久修炼与战力），记在 st.story.adv；

@@ -1,7 +1,7 @@
 /* 废柴仙途 · 事件库扩展：主线剧情（docs/STORY_PLAN.md §4.1，A 线）
  * 九章主线的对话场景。写法见 src/content/ev_story.js 顶部说明与 STORY_PLAN §6.4。这里放三样东西：
  *   一、PATCH：给现有的主线事件加对话（talk / scene / bgm / gist / cine），改几句 text；id、已有的 fx 标志位不动（旧存档）。
- *        写法：普通字段直接盖；undefined = 删掉；pre: 接在现有对话最前面的几行；res: { 选项序号: { ok: 结果里的对话, fail, okText, failText, cine, failCine, t, hint, key, gate, fx: 并进 ok.fx } }；add: 接在后面的新选项。
+ *        写法：普通字段直接盖；undefined = 删掉；pre / post: 接在现有对话最前面 / 最后面的几行；res: { 选项序号: { ok: 结果里的对话, fail, okText, failText, cine, failCine, t, hint, key, gate, fx: 并进 ok.fx } }；add: 接在后面的新选项。
  *   二、LIST：新增的场景 s1_*～s9_*。
  *   三、SLOT：共用场景（s4_two_lamps、s6_eve、s8_steps、s9_farewells）的空位。框架和旁白在这里；各人的段落别的线在自己的文件里填：
  *        (globalThis.STORY_SLOTS['s8_steps'] = globalThis.STORY_SLOTS['s8_steps'] || []).push({ who: 'zhao', if: 'zhao_owes', echo: '…', say: [ … ] })
@@ -832,6 +832,21 @@ Object.assign(PATCH, {
       2: { ok: [['me', '为什么。'], { bgm: '' }, ['nar', '那一头停了很久。', { sfx: 'heart' }], ['tianheng:sad+mono', '因为他站得太高。'], ['tianheng:sad+mono', '从没*回头*看过我。', { slow: 1, soft: 1 }], ['nar', '声音散了。戒指里，老祖一夜没有说话。']] },
     } },
 });
+Object.assign(PATCH, {
+  // 阵前（样稿）：斩魔那一路补上血无涯的最后一句
+  s7_war: { res: {
+    0: { ok: [{ sfx: 'slash' }, { flash: 1 }, { shake: 5 }, ['nar', '血无涯退了七步。第七步，没有站住。'], { bgm: '' }, ['xue:joy+blood', '好剑。|……酒，替我喝了。', { slow: 1 }], ['nar', '红旗倒下去的时候，他还在笑。'], ['elder:cold', '别回头看蓝旗下那个人。|他在数你出了*几剑*。', { sfx: 'sting' }]],
+      fail: [['nar', '你和血无涯各退了十步。谁也没有再举剑。', { sfx: 'clang', shake: 4 }], ['xue:joy', '今天的酒，喝不成了。半年后，我再温。']] },
+    1: { fail: [['nar', '剑十三的剑阵合上了。你被挡了回来。', { sfx: 'clang', shake: 4 }], ['elder:cold', '退。|他那个盟主，巴不得你死在阵里。']] },
+    2: { fail: [['nar', '头一招，你接住了。第二招，剑从土里震了出来。', { sfx: 'clang', shake: 5 }], ['elder', '差一口气。养好了，再插一回。']] },
+  } },
+  // 天门（样稿）：飞升前夜说过的话、空了的戒指，各读一句
+  s9_gate: { post: [
+    { if: 'ascend_open', echo: '你说过：回来', say: [['nar', '你答应过一个人：回来。']] },
+    { if: 'ascend_door', echo: '隔着门的那一夜', say: [['nar', '隔着门说了一夜的话。最后那一声笑，你还记得。']] },
+    { if: 'st_farewell', echo: '有人替你挡过一道劫', say: [['nar', '指间的戒指，轻得像没有。|心口那一点剑意，是*温*的。', { slow: 1, sfx: 'heart' }]] },
+  ] },
+});
 LIST.push(
 // mid1 一杯酒（并 mo_4）
 { id: 's7_mo_wine', where: 'story', trigger: 'sb:c7_mid1', need: ['st_truth'], not: ['mo_bond'], npc: 'mo', title: '一杯酒', scene: 'grave', bgm: 'sorrow', gist: '墨家祖坟前，墨无痕摘下了面巾。',
@@ -1251,7 +1266,8 @@ LIST.push(
 for (const id in PATCH) {
   const ev = byId(id) || LIST.find(e => e.id === id), P = PATCH[id]; if (!ev || ev._sm) continue; Object.defineProperty(ev, '_sm', { value: 1, enumerable: false });
   if (P.pre && ev.talk) ev.talk.unshift(...P.pre);
-  for (const k in P) { if (k === 'res' || k === 'add' || k === 'pre') continue; if (P[k] === undefined) delete ev[k]; else ev[k] = P[k]; }
+  if (P.post && ev.talk) ev.talk.push(...P.post);
+  for (const k in P) { if (k === 'res' || k === 'add' || k === 'pre' || k === 'post') continue; if (P[k] === undefined) delete ev[k]; else ev[k] = P[k]; }
   for (const i in P.res || {}) {
     const c = ev.choices[+i], R = P.res[i]; if (!c) continue;
     if (R.ok) c.ok.talk = R.ok; if (R.okText) c.ok.text = R.okText; if (R.cine) c.ok.cine = R.cine; if (R.fx) c.ok.fx = Object.assign({}, c.ok.fx, R.fx);
