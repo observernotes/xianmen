@@ -116,6 +116,8 @@ src/logic/        逻辑模块：core 参数与公式、事件能力登记 → s
                   → save（存档迁移，现在 v6；没有名册的档把旧灵宠折进名册）→ tick
                   → chains 奇遇链进度（催一下、放宽境界上限、补放剧情步）→ codex 图鉴（十四类、见多识广、成组）→ samsara 轮回（道果、轮回殿、出身、天道试炼、传承）
                     ——这三个包了 L.tick、L.newState、L.eligible 等，所以排在 tick 后面
+                  → onboard 上手曲线（解锁表、掌握信号；L.TIME 时钟旋钮）→ path 游戏路径（九章、目标卡“下一步”、章末）
+                  → time 时间流逝（大节点预告与备战、出发拦截、纸鹤消息匣、打断节流）→ report 年报（docs/KAIRO_PLAN.md §2 §3 §6.2）
 src/events.js     奇遇与主线事件数据（tools/check_events.js 校验）
 src/content/      事件扩展包（events-engine 的 L.CONTENT_FILES 列出加载顺序，node 与 dist 都加载）；
                   事件用到的每个写法都要有系统用 L.supportFx / supportElig / supportTrigger… 登记过才会出现
@@ -127,6 +129,10 @@ tools/sim.js      数值模拟：node tools/sim.js（三种策略 × 200 种子�
                   加 noarts 关掉功法系统、nogear 关掉法宝的新东西（法衣、饰品、强化、词条）、nocal 关掉四季与大势、nomarket 让 guided 不用行情拍卖轮换货、norealm 关掉秘境、nopets 关掉灵宠的等级进化岗位天赋、nodaoji 渡劫评价不给道基、nocrops 灵田只种灵稻、noalch 关掉药引丹方与丹毒、nosect2 让 guided 不送礼不收徒不领职司（宝库照旧）、norivals2 关掉宿敌与新秀（恩怨不驱动伏击抬价带头、没有新秀、宿敌不得奇遇、法宝不克你、论道前不换战技）、nohome2 回到洞府地块之前（只有聚灵阵、灵田、丹炉、洞府四项），nopeople2 关掉人物加深（不送礼、没有委托同伴双修、串门同行事件不出、知己与道侣加成照旧），
                   与默认对照量 SYSTEMS §18 的预算；nochains 关掉奇遇链、nocodex 关掉图鉴的加成；
                   node tools/sim.js guided 50 life2 每个种子连玩两世（第一世结算道果、轮回殿照顺序买、带传承、默认出身投胎），看第二世快多少
+                  goalcard 策略（只照目标卡“下一步”行动，到第 120 月）量第一章；nokairo 关掉出发拦截与节点前提前归来对照
+tools/onboard.js  上手审计：浏览器里照老祖走的机器人按手表时间记讲解 / 弹窗 / 解锁，并核对“在外零打断”；
+                  加 --life 是全程手表机器人：不开浏览器，照 sim 的 guided 玩完第一世，按 L.monthSec 与读字口径记手表，
+                  对照 KAIRO_PLAN §3.4 的逐章预算（--assert：全程 270～360 分钟；--time=mul:2/1.6/… 临时试旋钮）
 tools/check_events.js 事件校验；加 report 列出上线 / 闸住的数量与闸住最多的键
 tools/preview.js  美术预览：渲染 tools/preview.html 里的精灵与场景
 tools/shot.js     Playwright 冒烟测试与截图

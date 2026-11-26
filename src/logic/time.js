@@ -44,6 +44,15 @@ L.bigList = function (st) {
   return a.sort((x, y) => x.left - y.left);
 };
 L.bigNext = st => L.bigList(st)[0] || null;
+// 时间条（主画面顶部第二行）：第一章是 36 格（到三年之约），之后每年一条 12 格；过去的月 past、这个月 now、大节点所在的月 big
+L.timeBar = function (st) {
+  const t = st.tick, list = L.bigList(st), big = list[0] || null;
+  const pre = !st.pact, n = pre ? L.PACT_TICK : 12, y0 = pre ? 0 : Math.floor(t / 12) * 12;
+  const cells = [];
+  for (let i = 0; i < n; i++) cells.push({ s: y0 + i < t ? 'past' : y0 + i === t ? 'now' : 'future' });
+  for (const b of list) { const at = t + b.left - 1 - y0; if (at >= 0 && at < n) { cells[at].s = 'big'; cells[at].k = b.k; } }
+  return { y: L.calYear(st), m: L.calMonth(st), season: L.season ? L.season(st) : 0, n, cur: t - y0, cells, big: big ? { k: big.k, n: big.n, left: big.left } : null, label: big ? `${big.n} 还有 ${big.left} ${L.UNIT}` : '' };
+};
 // 备战卡的数据：对手、战力、胜算（三年之约直接算；论道取本届第一场会碰上的宿敌；会武取前一名宗门；来犯取天剑宗长老团）
 L.bigInfo = function (st, b) {
   b = b || L.bigNext(st); if (!b) return null;
