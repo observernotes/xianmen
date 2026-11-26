@@ -126,7 +126,7 @@ F('feikou', '匪寇', 'jin', 'mob', 'man');
 F('tangl', '铁螳螂', 'jin', 'mob', 'mob:tang');
 F('daoba', '刀疤头目', 'jin', 'elite', 'man', { tint: '#6a6a78', aura: 1 });
 // 精英特性（§4.3）：≤ 6 字
-L.TRAITS = { regen: { n: '再生', d: '每轮回 3%' }, hard: { n: '硬壳', d: '罩多 1 格' }, berserk: { n: '狂暴', d: '血少攻 +30%' }, double: { n: '双蓄', d: '连蓄两轮' }, fearfire: { n: '惧火', d: '被克再 +20%' } };
+L.FOE_TRAITS = { regen: { n: '再生', d: '每轮回 3%' }, hard: { n: '硬壳', d: '罩多 1 格' }, berserk: { n: '狂暴', d: '血少攻 +30%' }, double: { n: '双蓄', d: '连蓄两轮' }, fearfire: { n: '惧火', d: '被克再 +20%' } };
 // 地点 × 深度：小怪、精英、本地招牌（C2 的掉落表读 sig）、灵核
 L.CELL_FOES = { 0: [
   { mobs: ['yelang', 'qingteng'], elite: 'tengwang', sig: { kind: 'art', id: 'z_qingteng' }, core: 'mu' },
@@ -162,6 +162,69 @@ L.btFoe = function (id, Q, o) {
     atk0: Math.sqrt(q) * K.at * (o.atM || 1), hp, max: hp, sh, shMax: sh, cc: 0, charge: 0, stun: 0, weak: 0, st: [], Q: q, sumDone: false };
 };
 
+// ---------- 第二章以后各图的怪物（docs/CONTENT.md §17；§7.2 的格式，每张图三行） ----------
+// 小人在画出来之前用现有的 ART.wolf / foeMan / drawOrb / drawSnake / ART.mob 换色顶替（tint），精英另加 ART.eliteAura
+// 每格：[小怪 [id, 名, 五行, 画法, 换色]…], [精英 id, 名, 五行, 画法, 换色, 特性], 本地招牌, 灵核
+const MORE = {
+  1: [
+    null,   // 外围在上面（第一章章末可达）
+    [[['fk_gong', '匪寇弓手', 'jin', 'man', '#5a5a64'], ['shanxiao', '山魈', 'tu', 'wolf', '#8a6a3a']], ['erdang', '黑风二当家', 'tu', 'man', '#7a5a30', 'hard'], { kind: 'gear', base: 'w2_1' }, 'tu'],
+    [[['heiying', '黑风鹰', 'jin', 'mob:ya', '#4a4a52'], ['zhaishu', '寨中术士', 'shui', 'man', '#2a4a6a']], ['junshi', '黑风军师', 'shui', 'man', '#2a3a6a', 'regen'], { kind: 'gear', base: 'w2_2' }, 'shui'],
+  ],
+  2: [
+    [[['shikui', '尸傀', 'tu', 'man', '#cfc8b0'], ['gushu', '骨鼠', 'tu', 'wolf', '#cfc8b0']], ['tongjia', '铜甲尸', 'tu', 'man', '#a88a4a', 'hard'], { kind: 'art', id: 'z_huichun' }, 'tu'],
+    [[['linhuo', '磷火', 'huo', 'orb', '#6a8aff'], ['shikui', '尸傀', 'tu', 'man', '#cfc8b0']], ['guihuo', '墓中鬼火', 'huo', 'orb', '#4a6aff', 'berserk'], { kind: 'art', id: 'z_liehuo' }, 'huo'],
+    [[['yinhun', '阴魂', 'shui', 'orb', '#6a7aa0'], ['shouguan', '守棺人', 'shui', 'man', '#8a8aa0']], ['shifei', '古墓尸妃', 'shui', 'man', '#d8d0b8', 'regen'], { kind: 'gear', base: 'w3_2' }, 'shui'],
+  ],
+  3: [
+    [[['qingteng', '青藤妖', 'mu', 'mob:teng'], ['yelang', '野狼', 'mu', 'wolf']], ['shujing', '千年树精', 'mu', 'mob:teng', '#4a7a2a', 'regen'], { kind: 'gear', base: 'w3_3' }, 'mu'],
+    [[['xiongzai', '熊崽', 'tu', 'mob:xiong', '#8a6a4a'], ['shanxiao', '山魈', 'tu', 'wolf', '#8a6a3a']], ['xiongpi', '熊罴王', 'tu', 'mob:xiong', '#6a4a2a', 'hard'], { kind: 'art', id: 'z_hanyue' }, 'tu'],
+    [[['huoya', '火鸦', 'huo', 'mob:ya'], ['chihu', '赤狐', 'huo', 'wolf', '#c85a2a']], ['jiuwei', '九尾火狐', 'huo', 'wolf', '#e06a2a', 'berserk'], { kind: 'art', id: 'm_yushou' }, 'huo'],
+  ],
+  4: [
+    [[['xsdizi', '血煞弟子', 'huo', 'man', '#b0303c'], ['xuebian', '血蝙蝠', 'huo', 'mob:ya', '#8a1a2a']], ['xszhishi', '血煞执事', 'huo', 'man', '#8a1a2a', 'berserk'], { kind: 'art', id: 'z_liehuo' }, 'huo'],
+    [[['xuekui', '血傀', 'jin', 'man', '#6a6a78'], ['xuebian', '血蝙蝠', 'huo', 'mob:ya', '#8a1a2a']], ['xshufa', '血煞护法', 'jin', 'man', '#5a3a40', 'hard'], { kind: 'gear', base: 'w4_0' }, 'jin'],
+    [[['xuechi', '血池水妖', 'shui', 'snake', '#6a1820'], ['xsdizi', '血煞弟子', 'huo', 'man', '#b0303c']], ['chizu', '血池老祖', 'shui', 'man', '#4a1018', 'regen'], { kind: 'art', id: 'm_xuedun' }, 'shui'],
+  ],
+  5: [
+    [[['jianling', '剑灵', 'jin', 'orb', '#d8f0ff'], ['duanjian', '断剑傀', 'jin', 'man', '#7fb8e0']], ['jianpo', '剑魄', 'jin', 'orb', '#ffffff', 'hard'], { kind: 'art', id: 'z_gengjin' }, 'jin'],
+    [[['xiujian', '锈剑傀', 'tu', 'man', '#8a6a4a'], ['jianling', '剑灵', 'jin', 'orb', '#d8f0ff']], ['shijiang', '镇冢石将', 'tu', 'man', '#9a8a6a', 'hard'], { kind: 'gear', base: 'w5_1' }, 'tu'],
+    [[['hanfeng', '寒锋剑灵', 'shui', 'orb', '#bfe8ff'], ['jianling', '剑灵', 'jin', 'orb', '#d8f0ff']], ['canian', '剑仙残念', 'shui', 'orb', '#9ad8ff', 'double'], { kind: 'art', id: 'z_wanjian' }, 'shui'],
+  ],
+  6: [
+    [[['mozu', '魔卒', 'shui', 'man', '#6a2a8a'], ['youhun', '幽魂', 'shui', 'orb', '#6a2a8a']], ['xunshi', '九幽巡使', 'shui', 'man', '#4a1a6a', 'regen'], { kind: 'gear', base: 'w5_2' }, 'shui'],
+    [[['mozu', '魔卒', 'shui', 'man', '#6a2a8a'], ['gulong', '骨龙幼崽', 'huo', 'snake', '#3a1450']], ['shihuo', '噬火魔', 'huo', 'man', '#8a2a4a', 'berserk'], { kind: 'art', id: 'z_fentian' }, 'huo'],
+    [[['mingjia', '冥甲魔', 'tu', 'man', '#3a2a4a'], ['youhun', '幽魂', 'shui', 'orb', '#6a2a8a']], ['moshuai', '九幽魔帅', 'tu', 'man', '#2a1a3a', 'hard'], { kind: 'gear', base: 'w5_3' }, 'tu'],
+  ],
+  7: [
+    [[['xiabing', '虾兵', 'shui', 'man', '#3fb0c8'], ['haishe', '海蛇', 'shui', 'snake']], ['xiejiang', '蟹将', 'shui', 'man', '#c85a3a', 'hard'], { kind: 'art', id: 'z_canghai' }, 'shui'],
+    [[['leiman', '雷鳗', 'jin', 'snake', '#ffe28a'], ['xiabing', '虾兵', 'shui', 'man', '#3fb0c8']], ['yecha', '巡海夜叉', 'jin', 'man', '#2a6a8a', 'berserk'], { kind: 'gear', base: 'w6_0' }, 'jin'],
+    [[['shanhu', '珊瑚妖', 'mu', 'mob:teng', '#ff7a9a'], ['haishe', '海蛇', 'shui', 'snake']], ['guicheng', '龟丞相', 'mu', 'mob:xiong', '#4a8a6a', 'regen'], { kind: 'art', id: 'z_qingdi' }, 'mu'],
+  ],
+  8: [
+    [[['xinghuo', '星火精', 'huo', 'orb', '#ffe28a'], ['yunshi', '陨石傀', 'tu', 'man', '#c9a032']], ['xingyan', '星焰守卫', 'huo', 'orb', '#ff9a4a', 'berserk'], { kind: 'art', id: 'z_fentian' }, 'huo'],
+    [[['suiling', '星辰碎灵', 'jin', 'orb', '#fff2a8'], ['xinghuo', '星火精', 'huo', 'orb', '#ffe28a']], ['jinkui', '天外金傀', 'jin', 'man', '#e0c070', 'hard'], { kind: 'gear', base: 'w6_3' }, 'jin'],
+    [[['shuimu', '虚空水母', 'shui', 'orb', '#7fb8e0'], ['suiling', '星辰碎灵', 'jin', 'orb', '#fff2a8']], ['juyan', '星墟巨眼', 'shui', 'orb', '#3a6aff', 'double'], { kind: 'art', id: 'm_xingdou' }, 'shui'],
+  ],
+  9: [
+    [[['fukui', '仙府傀儡', 'tu', 'man', '#e0c070'], ['shishi', '守门石狮', 'tu', 'wolf', '#e0c070']], ['jinjia', '金甲傀儡', 'tu', 'man', '#c8a040', 'hard'], { kind: 'gear', base: 'w6_1' }, 'tu'],
+    [[['luling', '丹炉火灵', 'huo', 'orb', '#ff9a4a'], ['fukui', '仙府傀儡', 'tu', 'man', '#e0c070']], ['danfang', '丹房炉灵', 'huo', 'orb', '#ff6a2a', 'regen'], { kind: 'gear', base: 'w6_2' }, 'huo'],
+    [[['jianshi', '仙府剑侍', 'jin', 'man', '#e0c070'], ['lingmu', '灵木傀', 'mu', 'mob:teng', '#9a7a30']], ['shouwei', '仙府守卫长', 'mu', 'man', '#6a8a3a', 'double'], { kind: 'gear', base: 'w7_0' }, 'mu'],
+  ],
+  10: [
+    [[['hdchong', '混沌虫', 'jin', 'snake', '#2a2a3a'], ['xuying', '虚影', 'shui', 'orb', '#3a3a5a']], ['shouwang', '裂隙守望者', 'huo', 'man', '#3a2a3a', 'berserk'], { kind: 'gear', base: 'w7_1' }, 'huo'],
+    [[['hdchong2', '混沌蛊', 'mu', 'snake', '#2a3a2a'], ['xuying2', '虚影', 'tu', 'orb', '#4a3a2a']], ['hdjushou', '混沌巨兽', 'tu', 'mob:xiong', '#2a2a3a', 'hard'], { kind: 'art', id: 'x_hongmeng' }, 'tu'],
+    [[['luanliu', '五行乱流', 'shui', 'orb', '#8a8aff'], ['luanliu2', '五行乱流', 'huo', 'orb', '#ff8a8a']], ['hdying', '混沌之影', 'jin', 'man', '#1b1326', 'double'], { kind: 'gear', base: 'w7_2' }, 'jin'],
+  ],
+};
+for (const k in MORE) MORE[k].forEach((row, d) => {
+  if (!row) return;
+  const [mobs, el, sig, core] = row;
+  for (const m of mobs) if (!L.FOES[m[0]]) F(m[0], m[1], m[2], 'mob', m[3], m[4] ? { tint: m[4] } : {});
+  F(el[0], el[1], el[2], 'elite', el[3], { tint: el[4], aura: 1, trait: el[5] || '' });
+  (L.CELL_FOES[k] || (L.CELL_FOES[k] = []))[d] = { mobs: mobs.map(m => m[0]), elite: el[0], sig, core };
+});
+
 // ---------- 我方 ----------
 // 历练用的战力：L.power × 旧评价分里与五行无关的几项（每 25 分 ×2）；k 为空时只用 L.power
 L.btPower = function (st, k, d, a) {
@@ -188,7 +251,9 @@ L.btMe = function (st, T) {
   const hpM = 1 + 0.12 * affN(st, 'jianren') + (L.btHpMods ? L.btHpMods(st) : 0);
   const aff = {}; for (const id of ['huixin', 'lianji', 'xixue', 'pozhao', 'xiansheng', 'xushi', 'fengsheng', 'yinbao', 'fanzhen', 'tiebi', 'huiqi', 'jixing', 'yangshang', 'cangfeng']) { const n = affN(st, id); if (n) aff[id] = n; }
   const ke = {}; for (const e of L.ELEM_KEYS) { const n = affN(st, 'ke_' + e); if (n) ke[e] = n; }
-  return { T, atk: Math.sqrt(T), hpMax: L.BAT.hpK * Math.sqrt(T) * hpM, el: L.defEl(st), skills, ult, pas, aff, ke, gold: goldOf(st) };
+  // 印记（§4.3，金丹起）：带属性的招在目标身上留印，用克它的属性再打 = 引爆
+  const mark = Math.max(st.p.r, (st.flags && st.flags.maxR) || 0) >= 2 || (st.rebirth || 0) > 0;
+  return { T, atk: Math.sqrt(T), hpMax: L.BAT.hpK * Math.sqrt(T) * hpM, el: L.defEl(st), skills, ult, pas, aff, ke, gold: goldOf(st), mark };
 };
 
 // ---------- 引擎 ----------

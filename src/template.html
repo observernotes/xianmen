@@ -1136,6 +1136,8 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar { dis
   border: calc(6 * var(--u1)) solid transparent; border-image: var(--fr-hud) 6 fill / calc(6 * var(--u1)) stretch; }
 .bt-sk small { color: var(--muted); font-size: 13px; }
 .bt-sk.lk { color: #6e6a88; }
+.bt-sk.fire { animation: btFire .4s steps(3); }
+@keyframes btFire { 0% { filter: brightness(1.8); transform: translateY(-3px); } 100% { filter: none; transform: none; } }
 .bt-ic { position: relative; display: block; width: 32px; height: 32px; }
 .bt-ic img { display: block; }
 .bt-cd { position: absolute; inset: 0; background: #0d0914cc; color: #fff; font-style: normal; font-size: 18px; line-height: 32px; text-align: center; }

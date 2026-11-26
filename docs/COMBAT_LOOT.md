@@ -771,7 +771,7 @@ L.matsAdd(st, mats)                           // C2：战斗掉的灵核等入�
 - 节点与评价在新模块 **`src/logic/trip.js`**（排在 expedition 之后），不在 expedition.js 里：`L.expNodes / L.expNodeFoes / L.expBattle / L.expNodeDone / L.expNodeRun / L.expNodeTick / L.expRating / L.tripDist / L.quickOk / L.expRunRest`。expedition.js 只改了三处（`expCalc` 的评价与“倒下也负伤”、`expForecast` 的分布、法宝功法掉落在 `L.tripLoot` 存在时让给 C2）。
 - 结算 `res` 多出：`res.bt = { fights, won, nf, dead, fled, hp, brk, pill, eliteWin, eliteId, eliteEl, ke, beike, kills, mats, treasure, seq }`、`res.mats`、`res.trip`（就是传给 `L.tripLoot` 的那个对象）、`res.cards`（C2 返回的牌；结算卡 `showExpResult` 开头先调 `showLootFlip(res.cards, done)`，翻完再出卡）。
 - 招式：`L.ART_B[id]`（战技 / 心法被动 / 秘术的招式数据与一句话 `line`）、`L.artSkill(st, id)`、`L.gearSkill(x)`（写在 battle.js，读 `x.el || 底子.el`、`x.plus`、`x.gold`）。
-- 怪物：`L.FOES`、`L.CELL_FOES`、`L.cellFoes(k, d)`（没写表的格按地图生成）、`L.BOSS_FOE`、`L.bossFoeId(k)`、`L.TRAITS`。
+- 怪物：`L.FOES`、`L.CELL_FOES`、`L.cellFoes(k, d)`（没写表的格按地图生成）、`L.BOSS_FOE`、`L.bossFoeId(k)`、`L.FOE_TRAITS`。
 - 首领：`L.fightBoss(st, k, { res?, pol? })` 改成回合战（界面打完把 `res` 传进来；没传就自动打）；胜算 `L.bossP(st, k)`（30 个种子的 'smart' 胜率）。首领战另给灵核 ×2（走 `L.matsAdd`）。
 - 给 advise 线（KAIRO_PLAN §10.5）的战斗侧函数：`L.btSwapTry(st, k, d, a)` → 换上手里哪门战技这一格预计评价最好 `{ id, el, lo, hi, text, pOk, ke, cur }`（没有更好的返回 null）；`L.btKeInfo(st, k, d)` → `{ el 精英五行, ke 身上的招克不克, can 手里有没有克它的战技, eliteId }`；`L.gearElTry(st, el, fn)` → 把兵器临时淬成 el 系跑 fn（“淬灵”牌的试算）；换功法的试算用 arts.js 已有的 `L.artTry(st, id, fn)`；首领胜算 `L.bossP`。
 - 对决（P1-1）：`L.duelWin(st, S, Q, foe, p, opt)` 取代各处的 `R() < p`：胜率仍是 `L.duelP` 的 p（备战卡与 sim 都认它），胜负由一场回合战打出来（按招式签名缓存“战力比 → 胜率”表，反查出让胜率等于 p 的战力比）。最近一场 `L.duelLast = { seed, Q, p, foe, opt, res, win }`；`L.duelBattle(st, Q, foe, p, seed, opt)` 可重放。`L.DUEL_ON = false` 回到掷骰。

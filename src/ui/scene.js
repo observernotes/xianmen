@@ -190,7 +190,7 @@ function drawHomeScene(dt) {
 function newAdv(k) { return { k, scroll: 0, foes: [], shots: [], spawn: 600, fire: 500, kills: 0 }; }
 function foeHitY(f) { if (f.kind === 'man') return f.y - D().stand.h * 0.55; if (f.kind === 'beast') return f.y - D().wolf.h / 2; return f.y; }
 function drawAdvScene(dt) {
-  if (btv && st.exp && st.exp.nodes) { drawBtScene(dt); return; }   // 节点与回合战（battle.js）
+  if (btv && ((st.exp && st.exp.nodes) || btv.mode === 'boss')) { drawBtScene(dt); return; }   // 节点与回合战（battle.js）
   const rg = L.REGIONS[adv.k], p = st.p, SD = D().stand;
   adv.scroll += dt * 0.035;
   ART.drawAdventure(rg.bg, T, OY, adv.scroll);
@@ -264,9 +264,9 @@ function drawScene(dt) {
   ctx.globalAlpha = 1;
   if (!st) { R(0, 0, W, H, '#120f1c'); return; }
   ctx.setTransform(1, 0, 0, 1, 0, OY);
-  const mode = duelFx ? 'duel' : st.run ? 'realm' : st.exp ? 'adv' : 'home';   // duelFx：场景内对决（duel-scene.js）；st.run：秘境（panel-realm.js）
-  if (mode !== lastMode) { wipe = mode === 'duel' ? 240 : 700; lastMode = mode; parts.length = 0; adv = mode === 'adv' ? newAdv(st.exp.k) : null; }
-  if (mode === 'adv' && !adv) adv = newAdv(st.exp.k);
+  const mode = duelFx ? 'duel' : st.run ? 'realm' : st.exp || (btv && btv.mode === 'boss') ? 'adv' : 'home';   // 首领战（battle.js）也画在历练场景里   // duelFx：场景内对决（duel-scene.js）；st.run：秘境（panel-realm.js）
+  if (mode !== lastMode) { wipe = mode === 'duel' ? 240 : 700; lastMode = mode; parts.length = 0; adv = mode === 'adv' ? newAdv(btRegion()) : null; }
+  if (mode === 'adv' && !adv) adv = newAdv(btRegion());
   if (mode === 'duel') drawDuelScene(dt); else if (mode === 'realm') drawRealmScene(dt); else if (mode === 'adv') drawAdvScene(dt); else drawHomeScene(dt);
   if (wipe > 0) {
     wipe -= dt;

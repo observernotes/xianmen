@@ -103,7 +103,7 @@ function showArts(sel, still) {
   const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 月` : '点一门即换上';
   // 绝招与器技（battle.js）：绝招常驻，怒气满了手动放；兵器带一招
   const btm = L.btMe ? L.btMe(st) : null, wsk = btm && btm.skills.find(x => x.kind === 'w');
-  const ultRow = btm ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(btm.ult) : ''}<span class="grow">绝招「${esc(btm.ult.n)}」×${dec2(btm.ult.m)} · 怒气满了手动放</span></div>${wsk ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(wsk) : ''}<span class="grow">器技「${esc(wsk.n)}」${L.elName(wsk.el)} · ${esc(wsk.line)}</span></div>` : ''}` : '';
+  const ultRow = btm ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(btm.ult) : ''}<span class="grow">绝招「${esc(btm.ult.n)}」×${dec2(btm.ult.m)}</span></div>${wsk ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(wsk) : ''}<span class="grow">器技「${esc(wsk.n)}」${esc(wsk.line.split('；')[0])}</span></div>` : ''}` : '';
   const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>${ultRow}
     ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 月（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
     ${list}`;   // 各门说明、共鸣图鉴、熟练与融会不再折叠在第一屏（§4.2）：点一门看它（换上前后的数），图鉴在【仙途】→ 记录

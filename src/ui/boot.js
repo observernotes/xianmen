@@ -99,6 +99,7 @@ function sceneClick(e) {
     SFX.coin(); crane = null; return;
   }
   if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
+  if (btv && btv.mode === 'boss') { btTapHold(); return; }
   if (st.exp && btv) { if (btTapHold()) return; if (btv.ph !== 'walk') return; }   // 战斗中点画面：只放过停顿那一下（battle.js）
   if (st.exp) { SFX.tap(); showExp(); return; }
   if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 16 && y > VISIT_POS.y - 58 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }

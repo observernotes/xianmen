@@ -32,7 +32,7 @@ function showExp() {
     const open = L.regionOpen(st, k) && L.expOpen(st, k, 0, 0);
     if (!open) { void lockedShown; continue; }   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
     if (L.bossReady(st, k)) {
-      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
+      const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.TRIP_ON !== false && L.bossP ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
       rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战可得首领材料${L.BOSS_MAT[k]} ×1（打造用）与灵石；每 ${L.BOSS_AGAIN} 月一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
     }
     const c = defaultCell(st, k), f = L.expForecast(st, k, c.d, c.a);
@@ -54,10 +54,12 @@ function showExpAway() {
   sheet({ title: '历练中', body: `<div class="card flat"><div class="main"><div>【${cellName(e.k, e.d)}】${L.APPR[e.a].n}${e.chain ? ` · 还要连续 ${e.chain} 趟` : ''}</div><div class="muted">${rg.desc}</div>${bar((e.total - e.left) / e.total, true)}<div class="muted">还需 ${e.left} 月归来</div></div></div>
     <dl class="grid2"><dt>灵石</dt><dd class="num">+${fmt(pv.stones)}</dd><dt>灵草</dt><dd class="num">+${fmt(pv.herbs)}</dd><dt>宝物</dt><dd class="num">${pv.finds ? pv.finds + ' 件（回来揭晓）' : '—'}</dd>${pv.xp > 0 ? `<dt>感悟</dt><dd class="num">+${fmt(pv.xp)}</dd>` : ''}</dl>
     ${sum ? `<p class="muted">之前 ${sum.n} 趟已得：灵石 ${fmt(sum.stones)}、灵草 ${fmt(sum.herbs)}</p>` : ''}
-    <p class="muted">历练途中修炼 ×0.5；评价在出发时就定了，回来揭晓。撤回：本趟收获减半，没有宝物，立刻回家。</p>`,
+    <p class="muted">${e.nodes ? `第 ${Math.min(e.ni + 1, e.nodes.length)} / ${e.nodes.length} 个节点 · 气血 ${Math.round((e.hp || 0) * 100)}%；评价按打出来的定。` : '评价在出发时就定了，回来揭晓。'}历练途中修炼 ×0.5。撤回：本趟收获减半，没有宝物，立刻回家。</p>`,
     foot: [{ t: '撤回', alt: true, fn: () => { const r = L.recallExp(st); closeModal(); if (r) pushPopup(() => showExpResult(r)); } }, { t: '继续', gold: true, fn: closeModal }] });
 }
 function fightBossUI(k) {
+  // 回合战（battle.js）：在场景里真打一场，打完 bossResultUI 出结果
+  if (L.TRIP_ON !== false && typeof btBossStart === 'function') { closeModal(); btBossStart(k); return; }
   const res = L.fightBoss(st, k);
   if (!res) return;
   const B = res.B;
@@ -92,7 +94,7 @@ function confirmExp(k, d, a, still) {
     return `<button class="segb ${aa === a ? 'on' : ''}" data-a="${aa}" ${ok ? '' : 'disabled'}><b>${L.APPR[aa].n}</b><small>${why}</small></button>`;
   }).join('');
   const notes = [];
-  if (f.first) notes.push('<div class="quote">第一趟老祖护着：必得甲</div>');
+  if (f.first) notes.push(L.TRIP_ON !== false ? '<div class="quote">第一趟只有小怪：必得一把剑</div>' : '<div class="quote">第一趟老祖护着：必得甲</div>');
   if (f.warnFull) notes.push(`<div class="seal">修为已经满了，再出去是白跑（溢出的修为最多存下一层的两成）。先回来突破${L.REALMS[Math.min(st.p.r + 1, 8)].n}。</div>`);
   if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个月。</div>`);
   // 大节点前（docs/KAIRO_PLAN.md §3.3 第 4 条）：回不来的行程不让出发；正好等长的提前一月赶回来（收获按走过的月数折算）
@@ -290,4 +292,15 @@ function gearExpLine(k, d, a) {
   if (L.gearAffN(st, 'qingling')) bits.push('轻灵：时长 −1');
   if (L.gearHuzhuReady(st)) bits.push('护主：这趟丁等不负伤');
   return `<div class="muted gexp">${oreImg(pxs(8, 2))} 灵矿约 ${fmt(f.ore)}${bits.length ? ' · 法宝：' + bits.join(' · ') : ''}</div>`;
+}
+// 首领回合战打完（battle.js 的 btBossEnd 调）：结果卡
+function bossResultUI(k, res) {
+  const B = res.B, it = res.item;
+  if (res.win && typeof playCine === 'function' && !res.again) { try { playCine('boss', { k }); } catch (e) { /* 过场线没合并 */ } }
+  const body = !res.win ? `<div class="center">${stampHTML(0, true)}</div><p class="center">${esc(B.n)}太强，重伤而归（负伤 4 ${MO()}）。变强之后再来！</p>`
+    : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
+    : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText ? `<span>${esc(res.planText)}</span>` : ''}</div>${it ? gearLine(it) : ''}${res.art ? artLine(res.art) : ''}`;
+  if (res.win) SFX.win(); else SFX.fail();
+  const s = sheet({ title: '首领 · ' + B.n, center: true, body, foot: [{ t: '好', gold: true, fn: closeModal }] });
+  if (typeof bindEquipButtons === 'function') bindEquipButtons(s);
 }

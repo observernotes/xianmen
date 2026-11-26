@@ -7,7 +7,26 @@
  *   画面下方 #bt（样式前缀 .bt-，追加在 template.html 末尾）在战斗时顶替修为条与数值格（body.bt-on）。 */
 const BTS = { round: 1000, first: 1400, walk: 1500, gather: 2400, end: 650, slow: 2500, hint: 2600, xMe: 56, foot: 128, xFoe: 140, gapFoe: 24 };
 let btv = null;
-const btOn = () => !!(st && st.exp && st.exp.nodes && L.TRIP_ON !== false && !st.run);
+const btOn = () => !!(st && ((st.exp && st.exp.nodes && L.TRIP_ON !== false && !st.run) || (btv && btv.mode === 'boss')));
+// 首领战（§8.4 P0）：不在历练途中，打的时候时间不走；打完把结果交给 L.fightBoss(st, k, { res })
+function btBossStart(k) {
+  if (!st || L.busy(st) || !L.bossReady(st, k)) return false;
+  btv = { mode: 'boss', k, e: null, ph: 'fight', t: 0, acc: BTS.round * 0.5, B: L.bossBattle(st, k), fx: [], hold: null, q: {}, meAct: -1e9, meHit: -1e9, foeAct: {}, foeHit: {}, deadAt: {}, scroll: 0, log: '' };
+  btv.B.foes.forEach(f => { (st.meta.foes || (st.meta.foes = {}))[f.id] = 1; });
+  btLog(`${L.BOSSES[k].n}：“${L.BOSSES[k].line}”`);
+  SFX.gong(); shake();
+  if (btv.B.foes[0].sh > 0 && btFirst('shield')) btHold('克制的招才能削罩', BTS.hint);
+  btShow(true);
+  return true;
+}
+function btBossEnd() {
+  const v = btv, k = v.k, res = L.battleResult(v.B);
+  btStop();
+  const out = L.fightBoss(st, k, { res });
+  if (out && typeof bossResultUI === 'function') bossResultUI(k, out);
+  updateHUD();
+}
+const btRegion = () => (btv && btv.mode === 'boss' ? btv.k : st.exp ? st.exp.k : 0);
 const btSeenMap = () => (st.flags.btSeen || (st.flags.btSeen = {}));
 function btFirst(k) { const m = btSeenMap(); if (m[k]) return false; m[k] = 1; return true; }
 const btCh1 = () => !st.pact && (st.rebirth || 0) === 0;
@@ -16,6 +35,15 @@ function btReset() { btv = { e: st.exp, ph: 'walk', t: 0, acc: 0, B: null, fx: [
 // 主循环：返回 true = 这一帧的时间被历练节点吃掉了（不按秒走月）
 function btDrive(ms) {
   if (!btOn()) { if (btv) btStop(); return false; }
+  if (btv && btv.mode === 'boss') {
+    const v = btv;
+    if (v.hold) { if (v.hold.auto) { v.hold.left -= ms; if (v.hold.left <= 0) btRelease(); } btPaint(); return true; }
+    v.t += ms;
+    if (v.ph === 'fight') { v.acc += ms; if (v.acc >= BTS.round) { v.acc = 0; btRound(); } }
+    else if (v.ph === 'end' && v.t >= BTS.end + 400) btBossEnd();
+    btPaint();
+    return true;
+  }
   if (!btv || btv.e !== st.exp) { btReset(); btShow(true); }
   const v = btv, e = st.exp;
   if (v.hold) { if (v.hold.auto) { v.hold.left -= ms; if (v.hold.left <= 0) btRelease(); } btPaint(); return true; }
@@ -128,12 +156,12 @@ function btPlay(ev) {
         else SFX.hit();
         v.foeHit[x.tgt] = now;
         floatRaw(tx, fy - 6, (x.crit ? '暴 ' : '') + fmt(x.dmg), x.crit ? '#ffe39a' : '#ffffff', x.t === 'ult' || x.crit, x.t === 'hit');
-        if (x.t !== 'hit') line = `${x.n} ${fmt(x.dmg)}`;
+        if (x.t !== 'hit') { line = `${x.n} ${fmt(x.dmg)}`; floatRaw(BTS.xMe + 4, fy - 30, x.n, x.t === 'ult' ? '#ffe39a' : '#fff2a8', x.t === 'ult', x.t !== 'ult'); btFire(x.id); }
         break;
       }
       case 'ke': floatRaw(fx + 8, fy - 22, '克', '#ffe39a', true); line += ` · 克${L.elName(B.foes[fi].el)} ×1.3`; if (btFirst('ke')) btHold('克！伤害 ×1.3', BTS.hint); break;
       case 'beike': floatRaw(fx + 8, fy - 18, '打不动', '#9d93b8', false, true); line += ' · 打不动'; break;
-      case 'chain': floatRaw(BTS.xMe + 10, fy - 26, '连携', '#8ff5d0', true); line += ' · 连携'; break;
+      case 'chain': floatRaw(BTS.xMe + 10, fy - 26, '连携', '#8ff5d0', true); line += ' · 连携'; if (st.pact && btFirst('chain')) btHold(`相生连携：${L.elName(x.el)}招 ×1.3`, BTS.hint); break;
       case 'shield': SFX.reveal(2); line += ` · 削罩 ${x.cut} 格（还剩 ${x.sh}）`; break;
       case 'break': v.fx.push({ name: 'brk', el: '', x: fx, t0: now }); floatRaw(fx, fy - 28, '罩碎', '#7fe0f0', true); shake(); break;
       case 'brk': floatRaw(fx, fy - 30, '破招', '#ffe39a', true); flash(0.7); SFX.gong(); line = '破招！重击被打断'; break;
@@ -165,7 +193,7 @@ function btFoeSprite(f, frame, rg) {
   return { c: ART.foeMan(fc, rg.bg), ax: 12, ay: 37 };
 }
 function drawBtScene(dt) {
-  const v = btv, e = st.exp, rg = L.REGIONS[e.k], foot = BTS.foot, now = T;
+  const v = btv, rg = L.REGIONS[btRegion()], foot = BTS.foot, now = T;
   ART.drawAdventure(rg.bg, T, OY, v.scroll);
   const fight = v.ph !== 'walk' && v.B;
   // 我
@@ -214,7 +242,8 @@ function drawBtScene(dt) {
 }
 // 场景底部：行程条的小版（DOM 里另有一条大的）
 function btPathOnScene() {
-  const e = st.exp, n = e.nodes.length; if (!n) return;
+  const e = st.exp; if (!e || !e.nodes || !e.nodes.length) return;
+  const n = e.nodes.length;
   const x0 = 50, w = 100;
   R(x0, 151, w, 6, '#1b1326');
   for (let i = 0; i < n; i++) { const x = x0 + Math.round(w * i / n) + 1, ww = Math.round(w / n) - 2; R(x, 152, ww, 4, i < e.ni ? '#4ccb9f' : i === e.ni ? '#f4c542' : '#3a3155'); }
@@ -247,7 +276,8 @@ function btSkillIcon(s) {
 // 整块重画（节点、技能格变了才重画；血条、怒气、冷却每帧只改宽度和数字）
 function btShow(force) {
   if (!btOn()) return;
-  const el = btEl(), v = btv, e = st.exp, B = v && v.B;
+  const el = btEl(), v = btv, B = v && v.B;
+  const e = v && v.mode === 'boss' ? { ni: 0, nodes: [{ t: 'boss' }], hp: 1, rage: 0 } : st.exp;
   const fresh = el.hidden;
   if (fresh) { el.hidden = false; document.body.classList.add('bt-on'); }
   const me = B ? B.me : L.btMe(st);
@@ -272,7 +302,7 @@ function btShow(force) {
 }
 function btPaint() {
   const v = btv, el = $('#bt'); if (!v || !el || el.hidden) return;
-  const e = st.exp, B = v.B;
+  const e = v.mode === 'boss' ? { hp: 1, rage: 0 } : st.exp, B = v.B;
   const hp = B ? B.hp : e.hp * L.btMe(st).hpMax, max = B ? B.max : L.btMe(st).hpMax, rage = B ? B.rage : e.rage;
   const set = (id, w, t) => { const a = document.getElementById(id); if (a) a.style.width = (Math.max(0, Math.min(1, w)) * 100).toFixed(1) + '%'; const b = document.getElementById(id + 'T'); if (b && b.textContent !== t) b.textContent = t; };
   set('btHp', hp / max, `${Math.max(0, Math.ceil(hp))} / ${Math.round(max)}`);
@@ -292,7 +322,7 @@ function btFoeChip(id) {
   const F0 = L.FOES[id]; if (!F0) return '';
   const seen = !!(st.meta.foes && st.meta.foes[id]), elite = F0.kind !== 'mob';
   const badge = seen && ART.elemBadge && F0.el ? `<img class="px" src="${urlOf(ART.elemBadge(F0.el), 'elb|' + F0.el)}" style="width:${pxFit(10, 20)}px;height:${pxFit(10, 20)}px" alt="">` : '';
-  const tr = seen && F0.trait && L.TRAITS[F0.trait] ? `<small>${L.TRAITS[F0.trait].n}</small>` : '';
+  const tr = seen && F0.trait && L.FOE_TRAITS[F0.trait] ? `<small>${L.FOE_TRAITS[F0.trait].n}</small>` : '';
   return `<span class="bt-foe${elite ? ' el' : ''}">${badge}<span>${seen ? esc(F0.n) : '？'}</span>${tr}</span>`;
 }
 function btPrepHTML(k, d, a) {
@@ -317,3 +347,5 @@ function btPrepHTML(k, d, a) {
   const list = btSwapOpen ? `<div class="bt-swap">${zs.map(z => `<button class="bt-swr${L.elKe(z.A.el, eliteEl) ? ' hot' : ''}" data-swapz="${z.id}">${btSkillIcon({ el: z.A.el, kind: 'z' })}<span class="grow">《${esc(z.A.n)}》${L.elName(z.A.el)}</span><span>${L.ELEM_KEYS.filter(e => L.elKe(z.A.el, e)).map(e => '克' + L.elName(e)).join('')}</span></button>`).join('') || '<div class="muted">手里还没有别的战技</div>'}</div>` : '';
   return foes + `<div class="bt-kebar bad">${icons}<span class="grow">${bits.join(' ')}</span><button class="bt-swb" data-btswap="1">换 ▸</button></div>${list}`;
 }
+// 招式格出手时亮一下
+function btFire(id) { const c = document.querySelector(`#bt [data-sk="${id}"]`); if (!c) return; c.classList.remove('fire'); void c.offsetWidth; c.classList.add('fire'); }
