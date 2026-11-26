@@ -1116,77 +1116,89 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kmail .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kmail .s { color: #8a7a5c; font-size: 14px; white-space: nowrap; }
 /* ---------- 线 C3 高光过场（cine2.js，docs/COMBAT_LOOT.md §9） ---------- */
-.cn-wrap { position: fixed; inset: 0; z-index: 40; background: #07050c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.cn-wrap { position: fixed; inset: 0; z-index: 40; overflow: hidden; background: #07050c; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
 #intro .cn-wrap.cn-in { position: fixed; inset: 0; max-width: none; width: auto; gap: 0; z-index: 40; }
-.cn-cv { display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #1b1326, 0 0 0 4px #3a3155; }
-.cn-sub { min-height: 28px; margin-top: 16px; padding: 0 12px; font-size: 18px; line-height: 28px; color: #f6ecd0; white-space: nowrap; text-align: center; letter-spacing: 1px; text-shadow: 2px 2px 0 #1b1326; }
-.cn-pips { display: flex; gap: 6px; margin-top: 10px; }
-.cn-pips i { width: 8px; height: 8px; background: #3a3155; box-shadow: 0 0 0 1px #1b1326; }
+.cn-cv { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; }
+.cn-sub { position: absolute; left: 0; right: 0; top: var(--cn-sub, 60%); min-height: 30px; padding: 0 12px; font-size: 20px; line-height: 30px; color: #f6ecd0; white-space: nowrap; text-align: center; letter-spacing: 2px; text-shadow: 2px 2px 0 #1b1326, 0 0 12px #07050c; }
+.cn-sub.in { animation: cnSub .35s ease-out; }
+@keyframes cnSub { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: none; } }
+.cn-pips { position: absolute; left: 0; right: 0; top: calc(var(--cn-sub, 60%) + 44px); display: flex; justify-content: center; gap: 6px; }
+.cn-pips i { width: 8px; height: 8px; background: rgba(85, 80, 110, .7); box-shadow: 0 0 0 1px #1b1326; transition: background .2s; }
 .cn-pips i.on { background: var(--gold); }
-.cn-hint { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; }
-.cn-skip { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); min-width: 88px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(27, 19, 38, .85); border: 0; box-shadow: 0 0 0 2px #55506e; cursor: pointer; }
+.cn-hint { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; text-shadow: 1px 1px 0 #07050c; }
+.cn-skip { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); min-width: 88px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(14, 10, 24, .62); border: 0; box-shadow: 0 0 0 2px rgba(110, 102, 140, .7); cursor: pointer; }
 .cn-skip:active { background: #3a3155; }
 
-/* 对话场景（src/ui/talk.js，docs/STORY_PLAN.md §6） */
-.tk-wrap { position: fixed; inset: 0; z-index: 39; overflow: hidden; background: #07050c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; color: #f6ecd0; }
-.tk-stage.shake { animation: tkShake .32s steps(6); }
-@keyframes tkShake { 0%, 100% { transform: none; } 20% { transform: translate(calc(var(--tk-amp, 4px) * -1), calc(var(--tk-amp, 4px) * .5)); } 40% { transform: translate(var(--tk-amp, 4px), calc(var(--tk-amp, 4px) * -.5)); } 60% { transform: translate(calc(var(--tk-amp, 4px) * -.7), calc(var(--tk-amp, 4px) * -.5)); } 80% { transform: translate(calc(var(--tk-amp, 4px) * .7), calc(var(--tk-amp, 4px) * .5)); } }
-.tk-pt.in { animation: tkIn .26s steps(5); }
-.tk-pt.l.in { --tk-from: -28px; } .tk-pt.r.in { --tk-from: 28px; }
-@keyframes tkIn { 0% { transform: translate(var(--tk-from, 0), 0); opacity: 0; } 100% { transform: translateY(-4px); opacity: 1; } }
-.tk-pt.hop { animation: tkHop .2s steps(4); }
-@keyframes tkHop { 0% { transform: translateY(2px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(-4px); } }
-.tk-pt.rage { animation: tkRage .36s steps(8); }
-@keyframes tkRage { 0%, 100% { transform: translateY(-4px); } 15% { transform: translate(-3px, -6px); } 30% { transform: translate(3px, -3px); } 45% { transform: translate(-3px, -5px); } 60% { transform: translate(2px, -3px); } 80% { transform: translate(-1px, -4px); } }
-.tk-text em { font-style: normal; color: #f4c542; font-size: 1.24em; display: inline-block; animation: tkEm .3s steps(4); text-shadow: 2px 2px 0 #1b1326; }
-@keyframes tkEm { 0% { transform: scale(1.7); } 100% { transform: none; } }
-.tk-text.loud { font-size: 21px; color: #fff6e0; letter-spacing: 1px; }
-.tk-text.soft { font-size: 15px; color: #b8b0cc; letter-spacing: 2px; }
-.tk-black { position: absolute; inset: 0; z-index: 1; background: #07050c; display: flex; align-items: center; justify-content: center; padding: 0 28px; }
-.tk-black[hidden] { display: none; }
-.tk-black.in { animation: tkFade .35s steps(5); }
-@keyframes tkFade { 0% { opacity: 0; } 100% { opacity: 1; } }
-.tk-black p { margin: 0; font-size: 20px; line-height: 34px; color: #f6ecd0; letter-spacing: 3px; text-align: center; text-shadow: 2px 2px 0 #1b1326; }
-.tk-black p em { font-style: normal; color: #f4c542; }
-.tk-wrap.keypick .tk-box { border-image-source: var(--fr-talk); box-shadow: 0 0 0 2px #d8404a; }
-.tk-picks .tk-pick { animation: tkPick .24s steps(4) backwards; }
-@keyframes tkPick { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
-.tk-echo.in { animation: tkFade .4s steps(4); }
-.tk-top { z-index: 3; }
-.tk-top { position: absolute; top: max(6px, env(safe-area-inset-top, 0px)); left: 8px; right: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.tk-top button { min-width: 72px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(27, 19, 38, .85); border: 2px solid #55506e; cursor: pointer; }
-.tk-top button:active { background: #3a3155; }
-.tk-title { font-size: 15px; color: #c8b48c; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tk-stage { position: relative; line-height: 0; box-shadow: 0 0 0 2px #1b1326, 0 0 0 4px #3a3155; }
+/* 对话场景（src/ui/talk.js，docs/STORY_PLAN.md §6）：整屏舞台（一块画布）+ 两张立绘站在对话框上沿 + 对话框压在最下面 */
+.tk-wrap { position: fixed; inset: 0; z-index: 39; overflow: hidden; background: #07050c; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; color: #f6ecd0; }
+.tk-stage { position: absolute; inset: 0; line-height: 0; overflow: hidden; }
+.tk-stage.shake { animation: tkShake .34s steps(7); }
+@keyframes tkShake { 0%, 100% { transform: none; } 15% { transform: translate(calc(var(--tk-amp, 4px) * -1), calc(var(--tk-amp, 4px) * .6)); } 30% { transform: translate(var(--tk-amp, 4px), calc(var(--tk-amp, 4px) * -.6)); } 45% { transform: translate(calc(var(--tk-amp, 4px) * -.7), calc(var(--tk-amp, 4px) * -.4)); } 60% { transform: translate(calc(var(--tk-amp, 4px) * .5), calc(var(--tk-amp, 4px) * .4)); } 80% { transform: translate(calc(var(--tk-amp, 4px) * -.25), 0); } }
 .tk-cv, .tk-pt, .tk-next { image-rendering: pixelated; display: block; }
-.tk-pt { position: absolute; bottom: 0; filter: brightness(.5); transition: filter .12s steps(2), transform .12s steps(2); }
-.tk-pt.l { left: 2px; } .tk-pt.r { right: 2px; }
-.tk-pt.on { filter: none; transform: translateY(-4px); }
+.tk-cv { position: absolute; left: 0; top: 0; }
+.tk-pt { position: absolute; bottom: var(--tk-pt-b, 140px); transform-origin: 50% 100%; transform: scale(.94); filter: brightness(.42) saturate(.75); transition: filter .16s steps(3), transform .16s steps(3), bottom .26s cubic-bezier(.2, .8, .3, 1); z-index: 1; }
+.tk-pt.l { left: calc(var(--tk-cast, 0px) - 4px); } .tk-pt.r { right: calc(var(--tk-cast, 0px) - 4px); }
+.tk-pt:not(.big) { margin: 0 12px; }
+.tk-pt.on { filter: none; transform: translateY(-4px); z-index: 2; }
+.tk-stage.dimmed .tk-pt { filter: brightness(.3) saturate(.6); } .tk-stage.dimmed .tk-pt.on { filter: brightness(.72); }
 .tk-pt[hidden] { display: none; }
-.tk-box { position: relative; box-sizing: border-box; margin-top: 18px; min-height: 96px; padding: 6px 10px 10px; border: 12px solid transparent; border-image: var(--fr-talk) 6 fill / 12px stretch; background-clip: padding-box; }
-.tk-name { position: absolute; left: 4px; top: -30px; padding: 0 6px; font-size: 15px; line-height: 20px; color: #fff6e0; border: 6px solid transparent; border-image: var(--fr-talkName) 6 fill / 6px stretch; white-space: nowrap; }
+.tk-pt.in { animation: tkIn .3s cubic-bezier(.2, .8, .3, 1); }
+.tk-pt.l.in { --tk-from: -56px; } .tk-pt.r.in { --tk-from: 56px; }
+@keyframes tkIn { 0% { transform: translate(var(--tk-from, 0), 0); opacity: 0; } 100% { transform: translateY(-4px); opacity: 1; } }
+.tk-pt.hop { animation: tkHop .22s steps(5); }
+@keyframes tkHop { 0% { transform: translateY(2px) scale(.97); } 45% { transform: translateY(-12px); } 100% { transform: translateY(-4px); } }
+.tk-pt.nod { animation: tkNod .18s steps(3); }
+@keyframes tkNod { 0% { transform: translateY(0) scale(.97); } 100% { transform: translateY(-4px); } }
+.tk-pt.rage { animation: tkRage .4s steps(9); }
+@keyframes tkRage { 0%, 100% { transform: translateY(-4px); } 12% { transform: translate(-6px, -9px) scale(1.03); } 26% { transform: translate(6px, -4px) scale(1.03); } 40% { transform: translate(-5px, -7px); } 56% { transform: translate(4px, -4px); } 74% { transform: translate(-2px, -5px); } }
+.tk-top { position: absolute; z-index: 5; top: max(6px, env(safe-area-inset-top, 0px)); left: 8px; right: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tk-top button { min-width: 72px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(14, 10, 24, .62); border: 2px solid rgba(110, 102, 140, .7); cursor: pointer; }
+.tk-top button:active { background: #3a3155; }
+.tk-title { font-size: 15px; color: #e0cc9c; letter-spacing: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 2px 2px 0 #07050c; }
+.tk-ui { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+.tk-ui > * { pointer-events: auto; }
+.tk-box { position: relative; box-sizing: border-box; min-height: 96px; padding: 6px 10px 10px; border: 12px solid transparent; border-image: var(--fr-talk) 6 fill / 12px stretch; background-clip: padding-box; }
+.tk-name { position: absolute; left: 4px; top: -30px; padding: 0 8px; font-size: 16px; line-height: 20px; color: #fff6e0; border: 6px solid transparent; border-image: var(--fr-talkName) 6 fill / 6px stretch; white-space: nowrap; animation: tkName .16s steps(3); }
+@keyframes tkName { 0% { transform: translateY(6px); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .tk-name.me { border-image-source: var(--fr-talkNameMe); color: #eafff8; }
 .tk-name[hidden] { display: none; }
 .tk-text { font-size: 17px; line-height: 27px; min-height: 54px; color: #f6ecd0; text-align: left; white-space: pre-wrap; word-break: break-all; }
-.tk-text.nar { color: #b8b0cc; text-align: center; }
+.tk-text.nar { color: #c4bcd8; text-align: center; letter-spacing: 1px; }
+.tk-text em { font-style: normal; color: #f4c542; font-size: 1.24em; display: inline-block; animation: tkEm .32s cubic-bezier(.2, 1.4, .4, 1); text-shadow: 2px 2px 0 #1b1326; }
+@keyframes tkEm { 0% { transform: scale(2); opacity: .2; } 100% { transform: none; opacity: 1; } }
+.tk-text.loud { font-size: 21px; color: #fff6e0; letter-spacing: 1px; }
+.tk-text.soft { font-size: 15px; color: #b8b0cc; letter-spacing: 2px; }
 .tk-next { position: absolute; right: 2px; bottom: 0; width: 18px; height: 16px; animation: tkBob .8s steps(2) infinite; }
-@keyframes tkBob { 0% { transform: none; } 50% { transform: translateY(2px); } }
+@keyframes tkBob { 0%, 100% { transform: none; } 50% { transform: translateY(2px); } }
+.tk-black { position: absolute; inset: 0; z-index: 4; background: #07050c; display: flex; align-items: center; justify-content: center; padding: 0 28px; }
+.tk-black[hidden] { display: none; }
+.tk-black.in { animation: tkFade .45s ease-out; }
+@keyframes tkFade { 0% { opacity: 0; } 100% { opacity: 1; } }
+.tk-black p { margin: 0; font-size: 21px; line-height: 38px; color: #f6ecd0; letter-spacing: 4px; text-align: center; text-shadow: 2px 2px 0 #1b1326; max-width: 560px; }
+.tk-black p em, .tk-ch.em { font-style: normal; color: #f4c542; }
+.tk-ch { display: inline-block; white-space: pre; animation: tkCh .55s ease-out both; }
+@keyframes tkCh { 0% { opacity: 0; transform: translateY(-7px); } 100% { opacity: 1; transform: none; } }
+.tk-wrap.keypick .tk-box { border-image-source: var(--fr-talk); box-shadow: 0 0 0 2px #d8404a, 0 0 24px 4px rgba(216, 64, 74, .35); }
 .tk-wrap.picking .tk-text { min-height: 0; color: #b8b0cc; font-size: 15px; line-height: 22px; }
 .tk-picks { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .tk-picks[hidden] { display: none; }
+.tk-picks .tk-pick { animation: tkPick .3s cubic-bezier(.2, .8, .3, 1) backwards; }
+@keyframes tkPick { 0% { transform: translateY(14px); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .tk-pick { position: relative; display: block; width: 100%; min-height: 48px; padding: 2px 8px 2px 12px; font: inherit; text-align: left; color: #3b2b1f; background: #efe3c4; border: 2px solid #1b1326; box-shadow: inset 0 0 0 2px #fff6dc; cursor: pointer; }
 .tk-pick.key { border: 8px solid transparent; border-image: var(--fr-talkPick) 6 fill / 8px stretch; box-shadow: none; padding-left: 32px; }
 .tk-pick.key > img { position: absolute; left: 2px; top: 50%; width: 24px; height: 24px; margin-top: -12px; image-rendering: pixelated; }
 .tk-pick span { display: block; font-size: 17px; line-height: 24px; }
 .tk-pick small { display: block; font-size: 13px; line-height: 18px; color: #7a6650; }
 .tk-pick:disabled { filter: grayscale(1) brightness(.72); cursor: default; }
-.tk-pick:not(:disabled):active { filter: brightness(.9); }
+.tk-pick:not(:disabled):active { filter: brightness(.9); transform: translateY(1px); }
 .tk-dot { display: inline-block; width: 6px; height: 6px; margin-left: 6px; background: #2a8a7a; vertical-align: middle; }
-.tk-echo { margin-top: 8px; font-size: 13px; line-height: 18px; color: #8fe0c8; display: flex; align-items: center; gap: 6px; }
+.tk-echo { align-self: center; box-sizing: border-box; width: min(100vw - 12px, 640px); margin-bottom: 4px; padding-right: 4px; font-size: 13px; line-height: 20px; color: #8fe0c8; display: flex; align-items: center; justify-content: flex-end; gap: 6px; text-shadow: 1px 1px 0 #07050c, -1px 1px 0 #07050c, 1px -1px 0 #07050c, -1px -1px 0 #07050c; pointer-events: none; }
 .tk-echo[hidden] { display: none; }
+.tk-echo.in { animation: tkEcho .5s cubic-bezier(.2, .8, .3, 1); }
+@keyframes tkEcho { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
 .tk-echo img { width: 16px; height: 16px; image-rendering: pixelated; }
-.tk-hint { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; }
-.tk-hist { position: absolute; inset: 0; z-index: 2; background: rgba(7, 5, 12, .96); overflow-y: auto; padding: 56px 16px 24px; touch-action: pan-y; }
+.tk-hint { height: 28px; line-height: 28px; text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; text-shadow: 1px 1px 0 #07050c; }
+.tk-hist { position: absolute; inset: 0; z-index: 6; background: rgba(7, 5, 12, .96); overflow-y: auto; padding: 56px 16px 24px; touch-action: pan-y; }
 .tk-hist[hidden] { display: none; }
 .tk-hist p { margin: 0 0 8px; font-size: 15px; line-height: 23px; color: #f6ecd0; }
 .tk-hist p.nar { color: #b8b0cc; }
