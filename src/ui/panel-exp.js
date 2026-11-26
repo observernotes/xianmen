@@ -205,6 +205,7 @@ function tripSnapNow() {
 function showExpResult(res) {
   // 归途翻牌就在这张结算卡上（评价章之后、“你变强了”之前；示意图 04_loot.png）：见下面的 lootFlipHTML / lootFlipRun（src/ui/loot.js）
   lastExp = res;
+  saveLocal('归来');   // 关键节点存一份（自动档轮换，saves.js）
   const rg = L.REGIONS[res.k];
   if (res.legacy) {
     const lines = [`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里那趟历练按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? `，负伤 3 ${MO()}` : ''}。</p>`, deltaHTML(res)];

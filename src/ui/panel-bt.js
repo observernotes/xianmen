@@ -54,6 +54,7 @@ function btStamp(r) { const c = ART.stamp && ART.stamp(r); if (!c) return ''; co
 function afterBreakthrough(res) {
   const p = st.p;
   renderFeed();
+  if (res.ok) saveLocal('突破');   // 关键节点存一份（自动档轮换，saves.js）
   if (res.ascend && res.ok) { showAscension(); return; }
   if (res.ok) {
     const lines = [];

@@ -107,15 +107,15 @@ function showRecord() {
   on('kAch', () => showMe('ach')); on('kCodex', () => showCodex()); on('kCal', () => showCalendar()); on('kRep', () => showYearHist());
   bindLifeRebirth(s);
 }
-// 【仙途】→ 设置：声音、速度说明、玩法指南、存档、重新开始
+// 【仙途】→ 设置：声音、速度说明、玩法指南、存档（自动 / 手动档位，saves.js）、重新开始
 function showSettings() {
   if (!navCur) navCur = 'path';
   const body = meTabs('set')
     + `<div class="kslot"><div class="cell" id="btnSound" style="cursor:pointer"></div><div class="mid"><div class="nm">声音</div><small>${['音乐与音效', '仅音效', '静音'][soundMode]}</small></div><button class="kb alt" id="kSnd">切换</button></div>
     <div class="kslot"><div class="cell">${artIcon('quest', 32)}</div><div class="mid"><div class="nm">玩法指南</div><small>各系统一句话</small></div><button class="kb alt" id="btnHelp">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('task', 32)}</div><div class="mid"><div class="nm">札记</div><small>本章小任务</small></div><button class="kb alt" id="btnQuests">看</button></div>
-    <div class="kslot"><div class="cell">${artIcon('ok', 32)}</div><div class="mid"><div class="nm">存档</div><small>本机自动 · 云：${esc(cloudStatus)}</small></div></div>
-    <div class="kslot"><div class="cell">${artIcon('bad', 32)}</div><div class="mid"><div class="nm">重新开始</div><small>清除存档</small></div><button class="kb alt" id="btnReset">重来</button></div>
+    <div class="kslot"><div class="cell">${artIcon('ok', 32)}</div><div class="mid"><div class="nm">存档</div><small>自动 3 · 手动 3 · 云：${esc(cloudStatus)}</small></div><button class="kb alt" id="btnSaves">打开</button></div>
+    <div class="kslot"><div class="cell">${artIcon('bad', 32)}</div><div class="mid"><div class="nm">重新开始</div><small>旧进度留在自动档</small></div><button class="kb alt" id="btnReset">重来</button></div>
     <div class="ksec"><span>字体：Fusion Pixel（SIL OFL 1.1）</span></div>`;
   const s = sheet({ title: shellTitle('path'), body });
   setSoundIcon();
@@ -123,13 +123,14 @@ function showSettings() {
   s.querySelector('#kSnd').onclick = snd; s.querySelector('#btnSound').onclick = snd;
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };
   s.querySelector('#btnQuests').onclick = () => { SFX.tap(); showQuests(); };
+  s.querySelector('#btnSaves').onclick = () => { SFX.tap(); showSaves(); };   // 存档页（saves.js）
   s.querySelector('#btnReset').onclick = () => sheet({
-    title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？这会清除本机与云端存档。</p>',
+    title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？当前进度会挤进“自动 2”，手动档不动；云端存档会清除。</p>',
     foot: [{ t: '取消', alt: true, fn: () => showSettings() }, { t: '确定重来', fn: () => { closeModal(); resetGame(); } }],
   });
 }
 function resetGame() {
-  st = null; clearLocal();
+  clearLocal(); st = null;
   if (cloud.ref) cloud.ref.delete().catch(() => {});
   queue.length = 0; parts.length = 0; cine = null; adv = null;
   showIntro();

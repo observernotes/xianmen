@@ -1324,6 +1324,13 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body
 .lt-ars > .lt-ar.sel { border-color: #c8323c; background: #fbe6d8; }
 .lt-ars > .lt-ar.gold { cursor: default; border-color: #a8742a; }
 .lt-ars > .lt-ar.gold b { color: #a8742a; }
+/* 存档页（src/ui/saves.js）：一格一行，整行可点（≥ 44px），头像 32px 小格 */
+.kslot.sv { cursor: pointer; min-height: 48px; margin-top: 4px; }
+.kslot.sv .cell { width: 40px; height: 40px; }
+.kslot.sv .nm .chip { font-size: 14px; vertical-align: 1px; }
+.kslot.sv .sv-t { flex: none; min-width: 24px; text-align: right; color: #8a7a5c; font-size: 14px; line-height: 1.2; }
+.kslot.sv:active { background: #fbe6d8; }
+.svtxt { display: block; width: 100%; box-sizing: border-box; height: 120px; margin: 6px 0; font: 14px/1.3 monospace; word-break: break-all; background: #fff6dc; color: #2c2238; border: 2px solid #a8742a; padding: 4px; resize: none; }
 </style>
 
 <div id="app">
