@@ -614,30 +614,30 @@ for (const sid of Object.keys(HEIR)) {
  * 串联层从上往下取满足条件的、每人至多一段、取前三段（L.storySlots）。夜的段落在 B 线。 */
 const SLOTS = root.STORY_SLOTS || (root.STORY_SLOTS = {});
 const S8 = SLOTS.s8_steps || (SLOTS.s8_steps = []);
-if (!S8.some(x => x.by === 'C')) S8.push(
+if (!S8.some(x => x.who === 'zhao')) S8.push(
   // 赵乾：报过信的 → 酒肆掌柜来送行；带路的 → 走在你前面
-  { by: 'C', who: 'zhao', if: ['origin:qitu', 'zhao_guide'], echo: '你押他回过山门', say: [
+  { who: 'zhao', if: ['origin:qitu', 'zhao_guide'], echo: '你押他回过山门', say: [
     ['nar', '第一级石阶下，有个人在等。右脚在前。'], ['zhao:sad+sweat', '师弟。九百级，我熟。哪一级松，哪一级有阵，我都踩过。'], ['zhao', '当年我从这儿把你踢下去。'], ['zhao:sad', '今天，我*带你上去*。', { slow: 1 }], ['elder', '哼。这只脚，总算走了一回正路。'] ] },
-  { by: 'C', who: 'zhao', if: ['origin:qitu', 'zhao_owes'], echo: '你放过他一回', say: [
+  { who: 'zhao', if: ['origin:qitu', 'zhao_owes'], echo: '你放过他一回', say: [
     ['nar', '第一级石阶下，摆着一碗酒。碗边蹲着个人。'], ['zhao:sad', '师弟。我上不去了，腿不行。'], ['zhao', '这碗你别喝。浇在第一级上。'], ['zhao:sad+sweat', '当年你就是在这一级，|磕破的头。', { slow: 1 }], ['zhao', '我欠你的。今天，还到这儿。'] ] },
   // 慕容：念了休书 → 她在阶上；收回了 → 她替你挡住慕容家的客卿
-  { by: 'C', who: 'mu', if: ['origin:qitu', 'mu_spare'], echo: '你把休书收回了袖中', say: [
+  { who: 'mu', if: ['origin:qitu', 'mu_spare'], echo: '你把休书收回了袖中', say: [
     ['nar', '三百级。慕容家的客卿横剑拦路，七枚剑穗。'], ['nar', '另一柄剑从侧面递过来，架住了他。', { sfx: 'clang', flash: 1 }], ['mu:cold', '慕容家的人，今天*不拦路*。我说的。'], ['mu', '{name}。上去。'], ['mu:sad', '——别回头看。我不是为你。', { soft: 1 }] ] },
-  { by: 'C', who: 'mu', if: ['origin:qitu', 'mu_shame'], echo: '你当众念了休书', say: [
+  { who: 'mu', if: ['origin:qitu', 'mu_shame'], echo: '你当众念了休书', say: [
     ['nar', '三百级。{ex}坐在石阶边上，剑横在膝头，没有出鞘。'], ['mu:cold', '家里让我来拦你。我来了。'], ['mu', '拦不拦得住，是另一回事。'], ['nar', '你从{ex}身边走过去。那口剑，一动没动。'], ['mu:sad', '{name}。你当年要是把休书收回去——|算了。', { slow: 1 }] ] },
   // 楚天阔：三态
-  { by: 'C', who: 'tian', if: 'tiankuo_ally', echo: '你留下了他', say: [
+  { who: 'tian', if: 'tiankuo_ally', echo: '你留下了他', say: [
     ['nar', '六百级。楚天阔走在你左边，半步不落。'], ['tian', '这一段，是我每天扫的。扫了十九年。'], ['tian:sad', '头一回，从下往上走。'], ['tian:cold', '{name}。到了碑前，那一剑，*我来问*。', { slow: 1 }] ] },
-  { by: 'C', who: 'tian', if: 'tiankuo_sect', echo: '你给他指了条路', say: [
+  { who: 'tian', if: 'tiankuo_sect', echo: '你给他指了条路', say: [
     ['nar', '六百级。路边站着一个人，抱着剑，身后一面新旗：问剑山。'], ['tian', '楚某不上去。也不拦。'], ['tian:cold', '问剑山今天只做一件事：*看着*。'], ['tian', '看这座山，敢不敢让人从正面上来。'] ] },
-  { by: 'C', who: 'tian', if: 'beat_chu', echo: '你劝他回去认了错', say: [
+  { who: 'tian', if: 'beat_chu', echo: '你劝他回去认了错', say: [
     ['nar', '六百级。有个人横剑站在路中间。镣铐的印子还在腕上。'], ['tian:sad', '师父放我出来，只有一句话：守这一段。'], ['tian:cold', '楚某守。'], ['nar', '他出剑了。偏了三寸。', { sfx: 'slash', flash: 1 }], ['tian:sad', '……楚某的剑，从不偏。|今天偏了。你过去吧。', { slow: 1 }] ] },
   // 血无涯：按抉择六（夜的段落在 B 线；谁先满足取谁）
-  { by: 'C', who: 'xue', if: 'war_mo', echo: '你向蓝旗拔过剑', say: [
+  { who: 'xue', if: 'war_mo', echo: '你向蓝旗拔过剑', say: [
     ['nar', '八百级。血无涯坐在石栏上，脚边一坛酒，身后是红旗。'], ['xue:joy', '兄弟。本座带人来了。不多，三百。'], ['xue', '这山门，本座想拆很多年了。今天*借*你的名头。'], ['xue:cold', '里头那个穿白衣服的，留给你。本座懂规矩。'] ] },
-  { by: 'C', who: 'xue', if: 'war_stop', echo: '你把剑插在了两军正中', say: [
+  { who: 'xue', if: 'war_stop', echo: '你把剑插在了两军正中', say: [
     ['nar', '八百级。有人单手提着一坛酒，靠在石栏上。左袖是空的。'], ['xue:joy', '小东西。本座不是来帮忙的。一条胳膊，帮不上。'], ['xue', '来送酒。上去之前，喝一口。'], ['xue:cold', '本座想看看，不靠打仗，能不能把这种人*请下来*。', { slow: 1 }] ] },
-  { by: 'C', who: 'xue', if: 'war_zheng', echo: '你向红旗拔过剑', say: [
+  { who: 'xue', if: 'war_zheng', echo: '你向红旗拔过剑', say: [
     ['nar', '八百级。石栏上放着一只骨哨，压着一张字条。'], ['nar', '字很好看。'], ['xue:n+mono', '“小东西：本座来不了了。酒欠着。”'], ['xue:sad+mono', '“那个穿白衣服的，比本座*脏*。别输。”', { slow: 1 }] ] },
 );
 
