@@ -26,7 +26,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => { window.__blk = 0; new MutationObserver(() => { if (!document.getElementById('guide').hidden && document.querySelector('#guide [data-g="ok"]')) window.__blk++; }).observe(document.getElementById('guide'), { attributes: true, childList: true, subtree: true }); });
   // 推进 n 个月（逐月调 onTick，和真实时钟一样走 clock.js 的打断规则）
   const adv = n => ev(n => { const X = window.__xm; for (let i = 0; i < n; i++) { X.L.flow(X.st, 1); X.onTick(); } }, n);
-  const closeAll = async () => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
+  const closeAll = async stopAt => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m || (stopAt && stopAt.test(m))) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
 
   // ---------- 开局主画面 ----------
   await shot('g01-start');
@@ -134,7 +134,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   if (await ev(() => /跳过/.test((document.querySelector('#modal .foot .btn') || {}).textContent || ''))) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
   await page.click('#modal .foot .btn'); await page.waitForTimeout(800);
   let chEnd = '';
-  for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(); await page.waitForTimeout(500); }
+  for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(/章.*完/); await page.waitForTimeout(500); }   // 中途冒出的翻牌、过场等关掉，章末卡留着
   await shot('g14-chapter');
   const cb = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent).join('/'));
   check(/第一章.*完/.test(chEnd) && /开始第二章/.test(cb), `章末结算：${chEnd} ·【${cb}】`);

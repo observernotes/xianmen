@@ -69,7 +69,7 @@ function goalOf(st) {
     const k = le.k, d = le.d, a = le.a || 0, m = s => L.expForecast(s, k, d, a).base, v = m(st);
     if (L.ratingOf(v) < 3) {
       const cf = cellFoe(st, k, d), known = L.elemKnown(st, k);
-      return { kind: 'stuck', icon: 'goal', t: cut(`${L.REGIONS[k].n}${L.DEPTHS[d]}${cf.n ? ' · ' + cf.n : ''}`, 10), el: known ? cf.el : null, due: '上回 ' + R(le.r), big: '预计 ' + R(L.ratingOf(v)), num: R(L.ratingOf(v)),
+      return { kind: 'stuck', icon: 'goal', t: cf.n ? cut(`${L.REGIONS[k].n.slice(0, 2)}${L.DEPTHS[d]} · ${cf.n}`, 11) : `${L.REGIONS[k].n}${L.DEPTHS[d]}`, el: known ? cf.el : null, due: '上回 ' + R(le.r), big: '预计 ' + R(L.ratingOf(v)), num: R(L.ratingOf(v)),
         target: '目标 甲', v, max: L.RATE_TH[3], line: L.RATE_TH[2], m, unit: 'grade', cell: { k, d, a }, fe: known ? cf.el : null, feKnown: known, hz: 12 };
     }
   }
