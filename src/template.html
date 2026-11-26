@@ -1132,51 +1132,58 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .cn-tile .cn-nm { font-size: 14px; white-space: nowrap; }
 .cn-tile.off { cursor: default; opacity: .7; box-shadow: 0 0 0 2px #8a8496; }
 /* ---------- 战斗线 C1：历练的节点与回合战（src/ui/battle.js，docs/COMBAT_LOOT.md §2，示意图 02_battle.png） ---------- */
-body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar { display: none !important; }
+body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body.bt-on #tick { display: none !important; }
 #bt { display: flex; flex-direction: column; gap: 4px; flex: none; }
 #bt[hidden] { display: none; }
-.bt-path { display: flex; align-items: center; padding: 2px 6px; min-height: 30px; }
-.bt-nd { width: 26px; height: 26px; flex: none; border: 2px solid #55506e; background: #1b1326; color: #9d93b8; text-align: center; line-height: 22px; font-weight: normal; font-size: 14px; }
+.bt-path { display: flex; align-items: center; padding: 0 6px; min-height: 26px; }
+.bt-nd { width: 24px; height: 24px; flex: none; border: 2px solid #55506e; background: #1b1326; color: #9d93b8; text-align: center; line-height: 20px; font-weight: normal; font-size: 14px; }
 .bt-nd.ok { border-color: #4ccb9f; color: #8ff5d0; }
 .bt-nd.now { border-color: var(--gold); color: #fff2a8; background: #3a3155; }
 .bt-nd.el { border-color: #d8404a; }
 .bt-ln { flex: 1; height: 2px; background: #55506e; min-width: 6px; }
 .bt-ln.ok { background: #4ccb9f; }
 .bt-me { display: flex; flex-direction: column; gap: 3px; padding: 0 2px; }
-.bt-bar { position: relative; height: 18px; background: var(--panel-lo); box-shadow: 0 0 0 2px var(--ink); }
+.bt-bar { position: relative; height: 16px; background: var(--panel-lo); box-shadow: 0 0 0 2px var(--ink); }
 .bt-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#ff8a7a 0 3px, #d8404a 3px); transition: width .2s steps(4); }
 .bt-bar.rg i { background: linear-gradient(#ffd08a 0 3px, #e8902a 3px); }
 .bt-bar em { position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 6px; font-style: normal; font-size: 13px; color: #f3ecdc;
   text-shadow: 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink); }
 .bt-sks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-.bt-sk { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 58px; padding: 2px; font-size: 13px; line-height: 15px; text-align: center; overflow: hidden; white-space: nowrap;
+.bt-sk { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 4px; align-items: center; min-height: 44px; padding: 0 2px; font-size: 13px; line-height: 15px; text-align: left; overflow: hidden; white-space: nowrap;
   border: calc(6 * var(--u1)) solid transparent; border-image: var(--fr-hud) 6 fill / calc(6 * var(--u1)) stretch; }
 .bt-sk small { color: var(--muted); font-size: 13px; }
+.bt-sk .bt-ic { grid-row: 1 / 3; }
 .bt-sk.lk { color: #6e6a88; }
+.bt-sk.fire { animation: btFire .4s steps(3); }
+.bt-center { position: absolute; left: 0; right: 0; top: 34%; text-align: center; padding: 6px 8px; background: #0b0912cc; color: #fff2a8; font-size: var(--fs-l, 18px); pointer-events: none; text-shadow: 2px 2px 0 var(--ink); }
+.bt-center[hidden] { display: none; }
+.bt-bar.kehit { animation: btKe .5s steps(2); }
+@keyframes btKe { 0%, 100% { box-shadow: 0 0 0 2px var(--ink); } 50% { box-shadow: 0 0 0 3px #ff4a4a; } }
+@keyframes btFire { 0% { filter: brightness(1.8); transform: translateY(-3px); } 100% { filter: none; transform: none; } }
 .bt-ic { position: relative; display: block; width: 32px; height: 32px; }
 .bt-ic img { display: block; }
 .bt-cd { position: absolute; inset: 0; background: #0d0914cc; color: #fff; font-style: normal; font-size: 18px; line-height: 32px; text-align: center; }
 .bt-cd[hidden] { display: none; }
 .bt-ult { display: flex; gap: 4px; }
-.bt-big { flex: 1; min-height: 52px; font: inherit; font-size: 18px; line-height: 20px; color: #6e6a88; background: #1b1326; border: 2px solid #55506e; cursor: pointer; }
+.bt-big { flex: 1; min-height: 48px; font: inherit; font-size: 18px; line-height: 20px; color: #6e6a88; background: #1b1326; border: 2px solid #55506e; cursor: pointer; }
 .bt-big small { display: block; font-size: 13px; }
 .bt-big.on { background: #d8404a; border-color: #fff2a8; color: #fff; box-shadow: 0 0 0 3px #f4c54299; animation: btPulse .6s steps(2) infinite; }
 @keyframes btPulse { 50% { filter: brightness(1.15); } }
-.bt-sm { width: 56px; min-height: 52px; flex: none; font: inherit; font-size: 13px; line-height: 15px; color: var(--text); background: #1b1326; border: 2px solid #55506e; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.bt-sm { width: 52px; min-height: 48px; flex: none; font: inherit; font-size: 13px; line-height: 15px; color: var(--text); background: #1b1326; border: 2px solid #55506e; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
 .bt-sm.on { border-color: #4ccb9f; color: #8ff5d0; }
 .bt-log, .bt-hold { min-height: 22px; font-size: 13px; line-height: 22px; padding: 0 8px; color: var(--muted); background: #1b1326; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bt-hold { color: #fff2a8; background: #3a1c2a; cursor: pointer; min-height: 44px; line-height: 44px; font-size: 15px; text-align: center; animation: btPulse .6s steps(2) infinite; }
 .bt-arow { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 2px 4px; font-size: 14px; }
 .bt-foes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
-.bt-foe { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: #1b1326; border: 2px solid #55506e; font-size: 14px; }
-.bt-foe.el { border-color: #d8404a; }
-.bt-foe small { color: #ff9a8a; font-size: 13px; }
-.bt-kebar { display: flex; align-items: center; gap: 6px; padding: 2px 6px; min-height: 44px; background: #142a22; border: 2px solid #4ccb9f; font-size: 14px; }
-.bt-kebar.bad { background: #2a1420; border-color: #d8404a; }
+.bt-foe { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; min-width: 28px; justify-content: center; background: #fff6e0; border: 2px solid #8a7a5c; font-size: 14px; color: #3a2a1a; }
+.bt-foe.el { border-color: #c8323c; }
+.bt-foe small { color: #c8323c; font-size: 13px; }
+.bt-kebar { display: flex; align-items: center; gap: 6px; padding: 2px 6px; min-height: 44px; background: #dff0dc; border: 2px solid #3a9a72; font-size: 14px; color: #1e4a36; }
+.bt-kebar.bad { background: #f6dcd4; border-color: #c8323c; color: #6a1a1a; }
 .bt-swb { min-height: 44px; min-width: 64px; font: inherit; color: #fff; background: #d8404a; border: 2px solid #fff2a8; cursor: pointer; }
 .bt-swap { display: flex; flex-direction: column; gap: 4px; }
-.bt-swr { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; font: inherit; font-size: 14px; color: var(--text); background: #1b1326; border: 2px solid #55506e; cursor: pointer; text-align: left; }
-.bt-swr.hot { border-color: var(--gold); color: #fff2a8; }
+.bt-swr { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; font: inherit; font-size: 14px; color: #3a2a1a; background: #fff6e0; border: 2px solid #8a7a5c; cursor: pointer; text-align: left; }
+.bt-swr.hot { border-color: #c08a1a; background: #fff0b8; }
 
 /* 目标卡默认收起成一行（章 + 下一步 + 【去】，下面一条细进度线）；点卡片展开成三行，再点收起 */
 #goal .ch2 { display: none; flex: none; font-size: 14px; line-height: 18px; color: #1b1326; background: var(--gold); padding: 0 5px; }
