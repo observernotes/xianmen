@@ -90,7 +90,8 @@ const KON = () => L.KAIRO_ON !== false;
   return ok;
 }; }
 if (L.startBusy) { const f0 = L.startBusy; L.startBusy = function (st, n) {
-  const ok = f0.apply(this, arguments);   // 讲道、传授是宗门派的差事，不拦（拦了任务就交不了）；只记出发
+  if (KON() && st && !L.busy(st) && arguments[2] !== 'event' && L.retBlock(st, n)) return false;   // 讲道、传授等差事也不能拖过大节点（过了节点再接着办；事件占住的几个月照旧）
+  const ok = f0.apply(this, arguments);
   if (ok) { const c = clk(st); c.awayAt = st.tick; c.idle = 0; }
   return ok;
 }; }

@@ -71,7 +71,8 @@ L.tick = function (st, cont) {
   if (!st.pact && st.tick === L.PACT_TICK - 1) L.fireTrigger(st, 'pact_eve');
   if (!st.pact && st.tick >= L.PACT_TICK) out.pact = true;
   if (!out.pact && L.canTrain(st) && !st.flags.trainOffered) { st.flags.trainOffered = 1; out.train = true; }
-  if (!st.sect && p.r >= 1 && st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0)) { out.invite = true; st.flags.inviteAt = st.tick + 12; }
+  if (!st.sect && p.r >= 1 && st.pact && !out.pact && !L.busy(st) && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0)) {   // 三宗争徒等你在洞府时上门（在外零打断）
+    out.invite = true; st.flags.inviteAt = st.tick + 12; }
   // 宿敌与新秀：天剑宗来犯前夜、宿敌的奇遇、新秀出现与追到身后、指点过的新秀送礼（rivals2.js；排在来犯判定之前）
   if (L.rivalTick) L.rivalTick(st, out);
   if (st.sect) {
