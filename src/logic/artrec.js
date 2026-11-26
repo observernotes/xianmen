@@ -6,7 +6,7 @@
  *     ctx：省略 = 平时（功法页“荐”、【人物】角标、老祖气泡、变强页与锦囊 / 备战卡的动作卡、掉落卡【换上】都用这个）；
  *          { k, d } = 正要去的这一格（历练出发页；近期大节点仍优先，{ k, d, force } 才只看这一格）；{ foe, Q, scale, n } = 正要打的这个人（论道准备、新秀挑战、宿敌卡、约战）
  *     平时的情境（L.artCtx）按优先级取第一个成立的：
- *       1. 近期大节点：L.bigNext 还有 ≤ L.REC.big 月、对手算得出（三年之约 / 论道第一场的宿敌 / 天剑来犯）→ 比对决胜算
+ *       1. 近期大节点：L.bigNext 还有 ≤ L.ART_REC.big 月、对手算得出（三年之约 / 论道第一场的宿敌 / 天剑来犯）→ 比对决胜算
  *       2. 历练图：正在走的这一趟，否则上一趟去的那一格（L.lastExp）。精英（回合战）或地图（旧分数制）的五行见过才算克制
  *       3. 通用：战力与修炼（对数相加）
  *     情境只看“接下来要做的事”，和你装着哪一门无关，所以换上推荐的那门之后不会再推回去；
@@ -17,7 +17,7 @@
  */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
-L.REC = { big: 3, pEps: 0.005, mapEps: 0.01, zMin: 0.01, xMin: 0.02, ke: 0.45, bk: 0.3, mapV: 0.028 };
+L.ART_REC = { big: 3, pEps: 0.005, mapEps: 0.01, zMin: 0.01, xMin: 0.02, ke: 0.45, bk: 0.3, mapV: 0.028 };
 const pc = p => Math.round(p * 100) + '%';
 const lg = v => Math.log(Math.max(1e-9, v));
 
@@ -59,7 +59,7 @@ L.artCtx = function (st, ctx) {
 };
 function bigCtx(st) {
   const b = L.bigNext && L.bigNext(st);
-  if (!b || b.left > L.REC.big || !L.adviseBigP) return null;
+  if (!b || b.left > L.ART_REC.big || !L.adviseBigP) return null;
   let P = null; try { P = L.adviseBigP(st, b); } catch (e) { P = null; }
   if (!P || !P.foe) return null;
   const who = b.k === 'pact' ? st.exName : b.k === 'war' ? '天剑宗' : foeName(st, P.foe);
@@ -79,8 +79,8 @@ function scoreOf(st, slot, id, c) {
       if (c.fe) { me = L.atkEl(st, c.fe); ke = L.elKe(me, c.fe); bk = L.elKe(c.fe, me); }
     } else if (slot === 1 && c.kind === 'map' && c.fe) {
       me = L.atkEl(st, c.fe); ke = L.elKe(me, c.fe); bk = L.elKe(c.fe, me);
-      if (L.TRIP_ON !== false) pri = g + (ke ? L.REC.ke : bk ? -L.REC.bk : 0);
-      else pri = g + L.expElem(st, c.k).v * L.REC.mapV;
+      if (L.TRIP_ON !== false) pri = g + (ke ? L.ART_REC.ke : bk ? -L.ART_REC.bk : 0);
+      else pri = g + L.expElem(st, c.k).v * L.ART_REC.mapV;
     }
     return { id, pri, g, p, pw, gb, ke, bk, me };
   });
@@ -100,8 +100,8 @@ L.artRecommend = function (st, slot, ctx) {
   const curRow = rows.find(r => r.id === cur) || scoreOf(st, slot, null, c);
   if (!rows.length) { cache.v[key] = null; return null; }
   // 主分最高的一档（差 eps 以内算同档），档里比通用分；现在装着的在档里、通用分差不到 gMin 就不换
-  const eps = slot === 1 && c.kind === 'duel' ? L.REC.pEps : slot === 1 && c.kind === 'map' && c.fe ? L.REC.mapEps : 0;
-  const gMin = slot === 0 ? L.REC.xMin : L.REC.zMin;
+  const eps = slot === 1 && c.kind === 'duel' ? L.ART_REC.pEps : slot === 1 && c.kind === 'map' && c.fe ? L.ART_REC.mapEps : 0;
+  const gMin = slot === 0 ? L.ART_REC.xMin : L.ART_REC.zMin;
   const top = Math.max(...rows.map(r => r.pri), curRow.pri);
   const band = rows.filter(r => r.pri >= top - eps - 1e-12);
   band.sort((a, b) => b.g - a.g || L.art(b.id).t - L.art(a.id).t || (a.id < b.id ? -1 : 1));
@@ -122,7 +122,7 @@ function whyOf(st, slot, c, a, b) {
     const who = c.label ? `${c.label}的${c.who}` : c.who;
     if (c.fe && a.ke) return `克${who}（${el(c.fe)}）`;
     if (c.fe && b.bk && !a.bk) return `不被${who}（${el(c.fe)}）克`;
-    if (a.p - b.p >= L.REC.pEps) return `${c.label || who}胜算 ${pc(b.p)} → ${pc(a.p)}`;
+    if (a.p - b.p >= L.ART_REC.pEps) return `${c.label || who}胜算 ${pc(b.p)} → ${pc(a.p)}`;
   }
   if (c.kind === 'map' && c.fe && (a.ke || (b.bk && !a.bk))) return a.ke ? `克${c.label}（${el(c.fe)}）` : `不被${c.label}（${el(c.fe)}）克`;
   if (a.pw > b.pw * 1.0005) return `战力更高 +${L.fmt(a.pw - b.pw)}`;
