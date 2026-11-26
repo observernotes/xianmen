@@ -187,6 +187,21 @@ async function apSection(quick) {
     L.ONB_ON = onb0 === undefined ? true : onb0;
     const ROUTES = quick ? [{ id: '入宗·剑', sect: 'jian' }, { id: '散修', lone: true }]
       : [{ id: '入宗·剑', sect: 'jian' }, { id: '入宗·丹', sect: 'dan' }, { id: '入宗·道', sect: 'dao' }, { id: '散修（一律不理三宗）', lone: true }, { id: '拒邀后再入（第 3 章拜山门）', lone: true, late: 108 }];
+    // 当前章“主线行动”的一张表：AP 版的 L.mainActs（线 B）有就用它；还没有时，按 mainline.js（主线保底，已在 redesign 上）的 L.mainPending 推一张同形状的 [{ id, ok, why }]，
+    // 这样“每季都有主线动作”的断言现在就能跑（AP 版接口落地后自动改读 L.mainActs）
+    const mainActsOf = st => {
+      if (typeof L.mainActs === 'function') return L.mainActs(st) || [];
+      if (typeof L.mainPending !== 'function') return null;
+      const out = [];
+      for (const x of L.mainPending(st)) {
+        if (x.k === 'rival' && L.challengeInfo) { const I = L.challengeInfo(st, x.id); out.push({ id: 'duel:' + x.id, ok: !!I && !I.why, why: I ? I.why : '他不在榜上' }); }
+        else if (x.k === 'srank') out.push(!st.sect ? { id: 'join', ok: !(L.sectApplyWhy && L.sectApplyWhy(st, 'jian')), why: L.sectApplyWhy ? L.sectApplyWhy(st, 'jian') : '' } : { id: 'promote', ok: !!L.canPromote(st), why: L.canPromote(st) ? '' : ((L.promoteNeeds(st).find(y => !y.ok) || {}).t || '贡献 / 人脉还差') });
+        else if (x.k === 'boss') out.push({ id: 'boss', ok: L.REGIONS.some((r, k) => L.bossReady(st, k)), why: '首领没现身：历练里评价打到乙以上' });
+        else if (x.k === 'asc') out.push({ id: 'trib', ok: !!L.isReady(st), why: '修为还不够圆满：闭关 / 打坐 / 历练' });
+        else out.push({ id: x.k, ok: false, why: x.k === 'rank' ? '天骄榜：论道（固定日子）一路往上' : x.k === 'meet' ? '九宗会武（固定日子）' : x.k === 'war' ? '天剑来犯（固定日子）' : '剧情里的抉择 / 标志位：节拍到点就放' });
+      }
+      return out;
+    };
     const H1KEY = trg => /^(beat:|boss:|trib:|demon:|srank:|war_eve:)/.test(trg) || trg === 'sect' || trg === 'rank:12' || /^sb:c\d_(open|climax|end)$/.test(trg);
     const MIDKEY = trg => /^sb:c\d_mid\d$/.test(trg) || trg === 'sb:mid';
     const mainDone = (st, i) => !!(st.quest && st.quest.done && st.quest.done['c' + i + '_m']);
@@ -272,8 +287,8 @@ async function apSection(quick) {
         if (S && out === S.outs[S.outs.length - 1]) {
           const ch = L.chapterNow(st), sn = L.seasonNo(st);
           if (ch !== W.lastCh) { W.chLen[W.lastCh] = sn - W.chStart; W.ch.push({ from: W.lastCh, to: ch, tick: st.tick }); W.lastCh = ch; W.chStart = sn; W.stall = 0; }
-          if (typeof L.mainActs === 'function') {
-            let acts = []; try { acts = L.mainActs(st) || []; } catch (e) { W.err = W.err || 'L.mainActs 抛错：' + e.message; }
+          if (typeof L.mainActs === 'function' || typeof L.mainPending === 'function') {
+            let acts = []; try { acts = mainActsOf(st) || []; } catch (e) { W.err = W.err || '主线行动表抛错：' + e.message; }
             const live = acts.length && (acts.some(a => a.ok) || acts.some(a => a.why));
             if (!live) { W.stall++; if (W.stall > W.stallMax) { W.stallMax = W.stall; W.stallAt = `第 ${ch + 1} 章 · 第 ${st.tick} 月`; } } else W.stall = 0;
             if (!acts.some(a => a.ok)) W.noMain++;
@@ -287,6 +302,7 @@ async function apSection(quick) {
       };
       let rec;
       try { rec = sim.run('guided', seed, false, { st0, keep: true, onTick, sect: sectPick, maxT: 1300 }); } catch (e) { W.err = W.err || '跑崩了：' + e.message; }
+      { const se = (rec && rec.st) || curSt; if (se && se.p && se.p.r >= 9) { try { chain(se, 'final'); } catch (e) { W.err = W.err || '收尾那条链出错：' + e.message; } } }   // 飞升那一下之后 sim 就停了，界面还会把天门前的戏放完：这里补一条链
       for (const k in saved) L[k] = saved[k];
       const st = (rec && rec.st) || curSt;
       W.chLen[W.lastCh] = L.seasonNo(st) - W.chStart;
@@ -334,9 +350,10 @@ async function apSection(quick) {
       if (st.story && st.story.lag) { const bad = Object.entries(st.story.lag).filter(([id, v]) => H1KEY(trgOf(id)) && v && v.shown - v.due !== 0); chk(!bad.length, `${who}：st.story.lag（H1）关键剧情 shown − due = 0` + (bad.length ? '：' + bad.slice(0, 4).map(([id, v]) => `${id} ${v.shown - v.due}`).join('、') : ''), 'B'); }
       else notes.push(`${who}：st.story.lag 还没有（线 B 的打点），H1 只按“同链”判`);
       // Z2 主线可推进
-      if (typeof L.mainActs === 'function') {
-        chk(W.stallMax === 0, `${who}：每一季 L.mainActs 非空且有一项可做（或写明差什么）——没有“一章停滞无可做的主线动作”` + (W.stallMax ? `（最长连续 ${W.stallMax} 季没有，${W.stallAt}）` : ''), 'B');
-      } else chk(false, `${who}：没有 L.mainActs，判不了“每季都有主线动作”`, 'B');
+      if (typeof L.mainActs === 'function' || typeof L.mainPending === 'function') {
+        chk(W.stallMax === 0, `${who}：每一季主线行动表（${typeof L.mainActs === 'function' ? 'L.mainActs' : '按 L.mainPending 推的'}）非空且有一项可做（或写明差什么）——没有“一章停滞无可做的主线动作”` + (W.stallMax ? `（最长连续 ${W.stallMax} 季没有，${W.stallAt}）` : ''), 'B');
+        if (typeof L.mainActs !== 'function') notes.push(`${who}：L.mainActs（AP 版）还没有，主线行动表是按 mainline.js 的 L.mainPending 推的`);
+      } else chk(false, `${who}：没有 L.mainActs / L.mainPending，判不了“每季都有主线动作”`, 'B');
       const worst = Math.max(0, ...Object.entries(W.chLen).filter(([c]) => +c < L.chapterNow(st)).map(([, v]) => v));
       chk(worst <= 60, `${who}：单章最长 ${worst} 季（H8 ≤ 60）`, 'B');
       chk(reached, `${who}：主线走到结局——第 9 章 + 渡劫飞升 + 天门前的抉择（境界 ${st.p.r}，第 ${L.chapterNow(st) + 1} 章，天门抉择 ${asc ? '有' : '没有'}${W.deaths ? '，坐化' : ''}，${L.seasonNo(st)} 季）`, 'B');
