@@ -175,9 +175,12 @@ L.duelArtBest = function (st, foe, Q, scale) {
   const pOf = () => L.duelP(st, scale(L.duelPower(st, foe)), Q, foe);
   const p0 = pOf();
   let best = { id: cur, p: p0 };
-  for (const id of Object.keys(st.arts.own)) { const A = L.art(id); if (!A || A.k !== 'z' || id === cur) continue; const p = L.artTry(st, id, pOf); if (p > best.p + 1e-9) best = { id, p }; }
+  // 选哪一门由 L.artRecommend 定（artrec.js：胜算最高的一档里比通用战力，现在装着的同档优先），与变强页、功法页的“荐”同一口径
+  const rc = L.artRecommend ? L.artRecommend(st, 1, { foe, Q, scale }) : null;
+  if (rc && rc.id && rc.id !== cur) best = { id: rc.id, p: L.artTry(st, rc.id, pOf) };
+  else if (!L.artRecommend) for (const id of Object.keys(st.arts.own)) { const A = L.art(id); if (!A || A.k !== 'z' || id === cur) continue; const p = L.artTry(st, id, pOf); if (p > best.p + 1e-9) best = { id, p }; }
   const fe = L.foeEl(foe), me0 = L.atkEl(st, fe, sl), me = L.atkEl(st, fe, [sl[0], best.id, sl[2]]);
-  return { id: best.id, cur, p0, p1: best.p, same: best.id === cur, fe, me0, me, ke: L.elKe(me, fe), ke0: L.elKe(fe, me0), gear0: L.rivalGearHit(st, foe) };
+  return { id: best.id, cur, p0, p1: best.p, same: best.id === cur, fe, me0, me, ke: L.elKe(me, fe), ke0: L.elKe(fe, me0), gear0: L.rivalGearHit(st, foe), why: rc && !rc.same ? rc.why : '' };
 };
 // 论道前换上：guided（tools/sim.js）与 longrun 用；界面是准备页的【换上】
 L.tourSwap = function (st) {

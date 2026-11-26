@@ -11,3 +11,4 @@ dist/*.keystore
 __pycache__/
 Pixel 7/
 onboard/
+docs/story_mock/people/

@@ -218,7 +218,7 @@ const warDue = st => pending(st, L.chapterNow(st)).some(x => x.k === 'war');
 // ---------- 入宗：不看境界 ----------
 // 头一回是第二章的“三张帖子”（storyline 的 c2_mid1，第二章一开就放）；那场戏结过了、还没宗门的，过 12 月（选了散修 36 月）宗门再来请（tick.js 的 out.invite → 界面三宗争徒）
 L.inviteDue = function (st) {
-  if (st.sect || !st.pact || wuzong(st) || L.busy(st) || st.tick <= L.PACT_TICK || L.chapterNow(st) < 1) return false;
+  if (st.sect || !st.pact || wuzong(st) || st.tick <= L.PACT_TICK || L.chapterNow(st) < 1) return false;
   if (st.tick < (st.flags.inviteAt || 0)) return false;
   const s = st.story && st.story.beat;
   return !!(st.evDone && st.evDone.s2_invite) || !!(s && s.c2_mid1 === -1) || L.STORYLINE === false || !L.eventById('s2_invite');

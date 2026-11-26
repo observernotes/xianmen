@@ -139,8 +139,9 @@ L.expBest = function (st, a) {
   }
   return best || { k: 0, d: 0, a: 0, f: L.expForecast(st, 0, 0, 0) };
 };
-L.chainOpen = st => st.rebirth > 0 || (st.flags.maxR || 0) >= 2;
-// opt.chain：连续几趟（金丹解锁，最多 3）；opt.escort：护送任务的序号（本趟灵石归宗门，贡献 ×3）
+// 扫荡的解锁（原“连续历练”的门槛，金丹；L.chainOpen 这个名字让给了结算链，见 ap.js）
+L.sweepOpen = st => st.rebirth > 0 || (st.flags.maxR || 0) >= 2;
+// opt.escort：护送任务的序号（本趟灵石归宗门，贡献 ×3）
 L.startExp = function (st, k, d, a, opt) {
   d = d || 0; a = a || 0; opt = opt || {};
   if (L.busy(st) || st.p.r > L.MAXR || !L.expOpen(st, k, d, a)) return false;
@@ -149,8 +150,7 @@ L.startExp = function (st, k, d, a, opt) {
   // cx：出发时的季节与大势加成（途中大势结束也照出发时的算）
   const plan = { pow: pt.pow, aff: pt.aff, guts: pt.guts, ratio: pt.ratio, rnd: -12 + 24 * R(), adj: 0, u: [R(), R(), R(), R(), R(), R(), R(), R(), R(), R()], enc: R(), cx: L.calExp(st, k, d, a) };
   if (L.firstTrip(st)) { plan.fix = 3; plan.gift = 1; }
-  let chain = 0;
-  if (opt.chain > 1 && L.chainOpen(st)) chain = Math.min(3, Math.floor(opt.chain)) - 1;
+  const chain = 0;   // 连续历练已删（AP_PLAN §2.3：换成扫荡）
   st.exp = { k, d, a, left: len, total: len, plan, chain };
   if (opt.deeper) st.exp.deeper = opt.deeper;   // 趁势深入（loot.js 的 L.startDeeper）：只打下一层的精英，2 月
   if (opt.escort !== undefined && st.sect && st.sect.tasks) { const t = st.sect.tasks[opt.escort]; if (t && t.ty === 'escort' && t.taken && !t.done && t.k === k) st.exp.escort = opt.escort; }

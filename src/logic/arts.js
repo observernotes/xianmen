@@ -483,7 +483,7 @@ L.artDelta = function (st, id) {
   const [g1, p1] = L.artTry(st, id, () => [L.gainBase(st), L.power(st)]);
   return { g0, g1, p0, p1, dg: g1 - g0, dp: p1 - p0 };
 };
-// 换上是否更好（心法看修炼、战技看战力；秘术没有裸倍率，不算）
+// 换上是否更好（心法看修炼、战技看战力；秘术没有裸倍率，不算）。只是裸数比较：界面上的“换上”看 L.artRecommend（artrec.js），这个留给 sim 的 lazy 与秘境选项的说明
 L.artBetter = function (st, id) {
   const i = SLOT_OF[ART[id].k];
   if (!L.artSlotOpen(st, i) || i === 2) return false;
@@ -503,11 +503,14 @@ L.artList = function (st, i) {
     return { id, A, d, cur: id === cur, combos, gen, score, lv: L.artLv(st, id) };
   });
   rows.sort((a, b) => b.score - a.score || b.A.t - a.A.t);
-  if (rows.length && !rows[0].cur && rows[0].score > 1.0001) rows[0].rec = true;
+  // “荐”：心法 / 战技取 L.artRecommend 平时的那一门（artrec.js；与角标、气泡、变强页同一门，带原因），排第一；秘术仍按阶与共鸣
+  const rc = i < 2 && L.artRecommend ? L.artRecommend(st, i) : null;
+  if (rc) { const r = rows.find(x => x.id === rc.id); if (r && !rc.same) { r.rec = true; r.why = rc.why; rows.splice(rows.indexOf(r), 1); rows.unshift(r); } }
+  else if (i === 2 && rows.length && !rows[0].cur && rows[0].score > 1.0001) rows[0].rec = true;
   return rows;
 };
 
-// 三槽的最优搭配（tools/sim.js 的 guided 用；界面的“荐”用 L.artList 的单槽排序）
+// 三槽的最优搭配（tools/sim.js 的 guided 用；界面的“荐 / 换上”一律用 artrec.js 的 L.artRecommend）
 // opt：wc / wa 修炼、战力的权重（默认 1）；foe 对手（算克制 ×1.15 / ×0.87）；k 地图（克制 ±8 分按每分战力 ×1.028 折算）；
 //      mval { 秘术id: 价值 }（秘术没有裸倍率，价值由调用方定，缺省按阶 0.005/阶）；only 只换哪一槽
 L.artBest = function (st, opt) {
@@ -567,7 +570,7 @@ L.giveArt = function (st, id, opt) {
   a.own[id] = 0; it.isNew = true;
   const i = SLOT_OF[A.k];
   if (!slotsOf(st)[i] && L.artSlotOpen(st, i)) { L.equipArt(st, id); it.equip = true; }
-  else it.better = L.artBetter(st, id);
+  else it.better = L.artRecommend ? !!L.artRecWhy(st, id) : L.artBetter(st, id);   // 掉落卡的【换上】：是平时的推荐才给（artrec.js）
   L.log(st, `获得${L.artTierName(A.t)}${L.ART_CAT[A.k]}《${A.n}》${it.fragDone ? '（三片残篇合一）' : ''}`, A.t >= 4 ? 'gold' : 'jade');
   emit('artNew', it);
   return it;
