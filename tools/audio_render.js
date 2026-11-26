@@ -5,7 +5,7 @@ const path = require('path'), fs = require('fs');
 const out = process.argv[2] || path.join(__dirname, '..', 'shots', 'audio');
 const only = process.argv[3] ? process.argv[3].split(',') : null;
 fs.mkdirSync(out, { recursive: true });
-const SEC = { home: 95, road: 42, battle: 30, boss: 28, town: 36, sorrow: 74, vow: 16, trib: 24, ascend: 54, realm: 26 };
+const SEC = { home: 95, road: 42, battle: 30, boss: 28, town: 36, sorrow: 74, vow: 16, trib: 24, ascend: 54, realm: 26, farewell: 80, tense: 26, fate: 68, epic: 44, tender: 62 };
 const SFX_ARG = { reveal: ['0', '3', '6'], skill: ['jin', 'mu', 'shui', 'huo', 'tu', ''], flip: ['0,0', '1,1', '2,2'], star: ['0', '2'], forgeOk: ['2', '8'] };
 function wav(l, r, sr) {
   const n = l.length, b = Buffer.alloc(44 + n * 4);
