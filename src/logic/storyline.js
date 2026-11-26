@@ -415,15 +415,15 @@ L.migrateStoryline = function (s) {
   if (!s || !s.p || !s.quest) return s;
   const fresh = !s.story; const st = S(s);
   // 带抉择的、开章的（must）不算错过：读档后第一条结算链里按章序补出来（AP_PLAN §7、§8.3 H10）
-  if (fresh && (s.tick || 0) > 0) { const now = L.chapterNow(s); for (const b of L.STORY_BEATS) if (b.ch < now && !b.must) st.beat[b.id] = -1; for (let c = 0; c <= now; c++) st.chAt[c] = c === now ? s.tick : 0; if (now === 0) st.beat.c1_open = -1; }
+  if (fresh && (s.tick || 0) > 0) { const now = L.chapterNow(s); for (const b of L.STORY_BEATS) if (b.ch < now && !b.must && b.slot !== 'climax') st.beat[b.id] = -1; /* 过了章的高潮：条件成立就补（赵乾落败、守山之后……） */ for (let c = 0; c <= now; c++) st.chAt[c] = c === now ? s.tick : 0; if (now === 0) st.beat.c1_open = -1; }
   return s;
 };
-// 以前的版本把过了章的开章 / 抉择记成了“错过”（−1）、场景却一场没放：放出来（场景都结算过的不动）
+// 以前的版本把过了章的开章 / 抉择 / 高潮记成了“错过”（−1）、场景却一场没放：放出来（场景都结算过的不动；高潮的条件不成立的不放）
 L.storyUnmiss = function (s) {
   if (!s || !s.story || !s.story.beat || !s.quest) return 0;
   const now = L.chapterNow(s); let n = 0;
   for (const b of L.STORY_BEATS) {
-    if (b.ch >= now || !b.must || s.story.beat[b.id] !== -1) continue;
+    if (b.ch >= now || !(b.must || b.slot === 'climax') || s.story.beat[b.id] !== -1) continue;
     const evs = L.events().filter(ev => ev.where === 'story' && ev.trigger === 'sb:' + b.id);
     if (evs.length && !evs.some(ev => s.evDone[ev.id])) { delete s.story.beat[b.id]; n++; }
   }

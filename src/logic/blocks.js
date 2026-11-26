@@ -207,7 +207,15 @@ L.blockDone = function (st, x) {
 L.chainOpenNow = st => C(st);
 
 // ---------- 季末：链从季末卡开始；大事另记一份进存档（读档后接着出）；宿敌上门也是一张大事 ----------
+// 推迟到 pre 之后的那一仗，没有人走结算链（sim、旧界面直接从 storyQ 里取戏）：下一个行动或季末之前当场打掉，不让它一直挂着
+function flushDefer(st) {
+  if (!st || !st.story || !st.story.defer) return null;
+  const x = { kind: 'act', id: st.story.defer.id, data: st.story.defer, lv: 3 };
+  return L.blockRun(st, x);
+}
+L.chainFlush = flushDefer;
 { const se0 = L.seasonEnd; L.seasonEnd = function (st) {
+  flushDefer(st);
   inSeason++;
   let S0;
   try { S0 = se0.apply(this, arguments); } finally { inSeason--; }
@@ -220,7 +228,7 @@ L.chainOpenNow = st => C(st);
   return S0;
 }; }
 { const act0 = L.act; L.act = function (st, id) {
-  if (st && st.p) { const c = C(st); if (c.why !== 'act') L.chainOpen(st, 'act'); }
+  if (st && st.p) { flushDefer(st); const c = C(st); if (c.why !== 'act') L.chainOpen(st, 'act'); }
   inAct++;
   try { return act0.apply(this, arguments); } finally { inAct--; stamp(st); }
 }; }

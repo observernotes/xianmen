@@ -202,7 +202,7 @@ function goalNext0(st) {
   const need = mn && !mn.ok ? mn.why : '';
   if (a0 && a0.id !== 'idle') return Object.assign(advNext(a0), need ? { need, main: mn } : {});
   if (mn && mn.ok) return Object.assign(mainNext(st, mn), need ? { need } : {});
-  if (p.inj > 0) return { t: '养伤 · 闭关或打坐', go: 'home', hl: null, why: 'idle', ap: 0, do: null, need };
+  if (p.inj > 0) return { t: L.injText ? cut(L.injText(st), 12) : '养伤 · 闭关或打坐', go: 'home', hl: null, why: 'idle', ap: 0, do: null, need };
   if (a0) return advNext(a0);
   return { t: '去历练', go: 'exp', hl: '[data-nav="exp"]', why: 'exp', ap: L.AP ? L.AP.exp : 2, do: null, need };
 }
