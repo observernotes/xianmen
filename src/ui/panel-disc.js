@@ -40,7 +40,7 @@ function discTabHTML() {
   const x = D.list[discSel];
   if (x) {
     const T0 = L.TEMPERS[x.tp], tl = L.discTeachList(st, x), tw = L.discTeachWhy(st, x);
-    const jobs = Object.keys(L.DISC_JOB).map(k => `<button class="btn sm ${x.job === k ? 'gold' : 'alt'} djob" data-dj="${k}" ${x.job === k ? 'disabled' : ''}>${icon16(L.DISC_JOB[k].icon, 1)} ${L.DISC_JOB[k].n}<small>${esc(discJobLine(x, k))}</small></button>`).join('');
+    const jobs = Object.keys(L.DISC_JOB).map(k => `<button class="btn sm alt djob" data-dj="${k}" ${x.job === k ? 'disabled' : ''}>${x.job === k ? '✓ ' : ''}${icon16(L.DISC_JOB[k].icon, 1)} ${L.DISC_JOB[k].n}<small>${esc(discJobLine(x, k))}</small></button>`).join('');
     det = `<div class="pdet ddet"><div class="row">${discImg(x, pxs(48, 1.5), L.discCanGrad(x) ? 'joy' : 'n')}<div class="grow"><div><b>${esc(x.n)}</b> ${discTTag(x.t)} <span class="chip">${T0.n}</span>${x.rookie ? ' <span class="chip warn">新秀</span>' : ''}</div>
       <div>${L.discStage(x)} · 战力 <b class="num">${fmt(L.discPow(st, x))}</b></div></div></div>
       <div class="muted">差事（一人一事）</div><div class="pbtns djobs">${jobs}</div>

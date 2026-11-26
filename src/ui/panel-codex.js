@@ -8,9 +8,10 @@ const pctTxt = v => Math.round(v * 100) + '%';
 function codexSummary() {
   const pct = L.codexPct(st), b = L.codexBonus(st), bn = L.codexBonusNext(st), nx = L.codexNextStep(st);
   const nxt = nx ? `再记约 <b>${nx.n}</b> 格「${esc(L.CODEX_CAT[nx.cat].n)}」，下一世到 +${Math.round((bn + L.CX_V.per) * 100)}%` : bn >= L.CX_V.cap ? '已到上限' : '';
+  // 第一屏一行：完成度 + 下一世的修炼战力加成（变化用 ▲）；怎么算、道果进“详情”
   return `<div class="cxsum"><div><b>完成度 ${pctTxt(pct)}</b> · ${L.codexCells(st)} / ${L.codexTotal(st)} 格</div>
-    <div>见多识广（每 ${Math.round(L.CX_V.step * 100)}% 修炼、战力各 +${Math.round(L.CX_V.per * 100)}%，上限 +${Math.round(L.CX_V.cap * 100)}%，按投胎时的图鉴算）：这一世 <b class="jadet">+${Math.round(b * 100)}%</b>，照现在的图鉴下一世 <b class="jadet">+${Math.round(bn * 100)}%</b>${nxt ? '；' + nxt : ''}</div>
-    <div class="muted">图鉴跨世保留；这一世新记的格子轮回时每格道果 +${L.DG ? L.DG.cell : 2}（现在 +${L.codexNew(st)} 格）。</div></div>`;
+    <div class="pn-k">下一世修炼、战力 ${pnDelta('', Math.round(b * 100), Math.round(bn * 100), v => '+' + v + '%').trim()}</div>
+    <details class="more"><summary>见多识广怎么算</summary><div class="muted">每 ${Math.round(L.CX_V.step * 100)}% 完成度，修炼、战力各 +${Math.round(L.CX_V.per * 100)}%，上限 +${Math.round(L.CX_V.cap * 100)}%，按投胎时的图鉴算：这一世 +${Math.round(b * 100)}%${nxt ? '；' + nxt : ''}。<br>图鉴跨世保留；这一世新记的格子轮回时每格道果 +${L.DG ? L.DG.cell : 2}（现在 +${L.codexNew(st)} 格）。</div></details></div>`;
 }
 function chainRows() {
   return L.chainProgress(st).map(c => {
@@ -24,7 +25,7 @@ function showCodex(cat) {
   if (cat) cxCat = cat;
   const list = L.codexList(st);
   if (!list.some(c => c.id === cxCat)) cxCat = 'map';
-  const grid = list.map(c => `<button class="cxcat${c.id === cxCat ? ' on' : ''}${c.full ? ' full' : ''}${c.avail ? '' : ' off'}" data-cx="${c.id}">${cxIcon(c.id)}<span class="nm">${esc(c.n)}</span><span class="num">${c.avail ? `${c.got}/${c.total}` : '未开'}</span></button>`).join('');
+  const grid = list.filter(c => c.avail || c.id === cxCat).map(c => `<button class="cxcat${c.id === cxCat ? ' on' : ''}${c.full ? ' full' : ''}${c.avail ? '' : ' off'}" data-cx="${c.id}">${cxIcon(c.id)}<span class="nm">${esc(c.n)}</span><span class="num">${c.avail ? `${c.got}/${c.total}` : '未开'}</span></button>`).join('');
   const C = L.CODEX_CAT[cxCat], info = list.find(c => c.id === cxCat), G = L.CX_GRP[cxCat];
   let body = `<div class="cxhead">${cxIcon(cxCat, 2)}<div class="grow"><b>${esc(C.n)}</b> ${info.avail ? `${info.got}/${info.total}` : ''}<div class="muted">${esc(C.d)}</div>
     ${G ? `<div class="${info.grp ? 'jadet' : 'muted'}">集齐：${esc(G.d)}（永久）＋轮回道果 +${L.CX_V.grp}${info.grp ? ' · 已得' : ''}</div>` : ''}</div></div>`;

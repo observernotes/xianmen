@@ -32,10 +32,11 @@ function rvCounterText(id) {
 function rivalListHTML() {
   const rows = L.RIVALS.map(R0 => {
     const id = R0.id, g = L.grudge(st, id), k = L.rivalKnow(st, id), q = L.rivalRank(st, id);
-    return `<button class="rvrow" data-rv="${id}">${rvPortrait(id, pxs(48, 0.75), g >= L.GRUDGE.hi ? 'ang' : g <= L.GRUDGE.lo ? 'joy' : 'n')}<span class="rvmain"><span class="line"><b>${esc(L.rivalName(st, id))}</b>${elChip(L.RIVAL_EL[id], !k.el)}<span class="muted">${esc(R0.title)}</span></span>
-      <span class="line">${st.beaten[id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${q || '?'}名</span>`}<span class="muted">恩怨 ${g}</span>${grudgeTag(g)}</span>${grudgeBar(g)}</span><span class="rvgo">›</span></button>`;
+    // 一行：头像 + 名字（五行）+ 名次 / 已击败 + 恩怨（结仇 / 化敌为友才有角标）；称号、恩怨条进宿敌卡
+    return `<button class="rvrow" data-rv="${id}">${rvPortrait(id, pxs(48, 0.75), g >= L.GRUDGE.hi ? 'ang' : g <= L.GRUDGE.lo ? 'joy' : 'n')}<span class="rvmain"><span class="line"><b>${esc(L.rivalName(st, id))}</b>${elChip(L.RIVAL_EL[id], !k.el)}</span>
+      <span class="line">${st.beaten[id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${q || '?'}名</span>`}${grudgeTag(g) || `<span class="muted">恩怨 ${g}</span>`}</span></span><span class="rvgo">›</span></button>`;
   });
-  return `<div class="muted">宿敌（点开看属性、看家战技、法宝与恩怨）</div>${rows.join('')}${rookieListHTML()}`;
+  return `${pnHead('宿敌', '点开看底细')}${rows.join('')}${rookieListHTML()}`;
 }
 function rookieListHTML() {
   const R2 = st.rv2; if (!R2 || !L.RIVALS2_ON) return '';
@@ -47,7 +48,7 @@ function rookieListHTML() {
   } else if (st.p.r >= L.ROOKIE.minR) out.push(`<div class="muted">新秀：化神起每 ${L.ROOKIE.every} 周天榜上冒出一位${R2.rkNext !== null && R2.rkNext > st.tick ? `（下一位约 ${R2.rkNext - st.tick} 周天后）` : ''}</div>`);
   for (const x of R2.pool) out.push(`<div class="rvline">${icon16('crush', 1)}<span class="grow">${esc(x.n)} <span class="muted">${esc(x.s)} · 被你打压过</span></span><span class="muted">恩怨 ${x.g}</span>${grudgeTag(x.g)}</div>`);
   for (const x of R2.friends) out.push(`<div class="rvline">${icon16('spar', 1)}<span class="grow">${esc(x.n)} <span class="muted">${esc(x.s)} · 你指点过</span></span><span class="jadet">${x.gifts ? `送过 ${x.gifts} 回礼` : '友善'}</span></div>`);
-  return out.length ? `<div class="sep"></div><div class="muted">新秀</div>${out.join('')}` : '';
+  return out.length ? `${pnHead('新秀')}${out.join('')}` : '';
 }
 function bindRivalList(s) {
   s.querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { SFX.tap(); showRivalCard(b.dataset.rv); });
@@ -58,16 +59,20 @@ function showRivalCard(id, back) {
   const R0 = L.RIVALS.find(r => r.id === id), I = L.RIVAL_INFO[id], A = L.art(I.art), k = L.rivalKnow(st, id), g = L.grudge(st, id), q = L.rivalRank(st, id);
   const x = st.ladder.find(y => y.id === id) || {}, pw = x.pw || 1, Q = q ? L.rivalPower(st, q) : 0, foe = { kind: 'rival', id, q };
   const b = q ? L.duelArtBest(st, foe, Q) : null;
-  const vs = q ? `<div class="grow-row"><span class="gn">你现在对他</span><span class="gm">胜算 <b>${L.pct(b ? b.p0 : L.duelP(st, L.duelPower(st, foe), Q, foe))}</b></span><span class="ga"></span>${b && !b.same && b.p1 - b.p0 >= 0.005 ? `<span class="tipx">换成战技《${esc(L.art(b.id).n)}》：胜算 ${L.pct(b.p0)} → <b>${L.pct(b.p1)}</b></span>` : ''}</div>` : '';
+  // 第一屏：头像 + 名次战力、你对他的胜算（大字，能换战技提一句）、四样底细各一行短句；克制细则、恩怨后果、怎么变进“详情”
+  const p0 = q ? (b ? b.p0 : L.duelP(st, L.duelPower(st, foe), Q, foe)) : 0;
+  const vs = q ? `<div class="pn-hero"><div class="row"><span class="grow">你现在对他</span><b class="big ${p0 >= 0.6 ? 'jadet' : p0 >= 0.4 ? 'goldt' : 'seal'}">胜算 ${L.pct(p0)}</b></div>${b && !b.same && b.p1 - b.p0 >= 0.005 ? `<div class="pn-k">换成战技《${esc(L.art(b.id).n)}》：胜算 ${L.pct(b.p0)} → <b class="pn-up">${L.pct(b.p1)}</b></div>` : ''}</div>` : '';
+  const ce = L.elCounter(L.RIVAL_EL[id]);
   const body = `<div class="row">${rvPortrait(id, pxs(48, 1.25), g >= L.GRUDGE.hi ? 'ang' : g <= L.GRUDGE.lo ? 'joy' : 'n')}<div class="grow"><div class="big">${esc(L.rivalName(st, id))}</div><div class="muted">${esc(R0.sect)} · ${esc(R0.title)}</div>
-      <div>${st.beaten[id] ? '<span class="chip ok">已击败</span> ' : ''}天骄榜第 ${q || '?'} · 战力 ${fmt(Q)}${pw > 1.0001 ? ` <span class="seal">（奇遇与拍卖 ×${(Math.round(pw * 100) / 100)}，上限 ×${L.RIVAL_PW_CAP}）</span>` : ''}</div></div></div>
+      <div>${st.beaten[id] ? '<span class="chip ok">已击败</span> ' : ''}第 ${q || '?'} 名 · 战力 ${fmt(Q)}</div></div></div>
+    ${vs}
     <dl class="grid2">
-      <dt>五行</dt><dd>${k.el ? `${elChip(L.RIVAL_EL[id])} <span class="muted">${rvCounterText(id)}</span>` : `${elChip('', true)} <span class="muted">交过手才知道</span>`}</dd>
-      <dt>看家战技</dt><dd>${k.art ? `《${esc(A.n)}》<span class="muted">${L.artTierName(A.t)}战技 · ${L.elName(A.el)}</span>` : '？ <span class="muted">交过手才知道</span>'}</dd>
-      <dt>法宝</dt><dd>${k.gear ? `【${esc(I.gear.n)}】克${L.ELEM[I.gear.ke]}<div class="muted">你用${L.ELEM[I.gear.ke]}系战技时，他对决战力 ×${L.RIVAL_GEAR_M}</div>` : '？ <span class="muted">打赢他一回才看得清</span>'}</dd>
-      <dt>恩怨</dt><dd><b class="${g >= L.GRUDGE.hi ? 'seal' : g <= L.GRUDGE.lo ? 'jadet' : ''}">${g}</b> ${grudgeTag(g)}${grudgeBar(g)}<div class="muted">${grudgeWhat(id, g)}</div></dd>
-    </dl>${vs}
-    <div class="muted">恩怨怎么变：论道上赢他 +${L.GRUDGE.win}、羞辱他 +${L.GRUDGE.insult}、放他一马或帮他 ${L.GRUDGE.spare}（奇遇里的选择）。</div>`;
+      <dt>五行</dt><dd>${k.el ? `${elChip(L.RIVAL_EL[id])} 用${L.elName(ce)}系克他` : `${elChip('', true)} <span class="muted">交过手才知道</span>`}</dd>
+      <dt>战技</dt><dd>${k.art ? `《${esc(A.n)}》<span class="muted">${L.elName(A.el)}</span>` : '？ <span class="muted">交过手才知道</span>'}</dd>
+      <dt>法宝</dt><dd>${k.gear ? `【${esc(I.gear.n)}】克${L.ELEM[I.gear.ke]}` : '？ <span class="muted">打赢一回才看清</span>'}</dd>
+      <dt>恩怨</dt><dd><b class="${g >= L.GRUDGE.hi ? 'seal' : g <= L.GRUDGE.lo ? 'jadet' : ''}">${g}</b> ${grudgeTag(g)}${grudgeBar(g)}</dd>
+    </dl>
+    <details class="more"><summary>克制 · 恩怨细则</summary><div class="muted">${k.el ? rvCounterText(id) + '。' : ''}${k.art ? `看家战技是${L.artTierName(A.t)}战技。` : ''}${k.gear ? `你用${L.ELEM[I.gear.ke]}系战技时，他对决战力 ×${L.RIVAL_GEAR_M}。` : ''}${pw > 1.0001 ? `奇遇与拍卖让他战力 ×${(Math.round(pw * 100) / 100)}（上限 ×${L.RIVAL_PW_CAP}）。` : ''}<br>${grudgeWhat(id, g)}<br>恩怨怎么变：论道上赢他 +${L.GRUDGE.win}、羞辱他 +${L.GRUDGE.insult}、放他一马或帮他 ${L.GRUDGE.spare}（奇遇里的选择）。</div></details>`;
   const s = sheet({ title: '宿敌', body, foot: [{ t: '返回', alt: true, fn: () => (back ? back() : showMe('rank')) }] });
   return s;
 }
@@ -79,7 +84,7 @@ function showRookieCard() {
     <dl class="grid2"><dt>五行</dt><dd>${rk.known ? elChip(rk.el) : `${elChip('', true)} <span class="muted">去看他一眼或交过手才知道</span>`}</dd>
       <dt>法宝</dt><dd>【${esc(rk.gear.n)}】${rk.known && ke ? `「${esc(ke.n)}」<span class="muted">${esc(ke.d)}</span>` : '？'}</dd>
       <dt>追你</dt><dd>${I.gap <= 1 ? '追到你身后了，下一次就要和你打一场' : `离你 ${I.gap} 名，每届论道追 ${L.ROOKIE.climb} 名；追到身后强制一战`}</dd></dl>
-    <div class="muted">追上时二选一：【指点】他成友善路人、之后送礼；【打压】赢了得他法宝上的一条词条，他记你的仇（恩怨 ${L.GRUDGE.hi}）。</div>`;
+    <details class="more"><summary>追上时怎么办</summary><div class="muted">追上时二选一：【指点】他成友善路人、之后送礼；【打压】赢了得他法宝上的一条词条，他记你的仇（恩怨 ${L.GRUDGE.hi}）。</div></details>`;
   sheet({ title: '新秀', body, foot: [{ t: '返回', alt: true, fn: () => showMe('rank') }] });
 }
 // 换战技那一行（准备页、新秀挑战共用）：b = L.duelArtBest 的结果
