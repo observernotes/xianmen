@@ -47,14 +47,12 @@ function showIntro() {
 }
 function setupForm() {
   const box = $('#intro');
-  let female = 0;
-  const pickName = () => { const a = female ? NAMES_F : NAMES_M; return a[Math.floor(Math.random() * a.length)]; };
+  const female = 0;   // 主角固定为少年（用户要求：开局只填名字）
+  const pickName = () => NAMES_M[Math.floor(Math.random() * NAMES_M.length)];
   box.innerHTML = `<div class="setup sheet" style="margin:0"><div class="rod"></div><header><h2>踏上仙途</h2></header>
     <div class="body">
       <div class="center"><img class="px" id="setupAv" alt=""></div>
       <label for="inName">姓名</label><div class="row"><input class="txt grow" id="inName" maxlength="6" value="${esc(pickName())}"><button class="btn sm alt" id="rdName" aria-label="随机姓名">换</button></div>
-      <div class="row"><span>性别</span><button class="btn sm gold" id="gM">少年</button><button class="btn sm alt" id="gF">少女</button></div>
-      <div class="muted">操作很简单：打坐自动涨修为 → 点【历练】打怪拿资源 → 升级洞府、买丹药 → 修为条变金时点它突破。</div>
     </div><div class="foot"><button class="btn gold" id="goStart">踏入仙途</button></div><div class="rod"></div></div>`;
   const inN = box.querySelector('#inName');
   const av = () => {
@@ -63,9 +61,6 @@ function setupForm() {
   };
   av();
   box.querySelector('#rdName').onclick = () => { inN.value = pickName(); SFX.tap(); };
-  const setG = f => { female = f; box.querySelector('#gM').className = 'btn sm ' + (f ? 'alt' : 'gold'); box.querySelector('#gF').className = 'btn sm ' + (f ? 'gold' : 'alt'); if ((f ? NAMES_M : NAMES_F).includes(inN.value)) inN.value = pickName(); av(); SFX.tap(); };
-  box.querySelector('#gM').onclick = () => setG(0);
-  box.querySelector('#gF').onclick = () => setG(1);
   box.querySelector('#goStart').onclick = () => {
     ac();
     const s = L.newState({ name: inN.value.trim() || pickName(), female });

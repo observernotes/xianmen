@@ -1,7 +1,8 @@
 /* 废柴仙途 · 界面片段 cine2：高光过场（docs/COMBAT_LOOT.md §9）
  * 十段像素过场（⑩ 分飞升 / 轮回两段，共 11 个）：每段 2～4 个镜头，每个镜头 = 200×120 的底图 + 几层东西（小人 / 特写带 / 特效 / 盖印）+ 一种镜头运动 + 最多一句字幕（≤ 12 字）+ 音效节奏。
  * 画法：世界层（底图、小人、特效）画在 200×120 的画布上，按镜头取景框（中心 x, y 与推近倍数 z）裁出来放大；屏幕层（特写带、集中线、盖印）不跟镜头走。
- *   显示时整体按屏宽取整数倍放大（200×120 → k 倍设备像素），上下黑边：上面【跳过 ▸▸】，下面字幕、镜头进度点与“点一下快进 · 长按跳过”。
+ *   显示：整屏一块画布。画面按屏宽取整数倍放大（200×120 → k 倍设备像素）放在中间偏上；画面以外不是黑边，是这一帧自己的上沿 / 下沿拉开、糊掉、压暗接出去的底色，
+ *   竖屏时画面下沿还有一段倒影；镜头推近（z > 1）时画面上下多露出一截（最多各 30 行），不是只在原来的框里放大。上面【跳过 ▸▸】，画面下面字幕、镜头进度点与“点一下快进 · 长按跳过”。
  * 操作：点一下 = 快进到下一个镜头（最后一个镜头就结束）；长按 0.5 秒或点【跳过】= 立刻结束（0.3 秒内回到原来的流程）。Esc 跳过、空格 / 回车快进。
  * 规则：
  *   - 每段只自动播一次：st.meta.cine[键] = 1（跨世保留；变体：boss:3、rival:zhao、pojing:4……）。开场的退婚在建档前播，记在本机偏好里，建档时补进 st.meta.cine。
@@ -58,7 +59,7 @@ function cnSealCv(s, size, col) {
   const pad = Math.round(size / 3), w = s.length * size + pad * 2, h = size + pad * 2, c = cnCv(w, h), g = c.getContext('2d');
   g.fillStyle = col || '#c8323c'; g.fillRect(1, 0, w - 2, h); g.fillRect(0, 1, w, h - 2);
   g.fillStyle = '#f4c542'; g.fillRect(2, 2, w - 4, 1); g.fillRect(2, h - 3, w - 4, 1); g.fillRect(2, 2, 1, h - 4); g.fillRect(w - 3, 2, 1, h - 4);
-  g.font = `${size}px XPixel, monospace`; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#fff6e0'; g.fillText(s, w / 2, h / 2 + 1);
+  g.font = `${size}px XPixel, monospace`; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#fff6e0'; g.fillText(s, w / 2, h / 2);
   cnSealC.set(k, c); return c;
 }
 function cnSeal(g, s, cx, cy, size, t, col) {
@@ -323,16 +324,37 @@ function cnMount(intro) {
   const root = document.createElement('div');
   root.className = 'cn-wrap' + (intro ? ' story cn-in' : '');
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', '过场');
-  root.innerHTML = '<button class="cn-skip" aria-label="跳过过场">跳过 ▸▸</button><canvas class="cn-cv"></canvas><div class="cn-sub"></div><div class="cn-pips"></div><div class="cn-hint">点一下快进 · 长按跳过</div>';
+  root.innerHTML = '<canvas class="cn-cv"></canvas><button class="cn-skip" aria-label="跳过过场">跳过 ▸▸</button><div class="cn-sub"></div><div class="cn-pips"></div><div class="cn-hint">点一下快进 · 长按跳过</div>';
   (intro ? $('#intro') : document.body).appendChild(root);
   return root;
 }
 function cnSize() {
   if (!cn) return;
-  const dpr = window.devicePixelRatio || 1, vw = window.innerWidth, vh = window.innerHeight;
-  let k = Math.max(1, Math.floor(Math.min(vw - 16, 640) * dpr / 200)); while (k > 1 && 120 * k / dpr > vh - 190) k--;
-  cn.k = k; cn.cv.width = 200 * k; cn.cv.height = 120 * k; cn.cv.style.width = (200 * k / dpr) + 'px'; cn.cv.style.height = (120 * k / dpr) + 'px';
-  cn.g.imageSmoothingEnabled = false;
+  const q = parseFloat(document.documentElement.style.zoom) || 1, dpr0 = (window.devicePixelRatio || 1) * q, vw = window.innerWidth / q, vh = window.innerHeight / q, tall = vh > vw * 1.15;   // 大屏上整页有 zoom，折算进去
+  const dpr = Math.min(dpr0, Math.sqrt(4.4e6 / (vw * vh)));   // 画布像素封顶
+  let k = Math.max(1, Math.floor(Math.min(vw * dpr / 200, (vh - (tall ? 190 : 150)) * dpr / 120)));
+  if (tall && 200 * (k + 1) <= vw * dpr * 1.125 && 120 * (k + 1) <= (vh - 190) * dpr) k++;   // 竖屏：差一点就够再大一倍时，两侧各裁掉不到 6%，换画面大一号
+  const Wl = Math.floor(vw * dpr / k), Hl = Math.floor(vh * dpr / k), cv = cn.cv;
+  cn.k = k; cv.width = Wl * k; cv.height = Hl * k; cv.style.width = (Wl * k / dpr) + 'px'; cv.style.height = (Hl * k / dpr) + 'px';
+  cv.style.left = (Math.round((vw * dpr - Wl * k) / 2) / dpr) + 'px';
+  const py = Math.round((Hl - 120) * (tall ? 0.4 : 0.36) - (tall ? 0 : 6)), top = Math.ceil(58 * dpr / k);
+  const ext = Math.max(0, Math.min(30, py - (tall ? top : 0)));
+  cn.G = { Wl, Hl, dpr, py: Math.max(0, py), ext, tall, x0: Math.floor((Wl - 200) / 2) };
+  cn.g.imageSmoothingEnabled = false; cn.am = cnCv(Math.max(8, Math.ceil(Wl / 6)), Math.max(8, Math.ceil(Hl / 6))); cn.at = cnCv(Math.ceil(cn.am.width / 2), Math.ceil(cn.am.height / 2)); cn.amN = 0;
+  const subY = Math.min((cn.G.py + 120 + ext) * k / dpr + (tall ? 20 : 10), vh - 104);
+  cn.root.style.setProperty('--cn-sub', subY + 'px');
+}
+// 画面以外的底色：这一帧上沿 12 行拉到屏幕顶、下沿 12 行拉到屏幕底、左右两条拉到屏幕边，缩小再放大糊开，压暗
+function cnAmbient(c) {
+  const G = c.G, a = c.am, t = c.at, g = a.getContext('2d'), tg = t.getContext('2d'), q = 1 / 12, x0 = G.x0 * q, w = 200 * q, y0 = G.py * q, y1 = (G.py + 120) * q, H = t.height, W = t.width;
+  tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high'; tg.globalAlpha = 1;
+  tg.drawImage(c.wc, 0, 0, 200, 12, 0, 0, W, y0 + 0.5); tg.drawImage(c.wc, 0, 108, 200, 12, 0, y1 - 0.5, W, H - y1 + 0.5);
+  if (x0 > 0.5) { tg.drawImage(c.wc, 0, 0, 8, 120, 0, y0, x0 + 0.5, y1 - y0); tg.drawImage(c.wc, 192, 0, 8, 120, x0 + w - 0.5, y0, W - x0 - w + 0.5, y1 - y0); }
+  tg.drawImage(c.wc, x0, y0, w, y1 - y0);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.globalAlpha = 1; g.drawImage(t, 0, 0, a.width, a.height);
+  g.fillStyle = 'rgba(7,5,12,.5)'; g.fillRect(0, 0, a.width, a.height);
+  if (!c.amGr) { const gr = g.createLinearGradient(0, 0, 0, a.height), u0 = G.py / G.Hl, u1 = (G.py + 120) / G.Hl; gr.addColorStop(0, 'rgba(7,5,12,.85)'); gr.addColorStop(Math.max(0.01, u0), 'rgba(7,5,12,0)'); gr.addColorStop(Math.min(0.98, u1), 'rgba(7,5,12,.1)'); gr.addColorStop(Math.min(0.99, u1 + (1 - u1) * 0.5), 'rgba(7,5,12,.72)'); gr.addColorStop(1, 'rgba(7,5,12,.95)'); c.amGr = gr; }
+  g.fillStyle = c.amGr; g.fillRect(0, 0, a.width, a.height);
 }
 // 播一段。o：参数；how：{ intro: 挂在开场里, recall: 回忆（不记看过） }。返回 Promise（结束或被跳过时 resolve）
 function cinePlay(id, o, how) {
@@ -350,7 +372,7 @@ function cinePlay(id, o, how) {
   return new Promise(res => {
     const root = cnMount(how.intro), cv = root.querySelector('.cn-cv');
     cn = { id, key, o, shots, i: 0, t: 0, root, cv, g: cv.getContext('2d'), wc: cnCv(200, 120), sc: cnCv(200, 120), fired: new Set(), res, last: performance.now(), prevCine: cine, intro: !!how.intro, down: 0, hold: 0, frozen: false, sub: '' };
-    cn.wg = cn.wc.getContext('2d'); cn.sg = cn.sc.getContext('2d');
+    cn.wg = cn.wc.getContext('2d'); cn.sg = cn.sc.getContext('2d'); cn.wg.imageSmoothingEnabled = false; cn.sg.imageSmoothingEnabled = false;
     if (!how.intro && st) cine = { cn: true, t: 0 };   // 停表、挡住弹窗队列与讲解（见文件头）
     $('#tip').hidden = true;
     cnSize();
@@ -369,7 +391,7 @@ function cinePlay(id, o, how) {
 function cnShot(i) {
   cn.i = i; cn.t = 0; cn.fired = new Set();
   const S = cn.shots[i], el = cn.root.querySelector('.cn-sub');
-  cn.sub = S.sub || ''; el.textContent = ''; cn.typed = 0;
+  cn.sub = S.sub || ''; el.textContent = ''; cn.typed = 0; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
   cn.root.querySelectorAll('.cn-pips i').forEach((p, j) => p.classList.toggle('on', j <= i));
 }
 function cnNext() { if (!cn) return; if (cn.i + 1 < cn.shots.length) { cnShot(cn.i + 1); SFX.tap(); } else cnEnd(); }
@@ -399,15 +421,25 @@ function cnFrame(now) {
   sg.setTransform(1, 0, 0, 1, 0, 0); sg.clearRect(0, 0, 200, 120);
   try { if (S.draw) S.draw(wg, t, u); if (S.over) S.over(sg, t, u); } catch (e) { cnEnd(); return; }
   wg.filter = 'none'; sg.filter = 'none';
-  const cam = S.cam ? S.cam(u) : { x: 100, y: 60, z: 1 }, z = Math.max(1, cam.z || 1), sw = 200 / z, sh = 120 / z;
-  const sx = cnClamp(cam.x - sw / 2, 0, 200 - sw), sy = cnClamp(cam.y - sh / 2, 0, 120 - sh);
+  const G = c.G, k = c.k, Wl = G.Wl, Hl = G.Hl, g = c.g, Wd = c.cv.width, Hd = c.cv.height;
+  const cam = S.cam ? S.cam(u) : { x: 100, y: 60, z: 1 }, z = Math.max(1, cam.z || 1);
+  // 推近时上下多露出一截：取景框比 5:3 高
+  const ext = Math.round(Math.min(G.ext, 60 * (z - 1)) * k) / k, dh = 120 + ext * 2, sw = 200 / z, sh = dh / z;
+  const sx = cnClamp(cam.x - sw / 2, 0, 200 - sw), sy = cnClamp(cam.y - sh / 2, 0, 120 - sh), dy = G.py - ext, yb = dy + dh;
   let ox = 0, oy = 0;
-  for (const [a, d, amp] of S.shake || []) if (t >= a && t < a + d) { const f = 1 - (t - a) / d; ox = Math.round((Math.random() - 0.5) * 2 * amp * f) * c.k; oy = Math.round((Math.random() - 0.5) * 2 * amp * f) * c.k; }
-  const g = c.g, Wd = 200 * c.k, Hd = 120 * c.k;
-  g.imageSmoothingEnabled = false; g.fillStyle = '#000'; g.fillRect(0, 0, Wd, Hd);
-  g.drawImage(c.wc, sx, sy, sw, sh, ox, oy, Wd, Hd);
-  g.drawImage(c.sc, 0, 0, 200, 120, ox, oy, Wd, Hd);
-  const fd = S.fade || 140; if (t < fd) { g.globalAlpha = 1 - t / fd; g.fillStyle = '#000'; g.fillRect(0, 0, Wd, Hd); g.globalAlpha = 1; }
+  for (const [a, d, amp] of S.shake || []) if (t >= a && t < a + d) { const f = 1 - (t - a) / d; ox = Math.round((Math.random() - 0.5) * 2 * amp * f) * k; oy = Math.round((Math.random() - 0.5) * 2 * amp * f) * k; }
+  if ((c.amN++ & 1) === 0 || c.frozen) cnAmbient(c);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.imageSmoothingEnabled = true; g.drawImage(c.am, 0, 0, Wd, Hd);
+  const strip = (yL, hL, al) => { const q = c.am.height / Hl; g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.globalAlpha = Math.min(1, al); g.drawImage(c.am, 0, yL * q, c.am.width, hL * q, 0, Math.round(yL * k), Wd, Math.round(hL * k)); g.globalAlpha = 1; g.imageSmoothingEnabled = false; g.setTransform(k, 0, 0, k, ox, oy); };
+  g.imageSmoothingEnabled = false; g.setTransform(k, 0, 0, k, ox, oy);
+  g.drawImage(c.wc, sx, sy, sw, sh, G.x0, dy, 200, dh);
+  if (G.tall) {
+    const rh = Math.min(40, Hl - yb);
+    if (rh > 4) { g.save(); g.beginPath(); g.rect(Math.max(0, G.x0), yb, Math.min(Wl, 200), rh); g.clip(); g.translate(0, 2 * yb); g.scale(1, -1); g.globalAlpha = 0.5; g.drawImage(c.wc, sx, sy, sw, sh, G.x0, dy, 200, dh); g.restore(); g.globalAlpha = 1; const n = 8; for (let i = 0; i < n; i++) strip(yb + rh * i / n, rh / n, 0.3 + 0.7 * (i + 1) / n); }
+    for (let i = 0; i < 3; i++) strip(dy + i, 1, 0.75 - i * 0.25);
+  }
+  g.drawImage(c.sc, 0, 0, 200, 120, G.x0, G.py, 200, 120);
+  const fd = S.fade || 180; if (t < fd) { const v = 1 - t / fd; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = v * v; g.fillStyle = '#000'; g.fillRect(0, 0, Wd, Hd); g.globalAlpha = 1; }
   requestAnimationFrame(cnFrame);
 }
 window.addEventListener('resize', () => { if (cn) cnSize(); });

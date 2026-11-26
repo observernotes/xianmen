@@ -11,7 +11,7 @@ const LIST = [
 /* ---------- 恩怨 ≥ 60：伏击 ---------- */
 {
   id: 'rv_ambush_mu', origin: 'qitu', where: 'exp', grudge: ['mu', 60, 100], minR: 1, weight: 3, cooldown: 36, title: '剑阵',
-  text: '灌木里同时亮起剑光，慕容家护院结阵围住了你。{ex}在坡上没有拔剑：“三年前的账，今天一并算清。”',
+  text: '灌木里同时亮起剑光，慕容家护院结阵围住了你。{ex}在坡上没有拔剑：“当年的账，今天一并算清。”',
   choices: [
     { t: '破阵', duel: 1.0, foe: 'mu', dao: 'k',
       ok: { text: '你一剑刺穿阵眼，剑阵散了一地。{ex}在坡上站了很久，转身走了。', fx: { stones: 4, xp: 3, grudge: { mu: 10 } } },
@@ -118,7 +118,7 @@ const LIST = [
     { t: '送到山门', dao: 'r',
       ok: { text: '{ex}回头看了洞府一眼，像要记住它。篮底压着一枚绣工很笨的护身符。', fx: { xp: 2, grudge: { mu: -10 }, flag: 'mu_friend' } } },
     { t: '你也是', dao: 'w',
-      ok: { text: '{ex}笑了一下，是三年来你头一回见的那种笑，然后头也不回地下山。', fx: { xp: 2 } } }
+      ok: { text: '{ex}笑了一下，是这些年你头一回见的那种笑，然后头也不回地下山。', fx: { xp: 2 } } }
   ]
 },
 {

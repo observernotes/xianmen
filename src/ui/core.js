@@ -1,5 +1,21 @@
 /* 废柴仙途 · 界面片段 core：工具、全局状态、字号、图标、头像
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
+// 画布上用像素字、textBaseline = 'middle' 时，Chrome 按字体的 em 框取中线，汉字的墨迹会整体偏下约 0.2 个字号（24px 字偏下 5px）。
+// 这里统一改成：按汉字墨迹（基线上 900、基线下 200，共 1200 单位）的中心对齐到给的 y，并把基线取整，免得像素字发糊。
+(function () {
+  if (typeof CanvasRenderingContext2D === 'undefined') return;
+  const P = CanvasRenderingContext2D.prototype, fill = P.fillText, stroke = P.strokeText;
+  const wrap = f => function (s, x, y, w) {
+    if (this.textBaseline === 'middle' && /XPixel/.test(this.font)) {
+      const sz = parseFloat(this.font) || 12;
+      this.textBaseline = 'alphabetic';
+      try { return w === undefined ? f.call(this, s, x, Math.round(y + sz * 0.2917)) : f.call(this, s, x, Math.round(y + sz * 0.2917), w); }
+      finally { this.textBaseline = 'middle'; }
+    }
+    return w === undefined ? f.call(this, s, x, y) : f.call(this, s, x, y, w);
+  };
+  P.fillText = wrap(fill); P.strokeText = wrap(stroke);
+})();
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

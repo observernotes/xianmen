@@ -1,5 +1,5 @@
 /* 废柴仙途 · 界面片段 talk：剧情（docs/STORY_PLAN.md §6、§8、§11）
- * 一、对话场景播放器：带 talk 的事件不走弹窗，走这里——上面一幅 200×120 的场景，左右两个半身像，下面对话框一句一句出。
+ * 一、对话场景播放器：带 talk 的事件不走弹窗，走这里——整屏的舞台（200×120 的底图放大铺开，上下用底图自己的颜色接出去，竖屏带倒影），左右两张立绘（关键人物 96×128，其余 48×48 小像），对话框压在最下面一句一句出。
  *     点一下 = 出完这句 / 下一句；长按 0.4 秒 = 快进；【跳过 ▸▸】跳到下一个选项（没有选项就结束，留一句梗概）；【回看】本场说过的话。选项不能跳过。
  *     选完接着播结果里的 talk，再播结果里的过场（cine），最后落到原来的结算卡（events.js 的 choiceResult）。
  *     播的时候停表：和高光过场一样借 cine 变量放哨兵 { cn: true }。在外不播（剧情队列本来就只在洞府放）。
@@ -13,12 +13,13 @@ const tkFast = () => { const x = window.__xm_talk; if (x && typeof x.fast === 'b
 const TK_NAME = { elder: '老祖', zhao: '赵乾', tian: '楚天阔', xue: '血无涯', yun: '云无极', tianheng: '陆天衡', jian: '凌虚子', dan: '丹云婆婆', dao: '玄微子', teaman: '卖茶翁', xuehe: '血河老祖' };
 const tkName = id => (id === 'me' ? st.p.name : id === 'mu' ? st.exName : L.NPCS[id] ? L.npcName(st, id) : TK_NAME[id] || id);
 const tkAlt = id => (id === 'su' || id === 'ye' || id === 'mu') && !!st.p.look.f;
-// 表情：五种基础表情 + cold（冷：平脸、眉眼压一层阴影）；+ 后面是叠加（泪、血、汗……）
+// 表情：五种基础表情 + cold（冷）；+ 后面是叠加（泪、血、汗……）。有大立绘（ART.tachie，96×128）的用立绘，没有的退回 48×48 小像（冷 = 平脸 + 眉眼压一层阴影）
 function tkFace(who, mood, fx) {
+  if (who === 'elder' && st.eflags.st_farewell && !/fade/.test(fx || '')) fx = (fx ? fx + ' ' : '') + 'fade';   // 诀别之后的老祖：只剩余音
+  if (ART.tachie) { const c = who === 'me' ? ART.tachieMe(st.p.look, Math.min(st.p.r | 0, 9), mood, fx) : ART.tachie(who, mood, fx, tkAlt(who)); if (c) return c; }
   if (mood === 'cold') { mood = 'n'; fx = (fx ? fx + ' ' : '') + 'shade'; }
   if (who === 'me') { const c = myAvCanvas(undefined, mood); return fx ? ART.portraitX(c, '', fx) : c; }
   if (!ART.hasPortrait || !ART.hasPortrait(who)) return null;
-  if (who === 'elder' && st.eflags.st_farewell && !/fade/.test(fx || '')) fx = (fx ? fx + ' ' : '') + 'fade';   // 诀别之后的老祖：只剩余音
   return ART.portraitX(who, mood, fx || '', tkAlt(who));
 }
 const tkBg = spec => { const p = String(spec || 'cave').split(':'); return p[0] === 'cg' ? ART.storyCg(p[1], p[2] && /^\d+$/.test(p[2]) ? +p[2] : p[2] || 0) : p[0] === 'end' ? ART.endingPic(p[1]) : ART.storyBg(p[p.length - 1]); };
@@ -58,64 +59,144 @@ function tkFlat(list, out, echo) {
   }
   return out;
 }
+// 视口（CSS 像素）与每个 CSS 像素合多少设备像素。大屏上 core.js 给整页加了 zoom，这里折算进去
+function tkView() { const q = parseFloat(document.documentElement.style.zoom) || 1; return { vw: window.innerWidth / q, vh: window.innerHeight / q, dpr: (window.devicePixelRatio || 1) * q }; }
+const tkGap = T => { const ui = T.root.querySelector('.tk-ui'); return ui.offsetHeight - T.root.querySelector('.tk-box').offsetTop; };   // 对话框上沿到屏幕底
 function tkMount() {
   const root = document.createElement('div');
   root.className = 'tk-wrap'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', '剧情');
-  root.innerHTML = `<div class="tk-top"><button class="tk-log" aria-label="回看">回看</button><span class="tk-title"></span><button class="tk-skip" aria-label="跳过">跳过 ▸▸</button></div>
-    <div class="tk-stage"><canvas class="tk-cv"></canvas><canvas class="tk-pt l"></canvas><canvas class="tk-pt r"></canvas></div>
-    <div class="tk-box"><div class="tk-name" hidden></div><div class="tk-text"></div><canvas class="tk-next" width="9" height="8"></canvas><div class="tk-picks" hidden></div></div>
-    <div class="tk-echo" hidden></div><div class="tk-hint">点一下继续 · 长按快进</div><div class="tk-black" hidden><p></p></div><div class="tk-hist" hidden></div>`;
+  root.innerHTML = `<div class="tk-stage"><canvas class="tk-cv"></canvas><canvas class="tk-pt l"></canvas><canvas class="tk-pt r"></canvas></div>
+    <div class="tk-top"><button class="tk-log" aria-label="回看">回看</button><span class="tk-title"></span><button class="tk-skip" aria-label="跳过">跳过 ▸▸</button></div>
+    <div class="tk-ui"><div class="tk-echo" hidden></div><div class="tk-box"><div class="tk-name" hidden></div><div class="tk-text"></div><canvas class="tk-next" width="9" height="8"></canvas><div class="tk-picks" hidden></div></div><div class="tk-hint">点一下继续 · 长按快进</div></div>
+    <div class="tk-black" hidden><p></p></div><div class="tk-hist" hidden></div>`;
   for (const k of ['talk', 'talkName', 'talkNameMe', 'talkPick']) root.style.setProperty('--fr-' + k, `url(${ART.frame(k).url})`);
   document.body.appendChild(root);
   return root;
 }
+// 版式：舞台是整屏的一块画布。底图按整数倍放大（竖屏时宽度略超出屏幕、两侧各裁掉一点，横屏时铺到对话框后面），
+// 画面以外的地方用底图自己的上沿 / 下沿拉开、压暗、糊掉来接（天接着往上、地接着往下），画面下沿有一段倒影；人物立绘站在对话框上沿，对话框压在最下面。
 function tkSize() {
-  if (!tk) return;
-  const dpr = window.devicePixelRatio || 1, vw = window.innerWidth, vh = window.innerHeight;
-  let k = Math.max(1, Math.floor(Math.min(vw - 8, 640) * dpr / 200)); while (k > 1 && 120 * k / dpr > vh - 300) k--;
-  tk.k = k; const cv = tk.cv; cv.width = 200; cv.height = 120; cv.style.width = (200 * k / dpr) + 'px'; cv.style.height = (120 * k / dpr) + 'px';
-  const pk = Math.max(1, k - (k > 3 ? 1 : 0)), ps = (48 * pk / dpr) + 'px';
-  for (const c of tk.pts) { c.width = 48; c.height = 48; c.style.width = ps; c.style.height = ps; }
-  tk.root.querySelector('.tk-box').style.width = Math.min(vw - 12, 200 * k / dpr + 8) + 'px';
+  const T = tk; if (!T) return;
+  const V = tkView(), dpr0 = V.dpr, vw = V.vw, vh = V.vh, tall = vh > vw * 1.15;
+  const dpr = Math.min(dpr0, Math.sqrt(4.4e6 / (vw * vh)));   // 画布像素封顶（大屏不用全分辨率）
+  const box = T.root.querySelector('.tk-box');
+  box.style.width = Math.min(vw - 12, 640) + 'px';
+  if (!T.picking || !T.baseGap) T.baseGap = tkGap(T);   // 对话框（两行字时）上沿到屏幕底
+  const baseTop = vh - T.baseGap;
+  let P = tall ? Math.round(vw * dpr / 200 * 1.1) : Math.round(Math.min(vw * dpr / 200, (baseTop + 40) * dpr / 120));
+  if (tall && 200 * P > vw * dpr * 1.2) P--;
+  P = Math.max(1, P);
+  const Wl = Math.ceil(vw * dpr / P), Hl = Math.ceil(vh * dpr / P), cv = T.cv;
+  cv.width = Wl * P; cv.height = Hl * P; cv.style.width = (Wl * P / dpr) + 'px'; cv.style.height = (Hl * P / dpr) + 'px';
+  // 立绘：一个像素放大 kp 个设备像素。宽不过屏宽的 56%，高不过对话框以上的三分之二
+  const kp = Math.max(1, Math.min(Math.round(P * dpr0 / dpr), Math.floor(0.66 * baseTop * dpr0 / 128), Math.floor(0.56 * vw * dpr0 / 96)));
+  const ptH = 128 * kp / dpr0, topL = tall ? Math.ceil(54 * dpr / P) : 0, lim = (baseTop + 14 - ptH * 0.8) * dpr / P;   // 人物肩线以上留给画面
+  const py = tall ? Math.round(topL + Math.max(0, lim - topL - 120) * 0.45) : Math.max(0, Math.min(Hl - 120, Math.round(((baseTop + 30) * dpr / P - 120) / 2)));
+  const ext = tall ? Math.max(0, Math.min(26, py - topL + 6)) : Math.min(py, 20);
+  // 关键画面（cg / end）时立绘多半不在：画面往下挪到顶条与对话框的正中偏上，推近时能长得更高
+  const pyC = tall ? Math.round(topL + Math.max(0, baseTop * dpr / P - topL - 120) * 0.4) : py, extC = tall ? Math.max(0, Math.min(40, pyC - topL + 6)) : ext;
+  T.G = { P, Wl, Hl, dpr, kp, py, tall, ext, pyN: py, extN: ext, pyC, extC }; T.pyc = undefined;
+  T.root.style.setProperty('--tk-pt-b', (tall ? T.baseGap - 14 : 0) + 'px'); T.root.style.setProperty('--tk-cast', Math.max(0, (vw - (tall ? 900 : 1040)) / 2) + 'px');
+  T.ambC = null; T.ambPrev = null;
   tkDraw();
 }
-// 舞台：底图（可推近）+ 气氛粒子 + 压暗 + 闪白。每帧画（半身像是另外两块画布，只在换人时画）
+// 画面以外的那一层：底图上沿 14 行拉到屏幕顶、下沿 14 行拉到屏幕底，缩小再放大糊开，压暗（越靠上下两头越暗）
+function tkAmbient(bg, G) {
+  const q = 6, aw = Math.max(8, Math.ceil(G.Wl / q)), ah = Math.max(8, Math.ceil(G.Hl / q)), a = cnCv(aw, ah), g = a.getContext('2d'), t = cnCv(Math.ceil(aw / 2), Math.ceil(ah / 2)), tg = t.getContext('2d');
+  const k = 1 / q / 2, x0 = (G.Wl - 200) / 2 * k, w = 200 * k, y0 = G.py * k, y1 = (G.py + 120) * k, H = t.height;
+  tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high';
+  tg.drawImage(bg, 0, 0, 1, 120, 0, 0, t.width, H); tg.drawImage(bg, 0, 0, 200, 14, x0, 0, w, y0 + 0.5); tg.drawImage(bg, 0, 106, 200, 14, x0, y1 - 0.5, w, H - y1 + 0.5); tg.drawImage(bg, x0, y0, w, y1 - y0);
+  if (x0 > 0) { tg.drawImage(bg, 0, 0, 6, 120, 0, 0, x0 + 0.5, H); tg.drawImage(bg, 194, 0, 6, 120, x0 + w - 0.5, 0, t.width - x0 - w + 0.5, H); }
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(t, 0, 0, aw, ah);
+  g.fillStyle = 'rgba(7,5,12,.42)'; g.fillRect(0, 0, aw, ah);
+  const gr = g.createLinearGradient(0, 0, 0, ah), u0 = G.py / G.Hl, u1 = (G.py + 120) / G.Hl;
+  gr.addColorStop(0, 'rgba(7,5,12,.7)'); gr.addColorStop(Math.max(0.01, u0), 'rgba(7,5,12,0)'); gr.addColorStop(Math.min(0.98, u1), 'rgba(7,5,12,.12)'); gr.addColorStop(Math.min(0.99, u1 + (1 - u1) * 0.55), 'rgba(7,5,12,.62)'); gr.addColorStop(1, 'rgba(7,5,12,.9)');
+  g.fillStyle = gr; g.fillRect(0, 0, aw, ah);
+  return a;
+}
+// 镜头：从现在的位置缓动到 to（三次缓入缓出），ms 不写时推近 650、拉回 850
+const tkEase = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+function tkCamNow(T, now) { const u = tkEase(cnClamp((now - T.camT0) / T.camMs, 0, 1)), A = T.camA, B = T.camB; return { z: A.z + (B.z - A.z) * u, x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u }; }
+function tkCam(to, ms) { const T = tk, now = performance.now(); T.camA = tkCamNow(T, now); T.camB = to; T.camT0 = now; T.camMs = ms || (to.z >= T.camA.z ? 650 : 850); T.zoom = to.z; T.zx = to.x; T.zy = to.y; }
+// 气氛粒子：铺满整屏（按屏高加量）
+function tkParticles(g, a, t, W, H) {
+  const m = Math.min(4, H / 120);
+  if (a === 'rain' || a === 'storm') { const st0 = a === 'storm', n = Math.round((st0 ? 46 : 22) * m), len = st0 ? 6 : 4; g.fillStyle = st0 ? 'rgba(200,224,255,.5)' : 'rgba(200,212,255,.28)'; for (let i = 0; i < n; i++) { const y = (i * 37 + t * (st0 ? 260 : 170) + i * i) % (H + 12) - 6, x = ((i * 53 + t * 40) % (W + 40)) - 5 - y * 0.12; g.fillRect(Math.round(x), Math.round(y), 1, len + (i % 3 === 0 ? 2 : 0)); } }
+  else if (a === 'snow') { const n = Math.round(34 * m); for (let i = 0; i < n; i++) { const y = (i * 29 + t * (9 + i % 5 * 3)) % (H + 6) - 3, x = (i * 61 + Math.sin(t * 0.8 + i) * 6 + W * 8) % W; g.fillStyle = i % 3 ? 'rgba(255,255,255,.8)' : 'rgba(255,255,255,.45)'; g.fillRect(Math.round(x), Math.round(y), i % 4 ? 1 : 2, i % 7 ? 1 : 2); } }
+  else if (a === 'ember' || a === 'mote' || a === 'glow' || a === 'petal') {
+    const col = a === 'ember' ? ['#ffb23f', '#ff7a5a'] : a === 'glow' ? ['#ffd86a', '#ffb23f'] : a === 'petal' ? ['#f6a0c0', '#ffffff'] : ['#ffffff', '#c8b8e8'], n = Math.round(20 * m);
+    for (let i = 0; i < n; i++) { const u = (t * (0.05 + i % 4 * 0.02) + i * 0.137) % 1, x = (i * 47 + Math.sin(t * 0.6 + i * 2) * 8 + W * 8) % W, y = a === 'petal' ? u * (H + 4) - 2 : H + 2 - u * (H + 4); g.globalAlpha = 0.25 + 0.6 * Math.sin(u * Math.PI); g.fillStyle = col[i % 2]; g.fillRect(Math.round(x), Math.round(y), i % 5 === 0 ? 2 : 1, i % 5 === 0 && a !== 'petal' ? 2 : 1); }
+    g.globalAlpha = 1;
+  }
+}
+// 舞台：每帧画（立绘是另外两块画布，只在换人时画）
 function tkStage(now) {
   const T = tk; if (!T) return;
-  const g = T.cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  const G = T.G, cv = T.cv, g = cv.getContext('2d'), P = G.P, Wl = G.Wl, Hl = G.Hl, cw = cv.width, ch = cv.height;
+  const dt = Math.min(100, now - (T.last || now)); T.last = now;
+  if (T.zoom !== T.camB.z || T.zx !== T.camB.x || T.zy !== T.camB.y) tkCam({ z: T.zoom || 1, x: T.zx, y: T.zy });   // 别处直接改了镜头目标（跳过时拉回）
+  const cam = tkCamNow(T, now), z = Math.max(1, cam.z); T.zc = z;
   let bg = null; try { bg = tkBg(T.bg); } catch (e) { bg = null; }
-  // 镜头：推近到 z 倍（缓动），中心 (zx, zy)
-  T.zc += (T.zoom - T.zc) * 0.08; if (Math.abs(T.zoom - T.zc) < 0.002) T.zc = T.zoom;
-  const z = Math.max(1, T.zc), sw = 200 / z, sh = 120 / z, sx = cnClamp(T.zx - sw / 2, 0, 200 - sw), sy = cnClamp(T.zy - sh / 2, 0, 120 - sh);
-  g.fillStyle = '#000'; g.fillRect(0, 0, 200, 120);
-  if (bg) g.drawImage(bg, sx, sy, sw, sh, 0, 0, 200, 120);
+  if (T.bgSeen !== T.bg) { T.bgPrev = T.bgC; T.ambPrev = T.ambC; T.ambC = null; T.bgSeen = T.bg; T.bgAt = T.bgPrev ? now : -9999; }   // 换底图：叠化 0.3 秒
+  T.bgC = bg;
+  const cgm = /^(cg|end):/.test(T.bg), pyT = cgm ? G.pyC : G.pyN; G.ext = cgm ? G.extC : G.extN;
+  T.pyc = T.pyc === undefined ? pyT : T.pyc + (pyT - T.pyc) * (1 - Math.exp(-dt / 160)); if (Math.abs(pyT - T.pyc) < 0.2) T.pyc = pyT;
+  G.py = Math.round(T.pyc * P) / P;
+  if (!T.ambC && bg) T.ambC = tkAmbient(bg, Object.assign({}, G, { py: pyT }));
+  const xf = cnClamp((now - T.bgAt) / 300, 0, 1); if (xf >= 1) { T.bgPrev = null; T.ambPrev = null; }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = '#07050c'; g.fillRect(0, 0, cw, ch);
+  g.imageSmoothingEnabled = true;
+  if (T.ambPrev) g.drawImage(T.ambPrev, 0, 0, cw, ch);
+  if (T.ambC) { g.globalAlpha = T.ambPrev ? xf : 1; g.drawImage(T.ambC, 0, 0, cw, ch); g.globalAlpha = 1; }
+  const amb = T.ambC, strip = (yL, hL, al) => { if (!amb || al <= 0) return; const k = amb.height / Hl; g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.globalAlpha = Math.min(1, al); g.drawImage(amb, 0, yL * k, amb.width, hL * k, 0, Math.round(yL * P), cw, Math.round(hL * P)); g.globalAlpha = 1; g.imageSmoothingEnabled = false; g.setTransform(P, 0, 0, P, 0, 0); };
+  g.imageSmoothingEnabled = false; g.setTransform(P, 0, 0, P, 0, 0);
+  // 画面：推近时上下多露出一截（ext），不是只在原来的框里放大
+  const snap = v => Math.round(v * P) / P, ext = Math.min(G.ext, 60 * (z - 1)), wy0 = snap(G.py - ext), wh = snap(120 + ext * 2), pw = 200 * z, ph = 120 * z;
+  const left = snap(pw <= Wl ? (Wl - pw) / 2 : cnClamp(Wl / 2 - cam.x * z, Wl - pw, 0)), top = snap(ph <= wh ? wy0 + (wh - ph) / 2 : cnClamp(G.py + 60 - cam.y * z, wy0 + wh - ph, wy0)), yb = wy0 + wh;
+  const pic = (img, al) => { if (img) { g.globalAlpha = al; g.drawImage(img, left, top, pw, ph); g.globalAlpha = 1; } };
+  g.save(); g.beginPath(); g.rect(0, wy0, Wl, wh); g.clip(); if (T.bgPrev) pic(T.bgPrev, 1); pic(bg, T.bgPrev ? xf : 1); g.restore();
+  if (G.tall && bg) {
+    // 倒影：画面沿下沿翻下去一段，越往下越融进底色
+    const rh = Math.min(48, Hl - yb);
+    if (rh > 4) { g.save(); g.beginPath(); g.rect(0, yb, Wl, rh); g.clip(); g.translate(0, 2 * yb); g.scale(1, -1); pic(bg, 0.55); g.restore(); const n = 8; for (let i = 0; i < n; i++) strip(yb + rh * i / n, rh / n, 0.28 + 0.72 * (i + 1) / n); g.fillStyle = 'rgba(7,5,12,.5)'; g.fillRect(0, yb, Wl, 1 / P * Math.max(1, Math.round(P / 3))); }
+    for (let i = 0; i < 4; i++) strip(wy0 + i * 1.5, 1.5, 0.8 - i * 0.2);
+  }
+  // 电影黑边（{ bars: 1 }）：压在画面上下两头
+  T.bars += (T.barsT - T.bars) * (1 - Math.exp(-dt / 140)); if (Math.abs(T.barsT - T.bars) < 0.004) T.bars = T.barsT;
+  if (T.bars > 0.01) { const bh = snap(11 * T.bars); g.fillStyle = '#07050c'; g.fillRect(0, wy0, Wl, bh); g.fillRect(0, yb - bh, Wl, bh); }
   // 气氛
-  const a = T.amb === undefined ? TK_AMB[String(T.bg).split(':').pop()] || (/^cg:(stab|fade)/.test(T.bg) ? 'storm' : '') : T.amb, t = now / 1000;
-  if (a === 'rain' || a === 'storm') { g.fillStyle = a === 'storm' ? 'rgba(200,224,255,.5)' : 'rgba(200,212,255,.28)'; for (let i = 0; i < (a === 'storm' ? 46 : 22); i++) { const x = (i * 53 + t * 40) % 210 - 5, y = (i * 37 + t * (a === 'storm' ? 260 : 170) + i * i) % 130 - 6; g.fillRect(Math.round(x - y * 0.12), Math.round(y), 1, a === 'storm' ? 6 : 4); } }
-  else if (a === 'snow') { g.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 34; i++) { const y = (i * 29 + t * (9 + i % 5 * 3)) % 126 - 3, x = (i * 61 + Math.sin(t * 0.8 + i) * 6 + 200) % 200; g.fillRect(Math.round(x), Math.round(y), i % 4 ? 1 : 2, 1); } }
-  else if (a === 'ember' || a === 'mote' || a === 'glow' || a === 'petal') { const col = a === 'ember' ? ['#ffb23f', '#ff7a5a'] : a === 'glow' ? ['#ffd86a', '#ffb23f'] : a === 'petal' ? ['#f6a0c0', '#ffffff'] : ['#ffffff', '#c8b8e8']; for (let i = 0; i < 20; i++) { const u = (t * (0.05 + i % 4 * 0.02) + i * 0.137) % 1, x = (i * 47 + Math.sin(t * 0.6 + i * 2) * 8 + 200) % 200, y = a === 'petal' ? u * 124 - 2 : 122 - u * 124; g.globalAlpha = 0.25 + 0.6 * Math.sin(u * Math.PI); g.fillStyle = col[i % 2]; g.fillRect(Math.round(x), Math.round(y), 1, 1); } g.globalAlpha = 1; }
-  if (T.dim > 0.01 || T.dimT > 0.01) { T.dim += (T.dimT - T.dim) * 0.1; g.globalAlpha = Math.min(0.9, T.dim); g.fillStyle = '#07050c'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; }
-  const f = now - T.flashAt; if (f < 380) { g.globalAlpha = Math.max(0, 1 - f / 380); g.fillStyle = T.flashCol || '#ffffff'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; }
+  const a = T.amb === undefined ? TK_AMB[String(T.bg).split(':').pop()] || (/^cg:(stab|fade)/.test(T.bg) ? 'storm' : '') : T.amb;
+  if (a) tkParticles(g, a, now / 1000, Wl, Hl);
+  T.dim += (T.dimT - T.dim) * (1 - Math.exp(-dt / 150)); if (Math.abs(T.dimT - T.dim) < 0.004) T.dim = T.dimT;
+  if (T.dim > 0.01) { g.globalAlpha = Math.min(0.9, T.dim); g.fillStyle = '#07050c'; g.fillRect(0, 0, Wl, Hl); g.globalAlpha = 1; }
+  const f = now - T.flashAt; if (f < 420) { const u = 1 - f / 420; g.globalAlpha = u * u; g.fillStyle = T.flashCol || '#ffffff'; g.fillRect(0, 0, Wl, Hl); g.globalAlpha = 1; }
+  T.root.querySelector('.tk-stage').classList.toggle('dimmed', T.dimT >= 0.3);
   requestAnimationFrame(tkStage);
 }
-function tkFlash(col) { if (tk) { tk.flashAt = performance.now(); tk.flashCol = col || '#ffffff'; } }
-function tkShakeNow(n) { const T = tk; if (!T) return; const s = T.root.querySelector('.tk-stage'); s.style.setProperty('--tk-amp', (n || 4) + 'px'); s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake'); }
+function tkFlash(col) { const T = tk; if (!T) return; T.flashAt = performance.now(); T.flashCol = col || '#ffffff'; const s = T.root.querySelector('.tk-stage'); s.classList.remove('flash'); void s.offsetWidth; s.classList.add('flash'); }
+function tkShakeNow(n) { const T = tk; if (!T) return; const s = T.root.querySelector('.tk-stage'); s.style.setProperty('--tk-amp', (n || 4) * 1.5 + 'px'); s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake'); }
 function tkSfx(n) { try { (CSFX[n] || (() => {}))(); } catch (e) { /* 没声音就算了 */ } }
 function tkBgm(k) { if (k === '' || k === 0) BGM.play('', { while: () => !!tk }); else if (k) BGM.play(k, { while: () => !!tk }); }
-// 半身像：换人、换表情时重画；说话的亮并跳一下，不说的暗；loud 的那句抖
+// 立绘：换人、换表情时重画；说话的亮、靠前并跳一下，不说的暗、退后半步；loud 的那句抖。有大立绘的 96×128，没有的是 48×48 小像（放大一倍半）
 function tkDraw(hop) {
   const T = tk; if (!T) return;
-  const cg = /^(cg|end):/.test(T.bg), ln = T.cur || {};
+  const cg = /^(cg|end):/.test(T.bg), ln = T.cur || {}, dpr = tkView().dpr, kp = (T.G && T.G.kp) || 1;
   [['l', T.left], ['r', T.right]].forEach(([side, f], i) => {
     const c = T.pts[i], on = !!f && ((side === 'l') === (ln.who === 'me')) && !!ln.who && ln.who !== 'nar' && ln.who !== 'black';
     const show = !!f && (!cg || on) && ln.who !== 'black';
     const was = !c.hidden; c.hidden = !show; if (!show) return;
-    const pg = c.getContext('2d'); pg.imageSmoothingEnabled = false; pg.clearRect(0, 0, 48, 48);
-    if (side === 'r' && f.who !== 'me') { pg.save(); pg.translate(48, 0); pg.scale(-1, 1); pg.drawImage(f.c, 0, 0); pg.restore(); } else pg.drawImage(f.c, 0, 0);
-    c.classList.toggle('on', on);
-    if (hop && on) { const cls = !was || f.fresh ? 'in' : ln.o && ln.o.loud ? 'rage' : 'hop'; f.fresh = false; c.classList.remove('in', 'hop', 'rage'); void c.offsetWidth; c.classList.add(cls); }
+    const w = f.c.width, h = f.c.height, big = h > 48, sc = big ? kp : Math.max(1, Math.round(kp * 1.5));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    c.style.width = (w * sc / dpr) + 'px'; c.style.height = (h * sc / dpr) + 'px';
+    const pg = c.getContext('2d'); pg.imageSmoothingEnabled = false; pg.clearRect(0, 0, w, h);
+    if (side === 'r' && f.who !== 'me') { pg.save(); pg.translate(w, 0); pg.scale(-1, 1); pg.drawImage(f.c, 0, 0); pg.restore(); } else pg.drawImage(f.c, 0, 0);
+    c.classList.toggle('on', on); c.classList.toggle('big', big);
+    if (hop && on) { const cls = !was || f.fresh ? 'in' : ln.o && ln.o.loud ? 'rage' : f.c !== f.last ? 'hop' : 'nod'; f.fresh = false; c.classList.remove('in', 'hop', 'rage', 'nod'); void c.offsetWidth; c.classList.add(cls); }
+    f.last = f.c;
   });
 }
+// 选项出来时对话框长高：立绘跟着站到它的上沿（选完落回去）
+function tkLift(on) { const T = tk; if (!T || !T.G || !T.G.tall) return; const V = tkView(), vh = V.vh, gap = on ? tkGap(T) : T.baseGap, ptH = 128 * T.G.kp / V.dpr; T.root.style.setProperty('--tk-pt-b', (Math.max(T.baseGap, Math.min(gap, vh - ptH - 40)) - 14) + 'px'); }
 function tkCmd(x) {
   const T = tk;
   if (x.bg) { T.bg = x.bg; T.amb = undefined; if (x.flash) tkFlash(); }
@@ -123,9 +204,10 @@ function tkCmd(x) {
   if (x.shake) tkShakeNow(x.shake);
   if (x.cmd && x.flash) tkFlash(typeof x.flash === 'string' ? x.flash : '');
   if ('bgm' in x) tkBgm(x.bgm);
-  if ('zoom' in x) { T.zoom = x.zoom || 1; if (x.x !== undefined) T.zx = x.x; if (x.y !== undefined) T.zy = x.y; if (!x.zoom) { T.zx = 100; T.zy = 60; } }
+  if ('zoom' in x) tkCam(x.zoom ? { z: x.zoom, x: x.x !== undefined ? x.x : T.zx, y: x.y !== undefined ? x.y : T.zy } : { z: 1, x: 100, y: 60 }, x.ms);
   if ('fx' in x) T.amb = x.fx;
   if ('dim' in x) T.dimT = x.dim;
+  if ('bars' in x) T.barsT = x.bars ? 1 : 0;
 }
 // 出一行：指令不占一句（wait 除外：停那么久再往下），接着出下一行
 function tkShow(i) {
@@ -151,25 +233,29 @@ function tkShow(i) {
   if (o.flash) tkFlash(typeof o.flash === 'string' ? o.flash : '');
   if (o.shake || o.loud) tkShakeNow(o.shake || 3);
   if ('bgm' in o) tkBgm(o.bgm);
-  if ('zoom' in o) tkCmd({ zoom: o.zoom, x: o.x !== undefined ? o.x : ln.who === 'me' ? 50 : ln.who === 'nar' ? 100 : 150, y: o.y !== undefined ? o.y : 70 });
+  if ('zoom' in o) tkCmd({ zoom: o.zoom, x: o.x !== undefined ? o.x : ln.who === 'me' ? 50 : ln.who === 'nar' ? 100 : 150, y: o.y !== undefined ? o.y : 70, ms: o.ms });
   if ('dim' in o) T.dimT = o.dim;
   if ('fx' in o) T.amb = o.fx;
+  if ('bars' in o) T.barsT = o.bars ? 1 : 0;
   const ec = root.querySelector('.tk-echo'); ec.hidden = !ln.echo; if (ln.echo) { ec.innerHTML = `<img class="px" src="${urlOf(ART.icon('echo'), 'ic|echo')}" alt="">因为：${esc(ln.echo)}`; ec.classList.remove('in'); void ec.offsetWidth; ec.classList.add('in'); SFX.bell(); }
   T.hist.push(ln); T.typed = 0; T.full = false; root.querySelector('.tk-next').style.visibility = 'hidden';
-  const toks = tkParse(ln.text), base = o.slow ? 85 : o.fast ? 14 : black ? 60 : 32;
+  const toks = tkParse(ln.text), base = o.slow ? 85 : o.fast ? 14 : black ? (o.auto ? 48 : 64) : 30;
+  const chB = k => `<span class="tk-ch${k.em ? ' em' : ''}">${esc(k.ch)}</span>`;   // 黑屏字幕：一个字一个字淡着落下来
   const html = n => { let h = '', open = false; for (let j = 0; j < n; j++) { const k = toks[j]; if (k.em && !open) { h += '<em>'; open = true; } if (!k.em && open) { h += '</em>'; open = false; } h += esc(k.ch); } return h + (open ? '</em>' : ''); };
-  T.finish = () => { clearTimeout(T.tm); T.typed = toks.length; tx.innerHTML = html(toks.length); T.full = true; if (!black) root.querySelector('.tk-next').style.visibility = ''; if (T.ff) T.ffT = setTimeout(() => { if (tk === T && T.ff) tkShow(T.i + 1); }, 140); else if (black && ln.o && ln.o.auto) T.ffT = setTimeout(() => { if (tk === T && T.i === i) tkShow(i + 1); }, ln.o.auto); };
+  T.finish = () => { clearTimeout(T.tm); if (black) { for (; T.typed < toks.length; T.typed++) tx.insertAdjacentHTML('beforeend', chB(toks[T.typed])); } else { T.typed = toks.length; tx.innerHTML = html(toks.length); } T.full = true; if (!black) root.querySelector('.tk-next').style.visibility = ''; if (T.ff) T.ffT = setTimeout(() => { if (tk === T && T.ff) tkShow(T.i + 1); }, 140); else if (black && ln.o && ln.o.auto) T.ffT = setTimeout(() => { if (tk === T && T.i === i) tkShow(i + 1); }, ln.o.auto); };
   const step = () => {
     if (tk !== T) return;
     if (T.ff) { T.finish(); return; }
     if (T.typed >= toks.length) { T.finish(); return; }
-    const k = toks[T.typed++]; tx.innerHTML = html(T.typed);
+    const k = toks[T.typed++]; if (black) tx.insertAdjacentHTML('beforeend', chB(k)); else tx.innerHTML = html(T.typed);
     if (T.typed % 3 === 1 && !/\s/.test(k.ch)) SFX.type();
     if (k.em && (T.typed === 1 || !toks[T.typed - 2].em)) { tkShakeNow(2); }
+    if (T.typed >= toks.length) { T.tm = setTimeout(() => { if (tk === T && T.i === i && !T.full) T.finish(); }, 60); return; }   // 最后一个字不再等标点的那一拍
     T.tm = setTimeout(step, base + (k.wait || 0));
   };
+  const swap = !black && ln.who !== 'nar' && T.spk !== ln.who; if (!black && ln.who !== 'nar') T.spk = ln.who;
   tkDraw(true);
-  T.tm = setTimeout(step, black ? 350 : 60);
+  T.tm = setTimeout(step, black ? (o.auto ? 240 : 420) : swap ? 170 : 60);   // 换人说话先让立绘站定一拍
 }
 function tkTap() {
   const T = tk; if (!T || T.picking || T.histOn || T.locked) return;
@@ -197,14 +283,14 @@ function tkPicks() {
   [...box.querySelectorAll('.tk-pick')].forEach((b, j) => { b.style.animationDelay = (j * 110) + 'ms'; });
   const lead = key && !T.skipping ? 1100 : 0;
   if (key) { bgmDuck(lead / 1000 + 2.2, 0.12); T.dimT = 0.5; if (lead) { SFX.heart(); setTimeout(() => { if (tk === T) SFX.heart(); }, 560); } }
-  const open = () => { if (tk !== T) return; box.hidden = false; T.root.classList.add('picking'); if (key) { T.root.classList.add('keypick'); SFX.drum(); } else SFX.reveal(2); T.t0 = performance.now(); };
+  const open = () => { if (tk !== T) return; box.hidden = false; T.root.classList.add('picking'); tkLift(true); if (key) { T.root.classList.add('keypick'); SFX.drum(); } else SFX.reveal(2); T.t0 = performance.now(); };
   if (lead) setTimeout(open, lead); else open();
   box.querySelectorAll('button[data-c]').forEach(b => b.onclick = e => {
     e.stopPropagation(); if (performance.now() - (T.t0 || 0) < 600 || b.disabled) return;   // 刚出来的 0.6 秒不可点（防连点误触）
     const ci = +b.dataset.c, c = ev.choices[ci];
     const res = L.resolveChoice(st, ev, ci); if (!res) return;
     const br = c[res.ok ? 'ok' : 'fail'] || c.ok || {};
-    box.hidden = true; T.picking = false; T.root.classList.remove('picking', 'keypick'); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进'; T.dimT = 0; T.skipping = false;
+    box.hidden = true; T.picking = false; T.root.classList.remove('picking', 'keypick'); tkLift(false); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进'; T.dimT = 0; T.skipping = false;
     const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); const bc = br.cine && String(br.cine).replace('{daolv}', st.daolv || 'su');   /* 'jieqi_{daolv}'：按道侣取版本 */ if (bc && !res.duel) cnAfter(playCine(bc, {}), card); else if (bc) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(bc, {}); }); else card(); };
     // 当场的回响：关键抉择闪一下，黑屏上落一句你选的话，再接结果里的台词
     const lines = tkFlat(br.talk || []);
@@ -231,7 +317,8 @@ function playTalk(ev, back) {
   tkSlotEv = ev.id;
   const root = tkMount();
   tk = { ev, back, root, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, prevCine: cine, k: 1,
-    zoom: 1, zc: 1, zx: 100, zy: 60, dim: 1, dimT: 0, flashAt: -9999, amb: undefined };
+    zoom: 1, zc: 1, zx: 100, zy: 60, dim: 1, dimT: 0, flashAt: -9999, amb: undefined,
+    camA: { z: 1, x: 100, y: 60 }, camB: { z: 1, x: 100, y: 60 }, camT0: 0, camMs: 1, bars: 0, barsT: 0, bgAt: -9999 };
   const T = tk;
   cine = { cn: true, tk: true, t: 0 };   // 停表、挡住弹窗队列（与高光过场同一个哨兵）
   $('#tip').hidden = true;
@@ -282,7 +369,7 @@ if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function 
 }; }
 if (typeof onbPump === 'function') { const op0 = onbPump; onbPump = function () { if (tk) return; return op0.apply(this, arguments); }; }
 // 剧情线加的几个音效名（分镜与对话里按名字调）
-Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap() });
+Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap(), boom: () => SFX.boom(), shine: () => SFX.shine(), whoosh: () => SFX.whoosh() });
 
 // ---------- 二、数据式分镜 ----------
 // 一段：{ n 名字, no 序号, bgm, thumb 底图写法, shots: [ 镜头 ] }
@@ -483,5 +570,5 @@ function storyStart() {
 }
 // 测试与截图用（tools/story_ui.js）
 window.__xm_talk = { fast: undefined, DATA: CINE_DATA, play: id => { const ev = L.eventById(id); if (ev) showChoice(ev); return !!ev; }, close: tkClose, tap: tkTap, ascend: () => showAscension(),
-  get stage() { return tk ? { bg: tk.bg, zoom: tk.zoom, dimT: tk.dimT, amb: tk.amb } : null; },
+  get stage() { return tk ? { bg: tk.bg, zoom: tk.zoom, dimT: tk.dimT, amb: tk.amb, x: tk.zx, y: tk.zy, bars: tk.barsT, G: tk.G } : null; },
   get on() { return tk ? { id: tk.ev.id, i: tk.i, n: tk.lines.length, picking: !!tk.picking, full: !!tk.full, bg: tk.bg, text: tk.root.querySelector('.tk-text').textContent } : null; } };
