@@ -116,16 +116,14 @@ function sceneClick(e) {
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }
 }
 cvs.addEventListener('click', sceneClick);
-$('#cult').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showMe(); });
+$('#cult').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showGrowth('cul'); });
+// 底栏固定五格（docs/KAIRO_PLAN.md §4.1）：历练 / 洞府 / 装备 / 江湖 / 仙途；没开的那一格只在传讯行说一句条件（goalcard.js 的 navClick）
 $('#nav').addEventListener('click', e => {
   const b = e.target.closest('button[data-nav]'); if (!b || !st || cine) return;
   ac(); SFX.tap();
-  const lk = navLock(b.dataset.nav);
-  if (lk) { tempHint = { id: 'tmp', target: `[data-nav="${b.dataset.nav}"]`, text: lk, btn: '好' }; return; }
-  ({ exp: showExp, home: showHome, sect: showSect, market: showMarket, me: showMe })[b.dataset.nav]();
+  navClick(b.dataset.nav);
 });
 $('#btnSpeed').onclick = () => { ac(); speedIdx = (speedIdx + 1) % SPEEDS.length; SFX.tap(); savePref(); updateHUD(); };
-$('#btnSound').onclick = () => { soundMode = (soundMode + 1) % 3; ac(); SFX.tap(); setSoundIcon(); savePref(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) { saveLocal(); saveCloud(); } });
 window.addEventListener('pagehide', saveLocal);
 window.addEventListener('resize', () => { setFontSize(); fitScene(); });
@@ -150,4 +148,5 @@ window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, 
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, showAsk, askList, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
   UI, get tickMs() { return tickMs(); },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
-Object.assign(window.__xm, { showArts, showBag, showPetAwake });   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）
+Object.assign(window.__xm, { showArts, showBag, showPetAwake });
+Object.assign(window.__xm, { showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get pauseIdx() { return SPEEDS.indexOf(0); }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）

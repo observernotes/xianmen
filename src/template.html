@@ -919,6 +919,201 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 /* 系统解锁横幅上的碎锁 ART.lockBreak */
 #banner .bnlk { vertical-align: middle; margin-right: 6px; }
 #banner > span { display: inline-flex; align-items: center; }
+
+/* ===================== 开罗式重整（docs/KAIRO_PLAN.md §2.2 / §4 / §5 / §6；示意图 docs/kairo_mock/mock.html）===================== */
+/* 主画面：顶栏 / 时间条 / 场景 / 境界条 / 三个数 / 目标卡 / 一行传讯 / 固定五格 */
+#app { gap: 5px; }
+#top .row { gap: 8px; min-height: 30px; }
+#top .sp { flex: 1; }
+#top .res b { font-size: max(16px, var(--fs-m)); }
+#lifeBox { flex: none; }
+#lifeBox b { font-size: 14px !important; color: var(--text); }
+#lifeBox.low b { color: var(--red); }
+#top .ib { position: relative; flex: none; width: 44px; height: 40px; margin: -5px 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  background: #1b1326; border: 2px solid var(--gold); box-sizing: border-box; color: var(--text); }
+#top .ib img { width: 20px; height: 20px; }
+#top .ib.on { background: #3a3155; }
+#top .ib .dot { position: absolute; right: -6px; top: -6px; background: var(--seal); color: #fff; font-size: 12px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px var(--ink); }
+#time { flex: none; display: block; text-align: left; padding: 0 6px 2px; cursor: pointer; font: inherit; color: var(--text); min-height: 44px; box-sizing: border-box; }
+#time .l1 { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; line-height: 18px; white-space: nowrap; }
+#time .l1 .r { color: #ff9a8a; overflow: hidden; text-overflow: ellipsis; }
+#time .l1 .r.gold { color: var(--gold); }
+#time .pips { display: flex; gap: 1px; margin-top: 3px; height: 10px; }
+#time .pips i { flex: 1; background: #3a3155; min-width: 0; }
+#time .pips i.d { background: #4ccb9f; }
+#time .pips i.n { background: #fff2a8; box-shadow: 0 0 0 2px var(--gold); position: relative; z-index: 1; }
+#time .pips i.f { background: #d8404a; }
+#time .pips i.yr { margin-right: 4px; }
+#time.flash { animation: navHint .5s steps(2) 4; }
+#sceneTL { display: none; }
+.spill { position: absolute; left: max(8px, env(safe-area-inset-left, 0px)); top: 8px; z-index: 1; pointer-events: none; white-space: nowrap; font-size: 14px; line-height: 20px;
+  background: rgba(27, 19, 38, .9); box-shadow: 0 0 0 2px #4ccb9f; padding: 1px 8px; color: var(--text); }
+.spill:empty { display: none; }
+.spill b { font-weight: normal; color: #8ff5d0; margin-right: 6px; }
+.spill.trip { box-shadow: 0 0 0 2px var(--gold); }
+.spill.trip b { color: var(--gold); }
+.spill.stop { box-shadow: 0 0 0 2px #55506e; }
+.spill.stop b { color: var(--muted); }
+#haul { position: absolute; left: max(8px, env(safe-area-inset-left, 0px)); bottom: 40px; top: auto; right: auto; transform: none; font-size: 14px; line-height: 20px; padding: 1px 8px;
+  background: rgba(27, 19, 38, .9); box-shadow: 0 0 0 2px #55506e; color: var(--text); white-space: nowrap; display: flex; gap: 8px; align-items: center; z-index: 1; pointer-events: none; }
+#haul img { vertical-align: middle; }
+#tripBar { position: absolute; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: 8px; height: 22px; background: #1b1326; box-shadow: 0 0 0 2px var(--gold); display: flex; gap: 2px; padding: 2px; box-sizing: border-box; z-index: 1; pointer-events: none; }
+#tripBar i { flex: 1; background: #3a3155; }
+#tripBar i.d { background: var(--gold); }
+#cult { padding: 0 6px 2px; gap: 2px; }
+#cult .r1 { align-items: center; }
+#cult #realm { font-size: max(22px, var(--fs-l)); flex: 1; }
+#cultR { font-size: 14px; color: var(--muted); white-space: nowrap; }
+#cultR b { font-weight: normal; color: #8ff5d0; }
+#cult .xbar { height: 16px; }
+#cult #xpTxt { justify-content: center; font-size: 14px; }
+#cult.ready #cultR { color: #6a4a10; }
+#stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+#stats button { align-items: flex-start; padding: 0 6px; min-height: 46px; position: relative; text-align: left; }
+#stats button .k { font-size: 14px; line-height: 16px; color: var(--muted); }
+#stats button b { font-size: 19px; line-height: 22px; }
+#stats button .dlt { position: absolute; right: 4px; bottom: 4px; font-style: normal; font-size: 14px; color: #8ff5d0; pointer-events: none; }
+#stats button .dlt.dn { color: #ff9a8a; }
+#stats button .dlt:empty { display: none; }
+#stats button b.bump { animation: bump .5s steps(4); }
+@keyframes bump { 0% { transform: scale(1.35); } 100% { transform: none; } }
+#goal { display: block; padding: 4px 8px; min-height: 0; cursor: default; color: var(--text); box-shadow: 0 0 0 2px var(--gold); }
+#goal .g1 { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+#goal .ch { flex: none; font-size: 14px; line-height: 18px; color: #1b1326; background: var(--gold); padding: 0 6px; }
+#goal .t { font-size: 18px; line-height: 22px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#goal .gbar { display: block; position: relative; height: 16px; margin-top: 4px; background: #1b1326; box-shadow: 0 0 0 1px #55506e; }
+#goal .gbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gold); transition: width .3s steps(6); }
+#goal .gbar em { position: absolute; inset: 0; text-align: center; font-style: normal; font-size: 14px; line-height: 16px; color: #fff; text-shadow: 1px 1px 0 #1b1326, -1px 0 0 #1b1326; white-space: nowrap; overflow: hidden; }
+#goal.flash .gbar { animation: navHint .5s steps(2) 4; }
+#goal .g3 { display: flex; align-items: center; gap: 8px; margin-top: 4px; min-width: 0; }
+#goal .g3 img { flex: none; width: 20px; height: 20px; }
+#goal .nx { flex: 1; min-width: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#goal .nx b { font-weight: normal; color: var(--gold); }
+#goal .go { flex: none; min-height: 44px; min-width: 64px; padding: 0 12px; font: inherit; font-size: 15px; color: #fff; cursor: pointer; background: #d8404a; border: 2px solid #ff9a8a; }
+#goal .go:active { transform: translateY(1px); }
+#goal .go[hidden] { display: none; }
+#tick { flex: none; display: block; width: 100%; text-align: left; height: 26px; padding: 0 10px; font: inherit; font-size: 14px; line-height: 24px; color: var(--muted); background: #1b1326; border: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#tick.new { color: var(--text); }
+#tick .gold { color: var(--gold); } #tick .jade { color: #8ff5d0; } #tick .red { color: var(--red); }
+#feed { display: none !important; }
+#nav { gap: 5px; }
+#nav button { min-height: 64px; padding-top: 2px; }
+#nav button span:not(.badge) { font-size: 15px; }
+#nav button .lkw { display: none; font-size: 12px; line-height: 12px; color: #6e6a88; }
+#nav button.lk img { opacity: .28; filter: grayscale(1); }
+#nav button.lk span:not(.badge) { color: #6e6a88; }
+#nav button.lk .lkw { display: block; }
+#nav button.on { border-image-source: var(--fr-btnGold); }
+#nav button.on span:not(.badge) { color: #3b2b1f; }
+#nav button.new { box-shadow: 0 0 0 2px #f4c54288; }
+#nav button.gonow { animation: navHint 1s steps(2) infinite; box-shadow: 0 0 0 2px var(--gold); }
+#nav .badge { right: -3px; top: -7px; font-size: 12px; padding: 0 4px; animation: none; }
+/* 面板浮在底栏之上（底栏点得到：装备 1 次点击可达，切换五格不用先关） */
+#modal.nav-m { bottom: var(--navh, 76px); padding-bottom: 0; }
+/* 聚光金框（hlOnly：不出老祖、不停表、点别处就消失） */
+#hl { position: fixed; z-index: 26; pointer-events: none; box-shadow: 0 0 0 3px var(--gold), 0 0 0 6px rgba(244, 197, 66, .35); animation: spotPulse2 .8s steps(2) infinite; }
+@keyframes spotPulse2 { 50% { box-shadow: 0 0 0 4px #fff6c0, 0 0 0 8px rgba(244, 197, 66, .2); } }
+/* 头三步手把手：只有金框和一行字（≤ 16 字），没有“好” */
+#guide .gbox.slim { padding: 6px 10px; align-items: center; }
+#guide .gbox.slim .gav { width: 36px; height: 36px; }
+#guide .gbox.slim .gtext { font-size: 16px; }
+#guide .gbox.slim .gbtns:empty { display: none; }
+#tip { font-size: 15px; }
+@media (max-height: 700px) {
+  #app { gap: 4px; padding-top: 4px; padding-bottom: 4px; }
+  #time { min-height: 40px; }
+  #time .pips { height: 8px; margin-top: 2px; }
+  #cult #realm { font-size: 20px; }
+  #stats button { min-height: 44px; }
+  #stats button b { font-size: 19px; line-height: 20px; }
+  #goal .g3 { margin-top: 2px; }
+  #goal .go { min-height: 40px; }
+  #tick { height: 24px; line-height: 22px; }
+  #nav button { min-height: 58px; }
+}
+
+/* 面板统一版式（§4.2）：标题行大数 + 分页 + 行（52 图标格 / 名字 / 一个数 / 一个按钮）+ 次要区 */
+.sheet { font-size: max(14px, var(--fs)); }
+.sheet header h2 .hn { font-size: 15px; color: #8a7a5c; margin-left: 10px; }
+.sheet header h2 .hn b { font-weight: normal; font-size: 19px; color: var(--seal); }
+.ktabs { display: flex; gap: 4px; margin: 0 0 4px; flex: none; }
+.ktabs button { flex: 1; min-height: 44px; font: inherit; font-size: 16px; text-align: center; cursor: pointer; color: var(--paper-ink); background: #f6ecd2; border: 2px solid #2c2238; padding: 0 2px; position: relative; min-width: 0; }
+.ktabs button.on { background: #d8404a; color: #fff; }
+.ktabs button .pn-new { position: absolute; right: -4px; top: -6px; }
+.kslot { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 4px 6px; font-size: 15px; min-width: 0; }
+.kslot.hot { border-color: #c8323c; }
+.kslot.dash { border-style: dashed; }
+.kslot .cell { width: 52px; height: 52px; background: #262038; display: flex; align-items: center; justify-content: center; flex: none; position: relative; }
+.kslot .cell.lk { background: #d9c9a0; }
+.kslot .mid { flex: 1; min-width: 0; }
+.kslot .nm { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kslot .nm .p { color: var(--seal); }
+.kslot small { display: block; font-size: 14px; color: #8a7a5c; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kup { color: #1d8a63; }
+.kdn { color: #c8323c; }
+.kslot .kb { flex: none; min-height: 44px; min-width: 52px; padding: 2px 8px; font: inherit; font-size: 15px; line-height: 1.15; cursor: pointer; border: 2px solid #2c2238; background: #f4c542; color: #2c2238; text-align: center; white-space: nowrap; }
+.kslot .kb small { color: #2c2238; margin: 0; font-size: 14px; }
+.kslot .kb.alt { background: #f6ecd2; }
+.kslot .kb.red { background: #d8404a; color: #fff; }
+.kslot .kb:disabled { background: #e2d4ae; color: #a8987a; border-color: #b9a988; cursor: default; }
+.kslot .kb:disabled small { color: #a8987a; }
+.ksec { font-size: 14px; color: #8a7a5c; margin: 4px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
+.ksec .red { color: #c8323c; }
+.ksec button { font: inherit; font-size: 14px; color: #8a7a5c; background: none; border: 0; cursor: pointer; min-height: 44px; padding: 0 4px; margin: -11px 0; }
+.kgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.kgrid > * { height: 52px; background: #262038; display: flex; align-items: center; justify-content: center; position: relative; border: 0; padding: 0; cursor: pointer; font: inherit; min-width: 0; }
+.kgrid > .e { background: #e2d4ae; cursor: default; }
+.kgrid > .sel { box-shadow: 0 0 0 3px var(--gold); }
+.kgrid > * b { position: absolute; right: 2px; bottom: 0; font-weight: normal; font-size: 14px; color: #fff; text-shadow: 1px 1px 0 #000; }
+.kcard { background: #fff6dc; border: 2px solid #a8742a; padding: 6px 8px; display: flex; gap: 8px; align-items: center; font-size: 15px; }
+.kcard .grow { flex: 1; min-width: 0; }
+.krow { display: flex; align-items: center; gap: 8px; font-size: 16px; min-height: 26px; }
+.krow .k { width: 74px; flex: none; color: #8a7a5c; font-size: 14px; }
+.krow .v { flex: 1; min-width: 0; }
+.krow .s { font-size: 14px; color: #8a7a5c; white-space: nowrap; }
+.krow .big { font-size: 19px; color: #1d8a63; }
+.kpbar { height: 12px; background: #d9c9a0; border: 1px solid #8a7a5c; position: relative; flex: 1; min-width: 40px; }
+.kpbar i { position: absolute; left: 0; top: 0; bottom: 0; background: #2a8a7a; }
+.kpbar i.dl { background: #f4c542; }
+.kloot { display: flex; gap: 6px; }
+.kloot > div { flex: 1; background: #f6ecd2; border: 2px solid #c8b48c; text-align: center; padding: 4px 0; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+.kstamp { width: 56px; height: 56px; border: 3px solid #c8323c; color: #c8323c; font-size: 34px; text-align: center; line-height: 50px; transform: rotate(-8deg); margin-left: auto; flex: none; box-sizing: border-box; }
+.kaway { border-top: 2px dashed #c8b48c; padding-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 14px; color: #8a7a5c; }
+.ksay { background: #f6ecd2; border: 2px solid #c8b48c; padding: 6px; display: flex; gap: 8px; align-items: center; font-size: 14px; }
+/* 解锁卡（§5.3） */
+#modal.unl-m { align-items: center; }
+#modal.unl-m .sheet { border-image: none; border: 0; background: none; filter: none; padding: 0; }
+#modal.unl-m .sheet header, #modal.unl-m .sheet .foot { display: none; }
+.unl { background: #262038; border: 3px solid #f4c542; text-align: center; padding: 10px 14px 14px; color: var(--text); margin: 0 24px; }
+.unl .ic { position: relative; width: 144px; height: 144px; margin: 0 auto; }
+.unl .ic img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.unl .big { font-size: 26px; color: #fff2a8; margin-top: 2px; }
+.unl .nm { font-size: 20px; margin: 6px 0 4px; }
+.unl .one { font-size: 15px; color: #c8c4d8; }
+.unl .one b { font-weight: normal; color: #7fe0f0; }
+.unl .way { font-size: 14px; color: #8ff5d0; margin: 10px 0; }
+.unl .kfoot { display: flex; gap: 8px; }
+/* 路径页（§2.2-3） */
+.kpath { position: relative; display: flex; flex-direction: column; }
+.kpn { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; font-size: 15px; position: relative; color: #8a7a5c; }
+.kpn::before { content: ""; position: absolute; left: 11px; top: 22px; bottom: -6px; width: 2px; background: #c8b48c; }
+.kpn:last-child::before { display: none; }
+.kpn > img { position: relative; z-index: 1; flex: none; }
+.kpn .tt { flex: 1; min-width: 0; }
+.kpn .tt small { color: #8a7a5c; font-size: 14px; }
+.kpn.done { color: var(--paper-ink); }
+.kpn.cur { background: #fff6dc; border: 2px solid #a8742a; padding: 6px; margin: 3px 0 3px -6px; color: var(--paper-ink); }
+.kpn.cur::before { left: 17px; top: 30px; }
+.kpn.cur .h { font-size: 18px; }
+.ksys { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+.ksys > span { width: 28px; height: 28px; background: #262038; display: inline-flex; align-items: center; justify-content: center; }
+.ksys > span.q { background: #d9c9a0; color: #8a7a5c; font-size: 14px; }
+.ksys small { margin-left: 4px; color: #8a7a5c; font-size: 14px; }
+/* 纸鹤列表 */
+.kmail { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 4px 6px; font-size: 15px; }
+.kmail .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kmail .s { color: #8a7a5c; font-size: 14px; white-space: nowrap; }
 </style>
 
 <div id="app">
@@ -926,42 +1121,48 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
     <div class="row r2">
       <span class="res rstone" title="灵石"><img class="px" data-art="stone" alt=""><b id="vStone">0</b><small id="vInc"></small></span>
       <span class="res rpill" title="破境丹"><img class="px" data-art="pojing" alt=""><b id="vPill">0</b></span>
-      <span class="res" id="lifeBox" title="年龄 / 寿元"><img class="px" data-art="life" alt=""><span class="lbar"><i id="lifeFill"></i></span><b id="vLife">16/100</b></span>
-      <button class="iconbtn" id="btnSound" aria-label="声音开关"></button>
-      <button class="iconbtn" id="btnHelp" aria-label="玩法指南">？</button>
+      <span class="res" id="lifeBox" title="寿元"><img class="px" data-art="life" alt=""><b id="vLife">寿元足</b></span>
+      <span class="sp"></span>
+      <button class="ib" id="btnMail" aria-label="纸鹤：消息匣"><img class="px" data-art="mail" alt=""><span class="dot" id="mailN" hidden>0</span></button>
+      <button class="ib" id="btnPause" aria-label="暂停"><img class="px" data-art="pause" alt=""></button>
     </div>
   </div>
+  <button id="time" class="hud" aria-label="时间条：点开看年历"><span class="l1"><span id="date">第1年 · 春 · 1月</span><span id="bigLeft" class="r"></span></span><span class="pips" id="pips"></span></button>
   <div id="sceneOuter">
     <div id="sceneWrap">
       <canvas id="scene" width="200" height="160"></canvas>
       <div id="fx"></div>
       <div id="flash"></div>
     </div>
-    <div id="sceneTL"><img class="px" id="seasonIc" alt=""><span id="date">第1年</span><span id="vRank">第100</span></div>
+    <div id="scenePill" class="spill"></div>
     <button class="sbtn" id="btnSpeed" aria-label="游戏速度">×1</button>
     <div id="tip" hidden></div>
     <div id="banner"></div>
     <div id="haul" hidden></div>
+    <div id="tripBar" hidden></div>
     <button id="worldTag" hidden aria-label="天下大势"></button>
   </div>
   <button id="cult" class="hud" aria-label="修为">
-    <span class="row r1"><span id="realm">炼气初期</span><span id="pName">无名</span></span>
+    <span class="row r1"><span id="realm">炼气初期</span><span id="cultR"></span><span id="pName" hidden>无名</span></span>
     <span class="xbar"><i id="xpFill"></i><em id="xpTxt" class="num"></em></span>
   </button>
   <div id="stats">
-    <button data-s="cul" aria-label="修炼速度"><span class="k"><img class="px" data-art="cult" alt="">修炼/周天</span><b id="sCul">+1</b></button>
-    <button data-s="atk" aria-label="战力"><span class="k"><img class="px" data-art="atk" alt="">战力</span><b id="sAtk">10</b></button>
-    <button data-s="inc" aria-label="灵石收入"><span class="k"><img class="px" data-art="stone" alt="">灵石/周天</span><b id="sInc">+11</b></button>
-    <button data-s="big" id="sBigBtn" aria-label="下一件大事"><span class="k" id="sBigK">三年之约</span><b id="sBig">胜算 --</b></button>
+    <button data-s="atk" aria-label="战力"><span class="k">战力</span><b id="sAtk">10</b><i class="dlt" id="dAtk"></i></button>
+    <button data-s="cul" aria-label="修炼速度"><span class="k">修炼/月</span><b id="sCul">+1</b><i class="dlt" id="dCul"></i></button>
+    <button data-s="inc" aria-label="灵石收入"><span class="k">灵石/月</span><b id="sInc">+11</b><i class="dlt" id="dInc"></i></button>
   </div>
-  <div id="goal" class="hud" role="button" aria-label="札记：当前任务，点击查看"><span class="lab">札记</span><span class="txt" id="goalTxt"></span><span class="rw" id="goalRw"></span><span class="q">▸</span></div>
-  <div id="feed" class="hud"></div>
+  <div id="goal" class="hud" aria-label="目标卡">
+    <div class="g1"><span class="ch" id="gCh">第一章</span><span class="t" id="gT">赢下三年之约</span></div>
+    <div class="gbar"><i id="gFill"></i><em id="gBar"></em></div>
+    <div class="g3"><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><button class="go" id="gGo">去 ▸</button></div>
+  </div>
+  <button id="tick" aria-label="传讯：点开纸鹤看历史"></button>
   <div id="nav">
-    <button data-nav="exp"><img class="px" data-art="exp" data-sz="30" alt=""><span>历练</span></button>
-    <button data-nav="home"><img class="px" data-art="home" data-sz="30" alt=""><span>洞府</span></button>
-    <button data-nav="sect"><img class="px" data-art="sect" data-sz="30" alt=""><span>宗门</span></button>
-    <button data-nav="market"><img class="px" data-art="market" data-sz="30" alt=""><span>坊市</span></button>
-    <button data-nav="me"><img class="px" data-art="me" data-sz="30" alt=""><span>人物</span></button>
+    <button data-nav="exp"><img class="px" data-art="exp" data-sz="30" alt=""><span>历练</span><small class="lkw"></small></button>
+    <button data-nav="home"><img class="px" data-art="home" data-sz="30" alt=""><span>洞府</span><small class="lkw"></small></button>
+    <button data-nav="gear"><img class="px" data-art="nav_gear" data-sz="30" alt=""><span>装备</span><small class="lkw"></small></button>
+    <button data-nav="world"><img class="px" data-art="nav_world" data-sz="30" alt=""><span>江湖</span><small class="lkw"></small></button>
+    <button data-nav="path"><img class="px" data-art="nav_path" data-sz="30" alt=""><span>仙途</span><small class="lkw"></small></button>
   </div>
 </div>
 <div id="modal" hidden></div>

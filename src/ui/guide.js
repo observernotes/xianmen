@@ -21,13 +21,15 @@ function pumpBubble() {
     el.hidden = true; bubbleCur = null; }
   if (bubbleCur || !bubbleQ.length) return;
   for (let i = bubbleQ.length - 1; i >= 0; i--) if (st.tick - bubbleQ[i].tick > 15 && !bubbleQ[i].big) { bubbleLog.unshift(bubbleQ[i]); bubbleQ.splice(i, 1); bubbleUnread = true; }
-  const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden;
-  const bi = bubbleQ.findIndex(b => b.big);
-  const i = bi >= 0 && !busy ? bi : !busy && !modalOpen() && st.tick >= bubbleCool && performance.now() > guideQuiet ? 0 : -1;
-  if (i < 0 || !bubbleQ[i]) return;
-  const b = bubbleQ.splice(i, 1)[0];
-  if (!b.big) bubbleCool = st.tick + BUBBLE_GAP;
-  showBubble(b);
+  // 老祖一句（§5.2-4）：一季最多一条、只在打坐态、≤ 20 字（长的取第一句；还长就只收进纸鹤里的“老祖说过”，不冒出来）
+  const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden || L.busy(st) || modalOpen();
+  if (busy || st.tick < bubbleCool || performance.now() < guideQuiet || (typeof canInterrupt === 'function' && !canInterrupt())) return;
+  const b = bubbleQ.shift();
+  const plain = String(b.text).replace(/<[^>]+>/g, ''), first = plain.split(/(?<=[。！？])/)[0];
+  bubbleCool = st.tick + BUBBLE_GAP;
+  if (first.length > 22) { bubbleLog.unshift(b); if (bubbleLog.length > 8) bubbleLog.length = 8; bubbleUnread = true; bubbleCool = st.tick; return; }
+  if (typeof markInterrupt === 'function') markInterrupt();
+  showBubble({ key: b.key, text: esc(first), big: b.big, tick: b.tick });
 }
 function showBubble(b) {
   const el = $('#tip');
@@ -52,24 +54,12 @@ const dec = v => L.fmt1(v);   // 100 以下保留一位小数（10.8 不会显�
 let lastExp = null;
 let lastUp = null;   // 最近一次升小层前后的战力（hud 的 stageUp 记下），给 E11 用
 const R0 = () => L.REGIONS[0].n;
-// 新手引导（阻塞讲解 E01～E09）：学游戏发展国的秘书——一次只说一两句、说话时暂停、句句带数字，说完立刻让你动手
+// 新手引导：头三步手把手（docs/KAIRO_PLAN.md §5.1 #2：点历练 → 点地点 → 点出发）——只有金框和一行字（≤ 16 字），没有“好”按钮，停表；
+// 第一趟出发就算引导做完。之后靠目标卡“下一步”、入口闪烁与角标、一行传讯、解锁卡（goalcard.js / onboard.js）
 const GUIDE = [
-  { id: 'welcome', text: '小子，别东张西望，就是你手上这枚锈戒。老夫在里面睡了<b>三千年</b>。', btn: '……你是谁' },
-  { id: 'stakes', target: BIG, text: () => { const pi = PI(); return `<b>三年之约</b>还剩 <b>${pi.left} 个周天</b>（一周天约 ${Math.round(tickMs() / 1000)} 秒），到时${esc(st.exName)}要在擂台上当众羞辱你。她战力 <b>${fmt(pi.Q)}</b>，你 <b>${fmt(pi.base)}</b>，老夫借你一口气翻 <b>${pi.assist} 倍</b>，胜算才 <b>${L.pct(pi.p)}</b>。`; }, btn: '那怎么办' },
-  { id: 'expNav', show: () => !modalOpen() && !st.exp, target: '[data-nav="exp"]', text: () => `光打坐来不及。出去<b>【历练】</b>：打妖兽有灵石，还能捡法宝。一趟 <b>${L.expLen(0)} 个周天</b>。`, until: () => modalTitle() === '外出历练' || !!st.exp },
-  { id: 'expPick', show: () => modalTitle() === '外出历练', target: '#modal .card[data-k="0"]', text: () => `就这儿，<b>${R0()}·外围</b>。推荐战力 <b>${fmt(L.rec(0, 0))}</b>，你 <b>${fmt(L.power(st))}</b>，稳拿<b>甲</b>。`, until: () => modalTitle() === R0() || !!st.exp, back: () => (!modalOpen() && !st.exp ? 'expNav' : null) },
-  { id: 'expGo', show: () => modalTitle() === R0(), target: '#modal .foot .btn.gold', text: () => `行事先用<b>【斩妖】</b>，预计评价 <b>${L.expForecast(st, 0, 0, 0).text}</b>。点<b>出发</b>，<b>${L.expLen(0)} 个周天</b>就回来。`, until: () => !!st.exp, back: () => (modalTitle() === '外出历练' ? 'expPick' : !modalOpen() && !st.exp ? 'expNav' : null) },
-  // 收获条：不再停下来讲，出发那一刻冒一条气泡
-  { id: 'haul', silent: true, until: () => { if (st.exp && st.stats.exp === 0) tip('haul', `看场景上面这一条：这趟的收获，一个周天涨一截，${L.expLen(0)} 个周天回来。嫌慢就点右上角的 ×1 加速（×2、×4）。`); return true; } },
-  { id: 'waitExp', silent: true, until: () => st.stats.exp >= 1 && !modalOpen() && !st.exp },
-  // 第一趟回来：一段话说清“战力涨了多少”，同时高亮【洞府】——一次只教一件事（docs/ONBOARDING.md §3）
-  { id: 'homeNav', show: () => !modalOpen(), target: '[data-nav="home"]', text: () => {
-      const e = lastExp, it = e && e.items.find(x => x.kind === 'w' && x.equip);
-      return `${e ? `看见没？${it ? `一把<b>${esc(it.name)}</b>，` : ''}战力 <b>${fmt(e.pw0)} → ${fmt(e.pw1)}</b>。` : ''}灵石要花出去才值钱：你有 <b>${fmt(st.stones)}</b> 灵石，去<b>【洞府】</b>。`;
-    }, until: () => modalTitle() === '洞府' || st.home.array >= 1 },
-  { id: 'homeArray', show: () => modalTitle() === '洞府', target: '#modal button[data-k="array"]', text: () => { const u = L.upInfo(st, 'array'); return `升<b>【聚灵阵】</b>（${fmt(u.cost)} 灵石）：修炼 <b>+${dec(u.d0)} → +${dec(u.d1)}</b> /周天。`; }, until: () => st.home.array >= 1, back: () => (!modalOpen() && st.home.array < 1 ? 'homeNav' : null) },
-  { id: 'afterArr', silent: true, until: () => { lastExp = null; return true; } },
-  { id: 'quests', show: () => !modalOpen(), target: '#goal', text: () => { const q = L.questView(st).first; return `不知道干嘛就看这张<b>札记</b>：做完就有赏${q ? `，眼下这条“${esc(L.questText(st, q))}”赏 <b>${esc(L.rewardText(st, q.rw))}</b>` : ''}。点开能看三条和本章主线。`; }, btn: '明白了' },
+  { id: 'expNav', show: () => !modalOpen() && !st.exp, target: '[data-nav="exp"]', text: () => '光坐着赢不了，点【历练】', until: () => modalTitle() === '外出历练' || !!st.exp },
+  { id: 'expPick', show: () => modalTitle() === '外出历练', target: '#modal .card[data-k="0"]', text: () => `点【${R0()}】`, until: () => modalTitle() === R0() || !!st.exp, back: () => (!modalOpen() && !st.exp ? 'expNav' : null) },
+  { id: 'expGo', show: () => modalTitle() === R0(), target: '#modal .foot .btn.gold', text: () => `点【出发】，${L.expLen(0)} ${MO()}回来`, until: () => !!st.exp, back: () => (modalTitle() === '外出历练' ? 'expPick' : !modalOpen() && !st.exp ? 'expNav' : null) },
 ];
 const nextName = () => (st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n);
 const muNext = () => { const n = L.nextTour(st), q = L.rivalRank(st, 'mu'); const Q = Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * (st.tick + n)); return { n, Q, p: L.duelChance(L.duelPower(st, L.PACT_FOE), Q) }; };
@@ -80,7 +70,7 @@ const HINTS = [
       const fa = L.aidInfo(st, 'fa'), max = Math.min(L.BT.maxPills, st.pills);
       return `从金丹起要渡雷劫。基础只有 <b>${L.pct(L.REALMS[Math.min(st.p.r, 8)].rate)}</b>，破境丹每枚 +${L.pct(L.BT.pill)}；这些<b>护劫手段</b>各能用一次：${fa.ok ? `祭法宝 <b>+${L.pct(fa.v)}</b>（失败兵器强化 −1）` : `祭法宝 +${L.pct(fa.v)}`}、道侣护法 +${L.pct(L.TRIB.daolv)}。全用上 <b>${L.pct(L.tribRate(st, { pills: max, aids: 'all' }))}</b>。${L.tribTop(st) < 1 ? `天劫没有十成把握：最多 <b>${L.pct(L.tribTop(st))}</b>，多出来的不算，挑代价小的用；败一次下回 +${L.pct(L.BT.fail)}。` : `元婴劫起天劫就没有十成把握了（最多 ${L.pct(L.TRIB.top)}）。`}`;
     } },
-  { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满了！点这个<b>金色的修为条</b>冲击${nextName()}${L.btGuard(st) ? '。头一回老夫护法，<b>必成</b>（100%）' : `，成功率 <b>${L.pct(btShownRate())}</b>`}。`, until: () => /突破|天劫/.test(modalTitle()) || !!cine },
+  { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满！点金色修为条突破`, until: () => /突破|天劫/.test(modalTitle()) || !!cine || !L.isReady(st) },
   { id: 'btGo', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: () => `点它。成了之后战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 <b>${fmt(L.lifespan(st))} → ${fmt(nextLife())}</b>。`, until: () => !!cine || !modalOpen() },
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
       if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${L.TOUR_EVERY} 个周天</b>一届<b>天骄论道</b>（下一届还剩 <b>${L.nextTour(st)}</b> 个周天），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
@@ -304,7 +294,8 @@ function ensureGuide() {
 function currentGuide() {
   if (!st || !$('#intro').hidden || (cine && !cine.paused) || duelFx) return null;   // 天劫中途那一停（cine.paused）老祖可以说话；场景里对决时不插嘴
   ensureGuide();
-  if (tempHint) return tempHint;
+  // 临时提示（入口没开、秘境里气血低……）不再阻塞：改成一行传讯 + 金框（§5.2）
+  if (tempHint) { const t = tempHint; tempHint = null; say(cut(String(typeof t.text === 'function' ? t.text() : t.text).replace(/<[^>]+>/g, ''), 24)); if (t.target) hlOnly(t.target, 5000); }
   const g = st.guide;
   if (!g.done) {
     for (let guard = 0; guard < 20 && g.step < GUIDE.length; guard++) {
@@ -344,14 +335,15 @@ function updateGuide() {
   const tgt = cur.target ? document.querySelector(cur.target) : null;
   if (cur.target && (!tgt || !tgt.offsetParent)) { el.hidden = true; return; }
   el.hidden = false;
-  guideHold = !!cur.btn; // 老祖说话时时间暂停
+  guideHold = !!cur.btn || GUIDE.includes(cur); // 手把手的三步停表（§5.1 #2）
   const id = cur.id + (GUIDE.includes(cur) ? '' : '_h');
   if (guideShownId !== id) {
     guideShownId = id;
     el.querySelector('.gav').src = ELDER;
     el.querySelector('.gtext').innerHTML = typeof cur.text === 'function' ? cur.text() : cur.text;
     const bt = el.querySelector('.gbtns');
-    bt.innerHTML = (GUIDE.includes(cur) ? '<button class="skip" data-g="skip">跳过教程</button>' : '') + (cur.btn ? `<button class="btn gold" data-g="ok">${cur.btn}</button>` : '');
+    bt.innerHTML = cur.btn ? `<button class="btn gold" data-g="ok">${cur.btn}</button>` : '';
+    el.querySelector('.gbox').classList.toggle('slim', !cur.btn);
     const ok = bt.querySelector('[data-g="ok"]'); if (ok) ok.onclick = () => { ac(); advanceGuide(cur); updateGuide(); };
     const sk = bt.querySelector('[data-g="skip"]'); if (sk) sk.onclick = () => { SFX.tap(); st.guide.done = true; updateGuide(); };
   }
@@ -431,4 +423,3 @@ function showQuests() {
   });
 }
 $('#goal').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showQuests(); });
-$('#btnHelp').onclick = () => { if (!st || cine) return; ac(); SFX.tap(); showHelp(); };

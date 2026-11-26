@@ -119,7 +119,7 @@ function showPets(u, still) {
   } else det = emptyNoteHTML('pet', '还没有灵宠：坊市的灵兽蛋、采药时偶遇都能得到。');
   const body = `<div class="gres pn-res">${icon16('feed', 1)} 兽粮 <b class="num">${fmt(st.feed || 0)}</b> · 名册 ${st.pets.length}/${cap}</div>
     ${petPendHTML()}<div class="pcards pn-pcards" style="grid-template-columns:repeat(${Math.max(2, cap)},minmax(0,1fr))">${cards}</div>${det}`;
-  const s = sheet({ title: '兽栏', still, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+  const s = sheet({ title: shellTitle('gear'), still, body: meTabs('pets') + body });
   petMsg = '';
   s.querySelectorAll('[data-pi]').forEach(b => b.onclick = () => { SFX.tap(); petSel = +b.dataset.pi; showPets(undefined, true); });
   const ob = s.querySelector('#petOut'); if (ob) ob.onclick = () => { const pw0 = L.power(st); if (L.petSetOut(st, petSel)) { SFX.coin(); petMsg = `【${esc(L.petName(st.pets[petSel]))}】出战：战力 ${fmt(pw0)} → <b>${fmt(L.power(st))}</b>`; showPets(undefined, true); } };

@@ -12,14 +12,14 @@ function sectTabs(tab) {
 function showSect(tab) {
   const p = st.p;
   if (!st.sect) {
-    sheet({ title: '宗门', body: `${emptyNoteHTML('vault', p.r >= 1 ? `散修一个。约 <b>${Math.max(0, (st.flags.inviteAt || 0) - st.tick)}</b> 周天后宗门再来招揽。` : '散修一个。筑基后三大宗门会来招揽。')}
+    sheet({ title: shellTitle('world'), body: meTabs('sect') + `${emptyNoteHTML('vault', p.r >= 1 ? `散修一个。约 <b>${Math.max(0, (st.flags.inviteAt || 0) - st.tick)}</b> 周天后宗门再来招揽。` : '散修一个。筑基后三大宗门会来招揽。')}
       <div class="quote">戒中老祖：“急什么。等你筑基，那些宗门自会八抬大轿来请你。”</div>` });
     return;
   }
   tab = tab || sectTab; sectTab = tab;
   const sc = L.sectOf(st);
   const body = tab === 'task' ? sectTaskHTML() : tab === 'vault' ? sectVaultHTML() : tab === 'disc' ? discTabHTML() : sectIdHTML();
-  const s = sheet({ title: `${emblemImg(st.sect.id, 1.5)} ${sc.n}`, sub: tab === 'id' ? '' : `${L.srankName(st, st.sect.rank)} · 贡献 ${fmt(st.sect.pts)}`, body: sectTabs(tab) + body });
+  const s = sheet({ title: shellTitle('world'), sub: `${emblemImg(st.sect.id, 1)} ${sc.n} · ${L.srankName(st, st.sect.rank)}`, body: meTabs('sect') + sectTabs(tab) + body });
   s.querySelectorAll('[data-stab]').forEach(b => b.onclick = () => { SFX.tap(); showSect(b.dataset.stab); });
   if (tab === 'id') bindSectId(s); else if (tab === 'task') bindSectTask(s); else if (tab === 'vault') bindSectVault(s); else bindDiscTab(s);
 }

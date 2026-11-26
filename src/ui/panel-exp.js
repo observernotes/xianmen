@@ -184,63 +184,92 @@ function deltaHTML(res) {
   }
   return d.length ? `<dl class="grid2 delta">${d.join('')}</dl>` : '';
 }
-// 结算卡：评价印（天甲乙丙丁）+ 四项小分 + 收获 + 掉落 + 前后对比
+// 结算卡（docs/KAIRO_PLAN.md §6.1，示意图 05_exp_result.png）：一趟（或连续三趟合并）只一张，从上到下——
+// 标题“历练归来 · 地点 · 用了 N 月”+ 评价印；拿到的三格；新法宝 / 功法一行对比（第一件“已戴上”，之后【换上】【先收着】）；
+// 你变强了：战力 前 → 后、修为条（旧青新金）；离目标：本章目标条 前 → 后、“还有 N 月 · 够再去 M 趟”；你不在时（纸鹤汇总）；【回洞府】【再去一趟 ▸】
+// 出发前快照：线 1 在 L.startExp 里记的 st.exp.snap（没有时用界面自己记的 tripSnap：出发后第一次刷新主画面时记下）
+let tripSnap = null;
+function tripSnapNow() {
+  if (!st || !st.exp) return;
+  if (tripSnap && tripSnap.e === st.exp) return;
+  const g = L.goalNow(st);
+  tripSnap = { e: st.exp, pw: L.power(st), xp: st.p.xp, r: st.p.r, s: st.p.s, need: L.pNeed(st.p), gv: g.bar.v, gt: g.bar.text, ch: g.ch, total: st.exp.total, pact: st.pact ? null : L.pactInfo(st).p };
+  if (st.exp.snap) Object.assign(tripSnap, { pw: st.exp.snap.pw !== undefined ? st.exp.snap.pw : tripSnap.pw, xp: st.exp.snap.xp !== undefined ? st.exp.snap.xp : tripSnap.xp });
+}
 function showExpResult(res) {
   lastExp = res;
   const rg = L.REGIONS[res.k];
-  const lines = [];
   if (res.legacy) {
-    lines.push(`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里没走完的那趟历练，按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? '，负伤 3 周天' : ''}。</p>`);
-  } else {
-    // 先看重点（docs/ONBOARDING.md §4）：第一屏只有评价印、一行收获、要你决定的掉落、战力前后；分数、明细、各种小字收进“详情”
-    const pr = res.parts, sg = v => (v >= 0 ? '+' : '') + Math.round(v), more = [];
-    lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(52, undefined, '', res.rating >= 3 ? 'joy' : res.rating <= 0 ? 'sad' : 'n')}<div class="center">${stampHTML(res.rating, true)}<div class="muted">${res.recall ? '中途折返' : '评价'}${res.leap ? ' · <span class="seal">越级</span>' : ''}</div></div></div>`);
-    const key = [`灵石 <b>+${fmt(res.stones)}</b>${res.leap ? '（越级 ×2）' : ''}${res.escort ? '（归宗门）' : ''}`];
-    if (res.herbs) key.push(`灵草 +${fmt(res.herbs)}`);
-    if (res.xp > 0) key.push(`修为 +${fmt(res.xp)}`);
-    lines.push(`<p class="center num">${key.join(' · ')}</p>`);
-    if (!res.first && !res.recall) more.push(`<div class="center muted num">斩获 ${Math.round(pr.pow)} · 机缘 ${sg(pr.luck)} · 身法 ${sg(pr.aff)} · 胆魄 ${sg(pr.guts)} = <b>${Math.round(res.score)}</b> 分</div><div class="center muted">（丙 ${L.RATE_TH[0]} · 乙 ${L.RATE_TH[1]} · 甲 ${L.RATE_TH[2]} · 天 ${L.RATE_TH[3]}；奖励 ×${res.m}${res.leap ? ' ×2' : ''}）</div>`);
-    if (res.affNew) lines.push(`<div class="quote">相性揭晓：【${rg.n}】${L.APPR[res.a].n} ${L.AFF_SYM[res.affV]}${res.affV === 2 ? '——此地正适合！' : res.affV === 0 ? '——此地不宜。' : ''}</div>`);
-    const g = [];
-    if (res.ore) g.push(`<dt>灵矿</dt><dd class="num">${oreImg(pxs(8, 2))} +${fmt(res.ore)}（共 ${fmt(st.ore)}）</dd>`);
-    if (res.feed) g.push(`<dt>兽粮</dt><dd class="num">${icon16('feed', 1)} +${res.feed}（共 ${fmt(st.feed)}）</dd>`);
-    if (res.pet) g.push(`<dt>灵宠</dt><dd>【${esc(res.pet.name)}】${res.pet.lv1 > res.pet.lv0 ? `<span class="jadet">升到 Lv${res.pet.lv1}</span>` : '经验 +1 成'}${res.pet.deep ? `，禁地 ${res.pet.deep} 趟` : ''}${res.petHerbs ? `，多叼回灵草 ${fmt(res.petHerbs)}` : ''}</dd>`);
-    if (res.pills) g.push(`<dt>破境丹</dt><dd>+${res.pills}</dd>`);
-    if (res.treasure) g.push(`<dt>天材地宝</dt><dd class="seal">+${res.treasure}</dd>`);
-    if (res.contrib) g.push(`<dt>宗门贡献</dt><dd class="num">+${fmt(res.contrib)}</dd>`);
-    if (g.length) more.push(`<dl class="grid2">${g.join('')}</dl>`);
-    lines.push(dropFlipHTML(res.items));
-    // 要你拿主意的（法宝对比卡、功法、灵宠）留在第一屏；已经自动换上 / 熔掉的收进详情
-    for (const it of res.items) { const h = itemLine(it); if (!h) continue; (it.pend || it.kind === 'a' || it.kind === 'pet' || it.equip ? lines : more).push(h); }
-    if (res.planText) lines.push(`<div class="quote row">${scrollImg()}<span class="grow">${esc(res.planText)}</span></div>`);
-    if (res.robeSave) more.push('<p class="center jadet">法衣护体：本是丁等，改判丙等。</p>');
-    if (res.huzhu) more.push('<p class="center jadet">词条「护主」：丁等，但没有负伤（12 周天后才能再挡一次）。</p>');
-    for (const u of res.unlock || []) lines.push(`<div class="quote jadet">${esc(u)}</div>`);
-    if (res.sum) more.push(`<div class="quote">连续 ${res.sum.n} 趟合计：灵石 +${fmt(res.sum.stones)}，灵草 +${fmt(res.sum.herbs)}，破境丹 +${res.sum.pills}，评价 ${res.sum.ratings.map(r => L.RATINGS[r]).join(' ')}</div>`);
-    if (res.first) lines.push('<div class="quote">戒中老祖：“第一趟，老夫暗中替你挡了两爪子。以后可得靠你自己了。”</div>');
-    if (res.inj) lines.push(`<p class="center seal">铩羽而归，负伤 ${res.inj} 周天（战力 ×${dec2(L.injAtk(st))}、修炼 ×0.5）。看出发前那行“预计评价”，是丙～丁就别去。</p>`);
-    if (res.dodged) more.push('<p class="center jadet">敛息术护体：丁等，但没有负伤。</p>');
-    if (res.lifeCost) lines.push(`<p class="center seal">血遁脱身：丁等不负伤，寿元 −${fmt(res.lifeCost)} 年。</p>`);
-    if (res.qianyuan) more.push('<p class="center jadet">潜渊：禁地失手，空手而归，但没有负伤。</p>');
-    if (res.healed) more.push(`<p class="center jadet">回春剑诀：负伤 −${res.healed} 周天。</p>`);
-    if (typeof compResLine === 'function') lines.push(compResLine(res));   // 同行的人、对上的委托（panel-people.js）
-    lines.push(deltaHTML(res));
-    if (more.length) lines.push(`<details class="more"><summary>详情：分数、其他收获</summary>${more.join('')}</details>`);
+    const lines = [`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里那趟历练按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? `，负伤 3 ${MO()}` : ''}。</p>`, deltaHTML(res)];
+    sheet({ title: `归来 · ${rg.n}`, center: true, body: lines.join(''), foot: [{ t: '回洞府', gold: true, fn: closeModal }] });
+    return;
   }
-  if (res.legacy) lines.push(deltaHTML(res));
+  const sn = tripSnap && (!tripSnap.e || tripSnap.e.k === res.k) ? tripSnap : null; tripSnap = null;
+  const pw0 = sn ? sn.pw : res.pw0, pw1 = L.power(st);
+  const used = res.sum ? res.sum.n * (sn ? sn.total : L.expLen(res.k, st)) : sn ? sn.total : L.expLen(res.k, st);
+  const lines = [];
+  // 评价
+  lines.push(`<div class="krow"><span class="k">${res.recall ? '中途折返' : '评价'}</span><span class="v s">推荐战力 ${fmt(L.rec(res.k, res.d))} · 你 ${fmt(pw0)}</span><div class="kstamp">${L.RATINGS[res.rating]}</div></div>`);
+  // 拿到的：有就画，没有不占位（最多四格，其余一行小字）
+  const loot = [];
+  if (res.stones) loot.push(`${artIcon('stone', 16)} +${fmt(res.stones)}`);
+  if (res.herbs) loot.push(`${artIcon('herb', 16)} +${fmt(res.herbs)}`);
+  if (res.xp > 0) loot.push(`${artIcon('xp', 16)} +${fmt(res.xp)}`);
+  if (res.ore) loot.push(`${artIcon('ore', 16)} +${fmt(res.ore)}`);
+  if (res.feed) loot.push(`${artIcon('feed', 16)} +${res.feed}`);
+  if (res.pills) loot.push(`${artIcon('pojing', 16)} +${res.pills}`);
+  if (res.treasure) loot.push(`${artIcon('treasure', 16)} +${res.treasure}`);
+  if (res.contrib) loot.push(`${artIcon('contrib', 16)} +${fmt(res.contrib)}`);
+  if (loot.length) lines.push(`<div class="kloot">${loot.slice(0, 4).map(x => `<div>${x}</div>`).join('')}</div>` + (loot.length > 4 ? `<div class="kloot">${loot.slice(4, 8).map(x => `<div>${x}</div>`).join('')}</div>` : ''));
+  // 新法宝 / 功法 / 灵宠：第一件“已戴上”；待定的【换上】【先收着】（先收着 = 留在【装备】的“新到”里，不熔）
+  for (const it of res.items) {
+    if (it.gear) {
+      const x = it.gear, B = L.gearBase(x.id), cell = `<div class="cell">${qcellHTML(x.t, gearImg(x, 2), 2)}</div>`;
+      if (it.pend && L.gearPend(st, x.u)) {
+        const D = L.gearDelta(st, x), dp = D.b.p - D.a.p;
+        lines.push(`<div class="kslot${D.better ? ' hot' : ''}" data-krow="${x.u}">${cell}<div class="mid"><div class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)} <span class="kdn" style="font-size:14px">新</span></div><small>${Math.abs(dp) >= 1 ? `战力 <span class="${dp >= 0 ? 'kup' : 'kdn'}" style="font-size:16px">${dp >= 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dp))}</span>` : esc(gearKey(x))}</small></div><button class="kb ${D.better ? 'red' : 'alt'}" data-req="${x.u}">换上</button><button class="kb alt" data-rkeep="${x.u}">先收着</button></div>`);
+      } else if (it.equip || st.gear[x.slot] === x) lines.push(`<div class="kslot">${cell}<div class="mid"><div class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}</div><small>${esc(gearKey(x))}</small></div><span class="chip ok">已戴上</span></div>`);
+      else if (it.hold) lines.push(`<div class="kslot">${cell}<div class="mid"><div class="nm">${esc(B.n)}</div><small>${L.GEAR_N[x.slot]}槽${esc(L.gearOpenWhy(st, x.slot).replace('开放', '开'))}</small></div><span class="chip">收着</span></div>`);
+      else if (it.smelt !== undefined) lines.push(`<div class="kslot">${cell}<div class="mid"><div class="nm">${esc(B.n)}</div><small>不如身上的 · 熔成灵矿 +${it.smelt}</small></div></div>`);
+    } else { const h = itemLine(it); if (h) lines.push(h); }
+  }
+  if (res.planText) lines.push(`<div class="quote row">${scrollImg()}<span class="grow">${esc(cut(res.planText, 24))}</span></div>`);
+  for (const u of res.unlock || []) lines.push(`<div class="krow"><span class="k">新开</span><span class="v kup">${esc(cut(u, 16))}</span></div>`);
+  if (res.inj) lines.push(`<div class="krow"><span class="k">负伤</span><span class="v kdn">${res.inj} ${MO()} · 战力 ×${dec2(L.injAtk(st))}</span></div>`);
+  if (res.lifeCost) lines.push(`<div class="krow"><span class="k">血遁</span><span class="v kdn">寿元 −${fmt(res.lifeCost)} 年</span></div>`);
+  if (typeof compResLine === 'function') { const c = compResLine(res); if (c) lines.push(c); }
+  // 你变强了
+  lines.push(`<div class="ksec"><span>你变强了</span></div>`);
+  lines.push(`<div class="krow"><span class="k">战力</span><span class="v">${fmt(pw0)} → <span class="big">${fmt(pw1)}</span>${pw1 > pw0 + 0.5 ? ` <span class="kup" style="font-size:14px">▲${fmt(pw1 - pw0)}</span>` : ''}</span></div>`);
+  if (st.p.r <= L.MAXR) {
+    const need = L.pNeed(st.p), same = sn && sn.r === st.p.r && sn.s === st.p.s;
+    const a = same ? Math.min(1, sn.xp / need) : 0, b = Math.min(1, st.p.xp / need);
+    lines.push(`<div class="krow"><span class="k">修为</span><div class="kpbar"><i class="dl" style="width:${(b * 100).toFixed(1)}%"></i><i style="width:${(a * 100).toFixed(1)}%"></i></div><span class="s">${fmt(st.p.xp)}/${fmt(need)}</span></div>`);
+  }
+  // 离目标：本章目标条 前 → 后；下一个大节点还有几月、够再去几趟
+  const g = L.goalNow(st), bn = L.bigNext(st);
+  const gv0 = sn && sn.ch === g.ch ? sn.gv : g.bar.v, gv1 = g.bar.v;
+  const isPct = /%/.test(g.bar.text), pctOf = v => Math.round(v * (g.ch === 0 && !st.pact ? 80 : 100));
+  lines.push(`<div class="ksec"><span>离目标</span></div>`);
+  lines.push(`<div class="krow"><span class="k">${esc(cut(g.t, 5))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
+  if (bn) { const n = Math.floor(Math.max(0, bn.left - 1) / Math.max(1, L.expLen(res.k, st))); lines.push(`<div class="krow"><span class="k">${esc(cut(bn.n, 5))}</span><span class="v kdn">还有 ${bn.left} ${MO()}</span><span class="s">够再去 ${n} 趟</span></div>`); }
+  // 你不在时：纸鹤汇总（线 1 的 L.mailAway）
+  const away = L.mailAway ? L.mailAway(st) : [];
+  if (away && away.length) { lines.push(`<div class="kaway">${artIcon('mail', 16)}<span>你不在时：${away.slice(0, 3).map(x => esc(cut(x.t, 10))).join(' · ')}</span></div>`); if (L.mailAwayClear) L.mailAwayClear(st); }
   if (res.rating >= 2) SFX.coin(); else SFX.fail();
-  // 引导期（第一张结算卡）只有【回洞府】；修为圆满换成【回去突破】，负伤换成【回去疗伤】
-  const guiding = res.first || (st.guide && !st.guide.done);
-  const foot = [];
-  if (guiding) foot.push({ t: '回洞府', gold: true, fn: closeModal });
-  else {
-    foot.push({ t: '回洞府', alt: true, fn: closeModal });
+  // 第一张只有【回洞府】；修为圆满换成【回去突破】，负伤换成【回去疗伤】，否则【再去一趟 ▸】
+  const foot = [{ t: '回洞府', alt: true, fn: closeModal }];
+  if (!res.first) {
+    const blk = L.expBlock ? L.expBlock(st, res.k, res.d, res.a) : null;
     if (L.isReady(st)) foot.push({ t: '回去突破', gold: true, fn: () => { closeModal(); showBreakthrough(); } });
     else if (st.p.inj > 0) foot.push({ t: '回去疗伤', gold: true, fn: () => { closeModal(); showHome(); } });
-    else if (!res.legacy && L.expOpen(st, res.k, res.d, res.a) && !L.busy(st)) foot.push({ t: '再探一次', gold: true, fn: () => { closeModal(); if (L.startExp(st, res.k, res.d, res.a)) SFX.coin(); } });
+    else if (L.expOpen(st, res.k, res.d, res.a) && !L.busy(st)) foot.push({ t: blk ? blk.why : '再去一趟 ▸', gold: !blk, disabled: !!blk, fn: () => { closeModal(); if (L.startExp(st, res.k, res.d, res.a)) SFX.coin(); } });
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
-  dropFlipRun(sheet({ title: `归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot }));
+  const s = sheet({ title: `历练归来<span class="hn">${esc(cellName(res.k, res.d))} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
+  const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
+  s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
+  s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价
 function gearExpLine(k, d, a) {

@@ -25,9 +25,9 @@ function setFontSize() {
   const dpr = window.devicePixelRatio || 1;
   const k = Math.max(1, Math.round(dpr * 1.2));
   let fs = 12 * k / dpr;
-  if (fs < 12) fs = 12;
+  if (fs < 14) fs = 14;   // 开罗式重整 §4.2：字号 ≥ 14px（像素字不再强求整数倍）
   if (fs > 16) fs = 16;
-  const fm = dpr < 1.5 ? fs : Math.min(18, 12 * (k + 1) / dpr), fl = Math.max(24, 24 * k / dpr);
+  const fm = Math.max(16, dpr < 1.5 ? fs : Math.min(18, 12 * (k + 1) / dpr)), fl = Math.max(24, 24 * k / dpr);
   const root = document.documentElement;
   root.style.setProperty('--fs', fs.toFixed(3) + 'px');
   root.style.setProperty('--fs-m', fm.toFixed(3) + 'px');

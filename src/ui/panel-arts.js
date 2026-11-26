@@ -102,7 +102,7 @@ function showArts(sel, still) {
     ${rows.length ? `<details class="more"><summary>各门说明（${rows.length} 门）</summary>${descs}</details>` : ''}
     <details class="more"><summary>共鸣图鉴 ${found.length} / ${L.COMBOS.length}</summary>${dex}<div class="muted">两门同属修炼、战力 +4%，三门 +10%；心法生战技（木→火→土→金→水→木）战技倍率部分 +10%。还有 ${L.COMBOS.length - found.length} 条有名的共鸣没发现：凑齐就揭晓，跨世保留。</div></details>
     <details class="more"><summary>熟练与融会</summary><div class="muted">熟练：装备着每周天 +1（心法闭关 +2，战技斩妖一趟 +2）；圆满得一份融会（卸下也保留，合计上限 +30%）。融会 ${L.rongN(st)} 门：修炼 +${(rc * 100).toFixed(1)}% · 战力 +${(ra * 100).toFixed(1)}%${L.ART_SLOTS[artSel] === 'z' ? '<br>战技即换即生效，还定你的攻击属性。' : ''}${frags ? '<br>' + frags : ''}</div></details>`;
-  const s = sheet({ title: '人物', body, still });
+  const s = sheet({ title: shellTitle('gear'), body, still });
   bindMeTabs(s);
   s.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { SFX.tap(); showArts(+b.dataset.slot, true); });
   s.querySelectorAll('[data-art]').forEach(b => b.onclick = () => {
