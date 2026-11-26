@@ -115,8 +115,8 @@ L.markBeat = function (st, id) {
 L.duelLines = Q => ({ even: Q, sure: Q * 1.8 });
 // 三年之约：第 36 月（炼气期 12 月一年）。第一世未筑基时老祖借力 ×2
 L.PACT_TICK = 36;
-L.PACT_POWER = 88;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125；最终校准 → 140；上手曲线（docs/ONBOARDING.md）第一章不再有坊市、灵田、丹炉、战技 → 88，借力 2.8 → 1.8 把 idle 压回 15%～25%
-L.PACT_ASSIST = 1.8;
+L.PACT_POWER = 125;   // COMBAT_LOOT §8.5：开局心法、第 2 趟战技、回合战 → 88 → 125（用户：胜算不必精确，只要引导明显能赢、只打坐明显赢不了）；旧注：// SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125；最终校准 → 140；上手曲线（docs/ONBOARDING.md）第一章不再有坊市、灵田、丹炉、战技 → 88，借力 2.8 → 1.8 把 idle 压回 15%～25%
+L.PACT_ASSIST = 2.4;   // 只打坐的人只多了开局心法的修炼，PACT_POWER 抬了以后借力 1.8 → 2.4 把 idle 拉回原来的量级
 L.pactPower = () => L.PACT_POWER;
 // 对手描述（给对决倍率用；五行等属性随宿敌资料接入，见 CONTENT §10）
 L.PACT_FOE = { kind: 'rival', id: 'mu' };
@@ -147,7 +147,7 @@ L.pactDuel = function (st) {
   const S = L.duelPower(st, L.PACT_FOE) * L.pactAssist(st);
   const Q = L.pactPower();
   const p = L.duelP(st, S, Q, L.PACT_FOE);
-  const win = R() < p;
+  const win = L.duelWin(st, S, Q, L.PACT_FOE, p, { pact: assist, n: st.exName });   // 一场真打的回合战，胜率仍是 p（battle.js）
   st.pact = win ? 1 : -1;
   if (L.revealFoe) L.revealFoe(st, L.PACT_FOE);
   const res = { S, Q, p, win, assist, base: S / L.pactAssist(st), rank0: st.rank };
@@ -212,9 +212,9 @@ L.tournament = function (st) {
     const foe = { kind: 'rival', q, id: rv && rv.id, streak: j };
     const Sr = L.duelPower(st, foe);
     const p = L.duelP(st, Sr, Q, foe);
-    let win = R() < p, xx = false;
+    let win = L.duelWin(st, Sr, Q, foe, p), xx = false;
     // 玄霄在手：老祖“请出手”，每届 2 次，输掉的一场重掷（gear.js）
-    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = R() < p; }
+    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = L.duelWin(st, Sr, Q, foe, p); }
     if (L.revealFoe && rv && rv.id) L.revealFoe(st, foe);
     const round = { q, rv, P: Q, S: Sr, p, win, xx, auc: rv ? aucNote.get(rv.n) : undefined, wanted: !!(rv && L.wanted(st) && L.wanted(st).who === rv.n) };
     if (win) {

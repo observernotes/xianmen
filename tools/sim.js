@@ -71,6 +71,15 @@ const RIV2 = !arg.includes('norivals2');
 if (arg.includes('nopeople2')) L.PEOPLE2_ON = false;
 // noonb：关掉上手曲线（L.ONB_ON = false：各系统一到原门槛就开，回到 2.0.0 的节奏），与默认对照量 docs/ONBOARDING.md 这一刀的影响
 if (arg.includes('noonb')) L.ONB_ON = false;
+// notrip：历练回到分数制（L.TRIP_ON = false：没有节点与回合战，评价照旧预掷），与默认对照量 docs/COMBAT_LOOT.md 这一刀
+if (arg.includes('notrip')) L.TRIP_ON = false;
+// noke：guided 出发前不换克制（COMBAT_LOOT §4.4 的对照）
+const NOKE = arg.includes('noke');
+// pp=112：临时改 L.PACT_POWER（校准用）；pa=1.8：临时改 L.PACT_ASSIST
+for (const x of arg) { const m = /^(pp|pa)=([\d.]+)$/.exec(x); if (m) L[m[1] === 'pp' ? 'PACT_POWER' : 'PACT_ASSIST'] = +m[2]; }
+// 引擎耗时：历练途中每个 L.tick 的平均耗时（含节点自动打）
+const BT_TIMING = L.TRIP_ON !== false;
+let btNs = 0, btNodes = 0;
 const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
@@ -470,7 +479,7 @@ function actGuided(st, rec, seed) {
   cropGuided(st);
   alchGuided(st, rec);
   peopleGuided(st, rec);
-  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k)) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.fightBoss(st, k); } }
+  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k)) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.fightBoss(st, k); } }
   if (L.busy(st) || L.isFull(st)) return;
   if (p.inj > 0 && st.pills > 0) L.heal(st);
   if (L.canTrain(st)) { L.startTrain(st); return; }
@@ -507,7 +516,8 @@ function actGuided(st, rec, seed) {
       if (pick) { cell = pick; rec.chainTrips = (rec.chainTrips || 0) + 1; break; }
     }
   }
-  artFor(st, { k: cell.k });
+  // 出门前换上克制这一格精英的战技（COMBAT_LOOT §2.6；回合战关掉时照旧看地图五行）
+  if (L.TRIP_ON !== false && !NOKE) { const ce = L.cellFoes(cell.k, cell.d), fe = L.FOES[ce.elite]; artFor(st, { k: cell.k, fel: fe ? fe.el : '' }); } else if (!NOKE) artFor(st, { k: cell.k });
   if (L.startExp(st, cell.k, cell.d, cell.a, escort !== undefined ? { escort } : undefined)) st._trips = (st._trips || 0) + 1;
 }
 function actLazy(st, rec) {
@@ -574,6 +584,8 @@ function run(strat, seed, trace, opt) {
   opt = opt || {};
   if (!opt.st0) L.rng = rngFor(seed);
   const st = opt.st0 || L.newState({ name: '测试' });
+  // 回合战的自动策略：guided 会留绝招破招、血少吞丹（'smart'），其余只会“怒气满就放”（'auto'）
+  st.btPol = strat === 'guided' ? 'smart' : 'auto';
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {}, npcGifts: 0, pq: 0, sx: 0, affAt: {},
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
@@ -587,13 +599,17 @@ function run(strat, seed, trace, opt) {
     else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
     if (strat === 'lazy') { artLazy(st); L.gearAutoAll(st); }
     if (strat === 'guided') gearGuided(st);
-    if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
+    if (strat === 'guided' && !NOKE && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
     if (strat === 'guided' && st.sect && st.tick % L.MEET_EVERY === L.MEET_AT - 1) { const pos = L.sectPos(st); artFor(st, { foe: { kind: 'sect', id: L.nineAt(st, pos === 1 ? 2 : pos - 1).id } }); }
     if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) battlePill(st, rec, L.pactInfo(st).p);
     rec.passive += L.income(st);
     rec.toxSum += st.toxin || 0; rec.toxMax = Math.max(rec.toxMax, st.toxin || 0); rec.ticks++;
     if (L.plotCount(st)) { rec.rice += L.riceCount(st); rec.plots += L.plotCount(st); }
+    const t0 = BT_TIMING ? process.hrtime.bigint() : 0n;
     const out = L.tick(st);
+    if (BT_TIMING && st.exp && st.exp.nodes) { btNs += Number(process.hrtime.bigint() - t0); btNodes++; }
+    // 回合战（COMBAT_LOOT §8.5 的新断言）：第一章各趟的评价、首领战
+    if (out.exp && !st.pact) { rec.c1n = (rec.c1n || 0) + 1; if (out.exp.rating >= 3) rec.c1jia = (rec.c1jia || 0) + 1; if (out.exp.bt && out.exp.bt.ke) rec.c1ke = (rec.c1ke || 0) + 1; }
     if (out.harvest) for (const k in out.harvest) if (L.YIN_N[k]) rec.yinGot += out.harvest[k];
     if (out.choice && strat !== 'idle') pickChoice(st, out.choice);
     if (out.visitor && strat === 'guided') giftGuided(st, rec);
@@ -603,6 +619,7 @@ function run(strat, seed, trace, opt) {
     if (strat !== 'idle') for (let g = 0, ev; g < 3 && (ev = L.marketEvent(st)); g++) { pickChoice(st, ev); L.marketEventDone(st, ev.id); }
     if (out.world) rec.worlds++;
     if (out.train && strat === 'guided') L.startTrain(st);
+    if (out.pact) { rec.zhanN = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').length; rec.wStar = st.gear.w ? st.gear.w.star || 0 : -1; rec.wPlus = st.gear.w ? st.gear.w.plus || 0 : -1; rec.bossCh1 = !!st.bosses[0]; rec.wishHit = (st.stats.wishHit || 0) > 0; rec.infuse = (st.stats.infuse || 0) > 0; }
     if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win; }
     if (out.invite && strat !== 'idle') L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]);
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
@@ -691,6 +708,25 @@ function rvRows(strat, recs) {
   row(strat, '（参考）宿敌 论道前换战技 / 胜算涨', `${m('swap')} 次 / +${(100 * sum('swapGain') / Math.max(1, sw)).toFixed(1)} 个百分点（每次）；宿敌奇遇 ${m('qy')} 次；伏击 ${m('ambush')} 次`, '§13：克制约 +10 个百分点');
   row(strat, '（参考）新秀 出现 / 打压胜·负 / 指点；恩怨', `${m('rkN')} 位 / ${(cw / recs.length).toFixed(1)}·${(cl / recs.length).toFixed(1)}（打压胜算 ${pct(sum('crushP') / Math.max(1, cw + cl))}） / ${(sum('teach') / recs.length).toFixed(1)}；送礼 ${m('gifts')}；恩怨 ≥60 ${(sum('hi') / recs.length).toFixed(1)} 人、≤−40 ${(sum('lo') / recs.length).toFixed(1)} 人，最高 ${m('gMax')} 最低 ${m('gMin')}；楚天阔同行 ${pct(sum('ally') / recs.length)}`, '—');
 }
+// 回合战（docs/COMBAT_LOOT.md §8.5 的新断言）：引擎曲线三行 + guided 第一章四行 + 引擎耗时；P0-4 / P0-5（星、心愿、淬灵）由刷宝线接上数据后才有数
+function btRows(strat, recs) {
+  const c = (r, el, pol, pill) => L.btCurve(r, el, pol, pill, 2000);
+  const n1 = c(1, 0, 'auto').clear, k1 = c(1, 1, 'auto').clear, b1 = c(1, -1, 'auto').clear, s7 = c(0.7, 0, 'smart', 1).clear;
+  row(strat, '引擎：全自动、无克、战力 = 推荐', `三场全胜 ${pct(n1)}`, '75%～90%', within(n1, 0.75, 0.90));
+  row(strat, '引擎：同上，带克制 / 被克', `${pct(k1)} / ${pct(b1)}`, '≥ 97% / 30%～50%', k1 >= 0.97 && within(b1, 0.30, 0.50));
+  row(strat, '引擎：破招 + 吞丹、战力 = 推荐 × 0.7', pct(s7), '70%～90%', within(s7, 0.70, 0.90));
+  const acts = med(recs.map(x => x.ch1Acts));
+  row(strat, '第一章行动数（历练 + 闭关）', String(acts), '9～11（COMBAT_LOOT §8.5）', within(acts, 9, 11));
+  const jia = recs.reduce((a, x) => a + (x.c1jia || 0), 0) / Math.max(1, recs.reduce((a, x) => a + (x.c1n || 0), 0));
+  row(strat, '第一章：甲以上评价占比', pct(jia), '35%～60%', within(jia, 0.35, 0.60));
+  const zn = med(recs.map(x => x.zhanN));
+  row(strat, '第一章末：战技门数（中位数）', String(zn), '≥ 3', zn >= 3);
+  row(strat, '（参考）第一章末：兵器强化中位 / 打过首领 / 心愿达成 / 淬灵过', `+${med(recs.map(x => x.wPlus))} / ${pct(frac(recs, x => x.bossCh1))} / ${pct(frac(recs, x => x.wishHit))} / ${pct(frac(recs, x => x.infuse))}`, '+2 / 40%～70% / ≥90% / 50%～80%');
+  const st2 = frac(recs, x => x.wStar >= 2);
+  row(strat, '（参考）第一章末：兵器 ★★ 以上', pct(st2), '35%～60%（刷宝线）');
+  const ms = btNodes ? btNs / btNodes / 1e6 : 0;
+  row(strat, '（参考）历练途中每月 L.tick 平均耗时', `${ms.toFixed(3)} 毫秒`, '一趟引擎 ≤ 0.3 毫秒');
+}
 function summarize(strat, recs, G) {
   const n = recs.length;
   const dur = r => recs.map(x => (x.realmAt[r + 1] !== undefined ? x.realmAt[r + 1] - (r ? x.realmAt[r] : 0) : undefined));
@@ -706,9 +742,11 @@ function summarize(strat, recs, G) {
     row(strat, '各境界时长中位数', durs.map(Math.round).join(' / '), T.join(' / ') + '，各 ±20%', durs.every((d, i) => within(d, T[i] * 0.8, T[i] * 1.2)));
     const AT = L.ONB_ON === false ? [580, 660] : [620, 710];   // 上手曲线放慢了前中期（docs/ONBOARDING.md §5）
     row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `中位数 ${AT[0]}～${AT[1]}`, within(ascMed, AT[0], AT[1]));
-    row(strat, '三年之约胜率', pct(pact), '85%～95%', within(pact, 0.85, 0.95), true);
+    // 回合战之后（COMBAT_LOOT §8.5；用户：胜算不必精确校准）：照引导玩明显能赢（≥ 70%）就算过门槛
+    row(strat, '三年之约胜率', pct(pact), '≥ 70%（原 85%～95%）', within(pact, 0.70, 1), true);
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
     row(strat, '（参考）第一章行动数（历练 + 闭关）', `${med(recs.map(x => x.ch1Acts))}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, 'KAIRO_PLAN §3.6：8～10');
+    if (L.TRIP_ON !== false) btRows(strat, recs);
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
     row(strat, '击败慕容雪', `第 60 周天前 ${pct(mu60)}，中位数 ${med(recs.map(x => x.beatAt.mu))}`, '≥95% 在第 60 周天前', mu60 >= 0.95);
     const bz = med(recs.map(x => x.beatAt.zhao)), bc = med(recs.map(x => x.beatAt.chu)), bx = med(recs.map(x => x.beatAt.xue));
@@ -786,7 +824,7 @@ function summarize(strat, recs, G) {
     return;
   }
   if (strat === 'goalcard') {
-    row(strat, '三年之约胜率', pct(pact), '75%～90%（KAIRO_PLAN §3.6）', within(pact, 0.75, 0.90));
+    row(strat, '三年之约胜率', pct(pact), '≥ 60%（原 75%～90%，KAIRO_PLAN §3.6）', within(pact, 0.60, 1));
     row(strat, '约战前已筑基', pct(zj), '50%～80%', within(zj, 0.50, 0.80));
     const a1 = med(recs.map(x => x.ch1Acts));
     row(strat, '第一章行动数（历练 + 闭关）', `${a1}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, '8～10', within(a1, 8, 10));
@@ -795,7 +833,7 @@ function summarize(strat, recs, G) {
   }
   row(strat, '炼气时长', span(dur(0)), '45～60', within(durs[0], 45, 60));
   row(strat, '飞升', pct(frac(recs, x => x.ascend !== undefined)), '不飞升', frac(recs, x => x.ascend !== undefined) === 0);
-  row(strat, '三年之约胜率', pct(pact), '15%～25%（DESIGN 写 ≤ 20%）', within(pact, 0.15, 0.25), true);
+  row(strat, '三年之约胜率', pct(pact), '≤ 40%（原 15%～25%；只打坐明显赢不了）', within(pact, 0, 0.40), true);
   row(strat, '约战前已筑基', pct(zj), '0', zj === 0);
   const inJd = frac(recs, x => x.death !== undefined && x.deathR === 2), dm = med(recs.map(x => x.death));
   row(strat, '坐化', `${pct(died)}，其中金丹期 ${pct(inJd)}，中位数第 ${dm} 周天（${q(recs.map(x => x.death), 0.1)}～${q(recs.map(x => x.death), 0.9)}）`, '100%，在金丹期，第 230～300 周天', died === 1 && inJd >= 0.95 && within(dm, 230, 300));

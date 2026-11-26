@@ -43,6 +43,7 @@ L.tick = function (st, cont) {
   const evMul = L.friend(st, 'bai') ? 1.5 : 1;
   if (st.exp) {
     const e = st.exp;
+    if (e.nodes && L.expNodeTick) L.expNodeTick(st);   // 这一月的节点：界面没打就自动打（trip.js）；倒下 / 撤会把 e.left 压到 1
     e.left--;
     if (e.left > 0 && e.plan && !e.encEv && e.total - e.left === Math.ceil(e.total / 2) && st.stats.exp >= 2 && e.plan.enc < L.ENC_P * evMul) {
       const ev = L.pickEvent(st, 'exp', { bg: L.REGIONS[e.k].bg });

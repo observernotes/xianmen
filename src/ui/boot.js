@@ -68,7 +68,8 @@ function frame(now) {
   const dt = Math.min(100, now - last); last = now;
   const sp = SPEEDS[speedIdx];
   const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run && !autoStop();   // 秘境里、自动停（clock.js）时间不走
-  if (running) {
+  if (running && btDrive(dt * sp)) { /* 历练有节点表：月份由节点推进（battle.js） */ }
+  else if (running) {
     const TM = tickMs();
     L.flow(st, dt * sp / TM);
     monthAcc += dt * sp;
@@ -98,6 +99,7 @@ function sceneClick(e) {
     SFX.coin(); crane = null; return;
   }
   if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
+  if (st.exp && btv) { if (btTapHold()) return; if (btv.ph !== 'walk') return; }   // 战斗中点画面：只放过停顿那一下（battle.js）
   if (st.exp) { SFX.tap(); showExp(); return; }
   if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 16 && y > VISIT_POS.y - 58 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;

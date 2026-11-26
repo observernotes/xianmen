@@ -12,8 +12,9 @@ function tierTag(t) { return `<span class="tag" style="background:${ART.qualityC
 // 一门功法“现在给什么”：心法修炼 ×、战技战力 ×、秘术的特效
 function artMain(id) {
   const A = L.art(id), mm = L.MAST.mult[L.artLv(st, id)];
-  if (A.k === 'x') return `修炼 ×${dec2(1 + (L.ARTS[A.t].m - 1) * mm)}`;
-  if (A.k === 'z') return `战力 ×${dec2(1 + (L.ZHAN_M[A.t - 1] - 1) * mm)}`;
+  const B = L.ART_B && L.ART_B[id];   // 战斗里的招式（battle.js，COMBAT_LOOT §3.2）：一句话
+  if (A.k === 'x') return `修炼 ×${dec2(1 + (L.ARTS[A.t].m - 1) * mm)}${B ? ' · ' + B.line : ''}`;
+  if (A.k === 'z') { const sk = L.artSkill && L.artSkill(st, id); return sk && B ? `${B.line.replace(/^×[\d.]+/, '×' + dec2(sk.m))}${sk.plus ? ' +' : ''}` : `战力 ×${dec2(1 + (L.ZHAN_M[A.t - 1] - 1) * mm)}`; }
   return L.artDesc(st, id);
 }
 const dec2 = v => (Math.round(v * 100) / 100).toFixed(2).replace(/0$/, '');
@@ -66,7 +67,8 @@ function showArts(sel, still) {
     const id = sl[i], A = id && L.art(id);
     const cls = 'aslot pn-aslot' + (i === artSel ? ' sel' : '');
     const head = SLOT_HEAD[i].slice(0, 2);
-    if (!A) return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span><span class="aempty">空</span><span class="muted">${i === 0 ? '基础吐纳' : '点下面一门'}</span></div>`;
+    const noZ = i === 1 && !Object.keys(st.arts.own).some(x => L.art(x) && L.art(x).k === 'z');
+    if (!A) return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span><span class="aempty">空</span><span class="muted">${i === 0 ? '基础吐纳' : noZ ? L.artSlotWhy(1) : '点下面一门'}</span></div>`;
     const big = i === 0 ? `修炼 ×${dec2(L.artXMult(st))}` : i === 1 ? `战力 ×${dec2(L.artZMult(st))}` : '';
     const pg = L.artProg(st, id);
     return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span>${qcellHTML(A.t, artImg(id, 2), 2)}<span class="nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</span>${big ? `<span class="num pn-key">${big}</span>` : elChip(A.el)}${bar(pg.f, pg.lv >= 3)}<span class="muted">${L.MAST.n[pg.lv]}</span></div>`;
@@ -99,7 +101,10 @@ function showArts(sel, still) {
   const rc = L.rongSum(st, 'cul'), ra = L.rongSum(st, 'atk');
   const frags = ['x_hongmeng', 'm_xingdou'].filter(id => !L.artOwned(st, id) && (st.arts.frag[id] || 0) > 0).map(id => `《${L.art(id).n}》残篇 ${st.arts.frag[id]}/3`).join(' · ');
   const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 月` : '点一门即换上';
-  const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>
+  // 绝招与器技（battle.js）：绝招常驻，怒气满了手动放；兵器带一招
+  const btm = L.btMe ? L.btMe(st) : null, wsk = btm && btm.skills.find(x => x.kind === 'w');
+  const ultRow = btm ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(btm.ult) : ''}<span class="grow">绝招「${esc(btm.ult.n)}」×${dec2(btm.ult.m)} · 怒气满了手动放</span></div>${wsk ? `<div class="bt-arow">${typeof btSkillIcon === 'function' ? btSkillIcon(wsk) : ''}<span class="grow">器技「${esc(wsk.n)}」${L.elName(wsk.el)} · ${esc(wsk.line)}</span></div>` : ''}` : '';
+  const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>${ultRow}
     ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 月（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
     ${list}`;   // 各门说明、共鸣图鉴、熟练与融会不再折叠在第一屏（§4.2）：点一门看它（换上前后的数），图鉴在【仙途】→ 记录
   const s = sheet({ title: shellTitle('gear'), body, still });

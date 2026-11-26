@@ -36,7 +36,7 @@ L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn:
 // interruptGapMonths：打坐时两次主动打断（解锁卡、事件、老祖一句）之间至少隔几个月（src/logic/time.js 的 L.notifyGate）
 // realmMul：第一世按境界再乘的系数（炼气～渡劫）。按 tools/onboard.js --life 手表机器人实测定：前两章决定少、一个月一眨眼就过（炼气 ×1 时三年之约只要 9 分钟），
 // 后几章论道、会武、秘境、宗门的决定多，月可以快一点；合起来第一世约 5 小时 45 分（docs/KAIRO_PLAN.md §3.4 的验收 270～360 分钟）
-L.TIME = { idle: 15, trip: 8, away: 3, realmMul: [2, 1.6, 1, 0.9, 0.7, 0.65, 0.65, 0.65, 0.65], reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, interruptGapMonths: 3 };
+L.TIME = { idle: 15, trip: 8, away: 3, realmMul: [2, 1.6, 1, 0.9, 0.7, 0.65, 0.65, 0.65, 0.65], reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, unlockGapMonths1: 6, unlockGapSec1: 240, interruptGapMonths: 3 };
 L.monthSec = function (st) {
   const T = st && (st.rebirth || 0) > 0 ? L.TIME.reborn : L.TIME;
   const m = T === L.TIME && st && L.TIME.realmMul ? L.TIME.realmMul[Math.min(8, st.p.r)] || 1 : 1;
@@ -47,10 +47,18 @@ L.TICK_SEC = st => L.monthSec(st);   // 旧名（界面、测试脚本还在读�
 // master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个月就当掌握了
 L.ONB = [
   // ---- 第一章：三年之约之前只开这四样（DESIGN §2.4 的脚本收窄） ----
+  // docs/COMBAT_LOOT.md §7.4：功法（开局自带心法）、战技·五行（第 2 趟保底）、强化、换上与熔炼、心愿、淬灵、首领都提到第一章
   { k: 'exp', n: '历练', sys: true, start: true, master: st => S(st, 'exp') >= 1, goal: '外出历练一次' },
+  { k: 'arts', n: '功法·心法', par: 'exp', start: true, master: st => !!(L.artSlots(st)[0]) },
   { k: 'home', n: '洞府·聚灵阵', sys: true, base: st => S(st, 'exp') >= 1, master: st => st.home.array >= 2, goal: '聚灵阵升到 2 级', maxWait: 10 },
+  { k: 'zhanji', n: '战技·五行', sys: true, base: st => hasArt(st, 'z'), force: st => hasArt(st, 'z'), master: st => S(st, 'btKe') >= 1, goal: '用战技打出一次“克”', maxWait: 12 },
   { k: 'herb', n: '行事·采药', par: 'home', gap: 4, base: st => S(st, 'exp') >= 1 },   // 采药开得早晚直接改约战战力（多斩妖多掉法宝），钉在洞府开后 4 月
   { k: 'retreat', n: '闭关', sys: true, base: st => O.retOpen(st), master: st => S(st, 'retreat') >= 1, goal: '闭关一次', maxWait: 10 },
+  { k: 'plus', n: '强化·灵矿', sys: true, base: st => O.gearOpen(st, 'plus') || (S(st, 'smelt') >= 1 && L.TRIP_ON !== false), master: st => S(st, 'plus') >= 1, goal: '强化一次兵器', maxWait: 12 },
+  { k: 'gearCmp', n: '法宝·换上与熔炼', par: 'exp', base: st => S(st, 'exp') >= 2, master: st => C(st, 'gdec') >= 1 },
+  { k: 'wish', n: '心愿', par: 'exp', base: st => S(st, 'exp') >= 4 && (!L.wishOpen || L.wishOpen(st)) },
+  { k: 'infuse', n: '淬灵', par: 'plus', base: st => !!(st.mats && st.mats.core && Object.values(st.mats.core).some(n => n >= 3)) },
+  { k: 'boss', n: '首领', par: 'exp', base: st => L.REGIONS.some((r, k) => L.bestOf(st, k, 2) >= 2) },
   { k: 'bt', n: '突破', sys: true, base: st => L.isReady(st), force: st => L.isReady(st) || mr(st) >= 1, master: st => mr(st) >= 1, goal: '突破筑基' },
   // ---- 三年之约之后：一次一样，掌握了再开下一样 ----
   { k: 'tour', n: '天骄论道·天骄榜', par: 'exp', base: st => !!st.pact, force: st => !!st.pact, master: () => true },
@@ -60,14 +68,10 @@ L.ONB = [
   { k: 'tuna', n: '吐纳', par: 'home', base: st => !!st.pact },
   { k: 'field', n: '灵田', sys: true, base: st => O.homeUnlocked(st, 'field'), master: st => st.home.field >= 1, goal: '开一块灵田', maxWait: 12 },
   { k: 'treasure', n: '行事·寻宝', par: 'market', base: st => O.apprOpen(st, 1) },
-  { k: 'gearCmp', n: '法宝·换上与熔炼', sys: true, base: st => S(st, 'exp') >= 4, master: st => C(st, 'gdec') >= 1, goal: '在对比卡上换上或熔炼一件法宝', maxWait: 12 },
   { k: 'furnace', n: '丹炉·炼丹', sys: true, base: st => O.homeUnlocked(st, 'furnace'), master: st => S(st, 'crafts') >= 1, goal: '炼一炉丹', maxWait: 14 },
-  { k: 'arts', n: '功法·心法', sys: true, base: st => hasArt(st, 'x'), master: st => !!(L.artSlots(st)[0]), goal: '装上一门心法', maxWait: 10 },
   { k: 'trib', n: '天劫·护劫', sys: true, base: st => mr(st) >= 1 && st.p.s === 3, force: st => mr(st) >= 2 || (st.trib && !!st.trib.cur) || (mr(st) >= 1 && L.isReady(st)), master: st => mr(st) >= 2, goal: '渡过金丹雷劫', maxWait: 16 },
   { k: 'pets', n: '灵宠', sys: true, base: st => mr(st) >= 1, force: st => L.petCount(st) > 0 || (st.petPend || []).length > 0, master: st => L.petCount(st) >= 1, goal: '收服一只灵宠', maxWait: 16 },
-  { k: 'plus', n: '强化·灵矿', sys: true, base: st => O.gearOpen(st, 'plus'), master: st => S(st, 'plus') >= 1, goal: '强化一次兵器', maxWait: 12 },
   { k: 'cal', n: '四季·年历', sys: true, base: st => O.calOpen(st), master: () => false, maxWait: 8 },
-  { k: 'zhanji', n: '战技·五行', sys: true, base: st => O.artSlotOpen(st, 1) && hasArt(st, 'z'), master: st => !!(L.artSlots(st)[1]), goal: '装上一门战技', maxWait: 12 },
   { k: 'sell', n: '行情·出售', par: 'market', base: st => O.sellOpen(st) },
   { k: 'world', n: '天下大势', par: 'cal', base: st => O.calOpen(st) },
   { k: 'shelf', n: '坊市·轮换货', par: 'market', base: st => O.shelfOpen(st) },
@@ -124,7 +128,7 @@ L.onbStep = function (st) {
     const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着
     // 解锁卡（系统）之间：至少 L.TIME.unlockGapMonths 月；界面另把“离上一张卡不到 6 分钟”登记成 L.onbHold
-    if (e.sys && !reborn && o.ls !== undefined && st.tick - o.ls < L.TIME.unlockGapMonths) break;
+    if (e.sys && !reborn && o.ls !== undefined && st.tick - o.ls < (st.pact ? L.TIME.unlockGapMonths : L.TIME.unlockGapMonths1 || L.TIME.unlockGapMonths)) break;
     if (e.sys && !reborn && typeof L.onbHold === 'function' && L.onbHold(st, e)) break;
     o.at[e.k] = st.tick; o.last = st.tick;
     if (e.sys) o.ls = st.tick;
