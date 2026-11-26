@@ -79,19 +79,35 @@ if (missing.length) { console.error('3.0 的接口还没合进来，缺：' + mi
 // ---------- 适配层：A1 冻结后只核对这一节 ----------
 const ADAPTER = {
   // 做一个主线行动（L.mainActs 的一项）
-  doMain(st, a) { if (typeof a.do === 'function') return a.do(st); const d = a.do || {}; return L.act(st, d.id || a.id, d.args !== undefined ? d.args : a.args); },
-  exp(st) { const c = L.expBest(st, 0); return L.act(st, 'exp', { k: c.k, d: c.d, a: c.a }); },
+  // L.mainActs 的 do = { id, args }（一律交给 L.act）；do 是 'exp' 的（首领没现身时指向那一格、“历练变强”）照历练的走法打完
+  doMain(st, a) { if (typeof a.do === 'function') return a.do(st); const d = a.do || {}; const id = d.id || a.id, args = d.args !== undefined ? d.args : a.args; return id === 'exp' ? ADAPTER.trip(st, args) : L.act(st, id, args); },
+  // 历练：L.act('exp') 只出发、扣 2 点（AP_PLAN §10 末尾）；之后一个节点一个节点 L.tripStep（这里 L.tripAuto 一口气走完，途中遭遇照界面选第一个能选的），走完 L.tripEnd 结算
+  trip(st, args) {
+    if (!L.act(st, 'exp', args)) return null;
+    L.tripAuto(st, ev => { const i = ev.choices.findIndex(x => L.choiceShown(st, x) && L.costOk(st, x.cost)); if (i >= 0) L.resolveChoice(st, ev, i); });
+    return L.tripEnd(st);
+  },
+  exp(st) { const c = L.expBest(st, 0); return ADAPTER.trip(st, { k: c.k, d: c.d, a: c.a }); },
   retreat(st) { return L.act(st, 'retreat'); },
   sit(st) { return L.act(st, 'sit'); },
   knock(st, id) { return L.act(st, 'join', id); },
   // 不花点的：突破 / 渡劫（接口不变）
   breakthrough(st) { if (L.tribNeeded(st)) { const v = L.tribStart(st, { pills: Math.min(3, st.pills), aids: 'all' }); return v ? L.tribFinish(st, { fa: 1, pet: 1, daolv: 1, pills: 0 }) : null; } return L.breakthrough(st, Math.min(3, st.pills)); },
+  // 家务（AP_PLAN §2.2：不花点的事一季里做多少次都行）：换装、换功法、建造升级洞府、宗门任务接与交、买破境丹。真人每季都会顺手做；不做的话修炼跟不上寿元
+  chores(st) {
+    try { if (L.gearAutoAll) L.gearAutoAll(st); if (L.artApply && L.artBest) L.artApply(st, L.artBest(st, {})); } catch (e) { /* 没开放 */ }
+    if (L.home2On && L.home2On() && L.homePlotFree(st)) for (const k of ['field', 'furnace', 'room', 'vault', 'library', 'forge', 'pen', 'spring', 'pavilion', 'portal']) { if (st.home[k] > 0 || !L.homeUnlocked(st, k)) continue; if (st.stones >= L.homeCost(st, k)) L.build(st, k); break; }
+    for (let g = 0; g < 20; g++) { let best = null; for (const b of L.HOME) { if (st.home[b.k] >= b.max || !L.homeOpen(st, b.k) || (b.nu && !st.home[b.k])) continue; const c = L.hCost(b.k, st.home[b.k]); if (!best || c < best.c) best = { k: b.k, c }; } if (!best || st.stones < best.c * 1.2 || !L.upgrade(st, best.k)) break; }
+    if (st.sect) st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'lecture') L.taskTake(st, i); if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i); });
+    if (L.isFull(st) || (L.ticksToNext && L.ticksToNext(st) <= 6)) for (let g = 0; g < 3 && st.pills < 3 && L.marketOpen && L.marketOpen(st, 'pill') !== false && st.stones >= L.price(st, 'pill'); g++) L.buy(st, 'pill');
+    if (st.p.inj > 0 && st.pills > 3) L.heal(st);
+  },
   // 结算链里的一张：返回这张是什么（story 类要选选项）
   show(st, x, choose) { if (x.kind === 'story') { const ev = L.eventById(x.id); if (ev) { const i = choose(ev); if (i === undefined) return 'nochoice'; L.resolveChoice(st, ev, i); } } L.blockDone(st, x); return x.kind; },
 };
 
 // ---------- 跑 ----------
-const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && st.bestRank <= 60, ['s2_rank']], ['zhao', st => !!st.beaten.zhao, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu, ['s5_tiankuo_fall']],
+const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && st.bestRank <= 60, ['s2_rank']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']],   // 线 B 核对：这两场是第三 / 第五章的高潮；在前一章（论道上）就打赢了的，戏在那一章开章的同一条链里接着出，“成立”= 打赢了且章到了
   ['war', st => !!st.flags.warWon, ['s6_after']]].concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => ['m' + (i - 1), st => !!st.quest.done['c' + (i - 1) + '_m'], ['story_r' + i]]));
 function runCase(c) {
   const fails = [], warns = [];
@@ -151,6 +167,7 @@ function runCase(c) {
   const maxS = c.seasons || 520; let seasons = 0, knocked = false;
   for (; seasons < maxS && st.p.r < 9; seasons++) {
     if (st.p.age >= L.lifespan(st)) break;
+    if (c.pol !== 'afk' && c.pol !== 'sit') ADAPTER.chores(st);
     for (let g = 0; g < 9 && L.apLeft(st) > 0 && c.pol !== 'afk'; g++) {
       const t0 = st.tick; let r = null;
       // 入宗方式
@@ -169,8 +186,9 @@ function runCase(c) {
     }
     if (c.overspend && L.apLeft(st) === 0) for (const id of ['exp', 'retreat', 'sit']) { const snap = JSON.stringify(st); const why = L.apWhy(st, id); const r = L.act(st, id); if (r || !why || JSON.stringify(st) !== snap) { fail(`点数用完后 L.act('${id}') 没被拒绝干净（why = “${why}”，返回 ${r ? '非空' : '空'}，状态${JSON.stringify(st) !== snap ? '变了' : '没变'}）`); break; } }
     if (L.isReady(st) && !(c.cap !== undefined && st.p.r >= c.cap) && !(st.p.r === 8 && L.chapterNow(st) < 8 && !c.soft)) { const t0 = st.tick; ADAPTER.breakthrough(st); if (st.tick !== t0) fail('突破之后时间走了'); watch(); settle('act'); }
+    if (st.p.r >= 9) break;   // 刚飞升：这一世到此为止，不再过季
     const t0 = st.tick; L.seasonEnd(st);
-    if (st.tick !== t0 + 3 || st.tick % 3) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
+    if ((st.tick !== t0 + 3 || st.tick % 3) && st.p.age < L.lifespan(st)) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
     watch(); settle('season');
     if (c.lose && st.pact) L.PACT_POWER = pp;
     const ch = L.chapterNow(st); if (!c.soft && chAt[ch] !== undefined && st.tick - chAt[ch] > 180 && !st.quest.done.c8_m) { fail(`第 ${ch + 1} 章超过 60 季还没做完（H8）：主线行动 ${(L.mainActs(st) || []).map(a => a.t + (a.ok ? '✓' : '✗' + a.why)).join(' / ')}`); break; }
@@ -181,7 +199,7 @@ function runCase(c) {
   for (const [k, , evs] of KEYEV) { if (!due[k]) continue; const id = evs.find(e => shown[e]); if (!id) { if (evs.some(e => { const ev = L.eventById(e); return ev && (!ev.origin || ev.origin === (st.origin || 'qitu')) && !st.evDone[e]; }) && seq() - due[k].seq > 4 && !/^(zhao|pact)$/.test(k)) fail(`关键剧情没出：${k}（第 ${due[k].tick} 月）→ ${evs.join('/')}`); continue; } const d = shown[id].seq - due[k].seq; if (d !== 0) fail(`剧情滞后（H1）：${k} 在 seq ${due[k].seq}（第 ${due[k].tick} 月）成立，${id} 在 seq ${shown[id].seq}（第 ${shown[id].tick} 月）才出，隔 ${d} 个行动`); }
   const lag = (st.story && st.story.lag) || {}; for (const id in lag) { const ev = L.eventById(id), x = lag[id]; if (ev && /^sb:c\d_(open|climax|end)$/.test(ev.trigger || '') && x.shown - x.due !== 0) fail(`st.story.lag：${id} shown − due = ${x.shown - x.due}`); }
   if (!st.story || !st.story.lag) warn('逻辑层没有记 st.story.lag（AP_PLAN §8.3），H1 只按验收方自己的口径查了');
-  if (due.pact && !c.fixture && c.life === 1) { if (due.pact.tick !== 36) fail(`三年之约在第 ${due.pact.tick} 月了结（应 36）`); for (const id of ['s1_pact_after', 's1_pact_lost', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && !(c.lose && id === 'story_r1')) fail(`H5：${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq} 才出（约战在第 36 月 / seq ${due.pact.seq}）`); if (!c.lose && chAt[1] !== 36) fail(`H5：第二章在第 ${chAt[1]} 月才开（应 36）`); }
+  if (due.pact && !c.fixture && c.life === 1 && st.beaten.mu && shown.s1_pact_after) { /* 线 B 核对：H5 只对“约战赢了”的局（输了的局第二章在补回慕容那一战之后开，归 H1 的 m0 → story_r1 查） */ if (due.pact.tick !== 36) fail(`三年之约在第 ${due.pact.tick} 月了结（应 36）`); for (const id of ['s1_pact_after', 's1_pact_lost', 'story_r1']) if (shown[id] && (shown[id].tick !== 36 || shown[id].seq !== due.pact.seq) && !(c.lose && id === 'story_r1')) fail(`H5：${id} 在第 ${shown[id].tick} 月 / seq ${shown[id].seq} 才出（约战在第 36 月 / seq ${due.pact.seq}）`); if (!c.lose && chAt[1] !== 36) fail(`H5：第二章在第 ${chAt[1]} 月才开（应 36）`); }
   for (const b in (st.story && st.story.beat) || {}) if (st.story.beat[b] === -1 && /^(c1_climax|c2_mid1|c3_climax|c5_mid3|c7_mid2|c7_climax|c8_mid2|c8_climax|c9_climax|c\d_open)$/.test(b) && !c.fixture) fail(`带抉择的节拍 ${b} 被记成“错过”（H3）`);
   const fin = !!st.quest.done.c8_m, reached = fin ? 9 : L.chapterNow(st);
   if (reached < c.reach) fail(`${seasons} 季（境界 ${st.p.r}）只走到第 ${L.chapterNow(st) + 1} 章，要求${c.reach >= 9 ? '九章做完' : '至少第 ' + (c.reach + 1) + ' 章'}；主线行动：${st.p.r < 9 ? (L.mainActs(st) || []).map(a => a.t + (a.ok ? '✓' : '✗' + a.why)).join(' / ') : '（已飞升）'}`);

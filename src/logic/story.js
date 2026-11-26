@@ -34,22 +34,31 @@ const ROOKIE_RE = /^rookie:/;
   if (ROOKIE_RE.test(key)) for (const ev of L.events()) if (ev.where === 'story' && ev.trigger === key && st.evDone[ev.id] && !st.storyQ.includes(ev.id)) delete st.evDone[ev.id];
   return ft0(st, key);
 }; }
-// 章到了：按章序补发记着的剧情键
+// 章到了：按章序补发记着的剧情键（docs/AP_PLAN.md §4.5：章一变，结算链里把到期的键按章序连着放完）
+// 一次放一个键，等它放出来的剧情都结算完（队列里没有按章的剧情了）再放下一个——结算链是串行的，前一个结算完 L.nextBlock 马上再调这里；
+// 同一键的后续剧情（story_r6 → tianheng_1）是前一段结算后才补发的，几个键一起放会被后一章的剧情插队。
+// 放不出去的键（场景的条件还没满足、前面各章的开章还没出完）留在 hold 里，下次再试，不丢。
 let resolving = 0;   // 剧情结算中（L.resolveChoice 里会先判章、后补发同键剧情）：等结算完再放
-L.storyRelease = function (st) {
+const keyLive = (st, k) => L.events().some(ev => ev.trigger === k && !st.evDone[ev.id] && !st.storyQ.includes(ev.id));
+L.storyRelease = function (st, max) {
   if (resolving) return 0;
-  if (!st || !st.path || !Array.isArray(st.path.hold) || !st.path.hold.length) return 0;
-  const ch = L.chapterNow(st), h = st.path.hold;
-  const due = h.filter(k => L.STORY_CH(k) <= ch).sort((a, b) => L.STORY_CH(a) - L.STORY_CH(b));
-  if (!due.length) return 0;
-  // 一次只放一个键，等它放出来的剧情都结算完（队列里没有按章的剧情了）再放下一个：
-  // 同一键的后续剧情（story_r6 → tianheng_1）是前一段结算后才补发的，几个键一起放会被后一章的剧情插队
-  const pend = st.storyQ.some(id => { const ev = L.eventById(id); return ev && L.STORY_CH(ev.trigger) >= 0; });
-  if (pend) return 0;
-  const k = due[0];
-  st.path.hold = h.filter(x => x !== k);
-  L.fireTrigger(st, k);
-  return 1;
+  if (!st || !st.path || !Array.isArray(st.path.hold) || !st.path.hold.length || !st.storyQ) return 0;
+  const ch = L.chapterNow(st), tried = {};
+  let n = 0;
+  for (let g = 0; g < 16 && (max === undefined || n < max); g++) {
+    const due = st.path.hold.filter(k => !tried[k] && L.STORY_CH(k) <= ch).sort((a, b) => L.STORY_CH(a) - L.STORY_CH(b));
+    if (!due.length) break;
+    const pend = st.storyQ.some(id => { const ev = L.eventById(id); return ev && L.STORY_CH(ev.trigger) >= 0; });
+    if (pend) break;
+    const k = due[0]; tried[k] = 1;
+    st.path.hold = st.path.hold.filter(x => x !== k);
+    const q0 = st.storyQ.length;
+    L.fireTrigger(st, k);
+    if (st.path.hold.includes(k)) break;   // 记回去了（前面各章的开章还没出完）：等它们
+    if (st.storyQ.length > q0) { n++; continue; }
+    if (keyLive(st, k)) st.path.hold.push(k);   // 一场也没放出来、这个键上还有没出过的戏：留着
+  }
+  return n;
 };
 // 条件后来才满足的 realm:N 剧情：补进剧情队列（只补 N ≤ 剧情境界的，按 N 的顺序）
 const REALM_RE = /^realm:(\d)$/;
@@ -184,16 +193,17 @@ if (typeof L.companionOn === 'function') { const f0 = L.companionOn; L.companion
 // ---------- 散修之路的第六章：天剑宗照样来犯，打的是你的洞府（tick.js 的来犯判定只看入了宗的；这里补上没入宗的） ----------
 function loneWar(st, out) {
   if (!L.loneRoute(st) || st.flags.warWon || !L.warChapter(st)) return;
-  if (!st.flags.warEve) { st.flags.warEve = st.tick; if (!(st.flags.war > st.tick)) st.flags.war = st.tick + 6; L.fireTrigger(st, 'war_eve:tianjian'); return; }
-  if (!out.war && st.tick >= (st.flags.war || 0) && !L.busy(st)) { out.war = true; st.flags.war = st.tick + 9999; }
+  if (!st.flags.warEve) { st.flags.warEve = st.tick; if (!(st.flags.war > st.tick)) st.flags.war = Math.ceil((st.tick + 6) / 3) * 3; L.fireTrigger(st, 'war_eve:tianjian'); return; }
+  if (!out.war && st.tick >= (st.flags.war || 0)) { out.war = true; st.flags.war = st.tick + 9999; }   // 到日子那一季季末必来（AP_PLAN §4.7：不再等“不忙”）
 }
 // 赵乾的信（P22）：头一回排来犯日子时还没放过他，之后才欠下人情的——来犯前一月再补一次
 function zhaoLetter(st) {
   const e = st.eflags || {};
-  if (st.flags.warWon || !e.zhao_owes || st.evDone.zhao_3 || !(st.flags.war > st.tick) || st.flags.war - st.tick !== 1) return;
+  if (st.flags.warWon || !e.zhao_owes || st.evDone.zhao_3 || !(st.flags.war > st.tick) || st.flags.war - st.tick !== 3) return;   // 来犯那一季的季初（AP_PLAN §4.3）
   L.fireTrigger(st, 'war_eve:tianjian');
 }
-{ const tk0 = L.tick; L.tick = function (st, cont) { const out = tk0(st, cont); loneWar(st, out); zhaoLetter(st); L.storyRelease(st); return out; }; }
+// 补发不再在 L.tick 里做：章一变（L.pathStep）、剧情结算完（L.resolveChoice）、结算链每出一张之前（blocks.js 的 L.nextBlock）
+{ const tk0 = L.tick; L.tick = function (st, cont) { const out = tk0(st, cont); loneWar(st, out); zhaoLetter(st); return out; }; }
 // ---------- 天剑宗来犯（P16）：将计就计换了阵眼（war_feint）——这一场来敌撞进真阵；押回天剑宗的赵乾（zhao_guide、没欠你人情）——这一场他带路 ----------
 L.addDuelMod('war_feint', 14, (st, foe) => (foe.kind === 'war' && st.eflags && st.eflags.war_feint ? ['将计就计（假阵眼）', 1.3, 'sect'] : null));
 L.addDuelMod('zhao_guide', 15, (st, foe) => (foe.kind === 'war' && st.eflags && st.eflags.zhao_guide && !st.eflags.zhao_owes ? ['赵乾带路（摸清了山门）', 0.9, 'rival'] : null));

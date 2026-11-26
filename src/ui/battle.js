@@ -362,7 +362,7 @@ function btPrepHTML(k, d, a) {
   const red = !!eliteEl && seenEl(eliteEl) && !ke(eliteEl);
   const icons = moves.map(s => btSkillIcon(s)).join('');
   // 推荐换哪门：L.artRecommend 按这一格（artrec.js；与功法页“荐”、变强页同一套打分），一键换上，写原因
-  const rc = L.artRecommend ? L.artRecommend(st, 1, { k, d, here: true }) : null, recId = rc && !rc.same && rc.id ? rc.id : '';
+  const rc = L.artRecommend ? (L.artRecSelect(st, k, d), L.artRecommend(st, 1)) : null, recId = rc && !rc.same && rc.id ? rc.id : '';
   // 近期大节点优先：克这一格的另有一门时只提一句，不给按钮（免得回来又叫你换回去）
   const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d, here: true, force: true }) : null, altId = alt && alt.id !== (recId || rc.cur) && alt.ke ? alt.id : '';
   const recBtn = (recId ? `<div class="row bt-rec"><button class="btn sm alt eq grow" data-swapz="${recId}">荐 换上《${esc(L.art(recId).n)}》：${esc(rc.why)}</button></div>` : '')

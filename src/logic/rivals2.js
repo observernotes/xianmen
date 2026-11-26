@@ -340,14 +340,14 @@ function warEve(st) {
   if (!st.sect || st.flags.warWon || st.flags.warEve) return;
   if (!L.warChapter(st)) return;   // 第六章来犯不看宗门身份（后来才入宗的也来）
   st.flags.warEve = st.tick;
-  if (!(st.flags.war > st.tick)) st.flags.war = st.tick + 6;
+  if (!(st.flags.war > st.tick)) st.flags.war = Math.ceil((st.tick + 6) / 3) * 3;   // 来犯的日子取到季界（AP_PLAN §1.3）
   L.fireTrigger(st, 'war_eve:tianjian');
 }
 L.rivalTick = function (st, out) {
   const r = rv(st);
   warEve(st);
   // 陆天衡假意答应（tianheng_1 的 raid_delay）：天剑宗来犯推迟 24 月
-  if (st.eflags && st.eflags.raid_delay) { delete st.eflags.raid_delay; if (!st.flags.warWon) st.flags.war = Math.max(st.flags.war || 0, st.tick) + 24; }
+  if (st.eflags && st.eflags.raid_delay) { delete st.eflags.raid_delay; if (!st.flags.warWon) st.flags.war = Math.ceil((Math.max(st.flags.war || 0, st.tick) + 24) / 3) * 3; }
   if (!ON()) return;
   rivalQy(st);
   const K = L.ROOKIE, p = st.p;

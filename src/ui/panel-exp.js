@@ -82,6 +82,7 @@ function confirmExp(k, d, a, still) {
   const rg = L.REGIONS[k];
   if (!L.expOpen(st, k, d, a)) { d = 0; a = L.apprOpen(st, a) && L.expOpen(st, k, 0, a) ? a : 0; }
   const f = L.expForecast(st, k, d, a);
+  if (L.artRecSelect) L.artRecSelect(st, k, d);   // 推荐看这一格：功法页、变强页、这页的【换上】说同一门（artrec.js）
   const depOk = dd => L.depthOpen(st, k, dd) && L.expOpen(st, k, dd, a), apprOk = aa => L.apprOpen(st, aa) && L.expOpen(st, k, d, aa);
   const dep = [0, 1, 2].filter(dd => dd === d || depOk(dd)).map(dd => {
     const ok = depOk(dd);

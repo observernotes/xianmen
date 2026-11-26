@@ -9,7 +9,7 @@
  *   2 能主动去做：宿敌（这一章要打的）在家时 L.challengeInfo 没有拦着（不看境界、名次）；没宗门的人身上不出现要宗门的项（srank / meet）；
  *     内门 / 真传 / 圣子不看境界；天骄论道、九宗会武的下一届在 24 月内；首领表够数；来犯在第六章 30 月内真的来（入宗、散修两条都跑一遍）；
  *     剧情项（flag / beat）：节拍在表里、这一章有能放的场景、场景里至少一个不要钱、不设门槛（要打的输了能重来）的选项置上要的标志位，而且照常过月 80 月内真的放出来并置上；
- *     第二章一开（6 月内）就是“三张帖子”（无宗试炼除外）；
+ *     第二章一开（6 月内）就是“三张帖子”（无宗试炼除外）；没宗门的随时【拜山门】；每章每条路线 L.mainActs 非空、做不了的说得出差什么、至少一项现在就能做；
  *   3 目标卡带得到：每一项的进度都有一句话、【去】的键在 goalcard.js 的 GO_K 里；老祖的“下一步”有话说；
  *   4 兜底管用：这一章降到第 3 级时，宿敌 / 原圣子 / 来犯的胜算 ≥ 60%，名次、首领不再要求，会武由击败楚天阔顶替。 */
 'use strict';
@@ -165,20 +165,34 @@ for (const R of ROUTES.filter(r => ['zheng', 'wuzong', 'sanxiu'].includes(r.id))
   else ok(r.ok, '第二章·' + R.n, `第二章开头 8 月里没有三张帖子`);
   if (R.id !== 'wuzong') lines.push(`第二章·${R.n}：三张帖子第 ${r.n} 月就来`);
 }
-// 三张帖子选了“哪家也不去”以后：宗门页随时能投帖、宗门 36 月后再来请
-{ const st = at(ROUTES[2], 1); L.inviteDecline(st);
+// 三张帖子选了“哪家也不去”以后：随时能【拜山门】（1 点，不看境界，AP_PLAN §5.2）；宗门不再上门来请
+{ const st = at(ROUTES[2], 1);
   ok(L.loneRoute(st), '散修', '选了哪家也不去，却不是散修之路');
-  ok(!L.sectApplyWhy(st, 'jian'), '散修', '宗门页投不了帖：' + L.sectApplyWhy(st, 'jian'));
-  ok(L.inviteNext(st) === L.MAIN_V.inviteSan, '散修', `宗门 ${L.inviteNext(st)} 月后再来（要 ${L.MAIN_V.inviteSan}）`);
-  L.sectApply(st, 'dan'); ok(st.sect && !L.loneRoute(st) && !st.eflags.path_san, '散修', '投了帖还算散修'); }
+  ok(!L.knockWhy(st, 'jian'), '散修', '拜不了山门：' + L.knockWhy(st, 'jian'));
+  const lo = at(ROUTES[2], 1, { r: 0 }); ok(!L.knockWhy(lo, 'jian'), '散修', '炼气期拜不了山门：' + L.knockWhy(lo, 'jian'));
+  ok(L.mainActs(st, { side: true }).some(a => a.do && a.do.id === 'join' && a.ok && a.ap === L.AP.join), '散修', '主线行动（side）里没有【拜山门 ◆1】');
+  ok(L.act(st, 'join', 'dan') && st.sect && !L.loneRoute(st) && !st.eflags.path_san, '散修', '拜了山门还算散修'); }
+// 每章 × 每条路线：L.mainActs 非空，做不了的说得出差什么，至少一项现在就能做（AP_PLAN §5.1、§8.3 H9）
+for (const R of ROUTES) for (let ch = 0; ch < 9; ch++) {
+  const st = at(R, ch), who = `${R.n}·第${CN[ch]}章`;
+  if (L.chapterNow(st) !== ch) continue;
+  const a = L.mainActs(st);
+  ok(a.length > 0, who, 'L.mainActs 为空');
+  for (const x of a) ok(x.ok || (x.why && x.why.length >= 4), who, `主线行动「${x.t}」做不了却没说差什么（${x.why}）`);
+  ok(a.some(x => x.ok), who, '主线行动一项都做不了：' + a.map(x => x.t + '✗' + x.why).join(' / '));
+  for (const x of a) if (x.do) ok(L.ACTS[x.do.id] && x.ap === L.apCost(st, x.do.id, x.do.args), who, `「${x.t}」的点数 ${x.ap} 和 L.apCost 对不上`);
+  const g = L.goalNow(st); ok(g && g.next && g.next.t && g.next.ap !== undefined && 'do' in g.next, who, '目标卡“下一步”没带 ap / do');
+  lines.push(`${who} 主线行动：${a.map(x => `${x.t}${x.ap ? '◆' + x.ap : ''}${x.ok ? '' : '✗' + x.why}`).join(' / ')}`);
+}
 // 旧档：第三章散修、赵乾没打 → 读档补帖子、赵乾上门
 { const st = at(ROUTES[4], 2); delete st.mainG; delete st.story; delete st.evDone.s2_invite; st.flags.inviteAt = 0; st.path.at[2] = { t: st.tick - 120, pw: 1, exp: 0 };
   const s2 = L.migrate(JSON.parse(JSON.stringify(st)));
-  ok(s2.mainG && s2.mainG.rescue, '旧档', '没有救场标记'); ok(s2.flags.inviteAt <= s2.tick, '旧档', '没补入宗帖');
+  ok(s2.mainG && s2.mainG.rescue, '旧档', '没有救场标记'); ok(!L.knockWhy(s2, 'jian'), '旧档', '读档后拜不了山门');
+  ok(L.mainActs(s2).some(a => a.do && a.do.id === 'duel' && a.do.args.id === 'zhao' && a.ok), '旧档', '读档后不能向赵乾下战帖');
   ok(s2.mainG.in <= s2.tick - 120, '旧档', '这一章从哪个月起算没接上 st.path.at');
   const r = runFor(s2, 3, (s, out) => out.mainFoe === 'zhao');
   ok(r.ok, '旧档', '读档后 3 月内赵乾没上门');
-  ok(L.mainEase(s2) >= 1, '旧档', '卡了 120 月的旧档读进来没有降要求');
+  ok(L.mainEase(s2) >= 1 || 120 < L.MAIN_V.inCh, '旧档', '卡了 120 月的旧档读进来没有降要求');
   lines.push(`旧档·散修第三章：读档第 ${r.n} 月赵乾上门，降到第 ${L.mainEase(s2)} 级`);
 }
 // 用户的另一个旧档：弃徒，打赢了赵乾（当年踢他下山的那一脚），没入宗，停在第三章——目标卡要说清还差首领、想入宗怎么入
@@ -189,9 +203,9 @@ for (const R of ROUTES.filter(r => ['zheng', 'wuzong', 'sanxiu'].includes(r.id))
   ok(/已击败赵乾/.test(txt) && /首领 1 → \d 个/.test(txt), who, '进度没说清：' + txt);
   ok(/首领/.test(L.goalNow(s2).bar.text), who, '目标卡第一条不是还差的首领：' + L.goalNow(s2).bar.text);
   ok(/首领/.test(L.mainAdvice(s2).t), who, '老祖的下一步没提首领：' + L.mainAdvice(s2).t);
-  ok(s2.flags.inviteAt <= s2.tick && !L.sectApplyWhy(s2, 'jian'), who, '想入宗入不了');
+  ok(!L.knockWhy(s2, 'jian') && L.mainActs(s2, { side: true }).some(a => a.do && a.do.id === 'join' && a.ok), who, '想入宗入不了（没有【拜山门】）');
+  ok(L.mainActs(s2).some(a => a.ok && a.do && (a.do.id === 'boss' || a.do.id === 'exp')), who, '主线行动里没有【讨伐首领】或指向首领那一格的历练：' + L.mainActs(s2).map(a => a.t).join(' / '));
   lines.push(`${who}：目标卡“${L.goalNow(s2).bar.text}”，进度 ${txt}；老祖：${L.mainAdvice(s2).t}`);
-  const r = runFor(s2, 3, (x, out) => !!out.invite); ok(r.ok, who, '读档后宗门没来请');
 }
 if (!Q) console.log(lines.join('\n'));
 console.log(`主线可达性检查：${checks} 项`);
