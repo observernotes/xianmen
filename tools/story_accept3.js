@@ -79,13 +79,29 @@ if (missing.length) { console.error('3.0 的接口还没合进来，缺：' + mi
 // ---------- 适配层：A1 冻结后只核对这一节 ----------
 const ADAPTER = {
   // 做一个主线行动（L.mainActs 的一项）
-  doMain(st, a) { if (typeof a.do === 'function') return a.do(st); const d = a.do || {}; return L.act(st, d.id || a.id, d.args !== undefined ? d.args : a.args); },
-  exp(st) { const c = L.expBest(st, 0); return L.act(st, 'exp', { k: c.k, d: c.d, a: c.a }); },
+  // L.mainActs 的 do = { id, args }（一律交给 L.act）；do 是 'exp' 的（首领没现身时指向那一格、“历练变强”）照历练的走法打完
+  doMain(st, a) { if (typeof a.do === 'function') return a.do(st); const d = a.do || {}; const id = d.id || a.id, args = d.args !== undefined ? d.args : a.args; return id === 'exp' ? ADAPTER.trip(st, args) : L.act(st, id, args); },
+  // 历练：L.act('exp') 只出发、扣 2 点（AP_PLAN §10 末尾）；之后一个节点一个节点 L.tripStep（这里 L.tripAuto 一口气走完，途中遭遇照界面选第一个能选的），走完 L.tripEnd 结算
+  trip(st, args) {
+    if (!L.act(st, 'exp', args)) return null;
+    L.tripAuto(st, ev => { const i = ev.choices.findIndex(x => L.choiceShown(st, x) && L.costOk(st, x.cost)); if (i >= 0) L.resolveChoice(st, ev, i); });
+    return L.tripEnd(st);
+  },
+  exp(st) { const c = L.expBest(st, 0); return ADAPTER.trip(st, { k: c.k, d: c.d, a: c.a }); },
   retreat(st) { return L.act(st, 'retreat'); },
   sit(st) { return L.act(st, 'sit'); },
   knock(st, id) { return L.act(st, 'join', id); },
   // 不花点的：突破 / 渡劫（接口不变）
   breakthrough(st) { if (L.tribNeeded(st)) { const v = L.tribStart(st, { pills: Math.min(3, st.pills), aids: 'all' }); return v ? L.tribFinish(st, { fa: 1, pet: 1, daolv: 1, pills: 0 }) : null; } return L.breakthrough(st, Math.min(3, st.pills)); },
+  // 家务（AP_PLAN §2.2：不花点的事一季里做多少次都行）：换装、换功法、建造升级洞府、宗门任务接与交、买破境丹。真人每季都会顺手做；不做的话修炼跟不上寿元
+  chores(st) {
+    try { if (L.gearAutoAll) L.gearAutoAll(st); if (L.artApply && L.artBest) L.artApply(st, L.artBest(st, {})); } catch (e) { /* 没开放 */ }
+    if (L.home2On && L.home2On() && L.homePlotFree(st)) for (const k of ['field', 'furnace', 'room', 'vault', 'library', 'forge', 'pen', 'spring', 'pavilion', 'portal']) { if (st.home[k] > 0 || !L.homeUnlocked(st, k)) continue; if (st.stones >= L.homeCost(st, k)) L.build(st, k); break; }
+    for (let g = 0; g < 20; g++) { let best = null; for (const b of L.HOME) { if (st.home[b.k] >= b.max || !L.homeOpen(st, b.k) || (b.nu && !st.home[b.k])) continue; const c = L.hCost(b.k, st.home[b.k]); if (!best || c < best.c) best = { k: b.k, c }; } if (!best || st.stones < best.c * 1.2 || !L.upgrade(st, best.k)) break; }
+    if (st.sect) st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'lecture') L.taskTake(st, i); if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i); });
+    if (L.isFull(st) || (L.ticksToNext && L.ticksToNext(st) <= 6)) for (let g = 0; g < 3 && st.pills < 3 && L.marketOpen && L.marketOpen(st, 'pill') !== false && st.stones >= L.price(st, 'pill'); g++) L.buy(st, 'pill');
+    if (st.p.inj > 0 && st.pills > 3) L.heal(st);
+  },
   // 结算链里的一张：返回这张是什么（story 类要选选项）
   show(st, x, choose) { if (x.kind === 'story') { const ev = L.eventById(x.id); if (ev) { const i = choose(ev); if (i === undefined) return 'nochoice'; L.resolveChoice(st, ev, i); } } L.blockDone(st, x); return x.kind; },
 };
@@ -151,6 +167,7 @@ function runCase(c) {
   const maxS = c.seasons || 520; let seasons = 0, knocked = false;
   for (; seasons < maxS && st.p.r < 9; seasons++) {
     if (st.p.age >= L.lifespan(st)) break;
+    if (c.pol !== 'afk' && c.pol !== 'sit') ADAPTER.chores(st);
     for (let g = 0; g < 9 && L.apLeft(st) > 0 && c.pol !== 'afk'; g++) {
       const t0 = st.tick; let r = null;
       // 入宗方式
