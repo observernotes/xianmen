@@ -528,11 +528,15 @@ function duelNow(st, rec, minP) {
   if (r) rec.chal = (rec.chal || 0) + 1;
   return !!r;
 }
-// 首领（1 点）：胜算 ≥ minP 的第一只；带伤不打（战力只剩六成，输了再伤两季）
+// 首领（1 点）：胜算 ≥ minP 的第一只；带伤不打（战力只剩六成，输了再伤两季）。
+// 再战（每 12 月可一次）只打最深那张已开地图的首领（专属掉落、材料最值钱）或宗门任务点名的那只——
+// 不然 11 张图的首领轮着再战，一世两百来场，手表时间里一个钟头都在打首领（tools/onboard.js --life 的数）
 function bossNow(st, rec, minP) {
   if (st.p.inj > 0 || L.apLeft(st) < L.AP.boss) return false;
+  const top = L.homeRegion(st), task = k => !!st.sect && st.sect.tasks.some(t => t.taken && !t.done && t.ty === 'boss' && t.k === k);
   for (let k = 0; k < L.REGIONS.length; k++) {
     if (!L.bossReady(st, k) || L.apWhy(st, 'boss', { k })) continue;
+    if (st.bosses[k] && k !== top && !task(k)) continue;
     const foe = { kind: 'boss', k }; artFor(st, { foe });
     const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe);
     if (bp < minP) continue;
