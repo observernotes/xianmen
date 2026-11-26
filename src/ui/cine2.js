@@ -461,7 +461,7 @@ function cnFlush() {
 function introCine(box, next) {
   if (cnPrefGet().tuihun || cnFast()) return false;
   box.innerHTML = '';
-  cinePlay('tuihun', {}, { intro: true }).then(() => next());
+  cnAfter(cinePlay('tuihun', {}, { intro: true }), next);
   return true;
 }
 
@@ -493,6 +493,9 @@ function showCineRecall() {
 }
 
 // ---------- 接线（包一层，不改原流程） ----------
+// 过场之后接原流程：真在播就等播完；没播（看过了、快放、进了队）就当场同步接上——
+// 不能等微任务：同一帧里后面的 chapPump / onbPump 会趁弹窗还空着先弹章末卡，紧接着被原流程的结果卡顶掉（章末卡就丢了）
+function cnAfter(p, fn) { if (cn) p.then(fn); else fn(); }
 // 停表的哨兵：场景照常画洞府，不画旧过场
 { const dc0 = drawCine; drawCine = function (dt) { if (cine && cine.cn) return; return dc0.apply(this, arguments); }; }
 { const dt0 = drawCineTarget; drawCineTarget = function () { if (cine && cine.cn) { drawMeHome(HOMEPOS.x, HOMEPOS.y); return; } return dt0.apply(this, arguments); }; }
@@ -506,14 +509,14 @@ if (typeof onbPump === 'function') { const op0 = onbPump; onbPump = function () 
   if (!st || !res || !res.ok || res.ascend || res.to > L.MAXR) return ab0.apply(this, arguments);
   const to = res.to;
   const p = to === 2 && res.tb ? playCine('leijie', {}) : to === 1 ? playCine('pojing', { r: 1 }) : playCine('pojing', { r: to, short: true });
-  p.then(() => ab0(res));
+  cnAfter(p, () => ab0(res));
 }; }
 // ⑩ 飞升 / 轮回
-{ const sa0 = showAscension; showAscension = function () { const a = arguments; playCine('feisheng', {}).then(() => sa0.apply(this, a)); }; }
-{ const sd0 = showDeath; showDeath = function () { const a = arguments; playCine('lunhui', {}).then(() => sd0.apply(this, a)); }; }
+{ const sa0 = showAscension; showAscension = function () { const a = arguments; cnAfter(playCine('feisheng', {}), () => sa0.apply(this, a)); }; }
+{ const sd0 = showDeath; showDeath = function () { const a = arguments; cnAfter(playCine('lunhui', {}), () => sd0.apply(this, a)); }; }
 // ④ 三年之约：只有弃徒出身（换了出身的约战是别人，不播）
 const cnPactOrig = () => !(L.pactText && L.pactText(st));
-{ const rp0 = runPact; runPact = function () { const a = arguments; if (!st || !cnPactOrig()) return rp0.apply(this, a); playCine('pact0', {}).then(() => rp0.apply(this, a)); }; }
+{ const rp0 = runPact; runPact = function () { const a = arguments; if (!st || !cnPactOrig()) return rp0.apply(this, a); cnAfter(playCine('pact0', {}), () => rp0.apply(this, a)); }; }
 { const pd0 = L.pactDuel; L.pactDuel = function (s) { const r = pd0.apply(this, arguments); if (s === st && r && cnPactOrig()) { if (!r.win) cnMeta().pactLose = 1; else delete cnMeta().pactLose; cineWant('pact1', { win: !!r.win }); } return r; }; }
 // ⑤ 入宗
 { const js0 = L.joinSect; L.joinSect = function (s, id) { const r = js0.apply(this, arguments); if (s === st && r) cineWant('rzong', { id }); return r; }; }
@@ -524,7 +527,7 @@ const cnBossFirst = fn => function () {
   const a = arguments, i = st && st.cnQ && !cn && !awayUI() ? st.cnQ.findIndex(x => x.id === 'boss') : -1;
   if (i < 0) return fn.apply(this, a);
   const x = st.cnQ.splice(i, 1)[0];
-  cinePlay(x.id, x.o).then(() => fn.apply(this, a));
+  cnAfter(cinePlay(x.id, x.o), () => fn.apply(this, a));
 };
 if (typeof bossResultUI === 'function') bossResultUI = cnBossFirst(bossResultUI);
 if (typeof showLootFlip === 'function') showLootFlip = cnBossFirst(showLootFlip);
@@ -535,7 +538,7 @@ if (typeof showLootFlip === 'function') showLootFlip = cnBossFirst(showLootFlip)
   const a = arguments, nm = o && o.right && o.right.name;
   const id = st && nm ? ['zhao', 'chu', 'xue'].find(r => L.rivalName(st, r) === nm) : null;
   if (!id || cineSeen('rival:' + id) || awayUI()) return du0.apply(this, a);
-  cinePlay('rival', { id }).then(() => du0.apply(this, a));
+  cnAfter(cinePlay('rival', { id }), () => du0.apply(this, a));
 }; }
 // 【仙途 → 记录】加一行“回忆”
 { const sr0 = showRecord; showRecord = function () {
