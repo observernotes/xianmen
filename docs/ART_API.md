@@ -377,3 +377,31 @@
 - 5：`src/ui/talk.js`；`'ending'` 图标用在图鉴结局页与结局卡。
 
 阶段九合计页面约 +25 KB。
+
+---
+
+## 阶段十·立绘（剧情表现力）
+
+对话场景与过场特写带用的大立绘。全部程序化绘制，在 `src/art.js` 末尾的“阶段十”一节。
+
+### 1 大立绘（96×128，腰以上）
+
+- `ART.tachie(id, mood, fx, alt)` → 画布；**没有立绘的人物返回 `null`**，调用方退回 `ART.portraitX(id, mood, fx, alt)` 的 48×48 小像（`src/ui/talk.js` 的 `tkFace` 就是这么做的）。
+  - `id`（`ART.tachieIds()`）：`elder` 玄霄（青白残魂、长眉长须、缺角玉冠、腰以下散成烟）、`su` 苏青瑶（杏衣、侧辫、鬓边小白花、药篓）、`ye` 夜璃（紫黑衣、红眼尾、单边耳坠、高马尾搭在肩前）、`mu` 慕容雪（粉衣、高髻、金步摇、眉心花钿）、`tian` 楚天阔（白衣金纹、披发高冠、背剑）、`zhao` 赵乾（方脸、蓝袍方巾、背剑）、`xue` 血无涯（暗红立领、骨角、尖牙）、`tianheng` 陆天衡（金冠、鬓边白发、金肩甲、眉心朱痕）、`yun` 云无极（银发冰冠、云肩、平时闭眼）。
+  - `alt` 为真取男版：`su2` 苏景行、`ye2` 夜无殇、`mu2` 慕容轩（规则同 `ART.portrait`）。别名同 `ART.portrait`（`xuanxiao`、`lutianheng`、`tiankuo`……）。
+  - `mood`（`ART.tachieMoods`）：`n` 平、`joy` 喜、`ang` 怒、`shock` 惊、`sad` 伤、`cold` 冷——**眉、眼、口三层差分**（每种眼型六套眼睛图样，眉的倾角与高低，口型按人物各自的表）。`cold` 是半垂眼 + 压平的眉 + 眉眼一层淡阴影（小像没有这一种，用 `n` + `shade` 顶替）。
+  - `fx`（可空格连写）：与 `ART.portraitFxNames` 同名同义——`tear` 泪、`shade` 眉眼阴影、`blush` 脸红、`blood` 嘴角血、`sweat` 冷汗、`mono` 回忆（褪成青蓝）、`fade` 余音（胸口以下化成光点）。
+- `ART.tachieMe(look, realm, mood, fx)` → 主角立绘。`look = { hair, skin, f }`：发色、肤色、男女（男束发金环，女双髻粉带）；道袍与滚边随境界九色（`L.REALMS[realm].robe / trim`），大乘起白发，渡劫的发环换白玉。
+- `ART.hasTachie(id, alt)`、`ART.tachieDims = { w: 96, h: 128, eyeY: 39, faceX: 48 }`（眼睛那一行、脸的中线，叠东西时用）。
+- 画法：`Buf` 分层（身后发 / 身体与交领腰带 / 颈与脸 / 五官 / 头发 / 饰物），每层自动打左上亮边、右下暗边，层与层之间留分隔线；最后合并到 30 色以内并描边。按 `id|mood|fx` 缓存。
+- 加一个人：往 `TACHIE` 里加一项 `{ skin, hair, shape, robe: [暗, 中, 亮], trim, inner, sw 肩宽, back(L, c) 身后的发, hairline(x, d) 发际线, hairF 发髻, F: { eye, iris, slant, tail, brow, mouth }, pre / mid / post 身后 / 身上 / 最上层的饰物 }`；发式积木 `tBack tPart tBangs tSwept tHigh tLock`，眼型 `f m n c`。
+
+### 2 特写带用立绘
+
+- 小像的画布现在记着自己是谁（`画布._tk = { id, mood, alt, fx }`，主角是 `{ me: look, realm, mood, fx }`）。`ART.cutin(src, color, flip)` 见到有立绘的人物，就按**原分辨率**裁立绘的眉眼一带（96×40），不再把 48 像素的小像放大两倍；没有立绘的照旧。
+- 所以原有十段过场和数据式分镜里的特写带不用改一个字，自动变清楚。`ART.tachieOf(小像画布)` 可以直接拿到对应的立绘。
+
+### 接线位置
+
+- `src/ui/talk.js`：`tkFace`（对话场景左右两张立绘）；`src/ui/cine2.js` / `talk.js` 的特写带经 `ART.cutin` 自动用上。
+- 阶段十合计页面约 +36 KB。
