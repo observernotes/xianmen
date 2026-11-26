@@ -25,6 +25,7 @@ function pumpBubble() {
   const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden || L.busy(st) || modalOpen();
   if (busy || st.tick < bubbleCool || performance.now() < guideQuiet || (typeof canInterrupt === 'function' && !canInterrupt())) return;
   const b = bubbleQ.shift();
+  if (!b) return;   // 上面把过期的都收进纸鹤后队列可能空了（guide_test 偶发 “reading 'text'”）
   const plain = String(b.text).replace(/<[^>]+>/g, ''), first = plain.split(/(?<=[。！？])/)[0];
   bubbleCool = st.tick + BUBBLE_GAP;
   if (first.length > 22) { bubbleLog.unshift(b); if (bubbleLog.length > 8) bubbleLog.length = 8; bubbleUnread = true; bubbleCool = st.tick; return; }
