@@ -1331,6 +1331,17 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body
 .lt-ars > .lt-ar.sel { border-color: #c8323c; background: #fbe6d8; }
 .lt-ars > .lt-ar.gold { cursor: default; border-color: #a8742a; }
 .lt-ars > .lt-ar.gold b { color: #a8742a; }
+/* ---------- 换窗不抖（tools/jitter_check.js）：底栏面板与带分页的窗口固定高度，换页、换格时卷轴边框不动；底栏贴底，上面的块高度变了也不挪 ---------- */
+#modal > .sheet > .body { scrollbar-gutter: stable; }   /* 电脑上的滚动条：这页长那页短时不让正文左右变宽变窄（手机上是浮在内容上的滚动条，不占位） */
+#modal > .sheet { min-width: 0; }   /* 一行不换行的长字（对比行、按钮）不许把卷轴撑到满屏宽：否则换到【装备】时卷轴左右各跳 6px */
+#modal > .sheet.full { height: 86%; }
+#modal > .sheet.full > .body { flex: 1 1 auto; min-height: 0; }
+#modal > .sheet.full .gw-det { margin-top: 0; }   /* 固定高度时明细不贴底：展开时“明细”那一行不往上蹿，内容往下展开（正文滚动） */
+#tick { margin-top: auto; }   /* 传讯 + 底栏贴底：场景按整数倍缩放剩下的几像素留在目标卡下面，不让底栏、传讯跟着上面的块跳 */
+body.bt-on #nav { margin-top: auto; }
+/* 底栏没开的格子：灰剪影 + 一行条件（README“底栏固定五格”），条件那一行顶替名字、行高相同——开锁 / 上锁（进出历练）时底栏不变高 */
+#nav button.lk > span:not(.badge) { display: none; }
+#nav button.lk .lkw { font-size: 13px; line-height: 18px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 存档页（src/ui/saves.js）：一格一行，整行可点（≥ 44px），头像 32px 小格 */
 .kslot.sv { cursor: pointer; min-height: 48px; margin-top: 4px; }
 .kslot.sv .cell { width: 40px; height: 40px; }

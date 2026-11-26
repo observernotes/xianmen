@@ -25,6 +25,7 @@ function pumpBubble() {
   const busy = !$('#guide').hidden || !!cine || !!duelFx || !$('#intro').hidden || L.busy(st) || modalOpen();
   if (busy || st.tick < bubbleCool || performance.now() < guideQuiet || (typeof canInterrupt === 'function' && !canInterrupt())) return;
   const b = bubbleQ.shift();
+  if (!b) return;   // 上面把过期的都收进纸鹤后队列可能空了（guide_test 偶发 “reading 'text'”）
   const plain = String(b.text).replace(/<[^>]+>/g, ''), first = plain.split(/(?<=[。！？])/)[0];
   bubbleCool = st.tick + BUBBLE_GAP;
   if (first.length > 22) { bubbleLog.unshift(b); if (bubbleLog.length > 8) bubbleLog.length = 8; bubbleUnread = true; bubbleCool = st.tick; return; }
@@ -355,7 +356,7 @@ function updateGuide() {
     const k = /Chrome\/(\d+)/.test(navigator.userAgent) && +RegExp.$1 >= 128 ? 1 : z; // 新版浏览器的 rect 已含缩放
     const L0 = r.left / k, T0 = r.top / k, W0 = r.width / k, H0 = r.height / k;
     spot.className = 'spot';
-    Object.assign(spot.style, { left: (L0 - 4) + 'px', top: (T0 - 4) + 'px', width: (W0 + 8) + 'px', height: (H0 + 8) + 'px' });
+    Object.assign(spot.style, { left: '0px', top: '0px', transform: `translate(${L0 - 4}px, ${T0 - 4}px)`, width: (W0 + 8) + 'px', height: (H0 + 8) + 'px' });   // 挪位置用 transform：不触发回流、不算版面位移
     const below = T0 + H0 / 2 < vh / 2;
     arrow.hidden = false;
     arrow.className = 'garrow' + (below ? ' up' : '');

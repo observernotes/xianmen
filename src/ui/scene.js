@@ -26,7 +26,8 @@ function fitScene() {
   app.classList.toggle('short', short);
   const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
   const others = ['#top', '#time', '#cult', '#stats', '#bt', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
-  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * 7;
+  const nIn = [...app.children].filter(e => { const c = getComputedStyle(e); return c.display !== 'none' && c.position !== 'absolute' && c.position !== 'fixed'; }).length;   // 打仗时修为条、数值格、传讯收起，少两道缝
+  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * Math.max(1, nIn - 1);
   let n = UPX;
   const ow = outer.clientWidth || window.innerWidth;
   while (n > 1 && (180 * n / dpr > ow + 0.5 || 160 * n / dpr > avail + 0.5)) n--;
@@ -34,9 +35,16 @@ function fitScene() {
   const u = n / dpr;
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; }
   wrap.style.width = (W * u) + 'px'; wrap.style.height = (H * u) + 'px';
+  // 缩到最小（160 高、1 倍）还放不下（矮的电脑窗口里打仗）：剪掉上面一截天空，底栏不被挤出屏幕（jitter_check）
+  const over = Math.max(0, Math.ceil(H * u - avail));
+  outer.style.height = over ? (H * u - over) + 'px' : ''; wrap.style.marginTop = over ? -over + 'px' : '';
   sceneU = u; sceneCrop = Math.max(0, Math.floor((W * u - ow) / 2 / u));   // 窄屏上场景左右各被裁掉的逻辑像素（对决的血条、名字要躲开）
 }
 let sceneU = 2, sceneCrop = 0;
+// 场景四周那几块（顶栏、时间条、修为条、数值格、战斗条、目标卡、传讯、底栏）高度一变就重新排场景（tools/jitter_check.js）：
+// 目标卡展开 / 收起、底栏格子开锁（多一行“几时开”）、战斗条换行……不再把底栏挤出屏幕、也不留下几帧错位（ResizeObserver 在画出来之前回调）
+const sceneRO = window.ResizeObserver ? new ResizeObserver(() => fitScene()) : null;
+if (sceneRO) for (const q of ['#top', '#time', '#cult', '#stats', '#goal', '#tick', '#nav']) { const e = $(q); if (e) sceneRO.observe(e); }
 function phase() { return ((T / 120000) + 0.42) % 1; }
 // 四季按月（t % 12：1～3 春、4～6 夏、7～9 秋、10～0 冬，calendar.js 的 L.seasonOf），与年历、季节加成一致
 function season() { return st ? L.season(st) : 0; }
