@@ -279,7 +279,7 @@ const warDue = st => pending(st, L.chapterNow(st)).some(x => x.k === 'war');
 }; }
 { const sw0 = L.sectWar; L.sectWar = function (st) {
   const r = sw0.apply(this, arguments);
-  if (r && !r.win && !st.flags.warWon) { st.flags.war = up3(st.tick + V.warRe); st.flags.warLost = (st.flags.warLost || 0) + 1; }
+  if (r && !r.win && !st.flags.warWon) { st.flags.war = up3(st.tick + (L.mainEase(st) >= 1 ? V.cdEase : V.warRe)); /* 降过级的章：下一季就再来 */ st.flags.warLost = (st.flags.warLost || 0) + 1; }
   return r;
 }; }
 
