@@ -151,12 +151,14 @@ function analyze(rec, allow) {
       st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
       L.petGive(st, { sp: 'p_hu2', src: 'shop' }); L.petGive(st, { sp: 'p_he' }); st.pets[0].lv = 4;
       st.storyQ = []; st.achQ = []; st.market.evQ = []; st.visitor = null;
-      L.checkQuests(st); st.achQ = []; st.storyQ = [];
+      L.checkQuests(st); st.achQ = []; st.storyQ = []; st.cnQ = []; window.__xm.unlockQ.length = 0; st.ap.left = 3;   // 造局面一口气开的系统、入宗：不出解锁卡与过场（它们现在由结算链在空下来时当场出）
       for (const h of window.__xm.hints) st.hintSeen[h.id] = 1;
       window.__xm.closeModal();
     });
     await closeAll();
 
+    // 造局面以后结算链里可能还排着东西（剧情、章末卡）：点完再测
+    for (let i = 0; i < 12; i++) { const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? 'talk' : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?')); if (!t) { await wait(300); if (await ev(() => document.getElementById('modal').hidden && !(window.__xm_talk && window.__xm_talk.on))) break; continue; } if (process.env.JV) console.log('     链：' + t); await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); else window.__xm.closeModal(); }); await wait(450); }
     // ===== 底栏五格互点（开着一个面板时直接点另一格）=====
     await scen('底栏·打开历练', null, click('[data-nav="exp"]'));
     for (const [a, b2] of [['exp', 'home'], ['home', 'gear'], ['gear', 'world'], ['world', 'path'], ['path', 'exp'], ['exp', 'gear'], ['gear', 'home']]) await scen(`底栏 ${a}→${b2}`, null, click(`[data-nav="${b2}"]`));

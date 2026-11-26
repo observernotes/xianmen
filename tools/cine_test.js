@@ -153,6 +153,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   }
   await ev(() => { window.__xm.L.bossReady = window.__br0; });
   const bk = await on(); check(bk && bk.key === 'boss:2', `首领首杀：对决之后先播斩首领（${bk && bk.key}）`);
+  if (!bk) console.log('       ' + JSON.stringify(await ev(() => ({ chain: window.__xm.chainOn, m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent, ap: window.__xm.st.ap.left, b2: window.__xm.st.bosses[2], say: window.__xm.sayLog.slice(0, 2).map(x => x.text) }))));
   await page.click('.cn-skip'); await page.waitForTimeout(600);
   const bf = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
   console.log('       斩首领之后：' + (bf || '（无弹窗）'));
