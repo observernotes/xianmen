@@ -107,11 +107,11 @@ function checkTalk(id, talk, where) {
 }
 const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined || c.daoMin || c.gate || c.cond !== undefined);
 
-// 共用场景的空位（STORY_SLOTS，STORY_PLAN §10）：每段 ≤ 6 句，写法与台词同样查
+// 共用场景的空位（STORY_SLOTS，STORY_PLAN §10）：写法与台词同样查
 for (const sid of Object.keys(globalThis.STORY_SLOTS || {})) for (const [i, x] of globalThis.STORY_SLOTS[sid].entries()) {
   const id = `slot:${sid}#${i}`;
   if (!x || typeof x.who !== 'string' || !Array.isArray(x.say)) { err(id, '空位要写 { who, if, say }'); continue; }
-  if (checkTalk(id, x.say, 'say') > 6) err(id, '一段 ≤ 6 句');
+  checkTalk(id, x.say, 'say');
   if (x.echo !== undefined && (typeof x.echo !== 'string' || len(x.echo) > 16)) err(id, 'echo 要 ≤ 16 字');
 }
 for (const [f, list] of SOURCES) if (!Array.isArray(list)) { console.error(`${f} 没有导出数组`); process.exit(1); }

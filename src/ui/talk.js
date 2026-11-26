@@ -46,7 +46,6 @@ function tkFlat(list, out, echo) {
       echo = '';
     } else if (it.say) { if (L.storyCond(st, it.if)) tkFlat(it.say, out, it.echo || echo); }
     else if (it.pick) { const o = it.pick.find(x => L.storyCond(st, x.if)); if (o) tkFlat(o.say, out, o.echo || echo); }
-    else if (it.slot) { for (const x of L.storySlots(st, it.slot, it.n, it.who)) tkFlat(x.say, out, x.echo || ''); }   // 共用场景的空位（B / C 线填的段落）
     else if ('black' in it) out.push({ who: 'black', mood: 'n', fx: '', text: L.fill(st, it.black), o: it, echo: '' });
     else if ('cg' in it) out.push({ bg: 'cg:' + it.cg + ':' + (it.f || 0), flash: it.flash });
     else if ('scene' in it) out.push({ bg: it.scene });
