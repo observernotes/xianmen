@@ -163,6 +163,7 @@ img.px, canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 #tip img { width: 48px; height: 48px; flex: none; margin: -4px 0; }
 #tip .who { color: var(--seal); }
 #tip .x { margin-left: auto; color: var(--paper-mute); flex: none; padding: 0 4px; }
+body:has(#modal:not([hidden])) #tip { visibility: hidden; }   /* 弹窗开着时气泡不露半截（压在弹窗后面只露一半） */
 /* ---------- 境界牌：境界名（大字）+ 名号；修为条 16 高；圆满时整牌变金 = 突破入口 ---------- */
 #cult { display: flex; flex-direction: column; gap: 4px; padding: 0 4px 2px; color: var(--text); text-align: left; cursor: pointer; flex: none; font: inherit; }
 #cult .r1 { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
@@ -471,6 +472,7 @@ input.txt { background: #fff9ea; border: 0; padding: 6px 8px; min-height: 44px; 
 .fplot .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crow.off { opacity: .6; }
 .crow .right .btn, .arow .right .btn { min-height: 44px; min-width: 64px; }
+.crow .right { gap: 6px; }
 .arow .abtns { gap: 6px; }
 .arow .abtns .btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
 .arow .abtns .btn small { opacity: .85; max-width: 96px; overflow-wrap: anywhere; white-space: normal; }
@@ -709,6 +711,8 @@ img.stampimg.big { animation: stampDown .45s steps(6); filter: drop-shadow(2px 2
 .hnode.done { background: #e2f3e8; }
 .hdet .right .btn { min-height: 44px; min-width: 64px; }
 i.new { font-style: normal; background: var(--seal); color: #fff6e6; padding: 0 3px; margin-left: 3px; }
+.hnode { position: relative; }
+.hnode .nm i.new { position: absolute; top: 2px; right: 2px; margin: 0; font-size: 10px; line-height: 14px; padding: 0 2px; }
 .tlist { display: flex; flex-direction: column; gap: 6px; }
 .sheet .foot .btn { min-height: 44px; }
 button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: left; width: 100%; min-height: 48px; }

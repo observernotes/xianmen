@@ -109,10 +109,10 @@ function confirmExp(k, d, a, still) {
     title: rg.n, center: true, still,
     body: `${UI.isOpen('zhanji') ? elemLine(k) : ''}
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
-      ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}
+      ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
       <div class="center"><div class="muted">预计评价 · 战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
       <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 周天${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
-      ${notes.join('')}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}${opts.join('')}
+      ${notes.join('')}${opts.join('')}
       <details class="more"><summary>详情：评价分布、行事说明、法宝</summary><p class="muted">${rg.desc}${L.elemKnown(st, k) ? ` · 五行属${L.elemName(k)}` : ''}</p>${dist}
       ${nAppr > 1 ? '<div class="muted">斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6</div>' : ''}
       <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
@@ -240,7 +240,7 @@ function showExpResult(res) {
     else if (!res.legacy && L.expOpen(st, res.k, res.d, res.a) && !L.busy(st)) foot.push({ t: '再探一次', gold: true, fn: () => { closeModal(); if (L.startExp(st, res.k, res.d, res.a)) SFX.coin(); } });
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
-  dropFlipRun(sheet({ title: `历练归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot }));
+  dropFlipRun(sheet({ title: `归来 · ${res.legacy ? rg.n : cellName(res.k, res.d)}`, center: true, body: lines.join(''), foot }));
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价
 function gearExpLine(k, d, a) {

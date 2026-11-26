@@ -482,15 +482,15 @@ require('fs').mkdirSync(out, { recursive: true });
       st.p.r = 2 + (i % 6); st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 8; st.p.fails = 0; st.trib.cur = null; st.trib.daoji = 0; st.eflags = {}; st.toxin = 0;
       // 丹毒（alchemy.js）上线后临阵吞丹走 L.addToxin（每枚 +20），开渡时服的破境丹结算时每枚 +10
       const tox = () => (L.addToxin ? st.toxin : st.trib.toxin), toxPre = L.addToxin ? L.TOX.bt * (i % 4) : 0;
-      const v = L.tribStart(st, { pills: i % 4, aids: i % 2 ? { fa: 1 } : {} }), u = st.trib.cur.u, pill0 = st.pills, tox0 = tox();
+      const top0 = L.tribTop(st), v = L.tribStart(st, { pills: i % 4, aids: i % 2 ? { fa: 1 } : {} }), u = st.trib.cur.u, pill0 = st.pills, tox0 = tox();
       const mono = v.curve.every((x, j) => !j || x <= v.curve[j - 1] + 1e-9);
       const ex = i % 3 === 0 ? { pills: 2 } : {};
       const pv = L.tribPreview(st, ex), r = L.tribFinish(st, ex), p1 = r.tb.p1, m = p1 - u;
       if (pv.ok !== r.ok || pv.grade !== r.tb.grade || pv.p1 !== p1 || JSON.stringify(pv.curve1) !== JSON.stringify(r.tb.curve1)) bad.push('pv' + i);
       if (r.ok !== (u < p1) || !mono || (r.ok ? r.tb.curve1[v.N] <= 0 : r.tb.curve1[v.N] !== 0) || Math.abs(r.tb.margin - m) > 1e-3 || JSON.stringify(r.tb.curve0) !== JSON.stringify(v.curve)) bad.push(i);
-      if (ex.pills) { if (Math.abs(p1 - Math.min(1, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || tox() - tox0 !== 40 + toxPre) bad.push('ex' + i); else extraUp++; }
+      if (ex.pills) { if (Math.abs(p1 - Math.min(top0, v.p + 0.2)) > 1e-9 || pill0 - st.pills !== 2 || tox() - tox0 !== 40 + toxPre) bad.push('ex' + i); else extraUp++; }
       else if (JSON.stringify(r.tb.curve1) !== JSON.stringify(v.curve)) bad.push('c' + i);
-      if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g) bad.push('g' + i); }
+      if (r.ok) { ok++; const g = m >= 0.5 ? '完美' : m >= 0.25 ? '上' : m >= 0.08 ? '中' : '下'; if (r.tb.grade !== g && ![0.5, 0.25, 0.08].some(t => Math.abs(m - t) < 2e-4)) bad.push('g' + i); }   // 余量恰在档线 ±2e-4 内时，结算按取整后的余量评档，两边可差一档
       n++;
     }
     return { n, ok, bad: bad.slice(0, 6), extraUp };
@@ -1533,8 +1533,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await hLoad({ r: 3, i: 13, cave: 6, build: ['field', 'furnace', 'room'] });
   await page.evaluate(() => window.__xm.onTick()); await page.waitForTimeout(500); await close();
   await page.evaluate(() => { const { st, L } = window.__xm; st.home.field = 9; st.home.furnace = 6; st.home.room = 2; L.applyFx(st, { flag: 'tut_rebuild' }); window.__xm.onTick(); }); await page.waitForTimeout(900); await shot('h10-tut-rebuild');
-  const tr = await hq(() => ({ sel: (document.querySelector('#modal #homeGrid .hplot.sel') || {}).dataset && document.querySelector('#modal #homeGrid .hplot.sel').dataset.hp, yes: !!document.querySelector('#modal [data-demo-yes="room"]'), txt: (document.querySelector('#modal .quote') || {}).textContent || '', tut: window.__xm.st.home.tut }));
-  expect(tr.sel === '3' && tr.yes && /拆了退/.test(tr.txt) && !tr.tut, 'tut_rebuild：打开洞府、选中等级最低的静室、拆除确认条已展开：' + JSON.stringify(tr));
+  const tr = await hq(() => ({ sel: (document.querySelector('#modal #homeGrid .hplot.sel') || {}).dataset && document.querySelector('#modal #homeGrid .hplot.sel').dataset.hp, yes: !!document.querySelector('#modal [data-demo-yes="room"]'), txt: [...document.querySelectorAll('#modal .quote')].map(q => q.textContent).join(' '), tut: window.__xm.st.home.tut, say: [...document.querySelectorAll('#modal .quote')].some(q => /老祖指着/.test(q.textContent)) }));
+  expect(tr.sel === '3' && tr.yes && /拆了退/.test(tr.txt) && tr.say && !tr.tut, 'tut_rebuild：打开洞府、选中等级最低的静室、拆除确认条已展开：' + JSON.stringify(tr));
   await close();
   // 旧写法 st.home = {…} 直接赋值（不带 plots）：洞府面板和阵法面板都能打开、不抛错
   const errN = errors.length;
@@ -2419,10 +2419,11 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await page.evaluate(() => window.__xm.st.grudge.zhao === 90 && window.__xm.L.rivalKnow(window.__xm.st, 'zhao').art), '伏击赢了：恩怨 +10、记下他的看家战技');
   await close();
   // —— 老祖讲解：rvKezhi（对决准备页出现【换上】）、rvGrudge（恩怨过 60）、rvRookie（新秀出世）。说话时暂停，数字和逻辑层一致
-  const guideAt = async id => { for (let i = 0; i < 12; i++) { await page.waitForTimeout(250); if ((await page.evaluate(() => window.__xm.guideDbg.active)) === id) return true; await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; }, id); } return false; };
+  const guideAt = async id => { for (let i = 0; i < 24; i++) { await page.waitForTimeout(250); await page.evaluate(() => { const { st } = window.__xm; st.tick = Math.max(st.tick, window.__xm.guideDbg.hintCool + 1); });   // 前一张卡收起时 hintCool 会再抬（+GUIDE_GAP），每圈都越过它
+    if ((await page.evaluate(() => window.__xm.guideDbg.active)) === id) return true; await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; }, id); } return false; };
   // 非 urgent 的讲解要 st.tick ≥ hintCool（上一条说完后隔两个周天，模块级变量，换局面不清）：把周天拨过去
   const guideCool = () => page.evaluate(() => { const { st } = window.__xm; st.tick = Math.max(st.tick, window.__xm.guideDbg.hintCool + 1); });
-  const guideOff = () => page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
+  const guideOff = async () => { for (let i = 0; i < 12; i++) { const gone = await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); return !document.querySelector('#guide:not([hidden])') || !ok; }); if (gone) break; await page.waitForTimeout(250); } await page.waitForTimeout(150); };   // 机器忙时点一次可能没落到：点到卡收起为止
   await rvBuild('prep'); await page.evaluate(() => { const { st } = window.__xm; delete st.hintSeen.rvKezhi; window.__xm.runTournament(); });
   const gk = await page.evaluate(() => { const { st, L } = window.__xm; const tf = L.tourFoe(st), b = L.duelArtBest(st, tf.foe, tf.Q); return { p0: L.pct(b.p0), p1: L.pct(b.p1), n: L.art(b.id).n }; });
   expect(await guideAt('rvKezhi'), '老祖：对决准备页出现【换上】时讲克制（rvKezhi）');
@@ -2439,7 +2440,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await guideOff();
   await rvBuild('list'); await page.evaluate(() => { const { st } = window.__xm; st.hintSeen.rvGrudge = 1; delete st.hintSeen.rvRookie; });
   await guideCool();
-  expect(await guideAt('rvRookie'), '老祖：新秀出世讲追赶（rvRookie）');
+  expect(await guideAt('rvRookie'), '老祖：新秀出世讲追赶（rvRookie）：' + JSON.stringify(await page.evaluate(() => { const X = window.__xm, st = X.st; return { dbg: X.guideDbg, tick: st.tick, rookie: !!X.L.rookie(st), busy: X.L.busy(st), q: (st.storyQ || []).length, modal: !document.getElementById('modal').hidden, g: !document.getElementById('guide').hidden }; })));
   await page.waitForTimeout(300); await shot('rv16-guide-rookie');
   const gr = await page.evaluate(() => { const { st, L } = window.__xm; const I = L.rookieInfo(st); return { txt: document.querySelector('#guide .gtext').textContent, n: I.rk.n, q: I.q, Q: L.fmt(I.Q), S: L.fmt(L.power(st)), hold: window.__xm.guideHold }; });
   expect(gr.hold && gr.txt.includes(gr.n) && gr.txt.includes(String(gr.q)) && gr.txt.includes(gr.Q) && gr.txt.includes(gr.S) && gr.txt.includes('8'), '老祖的新秀讲解数字对（名次、他的战力、你的战力）：' + gr.txt);
