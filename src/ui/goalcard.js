@@ -249,7 +249,7 @@ function renderMain() {
   if (pb.classList.contains('on') !== paused) { pb.classList.toggle('on', paused); pb.innerHTML = artIcon(paused ? 'play' : 'pause', 20); pb.setAttribute('aria-label', paused ? '继续' : '暂停'); }
   // 时间条：本章 36 格（第一章）或今年 12 格；大节点红格 + 右上角“还有 N 月”
   const tb = L.timeBar(st);
-  $('#date').textContent = st.tick ? `第${tb.y}年 · ${'春夏秋冬'[tb.season]} · ${tb.m}${MO()}` : `第1年 · 开春前`;
+  $('#date').textContent = `第${tb.y}年 · ${'春夏秋冬'[tb.season]} · ${tb.m}${MO()}`;
   const bl = $('#bigLeft'), lbl = tb.big ? tb.label || `${tb.big.n} 还有 ${tb.big.left} ${MO()}` : '';
   if (bl.textContent !== lbl) bl.textContent = lbl;
   bl.classList.toggle('gold', !!tb.big && tb.big.left > 6);

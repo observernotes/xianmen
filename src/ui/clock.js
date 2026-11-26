@@ -45,7 +45,7 @@ function openMail(item) {
 let readyAck = -1, yearQ = false;
 function clockTick(out) {
   if (!st || st.p.r > L.MAXR) return;
-  if (out.warn) { const w = out.warn; say(`${w.n} 还有 ${w.left} ${UNIT}${w.p !== undefined ? ' · 胜算 ' + L.pct(w.p) : ''}`, { k: 'big', t: `${w.n} 还有 ${w.left} ${UNIT}`, left: w.left }); if (UI.flashGoal) UI.flashGoal(); }
+  for (const w of out.warns || []) { say(`${w.n} 还有 ${w.left} ${UNIT}${w.p !== undefined ? ' · 胜算 ' + L.pct(w.p) : ''}`, { k: 'big', t: `${w.n} 还有 ${w.left} ${UNIT}`, left: w.left }); if (UI.flashGoal) UI.flashGoal(); }
   if (out.prep) { const info = out.prep; setStop('prep'); pushPopup(() => showPrep(info)); }
   // 年报：打坐态才出；在外就等归来（归来结算排在前面）
   if (L.yearDue(st) && !yearQ) { yearQ = true; pushPopup(() => { yearQ = false; if (st.rep && st.rep.ready) (UI.showYear || showYearBasic)(); }); }

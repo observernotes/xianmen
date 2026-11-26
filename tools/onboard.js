@@ -5,10 +5,17 @@
 // 每周天 = 游戏里 ×1 的真实时长（window.__xm.tickMs，旧版没有就是 5 秒）。
 // node tools/onboard.js <输出目录> [分钟=90] [--assert]
 //   --assert：按 docs/ONBOARDING.md §6 的目标核对（每 10 分钟阻塞讲解数、新概念数、主界面可见元素数），不过就退出码 1
-const { chromium, devices } = require('playwright');
+//
+// 全程手表机器人（docs/KAIRO_PLAN.md §3.6）：node tools/onboard.js --life [种子数=12] [输出.md] [--assert]
+//   不开浏览器：照 tools/sim.js 的 guided 玩完第一世（逻辑与界面同一份 L），按“手表”记时间——
+//   每个月 = L.monthSec(st)（×1；打坐 / 历练 / 闭关三态）；每个决定按方案 §3.4 的估算口径记读与点的秒数（见下面 COST）；
+//   解锁卡之间的“≥ 6 分钟真实时间”用这块手表判（L.onbHold），和界面一样。输出各章手表分钟、全程分钟，对照 §3.4 的逐章预算（±20%）。
+//   --assert：全程 270～360 分钟、第一章 22～28 分钟不过就退出码 1。
 const path = require('path'), fs = require('fs');
 const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const ASSERT = process.argv.includes('--assert');
+if (process.argv.includes('--life')) { lifeWatch(); return; }
+const { chromium, devices } = require('playwright');
 const out = args[0] || 'onboard'; const MIN = +(args[1] || 90);
 fs.mkdirSync(out, { recursive: true });
 const URL = 'file://' + (process.env.ONB_DIST ? path.resolve(process.env.ONB_DIST, 'index.html') : path.join(__dirname, '..', 'dist', 'index.html'));
@@ -43,6 +50,20 @@ const TERMS = [
   });
   const tickMs = await ev(() => window.__xm.tickMs || 5000);
   let clock = 40;   // 开场四格画 + 起名
+  await ev(() => { window.__xm.watch = () => window.__onbClock || 0; });   // 解锁卡之间的“≥ 6 分钟”按这块手表判（clock.js 的 L.onbHold）
+  // 在外零打断（KAIRO_PLAN §3.6）：人在外面（历练 / 闭关）时出现的讲解、气泡、横幅、弹窗（途中遭遇除外）都记一笔
+  const awayHits = [], actives = [];
+  let lastBan = 0;
+  const awayCheck = async s => {
+    const a = await ev(() => { const X = window.__xm, st = X.st; const m = !document.getElementById('modal').hidden; return { away: !!(st.exp || st.retreat), enc: !!(st.exp && st.exp.encEv), modal: m, choices: m && !!document.querySelector('#modal .choices'), tip: !document.getElementById('tip').hidden, ban: window.__onb.banners.length, gid: X.guideCur && X.guideCur.id, title: (document.querySelector('#modal h2') || {}).textContent || '' }; });
+    const newBan = a.ban > lastBan; lastBan = a.ban;
+    if (a.away) {
+      if (a.tip) awayHits.push({ tick: s.tick, clock, what: '气泡' });
+      if (newBan) awayHits.push({ tick: s.tick, clock, what: '横幅' });
+      if (a.gid) awayHits.push({ tick: s.tick, clock, what: '讲解 ' + a.gid });
+      if (a.modal && !(a.choices && a.enc)) awayHits.push({ tick: s.tick, clock, what: '弹窗 ' + a.title });
+    } else if (a.tip || a.gid || (a.modal && a.choices)) actives.push({ tick: s.tick, clock, what: a.tip ? '气泡' : a.gid ? '讲解 ' + a.gid : '事件 ' + a.title });
+  };
   const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const guides = [], bubbles = [], modals = [], unlocks = [], first = {};
   let gn = 0, seenB = new Set(), seenBan = 0;
@@ -77,7 +98,7 @@ const TERMS = [
     if (s.cine) { const g = await page.$('#modal .foot .btn.gold:not([disabled])'); if (g) await g.click(); else await ev(() => window.__xm.closeModal()); await page.waitForTimeout(300); return true; }
     if (/突破|天劫/.test(s.title)) { await ev(() => { const b = document.querySelector('#modal .foot .btn.gold'); if (b) b.click(); }); for (let i = 0; i < 40 && await ev(() => window.__xm.cine); i++) await page.waitForTimeout(200); clock += 6; return true; }
     const go = await page.$('#modal .foot .btn.gold:not([disabled])');
-    if (go && /拜入|登台|为宗门|接受特训|知道了|谢|继续|下一|落幕|回洞府|好/.test(await go.textContent())) { await go.click(); await page.waitForTimeout(250); return true; }
+    if (go && /拜入|登台|为宗门|接受特训|知道了|谢|继续|下一|落幕|回洞府|好|就这样上|新的一年/.test(await go.textContent())) { await go.click(); await page.waitForTimeout(250); return true; }
     await ev(() => window.__xm.closeModal()); await page.waitForTimeout(250);
     return true;
   };
@@ -94,7 +115,7 @@ const TERMS = [
       if (st.visitor) { X.showVisitor(); return 'visit'; }
       for (const k of ['array', 'field', 'furnace']) { if (!L.homeOpen(st, k) || (k !== 'array' && !vis(k))) continue; const u = L.upInfo(st, k); if (!u.max && !u.lock && u.cost && st.stones >= u.cost * 1.3) { L.upgrade(st, k); return 'up:' + k; } }
       if (L.canRetreat(st) && L.ticksToStage(st, L.si(st.p) + 1) <= 6 && L.retInfo(st).save > 0) { L.startRetreat(st); return 'retreat'; }
-      if (st.p.r <= L.MAXR && !L.isFull(st)) { const b = L.expBest(st); const a = st.stats.exp % 3 === 1 && L.apprOpen(st, 2) ? 2 : b.a; X.confirmExp(b.k, b.d, a); return 'exp'; }
+      if (st.p.r <= L.MAXR && !L.isFull(st)) { const b = L.expBest(st); if (L.expBlock && L.expBlock(st, b.k)) return ''; const a = st.stats.exp % 3 === 1 && L.apprOpen(st, 2) ? 2 : b.a; X.confirmExp(b.k, b.d, a); return 'exp'; }
       return '';
     });
     if (what === 'exp') { clock += 4; await page.waitForTimeout(350); const s = await state(); if (!(await handleGuide(s))) { await ev(() => { const b = document.querySelector('#modal .foot .btn.gold'); if (b) b.click(); }); } }
@@ -164,6 +185,7 @@ const TERMS = [
   let nextCensus = 120, segStart = { g: 0, gb: 0, b: 0, ban: 0, mod: 0 };
   let lastUnl = [];
   for (let guard = 0; guard < 20000; guard++) {
+    await ev(c => { window.__onbClock = c; }, clock);
     let s = await state();
     if (clock > MIN * 60) break;
     for (const k of s.onb) if (!lastUnl.includes(k)) { unlocks.push({ k, tick: s.tick, clock, sys: await ev(k => !!(window.__xm.L.ONB_K[k] || {}).sys, k) }); lastUnl.push(k); if (clock < 60 * 60) await page.screenshot({ path: `${out}/u-${fmtT(clock).replace(':', 'm')}-${k}.png` }); }
@@ -182,10 +204,12 @@ const TERMS = [
     await act();
     s = await state();
     if (!s.gHidden || s.modal) continue;
+    const mSec = await ev(() => window.__xm.tickMs / 1000);   // 这个月按出发那一刻的三态算（打坐 / 历练 / 闭关，L.monthSec）
     await ev(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); });
-    clock += tickMs / 1000;
+    clock += mSec;
     await page.waitForTimeout(150);
     s = await state();
+    await awayCheck(s);
     for (const x of s.blog) if (!seenB.has(x)) { seenB.add(x); bubbles.push({ tick: s.tick, clock, text: x }); noteTerms(x, '气泡'); }
     const bans = await ev(n => window.__onb.banners.slice(n), seenBan);
     seenBan += bans.length; for (const x of bans) noteTerms(x.t, '横幅');
@@ -250,6 +274,11 @@ const TERMS = [
     L1.push('', `前 10 分钟新名词 ${c10}（参考），解锁系统 ${sysFirst10}；三年之约在 ${fmtT(pactAt)}，之前解锁系统 ${pre}`);
     L1.push('', fails.length ? '## 未通过\n\n' + fails.map(f => '- ' + f).join('\n') : '## 节奏核对全部通过');
   }
+  // 在外零打断、打坐时一季一次（KAIRO_PLAN §3.6 的两条）
+  let win3 = 0; for (const x of actives) win3 = Math.max(win3, new Set(actives.filter(y => y.tick >= x.tick && y.tick < x.tick + 3).map(y => y.tick + '|' + y.what)).size);
+  L1.push('', `## 时间流逝（KAIRO_PLAN §3.6）`, '', `在外期间出现的讲解 / 气泡 / 横幅 / 弹窗（途中遭遇除外）：${awayHits.length}${awayHits.length ? '：' + awayHits.slice(0, 12).map(x => `${fmtT(x.clock)} 第 ${x.tick} 月 ${x.what}`).join('；') : ''}`,
+    `打坐时任意连续 3 月内的主动打断（讲解、气泡、剧情事件）最多：${win3}（目标 ≤ 1；讲解与气泡的节流归线 2）`);
+  if (ASSERT && awayHits.length) fails.push(`在外期间出现了 ${awayHits.length} 次打断（目标 0）`);
   fs.writeFileSync(`${out}/onboard.md`, L1.join('\n'));
   fs.writeFileSync(`${out}/onboard.json`, JSON.stringify({ rows, guides, bubbles, modals, unlocks, first, dec }, null, 1));
   console.log(L1.join('\n'));
@@ -257,3 +286,112 @@ const TERMS = [
   await b.close();
   if (errs.length || fails.length) process.exitCode = 1;
 })().catch(e => { console.error('FAIL', e.message.slice(0, 400)); process.exit(1); });
+
+
+// ---------- 全程手表机器人 ----------
+// 秒数口径两套（--cost plan 换成第二套）：
+//   read（默认）：和浏览器那一半同一个“按读字算”的口径——弹窗 3 秒 + 每 20 字 1 秒（≤ 15 秒）再加 2～3 秒点按钮；对决演出照 duel-scene.js 的时长（一场约 4 秒）；
+//                 事件按它自己的正文与选项字数算；花钱 / 换装 / 交任务：一个月里第一下 6 秒（开面板），之后每下 2 秒，一个月最多 12 秒
+//   plan：方案 §3.4 估算口径的原数（一趟历练 30 秒选 + 25 秒结算；年报 25 秒；一届论道 80 秒；一件纸鹤里的事 30 秒），偏保守，只作对照
+function costTable() { return {
+  read: { intro: 180, depart: 8, result: 10, retreat: 4, retResult: 5, year: 10, tour: 40, duel: 25, rookie: 20, choice: null, visitor: 4, unlock: 8, chapter: 15,
+    bt: 16, trib: 30, invite: 12, train: 8, mjEnter: 5, mjDoor: 4, mjChest: 4, act1: 6, actN: 2, actCap: 12 },
+  plan: { intro: 180, depart: 30, result: 25, retreat: 8, retResult: 10, year: 25, tour: 80, duel: 80, rookie: 60, choice: 30, visitor: 0, unlock: 15, chapter: 30,
+    bt: 25, trib: 60, invite: 30, train: 15, mjEnter: 15, mjDoor: 6, mjChest: 8, act1: 8, actN: 2, actCap: 15 },
+}; }
+function evCost(ev) { let n = 0; try { n = String(ev.text || '').length + (ev.choices || []).reduce((a, c) => a + String(c.t || '').length, 0); } catch (e) { n = 80; } return Math.min(15, 3 + n / 20) + 3; }
+function lifeWatch() {
+  const COSTS = costTable();
+  // --time=idle:18,trip:10 临时改 L.TIME 试旋钮（不改源码）
+  const tArg = process.argv.find(a => a.startsWith('--time='));
+  const COST = COSTS[(process.argv.find(a => a.startsWith('--cost=')) || '--cost=read').slice(7)] || COSTS.read;
+  // §3.4 的逐章预算（分钟，序 + 九章）
+  const BUDGET = [3, 25, 26, 36, 42, 40, 38, 42, 40, 42];
+  const S = require('./sim.js'), L = S.L;
+  const N = +(args[0]) || 12, outF = args[1] || '';
+  if (tArg) for (const kv of tArg.slice(7).split(',')) { const [k, v] = kv.split(':'); if (k.startsWith('mul')) { L.TIME.realmMul = v.split('/').map(Number); } else L.TIME[k] = +v; }
+  let cur = null;
+  const add = (k, sec) => { if (!cur) return; cur.clock += sec; cur.by[k] = (cur.by[k] || 0) + sec; };
+  const act = () => { if (!cur) return; const m = cur.monthAct; if (m.n === 0) add('act', COST.act1); else if (m.sec + COST.actN <= COST.actCap) add('act', COST.actN); m.sec += m.n === 0 ? COST.act1 : COST.actN; m.n++; };
+  const wrap = (name, f) => { const f0 = L[name]; if (typeof f0 !== 'function') return; L[name] = function () { const r = f0.apply(this, arguments); try { f.call(this, r, arguments); } catch (e) { /* 统计不影响逻辑 */ } return r; }; };
+  // 一个月：按出发那一刻的三态记秒
+  { const t0 = L.tick; L.tick = function (st, cont) {
+    if (cur && st.p.r <= L.MAXR) { const md = L.clockMode(st); add('m_' + md, L.monthSec(st)); cur.rAt[st.p.r] = cur.rAt[st.p.r] === undefined ? cur.clock : cur.rAt[st.p.r]; cur.months[md] = (cur.months[md] || 0) + 1; cur.monthAct = { n: 0, sec: 0 }; }
+    const out = t0.apply(this, arguments);
+    if (!cur) return out;
+    if (out.exp) { add('result', COST.result); cur.trips++; }
+    if (out.retreat) add('result', COST.retResult);
+    if (out.year) { add('year', COST.year); cur.years++; }
+    if (out.tourney) add('duel', COST.tour);
+    if (out.pact || out.meet || out.war) add('duel', COST.duel);
+    if (out.rookie) add('duel', COST.rookie);
+    if (out.invite) add('choice', COST.invite);
+    if (out.visitor) add('choice', COST.visitor);
+    if (out.train) add('choice', COST.train);
+    for (const w of out.warns || []) cur.warn[w.k] = (cur.warn[w.k] || 0) + 1;
+    if (out.prep) cur.prep[out.prep.k] = (cur.prep[out.prep.k] || 0) + 1;
+    if (out.exp && out.exp.cut) cur.cut++;
+    return out;
+  }; }
+  wrap('startExp', (ok, a) => { if (ok && !(a[4] && a[4].quiet)) add('depart', COST.depart); });
+  wrap('startRetreat', ok => { if (ok) add('depart', COST.retreat); });
+  wrap('resolveChoice', (r, a) => add('choice', COST.choice || evCost(a[1] || {})));
+  wrap('breakthrough', () => add('bt', COST.bt));
+  wrap('tribStart', r => { if (r) add('bt', COST.trib); });
+  wrap('mjEnter', ok => { if (ok) add('realm', COST.mjEnter); });
+  wrap('mjPick', () => add('realm', COST.mjDoor));
+  wrap('mjChest', () => add('realm', COST.mjChest));
+  for (const k of ['upgrade', 'build', 'buy', 'gearDecide', 'equipArt', 'craft', 'taskTake', 'taskDeliver', 'promote', 'gearPlus', 'zhenSet', 'sell', 'plant', 'petFeed', 'vaultBuy', 'discTake', 'heal', 'joinSect']) wrap(k, r => { if (r) act(); });
+  // 解锁卡（系统）与章末：看卡的秒数；解锁卡之间的真实时间间隔照界面（L.onbHold）用这块手表判
+  let lastCard = -1e9;
+  L.onbHold = (st, e) => !!cur && !!e && e.sys && cur.clock - lastCard < L.TIME.unlockGapSec;
+  L.hook = (type, d) => {
+    if (!cur) return;
+    if (type === 'unlock') { const e = L.ONB_K[d]; if (e && e.sys && d !== 'exp' && d !== 'bt') { lastCard = cur.clock; add('unlock', COST.unlock); } cur.unl.push({ k: d, sys: !!(e && e.sys), clock: cur.clock, tick: cur.st ? cur.st.tick : 0 }); }
+    if (type === 'chapter') { add('chapter', COST.chapter); cur.ch.push({ from: d.from, to: d.to, clock: cur.clock }); }
+  };
+  // L.newState 包一层：拿到这一局的 st（打印用）
+  { const ns0 = L.newState; L.newState = function () { const s = ns0.apply(this, arguments); if (cur) cur.st = s; return s; }; }
+  const recs = [];
+  for (let seed = 1; seed <= N; seed++) {
+    cur = { clock: COST.intro, by: { intro: COST.intro }, months: {}, monthAct: { n: 0, sec: 0 }, trips: 0, years: 0, warn: {}, prep: {}, cut: 0, unl: [], ch: [], st: null, rAt: [] };
+    lastCard = -1e9;
+    const r = S.run('guided', seed);
+    cur.ascend = r.ascend; cur.pact = r.pactWin; cur.ticks = r.endTick;
+    recs.push(cur); cur = null;
+  }
+  // 各章手表分钟：章的边界 = chapter 事件（第 i 章结束时的手表）；最后一章到飞升
+  const chMin = x => { const e = [COST.intro]; for (let i = 0; i < 9; i++) { const c = x.ch.find(c => c.from <= i && c.to > i); e.push(c ? c.clock : x.clock); } const d = [COST.intro / 60]; for (let i = 1; i <= 9; i++) d.push((e[i] - e[i - 1]) / 60); return d; };
+  const med = a => { const b = a.filter(v => v !== undefined && !Number.isNaN(v)).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : NaN; };
+  const q = (a, f) => { const b = a.filter(v => v !== undefined).sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(f * b.length))]; };
+  const tot = recs.map(x => x.clock / 60), chs = recs.map(chMin);
+  const fm = m => `${Math.floor(m / 60)}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+  const lines = ['# 全程手表（第一世，guided，×1）', '', `L.TIME = ${JSON.stringify(L.TIME)}；${N} 个种子；秒数口径 ${COST === COSTS.plan ? 'plan（方案原数）' : 'read（按读字算）'}`, '',
+    `全程：中位 ${Math.round(med(tot))} 分钟（${fm(med(tot))}；${Math.round(q(tot, 0.1))}～${Math.round(q(tot, 0.9))}），目标 300～360（验收 270～360）；飞升 ${med(recs.map(x => x.ascend))} 月；三年之约胜 ${recs.filter(x => x.pact).length}/${N}`, '',
+    '| 章（境界） | 按境界（中位分钟） | 按章（主线做完为界） | 预算 ±20% | 判定（按境界） |', '|---|---|---|---|---|'];
+  const NAMES = ['序', '一 废柴', '二 入宗', '三 金丹', '四 元婴', '五 化神', '六 炼虚', '七 合体', '八 大乘', '九 渡劫'];
+  const chFails = [];
+  // 按境界的手表分钟：进入下一境界时的手表 − 进入这一境界时的手表（§3.4 的预算表是按“章 = 境界”排的；按章算会被主线早做 / 晚做拉偏）
+  const rMin = x => { const a = []; for (let r = 0; r < 9; r++) { const t0 = x.rAt[r], t1 = r < 8 ? x.rAt[r + 1] : x.clock; a.push(t0 !== undefined && t1 !== undefined ? (t1 - t0) / 60 : NaN); } return a; };
+  const rm = recs.map(rMin);
+  for (let i = 0; i < 10; i++) { const mc = med(chs.map(c => c[i])), m = i === 0 ? mc : med(rm.map(a => a[i - 1])), b = BUDGET[i], ok = i === 0 || (m >= b * 0.8 && m <= b * 1.2); if (!ok) chFails.push(i); lines.push(`| ${NAMES[i]} | ${m.toFixed(1)} | ${mc.toFixed(1)} | ${b}（${Math.round(b * 0.8)}～${Math.round(b * 1.2)}） | ${ok ? '达标' : '未达标'} |`); }
+  const by = {}; for (const x of recs) for (const k in x.by) by[k] = (by[k] || 0) + x.by[k] / N / 60;
+  const mo = {}; for (const x of recs) for (const k in x.months) mo[k] = (mo[k] || 0) + x.months[k] / N;
+  lines.push('', '手表都花在哪（每局平均分钟）：' + Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，'));
+  lines.push('', '月数（每局平均）：' + Object.entries(mo).map(([k, v]) => `${k} ${Math.round(v)}`).join('，') + `；历练 ${med(recs.map(x => x.trips))} 趟，年报 ${med(recs.map(x => x.years))} 张，节点前提前归来 ${med(recs.map(x => x.cut))} 趟`);
+  const w = {}; for (const x of recs) for (const k in x.warn) w[k] = (w[k] || 0) + x.warn[k] / N;
+  const pr = {}; for (const x of recs) for (const k in x.prep) pr[k] = (pr[k] || 0) + x.prep[k] / N;
+  lines.push('', '大节点预告（每局平均次数）：' + Object.entries(w).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') + '；备战卡：' + Object.entries(pr).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，'));
+  // 第一世各系统第一次出现的手表时间（§3.4 第二张表）
+  const firstAt = {}; for (const x of recs) for (const u of x.unl) (firstAt[u.k] = firstAt[u.k] || []).push(u.clock / 60);
+  lines.push('', '各系统解锁的手表时间（中位）：' + (L.ONB || []).filter(e => firstAt[e.k]).map(e => `${e.n} ${fm(med(firstAt[e.k]))}`).join('，'));
+  const fails = [];
+  const tm = med(tot), c1 = med(chs.map(c => c[1])), r1 = med(rm.map(a => a[0]));
+  if (!(tm >= 270 && tm <= 360)) fails.push(`全程 ${Math.round(tm)} 分钟（验收 270～360）`);
+  const ch1Note = c1 >= 22 && c1 <= 28 ? '' : `第一章 ${c1.toFixed(1)} 分钟（§3.6 目标 22～28，参考）`;
+  lines.push('', (fails.length ? '未通过：' + fails.join('；') : '手表核对通过（全程 270～360 分钟）') + (ch1Note ? '；' + ch1Note : '') + (chFails.length ? `；逐章预算 ${chFails.length} 章超出 ±20%（见上表，参考）` : ''));
+  const txt = lines.join('\n');
+  console.log(txt);
+  if (outF) fs.writeFileSync(outF, txt);
+  if (ASSERT && fails.length) process.exitCode = 1;
+}

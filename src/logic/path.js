@@ -137,7 +137,7 @@ const Q_GO = { exp: 'exp', home: 'home', cult: 'home', big: 'prep', sect: 'sect'
 const Q_NEED = [[/灵田|改种/, 'field'], [/访客/, 'visitor'], [/吐纳/, 'tuna'], [/强化/, 'plus'], [/灵宠/, 'pets'], [/炼|丹方/, 'furnace'], [/法衣/, 'robe'], [/行情/, 'sell'], [/秘境/, 'realm'],
   [/拍卖/, 'auction'], [/阵法/, 'zhen'], [/徒弟/, 'disc'], [/图鉴/, 'codex'], [/道心/, 'dao'], [/同伴/, 'comp'], [/器方/, 'forge'], [/宗门|贡献/, 'sect'], [/知己|道侣|四心|五心/, 'bond'], [/采药/, 'herb'], [/奇遇链/, 'codex'], [/首领|狼王|守墓|蛟皇|傀儡/, 'exp']];
 const PASSIVE = /^(修到|修成|踏入|突破|渡过|听完|晋升|天骄榜|登顶|宗门榜|论道|九宗|得到|与一人)/;
-const qOk = (st, q) => { const t = L.questText(st, q); if (PASSIVE.test(t)) return false; for (const [re, k] of Q_NEED) if (re.test(t) && !L.unlocked(st, k)) return false; return true; };
+const qOk = (st, q) => { if (q.onb && !L.unlocked(st, q.onb)) return false; const t = L.questText(st, q); if (PASSIVE.test(t)) return false; for (const [re, k] of Q_NEED) if (re.test(t) && !L.unlocked(st, k)) return false; return true; };
 const cut = (s, n) => (s.length > n ? s.slice(0, n) : s);
 // 锦囊（大节点前胜算不够时“下一步”指向它）：界面登记 L.GOAL_TIP = st => { t, go, hl } | null（取 pactTips()[0] 之类）；逻辑层兜底“去历练”
 L.GOAL_TIP = L.GOAL_TIP || null;
@@ -178,6 +178,14 @@ function goalNext0(st) {
   if (big && big.left <= 6 && big.p !== undefined && big.p < 0.8) {
     const tip = typeof L.GOAL_TIP === 'function' ? L.GOAL_TIP(st, big) : null;
     if (tip) return Object.assign({ hl: null, why: 'big' }, tip, { t: cut(tip.t, 12) });
+  }
+  // ③½ 有钱有空：闭关（每两趟历练一次、能提前升层时）、升聚灵阵——第一世头几章最该做的两件事（留够闭关的钱）
+  if (p.inj <= 0) {
+    const ri = L.canRetreat(st) ? L.retInfo(st) : null;
+    if (ri && ri.save >= 1 && (st.stats.exp || 0) >= 3 * ((st.stats.retreat || 0) + 1) && st.stones >= ri.cost) return { t: `闭关 ${L.RET.len} ${L.UNIT || '月'}`, go: 'home', hl: null, why: 'grow', k: 'retreat' };
+    const u = L.homeOpen && L.homeOpen(st, 'array') && L.upInfo(st, 'array');
+    const keep = L.retOpen(st) ? L.retCost(st) : 0;
+    if (u && !u.max && !u.lock && u.cost && st.stones >= u.cost + keep) return { t: '聚灵阵升一级', go: 'home', hl: null, why: 'grow', k: 'array' };
   }
   // ④ 本章札记第一条能动手的小任务
   const qv = L.questView(st);

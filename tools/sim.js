@@ -48,6 +48,9 @@
 //   lazy   （SYSTEMS §18 第 6 条）会做访客和宗门任务；每届论道（12 周天）之前出门历练两趟，每次出门前只买一样东西；
 //          不闭关、不吐纳、不碰新系统（不卖行情、不去拍卖、灵田照默认全种灵稻、不炼丹）；突破最多带 2 枚丹；功法、法宝只照掉落卡的默认点【换上】（更强才换），不凑共鸣、不换克制、不强化
 //   idle   什么都不做，只在修为圆满时突破
+//   goalcard（docs/KAIRO_PLAN.md §3.6）只照主画面目标卡的“下一步”（L.goalNext）行动，不读任何讲解：
+//          “去历练”→ L.expBest 那一格（任务写着采药就采药）；“聚灵阵 / 灵田”→ 升那一样；“闭关”→ 闭关；“装备里有新东西”→ 法宝照对比卡更强就换、功法换上那一门；
+//          “在坊市买一样”→ 买一枚破境丹；宗门任务能交就交；做不了的那一步就去历练。约战、入宗、访客、途中遭遇照常（随手选）。只跑到第 120 月（量第一章）
 // 被 require 时导出 { run, L }，可以在别的脚本里换策略或统计（tools/ 之外的分析脚本用）
 const L = require('../src/logic.js');
 const arg = process.argv.slice(2);
@@ -71,7 +74,9 @@ if (arg.includes('noonb')) L.ONB_ON = false;
 const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
-const only = ['guided', 'lazy', 'idle'].includes(arg[0]) ? arg[0] : null;
+const only = ['guided', 'lazy', 'idle', 'goalcard'].includes(arg[0]) ? arg[0] : null;
+// nokairo：关掉出发拦截与节点前提前归来（L.KAIRO_ON = false），与默认对照量 docs/KAIRO_PLAN.md §3 这一刀对数值的影响
+if (arg.includes('nokairo')) L.KAIRO_ON = false;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
 const seed0 = Number(arg[3]) || 1;
@@ -531,6 +536,39 @@ function actLazy(st, rec) {
   if (L.startExp(st, cell.k, cell.d, cell.a)) st._trips++;
 }
 
+// goalcard：只照目标卡“下一步”行动（一个月里最多照着做 4 步；做不了的那一步就去历练）
+function goExp(st, n) {
+  if (L.busy(st) || L.isFull(st) || st.p.r > L.MAXR) return false;
+  const b = L.expBest(st);
+  let a = b.a;
+  if (n && /采药/.test(n.t) && L.apprOpen(st, 2) && L.expOpen(st, b.k, b.d, 2)) a = 2;
+  return L.startExp(st, b.k, b.d, a);
+}
+function goHome(st, n) {
+  if (/闭关/.test(n.t) || n.k === 'retreat') return !L.busy(st) && L.startRetreat(st);
+  if (n.k === 'array') { const u = L.upInfo(st, 'array'); return !!u && !u.max && st.stones >= u.cost && L.upgrade(st, 'array'); }
+  const k = /灵田/.test(n.t) ? 'field' : 'array';
+  const u = L.upInfo(st, k);
+  if (u && !u.max && !u.lock && u.cost && st.stones >= u.cost) return L.upgrade(st, k);
+  return false;
+}
+function actGoal(st, rec) {
+  if (st.p.r > L.MAXR) return;
+  for (let step = 0; step < 4; step++) {
+    const n = L.goalNext(st);
+    if (!n || n.why === 'away' || n.why === 'prep' || n.why === 'ready') return;
+    let did = false;
+    if (n.go === 'gear') { if (n.art) did = !!L.equipArt(st, n.art); else did = L.gearAutoAll(st).length > 0; }
+    else if (n.go === 'arts') did = n.art ? !!L.equipArt(st, n.art) : false;
+    else if (n.go === 'home' || n.go === 'field') did = goHome(st, n);
+    else if (n.go === 'market') did = st.stones >= L.price(st, 'pill') && !!L.buy(st, 'pill');
+    else if (n.go === 'sect' && st.sect) { st.sect.tasks.forEach((t, i) => { if (!t.taken && (t.ty === 'exp' || t.ty === 'act')) L.taskTake(st, i); if (L.taskCanDeliver(st, t)) { L.taskDeliver(st, i); did = true; } }); if (L.canPromote(st)) did = !!L.promote(st) || did; }
+    else if (n.go === 'pets') did = L.marketOpen(st, 'egg') && st.stones >= L.price(st, 'egg') && !!L.buy(st, 'egg');
+    if (!did) { goExp(st, n); return; }
+    rec.goalSteps = (rec.goalSteps || 0) + 1;
+  }
+}
+
 // opt.st0：从这个存档接着玩（life2 的第二世）；opt.keep：留下 st 但不打印
 function run(strat, seed, trace, opt) {
   opt = opt || {};
@@ -539,13 +577,14 @@ function run(strat, seed, trace, opt) {
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {}, npcGifts: 0, pq: 0, sx: 0, affAt: {},
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
-  const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : 1300;
+  const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : strat === 'goalcard' ? 120 : 1300;
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
     tryBreak(st, rec, strat);
     if (p.r >= 9) { rec.ascend = st.tick; rec.gearAt[9] = gearShare(st); rec.petAt[9] = petShare(st); rec.petEvo = st.stats.petEvo || 0; rec.petAw = st.stats.petAwake || 0; rec.feedUsed = st.stats.petFeed || 0; break; }
     if (strat === 'guided') actGuided(st, rec, seed);
     else if (strat === 'lazy') actLazy(st, rec);
+    else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
     if (strat === 'lazy') { artLazy(st); L.gearAutoAll(st); }
     if (strat === 'guided') gearGuided(st);
     if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
@@ -564,7 +603,7 @@ function run(strat, seed, trace, opt) {
     if (strat !== 'idle') for (let g = 0, ev; g < 3 && (ev = L.marketEvent(st)); g++) { pickChoice(st, ev); L.marketEventDone(st, ev.id); }
     if (out.world) rec.worlds++;
     if (out.train && strat === 'guided') L.startTrain(st);
-    if (out.pact) { rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win; }
+    if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win; }
     if (out.invite && strat !== 'idle') L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]);
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
@@ -669,6 +708,7 @@ function summarize(strat, recs, G) {
     row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `中位数 ${AT[0]}～${AT[1]}`, within(ascMed, AT[0], AT[1]));
     row(strat, '三年之约胜率', pct(pact), '85%～95%', within(pact, 0.85, 0.95), true);
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
+    row(strat, '（参考）第一章行动数（历练 + 闭关）', `${med(recs.map(x => x.ch1Acts))}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, 'KAIRO_PLAN §3.6：8～10');
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
     row(strat, '击败慕容雪', `第 60 周天前 ${pct(mu60)}，中位数 ${med(recs.map(x => x.beatAt.mu))}`, '≥95% 在第 60 周天前', mu60 >= 0.95);
     const bz = med(recs.map(x => x.beatAt.zhao)), bc = med(recs.map(x => x.beatAt.chu)), bx = med(recs.map(x => x.beatAt.xue));
@@ -745,6 +785,14 @@ function summarize(strat, recs, G) {
     row(strat, '坐化', `${pct(died)}；到过合体的种子里亮过寿元红灯的 ${pct(red)}`, '≤ 25%，且合体以后至少亮一次寿元红灯', died <= 0.25 && red >= 0.5);
     return;
   }
+  if (strat === 'goalcard') {
+    row(strat, '三年之约胜率', pct(pact), '75%～90%（KAIRO_PLAN §3.6）', within(pact, 0.75, 0.90));
+    row(strat, '约战前已筑基', pct(zj), '50%～80%', within(zj, 0.50, 0.80));
+    const a1 = med(recs.map(x => x.ch1Acts));
+    row(strat, '第一章行动数（历练 + 闭关）', `${a1}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, '8～10', within(a1, 8, 10));
+    row(strat, '（参考）照目标卡做的步数（第 120 月前）', String(med(recs.map(x => x.goalSteps || 0))), '—');
+    return;
+  }
   row(strat, '炼气时长', span(dur(0)), '45～60', within(durs[0], 45, 60));
   row(strat, '飞升', pct(frac(recs, x => x.ascend !== undefined)), '不飞升', frac(recs, x => x.ascend !== undefined) === 0);
   row(strat, '三年之约胜率', pct(pact), '15%～25%（DESIGN 写 ≤ 20%）', within(pact, 0.15, 0.25), true);
@@ -756,10 +804,10 @@ function summarize(strat, recs, G) {
 function main(onlyStrat, n) {
   rows.length = 0; fails = 0; gateFails = 0;
   let G = null;
-  for (const strat of onlyStrat ? [onlyStrat] : ['guided', 'lazy', 'idle']) {
+  for (const strat of onlyStrat ? [onlyStrat] : ['guided', 'lazy', 'idle', 'goalcard']) {
     const recs = [];
     for (let s = 1; s <= n; s++) recs.push(run(strat, s));
-    if (strat !== 'guided' && !G) { const g = []; for (let s = 1; s <= Math.min(n, 60); s++) g.push(run('guided', s)); G = { durs: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(r => med(g.map(x => (x.realmAt[r + 1] !== undefined ? x.realmAt[r + 1] - (r ? x.realmAt[r] : 0) : undefined)))) }; }
+    if (strat !== 'guided' && strat !== 'goalcard' && !G) { const g = []; for (let s = 1; s <= Math.min(n, 60); s++) g.push(run('guided', s)); G = { durs: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(r => med(g.map(x => (x.realmAt[r + 1] !== undefined ? x.realmAt[r + 1] - (r ? x.realmAt[r] : 0) : undefined)))) }; }
     const out = summarize(strat, recs, G);
     if (strat === 'guided') G = out;
   }

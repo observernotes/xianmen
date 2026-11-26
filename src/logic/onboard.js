@@ -34,10 +34,13 @@ L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn:
 // ---------- 时钟（docs/KAIRO_PLAN.md §3.2 / §3.4 的旋钮）：×1 时一月多少秒 ----------
 // idle 在洞府打坐、trip 历练、away 闭关 / 特训 / 讲道；转世后用 reborn 那一组。unlockGapMonths / unlockGapSec：两张解锁卡之间的最短间隔；
 // interruptGapMonths：打坐时两次主动打断（解锁卡、事件、老祖一句）之间至少隔几个月（src/logic/time.js 的 L.notifyGate）
-L.TIME = { idle: 15, trip: 8, away: 3, reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, interruptGapMonths: 3 };
+// realmMul：第一世按境界再乘的系数（炼气～渡劫）。按 tools/onboard.js --life 手表机器人实测定：前两章决定少、一个月一眨眼就过（炼气 ×1 时三年之约只要 9 分钟），
+// 后几章论道、会武、秘境、宗门的决定多，月可以快一点；合起来第一世约 5 小时 45 分（docs/KAIRO_PLAN.md §3.4 的验收 270～360 分钟）
+L.TIME = { idle: 15, trip: 8, away: 3, realmMul: [2, 1.6, 1, 0.9, 0.7, 0.65, 0.65, 0.65, 0.65], reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, interruptGapMonths: 3 };
 L.monthSec = function (st) {
   const T = st && (st.rebirth || 0) > 0 ? L.TIME.reborn : L.TIME;
-  return !st ? T.idle : st.exp ? T.trip : st.retreat ? T.away : T.idle;
+  const m = T === L.TIME && st && L.TIME.realmMul ? L.TIME.realmMul[Math.min(8, st.p.r)] || 1 : 1;
+  return m * (!st ? T.idle : st.exp ? T.trip : st.retreat ? T.away : T.idle);
 };
 L.TICK_SEC = st => L.monthSec(st);   // 旧名（界面、测试脚本还在读）
 // k：键；n：名字；sys：系统（true）/ 子项（false，par 是父系统）；base：原门槛；force：已经发生了，立刻开；
