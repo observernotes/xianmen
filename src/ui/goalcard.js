@@ -64,19 +64,24 @@ const GO_K = {
 };
 // 跳转键 → 底栏哪一格（底栏的“去”角标）
 const GO_NAV = { bt: '', exp: 'exp', realm: 'exp', home: 'home', field: 'home', furnace: 'home', zhen: 'home', gear: 'gear', arts: 'gear', pets: 'gear', bag: 'gear', world: 'world', rivals: 'world', sect: 'world', market: 'world', people: 'world', disc: 'world', path: 'path', attr: 'path', record: 'path', codex: 'path', cal: '', big: '', prep: '', inbox: '' };
+// 变强建议的 go（docs/KAIRO_PLAN.md §10.5）：'do:<id>'（当场做 / 闭关）、'exp:k:d:a'（那一格的出发页）落到哪一格
+const goNavOf = k => { k = String(k || ''); if (k.startsWith('exp:')) return 'exp'; if (k.startsWith('do:')) { const id = k.slice(3); return /^(up|retreat|heal|pill)/.test(id) ? 'home' : /^exp/.test(id) ? 'exp' : 'gear'; } return GO_NAV[k] || ''; };
 function goTo(k, hl) {
   if (!k || !st) return;
+  if (/^(do|exp):/.test(k)) { if (modalOpen()) closeModal(); if (k.startsWith('exp:')) goKey(k); return; }
   const f = GO_K[k] || GO_K.exp;
   if (!modalOpen() || !hl) { if (modalOpen()) closeModal(); }
   f();
   if (hl) setTimeout(() => hlOnly(hl), 60);
 }
-$('#gGo').addEventListener('click', e => { e.stopPropagation(); if (!st || cine) return; ac(); SFX.tap(); const g = L.goalNow(st); if (g.next && g.next.go) goTo(g.next.go, g.next.hl); });
+// 【去】：下一步是变强建议的一张牌时直接做（当场能做的当场做完、闭关直接闭、历练开那一格的出发页），永远不经过变强页
+$('#gGo').addEventListener('click', e => { e.stopPropagation(); if (!st || cine) return; ac(); SFX.tap(); const g = L.goalNow(st); if (g.next && g.next.act) { if (modalOpen()) closeModal(); runAct(g.next.act, null); goalKey = ''; } else if (g.next && g.next.go) goTo(g.next.go, g.next.hl); });
 // 目标卡：默认收起成一行；点一下展开 / 收起（记在存档里）；展开时点第一行（第 N 章 · 目标）进路径页
 $('#goal').addEventListener('click', e => {
   if (!st || cine) return; ac(); SFX.tap();
   const el = $('#goal');
-  if (el.classList.contains('open') && e.target.closest('.g1, .gbar')) { showPath(); return; }
+  if (e.target.closest('.gbar')) { showGrowth('goal'); return; }   // 进度条 = 变强页（目标页签）
+  if (el.classList.contains('open') && e.target.closest('.g1')) { showPath(); return; }
   st.flags.goalOpen = !el.classList.contains('open'); el.classList.toggle('open', st.flags.goalOpen);
 });
 $('#time').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (UI.isOpen('cal')) showCalendar(); else showBig(); });
@@ -118,7 +123,7 @@ function navSeen(nav) { if (!st) return; const seen = st.flags.navSeen || (st.fl
 let navCur = '';
 function navOpenPanel(nav) { navCur = nav; navSeen(nav); }
 function syncNav() {
-  const g = st ? L.goalNow(st) : null, goNav = g && g.next && g.next.go ? GO_NAV[g.next.go] || '' : '';
+  const g = st ? L.goalNow(st) : null, goNav = g && g.next && g.next.go ? goNavOf(g.next.go) : '';
   // 底栏同一时刻只挂一个角标（§4.1）：目标卡“下一步”指向的那一格挂“去”；没有“去”时，第一格有新东西的挂“新 N”；其余有新东西的只描一圈淡金边
   const info = $$('#nav button').map(b => { const n = b.dataset.nav, s = navState(n); return { b, n, s, nn: s.open ? navNewN(n) : 0, go: s.open && goNav === n && !(modalOpen() && navCur === n) }; });
   const goOne = info.find(x => x.go), newOne = goOne ? null : info.find(x => x.nn > 0 && !(modalOpen() && navCur === x.n));

@@ -579,8 +579,10 @@ function actGoal(st, rec) {
   if (st.p.r > L.MAXR) return;
   for (let step = 0; step < 4; step++) {
     const n = L.goalNext(st);
-    if (!n || n.why === 'away' || n.why === 'prep' || n.why === 'ready') return;
+    if (!n || n.why === 'away' || n.why === 'prep' || n.why === 'ready' || (n.act && n.act.id === 'bt')) return;
     let did = false;
+    // 变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡【去】= L.adviseDo 那一张牌；做不了（去别处的牌）就去历练
+    if (n.why === 'adv' && n.act) { const r = L.adviseDo(st, n.act.id === 'idle' ? n.act.go : n.act.id); did = !!(r && r.done); if (did && L.busy(st)) { rec.goalSteps = (rec.goalSteps || 0) + 1; return; } if (!did) { goExp(st, n); return; } rec.goalSteps = (rec.goalSteps || 0) + 1; continue; }
     if (n.go === 'gear') { if (n.art) did = !!L.equipArt(st, n.art); else did = L.gearAutoAll(st).length > 0; }
     else if (n.go === 'arts') did = n.art ? !!L.equipArt(st, n.art) : false;
     else if (n.go === 'home' || n.go === 'field') did = goHome(st, n);
@@ -590,6 +592,29 @@ function actGoal(st, rec) {
     if (!did) { goExp(st, n); return; }
     rec.goalSteps = (rec.goalSteps || 0) + 1;
   }
+}
+
+// 变强建议抽查（KAIRO_PLAN §10.9）：guided 第一章的第 2 / 8 / 14 / 20 / 27 / 34 月，复制一份存档：acts 非空；目标卡同源；
+// 当场能做的第一张做完（固定随机数，不动主线的种子）后目标数确实变好，且与牌上写的“到多少”差 ≤ 1 个显示单位
+const ADV_AT = [2, 8, 14, 20, 27, 34];
+function advCheck(st, rec) {
+  const r0 = L.rng; L.rng = () => 0.5;
+  const A0 = rec.adv || (rec.adv = { n: 0, empty: 0, same: 0, diff: 0, chk: 0, better: 0, match: 0, bad: [] });
+  try {
+    const c = JSON.parse(JSON.stringify(st));
+    const A = L.advise(c, 'goal'), a = A.acts[0]; A0.n++;
+    if (!a) { A0.empty++; return; }
+    const gn = L.goalNext(c); if (gn.why === 'adv') { if (gn.k === a.id && gn.t === a.say) A0.same++; else A0.diff++; }
+    if (!a.instant || a.gap || !a.gain.unit) return;   // 钉心愿这类没有“到多少”的不比
+    const H = A.head, v0 = H.v, d = L.adviseDo(c, a.id);
+    if (!d.ok) return;
+    A0.chk++;
+    const H1 = L.advise(c, 'goal').head;
+    if (a.gain.unit === 'cul') { const ok = L.gainCalm(c) > L.gainCalm(st) * 1.0001; if (ok) { A0.better++; A0.match++; } else A0.bad.push(st.tick + ':' + a.id); return; }
+    const unit = a.gain.unit === 'grade' ? 1 : 0.01;
+    if (H1.v > v0) A0.better++;
+    if (a.gain.to === undefined || Math.abs(H1.v - a.gain.to) <= unit + 1e-9) A0.match++; else A0.bad.push(`${st.tick}:${a.id}:${a.gain.to}→${H1.v}`);
+  } catch (e) { A0.bad.push('err ' + e.message); } finally { L.rng = r0; }
 }
 
 // opt.st0：从这个存档接着玩（life2 的第二世）；opt.keep：留下 st 但不打印
@@ -607,6 +632,7 @@ function run(strat, seed, trace, opt) {
     const p = st.p;
     tryBreak(st, rec, strat);
     if (p.r >= 9) { rec.ascend = st.tick; rec.gearAt[9] = gearShare(st); rec.petAt[9] = petShare(st); rec.petEvo = st.stats.petEvo || 0; rec.petAw = st.stats.petAwake || 0; rec.feedUsed = st.stats.petFeed || 0; break; }
+    if (strat === 'guided' && seed <= 20 && ADV_AT.includes(st.tick)) advCheck(st, rec);
     if (strat === 'guided') actGuided(st, rec, seed);
     else if (strat === 'lazy') actLazy(st, rec);
     else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
@@ -766,6 +792,8 @@ function summarize(strat, recs, G) {
       row(strat, '（参考）第一章末 强化 ≥ 2 次 / 翻出的法宝', `${fr(x => x.plus >= 2)} / ${med(l1.map(x => x.cards))} 件`, '≥ 85% / —');
     }
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
+    { const ad = recs.filter(x => x.adv).map(x => x.adv), sm = k => ad.reduce((t, x) => t + x[k], 0), bad = [].concat(...ad.map(x => x.bad));
+      row(strat, '变强建议抽查（第一章 6 个时刻）', `acts 非空 ${sm('n') - sm('empty')}/${sm('n')}；目标卡同源 ${sm('same')}/${sm('same') + sm('diff')}；做完第一张变好 ${sm('better')}/${sm('chk')}、与牌面一致 ${sm('match')}/${sm('chk')}${bad.length ? '；' + bad.slice(0, 3).join(' ') : ''}`, 'KAIRO_PLAN §10.9：全部', sm('empty') === 0 && sm('diff') === 0 && sm('better') === sm('chk') && sm('match') === sm('chk')); }
     row(strat, '（参考）第一章行动数（历练 + 闭关）', `${med(recs.map(x => x.ch1Acts))}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, 'KAIRO_PLAN §3.6：8～10');
     if (L.TRIP_ON !== false) btRows(strat, recs);
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);

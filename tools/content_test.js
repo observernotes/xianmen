@@ -1209,12 +1209,12 @@ require('fs').mkdirSync(out, { recursive: true });
     const st = window.__xm.st, p0 = L.pactInfo(st).p;
     st.dan.next.baoqi = 1.3; const p1 = L.pactInfo(st).p; delete st.dan.next.baoqi;
     window.__xm.showPact();
-    const row = [...document.querySelectorAll('#modal .grow-row')].find(r => r.textContent.includes('服一枚爆气丹'));
-    return { p0: L.pct(p0), p1: L.pct(p1), txt: row ? row.textContent : '' };
+    const cards = [...document.querySelectorAll('#modal .gw-act')], i = cards.findIndex(r => r.textContent.includes('爆气丹'));
+    return { p0: L.pct(p0), p1: L.pct(p1), d: '▲' + Math.round((p1 - p0) * 100) + '%', txt: i >= 0 ? cards[i].textContent.replace(/\s+/g, ' ') : '', i };
   });
   await page.waitForTimeout(300); await shot('c11c-pact-baoqi');
-  expect(jn.txt.includes(`${jn.p0} → ${jn.p1}`), '锦囊里有“服一枚爆气丹：胜算 p → p\'”：' + JSON.stringify(jn));
-  await page.click('#modal [data-go="pill:baoqi"]'); await page.waitForTimeout(300);
+  expect(jn.i >= 0 && jn.txt.includes(jn.d), '锦囊（变强动作卡）里有“服爆气丹 ▲N% 胜算”：' + JSON.stringify(jn));
+  if (jn.i >= 0) await page.click(`#modal [data-adv="${jn.i}"]`); await page.waitForTimeout(300);
   expect(await page.evaluate(() => window.__xm.L.danNext(window.__xm.st, 'baoqi') > 1 && window.__xm.L.bagN(window.__xm.st, 'baoqi') === 0), '锦囊里点【服】服下了爆气丹');
   await close();
   // 老祖：第一次有丹毒，一次阻塞讲解（指着状态栏的葫芦，暂停，数字对）
@@ -2916,19 +2916,18 @@ require('fs').mkdirSync(out, { recursive: true });
           const X = window.__xm, { L } = X; const s = L.newState({ name: '问' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1;
           new Function('s', 'L', set)(s, L);
           X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3);
-          const list = X.askList(); return list.map(x => ({ t: x.t.replace(/<[^>]+>/g, ''), btn: x.btn, go: typeof x.go }));
+          const list = L.advise(X.st, 'goal').acts; return list.map(x => ({ t: x.n + ' ' + x.gain.text, btn: x.btn, go: typeof x.go }));
         }, ['(' + set.toString() + ')(s, L)']);
-        expect(info.length >= 1 && info.every(x => /\d/.test(x.t) && x.go === 'function'), `问老祖（${name}）：每条建议带数字和【前往】：${JSON.stringify(info.map(x => x.t.slice(0, 24)))}`);
-        await pg.evaluate(() => window.__xm.showAsk()); await pg.waitForTimeout(350);
+        expect(info.length >= 1 && info.length <= 3 && info.every(x => /\d/.test(x.t) && x.go === 'string' && x.btn), `变强页（${name}）：每张牌带数字和一个按钮：${JSON.stringify(info.map(x => x.t.slice(0, 24)))}`);
+        await pg.evaluate(() => window.__xm.showGrowth('goal')); await pg.waitForTimeout(350);
         const ui = await pg.evaluate(() => {
-          const bs = [...document.querySelectorAll('#modal [data-ask]')], small = bs.filter(b => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length;
+          const bs = [...document.querySelectorAll('#modal [data-adv]')], small = bs.filter(b => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length;
           const body = document.querySelector('#modal .sheet .body');
           return { n: bs.length, small, over: body.scrollWidth - body.clientWidth, page: document.documentElement.scrollWidth - innerWidth, foot: [...document.querySelectorAll('#modal .foot .btn')].filter(b => b.getBoundingClientRect().height < 43.5).length };
         });
-        expect(ui.n === Math.min(3, info.length) && ui.small === 0 && ui.foot === 0 && ui.over <= 0 && ui.page <= 0, `问老祖（${name}，360 宽）：按钮数 = min(3,建议数)、≥44px、不溢出：${JSON.stringify(ui)}`);
-        if (name === '修为圆满' || name === '有访客') await pg.screenshot({ path: U('b-ask-' + name) });
-        if (goRe) { await pg.click('#modal [data-ask="0"]'); await pg.waitForTimeout(450); expect(goRe.test(await mt()), `问老祖（${name}）：第一条【前往】到突破页（实际 ${await mt()}）`); }
-        if (name === '有访客' && info.some(x => x.btn === '去见')) { await pg.click('#modal [data-ask="0"]'); await pg.waitForTimeout(450); expect((await mt()) !== '' && (await mt()) !== '问老祖', `问老祖（有访客）：【去见】打开访客（${await mt()}）`); }
+        expect(ui.n === info.length && ui.small === 0 && ui.foot === 0 && ui.over <= 0 && ui.page <= 0, `变强页（${name}，360 宽）：按钮数 = 牌数、≥44px、不溢出：${JSON.stringify(ui)}`);
+        if (name === '修为圆满' || name === '负伤+灵石多') await pg.screenshot({ path: U('b-growth-' + name) });
+        if (goRe) { await pg.click('#modal [data-adv="0"]'); await pg.waitForTimeout(450); expect(goRe.test(await mt()), `变强页（${name}）：第一张【突破】到突破页（实际 ${await mt()}）`); }
       }
       await closeAll(pg);
       // 气泡排队：3 条同周天触发，按 3 个周天间隔一条条出，不覆盖，6 秒收起，收起后头像出“！”
@@ -2950,14 +2949,18 @@ require('fs').mkdirSync(out, { recursive: true });
       const dot = await pg.evaluate(() => { const b = document.getElementById('guideAv'); return { has: !!b, hidden: b && b.hidden, nw: b && b.classList.contains('new'), tipHidden: document.getElementById('tip').hidden, logN: window.__xm.bubbleLog.length, dotTxt: b && b.querySelector('.guide-dot') && b.querySelector('.guide-dot').textContent }; });
       await pg.waitForTimeout(6500);
       const dot2 = await pg.evaluate(() => { const b = document.getElementById('guideAv'); return { tipHidden: document.getElementById('tip').hidden, nw: b.classList.contains('new'), dotTxt: b.querySelector('.guide-dot').textContent }; });
-      expect(dot2.tipHidden && dot2.nw && dot2.dotTxt === '！' && dot.logN >= 3, `气泡：6 秒后收起，头像出“！”（bubbleLog ${dot.logN} 条）：${JSON.stringify(dot2)}`);
+      const advNew = await pg.evaluate(() => window.__xm.L.adviseNew(window.__xm.st));
+      expect(dot2.tipHidden && dot2.nw === advNew && dot2.dotTxt === '！' && dot.logN >= 3, `气泡：6 秒后收起；头像“！”只跟变强建议走（adviseNew ${advNew}，bubbleLog ${dot.logN} 条）：${JSON.stringify(dot2)}`);
       await pg.screenshot({ path: U('b-bubble-dot') });
       await closeAll(pg);
       const hit = await pg.evaluate(() => { const b = document.getElementById('guideAv'), r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { ok: e === b || b.contains(e), cover: e && (e.id || e.className || e.tagName), rect: [r.left, r.top, r.width, r.height].map(Math.round), modal: !document.getElementById('modal').hidden }; });
       expect(hit.ok, '头像“！”没被别的东西盖住：' + JSON.stringify(hit));
       await pg.screenshot({ path: U('b-bubble-dot-hit') });
       await pg.evaluate(() => { const r = document.getElementById('guideAv').getBoundingClientRect(); window.__avr = r; }); await pg.mouse.click(await pg.evaluate(() => window.__avr.left + window.__avr.width / 2), await pg.evaluate(() => window.__avr.top + window.__avr.height / 2)); await pg.waitForTimeout(400);
-      expect(await pg.evaluate(() => document.querySelector('#modal h2').textContent === '问老祖' && document.querySelectorAll('#modal .guide-said').length >= 3), '点头像 = 问老祖，下面附最近说过的几句气泡');
+      expect(await pg.evaluate(() => document.querySelector('#modal h2').textContent === '变强' && document.querySelectorAll('#modal .gw-act').length >= 1), '点头像 = 变强页（KAIRO_PLAN §10.5）');
+      await closeAll(pg);
+      await pg.evaluate(() => window.__xm.showInbox()); await pg.waitForTimeout(300);
+      expect(await pg.evaluate(() => document.querySelectorAll('#modal .ksay').length >= 3), '老祖说过的几句气泡并进纸鹤（≥ 3 句）');
       await closeAll(pg);
       // registerGuide 的 before 能插到指定位置
       const rg = await pg.evaluate(() => { const X = window.__xm; const first = X.hints[0].id; X.registerGuide([{ id: 'ui_ins', when: () => false, text: 'x' }], { before: first }); X.registerGuide({ id: 'ui_tail', when: () => false, text: 'y' }); const ids = X.hints.map(h => h.id); const i = ids.indexOf('ui_ins'); return { i, nextIsWelcome: ids[i + 1] === first, tail: ids[ids.length - 1] }; });

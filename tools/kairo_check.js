@@ -1,6 +1,8 @@
 // 开罗式重整（docs/KAIRO_PLAN.md §4.2 / §4.4 / §7）面板版式断言：node tools/kairo_check.js [outdir] ["Pixel 7"|360]
 // 各面板第一屏：除名字和数字外 ≤ 60 个汉字（结算卡 ≤ 40、年报 ≤ 70、解锁卡 ≤ 30）、按钮 ≤ 6（分页条与关闭不算）、小于 14px 的字 = 0、主按钮在第一屏、不横向溢出；
 // 另查：拿到第一件法宝后【装备】1 次点击看到三格装备栏；功法 / 灵宠 2 次；解锁卡【带我去】1 次点击到控件。
+// 变强页（§10.9）：第一屏 ≤ 60 字、≤ 3 张牌、≤ 6 个按钮、没有小于 14px 的字、头和全部动作卡不滚动可见、红按钮恰好 1 个；每张牌 1 个大数字 1 个按钮、名字 ≤ 8 字；
+// 目标卡“下一步”、老祖头像、变强页第一张同源；当场能做的牌点一下留在本页、头上的数 300ms 内跳到牌上写的值（差 ≤ 1 个显示单位）；属性页进来明细展开、≤ 6 行、行内没有说明。
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const out = process.argv[2] || path.join(__dirname, '..', 'shots', 'kairo');
@@ -110,6 +112,46 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await panel('world-market', () => { window.__xm.closeModal(); window.__xm.showMarket(); });
   await panel('path', () => { window.__xm.closeModal(); window.__xm.showPath(); });
   await panel('attr', () => { window.__xm.closeModal(); window.__xm.showMe('attr'); });
+  // ---------- 变强页（KAIRO_PLAN §10.9） ----------
+  const gwShape = () => ev(() => {
+    const m = document.querySelector('#modal:not([hidden]) .sheet'); if (!m) return null;
+    const body = m.querySelector('.body'), bb = body.getBoundingClientRect(), bot = Math.min(bb.bottom, window.innerHeight) + 1;
+    const acts = [...m.querySelectorAll('.gw-act')], head = m.querySelector('.gw-head');
+    return { n: acts.length, cards: acts.map(a => ({ num: a.querySelectorAll('.num').length, btn: a.querySelectorAll('button').length, nm: ((a.querySelector('.nm') || {}).textContent || '').trim() })),
+      red: [...m.querySelectorAll('.gw-btn.red, .kb.red, .btn.gold, .btn.red')].filter(x => !x.disabled).length, vis: !!head && head.getBoundingClientRect().top >= bb.top - 1 && acts.every(a => a.getBoundingClientRect().bottom <= bot), top: body.scrollTop,
+      det: m.querySelector('details.gw-det') ? m.querySelector('details.gw-det').open : null, rows: [...m.querySelectorAll('.gw-dr')].map(r => [...r.childNodes].filter(x => x.nodeType === 3 && x.textContent.trim()).length + [...r.querySelectorAll('span:not(.n):not(.v):not(.a)')].length) };
+  });
+  for (const [nm, f, o] of [['growth', undefined], ['growth-atk', 'atk'], ['growth-inc', 'inc'], ['growth-bt', 'bt']]) {
+    await ev(([f, o]) => { window.__xm.closeModal(); window.__xm.showGrowth(f, o); }, [f, o]);
+    await panel(nm, () => {}, 60);
+    const g = await gwShape();
+    check(g && g.n >= 1 && g.n <= 3 && g.vis && g.red === 1, `${nm}：牌 ${g && g.n}/3 · 头和动作卡${g && g.vis ? '' : '不'}在第一屏 · 红按钮 ${g && g.red}`);
+    check(g && g.cards.every(c => c.num === 1 && c.btn === 1 && c.nm.length <= 8), `${nm}：每张牌 1 个大数字 1 个按钮、名字 ≤ 8 字（${g && g.cards.map(c => c.nm).join(' / ')}）`);
+  }
+  await panel('growth-cul-detail', () => { window.__xm.closeModal(); window.__xm.showGrowth('cul', { detail: true }); }, 60);
+  // 属性页的格子进来：明细已展开、≤ 6 行、行内没有说明
+  await ev(() => { window.__xm.closeModal(); window.__xm.showMe('attr'); }); await page.waitForTimeout(250);
+  await page.click('#modal [data-grow="atk"]'); await page.waitForTimeout(350);
+  { const g = await gwShape(); check(g && g.det === true && g.rows.length >= 1 && g.rows.length <= 6 && g.rows.every(x => x === 0), `属性 → 战力：明细展开 ${g && g.det} · ${g && g.rows.length} 行 · 行内说明 ${g && g.rows.filter(x => x).length}`); }
+  await page.screenshot({ path: `${out}/${dev === '360' ? '360' : 'p7'}-growth-attr.png` });
+  // 三处同源：目标卡“下一步” = 老祖头像点开的第一张 = L.advise 第一张
+  await ev(() => { window.__xm.closeModal(); }); await page.waitForTimeout(400);
+  const same = await ev(() => { const { st, L } = window.__xm, a = L.advise(st, 'goal').acts[0], gn = L.goalNext(st); return { a: a && a.id, say: a && a.say, n: a && a.n, gk: gn.k, why: gn.why, card: document.getElementById('gNext').textContent }; });
+  await ev(() => { const b = document.getElementById('guideAv'); if (b) b.click(); }); await page.waitForTimeout(350);
+  const avFirst = await ev(() => ({ t: (document.querySelector('#modal h2') || {}).textContent || '', nm: ((document.querySelector('#modal .gw-act .nm') || {}).textContent || '').trim() }));
+  check((same.why !== 'adv' || (same.gk === same.a && same.card === '下一步：' + same.say)) && /变强/.test(avFirst.t) && avFirst.nm === same.n, `三处同源：目标卡“${same.card}” / 老祖头像 → ${avFirst.t}“${avFirst.nm}” / advise ${same.a}`);
+  // 当场能做的牌：点一下留在本页、头上的数跳到牌上写的值
+  const inst = await ev(() => { const { st, L } = window.__xm; for (const f of ['goal', 'atk']) { const A = L.advise(st, f), i = A.acts.findIndex(a => a.instant && !a.gap && a.gain.to !== undefined); if (i >= 0) return { f, i, to: A.acts[i].gain.to, unit: A.acts[i].gain.unit, v0: A.head.v, big0: A.head.big }; } return null; });
+  if (inst) {
+    await ev(f => { window.__xm.closeModal(); window.__xm.showGrowth(f); }, inst.f); await page.waitForTimeout(250);
+    await ev(() => { window.__xm.__rng0 = window.__xm.L.rng; window.__xm.L.rng = () => 0; });   // 强化不掷失败
+    await page.click(`#modal [data-adv="${inst.i}"]`); await page.waitForTimeout(300);
+    await ev(() => { window.__xm.L.rng = window.__xm.__rng0; });
+    const af = await ev(f => { const { st, L } = window.__xm; return { t: (document.querySelector('#modal h2') || {}).textContent || '', big: ((document.querySelector('#modal .gw-big') || {}).textContent || ''), v: L.advise(st, f).head.v }; }, inst.f);
+    const unit = inst.unit === 'grade' ? 1 : inst.unit === 'pw' ? Math.max(1, inst.to * 0.01) : 0.01;
+    check(/变强/.test(af.t) && af.big !== inst.big0 && Math.abs(af.v - inst.to) <= unit + 1e-9, `当场做完：留在本页 · 头 ${inst.big0} → ${af.big.replace(/目标.*/, '')} · 牌上写 ${inst.unit === 'p' ? Math.round(inst.to * 100) + '%' : Math.round(inst.to * 100) / 100}（${inst.f}）`);
+    await page.screenshot({ path: `${out}/${dev === '360' ? '360' : 'p7'}-growth-after.png` });
+  } else check(true, '当场能做的牌：此局面没有（跳过）');
   await panel('record', () => { window.__xm.closeModal(); window.__xm.showRecord(); });
   await panel('settings', () => { window.__xm.closeModal(); window.__xm.showSettings(); });
   await panel('inbox', () => { window.__xm.closeModal(); window.__xm.showInbox(); });

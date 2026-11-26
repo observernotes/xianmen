@@ -26,7 +26,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => { window.__blk = 0; new MutationObserver(() => { if (!document.getElementById('guide').hidden && document.querySelector('#guide [data-g="ok"]')) window.__blk++; }).observe(document.getElementById('guide'), { attributes: true, childList: true, subtree: true }); });
   // 推进 n 个月（逐月调 onTick，和真实时钟一样走 clock.js 的打断规则）
   const adv = n => ev(n => { const X = window.__xm; for (let i = 0; i < n; i++) { X.L.flow(X.st, 1); X.onTick(); } }, n);
-  const closeAll = async () => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
+  const closeAll = async stopAt => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m || (stopAt && stopAt.test(m))) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
 
   // ---------- 开局主画面 ----------
   await shot('g01-start');
@@ -97,6 +97,17 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const yr = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', b: (document.querySelector('#modal .body') || {}).textContent || '', tick: window.__xm.st.tick }));
   check(/年报/.test(yr.m) && /战力/.test(yr.b) && /明年/.test(yr.b), `第 ${yr.tick} 月：年报（${yr.m}）`);
   await closeAll();
+  // ---------- 老祖头像 = 变强页（KAIRO_PLAN §10.5）：目标卡“下一步”、头像点开的第一张、L.advise 第一张是同一件事 ----------
+  await ev(() => { const X = window.__xm; X.st.exp = null; X.st.retreat = null; });
+  await page.waitForTimeout(400);
+  const s3 = await ev(() => { const { st, L } = window.__xm, A = L.advise(st, 'goal'), gn = L.goalNext(st); return { id: A.acts[0] && A.acts[0].id, say: A.acts[0] && A.acts[0].say, n: A.acts[0] && A.acts[0].n, gk: gn.k, why: gn.why, card: document.getElementById('gNext').textContent, av: !!document.getElementById('guideAv') && !document.getElementById('guideAv').hidden }; });
+  check(s3.av, '场景右下角有老祖头像');
+  if (s3.av) { await page.click('#guideAv'); await page.waitForTimeout(400); }
+  await shot('g10b-growth');
+  const gw = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', nm: ((document.querySelector('#modal .gw-act .nm') || {}).textContent || '').trim(), n: document.querySelectorAll('#modal .gw-act').length }));
+  check(/变强/.test(gw.m) && gw.n >= 1 && gw.n <= 3, `老祖头像 → 变强页（${gw.m}，${gw.n} 张牌）`);
+  check(gw.nm === s3.n && (s3.why !== 'adv' || (s3.gk === s3.id && s3.card === '下一步：' + s3.say)), `三处同源：目标卡“${s3.card}” · 变强页第一张“${gw.nm}” · advise ${s3.id}（${s3.why}）`);
+  await closeAll();
   // ---------- 修为圆满：目标卡“下一步：可以突破了”→【去】→ 突破面板 ----------
   await ev(() => { const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.p.s = 3; st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); st.pills = 2; });
   await page.waitForTimeout(700); await closeAll(); await page.waitForTimeout(300);
@@ -123,7 +134,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   if (await ev(() => /跳过/.test((document.querySelector('#modal .foot .btn') || {}).textContent || ''))) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
   await page.click('#modal .foot .btn'); await page.waitForTimeout(800);
   let chEnd = '';
-  for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(); await page.waitForTimeout(500); }
+  for (let i = 0; i < 10; i++) { const m = await modal(); if (/章.*完/.test(m)) { chEnd = m; break; } if (m) await closeAll(/章.*完/); await page.waitForTimeout(500); }   // 中途冒出的翻牌、过场等关掉，章末卡留着
   await shot('g14-chapter');
   const cb = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent).join('/'));
   check(/第一章.*完/.test(chEnd) && /开始第二章/.test(cb), `章末结算：${chEnd} ·【${cb}】`);

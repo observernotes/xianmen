@@ -198,9 +198,7 @@ body:has(#modal:not([hidden])) #tip { visibility: hidden; }   /* 弹窗开着时
 #stats button[data-s="big"].soon { animation: navHint 1s steps(2) infinite; }
 #stats button:active { transform: translateY(1px); }
 @media (max-width: 380px) { #stats button .k img { display: none; } }
-.grow-sec { display: flex; flex-direction: column; gap: 4px; }
-.grow-sec h3 { margin: 0; font-size: var(--fs-m); font-weight: normal; display: flex; justify-content: space-between; gap: 8px; color: var(--seal); }
-.grow-sec h3 span { color: var(--paper-ink); font-variant-numeric: tabular-nums; }
+/* .grow-row / .tipx：宿敌卡、新秀卡还在用（panel-rivals.js）；变强页已改成 .gw-*（KAIRO_PLAN §10） */
 .grow-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 4px 6px; background: #f7eed6; }
 .grow-row .gn { min-width: 0; }
 .grow-row .gm { font-variant-numeric: tabular-nums; color: #1d8a63; }
@@ -758,10 +756,6 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 .guide-av.gone img { opacity: .4; }
 .guide-av .guide-dot { display: none; position: absolute; top: -8px; right: -6px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; color: #fff; background: var(--seal); box-shadow: 0 0 0 2px var(--ink); }
 .guide-av.new .guide-dot { display: block; animation: blink 1s steps(2) infinite; }
-.guide-ask .main b { color: var(--seal); font-weight: normal; }
-.guide-ask .right .btn { min-height: 44px; min-width: 64px; }
-.guide-said { color: var(--paper-mute); padding-left: 8px; box-shadow: inset 2px 0 0 0 var(--paper-lo); }
-.guide-said b { font-weight: normal; }
 /* ---- B 线：章末结算卡（duel-ch-） ---- */
 .duel-ch-head { position: relative; align-self: center; }
 .duel-ch-head > img:first-child { display: block; width: min(100%, 300px); height: auto; aspect-ratio: 5 / 3; }
@@ -1197,6 +1191,78 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body
 #goal:not(.open) .gbar em { display: none; }
 #goal.open { cursor: pointer; }
 #goal.open .gtog { transform: rotate(180deg); }
+
+/* 变强页（docs/KAIRO_PLAN.md §10；尺寸抄 docs/kairo_mock/growth.html，类名加 gw-）：页签 / 头 / 老祖一句 / 动作卡 / 明细 / 小卡 */
+.sheet.gw { position: relative; }
+.gw-tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 17px; font-size: 15px; padding: 2px 0; }
+.gw-tabs button b { display: block; font-weight: normal; font-size: 14px; color: #2a8a7a; white-space: nowrap; overflow: hidden; max-width: 100%; }
+.gw-tabs button.on b { color: #fff2a8; }
+.gw-tabs button.lk { color: #b9a988; border-color: #b9a988; }
+.gw-tabs button.lk b { color: #b9a988; }
+.gw-tabs button.lk.on { background: #b9a988; color: #fff; }
+.gw-head { background: #262038; color: #efe9ff; border: 2px solid #f4c542; padding: 6px 8px 7px; }
+.gw-head .l1 { display: flex; align-items: center; gap: 6px; font-size: 16px; min-width: 0; }
+.gw-head .l1 .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gw-head .l1 .rt { margin-left: auto; font-size: 14px; color: #ff9a8a; white-space: nowrap; flex: none; }
+.gw-big { font-size: 26px; line-height: 28px; color: #fff2a8; margin: 4px 0 3px; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
+.gw-big small { font-size: 14px; color: #9d93b8; }
+.gw-big.jump { animation: gwJump .3s steps(3); }
+@keyframes gwJump { 0% { transform: translateY(-4px); color: #8ff5d0; } 100% { transform: none; } }
+.gw-bar { height: 14px; background: #1b1326; border: 1px solid #55506e; position: relative; }
+.gw-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #f4c542; }
+.gw-bar i.g { background: #4ccb9f; } .gw-bar i.r { background: #d8404a; }
+.gw-bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; }
+.gw-bar s { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(90deg, #8ff5d0 0 3px, transparent 3px 6px); opacity: .9; }
+.gw-say { display: flex; gap: 6px; align-items: center; }
+.gw-say .bub { flex: 1; min-width: 0; background: #fff6dc; border: 2px solid #a8742a; padding: 5px 8px; font-size: 15px; line-height: 19px; position: relative; }
+.gw-say .bub:before { content: ""; position: absolute; left: -8px; top: 10px; border: 4px solid transparent; border-right-color: #a8742a; }
+.gw-act { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 5px 6px; position: relative; min-height: 68px; min-width: 0; }
+.gw-act.best { border-color: #a8742a; background: #fff6dc; box-shadow: 0 0 0 2px #f4c54288; }
+.gw-act.dim { background: #eadcb8; border-style: dashed; }
+.gw-act .cell { width: 52px; height: 52px; background: #262038; display: flex; align-items: center; justify-content: center; flex: none; }
+.gw-act .gw-rec { position: absolute; left: -7px; top: -8px; line-height: 0; z-index: 1; }
+.gw-act .mid { flex: 1; min-width: 0; }
+.gw-act .nm { font-size: 16px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gw-act .num { font-size: 22px; line-height: 26px; color: #2a8a7a; white-space: nowrap; overflow: hidden; display: flex; align-items: center; gap: 4px; }
+.gw-act .num small { font-size: 14px; color: #8a7a5c; }
+.gw-act .num.gw-gap { color: #c8323c; }
+.gw-cost { font-size: 14px; line-height: 16px; color: #8a7a5c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 3px; }
+.gw-mut { color: #8a7a5c; }
+.gw-btn { flex: none; width: 72px; min-height: 44px; padding: 2px 0; font: inherit; font-size: 16px; cursor: pointer; border: 2px solid #2c2238; background: #f4c542; color: #2c2238; text-align: center; white-space: nowrap; }
+.gw-btn.alt { background: #f6ecd2; }
+.gw-btn.red { background: #d8404a; color: #fff; }
+.gw-btn:disabled { background: #e2d4ae; color: #a8987a; border-color: #b9a988; cursor: default; font-size: 14px; }
+.gw-det { margin-top: auto; border-top: 2px solid #c8b48c; padding-top: 2px; }
+.gw-det summary { list-style: none; display: flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; cursor: pointer; }
+.gw-det summary::-webkit-details-marker { display: none; }
+.gw-det summary .rt { margin-left: auto; color: #8a7a5c; font-size: 14px; white-space: nowrap; }
+.gw-dl { border: 2px solid #c8b48c; background: #f6ecd2; padding: 2px 6px; }
+.gw-dr { display: flex; align-items: center; gap: 6px; min-height: 36px; font-size: 15px; border-bottom: 1px solid #e2d4ae; cursor: pointer; }
+.gw-dr:last-child { border-bottom: 0; }
+.gw-dr .n { width: 96px; flex: none; white-space: nowrap; overflow: hidden; }
+.gw-dr .pb { flex: 1; height: 10px; background: #e2d4ae; position: relative; min-width: 20px; }
+.gw-dr .pb i { position: absolute; left: 0; top: 0; bottom: 0; background: #2a8a7a; }
+.gw-dr .pb i.add { background: repeating-linear-gradient(90deg, #f4c542 0 3px, #fff6dc 3px 6px); }
+.gw-dr .v { width: 58px; text-align: right; font-size: 15px; color: #2a8a7a; white-space: nowrap; flex: none; }
+.gw-dr .v.z { color: #b9a988; } .gw-dr .v.lo { color: #c8323c; }
+.gw-dr .a { width: 16px; text-align: center; color: #a8742a; flex: none; }
+.gw-dr.lk { color: #b9a988; cursor: default; }
+.gw-dr.sel { background: #fff6dc; box-shadow: 0 0 0 2px #a8742a; }
+.gw-pop { position: absolute; left: 20px; right: 20px; z-index: 5; background: #262038; color: #efe9ff; border: 3px solid #f4c542; padding: 9px 10px; font-size: 15px; line-height: 20px; }
+.gw-pop .t { font-size: 17px; color: #fff2a8; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+.gw-pop .f { display: flex; align-items: center; margin-top: 7px; gap: 6px; color: #c8bde0; font-size: 14px; }
+.gw-pop .f .gw-btn { margin-left: auto; }
+@media (max-height: 700px) {   /* 360×640 这类矮屏：头、牌、间距都收一点，三张牌不滚动放下 */
+  .sheet.gw .body { gap: 5px; }
+  .gw-head { padding: 4px 8px 5px; }
+  .gw-big { font-size: 22px; line-height: 24px; margin: 2px 0; }
+  .gw-bar { height: 10px; }
+  .gw-say .bub { padding: 3px 8px; }
+  .gw-act { min-height: 60px; padding: 3px 6px; }
+  .gw-act .cell { width: 46px; height: 46px; }
+  .gw-act .cell img { width: 40px !important; height: 40px !important; }
+  .gw-act .num { font-size: 20px; line-height: 22px; }
+}
 /* ===== 线 C2 刷宝 + 炼器（.lt-，src/ui/loot.js、src/ui/forge.js；docs/COMBAT_LOOT.md §5 §6） ===== */
 .lt-flip { margin: 4px 0; }
 .lt-cards { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: flex-end; background: #262038; border: 2px solid #3a3155; padding: 8px 4px; position: relative; overflow: hidden; }

@@ -82,7 +82,7 @@ function showMe(tab) {
   const s = sheet({ title: shellTitle(sh), body: meTabs(tab) + body });
   if (tab === 'bond' && typeof bindBondTab === 'function') bindBondTab(s);
   if (tab === 'rank') bindRivalList(s);
-  s.querySelectorAll('[data-grow]').forEach(b => b.onclick = () => { SFX.tap(); showGrowth(b.dataset.grow); });
+  s.querySelectorAll('[data-grow]').forEach(b => b.onclick = () => { SFX.tap(); showGrowth(b.dataset.grow, { detail: true }); });   // 从属性页来的人是来看“怎么算的”：明细自动展开（KAIRO_PLAN §10.7）
   const db = s.querySelector('#btnDao'); if (db) db.onclick = () => { SFX.tap(); showDao(); };
   const kb = s.querySelector('#kBackRec'); if (kb) kb.onclick = () => { SFX.tap(); showRecord(); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
@@ -113,6 +113,7 @@ function showSettings() {
   const body = meTabs('set')
     + `<div class="kslot"><div class="cell" id="btnSound" style="cursor:pointer"></div><div class="mid"><div class="nm">声音</div><small>${['音乐与音效', '仅音效', '静音'][soundMode]}</small></div><button class="kb alt" id="kSnd">切换</button></div>
     <div class="kslot"><div class="cell">${artIcon('quest', 32)}</div><div class="mid"><div class="nm">玩法指南</div><small>各系统一句话</small></div><button class="kb alt" id="btnHelp">看</button></div>
+    <div class="kslot"><div class="cell">${artIcon('task', 32)}</div><div class="mid"><div class="nm">札记</div><small>本章小任务</small></div><button class="kb alt" id="btnQuests">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('ok', 32)}</div><div class="mid"><div class="nm">存档</div><small>本机自动 · 云：${esc(cloudStatus)}</small></div></div>
     <div class="kslot"><div class="cell">${artIcon('bad', 32)}</div><div class="mid"><div class="nm">重新开始</div><small>清除存档</small></div><button class="kb alt" id="btnReset">重来</button></div>
     <div class="ksec"><span>字体：Fusion Pixel（SIL OFL 1.1）</span></div>`;
@@ -121,6 +122,7 @@ function showSettings() {
   const snd = () => { soundMode = (soundMode + 1) % 3; ac(); SFX.tap(); setSoundIcon(); savePref(); showSettings(); };
   s.querySelector('#kSnd').onclick = snd; s.querySelector('#btnSound').onclick = snd;
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };
+  s.querySelector('#btnQuests').onclick = () => { SFX.tap(); showQuests(); };
   s.querySelector('#btnReset').onclick = () => sheet({
     title: '重新开始', center: true, body: '<p>放弃当前进度，从头开始？这会清除本机与云端存档。</p>',
     foot: [{ t: '取消', alt: true, fn: () => showSettings() }, { t: '确定重来', fn: () => { closeModal(); resetGame(); } }],

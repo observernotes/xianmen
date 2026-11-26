@@ -128,19 +128,11 @@ L.pathView = function (st) {
   });
 };
 
-// ---------- 目标卡：本章目标 + 进度 + 下一步（KAIRO_PLAN §2.2 的六级取法） ----------
+// ---------- 目标卡：本章目标 + 进度 + 下一步（KAIRO_PLAN §2.2；“下一步”从 §10 起取 L.advise 的第一张牌） ----------
 // next.go：界面跳转键；next.hl：给 hlOnly 的选择器（拿不准就 null，界面按 go 自己找）
 const ONB_GO = { exp: 'exp', home: 'home', herb: 'exp', retreat: 'home', bt: 'bt', market: 'market', sect: 'sect', visitor: 'inbox', field: 'field', gearCmp: 'gear',
   furnace: 'furnace', arts: 'arts', trib: 'trib', pets: 'pets', plus: 'gear', zhanji: 'arts', realm: 'realm', bond: 'people', plots: 'home', zhen: 'zhen', disc: 'disc', cal: 'cal', dao: 'path', codex: 'path' };
-const Q_GO = { exp: 'exp', home: 'home', cult: 'home', big: 'prep', sect: 'sect', market: 'market', gear: 'gear', me: 'rivals', field: 'field', realm: 'realm', alch: 'furnace', pets: 'pets', codex: 'path' };
-// 小任务要用的系统（还没开的不当“下一步”）；“修到 / 踏入 / 渡过”这类等出来的也不当
-const Q_NEED = [[/灵田|改种/, 'field'], [/访客/, 'visitor'], [/吐纳/, 'tuna'], [/强化/, 'plus'], [/灵宠/, 'pets'], [/炼|丹方/, 'furnace'], [/法衣/, 'robe'], [/行情/, 'sell'], [/秘境/, 'realm'],
-  [/拍卖/, 'auction'], [/阵法/, 'zhen'], [/徒弟/, 'disc'], [/图鉴/, 'codex'], [/道心/, 'dao'], [/同伴/, 'comp'], [/器方/, 'forge'], [/宗门|贡献/, 'sect'], [/知己|道侣|四心|五心/, 'bond'], [/采药/, 'herb'], [/奇遇链/, 'codex'], [/首领|狼王|守墓|蛟皇|傀儡/, 'exp']];
-const PASSIVE = /^(修到|修成|踏入|突破|渡过|听完|晋升|天骄榜|登顶|宗门榜|论道|九宗|得到|与一人)/;
-const qOk = (st, q) => { if (q.onb && !L.unlocked(st, q.onb)) return false; const t = L.questText(st, q); if (PASSIVE.test(t)) return false; for (const [re, k] of Q_NEED) if (re.test(t) && !L.unlocked(st, k)) return false; return true; };
 const cut = (s, n) => (s.length > n ? s.slice(0, n) : s);
-// 锦囊（大节点前胜算不够时“下一步”指向它）：界面登记 L.GOAL_TIP = st => { t, go, hl } | null（取 pactTips()[0] 之类）；逻辑层兜底“去历练”
-L.GOAL_TIP = L.GOAL_TIP || null;
 let gCache = { key: '', v: null };
 L.goalNow = function (st) {
   if (!st || !st.p) return null;
@@ -151,7 +143,7 @@ L.goalNow = function (st) {
   return g;
 };
 L.goalNext = function (st) {
-  const key = st.tick + '|' + (st.exp ? 'e' + st.exp.left : '') + (st.retreat ? 'r' + st.retreat.left : '') + '|' + Math.floor(st.stones) + '|' + st.p.s + st.p.r + (L.isFull(st) ? 'F' : '') + '|' + st.gear.pend.length + '|' + Object.keys(st.onb ? st.onb.m : {}).length + Object.keys(st.onb ? st.onb.at : {}).length + '|' + Object.keys((st.quest && st.quest.done) || {}).length + '|' + (st.arts ? Object.keys(st.arts.own).length + L.artSlots(st).join() : '') + (st.clk && st.clk.prepSeen) + (st.run ? 'R' : '');
+  const key = (L.adviseKey ? L.adviseKey(st) : st.tick + '|' + Math.floor(st.stones)) + '|' + (L.isFull(st) ? 'F' : '') + Object.keys(st.onb ? st.onb.m : {}).length + '|' + Object.keys((st.quest && st.quest.done) || {}).length + '|' + (st.clk && st.clk.prepSeen);
   if (gCache.key === key && gCache.st === st) return gCache.v;
   const v = goalNext0(st);
   gCache = { key, st, v };
@@ -166,36 +158,18 @@ function goalNext0(st) {
   // 大节点前 1 月：备战（自动停）
   const big = L.bigNext ? L.bigNext(st) : null;
   if (big && big.left <= 1 && !(st.clk && st.clk.prepSeen === st.tick)) return { t: '备战：' + big.n, go: 'prep', hl: null, why: 'prep', big };
-  // ① 修为圆满
-  if (L.isReady(st)) return { t: p.r >= 1 ? '可以渡劫了' : '可以突破了', go: 'bt', hl: '#cult', why: 'ready' };
-  // ② 装备里有新东西（待决定的法宝、更强的功法）
-  if (st.gear && st.gear.pend.some(x => !x.hold)) return { t: '装备里有新东西', go: 'gear', hl: null, why: 'gear' };
-  if (st.arts && L.artList) for (const i of [0, 1]) { if (!L.artSlotOpen(st, i)) continue; const r = L.artList(st, i).find(x => x.rec && x.score >= 1.03); if (r) return { t: i === 0 ? '有更好的心法' : '有更好的战技', go: 'arts', hl: null, why: 'gear', art: r.id }; }
-  // ③ 刚开、还没学会的系统
+  // 其余都取变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡、老祖头像、变强页同一张表；必须先做的（突破、疗伤、新法宝）压过新系统上手
+  const A = L.advise ? L.advise(st, 'goal') : null, a0 = A && A.acts[0];
+  if (a0 && a0.must) return advNext(a0);
+  // 刚开、还没学会的系统
   const og = L.onbGoal(st);
   if (og) return { t: cut(og.goal, 12), go: ONB_GO[og.k] || 'path', hl: null, why: 'onb', k: og.k };
-  // ⑤（先于④判）大节点 ≤ 6 月且胜算低于目标：锦囊
-  if (big && big.left <= 6 && big.p !== undefined && big.p < 0.8) {
-    const tip = typeof L.GOAL_TIP === 'function' ? L.GOAL_TIP(st, big) : null;
-    if (tip) return Object.assign({ hl: null, why: 'big' }, tip, { t: cut(tip.t, 12) });
-  }
-  // ③½ 有钱有空：闭关（每两趟历练一次、能提前升层时）、升聚灵阵——第一世头几章最该做的两件事（留够闭关的钱）
-  if (p.inj <= 0) {
-    const ri = L.canRetreat(st) ? L.retInfo(st) : null;
-    if (ri && ri.save >= 1 && (st.stats.exp || 0) >= 3 * ((st.stats.retreat || 0) + 1) && st.stones >= ri.cost) return { t: `闭关 ${L.RET.len} ${L.UNIT || '月'}`, go: 'home', hl: null, why: 'grow', k: 'retreat' };
-    const u = L.homeOpen && L.homeOpen(st, 'array') && L.upInfo(st, 'array');
-    const keep = L.retOpen(st) ? L.retCost(st) : 0;
-    if (u && !u.max && !u.lock && u.cost && st.stones >= u.cost + keep) return { t: '聚灵阵升一级', go: 'home', hl: null, why: 'grow', k: 'array' };
-  }
-  // ④ 本章札记第一条能动手的小任务
-  const qv = L.questView(st);
-  const q = qv.list.concat(L.CHAPTERS[qv.r].tasks.filter(x => !x.off && !done(st, x))).find(x => qOk(st, x));
-  if (q) return { t: cut(L.questText(st, q), 12), go: Q_GO[q.go] || 'path', hl: null, why: 'quest', q: q.id };
-  if (big && big.left <= 6 && big.p !== undefined && big.p < 0.8) return { t: '去历练，再强一点', go: 'exp', hl: '[data-nav="exp"]', why: 'big' };
-  // ⑥ 兜底
+  if (p.inj > 0 && (!a0 || a0.id === 'idle')) return { t: `养伤 · 还有 ${p.inj} 月`, go: 'home', hl: null, why: 'idle' };
+  if (a0) return advNext(a0);
   if (p.inj > 0) return { t: `养伤 · 还有 ${p.inj} 月`, go: 'home', hl: null, why: 'idle' };
   return { t: '去历练', go: 'exp', hl: '[data-nav="exp"]', why: 'exp' };
 }
+const advNext = a => ({ t: a.say, go: a.go, hl: a.hl || null, why: 'adv', act: a, k: a.id });
 
 // ---------- 章末结算 ----------
 L.chapterSummary = function (st, i) {
