@@ -35,7 +35,7 @@ function showPath(tab) {
       const xp = st.p.r <= L.MAXR ? Math.min(1, st.p.xp / L.pNeed(st.p)) : 1;
       const ic = c.opened.slice(0, 7).map(k => `<span>${sysIcon(k, 16)}</span>`).join('') + Array.from({ length: Math.min(4, c.toOpen) }, () => '<span class="q">?</span>').join('');
       rows.push(`<div class="kpn cur">${node('now', 3)}<div class="tt"><span class="h nm">${chName(c.i)} ${esc(c.n)}</span> <small>${esc(c.realm)} · 你在这里</small>
-        <div class="krow">${artIcon('goal', 16)}<span class="v">${esc(c.goal || g.t)}</span>${bn && bn.left <= 36 ? `<span class="s" style="color:#c8323c">还有 ${bn.left} ${MO()}</span>` : ''}</div>
+        <div class="krow">${artIcon('goal', 16)}<span class="v">${esc(c.goal || g.t)}</span>${bn && bn.left <= 36 ? `<span class="s" style="color:#c8323c">还有 ${seasons(bn.left)} 季</span>` : ''}</div>
         ${prog.map(x => pbar(x.v / (x.max || 1), x.text ? cut(x.text.replace(/ → 目标.*$/, ''), 10) : '')).join('')}${pbar(xp, L.stageName(st.p))}
         <div class="ksys">${ic}<small>已开 ${c.opened.length} · 还有 ${c.toOpen}</small></div></div></div>`);
     } else rows.push(`<div class="kpn">${node('next', 2)}<div class="tt"><span class="nm">${chName(c.i)} ${esc(c.n)}</span> <small>${esc(c.realm)} · ${esc(c.blurb || c.goal)}</small>${c.toOpen ? `<div class="ksys">${Array.from({ length: Math.min(7, c.toOpen) }, () => '<span class="q">?</span>').join('')}</div>` : ''}</div></div>`);
@@ -55,7 +55,7 @@ function showChapterCard(ch) {
   const Sp = ART.stamp ? ART.stamp('完') : null;
   sheet({ title: `${chName(ch)} ${esc(S.n)} · 完`, center: true, noClose: true,
     body: `<div class="kcard">${Sp ? `<img class="px" src="${urlOf(Sp, 'stamp|完')}" style="width:${pxFit(24, 48)}px;height:${pxFit(24, 48)}px" alt="">` : ''}<div class="grow">
-        <div class="krow"><span class="k">用了</span><span class="v">${S.months} ${MO()}</span></div>
+        <div class="krow"><span class="k">用了</span><span class="v">${seasons(S.months)} 季</span></div>
         <div class="krow"><span class="k">战力</span><span class="v">${fmt(S.pw0)} → <span class="big">${fmt(S.pw1)}</span></span></div>
         <div class="krow"><span class="k">历练</span><span class="v">${S.exp} 趟${S.best >= 0 ? ` · 最好 ${L.RATINGS[Math.min(4, S.best)]}` : ''}</span></div></div></div>
       ${N ? `<div class="ksec"><span style="font-size:18px;color:var(--paper-ink)">${chName(N.i)} ${esc(N.n)}</span></div>
@@ -86,7 +86,7 @@ function showYearReport() {
       ${opened.length ? `<div class="krow"><span class="k">新开</span><span class="v">${opened.map(k => `${sysIcon(k, 16)} ${esc(L.ONB_K[k].n.split('·')[0])}`).join('　')}</span></div>` : ''}
       <div class="ksec"><span>明年 · ${chL}</span></div>
       <div class="krow"><div class="kpbar"><i style="width:${(Math.max(0, Math.min(1, bar.v / (bar.max || 1))) * 100).toFixed(1)}%"></i></div><span class="s">${esc(cut(bar.text, 16))}</span></div>
-      ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${big.left} ${MO()}</span></div>` : ''}
+      ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${seasons(big.left)} 季</span></div>` : ''}
       ${R.say ? `<div class="ksay">${elderImg(24)}<span>老祖：“${esc(cut(R.say, 20))}”</span></div>` : ''}`,
     foot: [{ t: '新的一年 ▸', gold: true, fn: () => { yearClose(); closeModal(); } }] });
   SFX.year();
@@ -102,9 +102,9 @@ function showYearHist() {
 const MAIL_IC = { visitor: 'buddy', season: 'time', world: 'w_taiping', auction: 'paddle', rookie: 'rank', unlock: 'unlock', master: 'ok', rival: 'grudge', say: 'quest', misc: 'mail' };
 function showInbox() {
   const list = L.mailbox(st).slice(0, 20);
-  const rows = list.map((x, i) => `<div class="kmail">${artIcon(x.ic || MAIL_IC[x.k] || 'mail', 24)}<span class="grow klog">${esc(cut(x.t, 14))}</span>${x.left !== null && x.left !== undefined ? `<span class="s">${x.left} ${MO()}</span>` : ''}<button class="btn sm ${i ? 'alt' : 'gold'}" data-mail="${i}">看</button></div>`).join('');
-  const visit = st.visitor && !list.some(x => x.k === 'visitor') ? `<div class="kmail">${artIcon('buddy', 24)}<span class="grow">门口有人来访</span><span class="s">${st.visitor.left} ${MO()}</span><button class="btn sm gold" id="kVisit">看</button></div>` : '';
-  const said = sayLog.slice(0, 4).map(x => `<div class="krow klog" style="font-size:14px"><span class="k" style="width:40px">${x.m}${MO()}</span><span class="v">${esc(x.text)}</span></div>`).join('');
+  const rows = list.map((x, i) => `<div class="kmail">${artIcon(x.ic || MAIL_IC[x.k] || 'mail', 24)}<span class="grow klog">${esc(cut(x.t, 14))}</span>${x.left !== null && x.left !== undefined ? `<span class="s">${seasons(x.left)} 季</span>` : ''}<button class="btn sm ${i ? 'alt' : 'gold'}" data-mail="${i}">看</button></div>`).join('');
+  const visit = st.visitor && !list.some(x => x.k === 'visitor') ? `<div class="kmail">${artIcon('buddy', 24)}<span class="grow">门口有人来访</span><span class="s">${seasons(st.visitor.left)} 季</span><button class="btn sm gold" id="kVisit">看</button></div>` : '';
+  const said = sayLog.slice(0, 4).map(x => `<div class="krow klog" style="font-size:14px"><span class="k" style="width:64px">${esc(x.m)}</span><span class="v">${esc(x.text)}</span></div>`).join('');
   const elder = bubbleLog.slice(0, 4).map(b => `<div class="ksay klog">${elderImg(24)}<span>${b.text}</span></div>`).join('');
   const s = sheet({ title: `${artIcon('mail', 24)} 纸鹤`, body: (visit + rows || emptyNoteHTML('scroll', '没有新消息。')) + (said ? `<div class="ksec"><span>传讯</span></div>${said}` : '') + (elder ? `<div class="ksec"><span>老祖说过</span></div>${elder}` : '') });
   bubbleUnread = false;

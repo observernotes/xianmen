@@ -82,7 +82,7 @@ function showTribPrep(still) {
   const parts = L.tribParts(st, o).map(([k, v]) => `<span>${esc(k)} ${k === '基础' ? L.pct(v) : (v >= 0 ? '+' : '−') + L.pct(Math.abs(v))}</span>`).join('');
   const pre = L.tribPre(st);
   const preNote = pre ? (/^demon/.test(pre.trigger) ? '<div class="seal">雷劫之前，先过心魔劫</div>' : `<div class="seal">飞升前夜，${esc(L.ascendVisitor(st).n)}来敲门</div>`) : '';
-  const fail = L.has(st, 'steady') ? `失败：道心坚定，修为只退到 95%，不负伤；下次成功率 +${L.pct(L.BT.fail)}。` : `失败不会身死：修为退到 70%，负伤 3 月，下次成功率 +${L.pct(L.BT.fail)}。`;
+  const fail = L.has(st, 'steady') ? `失败：道心坚定，修为只退到 95%，不负伤；下次成功率 +${L.pct(L.BT.fail)}。` : `失败不会身死：修为退到 70%，负伤到下季末，下次成功率 +${L.pct(L.BT.fail)}。`;
   // 用得上的护劫手段摆出来，用不上的（缺灵宠、没道侣……）收进折叠
   const aidK = ['fa', 'pet', 'daolv', 'zhen', 'pill'], aidOk = aidK.filter(k => L.aidInfo(st, k).ok), aidNo = aidK.filter(k => !L.aidInfo(st, k).ok);
   const aidH = k => aidRow(k, !!o.aids[k], sure || k === 'pill' ? '' : 'aid');
@@ -218,7 +218,7 @@ function showDao() {
   const top = L.daoTop(st), T0 = st.trib || {}, dj = L.daoji(st);
   const recs = (T0.rec || []).map(x => `<span class="grec"><img class="px" src="${stampURL(x.g)}" style="width:${pxs(24, 1)}px;height:${pxs(24, 1)}px" alt="${x.g}"><span class="muted">${x.r >= 9 ? '飞升' : L.REALMS[x.r].n}</span></span>`).join('');
   const open = L.karmaOpen(st), done = L.karmaState(st).list.filter(x => x.done);
-  const krow = (x, d) => `<div class="krow ${d ? 'done' : ''}" data-karma="${esc(x.id)}">${icon16('karma', 1.5)}<div class="main"><div><b>${esc(x.who)}</b> <span class="muted">${esc(x.title || '')}</span></div><div class="muted">${esc(x.n)}${d ? ' · 已了结' : ` · 第 ${x.tick} 月结下`}</div></div></div>`;
+  const krow = (x, d) => `<div class="krow ${d ? 'done' : ''}" data-karma="${esc(x.id)}">${icon16('karma', 1.5)}<div class="main"><div><b>${esc(x.who)}</b> <span class="muted">${esc(x.title || '')}</span></div><div class="muted">${esc(x.n)}${d ? ' · 已了结' : ` · 第 ${seasons(x.tick)} 季结下`}</div></div></div>`;
   const kr = L.karmaRebirth(st);
   const body = meTabs('dao') + `
     <div class="muted">奇遇里的选择记在道心上：狂 / 稳 / 仁各到 ${L.DAO_TH.join(' / ')} 笔得一级。${top ? `眼下你最像个<b class="seal">${L.DAO[top].n}</b>者。` : '眼下还看不出你是个什么样的人。'}</div>

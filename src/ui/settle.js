@@ -81,6 +81,7 @@ function chainPump() {
     // 逻辑层给完了：链尾的解锁卡（AP_PLAN §4.2 第 6 级 / §4.6）。手把手那三步还在讲的时候先不出（它们只等这一下，不看真实时间）
     if (!L.CHAIN_FULL && unlockQ.length && $('#guide').hidden) { const k = unlockQ.shift(); chainCur = { kind: 'unlock', id: k }; chainN++; showUnlock(k); continue; }
     if (chainOn) { chainOn = false; chainEnd(chainWhy); if (chainBusy() || queue.length) continue; }
+    if (chainAfter) { const fn = chainAfter; chainAfter = null; fn(); continue; }
     return false;
   }
   return true;
@@ -115,6 +116,11 @@ function doAct(id, args) {
   settle('act');
   return r;
 }
+// 结算卡上的【再去一趟】【趁势深入】【回去突破】：等这条链出完（这张卡引出的戏都放完）再做，下一件事不插到戏前头
+let chainAfter = null;
+function afterChain(fn) { if (!chainOn && !queue.length) { fn(); return; } chainAfter = fn; }
+// 弹窗里带 ◆N 的按钮补上 data-ap（tools/shot.js 扫它）
+function apMark(root) { root.querySelectorAll('button').forEach(b => { if (b.dataset.ap) return; const m = /◆(\d)/.exec(b.textContent); if (m) b.dataset.ap = m[1]; }); }
 // 点数角标：“◆2”；data-ap 给 tools/shot.js 扫（所有花点的按钮都带它，点数与 L.AP 一致）
 const apTag = n => `<span class="apc">◆${n}</span>`;
 const apBtn = (id, args) => { const n = L.apCost(st, id, args), why = L.apWhy(st, id, args); return { n, why, tag: apTag(n), attr: ` data-ap="${n}"` }; };

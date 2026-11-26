@@ -68,7 +68,7 @@ function guideTick() {
 registerGuide([
   { id: 'meetSoon', intro: true, urgent: true, target: BIG, btn: '好', when: () => !!st.sect && L.sectOf(st) && !st.sect.meets && !modalOpen() && !L.busy(st) && L.nextMeet(st) <= 6 && L.nextMeet(st) > 0, text: () => {
       const pos = L.sectPos(st), q = pos === 1 ? 2 : pos - 1, N = L.nineAt(st, q) || {}, Q = L.ninePower(st, q), fo = { kind: 'sect', id: N.id }, S = L.duelPower(st, fo);
-      return `<b>九宗会武</b>还有 <b>${L.nextMeet(st)}</b> 个月。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
+      return `<b>九宗会武</b>还有 <b>${seasons(L.nextMeet(st))}</b> 季。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
     } },
 ]);
 // 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个月

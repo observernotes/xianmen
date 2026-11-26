@@ -34,6 +34,10 @@ function goKey(k) {
 function runAct(a, again) {
   if (!a || !st) return;
   if (a.gap) { SFX.tap(); closeModal(); goKey(a.go); return; }
+  // 花点的牌走 L.act（AP_PLAN §10：界面不直接 L.startRetreat / L.startExp）：闭关当场出关、历练开那一格的出发页
+  { const id = String(a.go || ''), m = /^do:(exp|wish):(\d+):?(\d*):?(\d*)/.exec(id);
+    if (id === 'do:retreat') { closeModal(); doAct('retreat'); return; }
+    if (m) { SFX.tap(); closeModal(); confirmExp(+m[2], +m[3] || 0, +m[4] || 0); return; } }
   if (String(a.go).startsWith('do:')) {
     const r = L.adviseDo(st, a.go.slice(3));
     if (!r.done) { SFX.fail(); sayLine(r.why || '做不了'); return; }
@@ -149,7 +153,7 @@ function showBig() {
 function showPact() {
   const pi = L.pactInfo(st), p = st.p, acts = L.advise(st, 'goal').acts.filter(a => a.id !== 'idle');
   const muEl = L.artSlotOpen(st, 1) && L.foeElKnown(st, L.PACT_FOE) ? ' ' + elChip(L.foeEl(L.PACT_FOE)) : '';
-  const body = `<p class="center">还剩 <b>${pi.left} 个月</b>，${esc(st.exName)}在落霞城擂台等你。</p>
+  const body = `<p class="center">还剩 <b>${seasons(pi.left)} 季</b>，${esc(st.exName)}在落霞城擂台等你。</p>
     <div class="vs"><div class="side">${myAvImg(56)}<div>${esc(p.name)}</div><div class="num">${fmt(pi.base)}${pi.assist > 1 ? ` ×${pi.assist}` : ''}</div><div class="num jadet">= ${fmt(pi.S)}</div></div>
       <div class="vsx">VS</div>
       <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器${muEl}</div><div class="num seal">${fmt(pi.Q)}</div></div></div>

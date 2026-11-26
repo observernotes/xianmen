@@ -366,7 +366,7 @@ function btPrepHTML(k, d, a) {
   // 近期大节点优先：克这一格的另有一门时只提一句，不给按钮（免得回来又叫你换回去）
   const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d, here: true, force: true }) : null, altId = alt && alt.id !== (recId || rc.cur) && alt.ke ? alt.id : '';
   const recBtn = (recId ? `<div class="row bt-rec"><button class="btn sm alt eq grow" data-swapz="${recId}">荐 换上《${esc(L.art(recId).n)}》：${esc(rc.why)}</button></div>` : '')
-    + (altId ? `<div class="muted bt-alt">克这一格的是《${esc(L.art(altId).n)}》；${esc(rc.ctx.label)}还有 ${rc.ctx.left} 月，先按它配</div>` : '');
+    + (altId ? `<div class="muted bt-alt">克这一格的是《${esc(L.art(altId).n)}》；${esc(rc.ctx.label)}还有 ${seasons(rc.ctx.left)} 季，先按它配</div>` : '');
   if (!red) return foes + `<div class="bt-kebar ok">${icons}<span class="grow">${known.length && known.every(ke) ? '都克得动 ✓' : bits.join(' ') || (known.length ? '不相克' : '这里的五行：去过才知道')}</span></div>` + recBtn;
   // 【换 ▸】：手里的战技（≤ 4 行，每行写克谁），点一下换好回到出发页
   const zs = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').map(id => ({ id, A: L.art(id) })).sort((x, y) => ((y.id === recId) - (x.id === recId)) || (L.elKe(y.A.el, eliteEl) - L.elKe(x.A.el, eliteEl)) || y.A.t - x.A.t).slice(0, 4);

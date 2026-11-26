@@ -84,21 +84,7 @@ function drawMeHome(x, y, realm) {
     R(bx - 3, by, 7, 9, '#3a1a14'); R(bx - 2, by + 1, 5, 7, '#fff6dc'); R(bx, by + 2, 1, 4, '#c8323c'); R(bx, by + 7, 1, 1, '#c8323c'); R(bx - 4, by + 7, 2, 2, '#3a1a14');
   }
 }
-// 吐纳环（DESIGN §3.2）：在洞府打坐时每月蓄 1/6，蓄满发光，点自己释放。场景内的简画，美术接口到位后可换 ART.drawTunaRing
-function drawTunaRing(x, y, part) {
-  if (st.p.r > L.MAXR || L.busy(st) || L.isFull(st)) return;
-  if (ART.drawTunaRing) { ART.drawTunaRing(x, y, Math.min(1, (st.tuna || 0) / L.TUNA_FULL), T, part); return; }
-  if (part === 'front') return;
-  const f = Math.min(1, (st.tuna || 0) / L.TUNA_FULL), full = L.tunaReady(st);
-  const rx = 17, ry = 4, n = 40, lit = full ? (Math.sin(T / 160) > 0 ? '#fff1a8' : '#8ff5d0') : '#4ccb9f';
-  for (let i = 0; i < n; i++) {
-    const a = i / n * Math.PI * 2 - Math.PI / 2;
-    ctx.globalAlpha = i / n < f ? 0.95 : 0.35;
-    R(Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry), 1, 1, i / n < f ? lit : '#5a5280');
-  }
-  ctx.globalAlpha = 1;
-  if (full && Math.random() < 0.15) { const a = Math.random() * 6.28; parts.push({ x: x + Math.cos(a) * rx, y: y + Math.sin(a) * ry, vx: 0, vy: -0.015, life: 700, max: 700, c: '#fff1a8', s: 1 }); }
-}
+// 吐纳环删了（docs/AP_PLAN.md §3.1：由“打坐 1 点”接替）
 // 闭关：主角身上一层光罩
 function drawRetreatFx(x, y) {
   if (!st.retreat) return;
@@ -173,11 +159,9 @@ function drawHomeScene(dt) {
   const bl = drawBuildings('back');
   const zc = ART.drawFormation ? drawZhen('back') : null, col = ART.drawFormation ? zc : drawArray(HOMEPOS.x, HOMEPOS.y - 1);
   seasonFx(r.night);
-  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y, 'back');
   const retArt = !!(st.retreat && ART.drawRetreat && !cine && st.retreat.kind !== 'busy' && st.retreat.kind !== 'teach');
   if (retArt) ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'back');   // 闭关：身后封印石门
   if (cine) drawCineTarget(); else { if (!retArt) drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
-  if (!cine) drawTunaRing(HOMEPOS.x, HOMEPOS.y, 'front');
   if (retArt) { ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'front'); if (Math.random() < 0.12) { const a = Math.random() * 6.28; parts.push({ x: HOMEPOS.x + Math.cos(a) * 26, y: HOMEPOS.y - 12 + Math.sin(a) * 12, vx: -Math.cos(a) * 0.01, vy: -0.01, life: 900, max: 900, c: st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0', s: 1 }); } }
   if (ART.drawFormation) drawZhen('front');
   bl.push(...drawBuildings('front'));
@@ -262,7 +246,7 @@ function drawAdvScene(dt) {
   }
   drawParts(dt);
   const e = st.exp;
-  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / tickMs()) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
+  if (e) { const k = Math.min(1, (e.total - e.left) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
 }
 
 // ---------- 主绘制 ----------

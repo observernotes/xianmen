@@ -56,7 +56,7 @@ function updateHUD() {
   const p = st.p;
   $('#pName').textContent = (st.title ? '「' + st.title + '」' : '') + p.name + (st.sect ? ' · ' + L.srankName(st, st.sect.rank) : '');
   L.checkAchs(st);
-  if (L.onbStep) L.onbStep(st);   // 已经发生了的（入宗、拿到灵宠、修为圆满……）立刻开，不等下个月
+  if (L.onbStep) L.onbStep(st);   // 已经发生了的（入宗、拿到灵宠、修为圆满……）立刻开，不等季末
   // 成就：一行传讯（不再出横幅）
   if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; say(`成就 · ${a.n}：称号「${a.t}」`); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
   const sz = season();
@@ -64,12 +64,11 @@ function updateHUD() {
   rollNum('#vStone', st.stones);
   rollNum('#vPill', st.pills, v => String(Math.round(v)));
   const inc = L.income(st);
-  setSpeedIcon();
   const ready = L.isReady(st);
   $('#realm').textContent = L.stageName(p);
   const need = L.pNeed(p);
   const tags = [];
-  if (p.inj > 0) tags.push(`负伤${p.inj}${MO()}`);
+  if (p.inj > 0) tags.push(`负伤（${seasonsT(p.inj)}痊愈）`);
   if ((st.buffs || []).some(b => b.cul)) tags.push('丹');
   if (L.artSwapLeft(st) > 0) tags.push('转修');
   const tagTxt = tags.length ? ' · ' + tags.join(' ') : '';
@@ -92,18 +91,6 @@ function updateHUD() {
   syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
   renderMain();    // 时间条、目标卡、底栏五格、传讯行（goalcard.js）
-}
-// 场景右上的速度档：ART.icon('spd1' | 'spd2' | 'spd4')，暂停时 'pause'（金框）；档位变了才换图。没有新美术时退回文字
-let speedKey = '';
-function setSpeedIcon() {
-  const b = $('#btnSpeed'), sp = SPEEDS[speedIdx], key = String(sp);
-  if (speedKey === key && b.firstChild) return;
-  speedKey = key;
-  const txt = sp ? '×' + sp : '暂停', ic = artIcon(sp ? 'spd' + sp : 'pause', 20);
-  if (ic) b.innerHTML = ic; else b.textContent = txt;
-  b.setAttribute('aria-label', '游戏速度：' + txt);
-  b.title = txt;
-  b.classList.toggle('on', sp === 0);
 }
 // 底栏解锁：锁按 ART.lockBreak 0 → 1 → 2 → 3 碎掉（每帧 80 毫秒），扫光（CSS .unlock::before）推迟到第 2 帧起
 function lockBreakFx(btn) {
@@ -136,12 +123,12 @@ function renderFeed() {
   renderTick();   // 只剩一行传讯（goalcard.js），历史在纸鹤里
 }
 
-// 历练途中场景左下的累计条（§3.2 / 07_exp_travel.png）：按出发时预掷的结果逐月累加，图标 + 数字
+// 历练途中场景左下的累计条（§3.2 / 07_exp_travel.png）：按出发时预掷的结果逐个节点累加，图标 + 数字
 function updateHaul() {
   const el = $('#haul');
   if (!el) return;
   if (!st.exp || cine) { if (!el.hidden) el.hidden = true; return; }
-  const e = st.exp, pv = L.expPreview(st, Math.min(1, (e.total - e.left + monthAcc / tickMs()) / e.total));
+  const e = st.exp, pv = L.expPreview(st, e.nodes ? Math.min(1, e.ni / Math.max(1, e.nodes.length)) : Math.min(1, (e.total - e.left) / e.total));
   const k = [fmt(pv.stones), fmt(pv.herbs), pv.finds, fmt(pv.xp)].join('|');
   if (el._k !== k) {
     el._k = k;

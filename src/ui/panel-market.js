@@ -70,7 +70,7 @@ function showMarket(o) {
   const fixed = rows.filter(r => r.fixed && (r.k !== 'egg' || UI.isOpen('pets'))), rot = UI.isOpen('shelf') ? rows.filter(r => !r.fixed) : [];
   const disc = st.market && st.market.disc < 1 ? ' · 本届九折' : '', shang = L.worldOn(st, 'w_shanglu') ? ' · 商路断绝 +30%' : '';
   let sellH = '', aucH = '', body = pnHead(`${icon16('paddle', 1)} 常驻`, (disc + shang).replace(/^ · /, '')) + `<div class="pn-list">${fixed.map(cell).join('')}</div>`
-    + (rot.length ? pnHead(`${icon16('gavel', 1)} 轮换`, `${L.restockIn(st)} 月后换货`, 'shelfRot') + `<div class="pn-list">${rot.map(cell).join('')}</div>` : '');
+    + (rot.length ? pnHead(`${icon16('gavel', 1)} 轮换`, `${seasons(L.restockIn(st))} 季后换货`, 'shelfRot') + `<div class="pn-list">${rot.map(cell).join('')}</div>` : '');
   // 行情（筑基）
   if (L.sellOpen(st)) {
     const sellRow = k => {
@@ -81,7 +81,7 @@ function showMarket(o) {
         <div class="muted">手里 ${fmt(have)} · 单价 ${L.fmt1(L.sellPrice(st, k))}${L.sellCapped(st, k) ? ' · 封顶' : ''}</div>${parts ? `<details class="more" data-pn="sellp-${k}"${pnOpenKeys.has('sellp-' + k) ? ' open' : ''}><summary>行情怎么来</summary><div class="muted">${esc(parts)}${L.sellCapped(st, k) ? '；封顶：不超过买价的 95%' : ''}</div></details>` : ''}
         <div class="sl-btns"><button class="btn alt" data-sell="${k}:0.5" ${half ? '' : 'disabled'}><span>卖一半</span><small>${half ? fmt(half) + ' → +' + fmt(L.sellValue(st, k, half)) : '没有货'}</small></button><button class="btn alt" data-sell="${k}:1" ${all ? '' : 'disabled'}><span>全卖</span><small>${all ? fmt(all) + ' → +' + fmt(L.sellValue(st, k, all)) : '没有货'}</small></button></div></div>`;
     };
-    sellH = pnHead(`${icon16('sell', 1)} 行情 · 出售`, `每 ${L.IDX.every} 月一变`, 'mktSell') + `<div class="pn-list">${L.SELL_KEYS.map(sellRow).join('')}</div>`;
+    sellH = pnHead(`${icon16('sell', 1)} 行情 · 出售`, `每 ${seasons(L.IDX.every)} 季一变`, 'mktSell') + `<div class="pn-list">${L.SELL_KEYS.map(sellRow).join('')}</div>`;
   }
   // 拍卖会（金丹）
   if (L.auctionOpen(st)) {
@@ -97,9 +97,9 @@ function showMarket(o) {
       else act = `<div class="bids">${L.AUCTION.tiers.map((T, t) => { const b = L.bidInfo(st, i, t); return `<button class="btn ${t === 1 && i === firstOpen && !b.why ? 'gold' : 'alt'} bidb" data-bid="${i}:${t}" ${b.why ? 'disabled' : ''}>${icon16(T.icon, 1)}<span>${T.n}</span><small>${fmt(b.price)} · ${L.pct(b.p)}</small></button>`; }).join('')}</div>`;
       return `<div class="lot${it.res ? ' done' : ''}" data-lot="${i}">${pnRow({ ic: lotImg(it), nm: `${esc(it.n)}${it.art ? ' ' + elChip(L.art(it.art).el) : ''}`, k: `<span class="muted">${lotWhat(it) ? esc(lotWhat(it)) : `起拍 ${fmt(it.price)}`}</span>` })}${compLine}${act}</div>`;
     };
-    aucH = pnHead(`${icon16('gavel', 1)} 拍卖会`, `还剩 ${A.until - st.tick} 月 · 出手 ${left} 次`, 'aucBox') + `${A.consign ? `<div class="jadet">送拍的东西落槌：灵石 +${fmt(A.consign)}</div>` : ''}${A.items.map(lot).join('')}
+    aucH = pnHead(`${icon16('gavel', 1)} 拍卖会`, `还剩 ${seasons(A.until - st.tick)} 季 · 出手 ${left} 次`, 'aucBox') + `${A.consign ? `<div class="jadet">送拍的东西落槌：灵石 +${fmt(A.consign)}</div>` : ''}${A.items.map(lot).join('')}
       <details class="more"><summary>拍卖规则</summary><div class="muted">跟一口 ×1 拿下 35%，加价 ×1.4 拿下 70%，豪掷 ×2 拿下 97%；有竞拍者各 −15%。没拿下不花钱，拍品归对方——宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。</div></details>`;
-  } else if (UI.isOpen('auction') && (st.rebirth > 0 || L.mr(st) >= 2)) aucH = emptyNoteHTML('gavel', `下一场拍卖会 <b>${L.nextAuction(st)}</b> 月后，开 ${L.AUCTION.len} 月。`);
+  } else if (UI.isOpen('auction') && (st.rebirth > 0 || L.mr(st) >= 2)) aucH = emptyNoteHTML('gavel', `下一场拍卖会 <b>${seasons(L.nextAuction(st))}</b> 季后，开 ${seasons(L.AUCTION.len)} 季。`);
   const box = L.boxCap(st, 'w');
   body += `<details class="more"><summary>身上的东西 · 寻宝保底</summary><div class="muted">当前：${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => L.GEAR_N[s] + ' ' + (L.gearTier(st, s) ? L.gearTierName(s, L.gearTier(st, s)) : '空')).join(' · ')} · 心法 ${L.artSlots(st)[0] ? '《' + esc(L.art(L.artSlots(st)[0]).n) + '》' : '基础吐纳'} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}<br>寻宝保底：连续 ${st.boxMiss || 0}/2 次没提升；本境界最高补到 ${L.WEAPONS[box].n} / ${L.ARTS[L.boxCap(st, 'a')].n}功法${L.gearPity(st) ? `（下一次保底补${L.GEAR_N[L.gearPity(st).s]}到${L.gearTierName(L.gearPity(st).s, L.gearPity(st).t)}）` : ''}${st.arts.firstBox ? '' : '；头一回寻宝必得《引气诀》'}</div></details>`;
   // 货架 / 行情 / 拍卖分页（只剩货架时不画分页条）；三段都在页里，切页只是显隐，按钮一直在（机器人与测试脚本照常点得到）

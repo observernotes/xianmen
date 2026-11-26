@@ -67,7 +67,7 @@ function setupForm() {
     L.log(s, `${s.p.name}在荒山破庙中盘膝坐下，仙途由此开始`, 'gold');
     loadState(s);
     box.hidden = true;
-    monthAcc = 0;
+
     SFX.gong();
     banner('废柴仙途', '三年之约 · 倒计时');
     st.guide = { step: 0, done: false }; st.hintSeen = {};

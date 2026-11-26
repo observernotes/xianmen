@@ -74,7 +74,7 @@ function runTournamentGo() {
     if (step === 0) {
       SFX.gong();
       sheet({ title: `第${res.n}届 天骄论道`, center: true, noClose: true,
-        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${aucNews}${wantedNote}${res.n === 1 ? `<div class="quote">天骄论道每 ${L.TOUR_EVERY} 月一届，会自动开打：三场，按战力去挑战榜上的对手，赢了就顶替对方的名次，每场最多上升 ${L.TOUR_STEP} 名。宿敌们都在榜上。</div>` : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
+        body: `<p class="center">天下天骄齐聚论道台，以战论道，排定天骄榜！</p>${aucNews}${wantedNote}${res.n === 1 ? `<div class="quote">天骄论道每 ${seasons(L.TOUR_EVERY)} 季一届，会自动开打：三场，按战力去挑战榜上的对手，赢了就顶替对方的名次，每场最多上升 ${L.TOUR_STEP} 名。宿敌们都在榜上。</div>` : ''}<div class="center">${myAvImg(52)}</div><p class="center num">战力 ${fmt(res.S)} · 当前天骄榜第 ${res.startRank}</p>`,
         foot: [{ t: '登台！', gold: true, fn: next }] });
       return;
     }
