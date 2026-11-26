@@ -46,7 +46,7 @@ function pplCard(id, vis) {
     const cw = id !== st.daolv ? L.compWhy(st, id) : 'x', cur = L.comp(st) === id;
     const g = ok => { if (!ok || pplGold) return 'alt'; pplGold = true; return 'gold'; };
     let top = '';
-    if (vis === id) { top = 'gift'; right = `<button class="btn sm ${g(!gw)}" data-ppgift="${id}" ${gw ? 'disabled' : ''}><span>送礼</span>${gw ? `<small>${esc(gw)}</small>` : ''}</button>`; }
+    if (vis === id && (!gw || !qCan)) { top = 'gift'; right = `<button class="btn sm ${g(!gw)}" data-ppgift="${id}" ${gw ? 'disabled' : ''}><span>送礼</span>${gw ? `<small>${esc(gw)}</small>` : ''}</button>`; }
     else if (qCan) { top = 'q' + qCan; right = `<button class="btn sm ${g(true)} eq" data-ppq="${id}:${qCan}"><span>交付</span></button>`; }
     else if (st.daolv === id) { const sx = L.sxInfo(st); top = 'sx'; right = `<button class="btn sm alt eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button>`; }
     else if (!cw) { top = 'comp'; right = `<button class="btn sm alt eq" data-ppcomp="${cur ? '' : id}">${cur ? '不带了' : '同行'}</button>`; }

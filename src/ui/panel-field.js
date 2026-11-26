@@ -62,7 +62,7 @@ function showField(sel, still) {
     const tag = (C.id === rec.id ? '<span class="chip warn">荐</span> ' : '') + (sea ? `<span class="chip ok">旺季 +${Math.round(sea * 100)}%</span> ` : `<span class="chip">${L.SEASONS[C.s].n}季旺</span> `);
     const why = !open ? L.cropLock(st, C.id) : '';
     const btn = here || every ? `<button class="btn sm alt" disabled>种着</button>` : `<button class="btn sm ${open && C.id === rec.id ? 'gold' : 'alt'}" data-crop="${C.id}" ${open ? '' : 'disabled'}>${fieldAll ? '全改' : '改种'}</button>`;
-    const key = !open ? `<span class="seal">${esc(why)}</span>` : d && Math.abs(d.b - d.a) >= 0.05 ? pnDelta('灵石', d.a, d.b, v => '+' + dec(v)) : esc(cropOutText(C.id));
+    const key = !open ? `<span class="seal">${esc(why)}</span>` : d && Math.abs(d.b - d.a) >= 0.05 ? `灵石 <b class="${d.b > d.a ? 'pn-up' : 'pn-dn'}">${d.b > d.a ? '+' : '−'}${dec(Math.abs(d.b - d.a))}</b>/周天` : esc(cropOutText(C.id));
     return pnFold('crop-' + C.id, { cls: 'crow' + (open ? '' : ' off pn-off'), ic: cropIcon(C.id, 2), nm: `${C.id === rec.id ? '<span class="chip warn">荐</span> ' : ''}${C.n}`, badge: sea ? `<span class="chip ok">旺季</span>` : '', k: key, right: btn,
       body: `${C.id === rec.id ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : ''}<div class="pn-line">${C.cyc} 周天一收 · ${open ? esc(cropOutText(C.id)) : '产' + L.cropOutN(C)}</div><div class="pn-line">${tag}</div>${delta ? `<div class="pn-line">${delta}</div>` : ''}` });
   };

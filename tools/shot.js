@@ -631,7 +631,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 委托完成卡：交付两枚疗伤丹
   await page.evaluate(() => window.__xm.showMe('bond')); await page.waitForTimeout(300);
   if (await page.$('#modal [data-ppq]:not([disabled])')) {
-    await page.click('#modal [data-ppq]:not([disabled])'); await page.waitForTimeout(400); await page.screenshot({ path: out + '/p06-pq-done.png' }); await pplLay('委托完成卡');
+    await page.evaluate(() => document.querySelectorAll('#modal details.pn-it').forEach(d => { d.open = true; })); await page.click('#modal [data-ppq]:not([disabled])');   // 人物卡折叠着：先展开 await page.waitForTimeout(400); await page.screenshot({ path: out + '/p06-pq-done.png' }); await pplLay('委托完成卡');
     await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
   } else errors.push('没有可交付的委托按钮');
   await close();
