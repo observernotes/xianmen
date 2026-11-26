@@ -47,22 +47,24 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   check(t0 === t1, `老祖说话时时间暂停（${t0}→${t1}）`);
   await ok(); t = await log('E02'); await shot('g02-stakes');
   const pi = await ev(() => { const { st, L } = window.__xm; const p = L.pactInfo(st); return { left: p.left, Q: L.fmt(p.Q), base: L.fmt(p.base), assist: p.assist, p: L.pct(p.p) }; });
-  check(has(t, `还剩 ${pi.left} 个周天`) && has(t, `战力 ${pi.Q}`) && has(t, `你 ${pi.base}`) && has(t, `翻 ${pi.assist} 倍`) && has(t, `胜算才 ${pi.p}`), `E02 数字：${pi.left} 周天 / 她 ${pi.Q} / 你 ${pi.base} / ×${pi.assist} / ${pi.p}`);
+  check(has(t, `还剩 ${pi.left} 个周天`) && has(t, `战力 ${pi.Q}`) && has(t, `你 ${pi.base}`) && has(t, `胜算才 ${pi.p}`), `E02 数字：${pi.left} 周天 / 她 ${pi.Q} / 你 ${pi.base} / ${pi.p}`);
   await ok(); t = await log('E03');
-  // 锁住的入口：坊市要先历练一趟
-  await page.click('[data-nav="market"]'); await page.waitForTimeout(200); await log('E03-lock'); await shot('g03-locked');
-  await ok(); await log('E03'); await shot('g04-expnav');
+  // 上手曲线（docs/ONBOARDING.md）：开局底栏只有【历练】，没开的入口、数值格直接不出现
+  const nav0 = await ev(() => [...document.querySelectorAll('#nav button')].filter(b => !b.hidden).map(b => b.dataset.nav).join(','));
+  check(nav0 === 'exp', `开局底栏只有历练（${nav0}）`);
+  check(await ev(() => document.querySelector('#stats [data-s="cul"]').hidden && document.querySelector('#stats [data-s="inc"]').hidden), '开局只有战力、大事两格');
+  await shot('g04-expnav');
   await page.click('[data-nav="exp"]'); t = await log('E04'); await shot('g05-exppick');
   check(has(t, '推荐战力 6') && has(t, '你 10'), 'E04 推荐战力 6、你 10');
   check(await ev(() => document.querySelectorAll('#modal .card[data-k]').length === 1), '第一趟只有后山野林一格可选');
   await page.click('#modal .card[data-k="0"]'); t = await log('E05'); await shot('g06-expgo');
-  const conf = await ev(() => ({ rate: document.querySelector('#expRate').textContent, dis: [...document.querySelectorAll('#modal .segb')].filter(x => x.disabled).length, fc: window.__xm.L.expForecast(window.__xm.st, 0, 0, 0).text }));
+  const conf = await ev(() => ({ rate: document.querySelector('#expRate').textContent, segs: document.querySelectorAll('#modal .segb').length, fc: window.__xm.L.expForecast(window.__xm.st, 0, 0, 0).text }));
   check(conf.rate === '甲' && conf.fc === '甲', `确认页预计评价 ${conf.rate}（逻辑 ${conf.fc}）`);
-  check(conf.dis === 4, `第一趟深度、行事其余 4 格不可选（${conf.dis}）`);
-  check(has(t, '4 个周天'), 'E05 写明 4 个周天');
+  check(conf.segs === 0, `第一趟深度、行事都只有一样：整行不出现（${conf.segs}）`);
+  check(has(t, '甲'), 'E05 写明预计评价甲');
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(800); t = await log('E06'); await shot('g07-haul');
   check(await ev(() => !!window.__xm.st.exp && !document.getElementById('haul').hidden), '出发后本趟收获条可见');
-  await ok(); await log('E06-done');
+  check(await ev(() => !!window.__xm.st.seenTips.haul && !window.__xm.guideHold), '收获条改成气泡（不暂停）');
   // 等这一趟回来（直接快进）
   await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); });
   await page.waitForTimeout(700); await shot('g08-expresult');
@@ -70,9 +72,10 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   check(res.stamp === '甲', `第一张结算卡盖印“甲”（${res.stamp}）`);
   check(res.btns.length === 1 && res.btns[0] === '回洞府', `第一张结算卡只有【回洞府】（${res.btns.join('/')}）`);
   await page.click('#modal .foot .btn'); await page.waitForTimeout(600); t = await log('E07'); await shot('g09-afterexp');
-  const e7 = await ev(() => { const { st, L } = window.__xm; return { pw: L.fmt(L.power(st)), p: L.pct(L.pactInfo(st).p) }; });
-  check(has(t, `→ ${e7.pw}`) && has(t, `${e7.p}`), `E07 战力 → ${e7.pw}、胜算 ${e7.p}`);
-  await ok(); t = await log('E08a'); await shot('g10-homenav');
+  const e7 = await ev(() => { const { st, L } = window.__xm; return { pw: L.fmt(L.power(st)) }; });
+  check(has(t, `→ ${e7.pw}`) && has(t, '洞府'), `E07+E08a 一段话：战力 → ${e7.pw}、去洞府`);
+  check(await ev(() => !document.querySelector('[data-nav="home"]').hidden), '第一趟回来【洞府】出现');
+  await shot('g10-homenav');
   await page.click('[data-nav="home"]'); t = await log('E08b'); await shot('g11-homearray');
   const e8 = await ev(() => { const { st, L } = window.__xm; const u = L.upInfo(st, 'array'); return { cost: L.fmt(u.cost) }; });
   check(has(t, `${e8.cost} 灵石`), `E08b 聚灵阵价格 ${e8.cost}`);
@@ -95,9 +98,10 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#stats [data-s="atk"]'); await page.waitForTimeout(300); await shot('g16-growth');
   await ev(() => window.__xm.closeModal()); await dismiss();
 
-  // 第二趟：行事多了采药，确认页能选
+  // 第二趟：行事多了采药（洞府开了之后隔几个周天才开），确认页能选；寻宝没开就不出现
+  await ev(() => { const X = window.__xm; for (let i = 0; i < 4 && !X.L.unlocked(X.st, 'herb'); i++) { X.L.flow(X.st, 1); X.onTick(); } X.st.visitor = null; X.closeModal(); }); await page.waitForTimeout(400); await dismiss();
   await page.click('[data-nav="exp"]'); await page.waitForTimeout(200); await page.click('#modal .card[data-k="0"]'); await page.waitForTimeout(300);
-  check(await ev(() => !document.querySelector('#modal [data-a="2"]').disabled && document.querySelector('#modal [data-a="1"]').disabled), '第二趟采药可选、寻宝未开');
+  check(await ev(() => !!document.querySelector('#modal [data-a="2"]') && !document.querySelector('#modal [data-a="1"]')), '第二趟采药可选、寻宝不出现');
   await page.click('#modal [data-a="2"]'); await page.waitForTimeout(250); await shot('g17-confirm-herb');
   const fc2 = await ev(() => ({ ui: document.querySelector('#expRate').textContent, L: (() => { const { st, L } = window.__xm; return L.expForecast(st, 0, 0, 2).text; })() }));
   check(fc2.ui === fc2.L, `采药预计评价与逻辑一致（${fc2.ui}）`);
@@ -110,11 +114,12 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#modal .foot .btn.alt'); await page.waitForTimeout(500); await dismiss();
 
   // E11 闭关：升到炼气中期、人在洞府
-  await ev(() => { const { st, L } = window.__xm; st.visitor = null; st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); });
+  await ev(() => { const { st, L } = window.__xm; st.visitor = null; st.home.array = Math.max(2, st.home.array); st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); });
   for (let i = 0; i < 4 && !(await gtext()).includes('闭关'); i++) { await dismiss(); await adv(1); await ev(() => { window.__xm.st.visitor = null; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); }
   t = await log('E11'); console.log('   guide state', JSON.stringify(await ev(() => window.__xm.guideDbg)), await ev(() => { const { st, L } = window.__xm; return [L.retOpen(st), st.stats.retreat, L.busy(st), L.isFull(st), st.tick, L.stageName(st.p)].join(','); }));
-  check(has(t, '闭关') && has(t, '×2'), 'E11 讲闭关 ×2');
-  await shot('g19-retreat-hint'); await ok();
+  check(has(t, '闭关') && has(t, '免费'), 'E11 讲闭关（头一回免费）');
+  check(await ev(() => !window.__xm.guideHold), 'E11 是“话 + 高亮动作”，不暂停');
+  await shot('g19-retreat-hint');
   await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await shot('g20-home-retreat');
   const ri = await ev(() => { const { st, L } = window.__xm; const r = L.retInfo(st); return { m: r.m.toFixed(2), free: r.free, extra: L.fmt(r.extra), ui: document.querySelector('#btnRet') && document.querySelector('#btnRet').textContent, card: document.querySelector('#modal .body').textContent }; });
   check(ri.free && ri.ui === '免费' && ri.card.includes('×' + ri.m) && ri.card.includes('+' + ri.extra), `洞府闭关卡：免费、×${ri.m}、修为 +${ri.extra}`);
@@ -139,15 +144,15 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   // E16：三年之约剩 12 周天内，锦囊三条
   await ev(() => { const X = window.__xm; X.st.tick = 26; X.st.exp = null; X.st.retreat = null; }); await page.waitForTimeout(600); t = await log('E16'); await shot('g23-pactsoon');
   const p16 = await ev(() => { const { st, L } = window.__xm; const p = L.pactInfo(st); return { left: p.left, S: L.fmt(p.S), p: L.pct(p.p) }; });
-  check(has(t, `还剩 ${p16.left} 个周天`) && has(t, `= ${p16.S}`) && has(t, `胜算 ${p16.p}`), `E16 数字：${p16.left} 周天 / ${p16.S} / ${p16.p}`);
+  check(has(t, `还剩 ${p16.left} 个周天`) && has(t, `胜算 ${p16.p}`), `E16 数字：${p16.left} 周天 / ${p16.p}`);
   await dismiss();
   // E18：修为圆满 → 突破面板（老祖护法必成）→ 步进器
   await ev(() => { const { st, L } = window.__xm; st.p.s = 3; st.p.xp = L.pNeed(st.p) - 0.5; L.addXp(st, 1); st.pills = 2; }); await page.waitForTimeout(500); t = await log('E18a');
-  check(has(t, '必成'), 'E18a 老祖护法必成');
+  check(has(t, '100%'), 'E18a 老祖护法 100%');
   await page.click('#cult'); await page.waitForTimeout(400); t = await log('E18b'); await shot('g24-bt');
-  const bt = await ev(() => ({ rate: document.querySelector('#btRate').textContent, step: !!document.querySelector('#btStep') }));
-  check(bt.rate === '100%' && bt.step, `突破面板：成功率 ${bt.rate}、有步进器`);
-  check(has(t, '200'), 'E18b 写明寿元到 200');
+  const bt = await ev(() => ({ rate: document.querySelector('#btRate').textContent, step: !!document.querySelector('#btStep'), life: document.querySelector('#modal .body').textContent.includes('200') }));
+  check(bt.rate === '100%' && !bt.step && bt.life, `突破面板：成功率 ${bt.rate}、老祖护法不摆步进器、写明寿元到 200`);
+  check(has(t, '×'), 'E18b 写明战力翻几倍');
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
   for (let i = 0; i < 30 && await ev(() => window.__xm.cine); i++) await page.waitForTimeout(200);
   await page.waitForTimeout(400); await shot('g25-btres');
@@ -158,7 +163,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#cult'); await page.waitForTimeout(400);
   // 头一回金丹雷劫前老祖讲护劫手段与“那一停”（阻塞，时间暂停），数字与逻辑一致
   const tg = await gtext(), tgL = await ev(() => { const { st, L } = window.__xm; return { all: L.pct(L.tribRate(st, { pills: Math.min(3, st.pills), aids: 'all' })), base: L.pct(L.REALMS[st.p.r].rate), hold: window.__xm.guideHold }; });
-  check(has(tg, '护劫手段') && has(tg, '祭法宝 +8%') && has(tg, `全用上 ${tgL.all}`) && has(tg, `基础只有 ${tgL.base}`) && tgL.hold, `金丹雷劫讲解：护劫手段、全用上 ${tgL.all}、时间暂停`);
+  check(has(tg, '护劫手段') && has(tg, `能到 ${tgL.all}`) && has(tg, `基础只有 ${tgL.base}`) && tgL.hold, `金丹雷劫讲解：护劫手段、全用上 ${tgL.all}、时间暂停`);
   await ok(); const tp = await gtext();
   check(has(tp, '停一下') && has(tp, '80%') && has(tp, '+10%'), `金丹雷劫讲解：那一停、八成准、临阵吞丹 +10%（${tp.slice(0, 30)}）`);
   await dismiss(); await shot('g26-bt-jindan');

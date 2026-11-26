@@ -25,7 +25,8 @@ function onHook(type, data) {
   else if (type === 'plan') { const P = L.PLAN[data]; if (P) banner('器方 · ' + P.n, `${L.GEAR_N[P.slot]} · ${P.aff.map(a => L.AFFIX[a].n).join('、')}`); }
   // 道心升级、因果（dao.js）：老祖气泡（panel-trib.js）
   else if (type === 'dao' || type === 'karma' || type === 'unkarma') daoHook(type, data);
-  else if (type === 'people') peopleHook(data);   // 委托、双修（panel-people.js）
+  else if (type === 'people') peopleHook(data);
+  else if (type === 'unlock' || type === 'master') onbHook(type, data);   // 上手曲线：解锁横幅、子项气泡、掌握飘字（onboard.js）   // 委托、双修（panel-people.js）
   else if (type === 'promote') { L.log(st, `宗门贡献已足，可晋升${L.srankName(st, data)}！`, 'gold'); tip('promote', `宗门贡献够了，去【宗门】晋升${L.srankName(st, data)}：俸禄 ×${L.SRANKS[data].pay}（现在 ×${L.SRANKS[data - 1].pay}），宝库能换的东西更好。`); }
 }
 
@@ -54,6 +55,7 @@ function updateHUD() {
   const p = st.p;
   $('#pName').textContent = (st.title ? '「' + st.title + '」' : '') + p.name + (st.sect ? ' · ' + L.srankName(st, st.sect.rank) : '');
   L.checkAchs(st);
+  if (L.onbStep) L.onbStep(st);   // 已经发生了的（入宗、拿到灵宠、修为圆满……）立刻开，不等下个周天
   if (st.achQ.length && !achBusy) { const a = st.achQ.shift(); achBusy = true; banner('成就 · ' + a.n, '称号「' + a.t + '」'); SFX.goal(); setTimeout(() => { achBusy = false; }, 2600); }
   const sz = season();
   const dk = Math.floor(st.year) + '|' + sz;
@@ -103,28 +105,56 @@ function updateHUD() {
   $('#sBigBtn').classList.toggle('soon', nb.left <= 2);
   updateWorldTag();
   updateToxin();   // 丹毒葫芦（panel-alchemy.js）
+  // 底栏：没开的入口直接不出现（docs/ONBOARDING.md）；第一次出现时播锁碎 + 扫光
   $$('#nav button').forEach(b => {
-    const lk = !!navLock(b.dataset.nav), was = b.classList.contains('locked');
-    b.classList.toggle('locked', lk);
-    if (was && !lk && st.tick > 0) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); lockBreakFx(b); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
+    const open = UI.navOpen(b.dataset.nav), was = !b.hidden;
+    if (b.hidden === open) b.hidden = !open;
+    b.classList.toggle('locked', open && !!navLock(b.dataset.nav));
+    if (!was && open && st.tick > 0 && b._seen) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); lockBreakFx(b); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
+    b._seen = true;
   });
+  // HUD：没用到的数值格不出现
+  const showCell = (sel, on) => { const el = $(sel); if (el && el.hidden === on) el.hidden = !on; };
+  showCell('#stats button[data-s="cul"]', UI.isOpen('home'));
+  showCell('#stats button[data-s="inc"]', UI.isOpen('home'));
+  showCell('#top .rpill', UI.isOpen('market') || st.pills > 0);
+  showCell('#lifeBox', L.mr(st) >= 1 || L.desperate(st) || !!st.rebirth);
+  showCell('#date', UI.isOpen('cal')); showCell('#seasonIc', UI.isOpen('cal'));
+  showCell('#vRank', UI.isOpen('tour'));
+  showCell('#sceneTL', UI.isOpen('cal') || UI.isOpen('tour'));
   $('#xpFill').style.width = (p.r >= 9 ? 100 : Math.min(100, p.xp / need * 100)).toFixed(1) + '%';
   $('#cult').classList.toggle('ready', ready);
   $('#cult').classList.toggle('away', !!st.exp);
   // 札记：当前章第一条没做完的（DESIGN §4.6，数据在 L.CHAPTERS）
   const qv = L.questView(st), q = qv.first;
-  $('#goalTxt').textContent = q ? (q.main ? '【主线】' : '') + L.questText(st, q) : '大道已成';
-  $('#goalRw').textContent = q ? L.rewardText(st, q.rw) : '';
+  // 刚开的系统有一个小目标（掌握信号的白话），排在札记最前面，做到了才换回平常的任务（docs/ONBOARDING.md §2）
+  const og = L.onbGoal && L.onbGoal(st);
+  $('#goalTxt').textContent = og ? '【新】' + og.goal : q ? (q.main ? '【主线】' : '') + L.questText(st, q) : '大道已成';
+  $('#goalRw').textContent = og ? og.n : q ? L.rewardText(st, q.rw) : '';
   const busy = L.busy(st);
-  setBadge('exp', !busy && !ready && p.r < 9 ? '闲' : '');
   const gd = st.guide && st.guide.done;
   const canUp = L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]));
-  const rec = !gd || ready || p.r >= 9 || busy ? '' : p.inj > 0 && L.canHeal(st) ? 'home' : L.HOME.some(b => L.homeOpen(st, b.k) && st.home[b.k] < b.max && st.stones >= L.hCost(b.k, st.home[b.k]) * 3) ? 'home' : 'exp';
+  // 底栏角标只给“现在该点的”一个（docs/ONBOARDING.md §4）：按急缓排，取第一个；发光提示也只跟着它
+  const bd = !gd ? null : pickBadge([
+    p.inj > 0 && L.canHeal(st) && { nav: 'home', t: '伤' },
+    L.canPromote(st) && { nav: 'sect', t: '升' },
+    st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) && { nav: 'sect', t: '交' },
+    L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 && UI.isOpen('market') && { nav: 'market', t: '!' },
+    st.gear && st.gear.pend.some(y => !y.hold) && { nav: 'me', t: '器' },
+    !busy && UI.isOpen('pets') && (L.petGlowAny(st) || (st.petPend || []).length) && { nav: 'home', t: '宠' },
+    UI.isOpen('arts') && artRec() && { nav: 'me', t: '功' },
+    st.sect && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st) && { nav: 'sect', t: '徒' },   // 徒：有拜师的孩子等着（disciples.js）
+    L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) && { nav: 'market', t: '拍' },
+    L.marketEvent(st) && UI.isOpen('market') && !navLock('market') && { nav: 'market', t: '！' },
+    { nav: 'me', t: peopleBadge() },   // 委：有委托能交、侣：能双修（panel-people.js）
+    !busy && UI.isOpen('plus') && L.gearPlusHint(st, 0.8) && { nav: 'me', t: '器' },
+    !busy && canUp && { nav: 'home', t: '↑' },
+    !busy && !ready && p.r < 9 && { nav: 'exp', t: '闲' },
+  ]);
+  for (const n of ['exp', 'home', 'sect', 'market', 'me']) setBadge(n, bd && bd.nav === n ? bd.t : '');
+  const rec = !gd || ready || p.r >= 9 || busy ? '' : bd ? bd.nav : '';
   $$('#nav button').forEach(b => b.classList.toggle('hint', b.dataset.nav === rec));
-  setBadge('home', p.inj > 0 && L.canHeal(st) ? '伤' : gd && !busy && (L.petGlowAny(st) || (st.petPend || []).length) ? '宠' : canUp ? '↑' : '');
-  setBadge('sect', L.canPromote(st) ? '升' : st.sect && st.sect.tasks && st.sect.tasks.some(t => L.taskCanDeliver(st, t)) ? '交' : st.sect && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st) ? '徒' : '');   // 徒：有拜师的孩子等着（disciples.js）
-  setBadge('market', L.auctionOpen(st) && L.auctionBidsLeft(st) > 0 && st.auction.items.some(it => !it.res) ? '拍' : L.marketEvent(st) && !navLock('market') ? '！' : L.desperate(st) && (st.lifePills[Math.min(p.r, 8)] || 0) < 3 ? '!' : '');
-  setBadge('me', artRec() ? '功' : st.gear && (st.gear.pend.some(y => !y.hold) || (gd && !busy && L.gearPlusHint(st, 0.8))) ? '器' : peopleBadge());   // 委：有委托能交、侣：能双修（panel-people.js）
+  onbPump();
   updateHaul();
   syncRealmUI();   // 秘境的门卡层（panel-realm.js）
   if (feedDirty) renderFeed();
@@ -177,7 +207,7 @@ function updateHaul() {
   const el = $('#haul');
   if (!el) return;
   if (!st.exp || cine) { if (!el.hidden) el.hidden = true; return; }
-  const e = st.exp, pv = L.expPreview(st, Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total));
+  const e = st.exp, pv = L.expPreview(st, Math.min(1, (e.total - e.left + monthAcc / tickMs()) / e.total));
   const txt = `本趟 · 灵石 +${fmt(pv.stones)} · 灵草 +${fmt(pv.herbs)} · 宝物 ${pv.finds ? pv.finds + '?' : '—'}${pv.xp > 0 ? ' · 感悟 +' + fmt(pv.xp) : ''}`;
   if (el.textContent !== txt) el.textContent = txt;
   el.hidden = false;

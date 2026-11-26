@@ -7,7 +7,7 @@ function ptImg(id, w, mood, alt) { const c = ART.portrait && ART.portrait(id, mo
 function emblemImg(id, k) { const c = ART.emblem && ART.emblem(id); if (!c) return ''; const z = pxs(16, k || 1.5); return `<img class="px" src="${urlOf(c, 'emb|' + id)}" style="width:${z}px;height:${z}px;flex:none;vertical-align:middle" alt="">`; }
 function sectTabs(tab) {
   const dot = k => ((k === 'disc' && st.disc && st.disc.cand && L.discOpen(st) && !L.discFull(st)) || (k === 'task' && (st.sect.tasks || []).some(t => L.taskCanDeliver(st, t))) ? ' <b class="seal">！</b>' : '');
-  return '<div class="tabs">' + [['id', '身份'], ['task', '任务板'], ['vault', '宝库'], ['disc', '门下']].map(([k, n]) => `<button data-stab="${k}" class="${k === tab ? 'on' : ''}">${n}${dot(k)}</button>`).join('') + '</div>';
+  return '<div class="tabs">' + [['id', '身份'], ['task', '任务板'], ['vault', '宝库'], ['disc', '门下']].filter(([k]) => k === tab || (k === 'vault' ? UI.isOpen('vault') : k === 'disc' ? UI.isOpen('disc') : true)).map(([k, n]) => `<button data-stab="${k}" class="${k === tab ? 'on' : ''}">${n}${dot(k)}</button>`).join('') + '</div>';
 }
 function showSect(tab) {
   const p = st.p;
@@ -20,7 +20,7 @@ function showSect(tab) {
   tab = tab || sectTab; sectTab = tab;
   const sc = L.sectOf(st);
   const body = tab === 'task' ? sectTaskHTML() : tab === 'vault' ? sectVaultHTML() : tab === 'disc' ? discTabHTML() : sectIdHTML();
-  const s = sheet({ title: `${emblemImg(st.sect.id, 1.5)} ${sc.n}`, sub: `${sc.d} · 宗门加成：${sc.perk}`, body: sectTabs(tab) + body });
+  const s = sheet({ title: `${emblemImg(st.sect.id, 1.5)} ${sc.n}`, sub: `宗门加成：${sc.perk}`, body: sectTabs(tab) + body });
   s.querySelectorAll('[data-stab]').forEach(b => b.onclick = () => { SFX.tap(); showSect(b.dataset.stab); });
   if (tab === 'id') bindSectId(s); else if (tab === 'task') bindSectTask(s); else if (tab === 'vault') bindSectVault(s); else bindDiscTab(s);
 }
@@ -52,7 +52,7 @@ function sectIdHTML() {
   const dk = L.duty(st), D = dk && L.DUTIES[dk], dwhy = L.dutyWhy(st);
   const duty = L.dutyOpen(st) ? `<div class="card flat" id="dutyCard">${icon16(D ? D.icon : 'post_zhan', 2)}<div class="main"><div class="line"><span>职司</span><b>${D ? D.n : '未领'}</b></div><div class="muted">${D ? esc(D.d) : '五堂任选其一：丹堂、器堂、战堂、执法堂、外事堂'}</div>${dwhy && D ? `<div class="muted">${esc(dwhy)}</div>` : ''}</div>
     <div class="right"><button class="btn sm ${!dwhy ? 'gold' : 'alt'} eq" id="btnDuty" ${dwhy ? 'disabled' : ''}>${D ? '换职司' : '选职司'}</button></div></div>`
-    : `<div class="muted">职司：真传弟子起可在五堂领一份差事（还差 ${Math.max(0, 2 - sr)} 级身份）</div>`;
+    : '';   // 没开的不提（docs/ONBOARDING.md：没解锁的东西界面上直接不出现）
   const moTrade = st.sect.id === 'xuesha' ? `<div class="card flat">${icon16('karma', 2)}<div class="main"><div>以因果换贡献</div><div class="muted">手里的因果交给血河老祖，一条换贡献 ${fmt(L.karmaTradeVal(st))}（这笔账也就了了）。未了 ${L.karmaOpen(st).length} 条</div></div><div class="right"><button class="btn sm ${L.karmaTradeWhy(st) ? 'alt' : 'gold'} eq" id="btnKarma" ${L.karmaTradeWhy(st) ? 'disabled' : ''}>交一条</button></div></div>` : '';
   // 宗主建设（DESIGN §3.9）：护山大阵、藏经阁、灵脉，灵石的后期去处
   const B0 = st.sect.build || {};
@@ -60,11 +60,11 @@ function sectIdHTML() {
   return `<div style="display:flex;flex-wrap:wrap;gap:4px">${ranks}</div>
     <dl class="grid2"><dt>身份</dt><dd>${L.srankName(st, sr)}</dd><dt>俸禄</dt><dd class="num">每周天 ${fmt(L.pay(st))} 灵石${sc.pill ? `，手里破境丹不足 ${L.DAN_PILL_CAP} 枚时每 6 周天附一枚` : ''}</dd><dt>贡献</dt><dd class="num">可用 ${fmt(st.sect.pts)} · 累计 ${fmt(st.sect.total)}</dd></dl>
     ${promo}${duty}${moTrade}${builds}
-    <div class="sep"></div><div class="mhead" id="renmai"><span>人脉</span><span class="muted">≥40 小恩惠 · 圣子、宗主要两位 ≥50 · ≥80 绝学</span></div>
+    ${UI.isOpen('vault') ? `<div class="sep"></div><div class="mhead" id="renmai"><span>人脉</span><span class="muted">≥40 小恩惠 · 圣子、宗主要两位 ≥50 · ≥80 绝学</span></div>
     ${L.eldersOf(st).map(elderCard).join('')}
-    <div class="muted">支持来自他管的宗门任务（每件 +${L.FAV.task}）、奇遇里的抉择、送礼（每位每届一次）。三位长老理念相冲：讨好一位，常要得罪另一位。</div>
-    <div class="sep"></div>${nineHTML()}
-    <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div>`;
+    <div class="muted">支持来自他管的宗门任务（每件 +${L.FAV.task}）、奇遇里的抉择、送礼（每位每届一次）。三位长老理念相冲：讨好一位，常要得罪另一位。</div>` : ''}
+    <details class="more"><summary>九宗排名 · 贡献怎么来</summary>${nineHTML()}
+    <div class="muted">历练（按评价）、宗门任务、天骄论道和九宗会武获胜都能为宗门挣得贡献。${st.flags.warWon ? '你曾一人一剑击退天剑宗，威震四方。' : ''}</div></details>`;
 }
 function bindSectId(s) {
   const pb = s.querySelector('#btnPromo'); if (pb) pb.onclick = () => { SFX.tap(); doPromote(); };

@@ -253,7 +253,7 @@ function drawAdvScene(dt) {
   }
   drawParts(dt);
   const e = st.exp;
-  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / TICK_MS) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
+  if (e) { const k = Math.min(1, (e.total - e.left + monthAcc / tickMs()) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
 }
 
 // ---------- 主绘制 ----------
@@ -273,7 +273,17 @@ function drawScene(dt) {
     for (let i = 0; i < 10; i++) R(i * 20, -OY, cols * 2, H, '#0b0912');
   }
 }
+let floatBusy = 0;
+const floatQ = [];
 function floatText(x, y, text, color, big, small) {
+  const now = performance.now();
+  if (small && (now < floatBusy || bannerBusy)) return;   // 小浮字让路
+  if (!small && now < floatBusy) { if (floatQ.length < 4 && !floatQ.some(f => f[2] === text)) { floatQ.push([x, y, text, color, big, small]); if (floatQ.length === 1) setTimeout(floatNext, floatBusy - now + 20); } return; }
+  if (!small) floatBusy = now + 1100;
+  floatRaw(x, y, text, color, big, small);
+}
+function floatNext() { const f = floatQ.shift(); if (!f) return; floatBusy = 0; floatText(...f); if (floatQ.length) setTimeout(floatNext, 1120); }
+function floatRaw(x, y, text, color, big, small) {
   const el = document.createElement('div');
   el.className = 'float' + (big ? ' big' : '');
   el.style.left = (x / W * 100).toFixed(2) + '%'; el.style.top = ((y + OY) / H * 100).toFixed(2) + '%'; el.style.color = color || '#fff';

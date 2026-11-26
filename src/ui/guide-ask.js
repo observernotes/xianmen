@@ -95,8 +95,8 @@ function showAsk() {
   const row = (x, i) => `<div class="card flat guide-ask"><div class="main"><div>${x.t}</div></div>${x.go ? `<div class="right"><button class="btn sm ${i ? 'alt' : 'gold'}" data-ask="${i}">${x.btn}</button></div>` : ''}</div>`;
   const log = bubbleLog.slice(0, 4).map(b => `<div class="guide-said">${b.text}</div>`).join('');
   bubbleUnread = false;
-  const s = sheet({ title: st.eflags && st.eflags.st_farewell ? '戒中余音' : '问老祖', sub: '眼下最该做的三件事（点【前往】直接去）',
-    body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:44px;height:44px" alt=""><p class="grow" style="margin:0">${st.p.look.f ? '丫头' : '小子'}，听好了：</p></div>${list.map(row).join('')}${log ? `<div class="muted">老祖刚才说过：</div>${log}` : ''}`,
+  const s = sheet({ title: st.eflags && st.eflags.st_farewell ? '戒中余音' : '问老祖', sub: '',
+    body: `<div class="speaker"><img class="px" src="${ELDER}" style="width:44px;height:44px" alt=""><p class="grow" style="margin:0">${st.p.look.f ? '丫头' : '小子'}，眼下就这几件：</p></div>${list.map(row).join('')}${log ? `<div class="muted">老祖刚才说过：</div>${log}` : ''}`,
     foot: [{ t: '玩法指南', alt: true, fn: () => showHelp() }, { t: '札记', alt: true, fn: () => showQuests() }, { t: '知道了', alt: true, fn: closeModal }] });   // 一屏只有一个金色按钮：头一条建议
   s.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => { SFX.tap(); const x = list[+b.dataset.ask]; closeModal(); if (x && x.go) x.go(); });
 }
@@ -156,7 +156,7 @@ registerGuide([
 // 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个周天
 for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
 // 分类：DESIGN 写成气泡的，从阻塞讲解改成气泡（不暂停、不占讲解名额）
-for (const id of ['market', 'furnace', 'me', 'heal']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
+for (const id of ['market', 'furnace', 'me', 'heal', 'depth', 'tuna']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
 { const h = HINTS.find(x => x.id === 'boss'); if (h) { h.bubble = true; h.bigBubble = true; } }
 // 每段阻塞讲解都高亮一个要点的按钮：秘境第三句指“带着收获离开”（没有就指门）
 { const h = HINTS.find(x => x.id === 'realm3'); if (h && !h.target) Object.defineProperty(h, 'target', { get: () => (document.querySelector('#realmLeave') ? '#realmLeave' : '#realmDoors'), configurable: true }); }

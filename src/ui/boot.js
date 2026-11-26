@@ -24,14 +24,14 @@ function onTick() {
     else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
   }
   if (out.train) pushPopup(showTrain);
-  if (st.guide && st.guide.done && st.tick % 3 === 0) artRecTip();
-  if (st.guide && st.guide.done && st.tick % 3 === 1) gearPlusTip();
+  if (st.guide && st.guide.done && st.tick % 3 === 0 && UI.isOpen('arts')) artRecTip();
+  if (st.guide && st.guide.done && st.tick % 3 === 1 && UI.isOpen('plus')) gearPlusTip();
   if (out.auction) banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} 周天 · 三件竞价`);
   // 拍卖散场：竞拍者拿走的（宿敌战力 ×1.04）
   if (out.aucEnd && out.aucEnd.length) { const b = out.aucEnd.find(x => x.boost); floatText(100, 40, b ? `${b.n}拍走了【${b.item}】：战力 ×${L.AUCTION.boost}` : `${out.aucEnd[0].n}拍走了【${out.aucEnd[0].item}】`, b ? '#ff9a8a' : '#9d93b8'); }
   // 天下大势起了：老祖一句“该干什么”；换季：每季头一回提一句（panel-cal.js）
   if (out.world) { const W = L.WORLD[out.world]; banner('天下大势 · ' + W.n, `${W.len} 周天`); SFX.reveal(3); worldTip(out.world); }
-  else if (out.season !== undefined && st.guide && st.guide.done) seasonTip(out.season);
+  else if (out.season !== undefined && st.guide && st.guide.done && UI.isOpen('cal')) seasonTip(out.season);
   if (out.mjOpen) realmOpenFx(out.mjOpen);   // 入夏，秘境开了（panel-realm.js）
   if (out.pact) pushPopup(runPact);
   if (out.invite) pushPopup(showInvite);
@@ -67,9 +67,10 @@ function frame(now) {
   const sp = SPEEDS[speedIdx];
   const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run;   // 秘境里时间不走
   if (running) {
-    L.flow(st, dt * sp / TICK_MS);
+    const TM = tickMs();
+    L.flow(st, dt * sp / TM);
     monthAcc += dt * sp;
-    if (monthAcc >= TICK_MS) { monthAcc -= TICK_MS; onTick(); }
+    if (monthAcc >= TM) { monthAcc -= TM; onTick(); }
     craneTimer -= dt;
     if (craneTimer <= 0 && !crane && !st.exp) { crane = { x: -12, y: 14 + Math.random() * 22, v: 0.02 }; craneTimer = 70000 + Math.random() * 60000; }
   }
@@ -147,4 +148,5 @@ const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
 window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = i; }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, showAsk, askList, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
+  UI, get tickMs() { return tickMs(); },
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };

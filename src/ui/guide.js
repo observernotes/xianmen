@@ -55,20 +55,20 @@ const R0 = () => L.REGIONS[0].n;
 // 新手引导（阻塞讲解 E01～E09）：学游戏发展国的秘书——一次只说一两句、说话时暂停、句句带数字，说完立刻让你动手
 const GUIDE = [
   { id: 'welcome', text: '小子，别东张西望，就是你手上这枚锈戒。老夫在里面睡了<b>三千年</b>。', btn: '……你是谁' },
-  { id: 'stakes', target: BIG, text: () => { const pi = PI(); return `<b>三年之约</b>还剩 <b>${pi.left} 个周天</b>（一周天约 5 秒），到时${esc(st.exName)}要在擂台上当众羞辱你。她战力 <b>${fmt(pi.Q)}</b>，你 <b>${fmt(pi.base)}</b>，老夫借你一口气翻 <b>${pi.assist} 倍</b>，胜算才 <b>${L.pct(pi.p)}</b>。`; }, btn: '那怎么办' },
+  { id: 'stakes', target: BIG, text: () => { const pi = PI(); return `<b>三年之约</b>还剩 <b>${pi.left} 个周天</b>（一周天约 ${Math.round(tickMs() / 1000)} 秒），到时${esc(st.exName)}要在擂台上当众羞辱你。她战力 <b>${fmt(pi.Q)}</b>，你 <b>${fmt(pi.base)}</b>，老夫借你一口气翻 <b>${pi.assist} 倍</b>，胜算才 <b>${L.pct(pi.p)}</b>。`; }, btn: '那怎么办' },
   { id: 'expNav', show: () => !modalOpen() && !st.exp, target: '[data-nav="exp"]', text: () => `光打坐来不及。出去<b>【历练】</b>：打妖兽有灵石，还能捡法宝。一趟 <b>${L.expLen(0)} 个周天</b>。`, until: () => modalTitle() === '外出历练' || !!st.exp },
   { id: 'expPick', show: () => modalTitle() === '外出历练', target: '#modal .card[data-k="0"]', text: () => `就这儿，<b>${R0()}·外围</b>。推荐战力 <b>${fmt(L.rec(0, 0))}</b>，你 <b>${fmt(L.power(st))}</b>，稳拿<b>甲</b>。`, until: () => modalTitle() === R0() || !!st.exp, back: () => (!modalOpen() && !st.exp ? 'expNav' : null) },
   { id: 'expGo', show: () => modalTitle() === R0(), target: '#modal .foot .btn.gold', text: () => `行事先用<b>【斩妖】</b>，预计评价 <b>${L.expForecast(st, 0, 0, 0).text}</b>。点<b>出发</b>，<b>${L.expLen(0)} 个周天</b>就回来。`, until: () => !!st.exp, back: () => (modalTitle() === '外出历练' ? 'expPick' : !modalOpen() && !st.exp ? 'expNav' : null) },
-  { id: 'haul', show: () => !modalOpen() && !!st.exp, target: '#haul', text: '看这一条：这趟的收获，一个周天涨一截。嫌慢就点右上角的<b>×1</b>加速（×2、×4）。', btn: '好' },
+  // 收获条：不再停下来讲，出发那一刻冒一条气泡
+  { id: 'haul', silent: true, until: () => { if (st.exp && st.stats.exp === 0) tip('haul', `看场景上面这一条：这趟的收获，一个周天涨一截，${L.expLen(0)} 个周天回来。嫌慢就点右上角的 ×1 加速（×2、×4）。`); return true; } },
   { id: 'waitExp', silent: true, until: () => st.stats.exp >= 1 && !modalOpen() && !st.exp },
-  { id: 'afterExp', show: () => !modalOpen() && !!lastExp, target: '#stats button[data-s="atk"]', text: () => {
-      const e = lastExp, pi = PI(), it = e.items.find(x => x.kind === 'w' && x.equip);
-      const p0 = L.duelChance(e.pw0 * pi.S / L.power(st), pi.Q);
-      const pp = L.pct(p0) === L.pct(pi.p) ? `胜算还是 <b>${L.pct(pi.p)}</b>，差得远` : `胜算 <b>${L.pct(p0)} → ${L.pct(pi.p)}</b>`;
-      return `看见没？${it ? `一把<b>${esc(it.name)}</b>，` : ''}战力 <b>${fmt(e.pw0)} → ${fmt(e.pw1)}</b>，${pp}。法宝每高一阶再涨三成，升一层再 ×${L.P.pwStage}。`;
-    }, btn: '再接再厉', until: () => !lastExp },
-  { id: 'homeNav', show: () => !modalOpen(), target: '[data-nav="home"]', text: () => `灵石要花出去才值钱。你有 <b>${fmt(st.stones)}</b> 灵石，去<b>【洞府】</b>。`, until: () => modalTitle() === '洞府' || st.home.array >= 1 },
+  // 第一趟回来：一段话说清“战力涨了多少”，同时高亮【洞府】——一次只教一件事（docs/ONBOARDING.md §3）
+  { id: 'homeNav', show: () => !modalOpen(), target: '[data-nav="home"]', text: () => {
+      const e = lastExp, it = e && e.items.find(x => x.kind === 'w' && x.equip);
+      return `${e ? `看见没？${it ? `一把<b>${esc(it.name)}</b>，` : ''}战力 <b>${fmt(e.pw0)} → ${fmt(e.pw1)}</b>。` : ''}灵石要花出去才值钱：你有 <b>${fmt(st.stones)}</b> 灵石，去<b>【洞府】</b>。`;
+    }, until: () => modalTitle() === '洞府' || st.home.array >= 1 },
   { id: 'homeArray', show: () => modalTitle() === '洞府', target: '#modal button[data-k="array"]', text: () => { const u = L.upInfo(st, 'array'); return `升<b>【聚灵阵】</b>（${fmt(u.cost)} 灵石）：修炼 <b>+${dec(u.d0)} → +${dec(u.d1)}</b> /周天。`; }, until: () => st.home.array >= 1, back: () => (!modalOpen() && st.home.array < 1 ? 'homeNav' : null) },
+  { id: 'afterArr', silent: true, until: () => { lastExp = null; return true; } },
   { id: 'quests', show: () => !modalOpen(), target: '#goal', text: () => { const q = L.questView(st).first; return `不知道干嘛就看这张<b>札记</b>：做完就有赏${q ? `，眼下这条“${esc(L.questText(st, q))}”赏 <b>${esc(L.rewardText(st, q.rw))}</b>` : ''}。点开能看三条和本章主线。`; }, btn: '明白了' },
 ];
 const nextName = () => (st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n);
@@ -378,9 +378,10 @@ function updateGuide() {
   }
 }
 function showHelp() {
-  const sec = (ic, t, d) => `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`;
+  const HELP_KEY = { '闭关与吐纳': 'retreat', '洞府': 'home', '阵法': 'zhen', '灵田': 'field', '功法与五行': 'arts', '法宝': 'gearCmp', '坊市': 'market', '历法与天下大势': 'cal', '宗门': 'sect', '天骄论道': 'tour', '奇遇与访客': 'visitor', '炼丹': 'furnace' };
+  const sec = (ic, t, d) => (HELP_KEY[t] && !UI.isOpen(HELP_KEY[t]) ? '' : `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`);
   const body = [
-    sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每 5 秒涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
+    sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/周天</b>（每个周天涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/周天</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
     sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 3 周天，下次 +${L.pct(L.BT.fail)}。`),
     sec('disc', '闭关与吐纳', `【洞府】里闭关：${L.RET.len} 个周天修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 周天修为。`),
     sec('flag', '三年之约', `第 ${L.PACT_TICK} 个周天和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几个周天和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
@@ -406,16 +407,20 @@ const GO = {
   exp: () => showExp(), home: () => showHome(), pets: () => showPets(), field: () => showField(), alch: () => (st.home.furnace ? showAlchemy() : showHome()), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
   cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${L.ticksToStage(st, L.si(st.p) + 1)}</b> 个周天升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
 };
+// 刚开的系统的小目标去哪做（札记的【前往】）
+const ONB_GO = { exp: 'exp', home: 'home', retreat: 'home', bt: 'cult', sect: 'sect', market: 'market', visitor: 'cult', field: 'field', gearCmp: 'gear', furnace: 'alch', arts: 'arts', trib: 'cult', pets: 'market', plus: 'gear', zhanji: 'arts', realm: 'realm', bond: 'me', plots: 'home', zhen: 'home', disc: 'sect' };
 // 札记（DESIGN §4.6）：本章主线 + 前三条未完成的小任务 + 以前章节没做完的主线；完成即领
 function showQuests() {
   const qv = L.questView(st);
   const item = (q, i) => `<div class="card flat"><div class="main"><div>${q.main ? '<span class="story-tag">主线</span>' : ''}${esc(L.questText(st, q))}</div><div class="goldt">${esc(L.rewardText(st, q.rw)) || '—'}</div></div><div class="right"><button class="btn sm alt" data-q="${i}">前往</button></div></div>`;
   const all = [];
   const rows = [];
+  const og = L.onbGoal && L.onbGoal(st);
+  if (og) { all.push({ go: ONB_GO[og.k] || 'exp' }); rows.push(`<div class="card flat"><div class="main"><div><span class="story-tag">新</span>${esc(og.goal)}</div><div class="muted">${esc(og.n)} · 做到了就算会了，老祖再教下一样</div></div><div class="right"><button class="btn sm gold" data-q="${all.length - 1}">前往</button></div></div>`); }
   if (qv.main) { all.push(qv.main); rows.push(item(qv.main, all.length - 1)); }
   for (const q of qv.list) { all.push(q); rows.push(item(q, all.length - 1)); }
   if (qv.old.length) { rows.push('<div class="muted">未了之事（以前章节的主线，仍可完成领赏）</div>'); for (const q of qv.old) { all.push(q); rows.push(item(q, all.length - 1)); } }
-  const s = sheet({ title: `札记 · 第${'一二三四五六七八九'[qv.r]}章 ${qv.ch.n}`, sub: `本章小任务 ${qv.doneN}/${qv.total} · 完成即领，不用再点`, body: rows.join('') || '<p>大道已成。可以继续在此世逍遥，或去【人物】查看成就。</p>' });
+  const s = sheet({ title: `札记 · 第${'一二三四五六七八九'[qv.r]}章 ${qv.ch.n}`, sub: `小任务 ${qv.doneN}/${qv.total}`, body: rows.join('') || '<p>大道已成。可以继续在此世逍遥，或去【人物】查看成就。</p>' });
   s.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
     SFX.tap();
     const q = all[+b.dataset.q];

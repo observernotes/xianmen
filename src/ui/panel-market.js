@@ -62,10 +62,10 @@ function showMarket(o) {
       : `<button class="btn sm ${dis ? 'alt' : 'gold'} mbuy" data-buy="${row.i}" data-k="${row.k}" ${dis ? 'disabled' : ''}>${iconHTML('stone', 12)} ${fmt(row.price)}</button>${why && row.left > 0 ? `<span class="muted">${esc(why)}</span>` : row.left <= 0 && !row.lock ? '<span class="muted">本届售罄</span>' : ''}`;
     return `<div class="card flat shelfrow${row.lock ? ' lock' : ''}"><div style="flex:none">${row.k ? goodImg(st, row) : iconHTML('bag', 30)}</div><div class="main"><div>${esc(row.n.replace(/（\d折）$/, ''))} ${off}</div>${row.d || lim ? `<div class="muted">${esc(row.d || '')}${lim}</div>` : ''}</div><div class="right">${btn}</div></div>`;
   };
-  const fixed = rows.filter(r => r.fixed), rot = rows.filter(r => !r.fixed);
+  const fixed = rows.filter(r => r.fixed && (r.k !== 'egg' || UI.isOpen('pets'))), rot = UI.isOpen('shelf') ? rows.filter(r => !r.fixed) : [];
   const disc = st.market && st.market.disc < 1 ? ' · 本届九折' : '', shang = L.worldOn(st, 'w_shanglu') ? ' · 商路断绝 +30%' : '';
   let body = `<div class="mhead"><span>${icon16('paddle', 1)} 常驻</span><span class="muted">价格随境界上涨${disc}${shang}</span></div>` + fixed.map(cell).join('')
-    + `<div class="mhead" id="shelfRot"><span>${icon16('gavel', 1)} 轮换</span><span class="goldt">${L.shelfOpen(st) ? L.restockIn(st) + ' 周天后换货' : '炼气中期开放'}</span></div>` + rot.map(cell).join('');
+    + (rot.length ? `<div class="mhead" id="shelfRot"><span>${icon16('gavel', 1)} 轮换</span><span class="goldt">${L.restockIn(st)} 周天后换货</span></div>` + rot.map(cell).join('') : '');
   // 行情（筑基）
   if (L.sellOpen(st)) {
     const sellRow = k => {
@@ -77,7 +77,7 @@ function showMarket(o) {
         <div class="sl-btns"><button class="btn alt" data-sell="${k}:0.5" ${half ? '' : 'disabled'}><span>卖一半</span><small>${half ? fmt(half) + ' → +' + fmt(L.sellValue(st, k, half)) : '没有货'}</small></button><button class="btn alt" data-sell="${k}:1" ${all ? '' : 'disabled'}><span>全卖</span><small>${all ? fmt(all) + ' → +' + fmt(L.sellValue(st, k, all)) : '没有货'}</small></button></div></div>`;
     };
     body += `<div class="sep"></div><div class="mhead" id="mktSell"><span>${icon16('sell', 1)} 行情 · 出售</span><span class="muted">每 ${L.IDX.every} 周天一变</span></div>${L.SELL_KEYS.map(sellRow).join('')}`;
-  } else body += `<div class="sep"></div><div class="muted">${icon16('sell', 1)} 行情：筑基后开放，灵草、灵矿、破境丹都能卖。</div>`;
+  }
   // 拍卖会（金丹）
   if (L.auctionOpen(st)) {
     const A = st.auction, left = L.auctionBidsLeft(st);
@@ -93,11 +93,10 @@ function showMarket(o) {
     };
     body += `<div class="sep"></div><div class="mhead" id="aucBox"><span>${icon16('gavel', 1)} 拍卖会</span><span class="goldt">还剩 ${A.until - st.tick} 周天 · 还能出手 ${left} 次</span></div>${A.consign ? `<div class="jadet">送拍的东西落槌：灵石 +${fmt(A.consign)}</div>` : ''}${A.items.map(lot).join('')}
       <div class="muted">跟一口 ×1 拿下 35%，加价 ×1.4 拿下 70%，豪掷 ×2 拿下 97%；有竞拍者各 −15%。没拿下不花钱，拍品归对方——宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。</div>`;
-  } else if (st.rebirth > 0 || L.mr(st) >= 2) body += `<div class="sep"></div><div class="muted">${icon16('gavel', 1)} 下一场拍卖会：${L.nextAuction(st)} 周天后（开 ${L.AUCTION.len} 周天，三件竞价）</div>`;
-  else body += `<div class="muted">${icon16('gavel', 1)} 拍卖会：金丹后开放，三件竞价。</div>`;
+  } else if (UI.isOpen('auction') && (st.rebirth > 0 || L.mr(st) >= 2)) body += `<div class="sep"></div><div class="muted">${icon16('gavel', 1)} 下一场拍卖会：${L.nextAuction(st)} 周天后（开 ${L.AUCTION.len} 周天，三件竞价）</div>`;
   const box = L.boxCap(st, 'w');
-  body += `<div class="muted">当前：${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => L.GEAR_N[s] + ' ' + (L.gearTier(st, s) ? L.gearTierName(s, L.gearTier(st, s)) : '空')).join(' · ')} · 心法 ${L.artSlots(st)[0] ? '《' + esc(L.art(L.artSlots(st)[0]).n) + '》' : '基础吐纳'} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}<br>寻宝保底：连续 ${st.boxMiss || 0}/2 次没提升；本境界最高补到 ${L.WEAPONS[box].n} / ${L.ARTS[L.boxCap(st, 'a')].n}功法${L.gearPity(st) ? `（下一次保底补${L.GEAR_N[L.gearPity(st).s]}到${L.gearTierName(L.gearPity(st).s, L.gearPity(st).t)}）` : ''}${st.arts.firstBox ? '' : '；头一回寻宝必得《引气诀》'}</div>`;
-  const s = sheet({ title: '坊市', sub: `灵石 ${fmt(st.stones)} · 灵草 ${fmt(st.herbs)} · 灵矿 ${fmt(st.ore || 0)} · 破境丹 ${st.pills}`, body });
+  body += `<details class="more"><summary>身上的东西 · 寻宝保底</summary><div class="muted">当前：${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => L.GEAR_N[s] + ' ' + (L.gearTier(st, s) ? L.gearTierName(s, L.gearTier(st, s)) : '空')).join(' · ')} · 心法 ${L.artSlots(st)[0] ? '《' + esc(L.art(L.artSlots(st)[0]).n) + '》' : '基础吐纳'} · 灵宠 ${p.pet ? L.PETS[p.pet.tier].n : '无'}<br>寻宝保底：连续 ${st.boxMiss || 0}/2 次没提升；本境界最高补到 ${L.WEAPONS[box].n} / ${L.ARTS[L.boxCap(st, 'a')].n}功法${L.gearPity(st) ? `（下一次保底补${L.GEAR_N[L.gearPity(st).s]}到${L.gearTierName(L.gearPity(st).s, L.gearPity(st).t)}）` : ''}${st.arts.firstBox ? '' : '；头一回寻宝必得《引气诀》'}</div></details>`;
+  const s = sheet({ title: '坊市', sub: [`灵石 ${fmt(st.stones)}`, UI.isOpen('sell') ? `灵草 ${fmt(st.herbs)}` : '', UI.isOpen('plus') ? `灵矿 ${fmt(st.ore || 0)}` : '', `破境丹 ${st.pills}`].filter(Boolean).join(' · '), body });
   if (top) s.querySelector('.body').scrollTop = top;
   const back = () => showMarket({ keep: true });
   s.querySelectorAll('button[data-buy]').forEach(btn => btn.onclick = () => {

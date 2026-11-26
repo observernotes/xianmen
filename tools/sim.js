@@ -66,6 +66,8 @@ if (arg.includes('nohome2')) L.HOME2_ON = false;
 if (arg.includes('norivals2')) L.RIVALS2_ON = false;
 const RIV2 = !arg.includes('norivals2');
 if (arg.includes('nopeople2')) L.PEOPLE2_ON = false;
+// noonb：关掉上手曲线（L.ONB_ON = false：各系统一到原门槛就开，回到 2.0.0 的节奏），与默认对照量 docs/ONBOARDING.md 这一刀的影响
+if (arg.includes('noonb')) L.ONB_ON = false;
 const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
@@ -586,7 +588,8 @@ function run(strat, seed, trace, opt) {
     if (p.r >= 1 && L.lifeLow(st)) rec.lifeYellow = true;
     if (st.tick > 12) {
       const q = st.stones / Math.max(L.income(st), 1); rec.ratio.push(q);
-      rec.streak = q > 40 ? rec.streak + 1 : 0; rec.maxStreak = Math.max(rec.maxStreak, rec.streak);
+      // 坊市开之前（第一世三年之约前后，docs/ONBOARDING.md）灵石本来就只有聚灵阵、闭关两处去处，不算囤积
+      rec.streak = q > 40 && L.unlocked(st, 'market') ? rec.streak + 1 : 0; rec.maxStreak = Math.max(rec.maxStreak, rec.streak);
     }
     rec.maxPills = Math.max(rec.maxPills, st.pills);
     if (out.death) { rec.death = st.tick; rec.deathR = p.r; break; }
@@ -659,9 +662,11 @@ function summarize(strat, recs, G) {
   const zj = frac(recs, x => x.zhujiAtPact);
   const died = frac(recs, x => x.death !== undefined);
   if (strat === 'guided') {
-    const T = [34, 38, 62, 75, 75, 75, 85, 82, 90];
+    // docs/ONBOARDING.md §5：系统一样一样开，筑基～元婴拿到灵宠、功法、强化等加成比 2.0.0 晚 30～60 个周天，这两段拉长；炼气只剩四样，略短
+    const T = L.ONB_ON === false ? [34, 38, 62, 75, 75, 75, 85, 82, 90] : [32, 44, 80, 92, 75, 75, 88, 84, 92];
     row(strat, '各境界时长中位数', durs.map(Math.round).join(' / '), T.join(' / ') + '，各 ±20%', durs.every((d, i) => within(d, T[i] * 0.8, T[i] * 1.2)));
-    row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, '中位数 580～660', within(ascMed, 580, 660));
+    const AT = L.ONB_ON === false ? [580, 660] : [620, 710];   // 上手曲线放慢了前中期（docs/ONBOARDING.md §5）
+    row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `中位数 ${AT[0]}～${AT[1]}`, within(ascMed, AT[0], AT[1]));
     row(strat, '三年之约胜率', pct(pact), '85%～95%', within(pact, 0.85, 0.95), true);
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
@@ -669,9 +674,10 @@ function summarize(strat, recs, G) {
     const bz = med(recs.map(x => x.beatAt.zhao)), bc = med(recs.map(x => x.beatAt.chu)), bx = med(recs.map(x => x.beatAt.xue));
     row(strat, '击败赵乾 / 楚天阔 / 血无涯', `${bz} / ${bc} / ${bx}`, '72～110 / 190～300 / 340～480', within(bz, 72, 110) && within(bc, 190, 300) && within(bx, 340, 480));
     const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend)), r1m = med(recs.map(x => x.rank1));
-    row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数 ${r1m}`, '50%～80%，中位数 510～600', within(r1, 0.5, 0.8) && within(r1m, 510, 600));
+    const R1 = L.ONB_ON === false ? [0.5, 510, 600] : [0.45, 520, 630];
+    row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数 ${r1m}`, `${pct(R1[0])}～80%，中位数 ${R1[1]}～${R1[2]}`, within(r1, R1[0], 0.8) && within(r1m, R1[1], R1[2]));
     const sr = [1, 2, 3, 4, 5, 6].map(k => med(recs.map(x => x.srankAt[k])));
-    const ST = [[45, 65], [80, 110], [140, 190], [240, 300], [360, 430], [480, 560]];
+    const ST = L.ONB_ON === false ? [[45, 65], [80, 110], [140, 190], [240, 300], [360, 430], [480, 560]] : [[45, 70], [90, 125], [150, 210], [260, 340], [380, 470], [500, 600]];
     row(strat, '内门/真传/圣子/长老/太上/宗主', sr.join(' / '), ST.map(x => x.join('～')).join(' / '), sr.every((v, i) => within(v, ST[i][0], ST[i][1])));
     row(strat, '坐化', pct(died), '0%', died === 0);
     const rm = med(recs.map(x => x.ratioMed)), viol = frac(recs, x => x.maxStreak >= 24);
@@ -759,7 +765,7 @@ function main(onlyStrat, n) {
   }
   const w = [8, 30, 64, 44, 6];
   const pad = (s, k) => { let len = 0; for (const ch of s) len += ch.charCodeAt(0) > 255 ? 2 : 1; return s + ' '.repeat(Math.max(1, k - len)); };
-  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${L.CHAINS_ON === false ? '，奇遇链关' : ''}${L.CODEX_ON === false ? '，图鉴加成关' : ''}${L.RIVALS2_ON === false ? '，宿敌与新秀关' : ''}${L.HOME2_ON === false ? '，洞府回到地块之前' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
+  console.log(`三种策略 × ${n} 个种子（PACT_POWER=${L.PACT_POWER}${L.DAOJI_ON === false ? '，道基关' : ''}${L.ARTS_ON === false ? '，功法系统关' : ''}${L.GEAR_ON === false ? '，法宝新东西关' : ''}${L.CAL_ON === false ? '，四季与大势关' : ''}${L.MJ_ON === false ? '，秘境关' : ''}${L.PETS_ON === false ? '，灵宠新东西关' : ''}${L.CROPS_ON === false ? '，灵田只种灵稻' : ''}${L.ALCH_ON === false ? '，药引丹方与丹毒关' : ''}${L.CHAINS_ON === false ? '，奇遇链关' : ''}${L.CODEX_ON === false ? '，图鉴加成关' : ''}${L.RIVALS2_ON === false ? '，宿敌与新秀关' : ''}${L.HOME2_ON === false ? '，洞府回到地块之前' : ''}${L.ONB_ON === false ? '，上手曲线关' : ''}${MARKET_SIM ? '' : '，guided 不用行情、拍卖、轮换货'}）`);
   console.log(pad('策略', w[0]) + pad('指标', w[1]) + pad('结果：中位数（10%～90% 分位）', w[2]) + pad('目标', w[3]) + '判定');
   for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + r[4]);
   console.log(fails ? `\n${fails} 行未达标（其中门槛 ${gateFails} 行）` : '\n全部达标');

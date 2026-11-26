@@ -92,7 +92,7 @@ function plotDetail(i) {
   const k = pl[i];
   if (!k) {
     const rec = homeRec();
-    const list = L.BLD_KEYS.filter(x => x !== 'array' && !st.home[x] && (L.home2On() || !HB(x).nu)).sort((a, b) => (rec && b === rec.k) - (rec && a === rec.k) || L.homeUnlocked(st, b) - L.homeUnlocked(st, a));
+    const list = L.BLD_KEYS.filter(x => x !== 'array' && !st.home[x] && (L.home2On() || !HB(x).nu) && (UI.isOpen('plots') || L.homeUnlocked(st, x))).sort((a, b) => (rec && b === rec.k) - (rec && a === rec.k) || L.homeUnlocked(st, b) - L.homeUnlocked(st, a));
     const rows = list.map(x => {
       const B = HB(x), un = L.homeUnlocked(st, x), why = L.buildWhy(st, x, i), lv = L.homeRebuildLv(st, x), c = L.homeCost(st, x), ok = !why, poor = /灵石/.test(why);
       const tag = rec && x === rec.k ? '<span class="chip warn">荐</span> ' : '';
@@ -104,7 +104,7 @@ function plotDetail(i) {
     return `<div class="hdet"><div class="line"><b>第 ${i + 1} 块 · 空地</b><span class="muted">点一样就建（已建 ${pl.filter(Boolean).length}/${max}）</span></div>${rows || emptyNoteHTML('build', '能建的都建了。')}</div>`;
   }
   const B = HB(k), u = L.upInfo(st, k), lv = st.home[k], can = !u.max && st.stones >= u.cost, keep = Math.floor(lv * L.HV.keep);
-  const demo = k === 'array' ? '' : homeDemo === k
+  const demo = k === 'array' || !UI.isOpen('plots') ? '' : homeDemo === k
     ? `<div class="quote">拆了退 <b>${fmt(L.homeRefund(st, k))}</b> 灵石（累计花费的一半）${keep >= 1 ? `，等级记着，重建从 <b>${keep}</b> 级起` : ''}。${k === 'field' ? '田里的作物一并铲掉。' : k === 'furnace' ? '炼丹房关门，续炼停下。' : ''}</div><div class="hrow"><button class="btn sm alt" data-demo-no="1">不拆了</button><button class="btn sm" data-demo-yes="${k}">确认拆除</button></div>`
     : `<div class="hrow"><button class="btn sm alt" data-demo="${k}">拆除 · 退 ${fmt(L.homeRefund(st, k))}</button></div>`;
   return `<div class="card flat hdet"><div style="flex:none">${bldSprite(k, lv, B.max) || bldIcon(k, 3)}</div><div class="main">
@@ -117,8 +117,12 @@ function showHome(still, sel) {
   if (sel !== undefined) { homeSel = sel; homeDemo = ''; }
   const pl = L.homePlots(st), max = L.homePlotMax(st), n = Math.max(8, pl.length);
   if (homeSel >= n) homeSel = 0;
-  const rec = homeRec(), tiles = [];
+  const rec = homeRec(), tiles = [], full = UI.isOpen('plots');
+  const firstEmpty = pl.indexOf(null, 1), canBuildAny = !!rec && L.homeUnlocked(st, rec.k);
+  const showIdx = i => full || (i < pl.length && (!!pl[i] || (i === firstEmpty && canBuildAny)));
+  if (!showIdx(homeSel)) homeSel = 0;
   for (let i = 0; i < n; i++) {
+    if (!showIdx(i)) continue;
     const k = pl[i], lockd = i >= pl.length, over = i >= max && !!k, s = i === homeSel;
     const state = lockd ? 'locked' : k ? 'built' : 'empty';
     const nm = lockd ? '未开' : k ? HB(k).n : '空地', canB = !k && !lockd && !!rec && !L.buildWhy(st, rec.k, i);
@@ -135,8 +139,9 @@ function showHome(still, sel) {
     + (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}${tox}${auto ? ` · 续炼 ${auto} 种` : ''}</button>` : '')
     + (L.petCount(st) || (st.petPend || []).length ? `<button class="btn ${L.petGlowAny(st) || (st.petPend || []).length ? 'gold' : 'alt'}" id="btnPets">兽栏 · 灵宠 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}${L.petGlowAny(st) ? ' · 能进化' : (st.petPend || []).length ? ' · 有新灵宠' : ''}</button>` : '')
     + (L.gearOpen(st, 'forge') || Object.keys(st.gear.plans).length ? `<button class="btn alt" id="btnForgeH">器炉 · 打造 · 器方 ${Object.keys(st.gear.plans).length} 张 · 灵矿 ${fmt(st.ore || 0)}</button>` : '');
-  const body = healCard() + retreatCard() + `<div class="hgrid" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + caveCard + (alch ? '<div class="sep"></div>' + alch : '');
-  const s = sheet({ title: '洞府', still, sub: `${L.caveName(st.home.cave)} · 地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))} · 修炼 +${dec(L.gain(st))}/周天`, body });
+  // 洞府本体扩建（寿元、多开地块）：丹炉开了以后才出现（docs/ONBOARDING.md：第一章只有聚灵阵和闭关）
+  const body = healCard() + (UI.isOpen('retreat') || st.retreat ? retreatCard() : '') + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
+  const s = sheet({ title: '洞府', still, sub: full ? `${L.caveName(st.home.cave)} · 地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)} · 每周天 +${fmt(L.income(st))} · 修炼 +${dec(L.gain(st))}/周天` : `灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天`, body });
   homeMsg = '';
   const on = (q, f) => { const b = s.querySelector(q); if (b) b.onclick = f; };
   on('#btnAlch', () => { SFX.tap(); showAlchemy(); });

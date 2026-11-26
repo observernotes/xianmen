@@ -36,10 +36,11 @@ function showBreakthrough(still) {
       <div class="big seal">冲击${nxt}</div>
       <div class="muted">${trib ? `需渡 ${trib} 道雷劫` : '水到渠成，无需渡劫'}</div></div></div>
     <div class="center"><div class="muted">成功率</div><div class="big ${rate >= 0.7 ? 'jadet' : rate >= 0.4 ? 'goldt' : 'seal'}" id="btRate" style="font-size:calc(var(--fs)*3)">${L.pct(rate)}</div>
-      ${guard ? '<div class="jadet">老祖护法：头一回冲击筑基，必成（不耗丹）</div>' : sure ? '<div class="jadet">九转金丹：必定成功（不耗丹）</div>' : `<div class="fxlist">${parts}</div>`}</div>
-    <div class="stepper" id="btStep"><span class="grow">服破境丹 <span class="muted">每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚（剩 ${st.pills}）</span></span>
-      <button class="btn sm alt" data-st="-1" ${n <= 0 || guard || sure ? 'disabled' : ''}>−</button><b class="num">${n}</b><button class="btn sm alt" data-st="1" ${n >= max || guard || sure ? 'disabled' : ''}>+</button></div>
-    <div class="muted">${guard || sure ? '' : fail}${p.r < L.MAXR ? `成功后寿元 ${fmt(L.lifespan(st))} → ${fmt(nextLife())} 年，战力约 ×${btPowerMult().toFixed(1)}。` : ''}</div>`;
+      ${guard ? '<div class="jadet">老祖护法：头一回冲击筑基，必成（不耗丹）</div>' : sure ? '<div class="jadet">九转金丹：必定成功（不耗丹）</div>' : ''}
+      ${p.r < L.MAXR ? `<div class="num">成了：战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 ${fmt(L.lifespan(st))} → <b>${fmt(nextLife())}</b> 年</div>` : ''}</div>
+    ${guard || sure || (!st.pills && !UI.isOpen('market')) ? '' : `<div class="stepper" id="btStep"><span class="grow">服破境丹 <span class="muted">每枚 +${L.pct(L.BT.pill)}（剩 ${st.pills}）</span></span>
+      <button class="btn sm alt" data-st="-1" ${n <= 0 ? 'disabled' : ''}>−</button><b class="num">${n}</b><button class="btn sm alt" data-st="1" ${n >= max ? 'disabled' : ''}>+</button></div>`}
+    ${guard || sure ? '' : `<details class="more"><summary>详情：成功率怎么来、失败会怎样</summary><div class="fxlist">${parts}</div><div class="muted">${fail}一次最多 ${L.BT.maxPills} 枚破境丹。</div></details>`}`;
   const s = sheet({ title: p.r >= L.MAXR ? '飞升天劫' : '境界突破', still, body, foot: [{ t: '再准备一下', alt: true, fn: closeModal }, { t: trib ? '引动天劫' : '开始突破', gold: true, fn: go }] });
   s.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { SFX.tap(); btPills = Math.max(0, Math.min(max, n + +b.dataset.st)); showBreakthrough(true); });
   function go() {
@@ -59,18 +60,19 @@ function afterBreakthrough(res) {
     lines.push(`<div class="row" style="justify-content:center;gap:12px">${myAvImg(78, undefined, '', 'joy')}${btStamp('完')}</div>`);
     lines.push(`<div class="center big goldt">${L.REALMS[p.r].n}期！</div>`);
     lines.push(`<div class="center num">战力 ${fmt(res.before)} → <span class="seal">${fmt(res.after)}</span>（×${(res.after / res.before).toFixed(1)}）</div>`);
-    lines.push(`<div class="center num">寿元 ${fmt(res.lifeBefore)} → <span class="jadet">${fmt(res.lifeAfter)}</span> 年</div>`);
+    const more = [`<div class="center num">寿元 ${fmt(res.lifeBefore)} → <span class="jadet">${fmt(res.lifeAfter)}</span> 年</div>`];
     if (res.tb) lines.push(tribResultHTML(res));
-    else if (res.pills) lines.push(`<div class="center muted">服下破境丹 ${res.pills} 枚 · 成功率 ${L.pct(res.rate)}</div>`);
+    else if (res.pills) more.push(`<div class="center muted">服下破境丹 ${res.pills} 枚 · 成功率 ${L.pct(res.rate)}</div>`);
     else if (res.guard) lines.push('<div class="center muted">老祖护法，一举功成</div>');
-    if (res.carry >= 1) lines.push(`<div class="center muted">圆满后多攒的修为 +${fmt(res.carry)} 带进了新境界</div>`);
+    if (res.carry >= 1) more.push(`<div class="center muted">圆满后多攒的修为 +${fmt(res.carry)} 带进了新境界</div>`);
     if (res.awaken) {
       lines.push(res.awaken.stage === 1 ? '<div class="quote">戒中老祖：“小子，你以为你真是杂灵根？老夫封住你的灵根，就是为了今天！”</div>' : `<div class="quote">戒中老祖：“混沌灵根第 ${res.awaken.stage} 次觉醒。哼，有本座三成风采了。”</div>`);
       const T0 = L.talentInfo(st, res.awaken.from), T1 = L.talentInfo(st, res.awaken.to);
       lines.push(`<div class="center">灵根蜕变：${talentTag(res.awaken.from)} → ${talentTag(res.awaken.to)}</div>`);
-      lines.push(`<div class="center muted">修炼 ×${T0.cul} → ×${T1.cul}，战力 ×${T0.atk} → ×${T1.atk}</div>`);
+      more.push(`<div class="center muted">灵根：修炼 ×${T0.cul} → ×${T1.cul}，战力 ×${T0.atk} → ×${T1.atk}</div>`);
       SFX.reveal(6);
     }
+    lines.push(`<details class="more"><summary>详情：寿元、丹药、灵根</summary>${more.join('')}</details>`);
     sheet({ title: res.tb ? '渡劫成功' : '突破成功', center: true, body: lines.join(''), foot: [{ t: '道法自然', gold: true, fn: closeModal }] });
   } else {
     sheet({

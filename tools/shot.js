@@ -23,6 +23,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
+    L.onbAll(st);   // 造的是中期局面：上手曲线全算开了（docs/ONBOARDING.md）
     st.stones = 5e4; st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.p.t = 4; st.flags.awoke = 2;
     for (const id of ['x_houtu', 'x_qingmu', 'x_changchun', 'z_hanyue', 'z_huichun', 'z_liuyun', 'm_lianxi', 'm_yufeng']) L.giveArt(st, id);
     st.arts.own.x_houtu = L.artNeed('x_houtu', 2) + 5; st.arts.own.z_hanyue = L.artNeed('z_hanyue', 1) + 3; st.arts.own.x_qingmu = L.artNeed('x_qingmu', 3);
@@ -459,7 +460,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const rvBuild = kind => page.evaluate(kind => {
     const { L } = window.__xm;
     const m0 = document.getElementById('modal'); m0.hidden = true; m0.innerHTML = '';   // 上一页关掉后弹窗里的旧节点还在（#rvSwap 会让 rvKezhi 的 when 继续为真）：清干净
-    const s = L.newState({ name: '论道客' });
+    const s = L.newState({ name: '论道客' }); L.onbAll(s);
     s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.stats.exp = 20; s.storyQ = []; s.guide = { step: 99, done: true };
     s.hintSeen = {}; for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin', 'art1', 'art2', 'zhanji', 'mishu', 'ke', 'gearPlus', 'gearRobe', 'gearOrn', 'gearForge', 'cal', 'world1', 'shelf', 'sell', 'auction', 'gearCmp', 'rvKezhi', 'rvGrudge', 'rvRookie']) s.hintSeen[k] = 1;
     for (const h of window.__xm.hints) if (!/^rv/.test(h.id)) s.hintSeen[h.id] = 1;   // 别的线新增的讲解一律算看过，免得抢在宿敌的讲解前面
@@ -698,7 +699,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await close();
   await page.evaluate(() => {
     const { L } = window.__xm;
-    const s = L.newState({ name: '轮回客' }); s.p.r = 9; s.p.s = 0; s.flags.maxI = 36; s.flags.maxR = 9; s.bestRank = 3; s.stats.mjDeep = 9; s.tick = 300;
+    const s = L.newState({ name: '轮回客' }); L.onbAll(s); s.p.r = 9; s.p.s = 0; s.flags.maxI = 36; s.flags.maxR = 9; s.bestRank = 3; s.stats.mjDeep = 9; s.tick = 300;
     s.guide = { step: 99, done: true }; s.hintSeen = {}; s.storyQ = [];
     for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin']) s.hintSeen[k] = 1;
     for (let k = 0; k < 20; k++) s.meta.aff[k] = 1;

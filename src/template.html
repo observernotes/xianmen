@@ -785,6 +785,19 @@ button.check { border: 0; font: inherit; color: var(--paper-ink); text-align: le
 .dflip-t { font-size: var(--fs); text-shadow: 1px 1px 0 var(--ink); }
 .dflip-t small { color: var(--text); opacity: .75; }
 .empty-note img { opacity: .9; }
+/* 上手曲线（docs/ONBOARDING.md）：没开的入口、数值格不占位，剩下的平分一行；次要明细收进“详情” */
+#nav, #stats { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+details.more { margin-top: 6px; border-top: 1px dashed var(--muted); padding-top: 4px; }
+details.more > summary { cursor: pointer; color: var(--muted); min-height: 44px; display: flex; align-items: center; list-style: none; }
+details.more > summary::before { content: '▸ '; white-space: pre; }
+details.more[open] > summary::before { content: '▾ '; }
+details.more > summary::-webkit-details-marker { display: none; }
+.hgrid.few { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* 手机适配（docs/ONBOARDING.md §6.3）：第一屏的正文用中字号（Pixel 7 上 18px、360 宽 18px），说明小字才用小字号；详情里的明细保持小字 */
+.sheet .body > p, .sheet .body > .center:not(.muted), .sheet .body > .quote, .sheet .body > .row .grow, .choices .btn > span, #tip .grow, .sheet .body > dl.grid2 dd, .sheet .body > dl.grid2 dt { font-size: var(--fs-m); line-height: 1.5; }
+details.more > *:not(summary) { font-size: var(--fs); }
+.sheet .body { font-size: var(--fs-m); line-height: 1.5; }
+.sheet .body .muted, .sheet .body small, .sheet .body .chip, .sheet .body .sub, .sheet .body .btn.sm, .sheet .body .tabs button, .sheet .body .segb small, .sheet .body .fxlist span, .sheet .body .seal.tag { font-size: var(--fs); }
 </style>
 
 <div id="app">

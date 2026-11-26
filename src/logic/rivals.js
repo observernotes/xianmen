@@ -115,8 +115,8 @@ L.markBeat = function (st, id) {
 L.duelLines = Q => ({ even: Q, sure: Q * 1.8 });
 // 三年之约：第 36 周天（炼气期 12 周天一年）。第一世未筑基时老祖借力 ×2
 L.PACT_TICK = 36;
-L.PACT_POWER = 140;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125；最终校准 → 140（guided 95% → 92%，贴上沿太紧），借力 2.5 → 2.8 把 idle 抬回 17%
-L.PACT_ASSIST = 2.8;
+L.PACT_POWER = 88;   // SYSTEMS §18：90 → 100；功法战技与五行克制接入后 → 125；最终校准 → 140；上手曲线（docs/ONBOARDING.md）第一章不再有坊市、灵田、丹炉、战技 → 88，借力 2.8 → 1.8 把 idle 压回 15%～25%
+L.PACT_ASSIST = 1.8;
 L.pactPower = () => L.PACT_POWER;
 // 对手描述（给对决倍率用；五行等属性随宿敌资料接入，见 CONTENT §10）
 L.PACT_FOE = { kind: 'rival', id: 'mu' };
