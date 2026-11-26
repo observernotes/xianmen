@@ -57,7 +57,7 @@ function guideTick() {
   // U04：筑基后灵兽蛋上架
   if (p.r >= 1 && L.marketOpen(st, 'egg') && !L.petCount(st)) tip('u04', `灵兽蛋上架了，${fmt(L.price(st, 'egg'))} 灵石一枚。灵宠最低也让战力 ×${L.PETS[1].m}。【坊市】。`);
   // U14：金丹后能连续历练
-  if (L.chainOpen(st) && !st.rebirth) tip('u14', '嫌一趟趟点麻烦：出发页勾“连续 ×3”，回来一起结算（丁等、遭遇或修为圆满时中断）。');
+  if (L.sweepOpen && L.sweepOpen(st) && !st.rebirth) tip('u14s', '扫荡开了：拿过甲、战力到推荐 ×1.8 的格子，出发页点【扫荡 ◆1】，不播战斗直接结算。');
   // U17：成为宗主
   if (st.sect && st.sect.rank >= 6) tip('u17', `现在这座山是你的了。【宗门】里多了建设，灵石有去处了；九宗会武改成三人战，带两个徒弟上。`, { big: true });
   // S11：第一次拿到丁等（历练结算之后）

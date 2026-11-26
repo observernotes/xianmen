@@ -1,7 +1,8 @@
 // 新手引导流程测试（开罗式重整，docs/KAIRO_PLAN.md §5）：按真实玩家的点法走第一章，逐步截图并核对
-//   · 主画面：时间条 36 格 + 末格红、目标卡四样、固定五格（没开的灰着 + 一行条件）、“去”角标
+//   · 主画面：时间条 12 格（一格一季）+ 末格红、目标卡四样、行动点一行（◆◆◆ +【下一季】，没有速度键）、固定五格（没开的灰着 + 一行条件）、“去”角标
 //   · 阻塞对话只剩清单：头三步手把手（只有金框和一行字 ≤ 16 字，没有“好”），之后全程不出现带【好】的老祖讲解
-//   · 在外零打断；结算卡有“战力 前 → 后”“离目标”；解锁卡【带我去】1 次点击到控件；装备 1 次点击；年报；突破走目标卡【去】；备战卡 → 三年之约 → 章末结算
+//   · 历练当场打完（演出期间不出弹层）；结算卡有“战力 前 → 后”“离目标”；解锁卡排在结算卡之后【带我去】1 次点击到控件；第四步引导指【下一季】；
+//     装备 1 次点击；点【下一季】过季、冬季的季末卡是年报；突破走目标卡【去】；备战卡只有【知道了】→【赴约 ▸】→ 三年之约 → 章末结算（docs/AP_PLAN.md §6）
 // node tools/guide_test.js <输出目录> [设备名|360]
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -13,7 +14,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const b = await chromium.launch();
   const opts = dev === 'desktop' ? { viewport: { width: 1280, height: 860 } } : dev === '360' ? { viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { ...devices[dev] };
   const page = await (await b.newContext(opts)).newPage();
-  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  const errs = []; page.on('pageerror', e => errs.push(e.message + ' @ ' + String(e.stack || '').split('\n').slice(1, 3).join(' | ')));
   await page.goto('file://' + path.join(__dirname, '..', 'dist', 'index.html'));
   await page.waitForTimeout(400);
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
@@ -24,8 +25,8 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const modal = () => ev(() => (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?'));
   // 全程记：带【好 / 知道了】按钮的老祖讲解（阻塞讲解）出现过几次
   await ev(() => { window.__blk = 0; new MutationObserver(() => { if (!document.getElementById('guide').hidden && document.querySelector('#guide [data-g="ok"]')) window.__blk++; }).observe(document.getElementById('guide'), { attributes: true, childList: true, subtree: true }); });
-  // 推进 n 个月（逐月调 onTick，和真实时钟一样走 clock.js 的打断规则）
-  const adv = n => ev(n => { const X = window.__xm; for (let i = 0; i < n; i++) { X.L.flow(X.st, 1); X.onTick(); } }, n);
+  // 推进 n 季：点【下一季】（时间不再自己走，AP_PLAN §6.3）
+  const adv = async n => { for (let i = 0; i < n; i++) { await ev(() => window.__xm.nextSeason(true)); await page.waitForTimeout(150); } };
   const closeAll = async stopAt => { for (let i = 0; i < 8; i++) { const m = await modal(); if (!m || (stopAt && stopAt.test(m))) return; const u = await page.$('#unlOk'); if (u) await u.click(); else { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); else await ev(() => window.__xm.closeModal()); } } await page.waitForTimeout(450); } };
 
   // ---------- 开局主画面 ----------
@@ -35,7 +36,9 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     ch: document.getElementById('gCh').textContent, t: document.getElementById('gT').textContent, bar: document.getElementById('gBar').textContent, nx: document.getElementById('gNext').textContent,
     nav: [...document.querySelectorAll('#nav button')].map(x => x.dataset.nav + (x.classList.contains('lk') ? '(灰)' : '')).join(','), go: (document.querySelector('[data-nav="exp"] .badge') || {}).textContent,
   }));
-  check(m0.pips === 36 && m0.red && /三年之约 还有 36 月/.test(m0.big), `时间条 36 格、末格红、“${m0.big}”`);
+  check(m0.pips === 12 && m0.red && /三年之约 还有 12 季/.test(m0.big), `时间条 12 格（一格一季）、末格红、“${m0.big}”`);
+  const ap0 = await ev(() => ({ spd: !!document.getElementById('btnSpeed'), pips: document.getElementById('apPips').textContent, nx: document.getElementById('btnNext').textContent, date: document.getElementById('date').textContent }));
+  check(!ap0.spd && ap0.pips === '◆◆◆' && /下一季/.test(ap0.nx) && /^第 1 年 · 春$/.test(ap0.date), `行动点一行：${ap0.pips} · ${ap0.nx} · ${ap0.date}；没有速度键`);
   check(m0.ch === '第一章' && /三年之约/.test(m0.t) && /胜算 \d+% → 目标 80%/.test(m0.bar) && m0.nx.startsWith('下一步：'), `目标卡：${m0.ch} · ${m0.t} · ${m0.bar} · ${m0.nx}`);
   check(m0.nav === 'exp,home(灰),gear,world(灰),path', `开局五格都在、没开的灰着、【装备】开局就亮（功法页有心法与绝招，COMBAT_LOOT §7.3）（${m0.nav}）`);
   check(m0.go === '去', `【历练】挂“去”（${m0.go}）`);
@@ -43,7 +46,6 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   let t = await gtext();
   const g1 = await ev(() => ({ ok: !!document.querySelector('#guide [data-g="ok"]'), hold: window.__xm.guideHold, slim: document.querySelector('#guide .gbox').classList.contains('slim') }));
   check(t.length > 0 && t.length <= 16 && !g1.ok && g1.slim, `第 1 步：一行字（${t}，${t.length} 字）、没有“好”按钮`);
-  check(g1.hold, '手把手时停表');
   await page.click('[data-nav="exp"]'); await page.waitForTimeout(300); t = await gtext(); await shot('g02-exppick');
   check(/后山野林/.test(t) && t.length <= 16, `第 2 步：${t}`);
   check(await ev(() => document.querySelectorAll('#modal .card[data-k]').length === 1), '第一趟只有后山野林一格');
@@ -52,20 +54,19 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   check(/出发/.test(t) && t.length <= 16, `第 3 步：${t}`);
   check(/^[乙甲天](～[乙甲天])?$/.test(conf.rate) && conf.rate === conf.fc, `确认页预计评价 ${conf.rate}（回合战：第一趟按打出来的定，COMBAT_LOOT §2.3）`);
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(700); await shot('g04-travel');
-  const tr = await ev(() => ({ exp: !!window.__xm.st.exp, done: window.__xm.st.guide.done, pill: document.getElementById('scenePill').textContent, bar: !document.getElementById('tripBar').hidden, haul: !document.getElementById('haul').hidden }));
-  check(tr.exp && tr.done, '出发后引导做完');
-  check(/历练中/.test(tr.pill) && tr.bar && tr.haul, `在外：状态牌“${tr.pill}”、格子条、累计条`);
-  // 在外零打断：逐月推到最后一月前，期间不出任何弹层 / 气泡 / 讲解
+  const tr = await ev(() => ({ exp: !!window.__xm.st.exp, step: window.__xm.st.guide.step, ap: window.__xm.st.ap.left, tick: window.__xm.st.tick, pill: document.getElementById('scenePill').textContent, bar: !document.getElementById('tripBar').hidden, haul: !document.getElementById('haul').hidden }));
+  check(tr.exp && tr.step >= 3 && tr.ap === 1 && tr.tick === 0, `出发 = 花 2 点（剩 ${tr.ap}）、不占时间（第 ${tr.tick} 月）、头三步做完`);
+  check(/历练中/.test(tr.pill) && tr.bar && tr.haul, `历练演出：状态牌“${tr.pill}”、节点格子条、累计条`);
+  // 一趟当场打完：一个节点一个节点打，期间不出任何弹层 / 讲解
   const away = [];
-  for (let i = 0; i < 3; i++) { await adv(1); await page.waitForTimeout(250); away.push(await ev(() => [document.getElementById('modal').hidden ? '' : 'modal', document.getElementById('tip').hidden ? '' : 'tip', document.getElementById('guide').hidden ? '' : 'guide'].filter(Boolean).join('+'))); if (!(await ev(() => !!window.__xm.st.exp))) break; }
-  check(away.slice(0, -1).every(x => !x), `在外零打断（${away.map(x => x || '·').join(' ')}）`);
+  for (let i = 0; i < 30 && (await ev(() => !!window.__xm.st.exp)); i++) { away.push(await ev(() => [document.getElementById('modal').hidden ? '' : 'modal', document.getElementById('guide').hidden ? '' : 'guide'].filter(Boolean).join('+'))); await ev(() => window.__xm_bt.finish()); await page.waitForTimeout(250); }
+  check(away.every(x => !x) && (await ev(() => window.__xm.st.tick)) === 0, `演出期间零打断、时间没动（${away.map(x => x || '·').join(' ')}）`);
   // ---------- 归来结算卡 ----------
-  if (await ev(() => !!window.__xm.st.exp)) { await ev(() => { const X = window.__xm; X.st.exp.left = 1; }); await adv(1); }
   await page.waitForTimeout(800); await shot('g05-result');
   const res = await ev(() => ({ title: (document.querySelector('#modal h2') || {}).textContent || '', body: (document.querySelector('#modal .body') || {}).textContent || '', btns: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent), stamp: (document.querySelector('#modal .kstamp') || {}).textContent, flip: !!document.querySelector('#modal .lt-cards') }));
-  check(/历练归来/.test(res.title) && /用了 \d+ 月/.test(res.title), `结算卡标题：${res.title}`);
+  check(/历练归来/.test(res.title) && !/月/.test(res.title), `结算卡标题：${res.title}`);
   check(/^[乙甲天]$/.test(res.stamp), `评价印“${res.stamp}”（回合战按打出来的定）`);
-  check(/战力\s*\d+\s*→\s*\d+/.test(res.body.replace(/\s+/g, ' ')) && /离目标/.test(res.body) && /还有 \d+ 月/.test(res.body), '结算卡：战力 前 → 后、离目标、还有 N 月');
+  check(/战力\s*\d+\s*→\s*\d+/.test(res.body.replace(/\s+/g, ' ')) && /离目标/.test(res.body) && /还有 \d+ 季/.test(res.body) && !/你不在时/.test(res.body), '结算卡：战力 前 → 后、离目标、还有 N 季（没有“你不在时”）');
   check(/已戴上/.test(res.body) || res.flip, '第一件法宝：已戴上（不讲解）或在归途翻牌里（刷宝线）');
   check(res.btns.length === 1 && res.btns[0] === '回洞府', `第一张结算卡只有【回洞府】（${res.btns.join('/')}）`);
   await page.click('#modal .foot .btn'); await page.waitForTimeout(900);
@@ -83,6 +84,15 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#modal button[data-k="array"]'); await page.waitForTimeout(300);
   check(await ev(() => window.__xm.st.home.array === 1), '聚灵阵升到 1 级（金框不挡点击）');
   await closeAll();
+  // ---------- 第四步：金框指【下一季】，一行字，只此一次（AP_PLAN §6.4） ----------
+  await page.waitForTimeout(500); t = await gtext(); await shot('g07b-next');
+  const g4 = await ev(() => window.__xm.guideCur);
+  check(!!g4 && g4.id === 'nextSeason' && g4.target === '#btnNext' && t.length <= 16, `第 4 步：${t}（${g4 && g4.target}）`);
+  await page.click('#btnNext'); await page.waitForTimeout(500);
+  check(await ev(() => window.__xm.st.tick === 3 && window.__xm.st.guide.done && window.__xm.st.ap.left === 3), '点【下一季】：过一季（第 3 月）、行动点回满、引导做完');
+  await shot('g07c-season');
+  check(/春\s*结束/.test(await modal()), `季末卡：${await modal()}`);
+  await closeAll();
   // ---------- 装备：1 次点击 ----------
   await page.click('[data-nav="gear"]'); await page.waitForTimeout(350); await shot('g08-gear');
   check(await ev(() => /装备/.test(document.querySelector('#modal h2').textContent) && document.querySelectorAll('#modal .kslot').length >= 3 && !!document.querySelector('#modal [data-kdet="w"]')), '【装备】1 次点击：兵器 / 法衣 / 饰品三格');
@@ -92,10 +102,10 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await closeAll();
   // ---------- 一年：年报 ----------
   await ev(() => { const X = window.__xm; X.st.visitor = null; });
-  for (let i = 0; i < 14 && !(await modal()).includes('年报'); i++) { await adv(1); await page.waitForTimeout(300); const m = await modal(); if (m && !m.includes('年报')) await closeAll(); }
+  for (let i = 0; i < 6 && !(await modal()).includes('年报'); i++) { await adv(1); await page.waitForTimeout(300); const m = await modal(); if (m && !m.includes('年报')) await closeAll(); }
   await shot('g10-year');
   const yr = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', b: (document.querySelector('#modal .body') || {}).textContent || '', tick: window.__xm.st.tick }));
-  check(/年报/.test(yr.m) && /战力/.test(yr.b) && /明年/.test(yr.b), `第 ${yr.tick} 月：年报（${yr.m}）`);
+  check(/年报/.test(yr.m) && /战力/.test(yr.b) && /明年/.test(yr.b) && yr.tick === 12, `第 ${yr.tick} 月：冬季的季末卡就是年报（${yr.m}）`);
   await closeAll();
   // ---------- 老祖头像 = 变强页（KAIRO_PLAN §10.5）：目标卡“下一步”、头像点开的第一张、L.advise 第一张是同一件事 ----------
   await ev(() => { const X = window.__xm; X.st.exp = null; X.st.retreat = null; });
@@ -120,16 +130,19 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.waitForTimeout(400);
   check(await ev(() => window.__xm.st.p.r === 1), '突破筑基成功');
   await closeAll();
-  // ---------- 三年之约：备战卡（前 1 月）→ 对决 → 章末结算 ----------
-  await ev(() => { const X = window.__xm; X.st.tick = 34; X.st.exp = null; X.st.retreat = null; X.st.visitor = null; });
-  await adv(1); await page.waitForTimeout(600); await shot('g12-prep');
-  const pm = await modal();
-  check(/备战/.test(pm), `第 35 月：备战卡（${pm || '没出'}）`);
-  if (/备战/.test(pm)) { await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400); }
+  // ---------- 三年之约：本季末那一季（第 12 季）：【赴约 ▸】红边；备战卡只有【知道了】、不自动弹 → 点【赴约】→ 年报 → 对决 → 章末结算 ----------
+  await ev(() => { const X = window.__xm; X.st.tick = 33; X.st.exp = null; X.st.retreat = null; X.st.visitor = null; X.updateHUD && X.updateHUD(); });
+  await page.waitForTimeout(600); await shot('g12-prep');
+  const pb = await ev(() => ({ mt: (document.querySelector("#modal h2") || {}).textContent, m: document.getElementById('modal').hidden ? '' : 'modal', t: document.getElementById('btnNext').textContent, big: document.getElementById('btnNext').classList.contains('big'), lbl: document.getElementById('bigLeft').textContent }));
+  check(!/备战/.test(pb.mt || "") && /赴约/.test(pb.t) && pb.big && /本季末/.test(pb.lbl), `第 12 季：备战卡不自动弹（${pb.mt || "无弹窗"}）、按钮【${pb.t.replace(/剩.*/, '')}】${pb.big ? "红边" : ""}、“${pb.lbl}”`);
+  await ev(() => window.__xm.showPrep()); await page.waitForTimeout(400);
+  const pf = await ev(() => [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent));
+  check(/备战/.test(await modal()) && pf.length === 1 && pf[0] === '知道了', `备战卡：${await modal()} ·【${pf.join('/')}】`);
   await closeAll();
-  await ev(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); });
-  await page.waitForTimeout(600); await shot('g13-pact');
-  check(await ev(() => !!document.querySelector('#modal.duel-m')), '三年之约在场景里演');
+  await page.click('#btnNext'); await page.waitForTimeout(500);
+  for (let i = 0; i < 6 && !(await ev(() => !!document.querySelector('#modal.duel-m'))); i++) { const m = await modal(); if (m) { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); } await page.waitForTimeout(500); }
+  await page.waitForTimeout(300); await shot('g13-pact');
+  check(await ev(() => !!document.querySelector('#modal.duel-m') && window.__xm.st.tick === 36), '第 36 月：季末结算之后，三年之约在场景里演（同一条结算链）');
   await page.waitForTimeout(1500);
   if (await ev(() => /跳过/.test((document.querySelector('#modal .foot .btn') || {}).textContent || ''))) { await page.click('#modal .foot .btn'); await page.waitForTimeout(700); }
   await page.click('#modal .foot .btn'); await page.waitForTimeout(800);

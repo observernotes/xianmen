@@ -37,7 +37,7 @@ function rivalListHTML() {
       <span class="line">${st.beaten[id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${q || '?'}名</span>`}${grudgeTag(g) || `<span class="muted">恩怨 ${g}</span>`}</span></span><span class="rvgo">›</span></button>`;
   });
   const mf = L.mainFoes ? L.mainFoes(st).filter(id => id !== 'mu' || st.pact) : [];
-  const top = mf.length ? `${pnHead('这一章的对手', '点开下战书')}${mf.map(id => { const I = L.challengeInfo(st, id); return `<button class="rvrow" data-rv="${id}" id="rvMain">${rvPortrait(id, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(I.n)}</b><span class="chip warn">主线</span></span><span class="line ${I.why ? 'muted' : 'goldt'}">${I.why ? esc(I.why) : `胜算 ${L.pct(I.p)} · 下战书`}</span></span><span class="rvgo">›</span></button>`; }).join('')}` : '';
+  const top = mf.length ? `${pnHead('这一章的对手', '点开下战书')}${mf.map(id => { const I = L.challengeInfo(st, id); return `<button class="rvrow" data-rv="${id}" id="rvMain">${rvPortrait(id, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(I.n)}</b><span class="chip warn">主线</span></span><span class="line ${I.why ? 'muted' : 'goldt'}">${I.why ? esc(I.why) : `胜算 ${L.pct(I.p)} · 下战书${apTag(L.AP.duel)}`}</span></span><span class="rvgo">›</span></button>`; }).join('')}` : '';
   return `${top}${pnHead('宿敌', '点开看底细')}${rows.join('')}${rookieListHTML()}`;
 }
 function rookieListHTML() {

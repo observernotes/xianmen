@@ -144,7 +144,7 @@ function drawParts(dt) {
   ctx.globalAlpha = 1;
   if (parts.length > 500) parts.splice(0, parts.length - 500);
 }
-function seasonFx(night) {
+function seasonSceneFx(night) {
   const s = season();
   if (Math.random() < [0.05, 0, 0.04, 0.07][s]) {
     const c = s === 0 ? '#f7a8c4' : s === 2 ? (Math.random() < .5 ? '#e8873a' : '#d6b13a') : '#ffffff';
@@ -158,7 +158,7 @@ function drawHomeScene(dt) {
   // 洞府建筑（主角身后的先画）与阵法光圈（后半圈在主角身后、前半圈在前）；没有阵法美术时退回原来的聚灵阵圈
   const bl = drawBuildings('back');
   const zc = ART.drawFormation ? drawZhen('back') : null, col = ART.drawFormation ? zc : drawArray(HOMEPOS.x, HOMEPOS.y - 1);
-  seasonFx(r.night);
+  seasonSceneFx(r.night);
   const retArt = !!(st.retreat && ART.drawRetreat && !cine && st.retreat.kind !== 'busy' && st.retreat.kind !== 'teach');
   if (retArt) ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'back');   // 闭关：身后封印石门
   if (cine) drawCineTarget(); else { if (!retArt) drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
