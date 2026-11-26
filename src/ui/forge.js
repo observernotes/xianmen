@@ -33,7 +33,7 @@ function forgeEdgeHTML(x) {
 }
 function forgePageInfuse(x) {
   if (x.slot !== 'w') return { html: '<div class="muted">只有兵器能淬灵（法衣淬灵筑基后开）。</div>', main: null };
-  if (!L.gearOpen(st, 'infuse')) return { html: `<div class="muted">${esc(L.gearOpenWhy(st, 'infuse'))}：精英掉它那一系的灵核。</div>`, main: null };
+  if (!L.gearOpen(st, 'infuse') || !UI.isOpen('infuse')) return { html: `<div class="muted">${esc(L.gearOpenWhy(st, 'infuse'))}：精英掉它那一系的灵核。</div>`, main: null };
   const cur = L.gearEl(x), c = L.gearInfuseCost(x);
   if (!forgeEl || forgeEl === cur) forgeEl = L.CORE_EL.filter(e => e !== cur).sort((a, b) => L.coreN(st, b) - L.coreN(st, a))[0];
   const cells = L.CORE_EL.map(e => `<button class="lt-ic${e === forgeEl ? ' sel' : ''}${e === cur ? ' cur' : ''}" data-infel="${e}" ${e === cur ? 'disabled' : ''}>${ART.core ? `<img class="px" src="${urlOf(ART.core(e), 'core|' + e)}" style="width:${pxFit(16, 28)}px;height:${pxFit(16, 28)}px" alt="">` : ''}<b class="num">${L.coreN(st, e)}</b></button>`).join('');
@@ -80,7 +80,7 @@ function showGearDetail(sel, still, tab) {
     main = pg.main;
     const sk = L.gearSkill ? L.gearSkill(x) : null;
     const skill = sk && sk.n ? `<div class="kslot"><div class="cell">${ART.skillIcon ? `<img class="px" src="${urlOf(ART.skillIcon(sk.el || L.gearEl(x), 'qi'), 'ski|' + (sk.el || L.gearEl(x)) + '|qi')}" style="width:${pxFit(16, 40)}px;height:${pxFit(16, 40)}px" alt="">` : ''}</div><div class="mid"><div class="nm">器技 · ${esc(sk.n)}</div><small>${esc(sk.d || '')}</small></div></div>` : '';
-    const affs = forgeTab === 'reroll' ? '' : x.aff.map(a => `<div class="krow"><span class="k">${L.AFFIX[a].n}</span><span class="v">${esc(L.AFFIX[a].d)}</span></div>`).join('') + (x.gold ? `<div class="krow"><span class="k lt-gold-t">${L.GOLD_AFFIX[x.gold].n}</span><span class="v">${esc(L.GOLD_AFFIX[x.gold].d)}</span></div>` : '');
+    const affs = forgeTab === 'reroll' ? '' : x.aff.filter(a => L.AFFIX[a]).map(a => `<div class="krow"><span class="k">${L.AFFIX[a].n}</span><span class="v">${esc(L.AFFIX[a].d)}</span></div>`).join('') + (x.gold ? `<div class="krow"><span class="k lt-gold-t">${L.GOLD_AFFIX[x.gold].n}</span><span class="v">${esc(L.GOLD_AFFIX[x.gold].d)}</span></div>` : '');
     det = `<div class="gdet pn-gdet lt-det" style="border-left-color:${gTierBorder(x.t)}">
       <div class="line">${pnName(esc(B.n), x.t)}${plusTag(x.plus)}${lootStarsHTML(x.star || 0)}${x.slot === 'w' && L.gearEl(x) ? elBadgeHTML(L.gearEl(x)) : ''}</div>
       ${forgeBenchHTML(x, 0)}<div class="ktabs lt-ftabs">${tabs}</div>

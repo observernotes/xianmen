@@ -39,7 +39,7 @@ require('fs').mkdirSync(out, { recursive: true });
     st.market.evQ = [];
     // 法宝：乾坤镜 +3（克木、锋锐）、冰蚕法衣、紫府玉简；灵矿够强化几次
     st.gear = L.newGear(); st.ore = 900; st.treasure = 2;
-    L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.w.aff = ['ke_mu', 'fengrui', 'huixin'].filter(a => L.AFFIX[a]).slice(0, 2);   // 刷宝线把锋锐并进了会心 st.gear.w.plus = 3;
+    L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.w.aff = ['ke_mu', 'huixin']; st.gear.w.plus = 3;
     L.gearDrop(st, 'r', 3, { base: 'r3_0' }); L.gearDrop(st, 'o', 4, { base: 'o_cul4' });
     // 灵宠：元婴名册 3 只——赤焰虎 5 级出战（可进化）、冰羽鹤护阵、月牙兔觅食
     st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
@@ -119,7 +119,7 @@ require('fs').mkdirSync(out, { recursive: true });
     if (!(await page.$('#modal #bagGo'))) errors.push('包裹：灵矿没有【去强化】');
   }
   await close();
-  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; window.__xm.showExpResult(res); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; res.cards = null; window.__xm.showExpResult(res);   /* 牌里的法宝翻开后在牌下出对比行（loot.js）；这里量牌以外的对比行 */ });
   await page.waitForTimeout(1300); await page.screenshot({ path: out + '/09i-exp-gcmp.png' });
   pnCheck(await pnLay('结算卡对比卡', '#modal [data-krow] button, #modal .foot .btn'), 1);
   const gin = await page.evaluate(() => { const c = document.querySelector('#modal [data-krow] [data-req]'); if (!c) return null; const r = c.getBoundingClientRect(), b = document.querySelector('#modal .body').getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
@@ -523,7 +523,7 @@ require('fs').mkdirSync(out, { recursive: true });
       tune(10);   // 榜上第 10 名的战力和你差不多，新秀（第 11 名）才是个真对手
       for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); }
       if (kind === 'rookie') { for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); s.rv2.rk.el = 'shui'; s.rv2.rk.known = 1; }
-      else { s.grudge.zhao = 80; s.grudge.xue = -50; s.beaten.zhao = 1; s.meta.rival.zhao = { art: 1, gear: 1 }; s.rv2.pool.push({ id: 'rkP', n: '墨寒舟', s: '青玄剑宗', el: 'huo', g: 60, gear: { n: '裂空剑', aff: 'fengrui' }, at: 200 }); s.rv2.friends.push({ n: '白小雨', s: '落霞法阁', el: 'mu', at: 100, gifts: 2 }); }
+      else { s.grudge.zhao = 80; s.grudge.xue = -50; s.beaten.zhao = 1; s.meta.rival.zhao = { art: 1, gear: 1 }; s.rv2.pool.push({ id: 'rkP', n: '墨寒舟', s: '青玄剑宗', el: 'huo', g: 60, gear: { n: '裂空剑', aff: 'huixin' }, at: 200 }); s.rv2.friends.push({ n: '白小雨', s: '落霞法阁', el: 'mu', at: 100, gifts: 2 }); }
       s.storyQ = [];
     } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
@@ -721,13 +721,11 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(500); await page.screenshot({ path: out + '/19-newlife.png' });
   const meta = await page.evaluate(() => Object.keys(window.__xm.st.meta.aff).length);
   if (meta < 15) errors.push('转世后相性图鉴没有保留（' + meta + '）');
-  // ---------- 界面改版 A / B 线：变强页（原问老祖）、章末卡、场景内对决（纸卷在下、场景在上）、人物页分页；手机上不横向溢出、可点的 ≥ 44 像素 ----------
+  // ---------- 界面改版 A / B 线：问老祖、章末卡、场景内对决（纸卷在下、场景在上）、人物页分页；手机上不横向溢出、可点的 ≥ 44 像素 ----------
   await close(); await page.waitForTimeout(500);
   await page.evaluate(() => { const { st } = window.__xm; st.guide = { step: 99, done: true }; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.storyQ = []; st.exp = null; st.retreat = null; document.querySelector('#tip').hidden = true; });
-  await page.evaluate(() => window.__xm.showGrowth('goal')); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-growth.png' });
-  lay44(await big44('#modal [data-adv], #modal .gw-tabs button, #modal .gw-det summary, #modal .close', '变强页'));
-  await page.evaluate(() => { window.__xm.closeModal(); window.__xm.showGrowth('cul', { detail: true }); }); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-growth-cul.png' });
-  lay44(await big44('#modal [data-adv], #modal .gw-tabs button, #modal .close', '变强页 · 修炼明细'));
+  await page.evaluate(() => window.__xm.showAsk()); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-ask.png' });
+  lay44(await big44('#modal [data-ask], #modal .foot .btn, #modal .close', '问老祖'));
   await close();
   await page.evaluate(() => window.__xm.showChapterCard(0)); await page.waitForTimeout(450); await page.screenshot({ path: out + '/ui-chapter-card.png' });
   lay44(await big44('#modal .foot .btn', '章末卡'));
@@ -756,7 +754,7 @@ require('fs').mkdirSync(out, { recursive: true });
     for (const k of ['ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life', 'dao1', 'karma1', 'pet1', 'pet2', 'petEvo', 'crops', 'yinGrid', 'toxin']) s.hintSeen[k] = 1;
     for (let k = 0; k < 20; k++) s.meta.aff[k] = 1;
     for (const id of ['x_houtu', 'z_hanyue', 'm_lianxi']) { L.giveArt(s, id); s.arts.own[id] = L.artNeed(id, 3); }
-    L.gearDrop(s, 'w', 4); s.gear.w.aff = ['ke_mu', 'fengrui']; L.petGive(s, { sp: 'p_hu' }); s.pets[0].heart = 5;
+    L.gearDrop(s, 'w', 4); s.gear.w.aff = ['ke_mu', 'huixin']; L.petGive(s, { sp: 'p_hu' }); s.pets[0].heart = 5;
     s.eflags.map_1 = 1; s.eflags.map_2 = 1; s.eflags.tea_1 = 1; L.codexCheck(s);
     window.__xm.loadState(s); window.__xm.setSpeed(3);
   });
@@ -764,7 +762,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40-codex.png' });
   await sLay('图鉴');
   const cx1 = await page.evaluate(() => ({ cats: document.querySelectorAll('#cxGrid [data-cx]').length, cells: document.querySelectorAll('#cxBody .cxc').length, tabs: [...document.querySelectorAll('#modal .ktabs button')].some(b => b.textContent.startsWith('记录')) }));
-  if (cx1.cats < 14 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
+  if (cx1.cats !== 15 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
   await page.click('#modal [data-cx="chain"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40b-codex-chain.png' }); await sLay('图鉴·链');
   const cx2 = await page.evaluate(() => ({ chains: document.querySelectorAll('#cxBody .cxchain').length, segs: document.querySelectorAll('#cxBody .cxseg i').length }));
   if (cx2.chains !== 10 || cx2.segs !== 48) errors.push('图鉴·链页应有 10 条 48 段：' + JSON.stringify(cx2));

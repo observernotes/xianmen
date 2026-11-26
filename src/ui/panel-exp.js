@@ -313,7 +313,6 @@ function gearExpLine(k, d, a) {
 // 首领回合战打完（battle.js 的 btBossEnd 调）：结果卡
 function bossResultUI(k, res) {
   const B = res.B, it = res.item;
-  if (res.win && typeof playCine === 'function' && !res.again) { try { playCine('boss', { k }); } catch (e) { /* 过场线没合并 */ } }
   const body = !res.win ? `<div class="center">${stampHTML(0, true)}</div><p class="center">${esc(B.n)}太强，重伤而归（负伤 4 ${MO()}）。变强之后再来！</p>`
     : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
     : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`;
