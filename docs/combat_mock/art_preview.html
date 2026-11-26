@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf8">
+<style>
+@font-face{font-family:px;src:url(../../tools/fusion-pixel.ttf)}
+body{margin:0;background:#1b1326;color:#efe9ff;font:14px px,sans-serif;padding:16px;width:1500px}
+h3{margin:14px 0 6px;font-weight:normal;color:#f4c542;font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.it{text-align:center;font-size:12px;color:#9d93b8}
+canvas{image-rendering:pixelated;display:block;margin:0 auto 2px;background:#2c2540}
+.paper canvas{background:#efe3c4}.none canvas{background:none}
+</style>
+<h3>一 历练小怪 ART.mob(id, 0 站 / 1 呼吸 / 2 出手)　精英光环 ART.eliteAura(el, f)</h3><div class="row" id="mob"></div>
+<h3>二 招式特效 ART.skillFx(name, 0～3)　破罩 brk　相生连携 chain(el, el2)</h3><div class="row" id="fx"></div>
+<h3>绝招「戒中剑意」ART.ultFx(0～5)</h3><div class="row" id="ult"></div>
+<h3>三 战斗小件：五行徽 / 克制环（高亮“克木”）/ 护罩格 / 招式图标 ART.skillIcon(el, kind)</h3><div class="row" id="ui"></div>
+<h3>四 刷宝：牌背两帧、牌面 1～7 阶、器纹、灵核、小图标</h3><div class="row" id="loot"></div>
+<h3>五 炼器台 ART.forgeBench(0 / 1)</h3><div class="row" id="forge"></div>
+<h3>六 过场：背景 ART.cineBg / 集中线 ART.speedLines / 特写带 ART.cutin / 婚书 ART.tornLetter</h3><div class="row none" id="cine"></div>
+<script src="../../src/art.js"></script>
+<script>
+// art.js 的 ART.fighter 要读 L.REALMS（道袍色）；预览里给个最小的
+window.L = window.L || { REALMS: Array.from({ length: 10 }, () => ({ robe: ['#34408a', '#5b6fd6', '#9fb0ff'], trim: '#efe3c4' })) };
+const add = (id, c, z, cap, bg) => { const d = document.createElement('div'); d.className = 'it'; const e = document.createElement('canvas'); e.width = c.width * z; e.height = c.height * z; const g = e.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, e.width, e.height); if (bg) e.style.background = bg; d.appendChild(e); d.appendChild(document.createTextNode(cap || '')); document.getElementById(id).appendChild(d); return e; };
+for (const id of ART.mobIds) for (let f = 0; f < 3; f++) add('mob', ART.mob(id, f), 4, f ? '' : ART.mobInfo(id).n + '·' + ART.mobInfo(id).el);
+for (const el of ART.elems) add('mob', ART.eliteAura(el, 0), 3, 'aura ' + el);
+for (const n of ['slash', 'vine', 'wave', 'flame', 'quake', 'brk']) for (let f = 0; f < 4; f++) add('fx', ART.skillFx(n, f), 3, f ? '' : n);
+for (let f = 0; f < 4; f++) add('fx', ART.skillFx('chain', f, 'mu', 'huo'), 3, f ? '' : 'chain 木→火');
+for (let f = 0; f < 6; f++) add('ult', ART.ultFx(f), 3, 'ult ' + f);
+for (const el of ART.elems) add('ui', ART.elemBadge(el), 4, el);
+add('ui', ART.elemWheel(), 3, 'elemWheel()'); add('ui', ART.elemWheel('mu'), 3, "elemWheel('mu')");
+add('ui', ART.shieldPip(1), 5, 'pip on'); add('ui', ART.shieldPip(0), 5, 'pip off');
+for (const k of ART.skillKinds) for (const el of ['', 'jin', 'mu', 'shui', 'huo', 'tu']) if (el === '' || k === 'zhan' || el === 'huo') add('ui', ART.skillIcon(el, k), 3, k + ' ' + el);
+add('loot', ART.lootCard('back', 0, 0), 4, 'back 0'); add('loot', ART.lootCard('back', 0, 1), 4, 'back 1');
+for (let t = 1; t <= 7; t++) { const c = document.createElement('canvas'); c.width = 26; c.height = 34; const g = c.getContext('2d'); g.drawImage(ART.lootCard('front', t), 0, 0); g.drawImage(ART.item('w', t), 5, 5); for (let i = 0; i < 3; i++) g.drawImage(ART.star(i < (t % 4)), 3 + i * 7, 25); add('loot', c, 4, 'front ' + t); }
+add('loot', ART.star(1), 5, 'star'); add('loot', ART.star(0), 5, 'star off', '#efe3c4');
+for (const el of ART.elems) add('loot', ART.core(el), 4, 'core ' + el);
+for (const n of ['rune', 'wish', 'f_plus', 'f_infuse', 'f_reroll', 'flee', 'hp', 'rage']) add('loot', ART.icon(n), 4, n);
+add('forge', ART.forgeBench(0), 4, 'bench 0'); add('forge', ART.forgeBench(1), 4, 'bench 1');
+for (const k of ART.cineBgKinds) add('cine', ART.cineBg(k), 2, 'cineBg ' + k);
+{ const c = document.createElement('canvas'); c.width = 200; c.height = 120; const g = c.getContext('2d'); g.drawImage(ART.cineBg('clouds'), 0, 0); g.drawImage(ART.speedLines(0, '#fff2a8'), 0, 0); add('cine', c, 2, 'clouds + speedLines'); }
+add('cine', ART.speedLines(1, '#ffffff'), 2, 'speedLines 1', '#2c2540');
+add('cine', ART.cutin(ART.portraitMe({ hair: '#2a2230', skin: '#f2c9a0', f: 0 }, 0, 'ang'), '#d8404a', false), 3, 'cutin 主角');
+add('cine', ART.cutin(ART.portrait('mu', 'shock'), '#4aa8ff', true), 3, 'cutin 慕容雪（flip）');
+add('cine', ART.cutin(ART.portrait('elder', 'joy'), '#f4c542', false), 3, 'cutin 老祖');
+for (let f = 0; f < 3; f++) add('cine', ART.tornLetter(f), 4, 'tornLetter ' + f, '#2c2540');
+</script>

@@ -1,0 +1,262 @@
+<!doctype html><meta charset="utf8">
+<!-- docs/COMBAT_LOOT.md 的界面示意图。直接用浏览器打开；截图：node tools/combat_shots.js -->
+<style>
+@font-face{font-family:px;src:url(../../tools/fusion-pixel.ttf)}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0914;font-family:px,sans-serif;color:#efe9ff;display:flex;flex-wrap:wrap;gap:24px;padding:24px;width:max-content;max-width:2760px}
+canvas{image-rendering:pixelated;vertical-align:middle}
+.wrap{width:412px}.cap{font:14px sans-serif;color:#9d93b8;margin:0 0 6px}
+.phone{width:412px;height:839px;background:#140e1f;position:relative;overflow:hidden;font-size:16px}
+.hud{background:#262038;border:2px solid #3a3155;box-shadow:inset 0 0 0 1px #1b1326}
+.g{color:#8ff5d0}.y{color:#f4c542}.r{color:#ff9a8a}.dim{color:#9d93b8}.b{color:#7fe0f0}
+.top{position:absolute;left:8px;right:8px;top:6px;height:40px;display:flex;align-items:center;gap:10px;padding:0 8px;font-size:15px;white-space:nowrap}
+.top .sp{flex:1}
+.pips{display:flex;gap:2px;height:10px;width:120px}.pips i{flex:1;background:#3a3155}.pips i.d{background:#4ccb9f}.pips i.n{background:#fff2a8}
+.scene{position:absolute;left:6px;right:6px;top:50px;height:320px;border:2px solid #3a3155;overflow:hidden}
+.scene canvas{position:absolute;left:0;top:0}
+.tag{position:absolute;font-size:14px;padding:1px 5px;background:#1b1326e6;border:1px solid #55506e;white-space:nowrap}
+.dmg{position:absolute;font-size:24px;color:#fff2a8;text-shadow:2px 2px 0 #1b1326,-1px -1px 0 #1b1326;white-space:nowrap}
+.dmg small{font-size:14px;background:#d8404a;color:#fff;padding:0 4px;margin-right:3px;text-shadow:none}
+.path{position:absolute;left:6px;right:6px;top:374px;height:40px;display:flex;align-items:center;padding:0 10px;gap:0;font-size:13px}
+.path .nd{width:30px;height:30px;border:2px solid #55506e;background:#1b1326;text-align:center;line-height:26px;font-size:15px;color:#9d93b8}
+.path .nd.ok{border-color:#4ccb9f;color:#8ff5d0}.path .nd.now{border-color:#f4c542;color:#fff2a8;background:#3a3155}.path .nd.el{border-color:#d8404a}
+.path .ln{flex:1;height:2px;background:#55506e}.path .ln.ok{background:#4ccb9f}
+.me{position:absolute;left:6px;right:6px;top:418px;height:62px;padding:6px 10px}
+.bar{height:16px;background:#1b1326;border:1px solid #55506e;position:relative;margin-bottom:5px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#e86a6a}.bar i.rg{background:#ff9a3a}.bar i.full{background:#f4c542}
+.bar em{position:absolute;left:6px;right:6px;top:0;font-style:normal;font-size:13px;line-height:15px;color:#fff;text-shadow:1px 1px 0 #1b1326;display:flex;justify-content:space-between}
+.skills{position:absolute;left:6px;right:6px;top:484px;height:92px;display:flex;gap:6px}
+.sk{flex:1;padding:6px 4px;text-align:center;font-size:13px;line-height:16px;position:relative}
+.sk .cd{position:absolute;left:50%;top:6px;margin-left:-24px;width:48px;height:48px;background:#0d0914cc;color:#fff;font-size:24px;line-height:48px}
+.sk small{display:block;color:#9d93b8;font-size:12px}
+.sk.lk{color:#6e6a88}.sk.lk canvas{opacity:.3;filter:grayscale(1)}
+.ult{position:absolute;left:6px;right:6px;top:582px;height:72px;display:flex;gap:6px}
+.ult .big{flex:1;text-align:center;font-size:22px;line-height:26px;padding-top:9px;color:#6e6a88;border-color:#55506e}
+.ult .big small{display:block;font-size:13px}
+.ult .big.on{background:#d8404a;border-color:#fff2a8;color:#fff;box-shadow:0 0 0 3px #f4c54299}
+.ult .sm{width:64px;text-align:center;font-size:13px;padding-top:6px;line-height:16px}
+.log{position:absolute;left:6px;right:6px;top:660px;height:26px;font-size:13px;line-height:24px;padding:0 10px;color:#9d93b8;border:0;background:#1b1326}
+.goal{position:absolute;left:6px;right:6px;top:692px;height:50px;padding:6px 10px;border-color:#f4c542;font-size:14px}
+.goal .ch{font-size:12px;color:#1b1326;background:#f4c542;padding:1px 5px;margin-right:6px}
+.nav{position:absolute;left:8px;right:8px;bottom:8px;height:82px;display:flex;gap:5px}
+.nav div{flex:1;text-align:center;padding-top:5px;font-size:15px;position:relative;line-height:17px}
+.nav div.on{border-color:#f4c542;background:#3a3155}.nav div.lk{color:#6e6a88}.nav div.lk canvas{opacity:.28;filter:grayscale(1)}
+.nav div small{display:block;font-size:11px;color:#6e6a88}
+.shade{position:absolute;inset:0;background:#0d0914b8}
+.sheet{position:absolute;left:6px;right:6px;bottom:96px;background:#efe3c4;color:#2c2238;border:3px solid #a8742a;padding:10px 12px}
+.sheet h2{margin:0 0 6px;font-size:21px;font-weight:normal;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sheet h2 .x{margin-left:auto;width:34px;height:34px;border:2px solid #2c2238;text-align:center;line-height:30px;font-size:17px}
+.sheet h2 .num{margin-left:auto;font-size:15px;color:#8a7a5c}
+.tabs{display:flex;gap:4px;margin:6px 0 8px}
+.tabs div{flex:1;text-align:center;border:2px solid #2c2238;padding:6px 0;font-size:16px;background:#f6ecd2}
+.tabs div.on{background:#d8404a;color:#fff}.tabs div.lk{color:#b9a988;border-color:#b9a988;font-size:13px}
+.ink{color:#2a8a7a}.red{color:#c8323c}.mut{color:#8a7a5c}
+.slot{display:flex;gap:8px;align-items:center;border:2px solid #c8b48c;background:#f6ecd2;padding:5px 6px;margin-bottom:5px;font-size:15px}
+.slot .cell{width:52px;height:52px;background:#262038;display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.slot .nm{font-size:16px;white-space:nowrap}.slot small{font-size:13px;color:#8a7a5c;display:block;margin-top:3px;white-space:nowrap}
+.slot.hot{border-color:#c8323c}.slot.lk{opacity:.55}
+.btn{border:2px solid #2c2238;background:#f4c542;padding:6px 10px;font-size:15px;text-align:center;white-space:nowrap}
+.btn.alt{background:#f6ecd2}.btn.red{background:#d8404a;color:#fff}
+.sec{font-size:13px;color:#8a7a5c;margin:8px 0 4px;display:flex;justify-content:space-between}
+.row{display:flex;align-items:center;gap:8px;font-size:15px;margin:5px 0;white-space:nowrap}
+.row .k{width:60px;color:#8a7a5c;font-size:14px}.row .v{flex:1}
+.pbar{height:10px;background:#d9c9a0;border:1px solid #8a7a5c;position:relative;flex:1}.pbar i{position:absolute;left:0;top:0;bottom:0;background:#2a8a7a}
+.foot{display:flex;gap:8px;margin-top:10px}.foot .btn{flex:1;padding:10px 0;font-size:18px}
+.stamp{width:52px;height:52px;border:3px solid #c8323c;color:#c8323c;font-size:32px;text-align:center;line-height:46px;transform:rotate(-8deg);margin-left:auto}
+.foes{display:flex;gap:6px;margin:4px 0}
+.foe{flex:1;background:#262038;color:#efe9ff;text-align:center;padding:4px 2px 5px;font-size:13px;position:relative;border:2px solid #3a3155}
+.foe.el{border-color:#d8404a}.foe .eb{position:absolute;right:2px;top:2px}
+.kebar{display:flex;align-items:center;gap:6px;border:2px solid #c8323c;background:#fbe6d8;padding:6px 8px;font-size:15px;margin:6px 0;white-space:nowrap}
+.kebar.ok{border-color:#2a8a7a;background:#e0f0e0}
+.drops{display:flex;gap:5px}.drops div{width:52px;height:52px;background:#262038;display:flex;align-items:center;justify-content:center;position:relative;border:2px solid #3a3155}
+.drops div.wish{border-color:#c8323c}.drops div.un canvas{filter:brightness(0);opacity:.6}
+.drops div span{position:absolute;right:-3px;top:-7px;background:#d8404a;color:#fff;font-size:11px;padding:0 3px}
+.cards{display:flex;gap:8px;justify-content:center;margin:10px 0 4px;height:150px;align-items:flex-end;background:#262038;border:2px solid #3a3155;padding-bottom:10px;position:relative}
+.cards .c{position:relative;width:78px;height:102px}.cards .c canvas{position:absolute;left:0;bottom:0}
+.cards .c .beam{bottom:6px;left:3px;opacity:.9}
+.stars{display:inline-flex;gap:1px;vertical-align:middle}
+.cinep{position:relative;width:400px;height:240px;margin:0 auto 6px;border:2px solid #3a3155;overflow:hidden;background:#000}
+.cinep canvas{position:absolute;left:0;top:0}
+.sub{position:absolute;left:0;right:0;bottom:0;background:#0d0914d8;color:#fff;text-align:center;font-size:17px;line-height:30px}
+.shot{position:absolute;left:4px;top:4px;background:#f4c542;color:#1b1326;font-size:12px;padding:1px 5px}
+.skip{position:absolute;right:4px;top:4px;background:#1b1326cc;color:#9d93b8;font-size:12px;padding:1px 6px;border:1px solid #55506e}
+</style>
+
+<!-- 1 出发页 -->
+<div class="wrap"><p class="cap">① 出发页：敌人五行、克不克、本地掉落与心愿（一个主按钮）</p>
+<div class="phone" id="01_prep"><div class="shade"></div>
+  <div class="sheet" style="top:60px"><h2>后山野林 · 腹地<span class="num">推荐 14 · 你 <span class="ink">16</span></span></h2>
+    <div class="tabs"><div class="on">斩妖 ◎</div><div>采药 ○</div><div class="lk">寻宝 · 再 2 趟</div></div>
+    <div class="sec"><span>这一趟会遇到</span><span>4 月 · 3 场</span></div>
+    <div class="foes">
+      <div class="foe"><canvas data-mob="teng" data-z="2"></canvas><canvas class="eb" data-elb="mu" data-z="2"></canvas><br>青藤妖</div>
+      <div class="foe"><canvas data-mob="teng" data-z="2"></canvas><canvas class="eb" data-elb="mu" data-z="2"></canvas><br>青藤妖 ×2</div>
+      <div class="foe el"><canvas data-mob="xiong" data-z="2"></canvas><canvas class="eb" data-elb="tu" data-z="2"></canvas><br><span class="r">精英</span> 铁背熊</div>
+    </div>
+    <div class="kebar"><canvas data-ski="jin,zhan" data-z="2"></canvas><span>裂金斩 <span class="ink">克木 ✓</span>　<span class="red">打不动土 ✗</span></span><div class="btn red" style="margin-left:auto">换 ▸</div></div>
+    <div class="row"><span class="k">带着</span><span class="v"><canvas data-ski="jin,zhan" data-z="2"></canvas> <canvas data-ski="jin,qi" data-z="2"></canvas> <canvas data-ski=",ult" data-z="2"></canvas>　<canvas data-art="hp" data-z="1"></canvas> 160　<canvas data-art="heal" data-z="1"></canvas> 疗伤丹 ×1</span></div>
+    <div class="sec"><span>这里掉什么 3 / 5</span><span class="red">心愿 3 / 8 趟</span></div>
+    <div class="drops">
+      <div data-q="1" data-it="w"></div><div data-q="2" data-it="w" class="wish"><span>心愿</span></div><div data-core="tu"></div><div class="un" data-q="2" data-it="a"></div><div class="un" data-q="2" data-it="w"></div>
+    </div>
+    <div class="row mut" style="font-size:13px;margin-top:6px"><canvas data-art="wish" data-z="1"></canvas> 铁木棍（木）：钉了心愿，掉率 ×2，8 趟内必出</div>
+    <div class="foot"><div class="btn">出发 · 4 月 ▸</div></div>
+  </div>
+  <div class="nav" data-nav="0"></div>
+</div></div>
+
+<!-- 2 战斗 -->
+<div class="wrap"><p class="cap">② 战斗：自动出招，看得见血、罩、冷却；你只管一个大按钮</p>
+<div class="phone" id="02_battle">
+  <div class="top hud"><span>第2年 · 春</span><div class="pips"><i class="d"></i><i class="d"></i><i class="n"></i><i></i></div><span class="dim">第 3 / 4 月</span><span class="sp"></span><span class="y">×1</span><span class="dim">×2</span></div>
+  <div class="scene"><canvas id="sc2" width="400" height="320"></canvas>
+    <div class="tag" style="left:8px;top:8px;border-color:#f4c542"><span class="y">后山野林 · 腹地</span></div>
+    <div class="tag" style="right:8px;top:8px;border-color:#d8404a"><span class="r">精英</span> 铁背熊 <canvas data-elb="tu" data-z="2"></canvas></div>
+    <div class="dmg" style="left:232px;top:120px"><small>克</small>86</div>
+    <div class="dmg" style="left:96px;top:178px;font-size:18px;color:#ff9a8a">-31</div>
+  </div>
+  <div class="path hud"><div class="nd ok">战</div><div class="ln ok"></div><div class="nd ok">战</div><div class="ln ok"></div><div class="nd now el">精</div><div class="ln"></div><div class="nd">宝</div><span style="margin-left:10px" class="dim">已得</span>&nbsp;<canvas data-art="stone" data-z="1"></canvas>&nbsp;64&nbsp;<canvas data-art="ore" data-z="1"></canvas>&nbsp;5</div>
+  <div class="me hud"><div class="bar"><i style="width:68%"></i><em><span>气血</span><span>109 / 160</span></em></div><div class="bar"><i class="rg" style="width:80%"></i><em><span>怒气</span><span>80 / 100</span></em></div></div>
+  <div class="skills">
+    <div class="sk hud"><canvas data-ski="mu,zhan" data-z="3"></canvas><div class="cd">2</div><br>青藤缚<small class="g">木 · 克土</small></div>
+    <div class="sk hud" style="border-color:#f4c542"><canvas data-ski="jin,qi" data-z="3"></canvas><br>劈斩<small>金 · 就绪</small></div>
+    <div class="sk hud lk"><canvas data-ski=",mi" data-z="3"></canvas><br>秘术<small>金丹开</small></div>
+  </div>
+  <div class="ult"><div class="big hud">戒中剑意<small>怒气满了才能放</small></div><div class="sm hud"><canvas data-art="heal" data-z="2"></canvas><br>丹 ×1</div><div class="sm hud"><canvas data-art="flee" data-z="2"></canvas><br>撤</div></div>
+  <div class="log hud">青藤缚 克土 ×1.3 · 削罩 1 格（还剩 2）</div>
+  <div class="goal hud"><span class="ch">第一章</span>赢下三年之约　<span class="y">胜算 41% → 80%</span></div>
+  <div class="nav" data-nav="0"></div>
+</div></div>
+
+<!-- 3 关键时刻 -->
+<div class="wrap"><p class="cap">③ 关键时刻：对面蓄力，大按钮亮了——按下去就是“破招”</p>
+<div class="phone" id="03_battle_ult">
+  <div class="top hud"><span>第2年 · 春</span><div class="pips"><i class="d"></i><i class="d"></i><i class="n"></i><i></i></div><span class="dim">第 3 / 4 月</span><span class="sp"></span><span class="y">停</span></div>
+  <div class="scene"><canvas id="sc3" width="400" height="320"></canvas>
+    <div class="tag" style="right:30px;top:118px;border-color:#d8404a;background:#d8404a;color:#fff;font-size:16px">蓄力！下一下很重</div>
+    <div class="dmg" style="left:214px;top:70px;font-size:30px"><small>破招</small>212</div>
+  </div>
+  <div class="path hud"><div class="nd ok">战</div><div class="ln ok"></div><div class="nd ok">战</div><div class="ln ok"></div><div class="nd now el">精</div><div class="ln"></div><div class="nd">宝</div><span style="margin-left:10px" class="dim">已得</span>&nbsp;<canvas data-art="stone" data-z="1"></canvas>&nbsp;64&nbsp;<canvas data-art="ore" data-z="1"></canvas>&nbsp;5</div>
+  <div class="me hud"><div class="bar"><i style="width:52%"></i><em><span>气血</span><span>83 / 160</span></em></div><div class="bar"><i class="rg full" style="width:100%"></i><em><span>怒气</span><span>满</span></em></div></div>
+  <div class="skills">
+    <div class="sk hud"><canvas data-ski="mu,zhan" data-z="3"></canvas><div class="cd">1</div><br>青藤缚<small class="g">木 · 克土</small></div>
+    <div class="sk hud"><canvas data-ski="jin,qi" data-z="3"></canvas><div class="cd">3</div><br>劈斩<small>金</small></div>
+    <div class="sk hud lk"><canvas data-ski=",mi" data-z="3"></canvas><br>秘术<small>金丹开</small></div>
+  </div>
+  <div class="ult"><div class="big hud on">戒中剑意<small>现在放 = 破招</small></div><div class="sm hud"><canvas data-art="heal" data-z="2"></canvas><br>丹 ×1</div><div class="sm hud"><canvas data-art="flee" data-z="2"></canvas><br>撤</div></div>
+  <div class="log hud" style="color:#fff2a8">时间停住等你：放绝招，或者硬吃这一下</div>
+  <div class="goal hud"><span class="ch">第一章</span>赢下三年之约　<span class="y">胜算 41% → 80%</span></div>
+  <div class="nav" data-nav="0"></div>
+</div></div>
+
+<!-- 4 掉落揭晓 -->
+<div class="wrap"><p class="cap">④ 归来翻牌：一张一张翻，好东西压轴，带器纹的会抖</p>
+<div class="phone" id="04_loot"><div class="shade"></div>
+  <div class="sheet" style="top:70px"><h2>历练归来<span class="mut" style="font-size:14px">后山野林 · 腹地</span><div class="stamp">甲</div></h2>
+    <div class="row"><span class="k">三场全胜</span><span class="v mut" style="font-size:14px">剩气血 52% · 破招 1 次</span></div>
+    <div class="cards">
+      <div class="c"><canvas data-card="1,w,0"></canvas></div>
+      <div class="c"><canvas data-cardcore="tu"></canvas></div>
+      <div class="c"><canvas class="beam" data-beam="2"></canvas><canvas data-card="2,w,2"></canvas></div>
+      <div class="c"><canvas data-back="1"></canvas></div>
+    </div>
+    <div class="row mut" style="font-size:13px;justify-content:center">点牌翻开 · 还有 1 张</div>
+    <div class="slot hot"><div class="cell" data-q="2" data-it="w"></div><div style="flex:1"><div class="nm">铁木棍 <span class="stars"><canvas data-star="1"></canvas><canvas data-star="1"></canvas></span> <canvas data-elb="mu" data-z="2"></canvas></div><small>战力 <span class="ink" style="font-size:16px">▲ +3</span>　连击 · 克土</small></div><div class="btn red">换上</div><div class="btn alt">收</div></div>
+    <div class="row" style="border:2px solid #c8323c;background:#fbe6d8;padding:5px 8px"><canvas data-art="wish" data-z="2"></canvas><span class="red">心愿达成！</span><span class="mut" style="font-size:13px">再钉一件 ▸</span></div>
+    <div class="sec"><span>你变强了</span></div>
+    <div class="row"><span class="k">战力</span><span class="v">16 → <span class="ink" style="font-size:19px">19</span></span><span class="k" style="width:auto">三年之约</span><span>41 → <span class="ink">46%</span></span></div>
+    <div class="foot"><div class="btn alt">回洞府</div><div class="btn">再去一趟 ▸</div></div>
+  </div>
+  <div class="nav" data-nav="0"></div>
+</div></div>
+
+<!-- 5 法宝详情 / 炼器台 -->
+<div class="wrap"><p class="cap">⑤ 法宝详情就是炼器台：强化 / 淬灵 / 洗练 三页，一页一个按钮</p>
+<div class="phone" id="05_forge"><div class="shade"></div>
+  <div class="sheet" style="top:56px"><h2>铁木棍 +2 <span class="stars"><canvas data-star="1"></canvas><canvas data-star="1"></canvas><canvas data-star="0"></canvas></span> <canvas data-elb="mu" data-z="2"></canvas><div class="x">×</div></h2>
+    <div style="background:#262038;border:2px solid #3a3155;text-align:center;padding:6px 0;position:relative"><canvas data-bench="1" data-z="3"></canvas><span style="position:absolute;left:8px;top:6px;color:#efe9ff;font-size:13px">法器 · 兵器</span><span style="position:absolute;right:8px;top:6px;color:#f4c542;font-size:15px">战力 ×1.78</span></div>
+    <div class="tabs"><div class="on">强化</div><div>淬灵</div><div class="lk">洗练 · 筑基开</div></div>
+    <div class="row"><span class="k">+2 → +3</span><span class="v">战力 19 → <span class="ink" style="font-size:19px">20</span></span><span class="mut" style="font-size:14px">成功 90%</span></div>
+    <div class="row"><span class="k">灵矿</span><div class="pbar"><i style="width:100%"></i></div><span style="font-size:14px">34 / 26</span></div>
+    <div class="row" style="border:2px dashed #c8b48c;padding:5px 6px"><span class="k" style="width:auto">到 +3 开锋</span><canvas data-ski="mu,zhan" data-z="2"></canvas><canvas data-ski=",xin" data-z="2"></canvas><canvas data-ski="mu,qi" data-z="2"></canvas><span class="mut" style="font-size:13px">三选一</span></div>
+    <div class="sec"><span>它带的</span></div>
+    <div class="slot"><div class="cell"><canvas data-ski="mu,qi" data-z="3"></canvas></div><div style="flex:1"><div class="nm">器技 · 横扫</div><small>木 · 伤害 ×1.3 · 每 4 回合</small></div></div>
+    <div class="row"><span class="k">连击</span><span class="v">普攻 20% 再打一下</span></div>
+    <div class="row"><span class="k">克土</span><span class="v">打土系 +20%</span></div>
+    <div class="foot"><div class="btn alt" style="flex:.6">熔 矿+8</div><div class="btn">强化 · 矿 26</div></div>
+  </div>
+  <div class="nav" data-nav="2"></div>
+</div></div>
+
+<!-- 6 功法页 -->
+<div class="wrap"><p class="cap">⑥ 装备·功法：开局就有心法、战技、绝招三行；换招看“克谁”</p>
+<div class="phone" id="06_skills"><div class="shade"></div>
+  <div class="sheet" style="top:56px"><h2>装备<span class="num">战力 <span style="font-size:20px;color:#2c2238">19</span></span><div class="x" style="margin-left:8px">×</div></h2>
+    <div class="tabs"><div>法宝</div><div class="on">功法</div><div>灵宠</div><div>包裹</div></div>
+    <div class="slot"><div class="cell"><canvas data-ski=",xin" data-z="3"></canvas></div><div style="flex:1"><div class="nm">心法 · 引气诀</div><small>修炼 ×1.15 · 每回合怒气 +5</small><div class="pbar" style="margin-top:4px"><i style="width:55%"></i></div></div><div class="btn alt">换</div></div>
+    <div class="slot"><div class="cell"><canvas data-ski="jin,zhan" data-z="3"></canvas></div><div style="flex:1"><div class="nm">战技 · 裂金斩 <canvas data-elb="jin" data-z="2"></canvas></div><small>伤害 ×1.6 · 每 3 回合 · 小成</small><div class="pbar" style="margin-top:4px"><i style="width:30%"></i></div></div><div class="btn alt">换</div></div>
+    <div class="slot"><div class="cell"><canvas data-ski=",ult" data-z="3"></canvas></div><div style="flex:1"><div class="nm">绝招 · 戒中剑意</div><small>怒气满 · 伤害 ×3 · 能破招</small></div></div>
+    <div class="slot lk"><div class="cell"><canvas data-art="lock" data-z="2"></canvas></div><div style="flex:1"><div class="nm">秘术</div><small>金丹开</small></div></div>
+    <div class="sec"><span>收着的 1</span><span>下一趟：腹地精英属土</span></div>
+    <div class="slot hot"><div class="cell"><canvas data-ski="mu,zhan" data-z="3"></canvas></div><div style="flex:1"><div class="nm">青藤缚 <canvas data-elb="mu" data-z="2"></canvas> <span class="red" style="font-size:13px">新</span></div><small><span class="ink">克土 ✓</span> · 缠住：对面蓄力晚 1 回合</small></div><div class="btn red">换上</div></div>
+    <div class="row" style="align-items:center;margin-top:8px"><canvas data-wheel="tu" data-z="2"></canvas><div style="font-size:14px;line-height:22px;white-space:normal">箭头指向谁就克谁<br><span class="ink">克：伤害 ×1.3，能破罩</span><br><span class="red">被克：伤害 ×0.8</span></div></div>
+  </div>
+  <div class="nav" data-nav="2"></div>
+</div></div>
+
+<!-- 7 高光过场 分镜 -->
+<div class="wrap"><p class="cap">⑦ 高光过场分镜（三年之约 · 打脸，三格 18 秒，可跳过）</p>
+<div class="phone" id="07_cine" style="padding-top:20px">
+  <div class="cinep"><canvas id="ci1" width="400" height="240"></canvas><span class="shot">1 · 对视 4 秒</span><span class="skip">跳过 ▸▸</span><div class="sub">“三年之期已到。”</div></div>
+  <div class="cinep"><canvas id="ci2" width="400" height="240"></canvas><span class="shot">2 · 一剑 6 秒（接真实战斗的最后一击）</span></div>
+  <div class="cinep"><canvas id="ci3" width="400" height="240"></canvas><span class="shot">3 · 休书 8 秒</span><div class="sub">“这一纸休书，还你。”</div></div>
+  <div style="text-align:center;color:#9d93b8;font-size:13px;margin-top:6px">咚 —— 咚 —— 锵！　　停一拍　　纸声 · 钟</div>
+</div></div>
+
+<script src="../../src/art.js"></script>
+<script>
+window.L = window.L || { REALMS: Array.from({ length: 10 }, () => ({ robe: ['#34408a', '#5b6fd6', '#9fb0ff'], trim: '#efe3c4' })) };
+const put = (el, c, z) => { el.width = c.width * z; el.height = c.height * z; const g = el.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, el.width, el.height); };
+const Q = (s, f) => document.querySelectorAll(s).forEach(f);
+const safeIcon = n => { try { return ART.icon(n); } catch (e) { return ART.icon('stone'); } };
+Q('canvas[data-art]', el => put(el, safeIcon(el.dataset.art) || ART.icon('stone'), +el.dataset.z || 2));
+Q('canvas[data-mob]', el => put(el, ART.mob(el.dataset.mob, 0), +el.dataset.z || 2));
+Q('canvas[data-elb]', el => put(el, ART.elemBadge(el.dataset.elb), +el.dataset.z || 2));
+Q('canvas[data-ski]', el => { const [e, k] = el.dataset.ski.split(','); put(el, ART.skillIcon(e, k), +el.dataset.z || 2); });
+Q('canvas[data-star]', el => put(el, ART.star(+el.dataset.star), 2));
+Q('canvas[data-bench]', el => put(el, ART.forgeBench(+el.dataset.bench), +el.dataset.z || 3));
+Q('canvas[data-wheel]', el => put(el, ART.elemWheel(el.dataset.wheel), +el.dataset.z || 2));
+Q('canvas[data-back]', el => put(el, ART.lootCard('back', 0, +el.dataset.back), 3));
+Q('canvas[data-beam]', el => put(el, ART.dropBeam(+el.dataset.beam, 1), 3));
+const card = (t, draw, stars) => { const c = document.createElement('canvas'); c.width = 26; c.height = 34; const g = c.getContext('2d'); g.drawImage(ART.lootCard('front', t), 0, 0); draw(g); for (let i = 0; i < 3; i++) if (i < stars) g.drawImage(ART.star(1), 3 + i * 7, 25); return c; };
+Q('canvas[data-card]', el => { const [t, it, s] = el.dataset.card.split(','); put(el, card(+t, g => g.drawImage(ART.item(it, +t), 5, 5), +s), 3); });
+Q('canvas[data-cardcore]', el => put(el, card(2, g => g.drawImage(ART.core(el.dataset.cardcore), 5, 5), 0), 3));
+const cell = (el, q, it) => { const c = document.createElement('canvas'); c.width = 48; c.height = 48; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(ART.qualityCell(q, 16), 0, 0, 48, 48); g.drawImage(ART.item(it, q), 0, 0, 48, 48); el.insertBefore(c, el.firstChild); };
+Q('[data-q]', el => cell(el, +el.dataset.q, el.dataset.it));
+Q('[data-core]', el => { const c = document.createElement('canvas'); put(c, ART.core(el.dataset.core), 3); el.appendChild(c); });
+Q('.nav', el => { const on = +el.dataset.nav; el.innerHTML = [['exp', '历练'], ['home', '洞府'], ['nav_gear', '装备'], ['nav_world', '江湖', '筑基开'], ['nav_path', '仙途']].map(([ic, n, lk], i) => `<div class="hud ${i === on ? 'on' : ''} ${lk ? 'lk' : ''}"><canvas data-nv="${ic}"></canvas><br>${n}${lk ? `<small>${lk}</small>` : ''}</div>`).join(''); });
+Q('canvas[data-nv]', el => put(el, ART.icon(el.dataset.nv), 2));
+// 战斗场景：200×160 逻辑像素，放大两倍
+const ME = { look: { hair: '#2a2230', skin: '#f2c9a0', f: 0 }, realm: 0 };
+function scene(id, fn) { const out = document.getElementById(id), c = document.createElement('canvas'); c.width = 200; c.height = 160; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; ART.setCtx(g, 200); fn(g); const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(c, 0, 0, out.width, out.height); }
+const pips = (g, x, y, n, tot) => { for (let i = 0; i < tot; i++) g.drawImage(ART.shieldPip(i < n), x + i * 8, y); };
+scene('sc2', g => {
+  ART.drawAdventure('forest', 0, 0, 30);
+  const me = ART.fighter(ME, 'strike'); g.drawImage(me, 64 - 21, 128 - 39);
+  g.drawImage(ART.eliteAura('tu', 0), 132 - 20, 124); g.drawImage(ART.mob('xiong', 0), 132 - 16, 128 - 27);
+  g.drawImage(ART.skillFx('vine', 2), 132 - 24, 128 - 44);
+  ART.drawHpBar(40, 80, 46, 0.68); ART.drawHpBar(110, 86, 46, 0.57, { right: true, lag: 0.74, c: '#e8483a' }); pips(g, 121, 76, 2, 3);
+});
+scene('sc3', g => {
+  ART.drawAdventure('forest', 0, 0, 30);
+  g.fillStyle = 'rgba(13,9,20,.45)'; g.fillRect(0, 0, 200, 160);
+  const me = ART.fighter(ME, 'windup'); g.drawImage(me, 64 - 21, 128 - 39); ART.drawRingBurst(74, 116, 0.3);
+  g.drawImage(ART.eliteAura('tu', 1), 132 - 20, 124); g.drawImage(ART.mob('xiong', 2), 132 - 16, 128 - 27);
+  g.drawImage(ART.ultFx(3), 132 - 32, 128 - 92);
+  ART.drawHpBar(40, 80, 46, 0.52); ART.drawHpBar(110, 86, 46, 0.2, { right: true, lag: 0.5, c: '#e8483a' }); pips(g, 121, 76, 2, 3);
+});
+const cine = (id, fn) => { const out = document.getElementById(id), c = document.createElement('canvas'); c.width = 200; c.height = 120; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; ART.setCtx(g, 200); fn(g); const o = out.getContext('2d'); o.imageSmoothingEnabled = false; o.drawImage(c, 0, 0, 400, 240); };
+cine('ci1', g => { g.drawImage(ART.cineBg('dusk'), 0, 0); g.drawImage(ART.cutin(ART.portraitMe(ME.look, 0, 'ang'), '#d8404a', false), -30, 8); g.drawImage(ART.cutin(ART.portrait('mu', 'n'), '#4aa8ff', true), 30, 58); });
+cine('ci2', g => { g.drawImage(ART.cineBg('ink'), 0, 0); g.drawImage(ART.speedLines(0, '#1b1326', 120, 70), 0, 0); const a = ART.fighter(ME, 'strike'), b = ART.fighter('mu', 'hit', true); g.drawImage(a, 0, 0, a.width, a.height, 30, 24, a.width * 2, a.height * 2); g.drawImage(b, 0, 0, b.width, b.height, 104, 28, b.width * 2, b.height * 2); g.drawImage(ART.skillFx('slash', 2), 96, 30, 72, 72); g.drawImage(ART.stamp('胜'), 160, 6); });
+cine('ci3', g => { g.drawImage(ART.cineBg('dusk'), 0, 0); g.fillStyle = 'rgba(13,9,20,.5)'; g.fillRect(0, 0, 200, 120); const l = ART.tornLetter(0); g.save(); g.translate(100, 44); g.rotate(-0.2); g.drawImage(l, 0, 0, 48, 36, -48, -36, 96, 72); g.restore(); const p = ART.portrait('mu', 'shock'); g.drawImage(p, 146, 40); g.drawImage(ART.speedLines(1, '#fff2a8', 100, 44), 0, 0); });
+</script>

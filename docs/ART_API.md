@@ -229,3 +229,57 @@
 - `ART.burst(frame, color?)` → 画布，透明底、不描边。`frame` 0 / 1 两帧（第二帧整体转 15°），每 250ms 换一帧就是闪动；`color` 默认金 `#f4c542`，可传别的主色（掌握时用青 `#4ccb9f`）。`ART.burstFrames = 2`。
 - 用法：解锁卡里把它放大 3 倍（144px）垫底，系统图标（16×16 放大 4.5 倍或 24×24 放大 3 倍）居中叠在上面，中心留了半径 11 像素的空。章末结算、年报里“新开”的图标也可以垫一张 1 倍的。
 
+
+## 阶段七·战斗、刷宝、炼器与高光过场
+
+配合 `docs/COMBAT_LOOT.md`。预览图：`docs/combat_mock/art_preview.png`（源 `art_preview.html`）；用在界面里的样子见 `docs/combat_mock/01_prep.png`～`07_cine.png`（`node tools/combat_shots.js` 重新生成）。代码在 `src/art.js` 末尾“阶段七”一节，只追加、没动已有接口。尚未接线。五行参数 `el` 一律接受 `'jin' 'mu' 'shui' 'huo' 'tu'`（也接受 金木水火土 或 0～4），配色同阶段四的 `ART.elemColor`。
+
+### 1 历练小怪（32×28，三帧）
+
+- `ART.mob(id, frame, flip)` → 画布。`id`：`'teng'` 青藤妖（木）、`'xiong'` 铁背熊（土）、`'ya'` 火鸦（火）、`'wa'` 寒潭蛙（水）、`'tang'` 铁螳螂（金）；`ART.mobIds` 是这五个，`ART.mobInfo(id)` → `{ n 名字, el 五行 }`。`frame`：0 站 / 1 呼吸（与 0 交替，每 400ms）/ 2 出手（前探 3 像素，停 200ms）。受击不另画帧：整张 `globalAlpha = 0.5` 闪两下（同历练场景里现有的做法）。
+- 面朝左（站在画面右侧）；`flip` 为真时镜像。脚底锚点 `ART.dims.mob = { w: 32, h: 28, ax: 16, ay: 27 }`，与对决小人同一条脚底线（y = 128）。
+- 野狼、匪寇继续用 `ART.wolf(fc)`、`ART.foeMan(fc, kind)`；首领用 `ART.bossFighter(k, frame, flip)`。
+- `ART.eliteAura(el, frame)` → 40×12，两帧（每 300ms 换）：精英脚下的光环，画在小人之前，中心对准脚底锚点（`x - 20, y - 4`）。“精英 = 小怪 + 光环”，不另画一套。
+
+### 2 招式特效（48×48，四帧，透明底不描边）
+
+- `ART.skillFx(name, frame, el?, el2?)` → 画布。`name`：`'slash'` 金·三道月牙斩、`'vine'` 木·藤从地里窜出、`'wave'` 水·浪头从左拍到右、`'flame'` 火·火柱、`'quake'` 土·岩刺、`'brk'` 破罩（六角罩裂开飞散）、`'chain'` 相生连携（外圈是前一招的五行 `el`，内芯是后一招 `el2`）。`ART.skillFxNames`、`ART.skillFxFrames = 4`。
+- `name` 也可以直接传五行（`ART.skillFx('huo', f)` = `flame`）；`ART.skillFxOf(el)` 给出该五行的默认特效名。`el` 可改色：淬过灵的器技用“原来的形状 + 新五行的颜色”，例如 `ART.skillFx('slash', f, 'huo')`。
+- 摆法：受击者脚底在特效画布的 (24, 44)；每帧 90ms，第 3 帧是余韵（半透明）。多段招式 = 同一特效错开 120ms 再播一遍。
+- `ART.ultFx(frame)` → 64×96，六帧（`ART.ultFrames = 6`）：绝招「戒中剑意」。0 戒指上亮起一点、1 巨剑虚影在头顶成形、2 蓄势、3 落下砸地（这一帧配震屏与 `SFX.hit`）、4～5 余辉。受击者脚底在 (32, 92)；每帧 110ms。第 0 帧之前可先在主角手边播现有的 `ART.drawRingBurst`（k 0～0.3）。
+
+### 3 战斗界面小件
+
+- `ART.elemBadge(el)` → 10×10 五行小徽（金 剑锋 / 木 叶 / 水 滴 / 火 焰 / 土 山）。敌人名字旁、招式名旁、掉落格角上，2 倍显示。
+- `ART.elemWheel(hl?)` → 72×72 克制环：五个徽按“木火土金水”顺时针摆（外圈虚线 = 相生），里面的五角星箭头 = 相克，箭头指向被克的一方。`hl` 传一个五行时，高亮“克它”的那一条箭头（金色加粗）——出发页【换】的小列表里用它指出“要打土，带木”。
+- `ART.shieldPip(on)` → 7×8 护罩格（亮 / 碎）。精英血条上方横排，间距 8。
+- `ART.skillIcon(el, kind)` → 16×16 招式图标。`kind`（`ART.skillKinds`）：`'zhan'` 战技（斩痕）、`'qi'` 器技（兵刃）、`'mi'` 秘术（符）、`'xin'` 心法（莲台）、`'ult'` 绝招（金框剑）；`el` 传空串 = 无属性（灰紫）。底色是五行色，所以“这招什么属性”不用再写字。招式栏里 3 倍显示，冷却中盖一层半透明黑 + 数字（CSS）。
+- 新图标（`ART.icon(name)`，16×16，已进 `ART.iconNames()`）：`'hp'` 气血（红心）、`'rage'` 怒气（火苗）、`'flee'` 撤退（白箭头）。
+
+### 4 刷宝
+
+- `ART.lootCard('back', 0, frame)` → 26×34 牌背（紫底金框、中间一枚菱形金印）；`frame` 1 是四角闪光版——带星的牌在 0 / 1 两帧之间每 250ms 切换并左右抖 1 像素，表示“这张有货”。
+- `ART.lootCard('front', tier)` → 26×34 牌面底：品阶色边框（`tier` 1～7，7 为七彩）、米色纸、中间深色格。物品图（16×16：`ART.item` / `ART.core` / `ART.icon`）画在 (5, 5)；星从 (3, 25) 起横排三颗，间距 7。界面里 3 倍显示（78×102）。
+- `ART.star(on)` → 7×7 器纹（金星 / 灰色空位）。法宝名字后面、牌面底部、法宝详情标题里用。
+- `ART.core(el)` → 16×16 灵核（该五行色的多面晶体，里面一个小徽）。包裹、掉落格、淬灵页用。
+- 新图标：`'rune'` 器纹石（紫色石头上一道金色刻痕）、`'wish'` 心愿签（红色签牌）。
+- 品阶光柱沿用阶段四的 `ART.dropBeam(tier, frame)`：★★ 以上的牌翻开后垫在牌后面（3 倍，底边对齐牌底）。
+
+### 5 炼器
+
+- `ART.forgeBench(frame)` → 64×44 炼器台：左边炉火、中间铁砧上一口剑、右边淬火水桶。`frame` 0 举锤 / 1 落锤（剑身烧红、迸火星）。法宝详情卡顶部 3 倍显示；按【强化】时切到第 1 帧 300ms，同时可叠现有的 `ART.drawForge(x, y, k, 'ok' | 'fail')`。
+- 新图标：`'f_plus'` 强化（铁锤与火星）、`'f_infuse'` 淬灵（一滴灵液落在剑上）、`'f_reroll'` 洗练（两支回旋箭头绕着一枚词条）。三页的页签可以带图标，也可以只用字。
+
+### 6 高光过场
+
+- `ART.cineBg(kind)` → 200×120 过场底图（带 1 像素边框）。`kind`（`ART.cineBgKinds`）：`'gate'` 宗门山门（晨光、石阶、朱柱牌坊）、`'clouds'` 云海金光（破境）、`'ink'` 泼墨朱日（定格、打脸、字幕卡）、`'dusk'` 落霞擂台远景（三年之约）。其余镜头用现有的 `ART.introPanel` / `ART.backdrop` / `ART.drawDuelStage` / `ART.drawTribClouds`。
+- `ART.speedLines(frame, color?, cx?, cy?)` → 200×120 集中线（透明底），两帧，每 80ms 换；向 (cx, cy) 收拢，中间留一块椭圆空白给人物。亮底上用深色（`'#1b1326'`），暗底上用白或金。
+- `ART.cutin(src, color?, flip?, key?)` → 200×48 特写带：把一张 48×48 的半身像（`ART.portrait(id, mood)` / `ART.portraitMe(look, realm, mood)` / `ART.portraitGen(...)` 的画布）放大两倍、裁到眉眼一带，压在斜切的色带上。`color` 是色带主色（主角朱红 `#d8404a`、老祖金 `#f4c542`、对手用宗门色或五行色）；`flip` 为真时人在右、脸朝左（对手）。传 `key`（例如 `'mu|ang'`）才缓存。用法：主角的带从左滑入（x：−200 → 0，180ms），对手的从右滑入，两条上下错开 50 像素就是“对视”。
+- `ART.tornLetter(frame)` → 48×36 婚书 / 休书，三帧（`ART.tornLetterFrames = 3`）：0 完整 / 1 撕成两半 / 2 碎片飞散。退婚时 0→1→2；三年之约赢了以后用第 0 帧旋转着飞向对方。
+
+### 接线位置（建议）
+
+- 1～3：新 `src/ui/battle.js`（战斗画面）、`src/ui/panel-exp.js`（出发页敌人格、克制条）、`src/ui/panel-arts.js` / `panel-gear.js`（招式图标、五行徽）。
+- 4：`src/ui/panel-exp.js` 的 `dropFlipHTML / dropFlipRun`（改成翻牌）、`src/ui/panel-codex.js`（掉落图鉴）。
+- 5：`src/ui/panel-gear.js` 的法宝详情卡。
+- 6：新 `src/ui/cine2.js`。

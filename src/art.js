@@ -5001,5 +5001,335 @@ ART.bossFighter = function (k, frame, flip) {
   });
 }
 
+// ====================================================================
+// 阶段七·战斗、刷宝、炼器与高光过场（接口见 docs/ART_API.md “阶段七”，方案见 docs/COMBAT_LOOT.md）
+// 只追加，不动已有接口。五行键与配色沿用 EL_FX（jin mu shui huo tu）。
+// ====================================================================
+{
+  const elc = e => EL_FX[elKey(e)];
+  // ---------- 一、历练小怪 32×28，面朝左（站在画面右侧），三帧：0 站 / 1 呼吸 / 2 出手；脚底锚点 (16, 27) ----------
+  const MOBS = {
+    teng: { n: '青藤妖', el: 'mu', draw(b, f) { // 一颗长了眼睛的藤球，顶着一朵食人花
+      const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, G = tone('#4fae5a', '#2a6e3e', '#9be08a'), V = tone('#2f8e4b', '#1c5a34', '#62d26f'), P = tone('#e0507a', '#8a2648', '#ff9ab8');
+      b.add(L => { L.l(9, 24, 3 + lx, 19 - bob, V, 2); L.l(3 + lx, 19 - bob, 5 + lx * 2, 12 - bob, V, 2); L.l(23, 24, 28, 20, V, 2); L.l(28, 20, 27, 13 + bob, V, 2); L.l(11, 26, 8, 27, V, 2); L.l(20, 26, 24, 27, V, 2); });
+      b.add(L => L.e(16 + lx / 2, 19 + bob, 8, 7, G));
+      b.add(L => { L.r(15 + lx, 8 + bob, 2, 5, V); });
+      b.add(L => { L.e(13 + lx, 6 + bob, 4, 3, P); L.e(19 + lx, 6 + bob, 4, 3, P); L.e(16 + lx, 3 + bob, 3, 3, P); L.e(16 + lx, 8 + bob, 3, 2, P); });
+      b.e(16 + lx, 6 + bob, 2, 2, f === 2 ? '#2c2238' : '#f4c542'); if (f === 2) { b.p(15 + lx, 5 + bob, '#ffffff'); b.p(17 + lx, 7 + bob, '#ffffff'); }
+      const ex = 11 + lx / 2, ey = 17 + bob; b.r(ex, ey, 3, 3, '#fff2a8'); b.r(ex + 5, ey, 3, 3, '#fff2a8'); b.r(ex, ey + 1, 2, 2, '#2c2238'); b.r(ex + 5, ey + 1, 2, 2, '#2c2238'); b.hl(ex, ex + 2, ey - 1, '#1c5a34'); b.hl(ex + 5, ex + 7, ey - 1, '#1c5a34');
+      b.hl(ex + 1, ex + 6, ey + 5, '#1c5a34'); b.p(ex + 2, ey + 6, '#ffffff'); b.p(ex + 5, ey + 6, '#ffffff');
+      b.p(5 + lx * 2, 11 - bob, '#9be08a'); b.p(27, 12 + bob, '#9be08a'); b.p(21, 15 + bob, '#9be08a'); b.p(22, 21 + bob, '#2a6e3e');
+    } },
+    xiong: { n: '铁背熊', el: 'tu', draw(b, f) { // 四足着地的大熊，背上一层铁甲
+      const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, F = tone('#8a5c36', '#5a3a26', '#b98a4c'), S = tone('#8e96a8', '#4e566c', '#d4dcec'), M = tone('#c8a070', '#8a6a48', '#e8cc94');
+      b.add(L => { L.r(8, 20, 4, 7, F); L.r(13, 21, 3, 6, F); L.r(21, 20, 4, 7, F); L.r(25, 21, 3, 6, F); });
+      b.add(L => { L.e(18, 15 + bob, 11, 7, F); L.e(27, 16 + bob, 4, 5, F); });
+      b.add(L => { L.e(8 + lx, 13 + bob, 6, 6, F); L.r(4 + lx, 6 + bob, 3, 3, F); L.r(10 + lx, 5 + bob, 3, 3, F); });
+      b.add(L => { L.e(5 + lx, 16 + bob, 3, 3, M); }, { sep: 0 });
+      b.add(L => { L.sy(7 + bob, '479aba97', S, 19); }, { sep: 1 }); for (const x of [13, 17, 21, 25]) { b.p(x, 9 + bob, '#4e566c'); b.p(x, 12 + bob, '#eef4ff'); } b.hl(11, 26, 11 + bob, '#4e566c');
+      b.r(2 + lx, 15 + bob, 2, 2, '#2c2238'); b.r(6 + lx, 11 + bob, 2, 2, f === 2 ? '#ff6b3a' : '#2c2238'); b.p(6 + lx, 11 + bob, '#ffffff'); b.hl(5 + lx, 8 + lx, 9 + bob, '#5a3a26');
+      if (f === 2) { b.r(3 + lx, 18 + bob, 4, 2, '#8a1e2e'); b.p(3 + lx, 18 + bob, '#ffffff'); b.p(6 + lx, 18 + bob, '#ffffff'); b.add(L => { L.l(5, 22, 1, 19, F, 3); }); for (const y of [18, 20, 22]) b.p(0, y, '#ffffff'); }
+      for (const x of [8, 10, 21, 23]) b.p(x, 27, '#efe3c4');
+    } },
+    ya: { n: '火鸦', el: 'huo', draw(b, f) { // 展翅的黑红乌鸦，尾羽是火
+      const up2 = f === 1 ? 3 : f === 2 ? -2 : 0, lx = f === 2 ? -4 : 0, K = tone('#4a2a34', '#2a1820', '#7a4a52'), Rr = tone('#d8502a', '#8a241e', '#ffb23f');
+      b.add(L => { L.l(18 + lx, 14, 28 + lx, 6 + up2, K, 3); L.l(28 + lx, 6 + up2, 31, 10 + up2, K, 2); L.l(14 + lx, 14, 5 + lx, 5 + up2, K, 3); L.l(5 + lx, 5 + up2, 1 + lx, 9 + up2, K, 2); });
+      b.add(L => { L.l(22 + lx, 9 + up2 / 2, 26 + lx, 12 + up2 / 2, Rr, 2); L.l(10 + lx, 9 + up2 / 2, 6 + lx, 12 + up2 / 2, Rr, 2); }, { sep: 0 });
+      b.add(L => { L.e(16 + lx, 15, 5, 5, K); L.e(12 + lx, 11, 4, 4, K); });
+      b.add(L => { L.l(20 + lx, 18, 26, 22, Rr, 3); L.l(26, 22, 30, 21 + (f & 1), Rr, 2); L.l(20 + lx, 20, 24, 25, Rr, 2); }, { sep: 0 });
+      b.p(30, 20 + (f & 1), '#fff2a8'); b.p(25, 26, '#ffd86a'); b.p(28, 24, '#ffd86a'); b.p(27, 18, '#fff2a8');
+      b.add(L => { L.r(6 + lx, 11, 4, 2, GOLD); L.p(5 + lx, 12, GOLD); }, { sep: 0 }); b.r(11 + lx, 9, 2, 2, '#ffd86a'); b.p(11 + lx, 10, '#ffffff');
+      b.r(14 + lx, 20, 1, 4, '#f4c542'); b.r(18 + lx, 20, 1, 4, '#f4c542'); b.hl(13 + lx, 15 + lx, 24, '#f4c542'); b.hl(17 + lx, 19 + lx, 24, '#f4c542');
+    } },
+    wa: { n: '寒潭蛙', el: 'shui', draw(b, f) { // 蹲着的蓝蛙，背上三根冰棱
+      const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, jy = f === 2 ? -4 : 0, B = tone('#3f8fd0', '#24579a', '#9fd4ff'), I = tone('#bfe8ff', '#6fb0e0', '#ffffff'), W2 = tone('#e8f4ff', '#a8c8e8', '#ffffff');
+      b.add(L => { L.e(24, 22 + jy / 2, 5, 4, B); L.r(24, 24 + jy / 2, 6, 3, B); L.r(7 + lx, 22 + jy, 4, 5, B); L.r(4 + lx, 26 + jy, 5, 1, B); });
+      b.add(L => { L.l(18, 6 + bob + jy, 18, 12 + jy, I, 3); L.l(23, 8 + bob + jy, 22, 13 + jy, I, 2); L.l(13, 8 + bob + jy, 14, 13 + jy, I, 2); });
+      b.add(L => L.e(16 + lx / 2, 19 + bob + jy, 10, 7, B));
+      b.add(L => L.e(13 + lx / 2, 22 + bob + jy, 6, 3, W2), { sep: 0 });
+      b.add(L => { L.e(8 + lx, 12 + bob + jy, 3, 3, B); L.e(15 + lx, 11 + bob + jy, 3, 3, B); });
+      b.r(7 + lx, 11 + bob + jy, 2, 3, '#fff2a8'); b.r(14 + lx, 10 + bob + jy, 2, 3, '#fff2a8'); b.p(7 + lx, 12 + bob + jy, '#2c2238'); b.p(14 + lx, 11 + bob + jy, '#2c2238');
+      b.hl(6 + lx, 13 + lx, 19 + bob + jy, '#24579a'); if (f === 2) { b.add(L => L.l(5 + lx, 19 + jy, 0, 17 + jy, RED, 2), { sep: 0 }); b.p(0, 17 + jy, '#ff9a8a'); }
+      b.p(21, 17 + bob + jy, '#9fd4ff'); b.p(23, 20 + bob + jy, '#9fd4ff'); b.p(18, 5 + bob + jy, '#ffffff');
+    } },
+    tang: { n: '铁螳螂', el: 'jin', draw(b, f) { // 举着两把镰刀的金螳螂
+      const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, Y = tone('#c8a23a', '#7a5c1e', '#fff2a8'), S = tone('#dfe7ef', '#8e96a8', '#ffffff');
+      b.add(L => { L.l(18, 20, 14, 27, Y, 1); L.l(21, 20, 22, 27, Y, 1); L.l(24, 19, 28, 27, Y, 1); L.hl(12, 14, 27, Y); L.hl(22, 24, 27, Y); L.hl(28, 30, 27, Y); });
+      b.add(L => { L.l(17, 17 + bob, 28, 22 + bob, Y, 5); L.l(15, 16 + bob, 12, 9 + bob, Y, 3); });
+      b.add(L => { L.sy(4 + bob, '1233321', Y, 11 + lx); });
+      b.r(7 + lx, 6 + bob, 2, 2, '#d8404a'); b.r(12 + lx, 6 + bob, 2, 2, '#d8404a'); b.p(7 + lx, 6 + bob, '#ffffff'); b.l(9 + lx, 3 + bob, 6 + lx, 0, '#7a5c1e'); b.l(12 + lx, 3 + bob, 15 + lx, 0, '#7a5c1e');
+      const a = f === 2 ? 1 : 0; // 镰刀：出手时向前劈下
+      b.add(L => { L.l(14, 13 + bob, 8 + lx, 13 + bob - (a ? 0 : 3), Y, 2); L.l(16, 12 + bob, 20, 6 + bob, Y, 2); });
+      b.add(L => { if (a) { L.l(8 + lx, 13 + bob, 1, 20, S, 2); L.l(1, 20, 4, 23, S, 1); } else { L.l(8, 10 + bob, 3, 3 + bob, S, 2); L.l(3, 3 + bob, 1, 7 + bob, S, 1); } L.l(20, 6 + bob, 25, 1 + bob, S, 2); L.l(25, 1 + bob, 28, 5 + bob, S, 1); });
+      for (const x of [20, 23, 26]) b.p(x, 19 + bob + (x - 20) / 3, '#7a5c1e');
+    } },
+  };
+  ART.mobIds = Object.keys(MOBS);
+  ART.mobInfo = id => { const m = MOBS[id] || MOBS.teng; return { n: m.n, el: m.el }; };
+  ART.dims.mob = { w: 32, h: 28, ax: 16, ay: 27 };
+  ART.mob = function (id, frame, flip) {
+    const m = MOBS[id] || MOBS.teng; frame = Math.max(0, Math.min(2, frame | 0));
+    return cached(['mob', id, frame, flip ? 1 : 0].join('|'), () => {
+      const b = new Buf(32, 28); m.draw(b, frame); const c = b.cv();
+      if (!flip) return c; const f = mk(32, 28), g = f.getContext('2d'); g.translate(32, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); return f;
+    });
+  };
+  // 精英脚下的光环 40×12，两帧；el 决定颜色
+  ART.eliteAura = (el, frame) => cached('aura|' + elKey(el) + (frame & 1), () => on(mk(40, 12), () => {
+    const [D, M, H] = elc(el), f = frame & 1; ctx.globalAlpha = 0.45; ellipse(20, 6, 19, 5, D); ctx.globalAlpha = 1;
+    for (let i = 0; i < 32; i++) { const a = i * Math.PI / 16 + f * 0.1; R(20 + Math.cos(a) * 18, 6 + Math.sin(a) * 4.5, 1, 1, (i + f) % 4 === 0 ? '#ffffff' : i % 2 ? M : H); }
+    for (let i = 0; i < 5; i++) { const x = 5 + i * 7 + f * 2; R(x, 2 - ((i + f) % 3), 1, 2 + ((i + f) % 2), H); }
+  }));
+
+  // ---------- 二、招式特效 48×48 四帧（透明底、不描边，脚底线 y = 44，受击者站在 (24, 44)） ----------
+  const FXW = 48;
+  const FX = {
+    slash(k, [D, M, H]) { // 金：三道交错的月牙斩
+      const n = Math.min(3, k + 1);
+      for (let j = 0; j < n; j++) { const fade = k === 3 ? 0.45 : j < k ? 0.7 : 1, cx = 24 + (j - 1) * 5, cy = 24 + (j % 2 ? 4 : -4), s = j % 2 ? -1 : 1; ctx.globalAlpha = fade;
+        for (let i = -15; i <= 15; i++) { const u = i / 15, x = cx + i, y = cy + s * Math.round(u * 9 + (1 - u * u) * -6 * s), th = Math.round((1 - u * u) * 4) + 1; R(x, y - th, 1, th, M); R(x, y - Math.ceil(th / 2), 1, Math.max(1, th - 2), H); if (Math.abs(i) < 9) R(x, y - Math.ceil(th / 2), 1, 1, '#ffffff'); R(x, y, 1, 1, D); } }
+      ctx.globalAlpha = 1; if (k < 3) for (const [x, y] of [[8, 10], [40, 14], [36, 38], [10, 34]].slice(0, k + 2)) { R(x - 1, y, 3, 1, '#ffffff'); R(x, y - 1, 1, 3, '#ffffff'); }
+    },
+    vine(k, [D, M, H]) { // 木：三根藤从地里窜出来缠住
+      const hgt = [12, 26, 34, 34][k];
+      for (const [x0, ph, s] of [[13, 0, 1], [24, 2, -1], [35, 4, 1]]) for (let y = 0; y < hgt; y++) { const x = x0 + Math.round(Math.sin(y * 0.35 + ph) * 4 * s + (24 - x0) * (y / 40)); R(x, 44 - y, 3, 1, y % 5 === 4 ? D : M); R(x, 44 - y, 1, 1, H); if (y % 7 === 5 && y < hgt - 2) { R(x + 3 * s, 43 - y, 3, 2, H); R(x + 4 * s, 42 - y, 2, 1, M); } }
+      if (k >= 2) for (let i = 0; i < 10; i++) { const a = i * 0.63 + k; R(24 + Math.cos(a) * (12 + (k - 2) * 6), 20 + Math.sin(a) * (9 + (k - 2) * 5), 2, 1, i % 2 ? H : M); }
+      if (k === 3) { ctx.globalAlpha = 0.5; ellipse(24, 44, 18, 3, M); ctx.globalAlpha = 1; } else ellipse(24, 45, 6 + k * 5, 2, D);
+    },
+    wave(k, [D, M, H]) { // 水：一道浪头从左拍到右
+      const cx = [8, 20, 30, 40][k], top = [30, 16, 12, 26][k];
+      for (let x = 0; x < 48; x++) { const u = (x - cx) / 14, hh = Math.max(0, (44 - top) * Math.exp(-u * u) * (u > 0 ? 1 : 0.75)); if (hh < 1 && Math.abs(u) > 1.6) continue; const y0 = Math.round(44 - hh - 2 - Math.sin(x * 0.7 + k) * 1.2);
+        for (let y = y0; y <= 44; y++) R(x, y, 1, 1, y - y0 < 2 ? '#ffffff' : y - y0 < 5 ? H : BAYER[(x & 3) + (y & 3) * 4] < 9 ? M : D); }
+      for (let i = 0; i < 6 + k * 2; i++) { const x = cx + 4 + (i * 7) % 14, y = top - 3 + (i * 5) % 12 - (k === 3 ? 0 : 3); if (x < 47) { R(x, y, 2, 2, i % 2 ? H : M); R(x, y, 1, 1, '#ffffff'); } }
+      if (k === 3) for (let i = 0; i < 9; i++) R(4 + i * 5, 40 + (i % 3), 3, 1, '#ffffff');
+    },
+    flame(k, [D, M, H]) { // 火：地上窜起一根火柱
+      const hgt = [14, 30, 40, 26][k], wd = [9, 11, 12, 8][k];
+      for (let y = 0; y < hgt; y++) { const u = y / hgt, w = Math.round(wd * (1 - u * u) + Math.sin(y * 0.9 + k * 2) * 1.6), cx = 24 + Math.round(Math.sin(y * 0.45 + k) * 2 * u);
+        dR(cx - w, 44 - y, w * 2, 1, D, k === 3 ? 9 : 16); if (w > 2) dR(cx - w + 2, 44 - y, w * 2 - 4, 1, M, k === 3 ? 10 : 16); if (w > 4) R(cx - w + 4, 44 - y, w * 2 - 8, 1, H); if (w > 6 && u < 0.6) R(cx - 1, 44 - y, 2, 1, '#ffffff'); }
+      for (let i = 0; i < 5 + k * 2; i++) { const x = 10 + (i * 11) % 28, y = 44 - hgt - 2 - (i * 5) % 8 + (k === 3 ? -6 : 0); if (y > 0) R(x, y, 1, 1 + (i % 2), i % 3 ? H : '#ffffff'); }
+      if (k === 3) { ctx.globalAlpha = 0.6; for (const [x, y, r] of [[18, 12, 4], [28, 8, 5], [24, 2, 3]]) { ctx.fillStyle = pat('#3a2a34', 8); disc(x, y, r, ctx.fillStyle); } ctx.globalAlpha = 1; }
+      ctx.globalAlpha = 0.6; ellipse(24, 45, 12 + k * 2, 2, M); ctx.globalAlpha = 1;
+    },
+    quake(k, [D, M, H]) { // 土：三根岩刺破土
+      const hs2 = [[6, 10, 5], [14, 24, 12], [18, 32, 16], [18, 32, 16]][k];
+      [[11, 0], [24, 1], [37, 2]].forEach(([cx, j]) => { const hh = hs2[j], w = j === 1 ? 6 : 4; ctx.globalAlpha = k === 3 ? 0.6 : 1;
+        for (let y = 0; y < hh; y++) { const ww = Math.max(1, Math.round(w * (1 - y / hh))), lean = Math.round((j - 1) * y * 0.12); R(cx - ww + lean, 44 - y, ww * 2, 1, M); R(cx - ww + lean, 44 - y, Math.max(1, ww - 1), 1, H); R(cx + lean + ww - 1, 44 - y, 1, 1, D); if (y % 6 === 3) R(cx + lean - 1, 44 - y, 2, 1, D); } });
+      ctx.globalAlpha = 1; for (let i = 0; i < 4 + k * 3; i++) { const x = 4 + (i * 13) % 40, y = 40 - (i * 7 % 10) - k * (k === 3 ? -2 : 3); R(x, y, 2, 2, i % 2 ? M : D); R(x, y, 1, 1, H); }
+      line(2, 45, 46, 45, D); for (const x of [8, 18, 30, 41]) line(x, 45, x + (x % 3) - 1, 47, D);
+    },
+    brk(k) { // 破罩：六角护罩裂开、碎片飞散
+      const C0 = '#7fe0f0', C1 = '#ffffff', r = 17 + (k > 1 ? (k - 1) * 3 : 0);
+      if (k < 2) { for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6, a2 = a + Math.PI / 3; line(24 + Math.cos(a) * r, 24 + Math.sin(a) * r, 24 + Math.cos(a2) * r, 24 + Math.sin(a2) * r, i % 2 ? C0 : C1, 2); } ctx.globalAlpha = 0.25; disc(24, 24, r - 2, C0); ctx.globalAlpha = 1; }
+      if (k >= 1) for (const [x0, y0, x1, y1] of [[24, 24, 12, 10], [24, 24, 38, 14], [24, 24, 20, 40], [24, 24, 36, 34], [16, 16, 8, 20], [32, 28, 42, 28]].slice(0, k === 1 ? 4 : 6)) if (k === 1) line(x0, y0, x1, y1, '#ffffff');
+      if (k >= 2) { for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6 + 0.2, d = (k === 2 ? 11 : 19) + (i % 3) * 2, x = 24 + Math.cos(a) * d, y = 24 + Math.sin(a) * d + (k === 3 ? 3 : 0); ctx.globalAlpha = k === 3 ? 0.6 : 1; R(x - 1, y - 1, 3, 2, i % 2 ? C0 : C1); R(x, y + 1, 2, 1, '#3fa8c8'); } ctx.globalAlpha = 1; if (k === 2) { disc(24, 24, 5, '#ffffff'); glow(24, 24, 14, C0, 0.6); } }
+    },
+    chain(k, [D, M, H], B) { // 相生连携：前一招的颜色（外圈）流进后一招（内芯）
+      const [D2, M2, H2] = B || [D, M, H], r = [16, 12, 7, 12][k];
+      for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20 + k * 0.5; if ((i + k * 3) % 10 < 6) R(24 + Math.cos(a) * r, 24 + Math.sin(a) * r, 2, 2, i % 3 ? M : H); }
+      disc(24, 24, [3, 5, 8, 4][k], k === 2 ? '#ffffff' : M2); disc(24, 24, [1, 3, 5, 2][k], k === 2 ? H2 : '#ffffff');
+      if (k >= 2) for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, d = k === 2 ? 12 : 19; line(24 + Math.cos(a) * (d - 4), 24 + Math.sin(a) * (d - 4), 24 + Math.cos(a) * d, 24 + Math.sin(a) * d, i % 2 ? H2 : M2); }
+    },
+  };
+  const EL_SKILL = { jin: 'slash', mu: 'vine', shui: 'wave', huo: 'flame', tu: 'quake' };
+  ART.skillFxNames = ['slash', 'vine', 'wave', 'flame', 'quake', 'brk', 'chain'];
+  ART.skillFxFrames = 4;
+  ART.skillFxOf = el => EL_SKILL[elKey(el)];
+  // name 也可以直接传五行；color 可改色（例如被灌注了别的五行的器技）；chain 的 el2 是后一招的五行
+  ART.skillFx = function (name, frame, el, el2) {
+    if (EL_FX[name]) { el = el || name; name = EL_SKILL[name]; }
+    if (!FX[name]) name = 'slash'; frame = Math.max(0, Math.min(3, frame | 0));
+    const def = { slash: 'jin', vine: 'mu', wave: 'shui', flame: 'huo', quake: 'tu', chain: 'mu' }[name], e = el ? elKey(el) : def;
+    return cached(['sfx', name, frame, e, el2 || ''].join('|'), () => on(mk(FXW, FXW), () => FX[name](frame, EL_FX[e] || EL_FX.jin, el2 ? EL_FX[elKey(el2)] : null)));
+  };
+  // 绝招「戒中剑意」64×96 六帧：戒指上亮起一点 → 巨剑虚影在头顶成形 → 落下 → 砸地金光 → 余辉。受击者站在 (32, 92)
+  ART.ultFrames = 6;
+  ART.ultFx = frame => cached('ult|' + (frame = Math.max(0, Math.min(5, frame | 0))), () => on(mk(64, 96), () => {
+    const k = frame, sword = (ty, a) => { ctx.globalAlpha = a;
+      for (let y = 0; y < 52; y++) { const w = y < 6 ? Math.ceil((y + 1) * 0.9) : y < 40 ? 5 : y < 43 ? 10 : 3, Y = ty + 51 - y; if (Y < 0 || Y > 95) continue; R(32 - w, Y, w * 2, 1, y >= 40 && y < 43 ? '#f4c542' : y >= 43 ? '#a8742a' : '#fff2a8'); if (y < 40) { R(32 - w, Y, 1, 1, '#f4c542'); R(31 + w, Y, 1, 1, '#f4c542'); R(31, Y, 2, 1, '#ffffff'); } }
+      ctx.globalAlpha = 1; };
+    if (k === 0) { glow(32, 20, 10, '#f4c542', 0.7); disc(32, 20, 2, '#ffffff'); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; line(32 + Math.cos(a) * 5, 20 + Math.sin(a) * 5, 32 + Math.cos(a) * 9, 20 + Math.sin(a) * 9, '#fff2a8'); } }
+    if (k === 1) { glow(32, 26, 22, '#f4c542', 0.45); sword(0, 0.55); for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; R(32 + Math.cos(a) * 24, 26 + Math.sin(a) * 9, 1, 1, i % 2 ? '#fff2a8' : '#f4c542'); } }
+    if (k === 2) { glow(32, 30, 24, '#fff2a8', 0.5); sword(4, 1); for (const x of [14, 20, 44, 50]) { ctx.globalAlpha = 0.6; R(x, 0, 1, 30 + (x % 7), '#fff2a8'); } ctx.globalAlpha = 1; }
+    if (k === 3) { ctx.globalAlpha = 0.5; for (const x of [22, 27, 37, 42]) R(x, 0, 2, 60, '#fff2a8'); ctx.globalAlpha = 1; sword(40, 1); glow(32, 90, 26, '#ffffff', 0.9); ellipse(32, 92, 30, 4, '#fff2a8'); ellipse(32, 92, 20, 2, '#ffffff'); for (let i = 0; i < 9; i++) { const x = 4 + i * 7; R(x, 84 - (i * 5) % 9, 2, 3, i % 2 ? '#f4c542' : '#ffffff'); } }
+    if (k >= 4) { const a = k === 4 ? 0.7 : 0.35; sword(40, a * 0.8); ctx.globalAlpha = a; ellipse(32, 92, 31, 4, '#f4c542'); ctx.globalAlpha = 1; for (let i = 0; i < 14; i++) { const x = 3 + (i * 9) % 58, y = 86 - (i * 13) % 50 - (k - 4) * 8; if (y > 0) R(x, y, 1, 2, i % 3 ? '#f4c542' : '#ffffff'); } for (const [x, y] of [[20, 93], [44, 94], [32, 95]]) line(x, y, x + (x - 32) / 2, 95, '#a8742a'); }
+  }));
+
+  // ---------- 三、战斗界面小件 ----------
+  // 五行小徽 10×10：金 剑锋 / 木 叶 / 水 滴 / 火 焰 / 土 山
+  const BADGE = {
+    jin: ['....w', '...ww', '..wwh', '.wwh', 'wwh', '.h'], mu: ['...ww', '.wwwh', 'wwwhh', 'wwhh', '.wh', 'w'], shui: ['..w', '..w', '.www', 'wwwhh', 'wwhhh', '.hhh'],
+    huo: ['..w', '.ww.w', '.wwww', 'wwhww', 'wwhhw', '.whh'], tu: ['......', '..ww', '.wwww', '.wwhh', 'wwwhhh', 'wwhhhh'],
+  };
+  ART.elemBadge = el => cached('elb|' + (el = elKey(el)), () => {
+    const [D, M, H] = EL_FX[el], b = new Buf(10, 10); b.add(L => L.e(5, 5, 4.6, 4.6, tone(M, D, H)), { noHi: 1 }); b.m(2, 2, BADGE[el], { w: '#ffffff', h: H }); return b.cv();
+  });
+  // 五行克制环 72×72：外圈相生（淡），内里五角星是相克（箭头指向被克的一方）。hl：高亮“克它”的那条边，传被克的五行
+  ART.elemWheel = hl => cached('elwheel|' + (hl || ''), () => on(mk(72, 72), () => {
+    const ord = ['mu', 'huo', 'tu', 'jin', 'shui'], pos = ord.map((e, i) => { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; return [36 + Math.cos(a) * 27, 36 + Math.sin(a) * 27]; });
+    for (let i = 0; i < 60; i++) { const a = i * Math.PI / 30; if (i % 3) R(36 + Math.cos(a) * 27, 36 + Math.sin(a) * 27, 1, 1, '#6e6a88'); }
+    const KE2 = { jin: 'mu', mu: 'tu', tu: 'shui', shui: 'huo', huo: 'jin' };
+    ord.forEach((e, i) => { const j = ord.indexOf(KE2[e]), [x0, y0] = pos[i], [x1, y1] = pos[j], on2 = hl && elKey(hl) === KE2[e], c = on2 ? '#fff2a8' : '#8a5a62', dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+      line(x0 + ux * 8, y0 + uy * 8, x1 - ux * 9, y1 - uy * 9, c, on2 ? 2 : 1); const tx = x1 - ux * 9, ty = y1 - uy * 9; line(tx, ty, tx - ux * 4 - uy * 3, ty - uy * 4 + ux * 3, c, on2 ? 2 : 1); line(tx, ty, tx - ux * 4 + uy * 3, ty - uy * 4 - ux * 3, c, on2 ? 2 : 1); });
+    ord.forEach((e, i) => { const bd = ART.elemBadge(e); ctx.drawImage(bd, 0, 0, 10, 10, Math.round(pos[i][0]) - 7, Math.round(pos[i][1]) - 7, 15, 15); });
+  }));
+  // 护罩格 7×8：on 亮 / off 碎
+  ART.shieldPip = on2 => cached('pip|' + (on2 ? 1 : 0), () => { const b = new Buf(7, 8), c = on2 ? tone('#7fe0f0', '#3fa8c8', '#ffffff') : tone('#55506e', '#3a3155', '#6e6a88'); b.add(L => L.sy(0, '3333321', c, 3.5), { noHi: !on2 }); if (on2) b.p(2, 1, '#ffffff'); else { b.p(3, 2, INK); b.p(2, 3, INK); b.p(3, 4, INK); } return b.cv(); });
+  // 招式图标 16×16：ART.skillIcon(el, kind)；kind：zhan 战技（斩痕）/ qi 器技（兵刃）/ mi 秘术（符）/ xin 心法（莲）/ ult 绝招（金框剑）；el 空 = 无属性（灰）
+  const SKG = {
+    zhan: ['..........ww', '.........wwh', '........wwh', '.......wwh', '..w...wwh', '.ww..wwh', '.wwwwwh', '..wwwh', '.wwwh', 'wwh.w', 'wh...w'],
+    qi: ['.........ww', '........wwh', '.......wwh', '......wwh', '.....wwh', '.w..wwh', '.wwwwh', '..www', '.wwhww', 'wwh..w', 'wh'],
+    mi: ['..wwwwwww', '..whhhhhw', '..wh.w.hw', '..whwwwhw', '..wh.w.hw', '..whwwwhw', '..wh.w.hw', '..whhhhhw', '..wwwwwww', '....www', '.....w'],
+    xin: ['.....w', '....www', '.w..www..w', '.ww.whw.ww', '.wwwwhwwww', '..wwhhhww', '...whhhw', '.wwwwwwwww', 'wwhhhhhhhww', '.wwwwwwwww'],
+    ult: ['.....w', '.....w', '....www', '....whw', '....whw', '....whw', '....whw', '..wwwwwww', '....whw', '.....w', '.....w'],
+  };
+  ART.skillKinds = Object.keys(SKG);
+  ART.skillIcon = function (el, kind) {
+    kind = SKG[kind] ? kind : 'zhan'; const e = el && (EL_FX[el] || EL_CN[el]) ? elKey(el) : '';
+    return cached('ski|' + e + kind, () => {
+      const [D, M, H] = e ? EL_FX[e] : ['#3a3155', '#6e6a88', '#c8c4d8'], b = new Buf(16, 16), ult = kind === 'ult';
+      b.add(L => { L.r(1, 0, 14, 16, ult ? GOLD : D); L.r(0, 1, 16, 14, ult ? GOLD : D); }, { noHi: !ult }); b.r(2, 2, 12, 12, hs(D, 0.7)); b.r(2, 2, 12, 1, D);
+      for (let y = 3; y < 14; y++) for (let x = 2; x < 14; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 6)) b.p(x, y, D);
+      b.m(2, 2, SKG[kind], { w: '#ffffff', h: H }); if (ult) { b.p(3, 3, '#fff2a8'); b.p(12, 3, '#fff2a8'); b.p(3, 12, '#fff2a8'); b.p(12, 12, '#fff2a8'); }
+      return b.cv({ noOutline: 1 });
+    });
+  };
+
+  // ---------- 四、刷宝：翻牌、器纹（星）、灵核、小图标 ----------
+  // 牌 26×34。ART.lootCard('back', 0, frame 0|1)：牌背（第二帧四角闪光，给“有货”的牌轮流播）；ART.lootCard('front', tier 1～7)：牌面底（品阶色边框，中间 (5, 5) 起留 16×16 放物品图，底部 (4, 25) 起一排放三颗星）
+  ART.lootCard = function (side, tier, frame) {
+    tier = Math.max(1, Math.min(7, tier | 0 || 1)); frame = (frame | 0) & 1;
+    return cached(['card', side, tier, frame].join('|'), () => {
+      const b = new Buf(26, 34);
+      if (side === 'back') {
+        const P = tone('#4a3a78', '#2c2250', '#7a68b8'); b.add(L => { L.r(1, 0, 24, 34, P); L.r(0, 1, 26, 32, P); });
+        b.add(L => { L.r(2, 2, 22, 1, GOLD); L.r(2, 31, 22, 1, GOLD); L.r(2, 2, 1, 30, GOLD); L.r(23, 2, 1, 30, GOLD); }, { flat: 1, sep: 0 });
+        for (let y = 5; y < 29; y++) for (let x = 5; x < 21; x++) if ((x + y) % 6 === 0 || (x - y + 60) % 6 === 0) b.p(x, y, '#5a4a90');
+        b.add(L => L.sy(11, '123456654321', GOLD, 13), { sep: 0 }); b.add(L => L.sy(13, '12344321', '#4a3a78', 13), { flat: 1, sep: 0 }); b.r(12, 15, 2, 4, '#fff2a8'); b.r(11, 16, 4, 2, '#fff2a8');
+        if (frame) for (const [x, y] of [[4, 4], [21, 4], [4, 29], [21, 29]]) { b.r(x - 1, y, 3, 1, '#ffffff'); b.r(x, y - 1, 1, 3, '#ffffff'); }
+        return b.cv();
+      }
+      const q = BEAM_C[tier - 1], Q = tone(q, hs(q, 0.6), lerpC(q, '#ffffff', 0.6));
+      b.add(L => { L.r(1, 0, 24, 34, Q); L.r(0, 1, 26, 32, Q); }); b.r(2, 2, 22, 30, '#efe3c4'); b.r(2, 2, 22, 1, '#fff6e0'); b.r(3, 3, 20, 20, '#2c2238'); b.r(4, 4, 18, 18, '#3a3155');
+      b.hl(3, 22, 23, hs(q, 0.6)); if (tier >= 4) for (const [x, y] of [[2, 2], [23, 2], [2, 31], [23, 31]]) b.p(x, y, '#ffffff');
+      if (tier === 7) for (let i = 0; i < 26; i++) { b.p(i, 0, BEAM_RB[i % 6]); b.p(i, 33, BEAM_RB[(i + 3) % 6]); }
+      return b.cv();
+    });
+  };
+  // 器纹（星）7×7：on 金星 / off 空槽
+  ART.star = on2 => cached('star|' + (on2 ? 1 : 0), () => { const b = new Buf(7, 7), rows = ['...x', '...x', 'xxxxxxx', '.xxxxx', '.xxxxx', '.xx.xx', 'x.....x']; b.m(0, 0, rows, { x: on2 ? '#f4c542' : '#8a8478' }); if (on2) { b.p(3, 2, '#fff2a8'); b.p(3, 3, '#ffffff'); b.p(2, 5, '#a8742a'); b.p(5, 5, '#a8742a'); } return b.cv({ noOutline: !on2 }); });
+  // 灵核 16×16：精英掉的五行材料（淬灵用）
+  ART.core = el => cached('core|' + (el = elKey(el)), () => {
+    const [D, M, H] = EL_FX[el], b = new Buf(16, 16); b.add(L => L.sy(2, '245666665421', tone(M, D, H), 8));
+    b.l(5, 5, 8, 3, '#ffffff'); b.p(5, 6, '#ffffff'); b.l(8, 8, 11, 11, D); b.l(8, 8, 4, 10, D); b.l(8, 8, 9, 3, H); b.p(8, 8, '#ffffff'); b.p(13, 3, H); b.p(2, 12, H); b.p(14, 12, '#ffffff');
+    const bd = BADGE[el]; b.m(6, 9, bd.slice(2, 5).map(r => r.slice(0, 4)), { w: H, h: '#ffffff' });
+    return b.cv();
+  });
+  const ICON7 = {
+    rune: b => { b.add(L => L.sy(2, '3566777766653', tone('#8a7ab8', '#4a3a78', '#c8b8f0'), 8)); b.l(8, 4, 5, 8, '#fff2a8'); b.l(5, 8, 10, 8, '#fff2a8'); b.l(10, 8, 7, 12, '#fff2a8'); b.p(3, 3, '#ffffff'); b.p(13, 12, '#ffffff'); },   // 器纹石：熔炼带星法宝所得，洗练用
+    wish: b => { b.add(L => { L.r(5, 3, 7, 11, RED); L.p(5, 14, RED); L.p(11, 14, RED); L.p(6, 14, RED); L.p(10, 14, RED); }); b.r(8, 0, 1, 3, '#f4c542'); b.r(7, 1, 3, 1, '#f4c542'); b.r(7, 5, 3, 1, '#fff2a8'); b.r(8, 6, 1, 5, '#fff2a8'); b.r(7, 8, 3, 1, '#fff2a8'); b.p(13, 4, '#fff2a8'); b.p(2, 9, '#fff2a8'); },   // 心愿签
+    f_plus: b => { b.add(L => { L.l(3, 13, 9, 7, WOOD, 2); }); b.add(L => { L.r(8, 2, 6, 5, STEEL); L.r(7, 3, 8, 3, STEEL); }); b.p(2, 3, '#fff2a8'); b.r(1, 4, 3, 1, '#f4c542'); b.r(2, 3, 1, 3, '#f4c542'); b.p(13, 11, '#f4c542'); b.p(12, 13, '#fff2a8'); },   // 强化：铁锤与火星
+    f_infuse: b => { b.add(L => { L.l(3, 13, 12, 4, STEEL, 2); L.p(13, 3, STEEL); }); b.add(L => { L.l(2, 11, 5, 14, GOLD, 1); }, { sep: 0 }); b.add(L => L.sy(1, '1223321', tone('#4aa8ff', '#24579a', '#d4ecff'), 5), { sep: 0 }); b.p(4, 3, '#ffffff'); b.p(8, 7, '#7fe0f0'); b.p(10, 5, '#7fe0f0'); b.p(12, 9, '#62d26f'); b.p(9, 11, '#ff6b3a'); },   // 淬灵：一滴灵液落在剑上
+    f_reroll: b => { const c = '#4ccb9f', d = '#2a8a7a'; for (let i = 0; i < 20; i++) { const a = i * Math.PI / 10; if (i % 10 < 8) b.p(8 + Math.cos(a) * 5.5, 8 + Math.sin(a) * 5.5, i % 10 < 4 ? c : d); } b.r(12, 5, 3, 1, c); b.r(13, 3, 1, 3, c); b.r(1, 10, 3, 1, d); b.r(2, 10, 1, 3, d); b.r(7, 7, 3, 3, '#f4c542'); b.p(8, 8, '#fff2a8'); },   // 洗练：两支回旋箭头绕着一枚词条
+    flee: b => { b.add(L => { L.r(2, 7, 8, 3, WHITE); L.sy(4, '1234321', WHITE, 12); }, { sep: 0 }); b.p(2, 12, '#928ea8'); b.p(5, 13, '#928ea8'); b.p(8, 12, '#928ea8'); },   // 撤退
+    hp: b => { b.m(2, 3, HEART.split('/'), IPAL); },
+    rage: b => { b.add(L => L.sy(1, '12334455554321', tone('#ff6b3a', '#a8241e', '#ffd86a'), 8)); b.add(L => L.sy(6, '12233221', '#ffd86a', 8), { flat: 1, sep: 0 }); b.r(7, 9, 2, 3, '#ffffff'); },   // 怒气（绝招槽）
+  };
+  { const icon6 = ART.icon; ART.icon = function (name) { if (ICON7[name]) return cached('ic7|' + name, () => { const b = new Buf(16, 16); ICON7[name](b); return b.cv(); }); return icon6(name); };
+    const names6 = ART.iconNames; ART.iconNames = () => names6().concat(Object.keys(ICON7)); }
+
+  // ---------- 五、炼器台 64×44 两帧：左边炉火，中间铁砧上一口剑，右上举锤（0）/ 落锤迸火星（1） ----------
+  ART.forgeBench = frame => cached('bench|' + (frame & 1), () => {
+    const f = frame & 1, b = new Buf(64, 44), ST = tone('#6a6478', '#3e3a4c', '#9a94a8'), IR = tone('#55506e', '#2c2238', '#8a86a0');
+    b.add(L => { L.r(2, 12, 18, 30, ST); L.sy(6, '4689', ST, 11); L.r(8, 0, 6, 7, ST); });
+    b.r(6, 24, 10, 12, '#2c2238'); b.add(L => { L.sy(27, '2345554', tone('#ff6b3a', '#a8241e', '#ffd86a'), 11); }, { sep: 0 }); b.r(10, 31 - f, 2, 3, '#fff2a8'); b.p(9 + f, 26, '#ffd86a'); b.p(12 - f, 24, '#ff6b3a');
+    for (const y of [16, 20]) b.hl(4, 17, y, '#3e3a4c'); b.p(10 + f, 2 - f, '#c8c4d8'); b.p(12, 0, '#928ea8');
+    b.add(L => { L.r(30, 34, 12, 8, WOOD); }); b.add(L => { L.r(26, 26, 22, 4, IR); L.r(22, 26, 6, 2, IR); L.r(31, 30, 10, 4, IR); L.r(28, 33, 16, 2, IR); });
+    b.add(L => { L.r(24, 24, 20, 2, f ? tone('#ffb23f', '#d8502a', '#fff2a8') : STEEL); L.r(44, 23, 2, 4, GOLD); L.r(46, 24, 5, 2, WOOD); }, { sep: 0 });
+    if (f) { b.add(L => { L.l(52, 14, 44, 20, WOOD, 2); }); b.add(L => { L.r(36, 17, 9, 6, IR); }); for (const [x, y] of [[30, 20], [27, 17], [33, 14], [48, 19], [51, 22], [25, 22], [38, 12]]) b.p(x, y, (x + y) % 2 ? '#fff2a8' : '#ffffff'); b.r(33, 21, 3, 1, '#ffffff'); b.r(34, 20, 1, 3, '#ffffff'); }
+    else { b.add(L => { L.l(56, 14, 50, 4, WOOD, 2); }); b.add(L => { L.r(44, 0, 10, 6, IR); }); }
+    b.add(L => { L.r(56, 30, 7, 12, WOOD); }); b.r(57, 32, 5, 6, '#4aa8ff'); b.hl(57, 61, 32, '#d4ecff'); b.hl(56, 62, 35, '#5a3a26');
+    return b.cv();
+  });
+
+  // ---------- 六、高光过场 ----------
+  // 集中线 200×120 两帧（透明底）：四周向 (cx, cy) 收拢，中间留椭圆空白。color 默认白
+  ART.speedLines = function (frame, color, cx, cy) {
+    frame = (frame | 0) & 1; color = color || '#ffffff'; cx = cx === undefined ? 100 : cx; cy = cy === undefined ? 60 : cy;
+    return cached(['spd', frame, color, cx, cy].join('|'), () => on(mk(200, 120), () => {
+      const r = seeded(77 + frame * 13);
+      for (let i = 0; i < 54; i++) { const a = (i + r() * 0.8) * Math.PI * 2 / 54 + frame * 0.05, r0 = 46 + r() * 30, r1 = 150, w = r() < 0.3 ? 3 : r() < 0.6 ? 2 : 1; ctx.globalAlpha = 0.5 + r() * 0.5;
+        const n = 26; for (let j = 0; j < n; j++) { const u = j / (n - 1), rr = r0 + (r1 - r0) * u, ww = Math.max(1, Math.round(w * (0.4 + u * 1.4))); R(cx + Math.cos(a) * rr * 1.25 - ww / 2, cy + Math.sin(a) * rr * 0.8 - ww / 2, ww + 3, ww, color); } }
+      ctx.globalAlpha = 1;
+    }));
+  };
+  // 特写带 200×48：把一张 48×48 的半身像（ART.portrait / portraitMe / portraitGen 的画布）放大两倍、裁到眉眼一带，压在斜切的色带上，带后有横向速度线。
+  // color：色带主色（宗门色 / 五行色 / 朱红）；flip：人在右边、脸朝左（对手用）
+  ART.cutin = function (src, color, flip, key) {
+    color = color || '#d8404a';
+    const draw = () => on(mk(200, 48), () => {
+      const D = lerpC(color, INK, 0.72), M = lerpC(color, INK, 0.35), r = seeded(5);
+      for (let y = 0; y < 48; y++) { const sk = Math.round((47 - y) * 0.25), x0 = flip ? 0 : sk, x1 = flip ? 200 - sk : 200; R(x0, y, x1 - x0, 1, y < 2 || y > 45 ? '#ffffff' : y < 4 || y > 43 ? color : D); }
+      for (let i = 0; i < 26; i++) { const y = 5 + Math.floor(r() * 38), x = Math.floor(r() * 200), w = 14 + r() * 50; ctx.globalAlpha = 0.25 + r() * 0.5; R(x, y, w, 1 + (i % 3 === 0 ? 1 : 0), i % 4 ? M : color); } ctx.globalAlpha = 1;
+      if (src) { const dx = flip ? 96 : 8; ctx.save(); ctx.imageSmoothingEnabled = false; if (flip) { ctx.translate(dx + 96, 0); ctx.scale(-1, 1); ctx.drawImage(src, 0, 12, 48, 20, 0, 4, 96, 40); } else ctx.drawImage(src, 0, 12, 48, 20, dx, 4, 96, 40); ctx.restore(); }
+      for (let i = 0; i < 6; i++) { const x = flip ? 6 + i * 13 : 194 - i * 13 - 30; ctx.globalAlpha = 0.9 - i * 0.13; R(x, 10 + (i * 11) % 28, 30 - i * 3, 1, '#ffffff'); } ctx.globalAlpha = 1;
+      for (let y = 0; y < 48; y++) { const sk = Math.round((47 - y) * 0.25); if (sk) ctx.clearRect(flip ? 200 - sk : 0, y, sk, 1); }
+    });
+    return key ? cached('cutin|' + key + '|' + color + (flip ? 1 : 0), draw) : draw();
+  };
+  // 过场背景 200×120：gate 宗门山门（入宗、继任宗主）/ clouds 云海金光（筑基、大境界）/ ink 泼墨朱日（定格、打脸、字幕卡）/ dusk 落霞擂台远景（三年之约开打前）
+  const CINE_BG = {
+    gate: () => {
+      vgrad(0, 0, 200, 80, ramp(['#3a5a9a', '#6a8ac8', '#a8c4e8', '#f0e0c0'], 6), 0.4);
+      disc(150, 34, 12, '#fff2d0'); glow(150, 34, 30, '#fff2a8', 0.5);
+      paintRidge(ridgeLine(51, 200, 58, 26, 4, 2), 96, '#6a7aa8', '#a8b8d8', { lit: '#8a9ac8', dark: '#55648e' });
+      paintRidge(ridgeLine(57, 200, 74, 14, 6, 1.5), 104, '#3e5a52', '#6a8a72', { lit: '#5a7a66', dark: '#2a4038' });
+      for (let i = 0; i < 9; i++) { const y = 118 - i * 5, w = 78 - i * 6; R(100 - w / 2, y - 5, w, 5, i % 2 ? '#8a8698' : '#9a96a8'); R(100 - w / 2, y - 5, w, 1, '#c8c4d8'); R(100 - w / 2, y - 1, w, 1, '#55506e'); }
+      for (const s of [-1, 1]) { const x = 100 + s * 30; R(x - 4, 34, 8, 44, '#a83030'); R(x - 4, 34, 2, 44, '#d8504a'); R(x + 2, 34, 2, 44, '#6a1a20'); R(x - 6, 74, 12, 4, '#8a8698'); }
+      R(58, 26, 84, 6, '#3a3155'); R(54, 22, 92, 5, '#55506e'); R(54, 22, 92, 1, '#8a86a0'); for (let x = 56; x < 146; x += 6) R(x, 27, 3, 2, '#2c2238');
+      R(50, 20, 6, 3, '#f4c542'); R(144, 20, 6, 3, '#f4c542'); R(84, 33, 32, 10, '#2a2a4a'); R(85, 34, 30, 8, '#f4c542'); R(86, 35, 28, 6, '#2c2238'); for (const x of [90, 97, 104]) { R(x, 36, 4, 1, '#f4c542'); R(x + 1, 36, 1, 4, '#f4c542'); R(x, 39, 4, 1, '#f4c542'); }
+      for (const [x, h] of [[18, 40], [36, 30], [170, 44], [186, 28]]) pine(x, 112 - (x > 100 ? 0 : 2), h, ['#1e3a4a', '#2f5a52', '#5a8a68']);
+      for (const [x, y, w] of [[10, 52, 40], [130, 62, 56], [60, 70, 30]]) { ctx.globalAlpha = 0.7; dR(x, y, w, 4, '#ffffff', 9); dR(x + 5, y - 2, w - 12, 3, '#ffffff', 7); ctx.globalAlpha = 1; }
+    },
+    clouds: () => {
+      vgrad(0, 0, 200, 120, ramp(['#1e1a4a', '#3a3a8a', '#7a6ab8', '#f0a878', '#ffe8a8'], 6), 0.4);
+      disc(100, 74, 20, '#fff6d0'); glow(100, 74, 50, '#fff2a8', 0.7);
+      for (let i = 0; i < 13; i++) { const a = -Math.PI + i * Math.PI / 12; ctx.globalAlpha = i % 2 ? 0.22 : 0.4; for (let j = 0; j < 30; j++) { const rr = 26 + j * 4, w = 1 + j * 0.45; R(100 + Math.cos(a) * rr - w / 2, 74 + Math.sin(a) * rr, w, 4, '#fff2a8'); } } ctx.globalAlpha = 1;
+      const r = seeded(9); for (let L2 = 0; L2 < 4; L2++) { const yb = 78 + L2 * 11, c = ['#b8a8d8', '#d8c8e8', '#f0e4f4', '#ffffff'][L2]; for (let i = 0; i < 16; i++) { const x = (i * 14 + L2 * 5) % 210 - 6, rr = 6 + r() * 7; disc(x, yb + r() * 4, Math.round(rr), c); } R(0, yb + 5, 200, 44, c); }
+      for (let i = 0; i < 12; i++) R(r() * 200, 82 + r() * 34, 6 + r() * 12, 1, '#c8b8e0');
+      for (let i = 0; i < 26; i++) { const b2 = r(); R(r() * 200, r() * 40, 1, 1, b2 > 0.6 ? '#ffffff' : '#9aa2dc'); }
+    },
+    ink: () => {
+      R(0, 0, 200, 120, '#efe3c4'); const r = seeded(31); for (let i = 0; i < 140; i++) R(r() * 200, r() * 120, 1 + r() * 3, 1, i % 2 ? '#e6d8b4' : '#f6ecd0');
+      disc(150, 36, 22, '#d8404a'); disc(150, 36, 20, '#e8605a'); ctx.globalAlpha = 0.5; disc(144, 30, 9, '#ff9a8a'); ctx.globalAlpha = 1;
+      for (let i = 0; i < 46; i++) { const u = i / 45, x = -8 + u * 216, y = 96 - u * 46 + Math.sin(u * 9) * 5, rr = 9 + Math.sin(u * 3.1) * 7 + r() * 3; ctx.fillStyle = pat('#1b1326', rr > 11 ? 16 : 13); disc(x, y, Math.round(rr), ctx.fillStyle); }
+      for (let i = 0; i < 30; i++) { const x = r() * 200, y = 40 + r() * 76, s = 1 + Math.floor(r() * 3); disc(x, y, s, '#1b1326'); }
+      for (let i = 0; i < 14; i++) { const x = 10 + r() * 180, y = 52 + r() * 50; R(x, y, 8 + r() * 26, 1, '#55506e'); }
+    },
+    dusk: () => {
+      vgrad(0, 0, 200, 86, ramp(['#2a2458', '#6a3a78', '#c8506a', '#f0905a', '#ffd88a'], 6), 0.4);
+      disc(100, 78, 26, '#ffe8a8'); disc(100, 78, 22, '#fff6d8'); glow(100, 78, 54, '#ffb23f', 0.6);
+      paintRidge(ridgeLine(71, 200, 74, 16, 5, 1.6), 92, '#5a2a4a', '#8a3a5a', { lit: '#a8506a', dark: '#3a1a34' });
+      for (const [x, w, h] of [[6, 22, 30], [30, 16, 22], [150, 18, 26], [172, 24, 34]]) { R(x, 92 - h, w, h, '#2a1830'); R(x - 3, 90 - h, w + 6, 3, '#3a2040'); R(x + 2, 86 - h, w - 4, 4, '#2a1830'); for (let i = 0; i < 2; i++) R(x + 4 + i * 8, 98 - h + 4, 3, 4, '#ffd86a'); }
+      R(0, 92, 200, 28, '#3a2a40'); R(30, 88, 140, 6, '#6a5a72'); R(30, 88, 140, 1, '#c8a8a0'); R(34, 94, 132, 22, '#4a3a52'); for (let x = 40; x < 166; x += 14) R(x, 94, 1, 22, '#2a1830');
+      for (const x of [34, 164]) { R(x - 1, 60, 2, 30, '#2a1830'); R(x + 1, 62, 12, 7, '#d8404a'); R(x + 1, 62, 12, 1, '#ff9a8a'); }
+      for (let i = 0; i < 24; i++) { const x = 4 + i * 8.2, h = 4 + (i * 7) % 5; R(x, 116 - h, 5, h + 4, '#1b1326'); disc(x + 2, 114 - h, 2, '#1b1326'); }
+    },
+  };
+  ART.cineBgKinds = Object.keys(CINE_BG);
+  ART.cineBg = kind => cached('cinebg|' + (CINE_BG[kind] ? kind : 'ink'), () => on(mk(200, 120), () => { CINE_BG[CINE_BG[kind] ? kind : 'ink'](); frameEdge(); }));
+  // 婚书 / 休书 48×36 三帧：0 完整 / 1 撕成两半 / 2 碎片飞散（退婚时她撕，三年之约赢了以后你把休书拍回去——同一张图倒着用）
+  ART.tornLetterFrames = 3;
+  ART.tornLetter = frame => cached('letter|' + (frame = Math.max(0, Math.min(2, frame | 0))), () => {
+    const b = new Buf(48, 36), half = (L, ox, oy, left) => { const x0 = left ? 8 : 24, x1 = left ? 23 : 39; for (let y = 4; y < 32; y++) { const jag = frame ? ((y * 7) % 3) - 1 : 0; for (let x = x0; x <= x1; x++) { if (frame && left && x > 22 + jag) continue; if (frame && !left && x < 24 + jag) continue; L.p(x + ox, y + oy, RED); } } };
+    const off = frame === 0 ? [0, 0, 0, 0] : frame === 1 ? [-3, 1, 3, -1] : [-7, 4, 7, -3];
+    b.add(L => half(L, off[0], off[1], true)); b.add(L => half(L, off[2], off[3], false));
+    for (const [x, left] of [[12, 1], [17, 1], [28, 0], [33, 0]]) { const ox = left ? off[0] : off[2], oy = left ? off[1] : off[3]; for (let y = 8; y < 27; y += 2) b.p(x + ox, y + oy, (y % 6) ? '#fff2a8' : '#f4c542'); }
+    b.r(30 + off[2], 24 + off[3], 6, 6, '#fff2a8'); b.r(31 + off[2], 25 + off[3], 4, 4, '#8a1e2e');
+    if (frame === 2) for (const [x, y] of [[22, 6], [25, 14], [21, 22], [26, 28], [23, 33], [3, 10], [44, 26]]) { b.r(x, y, 2, 2, '#d8404a'); b.p(x, y, '#ff8a8a'); }
+    return b.cv();
+  });
+}
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
