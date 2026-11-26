@@ -65,7 +65,7 @@ const samsaraHints = [
       const S = st.settle, w = L.HALL_NODE.wis, k = S.mults.find(m => /因果/.test(m.n));
       return `这一世能带走 <b>${fmt(S.total)}</b> 道果，其中图鉴 <b>+${fmt(S.codex)}</b>${k ? `；未了的因果把它压了一截（×${k.v.toFixed(2)}）` : ''}。道果带去<b>轮回殿</b>换永久的东西：宿慧一级修炼 +15%（${fmt(w.cost[L.perk(st, 'wis')] || 0)} 道果），出身、命格、传承都在后面几页。花不完的留着，下一世接着攒——你现在一共 <b>${fmt(L.daoguo(st))}</b>。`;
     } },
-  { id: 'hall1', intro: true, when: () => modalTitle() === '轮回殿' && !!document.querySelector('#hallGrid'), target: '#hallGrid', btn: '好', text: () => {
+  { id: 'hall1', urgent: true, intro: true, when: () => modalTitle() === '轮回殿' && !!document.querySelector('#hallGrid'), target: '#hallGrid', btn: '好', text: () => {
       const can = L.HALL.filter(h => !L.hallWhy(st, h.id));
       return `点一个节点看它管什么，再点<b>【点亮】</b>。你有 <b>${fmt(L.daoguo(st))}</b> 道果，现在买得起 <b>${can.length}</b> 项${can.length ? `（最便宜的是「${esc(can.sort((a, b) => L.hallCost(st, a.id) - L.hallCost(st, b.id))[0].n)}」${fmt(L.hallCost(st, can[0].id))}）` : ''}。出身也在这里点亮，点亮了下一页才能选。`;
     } },

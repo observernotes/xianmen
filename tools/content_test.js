@@ -419,7 +419,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const tag = await page.evaluate(() => { const el = document.querySelector('#worldTag'); const r = el.getBoundingClientRect(); return { vis: !el.hidden, txt: el.textContent, w: r.width, h: r.height }; });
   expect(tag.vis && tag.txt.includes('兽潮') && tag.txt.includes('8') && tag.w >= 44 && tag.h >= 44, `大势小牌：${tag.txt}（${Math.round(tag.w)}×${Math.round(tag.h)}）`);
   await shot('c28-world-tag');
-  await page.click('#worldTag'); await page.waitForTimeout(400); await shot('c29-calendar');
+  await page.evaluate(() => document.querySelector('#worldTag').click()); await page.waitForTimeout(400); await shot('c29-calendar');
   const cal = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: !!document.querySelector('#calStrip'), rows: [...document.querySelectorAll('#modal [data-cal]')].map(x => x.dataset.cal).join(), txt: document.querySelector('#modal .body').textContent }));
   expect(cal.t === '年历' && cal.strip && cal.rows.includes('dao') && cal.rows.includes('auc') && cal.rows.includes('war') && cal.rows.includes('realm') && cal.rows.includes('world') && cal.txt.includes('兽潮'), `年历：${cal.rows}`);
   await close();
@@ -1553,6 +1553,362 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await hq(() => !document.querySelector('#modal #zhenSlots')), 'nohome2：阵法面板不开');
   await page.evaluate(() => { window.__xm.L.HOME2_ON = true; }); await close();
   }
+  // ---------- 奇遇链 / 图鉴 / 轮回 / 出身 / 天道试炼（SYSTEMS §15 / §16）：逻辑检查，全部用 L 造存档、不碰当前这一局 ----------
+  const sam = await page.evaluate(() => {
+    const { L } = window.__xm;
+    const o = {};
+    const fresh = x => L.newState(Object.assign({ name: '链' }, x || {}));
+    const clone = s => JSON.parse(JSON.stringify(s));
+    const dumb = (st, ev) => { const i = ev.choices.findIndex(c => L.choiceShown(st, c) && L.costOk(st, c.cost)); return i < 0 ? null : L.resolveChoice(st, ev, i); };
+    const C0 = L.rebirthCards(fresh(), 3)[0];
+    function reb(perks, opt, prep) {
+      const old = fresh(); old.p.r = 9; old.meta.daoguo = 0; Object.assign(old.meta.perk, perks || {});
+      if (prep) prep(old);
+      return { old, ns: L.rebirthState(old, Object.assign({ t: C0.t, tr: C0.tr }, opt || {})) };
+    }
+    // ========== 奇遇链 / 图鉴 / 轮回 / 出身 / 天道试炼（逻辑，纯 L） ===    // 1. 链
+    o.total = L.CHAINS.length === 10 && L.CHAINS.reduce((a, c) => a + L.chainTotal(c.id), 0) === 48;
+    {
+      // 约战前不催；约战后链开了头、过了 8 周天才包含下一步
+      const st = fresh(); st.p.r = 1; st.eflags.map_1 = 1; st.tick = 40; L.chainProgress(st);
+      const nx = L.chainNextEvs(st, 'ch_map')[0];
+      o.dueEv = !!nx && nx.id === 'ch_map_2';
+      o.pre = L.chainDue(st, 'home', { visit: true }).length === 0;
+      st.pact = 1; st.chain.at.ch_map = 36;     // 上一步 4 周天前：还不到
+      o.dueWait = L.chainDue(st, 'home', { visit: true }).length === 0;
+      st.chain.at.ch_map = 30;                  // 10 周天前：到了
+      const d = L.chainDue(st, 'home', { visit: true });
+      o.dueOk = d.length === 1 && d[0].ev.id === 'ch_map_2';
+      const st2 = clone(st); st2.pact = 0; st2.rebirth = 1;   // 转世后第一世的限制不再有
+      o.dueReb = L.chainDue(st2, 'home', { visit: true }).length === 1;
+      L.CHAINS_ON = false; o.dueOff = L.chainDue(st, 'home', { visit: true }).length === 0 && !L.eligible(st, L.eventById('ch_map_2'), 'home', { visit: true });
+      L.CHAINS_ON = true; o.dueOn = L.eligible(st, L.eventById('ch_map_2'), 'home', { visit: true });
+    }
+    {
+      // ch_sword_6 在 r8（炼虚之后）仍可出；ch_sword_2 这种在中途升境界后也不卡死；第 1 步照旧受 maxR 限制
+      const st = fresh(); st.p.r = 8; st.eflags.sword_4 = 1; st.eflags.sword_5 = 1; st.eflags.sword_1 = 1;
+      const e6 = L.eventById('ch_sword_6');
+      o.sword6 = e6.maxR === 7 && L.eligible(st, e6, 'home', { visit: true });
+      const stN = clone(st); stN.eflags.sword_5 = 0; o.sword6no = !L.eligible(stN, e6, 'home', { visit: true });
+      const st2 = fresh(); st2.p.r = 8;
+      o.sword1 = !L.eligible(st2, L.eventById('ch_sword_1'), 'home', { visit: true });
+      const st3 = fresh(); st3.p.r = 8; st3.eflags.sword_1 = 1;
+      const e2 = L.eventById('ch_sword_2');
+      o.sword2 = L.eligible(st3, e2, 'exp', { bg: 'swords' });
+      const st4 = fresh(); st4.p.r = 8;   // 没做完上一步：maxR 照旧拦着
+      o.sword2no = !L.eligible(st4, e2, 'exp', { bg: 'swords' });
+    }
+    {
+      // tea_4 在 r6 之后做完 → storyQ 补进 ch_tea_5
+      const st = fresh({ origin: 'sanxiu' }); st.p.r = 6; st.eflags.tea_1 = 1; st.eflags.tea_2 = 1; st.eflags.tea_3 = 1; st.storyQ = [];
+      const e4 = L.eventById('ch_tea_4'); st.p.r = 5; o.tea4ok = L.eligible(st, e4, 'home', { visit: true });
+      st.p.r = 6; o.tea4relax = L.eligible(st, e4, 'home', { visit: true });  // maxR 5，r6 放宽
+      dumb(st, e4);
+      o.tea5q = st.storyQ.includes('ch_tea_5');
+      L.CHAINS_ON = false; const st9 = fresh(); st9.p.r = 7; st9.eflags.tea_4 = 1; st9.storyQ = []; L.chainStarted(st9, 'ch_tea'); o.tea5off = L.chainCatchUp(st9) === 0; L.CHAINS_ON = true;
+      const st8 = fresh(); st8.p.r = 7; st8.eflags.tea_1 = 1; st8.eflags.tea_2 = 1; st8.eflags.tea_3 = 1; st8.eflags.tea_4 = 1; st8.storyQ = []; o.tea5on = L.chainCatchUp(st8) === 1 && st8.storyQ[0] === 'ch_tea_5';
+    }
+    {
+      // story_r7 结算后 tianheng_2 进队列
+      const st = fresh(); st.p.r = 7; st.storyQ = ['story_r7']; st.eflags.sword_1 = 1;
+      const e = L.eventById('story_r7');
+      o.r7ev = !!e; if (e) {
+        const had = st.storyQ.includes('tianheng_2');
+        dumb(st, e); o.tian = !had && st.storyQ.includes('tianheng_2');
+      }
+    }
+    {
+      // CHAINS_ON = false：ch_* 事件一概不出（洞府、历练各掷 600 次）
+      const st = fresh({}); st.rebirth = 1; st.p.r = 5; st.stones = 1e6; st.tick = 500; st.npc = { ge: { aff: 90 }, mo: { aff: 90 }, bai: { aff: 90 }, ye: { aff: 90 } };
+      for (const c of L.CHAINS) st.eflags[L.chainShort(c.id) + '_1'] = 1;
+      const cnt = () => { let n = 0; for (let i = 0; i < 600; i++) for (const w of ['home', 'exp']) { st.evLast = {}; const ev = L.pickEvent(st, w, w === 'home' ? { visit: true } : { bg: 'swords' }); if (ev && /^ch_/.test(ev.id)) n++; } return n; };
+      const on = cnt(); L.CHAINS_ON = false; const off = cnt(); L.CHAINS_ON = true;
+      o.chainsOnOff = on > 0 && off === 0;
+    }
+    // 走完一条链
+    function finish(id, pre, extra) {
+      const st = fresh(); st.p.r = 5; st.tick = 100; st.stones = 1e6;
+      for (const f of pre) st.eflags[f] = 1;
+      if (extra) extra(st);
+      const total = L.chainTotal(id), short = id.replace(/^ch_/, '');
+      const last = L.eventById(id + '_' + total) || L.chainSteps(id)[total][0];
+      const m0 = Object.assign({}, st.gear.mats), hint0 = st.meta.trialHint;
+      const res = dumb(st, last);
+      return { st, res, m0, hint0, short };
+    }
+    {
+      let r = finish('ch_fox', ['fox_1', 'fox_2', 'fox_3'], st => { st.npc = { bai: { aff: 90 } }; });
+      o.foxDone = r.st.meta.chain.ch_fox.done === 1 && r.st.eflags.chain_fox_fin === 1 && L.zhenOwned(r.st, 'f_yangshou') && !L.zhenOwned(fresh(), 'f_yangshou');
+      o.foxFx = (r.res.fx || []).some(t => /链成/.test(t));
+      r = finish('ch_sea', ['sea_1', 'sea_2', 'sea_3']);
+      o.seaDone = r.st.meta.chain.ch_sea.done === 1 && (r.st.gear.mats[7] || 0) === (r.m0[7] || 0) + 1 && (r.st.gear.mats[8] || 0) === (r.m0[8] || 0);
+      r = finish('ch_star', ['star_1', 'star_2', 'star_3']);
+      o.starDone = r.st.meta.chain.ch_star.done === 1 && (r.st.gear.mats[8] || 0) === (r.m0[8] || 0) + 1 && (r.st.gear.mats[7] || 0) === (r.m0[7] || 0);
+      r = finish('ch_tea', ['tea_1', 'tea_2', 'tea_3', 'tea_4']);
+      o.teaDone = r.st.meta.chain.ch_tea.done === 1 && r.st.meta.trialHint === 1 && !r.hint0;
+      // 没走完不发终点奖励
+      r = finish('ch_tea', ['tea_1', 'tea_2', 'tea_3']);
+      o.teaNo = !r.st.meta.trialHint && !(r.st.meta.chain.ch_tea.done);
+      // 同一条链再走一遍不重复发（flag 已置）
+      const again = dumb(r.st, L.eventById('ch_tea_5'));
+    }
+
+    // 2. 图鉴
+    {
+      const st = fresh(), T = id => L.codexCat(st, id).total;
+      o.cells = T('gear') === 77 && T('pet') === 37 && T('pill') === 19 && T('rival') === 26 && T('realm') === 9 && T('chain') === 48 && L.CODEX.length === 14;
+      // 访客自去不记奇遇；亲自见了才记
+      const ev = L.events().find(e => e.where === 'home' && e.visit && !e.chain && !e.once && e.choices.some(c => L.costOk(st, c.cost)) && L.eligible(st, e, 'home', { visit: true }));
+      const a = clone(st); a.visitor = { id: ev.id, left: 0 }; dumb(a, ev);
+      const b = clone(st); b.visitor = { id: ev.id, left: 3 }; dumb(b, ev);
+      o.visAuto = !a.meta.cx.ev[ev.id] && !!b.meta.cx.ev[ev.id];
+      // 链事件不记进“奇遇”散件
+      const ce = L.eventById('ch_map_2'); const c = fresh(); c.eflags.map_1 = 1; dumb(c, ce); o.chainNotEv = !c.meta.cx.ev.ch_map_2 && L.codexCat(c, 'event').got === 0;
+      o.evGot = L.codexCat(b, 'event').got === 1;
+    }
+    {
+      // 见多识广：第一世 0；转世后按 cxBirth；L.codexNew = 现在 − cx0
+      const st = fresh();
+      for (const id of Object.keys(L.ARTS ? {} : {})) { }
+      for (const A of L.ARTL) st.meta.cx.art[A.id] = 1;
+      for (const B of L.gearBases()) st.meta.cx.gear[B.id] = 1;
+      for (const P of L.PLANS) st.meta.cx.plan[P.id] = 1;
+      for (const k of Object.keys(L.RECIPE)) st.meta.recipe[k] = 1;
+      for (const c of L.COMBOS) st.meta.combo[c.id] = 1;
+      st.meta.petSeen = {}; st.meta.petEvo = {};
+      for (const sp of L.PET_IDS) { st.meta.petSeen[sp] = 1; st.meta.petEvo[sp + '_a'] = 1; st.meta.petEvo[sp + '_b'] = 1; }
+      for (let k = 0; k < 15 * 3; k++) st.meta.aff[k] = 1;
+      L.codexCheck(st);
+      o.pctHigh = L.codexPct(st) > 0.3;
+      o.first0 = L.codexBonus(st) === 0 && L.codexBonusNext(st) > 0;
+      o.first0cul = !L.modParts('cul', st).some(x => /见多识广/.test(x[0]));
+      const pct = L.codexPct(st), cells = L.codexCells(st);
+      const old = clone(st); old.p.r = 9;
+      const ns = L.rebirthState(old, { t: 2, tr: ['stout'] });
+      o.birth = Math.abs(ns.cxBirth - pct) < 0.02 && ns.cx0 === L.codexCells(ns) && L.codexNew(ns) === 0;
+      const want = Math.min(L.CX_V.cap, Math.floor(ns.cxBirth / L.CX_V.step + 1e-9) * L.CX_V.per);
+      o.bonus = want > 0 && L.codexBonus(ns) === want;
+      const cp = L.modParts('cul', ns).find(x => /见多识广/.test(x[0])), ap = L.modParts('atk', ns).find(x => /见多识广/.test(x[0]));
+      o.bonusMod = !!cp && !!ap && Math.abs(cp[1] - (1 + want)) < 1e-9 && Math.abs(ap[1] - (1 + want)) < 1e-9;
+      L.CODEX_ON = false; o.bonusOff = L.codexBonus(ns) === 0 && !L.modParts('cul', ns).some(x => /见多识广/.test(x[0])); L.CODEX_ON = true;
+      // 这一世新记一格：codexNew +1，且 cxBirth 不动（下一世才算）
+      const g0 = L.codexNew(ns), b0 = ns.cxBirth;
+      const loose = L.events().find(e => ['home', 'exp', 'realm', 'market'].includes(e.where) && !e.chain && L.evLive(e) && !ns.meta.cx.ev[e.id]);
+      ns.meta.cx.ev[loose.id] = 1; L.codexCheck(ns);
+      o.newcell = L.codexNew(ns) === g0 + 1 && ns.cxBirth === b0 && L.codexBonus(ns) === want;
+      // 成组
+      const g = fresh(); g.p.r = 9;
+      L.codexEnding(g, L.ENDINGS.map(e => e.id)); L.codexCheck(g);
+      o.grp = g.meta.cx.grp.ending === 1 && L.codexGrpNew(g).join() === 'ending';
+      o.grpBt = L.codexGrpSum(g, 'bt') === 0.02 && L.btParts(g, 0).some(x => /图鉴成组/.test(x[0]));
+      const dg = L.daoFruit(g); o.grpDg = dg.parts.some(x => /集齐 1 类/.test(x.n) && x.v === 40);
+      L.CODEX_ON = false; o.grpOff = L.codexGrpSum(g, 'bt') === 0 && !L.btParts(g, 0).some(x => /图鉴成组/.test(x[0])); L.CODEX_ON = true;
+      // 下一世：grp 是第 1 世集齐的，不再算“这一世”的道果
+      const g2 = L.rebirthState(g, { t: 2, tr: ['stout'] }); o.grpNext = L.codexGrpNew(g2).length === 0 && L.codexGrpSum(g2, 'bt') === 0.02;
+      // 成组时 grp = rebirth + 1（第二世集齐 → 2）
+      const h = L.rebirthState(g, { t: 2, tr: ['stout'] }); h.meta.cx.grp = {}; L.codexEnding(h, L.ENDINGS.map(e => e.id)); L.codexCheck(h); o.grpR2 = h.meta.cx.grp.ending === 2;
+    }
+
+    // 3. 道果公式
+    {
+      const st = fresh(); st.p.r = 9; st.bestRank = 5; st.bosses = { 0: 1, 1: 1 }; st.ach = { a: 1, b: 1, c: 1 }; st.stats.mjDeep = 4; st.flags.maxI = 36;
+      st.trials = ['half', 'poor'];
+      const cells = L.codexNew(st), grp = L.codexGrpNew(st).length, fr = Object.keys(L.NPCS).filter(id => L.friend(st, id)).length;
+      const base = 10 * 36 + 3 * 95 + 15 * 2 + 5 * 3 + 500 + 2 * cells + 40 * grp + 10 * 4 + 30 * fr + (L.discGraduated ? 60 * L.discGraduated(st) : 0) + (L.daoFruitParts ? L.daoFruitParts(st).reduce((a, x) => a + (x[2] === 'mult' ? 0 : x[1]), 0) : 0);
+      const f = L.daoFruit(st);
+      o.dgFormula = f.base === base && f.total === Math.round(base * 1.55) && Math.abs(f.mult - 1.55) < 1e-9;
+      // 宗门身份与排名也进公式
+      const s2 = clone(st); s2.trials = []; L.joinSect(s2, 'dan'); s2.sect.rank = 3; s2.sect.best = 4;
+      const f2 = L.daoFruit(s2); o.dgSect = f2.base - L.daoFruit(Object.assign(clone(s2), { sect: null })).base === 40 * 3 + 20 * 6;
+      // 未了的因果（每条 −2%）
+      const s3 = clone(st); s3.trials = []; L.addKarma(s3, 'moyi_a'); L.addKarma(s3, 'moyi_b');
+      const f3 = L.daoFruit(s3); o.dgKarma = f3.mults.some(m => /因果 2 条/.test(m.n)) && f3.total < f3.base;
+      // 试炼加成：每条试炼系数相加；有卖茶翁的提示每条 +5%
+      o.trialMult = Math.abs(L.trialMult(st, ['half', 'limit', 'wuzong']) - 2.05) < 1e-9 && L.trialMult(st, []) === 1;
+      const h = fresh(); h.meta.trialHint = 1; o.trialHint = Math.abs(L.trialMult(h, ['half', 'sleep']) - (1 + 0.35 + 0.25)) < 1e-9;
+      // 道果里图鉴新格 / 集齐 的 codex 部分
+      o.dgCodex = f.codex === Math.round((2 * cells + 40 * grp) * 1.55);
+    }
+    // settle 只结算一次
+    {
+      const st = fresh(); st.p.r = 9; st.bestRank = 5; st.meta.daoguo = 100;
+      const s1 = L.settle(st, 'ascend'); const d1 = st.meta.daoguo, n1 = st.meta.lifeN;
+      const s2 = L.settle(st, 'ascend'); st.p.r = 2; const s3 = L.settle(st, 'rest');
+      o.settleOnce = s1 === s2 && s2 === s3 && st.meta.daoguo === d1 && d1 === 100 + s1.total && st.meta.lifeN === n1 && n1 === 1 && s1.total > 0;
+      o.settleEnd = st.meta.cx.end.ascend === 1 && s1.ends[0] === 'ascend' && s1.freshEnd.includes('ascend');
+      const r = fresh(); r.p.r = 3; L.settle(r, 'rest'); o.settleRest = r.settle.ends[0] === 'rest' && r.meta.cx.end.rest === 1 && !r.meta.cx.end.ascend;
+    }
+    // 17 个节点
+    {
+      const base = reb({}, {}).ns, qb = L.petCap(base);
+      // relic
+      const r1 = reb({ relic: 1 }).ns, r2 = reb({ relic: 2 }).ns;
+      o.relic = !base.gear.w && !!r1.gear.w && !!r2.gear.w && r2.gear.w.t > r1.gear.w.t;
+      // slots：三门入门功法小成并装上
+      const sl = reb({ slots: 1 }).ns;
+      o.slotsN = L.artSlots(sl).filter(Boolean).length === 3 && L.artSlots(sl).every(id => id && L.artLv(sl, id) === 1) && L.artSlots(base).filter(Boolean).length < 3;
+      // roster
+      const ro = reb({ roster: 1 }).ns;
+      o.roster = L.petCap(ro) === L.petCap(base) + 1 && L.rebRoster(ro, 'disc') === 1 && L.rebRoster(base, 'disc') === 0;
+      // elem：地图、对手五行开局已知
+      const el = reb({ elem: 1 }).ns;
+      const foe = { kind: 'rival', id: 'mu' };
+      o.elem = L.elemKnown(el, 0) === true && L.elemKnown(base, 0) !== true;
+      // alch：成丹率 +10%（试炼不算）
+      const al = reb({ alch: 1 }).ns;
+      o.alch = Math.abs(L.alchRate(al) - L.alchRate(base) - 0.10) < 1e-9;
+      // memory：护法与约战借力 ×1.5
+      const me = reb({ memory: 1 }).ns;
+      me.p.r = 0; base.p.r = 0;
+      o.memory = L.btGuard(me) === true && !L.btGuard(base) && L.pactAssist(me) === 1.5 && L.pactAssist(base) === 1;
+      const me2 = clone(me); me2.flags.guardUsed = 1; o.memoryOnce = !L.btGuard(me2);
+      const me3 = clone(me); me3.p.r = 1; o.memoryR0 = !L.btGuard(me3) && L.pactAssist(me3) === 1;
+      // card4
+      const c4 = reb({ card4: 1 }); o.card4 = L.rebirthCardN(c4.old) === 4 && L.rebirthCards(c4.old, L.rebirthCardN(c4.old)).length === 4 && L.rebirthCardN(base) === 3;
+      // luck
+      const lk = reb({ luck: 2 }).ns; o.luck = Math.abs(L.choiceLuck(lk) - L.choiceLuck(base) - 0.10) < 1e-9;
+      // 宿慧、根骨、家底（core.js）：修炼 +15%/级、战力 +10%/级、灵石 +500/级
+      const wb = reb({ wis: 2, bone: 3, purse: 2 }).ns;
+      o.wbp = wb.stones === base.stones + 1000 && L.modParts('cul', wb).some(x => /宿慧/.test(x[0])) && L.modParts('atk', wb).some(x => /根骨/.test(x[0]));
+    }
+    // 第一世不读轮回殿
+    {
+      const f = fresh(); Object.assign(f.meta.perk, { relic: 2, slots: 1, roster: 1, memory: 1, o_moyi: 1 });
+      const f2 = L.newState({ name: 'x', meta: f.meta, origin: 'moyi' });
+      o.firstLife = !f2.gear.w && L.artSlots(f2).filter(Boolean).length === 0;
+    }
+
+    // 出身（6 个）
+    {
+      const P = { o_dantong: 1, o_moyi: 1, o_shoumu: 1, o_sanxiu: 1, o_yushou: 1 };
+      const q = reb(P, { origin: 'qitu' }).ns;
+      const O = id => reb(P, { origin: id }).ns;
+      o.originQitu = q.origin === 'qitu' && q.exName === fresh().exName && !L.pactText(q) && L.originOf(q).n === '弃徒';
+      // 没点亮 → 回退成弃徒
+      o.originFallback = reb({}, { origin: 'moyi' }).ns.origin === 'qitu' && reb({ o_moyi: 1 }, { origin: 'moyi' }).ns.origin === 'moyi' && L.originOpen(q, 'qitu') && !L.originOpen(fresh(), 'sanxiu') && L.originOpen(q, 'sanxiu');
+      // 第一世永远是弃徒：就算直接 newState 传了出身，开局资源也不发
+      const dt = O('dantong');
+      o.dantong = dt.home.furnace >= 2 && L.aff(dt, 'ge') >= L.aff(q, 'ge') + 20 && L.recipeCount(dt) === L.recipeCount(q) + 3 && !!dt.eflags.danjing_1 && L.chainDone(dt, 'ch_danjing') === 1 && L.chainDone(q, 'ch_danjing') === 0;
+      const j = clone(dt); j.sect = null; L.joinSect(j, 'dan'); const j2 = clone(q); j2.sect = null; L.joinSect(j2, 'dan');
+      o.dantongSect = !!j.sect && j.sect.rank === 1 && j2.sect.rank === 0;
+      o.dantongPact = dt.exName === '丹红袖' && L.pactText(dt).title === '丹会之约' && L.exTa(dt) === '她';
+      const my = O('moyi');
+      o.moyi = !!my.gear.w && !q.gear.w && L.aff(my, 'ye') >= L.aff(q, 'ye') + 20 && L.karmaOpen(my).length === L.karmaOpen(q).length + 2 && L.originChain(my) === 'ch_fire' && my.exName === '厉枭';
+      const sm = O('shoumu');
+      const smR = clone(sm); const qR = clone(q); smR.p.r = 0; qR.p.r = 0;
+      o.shoumuField = !L.homeOpen(smR, 'field') && L.homeOpen(qR, 'field') && /筑基前/.test(L.homeLock(smR, 'field'));
+      smR.p.r = 1; qR.p.r = 1; smR.flags.maxR = 1; qR.flags.maxR = 1;
+      o.shoumuRegion = L.homeOpen(smR, 'field') && !L.regionOpen(qR, 5) && L.regionOpen(smR, 5) && !!sm.gear.w && sm.p.tr.includes('sword');
+      const smC = clone(sm); smC.p.r = 0; o.shoumuRegion0 = !L.regionOpen(smC, 5);
+      const sx = O('sanxiu');
+      const sellOn = st => { const c = clone(st); c.rebirth = 0; c.flags.maxR = 0; return L.sellOpen(c); };
+      o.sanxiu = sx.stones === q.stones + 300 && L.originChain(sx) === 'ch_tea' && Math.abs(L.sellParts(sx, 'pill').find(x => x[0] === '散修丹师')[1] - 1.15) < 1e-9 && !L.sellParts(q, 'pill').some(x => x[0] === '散修丹师') && sellOn(sx) && !sellOn(q);
+      // 无宗时货架多 2 格：同一个随机种子比较（轮换格数）
+      const rot = st => { st.sect = null; st.market.shelf = null; L.restock(st, true); return L.shelf(st).filter(r => !r.fixed).length; };
+      const sxn = rot(clone(sx)), qn = rot(clone(q));
+      const sxs = clone(sx); L.joinSect(sxs, 'dan'); const sxsn = rotSect(sxs);
+      function rotSect(st) { st.market.shelf = null; L.restock(st, true); return L.shelf(st).filter(r => !r.fixed).length; }
+      o.sanxiuShelf = sxn === qn + 2 && sxsn === qn;
+      const ys = O('yushou');
+      o.yushou = ys.pets.some(p => p.sp === 'p_tu') && !q.pets.length && L.petCap(ys) === L.petCap(q) + 1 && ys.arts.own.m_yushou !== undefined && L.atkParts(ys).some(x => /出身·御兽遗脉/.test(x[0]) && Math.abs(x[1] - 0.9) < 1e-9) && !L.atkParts(q).some(x => /出身/.test(x[0])) && L.chainDone(ys, 'ch_fox') === 1 && ys.exName === '驭天风';
+      // 非弃徒出身不出退婚 / 婚约 / 慕容的事件
+      const ex = L.events().filter(e => /退婚|婚约|婚书|慕容/.test(JSON.stringify([e.title, e.text, e.choices])));
+      o.exEvents = ex.length > 0 && ex.every(e => L.originSkip(dt, e) && L.originSkip(sx, e) && !L.originSkip(q, e)) && L.events().filter(e => !ex.includes(e)).every(e => !L.originSkip(dt, e));
+      const exOne = ex.find(e => e.where === 'story' || e.where === 'home' || e.where === 'exp');
+      o.exEligible = !!exOne && (() => { const a = clone(q), b = clone(dt); for (const s of [a, b]) { s.p.r = 9; s.eflags = {}; } const ctx = exOne.trigger ? { trigger: exOne.trigger } : {}; /* 同一事件：弃徒的资格不被出身挡掉，其它出身被挡 */ return L.originSkip(b, exOne) && !L.originSkip(a, exOne); })();
+      // 约战文案：六种出身各有标题，弃徒没有
+      o.pactTitles = L.ORIGIN_IDS.filter(id => id !== 'qitu').every(id => L.ORIGINS[id].pact && L.ORIGINS[id].pact.title && L.ORIGINS[id].open.length === 3) && L.ORIGIN_IDS.length === 6;
+      const pd = clone(dt); pd.p.r = 0; o.nextBig = (L.nextBig(pd) || {}).n === '丹会之约';
+    }
+
+    // 试炼（8 条）
+    {
+      const b = reb({}, {}).ns, T = ids => reb({}, { trials: [].concat(ids) }).ns;
+      o.trialIds = L.TRIALS.length === 8 && ['half', 'sleep', 'foes', 'poor', 'limit', 'wuxing', 'gu', 'wuzong'].every(id => L.TRIAL[id]) && [0.30, 0.20, 0.30, 0.25, 0.40, 0.25, 0.25, 0.35].every((k, i) => Math.abs(L.TRIALS[i].k - k) < 1e-9);
+      b.p.r = 0;
+      const h = T('half'); h.p.r = 0; o.half = Math.abs(L.lifespan(h) - L.lifespan(b) * 0.5) < 1e-9 && L.lifespan(b) > 0;
+      const sl = reb({ memory: 1 }, { trials: ['sleep'] }).ns; sl.p.r = 0; const mm = reb({ memory: 1 }).ns; mm.p.r = 0;
+      const ct = fresh(); ct.tick = L.PACT_TICK - 4; const cs = clone(ct); cs.trials = ['sleep'];
+      o.sleep = L.canTrain(ct) === true && L.canTrain(cs) === false && L.btGuard(mm) === true && !L.btGuard(sl) && L.pactAssist(mm) === 1.5 && L.pactAssist(sl) === 1;
+      const fo = T('foes'); o.foes = Math.abs(L.rivalPower(fo, 30) / L.rivalPower(b, 30) - 1.25) < 1e-9;
+      const po = T('poor'); o.poor = L.modParts('incMul', po).some(x => /清贫/.test(x[0]) && x[1] === 0.6) && !L.modParts('incMul', b).some(x => /清贫/.test(x[0])) && Math.abs(L.income(po) / L.income(b) - 0.6) < 0.01;
+      const li = T('limit'), li0 = clone(b);
+      li.tick = 479; li0.tick = 479; const ol = L.tick(li), ol0 = L.tick(li0);
+      o.limit = ol.death === true && ol.trialLimit === true && !ol0.death && li.p.age >= L.lifespan(li);
+      const li2 = T('limit'); li2.tick = 300; o.limitEarly = !L.tick(li2).death;
+      // 五行缺一：开局封一系，不能装备该系功法
+      const wx = T('wuxing'); o.wxEl = ['jin', 'mu', 'shui', 'huo', 'tu'].includes(wx.trialEl) && L.trialEl(wx) === wx.trialEl && L.trialEl(b) === '';
+      const sealed = L.ARTL.find(A => A.el === wx.trialEl && A.k === 'x'), open = L.ARTL.find(A => A.el !== wx.trialEl && A.el && A.k === 'x');
+      L.giveArt(wx, sealed.id); L.giveArt(wx, open.id);
+      o.wxEquip = L.artSealed(wx, sealed.id) && !L.artSealed(wx, open.id) && L.equipArt(wx, sealed.id) === null && !L.artSlots(wx).includes(sealed.id) && L.equipArt(wx, open.id) !== null && L.artSlots(wx).includes(open.id);
+      const wb = clone(b); L.giveArt(wb, sealed.id); L.equipArt(wb, sealed.id); o.wxBase = L.artSlots(wb).includes(sealed.id);
+      // 孤星：不能有同伴与道侣
+      const gu = T('gu'); gu.daolv = 'su'; gu.npc = { su: { aff: 90 } }; const gb = clone(b); gb.daolv = 'su'; gb.npc = { su: { aff: 90 } };
+      L.tick(gu); L.tick(gb);
+      o.gu = L.daolvBlocked(gu) === true && !L.daolvBlocked(b) && gu.daolv === null && gb.daolv === 'su';
+      // 无宗：不能拜入任何宗门、永远不来招揽
+      const wz = T('wuzong'), wzb = clone(b); wzb.sect = null; wz.sect = null;
+      o.wuzong = L.joinSect(wz, 'dan') === false && !wz.sect && wz.flags.inviteAt === 1e9 && !!L.joinSect(wzb, 'dan') && !!wzb.sect;
+      let inv = 0; for (let i = 0; i < 200; i++) { const x = L.tick(wz); if (x.invite) inv++; }
+      o.wuzongInv = inv === 0;
+      // 多选相加；每条的 trialBonus
+      o.trialAll = Math.abs(L.trialMult(b, L.TRIALS.map(t => t.id)) - (1 + 2.3)) < 1e-9;
+    }
+    // 传承
+    {
+      const prep = old => {
+        for (const id of ['x_houtu', 'z_hanyue']) { L.giveArt(old, id); old.arts.own[id] = L.artNeed(id, 3); }
+        L.gearDrop(old, 'w', 4); old.gear.w.aff = ['ke_mu', 'fengrui'];
+        L.petGive(old, { sp: 'p_hu' }); old.pets[0].heart = 5;
+      };
+      const e = reb({}, {}, prep).old;
+      const c = L.legacyCands(e), c2 = L.legacyCands(reb({ legacy2: 1 }, {}, prep).old);
+      o.legacyCands = c.arts.length === 2 && c.gear.length === 2 && c.pets.length === 1 && c.artN === 1 && c2.artN === 2 && !L.legacyCands(fresh()).arts.length && !L.legacyCands(fresh()).gear.length && !L.legacyCands(fresh()).pets.length;
+      o.legacySet1 = L.legacySet(e, { arts: ['x_houtu', 'z_hanyue', 'nosuch'], gear: { slot: 'r', aff: 'zzz' }, pet: 'p_nosuch' }).arts.length === 1 && !e.meta.legacy.gear && !e.meta.legacy.pet;
+      const e2 = reb({ legacy2: 1 }, {}, prep).old; L.legacySet(e2, { arts: ['x_houtu', 'z_hanyue'] }); o.legacySet2 = e2.meta.legacy.arts.length === 2;
+      // 一代走完：功法从小成起并装上，器灵落到第一件同槽法宝，血脉定第一枚蛋
+      const old = reb({ legacy2: 1 }, {}, prep).old;
+      L.legacySet(old, { arts: ['x_houtu', 'z_hanyue'], gear: { slot: 'w', aff: 'fengrui' }, pet: 'p_hu' });
+      const ns = L.rebirthState(old, { t: C0.t, tr: C0.tr });
+      o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1 && L.artSlots(ns).includes(id)) && Object.keys(ns.meta.legacy).length === 0;
+      o.legacyCleared = JSON.stringify(ns.meta.legacy) === '{}' && !!ns.legacy.gear && ns.legacy.pet === 'p_hu';
+      const r = L.gearDrop(ns, 'r', 2, {}), w1 = L.gearDrop(ns, 'w', 2, {}), w2 = L.gearDrop(ns, 'w', 2, {});
+      o.legacyGear = !(r.legacy) && w1.legacy === 'fengrui' && w1.gear.aff.includes('fengrui') && !w2.legacy && !ns.legacy.gear;
+      const e1 = L.petEgg(ns), e2b = L.petEgg(ns);
+      o.legacyPet = e1.sp === 'p_hu' && e1.legacy === true && !ns.legacy.pet && !e2b.legacy;
+      let n = 0; for (let i = 0; i < 12; i++) { const s = L.newState({ name: 'x' }); s.legacy = { pet: 'p_hu' }; if (L.petEgg(s).sp === 'p_hu') n++; }
+      o.legacyPet12 = n === 12;
+      // 五行缺一刚好封了传承功法那一系：不报错，功法在名册里但没装上
+      const el = L.art('x_houtu').el;
+      let hit = null; for (let i = 0; i < 80 && !hit; i++) { const oc = clone(old); L.legacySet(oc, { arts: ['x_houtu', 'z_hanyue'] }); const x = L.rebirthState(oc, { t: C0.t, tr: C0.tr, trials: ['wuxing'] }); if (x.trialEl === el) hit = x; }
+      o.legacySeal = !!hit && hit.arts.own.x_houtu !== undefined && !L.artSlots(hit).includes('x_houtu') && L.art('z_hanyue').el !== el ? L.artSlots(hit).includes('z_hanyue') : true;
+    }
+    // 迁移
+    {
+      const mk = reb({ wis: 1 }, {}).ns; for (let i = 1; i <= 5; i++) mk.eflags['map_' + i] = 1; L.giveArt(mk, 'x_houtu'); mk.stones = 123;
+      const strip = s => { const t = clone(s); t.v = 6; for (const k of ['perk', 'daoguo', 'legacy', 'cx', 'chain', 'trialHint', 'lifeN']) delete t.meta[k]; for (const k of ['trials', 'trialEl', 'legacy', 'settle', 'chain', 'cx0', 'cxBirth', 'cxCnt', 'cxNews', 'cxPct']) delete t[k]; delete t.origin; return t; };
+      const m0 = clone(mk); m0.rebirth = 0; m0.v = 6;
+      const a = L.migrate(strip(m0)), b = L.migrate(clone(a)), c = L.migrate(clone(b));
+      const fields = s => s && typeof s.meta.perk === 'object' && s.meta.daoguo === 0 && typeof s.meta.legacy === 'object' && !!s.meta.cx && !!s.meta.cx.grp && Array.isArray(s.trials) && s.trialEl === '' && typeof s.legacy === 'object' && s.settle === null && s.origin === 'qitu' && s.chain && typeof s.chain.at === 'object' && Array.isArray(s.cxNews) && typeof s.cx0 === 'number' && typeof s.cxBirth === 'number' && !!s.cxCnt;
+      o.migFields = fields(a) && JSON.stringify(a) === JSON.stringify(b) && JSON.stringify(b) === JSON.stringify(c);
+      o.migFirst = a.cx0 === 0 && a.cxBirth === 0;
+      // 旧档里做完的链：补记 best / done 与终点 flag，但不补发奖励
+      o.migChain = a.meta.chain.ch_map.best === 5 && a.meta.chain.ch_map.done === 1 && a.eflags.chain_map_fin === 1 && JSON.stringify(a.gear.mats) === JSON.stringify(L.newGear().mats);
+      o.migCx = a.meta.cx.art.x_houtu === 1;
+      // rebirth > 0 的旧档：cx0 / cxBirth 取当前值
+      const r0 = clone(mk); r0.rebirth = 2; r0.v = 6;
+      const ra = L.migrate(strip(r0)), rb = L.migrate(clone(ra));
+      o.migReb = ra.cx0 === L.codexCells(ra) && ra.cx0 > 0 && Math.abs(ra.cxBirth - L.codexPct(ra)) < 1e-9 && ra.cxBirth > 0 && JSON.stringify(ra) === JSON.stringify(rb);
+      // 坏数据：perk 里有负数、trials 里有不认识的、origin 不认识
+      const bad = strip(m0); bad.meta.perk = { wis: -3, bone: 'x', luck: 1 }; bad.meta.daoguo = NaN; bad.trials = ['half', 'nosuch']; bad.origin = 'nosuch';
+      const bm = L.migrate(bad);
+      o.migBad = bm.meta.perk.wis === undefined && bm.meta.perk.bone === undefined && bm.meta.perk.luck === 1 && bm.meta.daoguo === 0 && bm.trials.join() === 'half' && bm.origin === 'qitu';
+    }
+
+    return o;
+  });
+  expect(Object.keys(sam).length >= 100, '奇遇链·图鉴·轮回检查条数不对：' + Object.keys(sam).length);
+  for (const k in sam) expect(sam[k] === true, '奇遇链·图鉴·轮回：' + k);
   // ---------- 宿敌与新秀（逻辑层）：恩怨上下限与阈值、fx / elig、永久系数封顶、抬价与带头、论道前的对手与论道第一场一致、换战技（五行克制 +11 个百分点）、
   // 法宝克、图鉴、新秀出现 / 追赶 / 打压 / 指点 / 看一眼 / 送礼、norivals2、迁移、来犯前夜（zhao_3、raid_intel、raid_delay）。检查体在 tools/ 外无副本，这里每段 evaluate 自成一体 ----------
   const rvL1 = await page.evaluate(() => {

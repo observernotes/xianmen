@@ -8,6 +8,7 @@
 // 秘境开着、手里有令时偶尔（头两回，之后每 4 年一回）从历练页进去，
 // 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
 // 入宗后每 24 周天进【宗门】：门下收徒、派差事、能出师就出师、偶尔传授；身份页能领职司就领、给长老【送礼】；宝库六格里的功法法宝买得起就换
+// 图鉴：每 40 周天打开一次逐类点一遍；飞升后从人物页点完整条轮回流程（结算 → 传承 → 轮回殿 → 出身 → 命格 → 试炼 → 投胎），再玩 30 周天第二世
 // node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
 const { chromium } = require('playwright');
 const path = require('path');
@@ -22,6 +23,8 @@ const path = require('path');
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(120); }
   await page.click('#goStart');
   await page.waitForTimeout(300);
+  const T0 = Date.now();
+  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => window.__lr || null))); } catch (e) { /* 页面忙时跳过 */ } }, 120000);
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
     X.setSpeed(3);   // 暂停：时间由下面的循环推进
@@ -230,6 +233,14 @@ const path = require('path');
       }
       if (modal()) X.closeModal(); await sleep(450); await drain();
     }
+    // 图鉴（SYSTEMS §15）：每隔一阵打开【人物】→ 图鉴，逐类点一遍，奇遇链页看进度
+    let cxOpen = 0;
+    async function codexRound() {
+      X.showMe('codex'); await sleep(40);
+      for (const b of [...document.querySelectorAll('#modal [data-cx]')]) { if (!document.querySelector('#modal [data-cx]')) break; const again = document.querySelector(`#modal [data-cx="${b.dataset.cx}"]`); if (again) { again.click(); await sleep(15); } }
+      if (title() === '人物' || document.querySelector('#cxGrid')) { cxOpen++; seen['图鉴'] = 1; }
+      X.closeModal(); await sleep(450); await drain();
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (guard % 100 === 99) console.log(`LR drain guard=${guard} modal=${modal()} title=${(document.querySelector('#modal h2') || {}).textContent} cine=${!!X.cine} duel=${!!X.duelFx}`);
@@ -262,6 +273,7 @@ const path = require('path');
     let builds = 0, zhenSets = 0;
     const T0 = Date.now();
     for (let n = 0; n < 1600; n++) {
+      window.__lr = { n, tick: X.st.tick, r: X.st.p.r, modal: modal() ? title() : '', cine: !!X.cine };
       const st = X.st;
       if (n % 25 === 0) console.log(`LR n=${n} tick=${st && st.tick} r=${st && st.p.r} ${Math.round((Date.now() - T0) / 1000)}s duelSkips=${duelSkips} popups=${popups}`);
       if (!st || st.p.r >= 9) break;
@@ -310,6 +322,7 @@ const path = require('path');
       if (st.visitor && !st.retreat && Math.random() < 0.5) { X.showVisitor(); await drain(); }
       if (L.tunaReady(st)) L.tuna(st);
       if (n % 24 === 5 && !X.cine) await artRound();
+      if (n % 40 === 11 && !X.cine && !modal()) await codexRound();
       if (n % 12 === 9 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
       if (n % 12 === 3 && !X.cine && (L.petCount(st) || st.petPend.length)) await petRound();
       if (n % 24 === 17 && !X.cine && st.sect && !modal()) await sectRound();
@@ -336,7 +349,7 @@ const path = require('path');
     await drain();
     const st = X.st;
     const qv = L.questView(st);
-    return { home: L.homePlots(st).filter(Boolean).map(k => L.HOME_B[k].n + st.home[k]).join(' ') + `；建造 ${builds} 次、换阵 ${zhenSets} 次、阵图 ${L.zhenOwnList(st).length} 张`, npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
+    const res = { home: L.homePlots(st).filter(Boolean).map(k => L.HOME_B[k].n + st.home[k]).join(' ') + `；建造 ${builds} 次、换阵 ${zhenSets} 次、阵图 ${L.zhenOwnList(st).length} 张`, npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`,
       duelSkips,
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen),
@@ -344,10 +357,53 @@ const path = require('path');
       zongmen: st.sect ? `${L.srankName(st, st.sect.rank)} · 职司 ${L.duty(st) ? L.DUTIES[L.duty(st)].n : '-'} · 长老 ${L.eldersOf(st).map(e => e.n + ' ' + L.favor(st, e.id)).join('、')} · 送礼 ${gifts} 次 · 宝库换 ${vaultN} 件 · 收徒 ${discTaken}（门下 ${st.disc ? st.disc.list.length : 0}、出师 ${st.stats.discGrad || 0}、传授 ${st.stats.discTeach || 0}）· 三人会武 ${st.stats.trioWins || 0}/${st.stats.trioRounds || 0} · 点宗门 ${sectAct} 下` : '-',
       rivals: `论道前换战技 ${zSwap} 次 / 新秀 ${(st.rv2 && st.rv2.rkN) || 0} 位（打压 ${(st.rv2 && st.rv2.crush) || 0}、指点 ${(st.rv2 && st.rv2.teach) || 0}、输 ${(st.rv2 && st.rv2.lost) || 0}）/ 恩怨 ${JSON.stringify(st.grudge || {})} / 伏击 ${(st.rv2 && st.rv2.ambush) || 0}`,
       dan: `灵田 ${L.plots(st).map(x => L.CROP[x.c].n).join('、')} / 丹方 ${L.recipeCount(st)}/${L.YIN_GRID.length} / 炼丹 ${st.stats.crafts} 炉 / 丹毒 ${Math.round(st.toxin || 0)}` };
+    // 轮回流程（SYSTEMS §16）：飞升后从【人物】点【再入轮回】→ 结算 → 传承 → 轮回殿（买得起的点亮）→ 出身（点亮了的随机选一个）→ 命格 → 天道试炼（随机选一两条）→ 投胎 → 出身开场；再玩 30 周天第二世
+    res.life2 = 'not-tried';
+    if (st.p.r >= 9) {
+      const dg = L.daoFruit(st).total;
+      X.showMe('attr'); await sleep(60);
+      const rb = document.querySelector('#btnReborn');
+      if (!rb) res.life2 = '人物页没有再入轮回按钮';
+      else {
+        rb.click(); await sleep(300); seen['人物页再入轮回'] = 1;
+        let hallDone = 0;
+        for (let g = 0; g < 40 && X.st.rebirth === 0; g++) {
+          const t = title();
+          if (/选择天赋/.test(t)) {
+            for (let k = 0; k < 20 && !document.querySelector('#modal .cand:not(.hide)'); k++) await sleep(250);
+            const c = document.querySelector('#modal .cand:not(.hide)'); if (c) c.click(); await sleep(60);
+            const f = document.querySelector('#modal .foot .btn.gold:not([disabled])'); if (f) f.click(); await sleep(200); continue;
+          }
+          if (t === '轮回殿' && !hallDone) {
+            hallDone = 1;
+            for (const h of L.HALL) { const b = document.querySelector(`#modal [data-h="${h.id}"]`); if (!b) continue; b.click(); await sleep(30); const buy = document.querySelector('#hallBuy:not([disabled])'); if (buy) { buy.click(); seen['轮回殿点亮'] = 1; await sleep(40); } }
+          }
+          if (t === '传承') for (const sel of ['[data-la]', '[data-lg]', '[data-lp]']) { const b = document.querySelector('#modal ' + sel); if (b) { b.click(); await sleep(40); } }
+          if (t === '出身') { const os = [...document.querySelectorAll('#modal [data-o]:not([disabled])')]; if (os.length) { os[Math.floor(Math.random() * os.length)].click(); await sleep(60); } }
+          if (t === '天道试炼') { const rs = [...document.querySelectorAll('#modal [data-tr]')]; for (const r of rs.filter(() => Math.random() < 0.25)) { r.click(); await sleep(40); } }
+          if (t) seen[t] = 1;
+          const f = document.querySelector('#modal .foot .btn.gold:not([disabled])') || document.querySelector('#modal .foot .btn:not([disabled])');
+          if (f) f.click(); await sleep(300);
+        }
+        const s2 = X.st;
+        if (s2.rebirth !== 1) res.life2 = '没有转世成功（' + title() + '）';
+        else {
+          await drain();
+          for (let w = 0; w < 30; w++) { L.flow(s2, 1); X.onTick(); await drain(); }
+          res.life2 = `第 2 世：出身 ${s2.origin}、试炼 ${s2.trials.join('/') || '无'}、周天 ${s2.tick}、境界 ${s2.p.r}、图鉴 ${L.codexCells(s2)} 格、道果 ${s2.meta.daoguo}（上一世 +${dg}）`;
+          res.life2ok = s2.tick >= 25 && L.codexCells(s2) > 0;
+        }
+      }
+    }
+    res.codexOpen = cxOpen;
+    return res;
   });
+  clearInterval(prog);
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
+  if (!result.life2ok) errors.push('轮回流程：' + result.life2);
+  if (!result.codexOpen) errors.push('机器人没有打开过图鉴');
   // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
   for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化', '秘境', '收徒', '宗门送礼', '宗门宝库']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
