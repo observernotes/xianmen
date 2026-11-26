@@ -9,8 +9,8 @@
  * 每局断言：
  *   A 章节单调、不跳：当前章 = 第一个没完成的主线；做完的主线永远是从第一章起连续的一段；章只在主线完成时变。
  *   B 章节不被境界推着走：境界远超章节时（只冲境界的机器人），章停在第一个没完成的主线章。
- *   C realm:N 主线剧情（story_r1～r8）各出一次、按 N 的顺序出，出的时候“当前章 ≥ N”（境界超前时等章）。
- *   D 老祖身世线（STORY.md §3 的“确定”几件）按揭示顺序：r1 < r2 < 渡劫阵图 < r3 < r4 < r5 < 心魔·同路人 < r6 < 隔空传音 < r7 < r8；万剑低眉在 r3 之后。
+ *   C 主线剧情（story_r1～r8，挂在第 N+1 章的开章节拍上）各出一次、按 N 的顺序出，出的时候“当前章 ≥ N”；不看境界。
+ *   D 老祖身世线（STORY.md §3 的“确定”几件）按揭示顺序：r1 < r2 < r3 < r4 < r5 < r6 < 隔空传音 < r7 < r8；万剑低眉在 r3 之后。
  *   E 不卡死：照引导玩的每一章主线都在合理月数内完成（单章 ≤ 420 月），每个出身都走到飞升或至少第六章。
  *   F 解锁卡跟着章走：第一世按表解锁（非“已经发生”的强制解锁）的那一刻，当前章 ≥ 这一项的 ch。 */
 'use strict';
@@ -23,7 +23,8 @@ const N = QUICK ? 1 : 3;
 const fails = [];
 const fail = (who, m) => { fails.push(`[${who}] ${m}`); };
 const MAIN = ['story_r1', 'story_r2', 'story_r3', 'story_r4', 'story_r5', 'story_r6', 'story_r7', 'story_r8'];
-const LORE = ['story_r1', 'story_r2', 'story_trib1', 'story_r3', 'story_r4', 'story_r5', 'story_demon3', 'story_r6', 'tianheng_1', 'story_r7', 'story_r8'];
+// 渡劫阵图、心魔·同路人跟着雷劫走（突破系统的戏），不在节拍上，不参加排序
+const LORE = ['story_r1', 'story_r2', 'story_r3', 'story_r4', 'story_r5', 'story_r6', 'tianheng_1', 'story_r7', 'story_r8'];
 const mainDone = (st, i) => !!(st.quest && st.quest.done && st.quest.done['c' + i + '_m']);
 const rngFor = seed => { let s = (seed * 2654435761 + 7) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
 
@@ -69,13 +70,13 @@ function judge(w, o) {
     seen[x.id] = 1;
     const n = MAIN.indexOf(x.id) + 1;
     if (x.ch < n) fail(w.who, `${x.id} 出在第 ${x.ch + 1} 章（要第 ${n + 1} 章起）`);
-    if (x.r < n) fail(w.who, `${x.id} 出在境界 ${x.r}（要 ${n}）`);
   }
   const mi = ids.filter(id => MAIN.includes(id)).map(id => MAIN.indexOf(id));
   for (let i = 1; i < mi.length; i++) if (mi[i] < mi[i - 1]) { fail(w.who, `主线剧情错序：${ids.filter(id => MAIN.includes(id)).join(' → ')}`); break; }
   // 到了的章、境界都够的 realm:N 剧情应该都出过（最多差最后一个月还在队列里）
-  const sr = Math.min(st.p.r, L.chapterNow(st));
-  for (let n = 1; n <= Math.min(8, sr); n++) if (!st.evDone['story_r' + n] && !st.storyQ.includes('story_r' + n)) fail(w.who, `story_r${n} 没出（境界 ${st.p.r}、第 ${L.chapterNow(st) + 1} 章）`);
+  // 主线剧情挂在各章的开章节拍上（storyline.js），不看境界：已经走完的章，它的开章剧情一定出过
+  const sr = L.chapterNow(st) - 1;
+  for (let n = 1; n <= Math.min(8, sr); n++) if (!st.evDone['story_r' + n] && !st.storyQ.includes('story_r' + n)) fail(w.who, `story_r${n} 没出（第 ${L.chapterNow(st) + 1} 章）`);
   // D：身世线揭示顺序
   const li = ids.filter(id => LORE.includes(id)).map(id => LORE.indexOf(id));
   for (let i = 1; i < li.length; i++) if (li[i] < li[i - 1]) { fail(w.who, `身世线错序：${ids.filter(id => LORE.includes(id)).join(' → ')}`); break; }

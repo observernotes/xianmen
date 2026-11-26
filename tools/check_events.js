@@ -29,11 +29,12 @@ const THEMES = ['jianqi', 'baicao', 'ronghuo', 'youquan'];
 const YIN = ['fire', 'ice', 'thunder', 'wood', 'soul'];
 const ARTS = L.ARTL ? L.ARTL.map(a => a.id) : null;
 const EV_KEYS = ['id', 'where', 'visit', 'trigger', 'bg', 'minR', 'maxR', 'once', 'need', 'not', 'npc', 'aff', 'sect', 'daolv', 'weight', 'speaker', 'title', 'text', 'choices',
-  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'rkGrudge', 'origin', 'sectId', 'heart', 'comp'];
-const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin', 'foe'];   // foe：宿敌id | 'rookie'（rivals2.js）
+  'chain', 'step', 'season', 'world', 'grudge', 'theme', 'favorMin', 'rankMax', 'srankMin', 'cooldown', 'karma', 'daoMin', 'rkGrudge', 'origin', 'sectId', 'heart', 'comp',
+  'talk', 'scene', 'gist', 'cine', 'bgm', 'chMin', 'chMax', 'cond'];   // 对话场景与按章的资格（storyline.js）
+const CH_KEYS = ['t', 'cost', 'p', 'duel', 'ok', 'fail', 'dao', 'need', 'not', 'srankMin', 'daoMin', 'foe', 'key', 'hint', 'gate', 'cond'];   // foe：宿敌id | 'rookie'（rivals2.js）
 const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'item', 'itemUp', 'aff', 'flag', 'unflag', 'buff', 'cul', 'power', 'contrib', 'talent', 'trait', 'title', 'daolv', 'vein',
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
-  'toxin', 'plus', 'affix', 'busy', 'duty', 'disc', 'rookie'];
+  'toxin', 'plus', 'affix', 'busy', 'duty', 'disc', 'rookie', 'join', 'retry', 'unsect'];
 const COST_KEYS = ['stones', 'pills', 'herbs', 'yin', 'ore', 'feed', 'token'];
 const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat', 'rk',
   'cradle', 'town', 'shamed', 'lowly', 'exHouse', 'zhaoDebt', 'r1open', 'body', 'tkStand', 'tkFoe', 'stele'];   // 出身换词与楚天阔的处境（story.js）   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
@@ -42,7 +43,7 @@ const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye'
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）
 const TRIGGER_RE = [/^realm:[1-8]$/, /^rank:\d+$/, /^npc:(su|ye|chu|ge|bai|mo):\d+$/, /^boss:(10|[0-9])$/, /^(sect|pet|daolv|disciple|egg|pact_eve|ascend|plot_full|field_mutant|formation_fail|forge_fail)$/,
   /^beat:(mu|zhao|chu|xue|yun)$/, /^war_eve:tianjian$/, /^rookie:(appear|near|beaten|trouble)$/, /^srank:[1-6]$/, /^sect:(heir|lord)$/, /^disc:\w+$/, /^trib:\d$/, /^demon:[1-3]$/,
-  /^pet_(runaway|fight|sick)$/, /^pet_evolve:p_\w+$/, /^build:\w+$/, /^(market|auction):\w+$/, /^shuangxiu:(su|ye)$/];
+  /^sb:(c[1-9]_(open|mid[1-3]|pre|climax|end)|mid)$/, /^pet_(runaway|fight|sick)$/, /^pet_evolve:p_\w+$/, /^build:\w+$/, /^(market|auction):\w+$/, /^shuangxiu:(su|ye)$/];
 const LIM = { title: [2, 8], text: 130, btn: 10, result: 80, fxTitle: [2, 6] };
 
 const errors = [], warns = [];
@@ -67,7 +68,37 @@ function checkText(id, s, where) {
   for (const m of s.matchAll(/\{(\w*)\}/g)) if (!PLACEHOLDERS.includes(m[1])) err(id, `${where} 未知占位符 ${m[0]}`);
   if (/[{}]/.test(s.replace(/\{\w+\}/g, ''))) err(id, `${where} 花括号不配对`);
 }
-const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined || c.daoMin);
+// 对话场景（STORY_PLAN §6.3）：一句 ≤ 36 字；一场（含最长的分支）≤ 40 句；说话人写法 'id[:表情[+叠加]][:显示名]' / 'me' / 'nar' / '?:名字'
+const TALK_MOOD = ['n', 'joy', 'ang', 'shock', 'sad'], TALK_FX = ['tear', 'shade', 'blush', 'blood', 'sweat', 'mono', 'fade'];
+const TALK_LIM = { line: 36, lines: 40 };
+function checkTalk(id, talk, where) {
+  let n = 0;
+  const walk = (list, w) => {
+    if (!Array.isArray(list)) { err(id, `${w} 不是数组`); return 0; }
+    let k = 0;
+    for (const it of list) {
+      if (Array.isArray(it)) {
+        k++;
+        const [who, text] = it;
+        if (typeof who !== 'string' || typeof text !== 'string') { err(id, `${w} 台词写法不对：${JSON.stringify(it).slice(0, 40)}`); continue; }
+        const p = who.split(':');
+        if (p[0] !== '?' && p[1] && p[1] !== '') { const [m, ...fx] = p[1].split('+'); if (!TALK_MOOD.includes(m)) err(id, `${w} 表情不认识：${who}`); for (const f of fx) if (!TALK_FX.includes(f)) err(id, `${w} 表情叠加不认识：${who}`); }
+        checkText(id, text, w);
+        if (len(text) > TALK_LIM.line) err(id, `${w} 一句过长 ${len(text)}/${TALK_LIM.line}：${text.slice(0, 16)}…`);
+        if (/老夫/.test(text) && p[0] === 'elder') err(id, `${w} 老祖自称一律“本座”：${text.slice(0, 16)}`);
+      } else if (it && typeof it === 'object') {
+        if (it.say) k += walk(it.say, w);
+        else if (it.pick) { let mx = 0; for (const o of it.pick) mx = Math.max(mx, walk(o.say || [], w)); k += mx; }
+        else if (!('cg' in it) && !('scene' in it) && !('sfx' in it) && !('shake' in it)) err(id, `${w} 不认识的指令：${JSON.stringify(it).slice(0, 40)}`);
+        if (it.echo !== undefined && (typeof it.echo !== 'string' || len(it.echo) > 16)) err(id, `${w} echo 要 ≤ 16 字`);
+      } else err(id, `${w} 不认识的一行`);
+    }
+    return k;
+  };
+  n = walk(talk, where);
+  return n;
+}
+const condOf = c => !!(c.cost || c.need || c.not || c.srankMin !== undefined || c.daoMin || c.gate || c.cond !== undefined);
 
 for (const [f, list] of SOURCES) if (!Array.isArray(list)) { console.error(`${f} 没有导出数组`); process.exit(1); }
 
@@ -157,11 +188,18 @@ for (const e of EVENTS) {
     let bad = fl.length > 10 || e.choices.every(c => c.cost);
     for (let m = 0; !bad && m < (1 << fl.length); m++) for (const rk of ranks) {
       const on = f => !!(m & (1 << fl.indexOf(f)));
-      const shown = c => !c.cost && (c.need || []).every(on) && !(c.not || []).some(on) && !(c.srankMin > rk);
+      const shown = c => !c.cost && !c.gate && c.cond === undefined && (c.need || []).every(on) && !(c.not || []).some(on) && !(c.srankMin > rk);
       if (!e.choices.some(shown)) { bad = true; break; }
     }
     if (bad) err(id, '某种条件组合下没有看得见、不花钱的选项');
   }
+  if (e.talk) {
+    const base0 = checkTalk(id, e.talk, 'talk');
+    let mx = 0; for (const c of e.choices) for (const b of ['ok', 'fail']) if (c[b] && c[b].talk) mx = Math.max(mx, c[b].talk.length);
+    if (base0 + mx > TALK_LIM.lines) err(id, `对话过长：${base0} + 分支 ${mx} 句 > ${TALK_LIM.lines}`);
+    if (typeof e.gist !== 'string' || len(e.gist) > 30) err(id, '对话场景要有 gist（≤ 30 字的梗概）');
+  }
+  for (const c of e.choices) if (c.key && (typeof c.hint !== 'string' || len(c.hint) > 16)) err(id, `关键抉择要有 hint（≤ 16 字）：${c.t}`);
   const allText = [e.text];
   const notFlags = e.not || [];
   const oneShot = e.where === 'story' || e.once === true;
@@ -189,7 +227,8 @@ for (const e of EVENTS) {
     for (const br of ['ok', 'fail']) {
       const o = c[br]; if (!o) continue;
       const oid = `${cid}.${br}`;
-      for (const k of Object.keys(o)) if (!['text', 'fx'].includes(k)) err(id, `${oid} 未知字段 ${k}`);
+      for (const k of Object.keys(o)) if (!['text', 'fx', 'talk', 'cine'].includes(k)) err(id, `${oid} 未知字段 ${k}`);
+      if (o.talk) checkTalk(id, o.talk, `${oid}.talk`);
       checkText(id, o.text, `${oid}.text`); allText.push(o.text);
       if (typeof o.text === 'string' && len(o.text) > LIM.result) err(id, `${oid} 结果过长 ${len(o.text)}/${LIM.result}`);
       const fx = o.fx;
@@ -243,7 +282,7 @@ for (const e of EVENTS) {
   const joined = allText.join('');
   const elder = e.speaker === 'elder' || /(?<!血河)老祖/.test(joined);
   if (e.where !== 'story' && elder && !(e.maxR <= 7)) err(id, '提到老祖的随机事件需 maxR ≤ 7');
-  if (e.where === 'story' && e.trigger && !/^(realm|demon|trib):/.test(e.trigger) && e.trigger !== 'ascend' && elder && !(e.maxR <= 7)) err(id, '非境界触发的剧情提到老祖需 maxR ≤ 7');
+  if (e.where === 'story' && e.trigger && !/^(realm|demon|trib|sb):/.test(e.trigger) && e.trigger !== 'ascend' && elder && !(e.maxR <= 7)) err(id, '非境界触发的剧情提到老祖需 maxR ≤ 7');
   // 人称：su/ye 与主角不用他/她
   for (const n of ['su', 'ye']) if (joined.includes(`{${n}}`)) {
     if (e.npc !== n) warn(id, `文本出现 {${n}} 但 npc 不是 ${n}`);
@@ -265,7 +304,7 @@ for (const e of EVENTS) for (const f of e.need || []) {
 }
 
 // 基础覆盖（只设下限；旧的数量上限已去掉）
-for (let r = 1; r <= 8; r++) if (!triggers.has(`realm:${r}`)) err('story', `缺少 realm:${r} 主线`);
+for (let r = 1; r <= 8; r++) if (!triggers.has(`realm:${r}`) && !triggers.has(`sb:c${r + 1}_open`)) err('story', `缺少第 ${r + 1} 章开章的主线（sb:c${r + 1}_open）`);
 for (const t of ['sect', 'pet', 'daolv', 'rank:12']) if (!triggers.has(t)) err('story', `缺少 ${t} 主线`);
 for (const b of BGS) if (bgCount[b] < 2) err('count', `bg ${b} 的 exp 事件只有 ${bgCount[b]} 个`);
 for (const n of NPCS) if (npcCount[n] < 4) err('count', `NPC ${n} 的事件只有 ${npcCount[n]} 个`);

@@ -408,7 +408,13 @@ function zhenGuided(st, rec) {
   if ((z[0].nx || z[0].id) !== want && !L.zhenSetWhy(st, 0, want)) { L.zhenSet(st, 0, want); rec.zhenSet++; }
   if (L.zhenSlots(st) >= 2 && !z[1].id && !z[1].nx) { const id = ['f_duanhun', 'f_shengcai', 'f_danhuo'].find(x => L.zhenOwned(st, x) && !L.zhenSetWhy(st, 1, x)); if (id) { L.zhenSet(st, 1, id); rec.zhenSet++; } }
 }
+let simSect = '';   // 这一局入宗选哪一宗（run 里按 opt.sect / seed 定；剧情里的“三张帖子”跟三宗争徒的弹窗选同一家）
 function pickChoice(st, ev) {
+  if (ev.id === 's2_invite') {
+    if (st.flags.inviteAt >= 1e9) { st.evDone.s2_invite = 1; return; }   // “三宗一律不理”的局面：这场戏也不接帖
+    const i = ev.choices.findIndex(c => c.ok && c.ok.fx && c.ok.fx.join === simSect && L.choiceShown(st, c));
+    if (i >= 0) { L.resolveChoice(st, ev, i); return; }
+  }
   const ok = ev.choices.map((c, i) => i).filter(i => L.costOk(st, ev.choices[i].cost));
   if (ok.length) L.resolveChoice(st, ev, ok[Math.floor(L.rng() * ok.length)]);
 }
@@ -629,6 +635,7 @@ function run(strat, seed, trace, opt) {
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {}, npcGifts: 0, pq: 0, sx: 0, affAt: {},
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
   const maxT = opt.maxT || (strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : strat === 'goalcard' ? 120 : 1300);
+  simSect = opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3];
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
     tryBreak(st, rec, strat);
