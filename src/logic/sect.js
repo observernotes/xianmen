@@ -131,7 +131,7 @@ L.promote = function (st) {
   const res = { from: st.sect.rank, to: st.sect.rank + 1 };
   if (nx.duel) {
     const foe = { kind: 'heir', sect: st.sect.id };
-    const S = L.duelPower(st, foe), Q = L.heirPower();
+    const S = L.duelPower(st, foe), Q = L.heirPower(st);
     const p = L.duelP(st, S, Q, foe);
     if (L.revealFoe) L.revealFoe(st, foe);
     res.duel = { S, Q, p, win: L.duelWin(st, S, Q, foe, p) };
@@ -167,7 +167,7 @@ L.wardMult = st => Math.pow(1.15, (st.sect && st.sect.build && st.sect.build.war
 L.sectWar = function (st) {
   const foe = { kind: 'war', id: 'tianjian' };
   const lead = (L.rivalLeads ? L.rivalLeads(st) : []).find(x => x.nine === 'tianjian');   // 恩怨 ≥ 60 的赵乾 / 楚天阔带头：来敌战力 ×1.1～1.2（rivals2.js）
-  const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower() * (lead ? lead.m : 1);
+  const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower(st) * (lead ? lead.m : 1);
   const p = L.duelP(st, S, Q, foe);
   if (L.revealFoe) L.revealFoe(st, foe);
   const win = L.duelWin(st, S, Q, foe, p);

@@ -55,7 +55,7 @@ L.ONB = [
   // ---- 三年之约之后：一次一样，掌握了再开下一样 ----
   { k: 'tour', n: '天骄论道·天骄榜', par: 'exp', base: st => !!st.pact, force: st => !!st.pact, master: () => true },
   { k: 'market', n: '坊市', sys: true, gap: 8, base: st => !!st.pact || mr(st) >= 1, master: st => S(st, 'shop') >= 1, goal: '在坊市买一样东西', maxWait: 8 },
-  { k: 'sect', n: '宗门·任务板', sys: true, base: st => mr(st) >= 1 && !!st.pact, force: st => !!st.sect, master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
+  { k: 'sect', n: '宗门·任务板', sys: true, base: st => !!st.pact, force: st => !!st.sect || !!(st.evDone && st.evDone.s2_invite) || (!!st.pact && !!L.chapterNow && L.chapterNow(st) >= 2), master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
   { k: 'visitor', n: '访客·奇遇', sys: true, base: st => !!st.pact, force: st => !!st.visitor || S(st, 'visits') > 0, master: st => S(st, 'visits') >= 1, goal: '见一位访客', maxWait: 14 },
   { k: 'field', n: '灵田', sys: true, base: st => O.homeUnlocked(st, 'field'), master: st => st.home.field >= 1, goal: '开一块灵田', maxWait: 12 },
   { k: 'treasure', n: '行事·寻宝', par: 'market', base: st => O.apprOpen(st, 1) },

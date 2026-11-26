@@ -53,7 +53,7 @@ L.tick = function (st, cont) {
   if (!st.pact && st.tick === L.PACT_TICK - 1) L.fireTrigger(st, 'pact_eve');
   if (!st.pact && st.tick >= L.PACT_TICK) out.pact = true;
   if (!out.pact && L.canTrain(st) && !st.flags.trainOffered) { st.flags.trainOffered = 1; out.train = true; }
-  if (!st.sect && p.r >= 1 && st.pact && !out.pact && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0)) {   // 三宗争徒（不再等“你在洞府”；线 B 改成第二章开章链末尾当场出）
+  if (!out.pact && (L.inviteDue ? L.inviteDue(st) : !st.sect && st.pact && st.tick > L.PACT_TICK && st.tick >= (st.flags.inviteAt || 0))) {   // 三宗争徒：不看境界、不等在洞府（mainline.js 的 L.inviteDue；线 B 改成第二章开章链末尾当场出）
     out.invite = true; st.flags.inviteAt = st.tick + 12; }
   // 宿敌与新秀：天剑宗来犯前夜、宿敌的奇遇、新秀出现与追到身后、指点过的新秀送礼（rivals2.js；排在来犯判定之前）
   if (L.rivalTick) L.rivalTick(st, out);
@@ -61,7 +61,7 @@ L.tick = function (st, cont) {
     const sc = L.sectOf(st);
     // 丹霞谷：每 6 月俸禄附一枚破境丹（手里不足 L.DAN_PILL_CAP 枚时才发，免得越攒越多）
     if (sc.pill && st.tick % 6 === 0 && st.pills < L.DAN_PILL_CAP) st.pills++;
-    if (!st.flags.warWon && st.sect.rank >= 2 && L.warChapter(st) && st.tick >= (st.flags.war || 0)) { out.war = true; st.flags.war = st.tick + 9999; }
+    if (!st.flags.warWon && L.warChapter(st) && st.tick >= (st.flags.war || 0)) { out.war = true; st.flags.war = st.tick + 9999; }   // 第六章来犯不看宗门身份
     if (L.canPromote(st) && !st.flags.promoNote) { st.flags.promoNote = 1; emit('promote', st.sect.rank + 1); }
     if (!L.canPromote(st)) st.flags.promoNote = 0;
   }

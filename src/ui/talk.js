@@ -353,7 +353,7 @@ document.addEventListener('keydown', e => { if (!tk || tk.picking) return; if (e
 }; }
 // 解锁卡排在剧情前面：有解锁卡等着的时候，剧情先不出（上手那几步的节奏不被对话打断）
 { const pq1 = processQueue; processQueue = function () {
-  if (!queue.length && st && st.storyQ && st.storyQ.length && typeof unlockQ !== 'undefined' && unlockQ.length && $('#modal').hidden && !cine) { if (typeof onbPump === 'function') onbPump(); if (queue.length || !$('#modal').hidden) return pq1.apply(this, arguments); return; }
+  if (!queue.length && st && st.storyQ && st.storyQ.length && !(L.storyUrgent && L.storyUrgent(st)) && typeof unlockQ !== 'undefined' && unlockQ.length && $('#modal').hidden && !cine) { /* 关键戏（L.storyUrgent）不排在解锁卡后面 */ if (typeof onbPump === 'function') onbPump(); if (queue.length || !$('#modal').hidden) return pq1.apply(this, arguments); return; }
   return pq1.apply(this, arguments);
 }; }
 // 章末卡排在这一章高潮那场戏之后：主线刚完成时先看一眼节拍，高潮的戏到了就先放它（不受“一季一次”管），章末卡等它收场
