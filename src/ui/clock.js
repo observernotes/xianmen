@@ -72,7 +72,8 @@ if (typeof currentGuide === 'function') { const cg0 = currentGuide; currentGuide
 if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function () { if (awayUI()) return; cp0(); }; }
 // 剧情事件（st.storyQ）：在外不弹；打坐时守“一季一次”
 { const pq0 = processQueue; processQueue = function () {
-  if (!queue.length && st && st.storyQ && st.storyQ.length && (!$('#modal').hidden || cine || !$('#intro').hidden || awayUI() || !L.canInterrupt(st))) return;
+  // 关键戏（约战之后、入宗、击败点名的人、高潮、开章……L.storyUrgent）不等：不管在不在外、隔没隔够；只有闲戏守“在外不弹、一季一次”
+  if (!queue.length && st && st.storyQ && st.storyQ.length && (!$('#modal').hidden || cine || !$('#intro').hidden || (!(L.storyUrgent && L.storyUrgent(st)) && (awayUI() || !L.canInterrupt(st))))) return;
   if (!queue.length && st && st.storyQ && st.storyQ.length) L.markInterrupt(st);
   pq0();
 }; }

@@ -137,8 +137,8 @@ const prOf = (st, ch) => { try { const a = L.CHAPTERS[ch].prog(st); if (!a || !a
 const MID_PR = { mid1: 0.2, mid2: 0.45, mid3: 0.7 }, MID_T = { mid1: 18, mid2: 36, mid3: 54 }, GAP = { open: 2, mid1: 6, mid2: 6, mid3: 6, pre: 3, climax: 0, end: 1 };
 // 高潮：这一章最后一仗打完的那一刻（不是主线完成——第七、八、九章的主线要等高潮那场戏里的抉择）
 const CLIMAX = [
-  st => !!st.pact, st => (st.bestRank || 100) <= 60, st => !!st.beaten.zhao, st => mainDone(st, 3), st => !!st.beaten.chu, st => !!st.flags.warWon,
-  st => !!E(st).st_truth && !!st.beaten.xue, st => !!E(st).st_justice && (st.bestRank || 100) <= 2, st => st.p.r >= 9,
+  st => !!st.pact, st => L.mainRankOk(st, 60, 1), st => !!st.beaten.zhao, st => mainDone(st, 3), st => !!st.beaten.chu, st => !!st.flags.warWon,
+  st => !!E(st).st_truth && !!st.beaten.xue, st => !!E(st).st_justice && L.mainRankOk(st, 2, 7), st => st.p.r >= 9,   // 名次按 mainline.js 降过级的算
 ];
 // 每章节拍的顺序（缺省 open mid1 mid2 mid3 pre climax end）；must：带抉择，过了章也补放
 const ORDER = { 4: ['open', 'mid1', 'mid2', 'climax', 'mid3', 'end'], 7: ['open', 'mid1', 'mid2', 'pre', 'climax', 'mid3', 'end'], 8: ['open', 'mid1', 'mid2', 'mid3', 'pre', 'climax'] };
@@ -151,7 +151,8 @@ for (let ch = 0; ch < 9; ch++) for (const slot of ORDER[ch] || ['open', 'mid1', 
       : slot === 'climax' ? CLIMAX[ch](st)
         : slot === 'end' ? mainDone(st, ch)
           : slot === 'pre' ? (x.pr >= 0.85 || x.inCh >= 72 || CLIMAX[ch](st))
-            : (x.pr >= MID_PR[slot] || x.inCh >= MID_T[slot]) });
+            : id === 'c2_mid1' ? true   // 三张帖子：第二章一开就来请（入宗不看境界，mainline.js）
+              : (x.pr >= MID_PR[slot] || x.inCh >= MID_T[slot]) });
 }
 const BEAT = {}; for (const b of L.STORY_BEATS) BEAT[b.id] = b;
 L.storyBeat = id => BEAT[id];
@@ -186,7 +187,7 @@ L.storyTick = function (st) {
     if (b.ch > now) break;
     const stale = b.ch < now && b.slot !== 'climax' && b.slot !== 'end';
     if (stale && !b.must) { s.beat[b.id] = -1; continue; }   // 过了章的中段戏：错过（回忆里补看）
-    if (st.tick - s.last < (stale ? 1 : GAP[b.slot])) break;
+    if (st.tick - s.last < (stale || b.id === 'c2_mid1' ? 1 : GAP[b.slot])) break;
     const x = { ch: b.ch, pr: stale ? 1 : prOf(st, b.ch), inCh: st.tick - (s.chAt[b.ch] || 0) };
     if (!stale && !b.when(st, x)) {
       // 高潮没到、章却已经过了（旧档、别的路子完成的主线）：不卡后面的
@@ -201,6 +202,51 @@ L.storyTick = function (st) {
   }
   return n;
 };
+// ---------- 关键事件 → 对应剧情：零延迟 ----------
+// 直接回应某件事的戏（约战之后、入宗那天、击败点名的人、这一章的高潮与收尾、下一章的开章、三张帖子）不进任何节流：
+// 事件一结算（L.checkQuests / L.markBeat / L.joinSect 之后），对应的节拍当场放进剧情队列、排在闲戏前头；不看在不在外、不看间隔、不等前一场。
+// 只有中段的闲戏（mid1～3、人物戏 sb:mid）照旧按“在洞府、隔几个月”放。界面读 L.storyUrgent(st)：队首是关键戏就当场播。
+const IDLE_RE = /^sb:(mid|c\d_mid\d)$/;
+L.storyReactive = ev => !!ev && ev.where === 'story' && (!IDLE_RE.test(ev.trigger || '') || ev.trigger === 'sb:c2_mid1');
+const reactiveSlot = b => b.slot === 'open' || b.slot === 'climax' || b.slot === 'end' || b.id === 'c2_mid1';
+// 队列里关键戏排前面（各自保持原来的先后）
+L.storySort = function (st) {
+  if (!st || !Array.isArray(st.storyQ) || st.storyQ.length < 2) return;
+  // 前几章补放的带抉择的戏（章已经过了）也算关键的：保持它在后一章开章之前
+  const now = L.chapterNow(st), past = ev => { const m = /^sb:c(\d)_/.exec((ev && ev.trigger) || ''); return !!m && +m[1] - 1 < now; };
+  const key = id => { const ev = L.eventById(id); return L.storyReactive(ev) || past(ev); };
+  const a = st.storyQ.filter(key), b = st.storyQ.filter(id => !key(id));
+  st.storyQ.splice(0, st.storyQ.length, ...a, ...b);
+};
+L.storyUrgent = st => !!(st && st.storyQ && st.storyQ.length && L.storyReactive(L.eventById(st.storyQ[0])));
+let kicking = 0;
+L.storyKick = function (st) {
+  if (kicking || !st || !st.p || !st.storyQ || !st.quest || L.STORYLINE === false) return 0;
+  if (st.guide && !st.guide.done && st.tick < 36) return 0;
+  kicking++;
+  try {
+    const s = S(st), now = L.chapterNow(st); let n = 0;
+    for (let c = 0; c <= now; c++) if (s.chAt[c] === undefined) s.chAt[c] = st.tick;
+    for (const b of L.STORY_BEATS) {
+      if (b.ch > now) break;
+      if (fired(st, b.id)) continue;
+      const x = { ch: b.ch, pr: prOf(st, b.ch), inCh: st.tick - (s.chAt[b.ch] || 0) };
+      let due = reactiveSlot(b) && b.when(st, x);
+      // 高潮来了，它前面那场铺垫（pre）跟着一起放，先铺垫后高潮
+      if (!due && b.slot === 'pre' && CLIMAX[b.ch](st)) due = true;
+      // 章已经过了、还没放的带抉择的戏（例如第七章的隔空传音）：跟着往后的关键戏一起按顺序补上，不被后一章插队
+      if (!due && b.must && b.ch < now) due = true;
+      if (!due) continue;
+      s.beat[b.id] = st.tick; s.last = st.tick;
+      const q0 = st.storyQ.length;
+      L.fireTrigger(st, 'sb:' + b.id);
+      n += st.storyQ.length - q0;
+    }
+    L.storySort(st);
+    return n;
+  } finally { kicking--; }
+};
+L.STORY_CLIMAX = CLIMAX;
 // 'sb:mid' 的人物戏一次只放一场：fireTrigger 会把合格的全推进去，这里只留权重最高的一条
 { const ft0 = L.fireTrigger; L.fireTrigger = function (st, key) {
   if (key !== 'sb:mid') return ft0(st, key);

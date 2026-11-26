@@ -120,6 +120,8 @@ src/logic/        逻辑模块：core 参数与公式、事件能力登记 → s
                   → chains 奇遇链进度（催一下、放宽境界上限、补放剧情步）→ codex 图鉴（十四类、见多识广、成组）→ samsara 轮回（道果、轮回殿、出身、天道试炼、传承）
                     ——这三个包了 L.tick、L.newState、L.eligible 等，所以排在 tick 后面
                   → onboard 上手曲线（解锁表、掌握信号；L.TIME 时钟旋钮）→ path 游戏路径（九章、目标卡“下一步”、章末）
+                  → story 剧情按章放 → storyline 剧情串联（节拍、抉择、结局；关键事件的戏零延迟 L.storyKick）
+                  → mainline 主线保底（各章主线的组成表 L.mainReqs、入宗不看境界与随时投帖、散修之路、下战书与宿敌上门、卡住时老祖提示与降要求、旧档救场；docs/STORY_PLAN.md §13）
                   → time 时间流逝（大节点预告与备战、出发拦截、纸鹤消息匣、打断节流）→ report 年报（docs/KAIRO_PLAN.md §2 §3 §6.2）
                   → advise 变强建议（KAIRO_PLAN §10：L.advise / adviseDo / adviseSeen；目标卡“下一步”、老祖头像、变强页、备战卡、锦囊、S 气泡共用；只读状态，全用现成试算）
                   → slots 存档位（自动 3 格轮换 + 手动 3 格的规则、档位摘要、导出字符串的 LZW 压缩；存储由界面给，只管规则）
