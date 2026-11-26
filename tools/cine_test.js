@@ -144,7 +144,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => { while (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
   for (let i = 0; i < 6; i++) { const t = await ev(() => { const C = window.__xm_cine; if (C.on) C.skip(); const m = document.getElementById('modal'); if (!m.hidden) window.__xm.closeModal(); return C.queue.length + (m.hidden ? 0 : 1); }); await page.waitForTimeout(450); if (!t) break; }
   // ---------- 首领首杀（洞府里的首领对决）：对决 → 斩首领过场 → 翻牌 / 结果 ----------
-  await ev(() => { const X = window.__xm, s = X.st; s.bosses[2] = 0; s.bonus.atk = 1e7; s.p.inj = 0; X.setSpeed(1); X.fightBossUI(2); });
+  await ev(() => { const X = window.__xm, s = X.st; s.bosses[2] = 0; s.bonus.atk = 1e7; s.p.inj = 0; X.setSpeed(1); window.__br0 = X.L.bossReady; X.L.bossReady = () => true; X.fightBossUI(2); });   // 打完 L.fightBoss 还要再判一次 bossReady：测完再放回去
   // 回合战在场景里打（battle.js），打完 bossResultUI；旧版是对决（duel）
   for (let i = 0; i < 120; i++) {
     const w = await ev(() => ({ on: !!window.__xm_cine.on, m: !document.getElementById('modal').hidden, d: !!window.__xm.duelFx, foot: !!document.querySelector('#modal .foot .btn') }));
@@ -153,6 +153,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     else if (w.m && w.foot && /首领/.test(await ev(() => (document.querySelector('#modal h2') || {}).textContent || '')) && await ev(() => /继续|好|收/.test((document.querySelector('#modal .foot .btn') || {}).textContent || ''))) await page.click('#modal .foot .btn');
     await page.waitForTimeout(400);
   }
+  await ev(() => { window.__xm.L.bossReady = window.__br0; });
   const bk = await on(); check(bk && bk.key === 'boss:2', `首领首杀：对决之后先播斩首领（${bk && bk.key}）`);
   await page.click('.cn-skip'); await page.waitForTimeout(600);
   const bf = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
