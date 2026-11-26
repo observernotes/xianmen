@@ -1,22 +1,14 @@
-/* 废柴仙途 · 逻辑模块 cultivation：吐纳、突破、闭关、特训、疗伤
+/* 废柴仙途 · 逻辑模块 cultivation：突破、闭关、特训、疗伤（吐纳已删：由“打坐 1 点”接替，ap.js 的 L.sit，docs/AP_PLAN.md §3.1）
  * 模块写法见 src/logic.js 顶部说明。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 吐纳：在洞府打坐时每月蓄 1/6，蓄满后点自己，立得 1 月修为
+// 吐纳（AP_PLAN §3.1、§3.5）：删除。下面三个是给界面留的空壳（src/ui 的 scene / boot / guide 还在读，线 C 删掉那头后一并拆）：永远不满、点了得 0
 L.TUNA_FULL = 6;
-L.tunaReady = st => (st.tuna || 0) >= L.TUNA_FULL && !L.busy(st) && !L.isFull(st) && st.p.r <= L.MAXR;
-L.tuna = function (st) {
-  if (!L.tunaReady(st)) return 0;
-  st.tuna = 0;
-  st.stats.tuna = (st.stats.tuna || 0) + 1;
-  const g = L.gainCalm(st);
-  L.addXp(st, g);
-  L.checkQuests(st);
-  return g;
-};
+L.tunaReady = () => false;
+L.tuna = () => 0;
 
 // 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，见 trib.js）
 // 基础成功率在 L.REALMS[r].rate；常驻的加成（道心·稳、心魔劫…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]；
@@ -43,7 +35,7 @@ L.btRate = function (st, n) {
 };
 
 // ---------- 突破 ----------
-// n：服几枚破境丹（0～3；true 表示尽量多）。失败：修为退到 70%，负伤 3 月，下次 +10%
+// n：服几枚破境丹（0～3；true 表示尽量多）。失败：修为退到 70%，负伤到下季末（4 月，L.injMonths），下次 +10%
 // 金丹起要渡雷劫（SYSTEMS §9）：界面拆成 L.tribStart（预掷）→ 临场一停 → L.tribFinish（补手段、结算），见 trib.js；
 // 这里一口气走完（sim、旧调用）：opts = { aids: { fa, pet, daolv, zhen } | 'all', extra: { pills, fa, pet, daolv } | 'all' }
 L.breakthrough = function (st, n, opts) {
@@ -96,7 +88,7 @@ L.btResolve = function (st, ok, o) {
   } else {
     p.fails++; st.stats.btFails++;
     // 厚土载物经：只退到 85%（L.btKeep）
-    if (!L.has(st, 'steady')) { p.xp = Math.floor(L.pNeed(p) * L.btKeep(st)); p.inj = Math.max(p.inj, 3); }
+    if (!L.has(st, 'steady')) { p.xp = Math.floor(L.pNeed(p) * L.btKeep(st)); p.inj = Math.max(p.inj, L.injMonths ? L.injMonths('base') : 3); }
     else p.xp = Math.floor(L.pNeed(p) * 0.95);
     p.over = 0;
     st.flags.readyNotified = 0;
@@ -108,8 +100,9 @@ L.btResolve = function (st, ok, o) {
 };
 
 // ---------- 闭关与疗伤 ----------
-// 4 月，修炼 ×(2 + 0.05×洞府等级)；花费 50 × 1.30^i 灵石（SYSTEMS §18；第一次免费，玄天道宗 −30%）；
-// 出关 30% 概率顿悟（玄天道宗 45%），再得 2 月修为。
+// 花 2 点、当场出关（AP_PLAN §3.2）：得 gainCalm × 4 × (倍率 − 1)（ap.js 的 L.retreatNow；自然修炼另在季末给）；倍率 2 + 静室…；
+// 花费 50 × 1.30^i 灵石（SYSTEMS §18；第一次免费，玄天道宗 −30%）；出关 30% 概率顿悟（玄天道宗 45%），再得 2 月修为。
+// L.RET.len（4）不再表示时长，只在公式里当 L.AP.retTicks 用、在文案里写“约 N 月修为”
 // 闭关疲劳：两趟历练之间连着闭关，从第二次起每次倍率 −0.5（最低 ×1.25）；出门历练一趟就清零（劳逸结合）。
 L.RET = { len: 4, base: 50, grow: 1.30, epi: 0.30, epiDao: 0.45, epiTicks: 2, fatigue: 0.5, minM: 1.25 };
 // SYSTEMS §6.1：“闭关倍率 +0.05/洞府级”移到静室（home.js 的 L.roomRet；nohome2 时仍按洞府等级）
@@ -129,7 +122,7 @@ L.retWhy = function (st) {
   if (!L.retOpen(st)) return '炼气中期后可闭关';
   if (st.p.r > L.MAXR) return '已证大道';
   if (st.exp) return '历练途中';
-  if (st.retreat) return '正在闭关';
+  if (st.retreat) return '眼下有事在身';
   if (L.isFull(st)) return '修为已圆满，先去突破';
   if (st.stones < L.retCost(st)) return `还差 ${L.fmt(L.retCost(st) - st.stones)} 灵石`;
   return '';
@@ -156,8 +149,7 @@ L.startRetreat = function (st, opt) {
   st.retreat = { left: L.RET.len, total: L.RET.len, m: opt.m !== undefined ? opt.m : L.retMult(st), kind: opt.kind || 'ret', got: 0 };
   if (!special) st.flags.retStreak = L.retStreak(st) + 1;
   if (opt.task !== undefined) st.retreat.task = opt.task;
-  st.tuna = 0;
-  L.log(st, opt.kind === 'train' ? '老祖亲自特训：4 月，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟 4 月' : `闭关 ${L.RET.len} 月，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
+  L.log(st, opt.kind === 'train' ? '老祖亲自特训，修炼 ×3' : opt.kind === 'teach' ? '应宗门之命，指点师弟' : `闭关，修炼 ×${st.retreat.m.toFixed(2)}`, 'jade');
   return true;
 };
 // 闭关栏里写的名字（sect2.js 的 'busy'：讲法、传授、事件占住的几个月，带 label）
@@ -187,11 +179,12 @@ L.endRetreat = function (st, done) {
   L.checkQuests(st);
   return res;
 };
-// 老祖特训（E17）：约战剩余 ≤ 8 月、胜算 < 60%、未筑基未圆满、人在洞府，第一世只此一次，不收灵石
+// 老祖特训（E17）：约战前 3 季内（剩 ≤ 9 月，AP_PLAN §3.5）、胜算 < 60%、未筑基未圆满、手上没事，第一世只此一次，不收灵石；花 2 点
+L.TRAIN_WIN = 9;
 L.canTrain = function (st) {
   if (st.rebirth > 0 || st.pact || st.flags.trained || st.p.r > 0 || L.busy(st) || L.isFull(st)) return false;
   const pi = L.pactInfo(st);
-  return pi.left <= 8 && pi.left >= 1 && pi.p < 0.6;
+  return pi.left <= L.TRAIN_WIN && pi.left >= 1 && pi.p < 0.6;
 };
 L.startTrain = function (st) {
   if (!L.canTrain(st)) return false;

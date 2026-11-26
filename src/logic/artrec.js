@@ -60,7 +60,16 @@ L.artCtx = function (st, ctx) {
 function bigCtx(st) {
   const b = L.bigNext && L.bigNext(st);
   if (!b || b.left > L.ART_REC.big || !L.adviseBigP) return null;
-  let P = null; try { P = L.adviseBigP(st, b); } catch (e) { P = null; }
+  // 论道第一场碰谁（L.tourFoe）看你的战力（宿敌战力 < 你的 1.6 倍才上台），会随装哪门战技变；
+  // 这里一律按手里战力最高的那门算对手，情境就与装着哪门无关（否则换上推荐的那门，对手一变又推别的）
+  let P = null;
+  try {
+    if (b.k === 'tour' && st.arts) {
+      const zs = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z' && !(L.artSealed && L.artSealed(st, id)));
+      let top = null, tp = -1; for (const id of zs) { const pw = L.artTry(st, id, () => L.power(st)); if (pw > tp + 1e-9 || (Math.abs(pw - tp) <= 1e-9 && id < top)) { tp = pw; top = id; } }
+      P = top ? L.artTry(st, top, () => L.adviseBigP(st, b)) : L.adviseBigP(st, b);
+    } else P = L.adviseBigP(st, b);
+  } catch (e) { P = null; }
   if (!P || !P.foe) return null;
   const who = b.k === 'pact' ? st.exName : b.k === 'war' ? '天剑宗' : foeName(st, P.foe);
   return Object.assign(L.artCtx(st, { foe: P.foe, Q: P.Q, scale: P.scale, n: who }), { label: b.n, left: b.left, big: b.k });

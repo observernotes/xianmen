@@ -370,13 +370,13 @@ L.TASK_X.explore = {
   },
   text: (st, t) => (t.realm ? `探秘：本季秘境闯过 ${t.n} 层` : `探秘：去【${L.REGIONS[t.k].n}】禁地寻宝一趟，评价乙以上`),
 };
-// 讲法：手里有一门圆满（或化境）的功法；接下就开讲，2 月不修炼、不能出门
+// 讲法：手里有一门圆满（或化境）的功法；接下就开讲，花 1 点行动点当场讲完（AP_PLAN §2.2 的宗门差事；L.LECTURE_LEN 只留作旧文案的数）
 L.LECTURE_LEN = 2;
 const bestRipe = st => Object.keys(st.arts.own).filter(id => L.art(id) && L.artLv(st, id) >= 3).sort((a, b) => L.art(b).t - L.art(a).t)[0] || null;
 L.TASK_X.lecture = {
   n: '讲法', w: st => (bestRipe(st) ? 1.5 : 0),
   init: (st, t, std) => { t.art = bestRipe(st); t.rw = std * 2; },
-  text: (st, t) => `讲法：以《${L.art(t.art).n}》讲道 ${L.LECTURE_LEN} 月（不修炼），贡献 ×2，徒弟各得进益`,
+  text: (st, t) => `讲法：以《${L.art(t.art).n}》讲道（花 1 点行动点），贡献 ×2，徒弟各得进益`,
   take: (st, t, i) => L.startBusy(st, L.LECTURE_LEN, 'lecture', '讲法', { task: i }),
 };
 for (const ty in L.TASK_X) L.TASK_N[ty] = L.TASK_X[ty].n;
@@ -402,12 +402,12 @@ if (typeof L.mjPick === 'function' && typeof L.mjUnlocked === 'function') {
 L.taskActFav = st => (L.duty(st) === 'dan' ? 'craft' : null);
 L.taskPoolMod = (st, pool) => { if (L.duty(st) === 'dan') { const x = pool.find(p => p[0] === 'act'); if (x) x[1] *= 1.6; } };
 
-// ---------- 被占住的几个月（讲法、传授、事件 fx.busy）：st.retreat.kind = 'busy'，修炼 ×0、不能出门 ----------
+// ---------- 差事（讲法、传授）：st.retreat.kind = 'busy'，由 ap.js 的 L.errandNow（行动 'errand'，1 点）当场结掉 ----------
+// 事件效果 fx.busy（“占住 v 个月”）不走这里：改成下一季少 1～2 点行动点（ap.js 的 L.apDebt，AP_PLAN §3.5）
 L.startBusy = function (st, n, what, label, data) {
   if (L.busy(st) || st.p.r > L.MAXR || !(n > 0)) return false;
   st.retreat = Object.assign({ kind: 'busy', what, label, left: n, total: n, m: 0, got: 0 }, data || {});
-  st.tuna = 0;
-  L.log(st, `${label}：${n} 个月`, 'jade');
+  L.log(st, label, 'jade');
   return true;
 };
 wrap('endRetreat', b => (st, done) => {
@@ -533,8 +533,10 @@ L.supportFx('favor', { ok: favOk, apply: (st, v, out) => {
 } });
 L.supportElig('favorMin', { ok: v => Array.isArray(v) && v.length === 2 && !!ALL_E[v[0]] && v[1] >= 0 && v[1] <= 100, test: (st, v) => !!st.sect && ALL_E[v[0]].sect === st.sect.id && (L.favor(st, v[0]) || 0) >= v[1] });
 L.supportFx('duty', { ok: v => !!L.DUTIES[v], apply: (st, v, out) => { if (L.setDuty(st, v, true)) out.push(`职司：${L.DUTIES[v].n}`); } });
-L.supportFx('busy', { ok: v => Number.isInteger(v) && v > 0 && v <= 12, apply: (st, v, out, fx, ctx) => {
-  if (L.startBusy(st, v, 'event', ctx && ctx.ev ? L.fill(st, ctx.ev.title) : '奔忙')) out.push(`占住 ${v} 个月（不修炼、不能出门）`);
+// fx.busy：v 是原来“占住几个月”的数（事件文件里不改），回合制下折成下一季少几点行动点（v ≥ 4 少 2 点，否则 1 点，记在 st.ap.debt）
+L.supportFx('busy', { ok: v => Number.isInteger(v) && v > 0 && v <= 12, apply: (st, v, out) => {
+  const d = L.apDebt ? L.apDebt(st, v) : 0;
+  if (d) out.push(`为此奔忙：下一季行动点 −${d}`);
 } });
 L.supportTrigger('sect:');
 
