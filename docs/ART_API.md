@@ -157,3 +157,44 @@
 - 4 品阶光柱：`src/ui/panel-exp.js` `dropFlipHTML` / `dropFlipRun`（历练结算卡，按掉落最高品阶）。
 - 5 空状态：`src/ui/core.js` `emptyNoteHTML`；兽栏（panel-pets.js `showPets`）、宗门宝库（panel-sect.js `sectVaultHTML`）、洞府空地（panel-home.js `plotDetail`）。
 - 6～10：`src/ui/duel-scene.js`（`ftBoss` / `ftChamp` / `duelStageOf` / `duelMeEl` / `drawDuelScene`）；天剑宗来犯 panel-sect.js `runWar` 传 `sect_mo`。
+
+## 阶段五·面板补缺
+
+预览：`node tools/preview.js <输出.png> only=g12`（`g12a` 图标与品阶底框 / `g12b` 空状态、剪影、勾选框），代码在 `tools/preview_p5.js`。本批只画图，尚未接线。旧接口（`ART.icon` / `ART.frame` / `ART.emptyNote` 的旧名字）输出逐像素不变。
+
+### 1 首领材料（包裹）
+
+- `ART.bossMat(k)` → 16×16。`k` 0～10，顺序同 `L.BOSS_MAT` / `L.BOSSES`（`ART.bossMatCount = 11`）：0 狼王牙（金箍红绳的獠牙）、1 寨主令（铁牌朱字红穗）、2 尸王玉（带尸斑的青玉璧）、3 猿王心（燃着的赤心）、4 血魔珠（滴血的黑旋血珠）、5 守墓剑意（一缕青色剑芒）、6 魔将角（箍金环的紫弯角）、7 蛟皇鳞（扇形青鳞）、8 噬星核（黑核金芯）、9 傀儡芯（铜齿轮嵌青晶）、10 混沌尘（灰尘上旋着七彩微光）。
+- 用法：包裹里 `st.gear.mats[k]` 那一格直接 `ART.bossMat(k)`，顶替现在借用的 `ART.icon('treasure')`。
+
+### 2 丹囊、宗主建设、宗门任务（16×16 图标）
+
+- `ART.icon('danbag')` 丹囊（系金绳的青布囊，囊上一粒红丹），顶替借用的 `peiyuan`。
+- `ART.icon('sb_ward')` 护山大阵（光罩扣山）、`ART.icon('sb_lib')` 藏经阁（两层蓝瓦阁）、`ART.icon('sb_vein')` 灵脉（山岩里发光的脉与灵晶）。也可以用 `ART.sectBuildIcon(k)`，`k` 是 `src/logic/sect.js` 里宗主建设的 `'ward' | 'lib' | 'vein'`。
+- `ART.icon('task')` 宗门任务（贴着差事的告示牌），给没有师长管的宗门任务用。
+
+### 3 展开箭头、“新”角标（10×10）
+
+- `ART.icon('fold_closed')` ▶ 收起、`ART.icon('fold_open')` ▼ 展开 → 10×10（注意不是 16×16），金色带描边，纸底暗底都能用。
+- `ART.newBadge()` → 10×10 朱印白叹号。叠在 16×16 包裹格右上角：`drawImage(ART.newBadge(), 格子x + 10, 格子y - 4)`；CSS 里就是 `position:absolute; right:-4px; top:-4px`（按显示倍数放大）。
+
+### 4 品阶底框（法宝 / 灵宠 / 功法格子背景）
+
+- `ART.qualityCell(tier, size)` → 画布。`tier` 1～7：1～6 与 `ART.qualityColor(1～6)` 同色，7 为七彩（混沌）；`size` 传 16 或 36（`ART.qualityCellSizes`；不传按 16）。
+- 16×16：暗底 + 品阶色描边 + 底部一抹光，四档起四角有亮钉。16×16 的物品图直接叠在上面（同一左上角）。
+- 36×36：双线描边 + 内圈细线；二档起四角有折角，四档起角上嵌钉，五档起四边中点嵌菱，六档起内角有星点。格内可用区域约 (5, 5)～(30, 30)，放 2 倍的 16×16 图时画在 (2, 2) 也可以。
+- 需要 CSS 背景时用 `ART.qualityCell(t, 36).toDataURL()`，`image-rendering: pixelated`，按整数倍放大；四角是透明的切角。
+
+### 5 空状态淡墨小画（新增 kind）
+
+- `ART.emptyNote(kind, paper)` 新增四种 `kind`，规格与原来的三种完全一样（48×48，`paper` 为真带宣纸底）：`'pill'` 还没有丹方（冷掉的丹炉、掀开的炉盖、一张空白方子）、`'scroll'` 任务都做完了（告示牌只剩钉子和一张打了红勾的）、`'gift'` 没东西可送（打开的空礼盒、松开的缎带、飞走的蛾子）、`'gavel'` 等下一场拍卖（搁在醒木上的拍卖槌、还在漏的沙漏）。
+- `ART.emptyKinds` 现在是 `['pet', 'vault', 'build', 'pill', 'scroll', 'gift', 'gavel']`。接线照旧走 `src/ui/core.js` 的 `emptyNoteHTML`。
+
+### 6 未见过人物的剪影
+
+- `ART.portraitUnknown()` → 48×48，规格与 `ART.portrait` 相同（透明底、带描边）：束发的深色半身剪影，脸上一个问号。没有表情参数。图鉴 / 人物列表里还没见过的人用它。
+
+### 7 勾选按钮框
+
+- `ART.frame('chkOn')` 已勾（青玉底、右上角金色小牌带勾，`ink` 为 `#fff6e0`）、`ART.frame('chkOff')` 未勾（暗紫底、右上角空槽，`ink` 为 `#a8a4b8`）。返回格式与其它 `ART.frame` 相同：`{ url, slice: 6, size: 20, fill, ink, canvas }`，CSS 写法也相同（`border-image: url(...) 6 fill / … stretch`）。
+- 勾选标记画在右上角 6×6 的角格里，九宫格拉伸时不会变形；续炼、护劫、当前差事这类开关按钮在两种 kind 之间切换即可。
