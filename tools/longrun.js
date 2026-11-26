@@ -9,7 +9,15 @@
 // 门照老祖的“荐”点，最好的门也会出事 / 气血见底就点【带着 N 件离开】，奇遇随手选，行商不买，秘藏点“荐”的那项
 // 入宗后每 24 周天进【宗门】：门下收徒、派差事、能出师就出师、偶尔传授；身份页能领职司就领、给长老【送礼】；宝库六格里的功法法宝买得起就换
 // 图鉴：每 40 周天打开一次逐类点一遍；飞升后从人物页点完整条轮回流程（结算 → 传承 → 轮回殿 → 出身 → 命格 → 试炼 → 投胎），再玩 30 周天第二世
-// node tools/longrun.js [截图.png]   慢：一世约 800～900 周天，跑几分钟
+// 行动点制（docs/AP_PLAN.md §8.4）：时间不自己走。机器人每季：先把当前的不花点的事做完（坊市、法宝、灵田、阵法……下面各 Round），
+//   再照目标卡【去】指向的主线行动做（L.mainActs 里第一项可做的：下战帖 / 拜山门 / 讨伐首领 / 最后一仗）、剩下的点花在闭关 / 历练上，最后点【下一季】（window.__xm.nextSeason）；
+//   链里每一张卡点主按钮（抉择随手选，三宗帖子 drain 里照随机）。前 4 趟历练走界面（历练面板 → 确认页 → 出发），其余直接 L.act。
+//   新增的断言（NEW_UI = 界面有 window.__xm.nextSeason 才判；界面线 C 还没合进来时退回逐月推进旧界面，只跑原有的那些检查，并在输出里标 “旧界面”）：
+//     · 每条链结束后 st.storyQ.length === 0（卡片一张接一张出到没东西为止，不留到下一季）；
+//     · 关键戏（节拍 open / climax / end、beat:* 对决、boss:*、sect 入宗、srank、rank:12、trib、war_eve）开播时不是它那条链的第一层——前面有它对应的结算卡 / 对决 / 章末卡，
+//       两层之间没有露出主界面（层与层的空隙 < 700ms）：界面层的“零延迟”（§4.2）；
+//     · 放置 60 秒 st.tick 不变（没有任何东西会自己推时间）；全程无报错。
+// node tools/longrun.js [截图.png]   慢：一世约 170～200 季，每季几个来回，跑一刻钟到半小时
 const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
@@ -25,14 +33,31 @@ const path = require('path');
   await page.waitForTimeout(300);
   const T0 = Date.now();
   const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => window.__lr || null))); } catch (e) { /* 页面忙时跳过 */ } }, 120000);
-  const beat = setInterval(() => { page.evaluate(() => { const s = window.__xm.st; return `周天 ${s.tick} 境界 ${s.p.r}`; }).then(s => console.error('[进度]', s), () => {}); }, 120000);   // 机器忙时心跳，看得出没卡死
+  const beat = setInterval(() => { page.evaluate(() => { const s = window.__xm.st; return `月 ${s.tick} 境界 ${s.p.r}`; }).then(s => console.error('[进度]', s), () => {}); }, 120000);   // 机器忙时心跳，看得出没卡死
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
-    X.setSpeed(3);   // 暂停：时间由下面的循环推进
+    if (X.setSpeed) X.setSpeed(3);   // 旧界面：暂停，时间由下面的循环推进
+    const NEW_UI = typeof X.nextSeason === 'function';   // 新界面（界面线 C）：时间只在【下一季】里推进
+    window.__lrNew = NEW_UI;
+    // 本分支（合并推荐统一 49cf52f 之后）：artrec.js 的 L.REC = {…} 盖掉 expedition.js 的 L.REC，L.rec 全是 NaN。垫回去，别让整局都带歪（报告里单列）
+    window.__lrRecBug = !(L.rec(0, 0) > 0);
+    if (window.__lrRecBug) Object.assign(L.REC, { base: 6, k: 13.4, d: 2.37 });
     X.st.guide = { step: 99, done: true };
     setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
+    // 阻塞层的出场序列：每 30ms 看一眼现在最上面是什么（弹窗标题 / 过场 / 对决），变了就记一笔；关键戏开播时，看它前面有没有紧挨着的层
+    const LAY = [];
+    let layNow = '';
+    setInterval(() => {
+      const m = document.getElementById('modal'), h = !m.hidden && document.querySelector('#modal h2');
+      const cur = h ? 'm:' + h.textContent : X.cine ? 'cine' : (X.duelFx && !X.duelFx.ended) ? 'duel' : !m.hidden ? 'm:' : '';
+      if (cur !== layNow) { LAY.push({ t: performance.now(), from: layNow, to: cur }); layNow = cur; }
+    }, 30);
+    const STORYLOG = [];
+    { const rc0 = L.resolveChoice; L.resolveChoice = function (st, ev, idx) { const r = rc0.apply(this, arguments); if (ev && ev.where === 'story') STORYLOG.push({ id: ev.id, trg: ev.trigger || '', title: ev.title || '', t: performance.now(), tick: st.tick, q: st.storyQ.length }); return r; }; }
+    const H1KEY = trg => /^(beat:|boss:|trib:|demon:|srank:|war_eve:)/.test(trg) || trg === 'sect' || trg === 'rank:12' || /^sb:c\d_(open|climax|end)$/.test(trg);
+    const chainEnds = [];   // 每条链结束（drain 返回）时的 storyQ 长度
     const ppl = { gift: 0, like: 0, sx: 0, comp: 0, pq: 0, compTrips: 0 };
     let duelSkips = 0, zSwap = 0, petAct = 0, petFeed = 0, popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
     const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
@@ -280,7 +305,7 @@ const path = require('path');
         if (document.querySelector('#tribPause')) { await pauseCard(); continue; }
         if (X.cine) { await sleep(120); continue; }
         if (X.duelFx && !X.duelFx.ended) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
-        if (!modal()) { await sleep(450); if (!modal() && !X.cine) return; continue; }
+        if (!modal()) { await sleep(450); if (!modal() && !X.cine) { chainEnds.push({ tick: X.st.tick, q: X.st.storyQ.length, ids: X.st.storyQ.slice(0, 3) }); return; } continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
         const cand = document.querySelector('#modal .cand:not(.hide):not(.sel)');
         if (cand && !document.querySelector('#modal .cand.sel')) { cand.click(); await sleep(40); continue; }
@@ -294,6 +319,10 @@ const path = require('path');
         if (eq) { eq.click(); artEq++; await sleep(40); continue; }
         if (document.querySelector('#modal [data-gcmp]')) { await drainCards(); continue; }
         const btns = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')];
+        if (!btns.length) {   // 解锁卡（.unl-m）的按钮不在 .foot 里：点“知道了”（不点“带我去”，免得跳走）
+          const ok = [...document.querySelectorAll('#modal button, #modal .btn')].find(x => !x.disabled && /^(知道了|好|继续)$/.test(x.textContent.trim()));
+          if (ok) { ok.click(); await sleep(60); continue; }
+        }
         if (!btns.length) { if (document.querySelector('#modal .close')) { X.closeModal(); await sleep(450); } else await sleep(120); continue; }   // 没有底部按钮的面板（洞府、历练页）：点右上角关掉，别干等
         popups++;
         // 结算卡上不点“再探一次”，回洞府自己安排
@@ -302,13 +331,40 @@ const path = require('path');
         await sleep(50);
       }
     }
+    // 点【下一季】（新界面）；旧界面：逐月推 3 次
+    async function advance() {
+      if (NEW_UI) { X.nextSeason(); await sleep(60); }
+      else for (let m = 0; m < 3; m++) { L.flow(X.st, 1); X.onTick(); }
+      await drain();
+    }
+    // 做完一个行动，让界面把它的结算链出完（C 的 settle：window.__xm.settle；没有就靠 drain 点卡）
+    async function settleUI() { if (NEW_UI && typeof X.settle === 'function') { try { await X.settle(); } catch (e) { /* 由 drain 收尾 */ } } await drain(); }
+    // 目标卡【去】：L.mainActs 里第一项可做的行动（下战帖 / 拜山门 / 最后一仗 / 讨伐首领），照 L.act 的行动 id 与参数做
+    let goalActs = 0, goalMiss = 0;
+    async function goalGo() {
+      const st = X.st; if (!NEW_UI || typeof L.mainActs !== 'function') return 0;
+      let n = 0;
+      for (let g = 0; g < 3 && L.apLeft(st) > 0 && !X.cine && !modal(); g++) {
+        let acts = []; try { acts = L.mainActs(st) || []; } catch (e) { goalMiss++; break; }
+        const a = acts.find(x => x && x.ok && (x.ap === undefined || x.ap <= L.apLeft(st)));
+        if (!a) break;
+        const id = typeof a.do === 'string' ? a.do : (a.do && a.do.id) || a.act || a.id, args = a.args || (a.do && a.do.args);
+        const r = L.act(st, id, args);
+        if (!r) { goalMiss++; break; }
+        if (st.exp) { L.tripAuto(st); L.tripEnd(st); }
+        n++; goalActs++;
+        await settleUI();
+      }
+      return n;
+    }
     const W = { array: 1, field: 1.25, furnace: 1.8, cave: 2.4, room: 2.2, vault: 2.4, library: 2.6, forge: 2.6, pen: 3, spring: 3.2, pavilion: 4, portal: 4 };
     let builds = 0, zhenSets = 0;
     const T0 = Date.now();
-    for (let n = 0; n < 1600; n++) {
+    let idleChecked = false, idleTick0 = -1, idleOK = null;
+    for (let n = 0; n < 700; n++) {
       window.__lr = { n, tick: X.st.tick, r: X.st.p.r, modal: modal() ? title() : '', cine: !!X.cine };
       const st = X.st;
-      if (n % 25 === 0) console.log(`LR n=${n} tick=${st && st.tick} r=${st && st.p.r} ${Math.round((Date.now() - T0) / 1000)}s duelSkips=${duelSkips} popups=${popups}`);
+      if (n % 25 === 0) console.log(`LR 季 n=${n} 月=${st && st.tick} r=${st && st.p.r} ${Math.round((Date.now() - T0) / 1000)}s duelSkips=${duelSkips} popups=${popups}`);
       if (!st || st.p.r >= 9) break;
       if (L.isReady(st)) {
         if (st.p.inj > 0) L.heal(st);
@@ -334,16 +390,16 @@ const path = require('path');
       if (L.marketOpen(st, 'egg') && L.petCount(st) < L.petCap(st) && st.stones > L.price(st, 'egg') * 3) { const r = L.buy(st, 'egg'); if (r && r.it) { X.revealItem(r.it); await drain(); } }
       if (L.petCount(st) && L.marketOpen(st, 'feed') && st.stones > L.price(st, 'feed') * 6) L.buy(st, 'feed');
       if (L.lifeLow(st) && L.marketOpen(st, 'life') && st.stones > L.price(st, 'life')) L.buy(st, 'life');
-      if ((n % 6 === 2 || (n % 3 === 0 && L.auctionOpen(st) && L.auctionBidsLeft(st) > 0)) && !X.cine && st.stats.exp >= 1) await marketRound();
-      if (n % 12 === 7 && !X.cine && !modal()) await fieldAlchRound();
-      // 洞府：每 12 周天一轮；快圆满要渡劫时每周天看一眼阵法（布渡劫阵），刚突破完换回聚灵
+      if ((n % 2 === 1 || (L.auctionOpen(st) && L.auctionBidsLeft(st) > 0)) && !X.cine && st.stats.exp >= 1) await marketRound();
+      if (n % 4 === 3 && !X.cine && !modal()) await fieldAlchRound();
+      // 洞府：每 4 季一轮；快圆满要渡劫时每周天看一眼阵法（布渡劫阵），刚突破完换回聚灵
       const zSoon = L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && st.p.s === 3 && !L.zhenWhere(st, 'f_dujie') && (L.isFull(st) || L.ticksToNext(st) <= 5);
       const zBack = L.zhenOpen(st) && L.zhenState(st)[0].id === 'f_dujie' && !L.zhenState(st)[0].nx && st.p.s < 3;
-      if ((n % 12 === 5 || zSoon || zBack) && L.home2On() && !X.cine && !modal()) await homeRound();
+      if ((n % 4 === 2 || zSoon || zBack) && L.home2On() && !X.cine && !modal()) await homeRound();
       // 大势起了：点右上角的小牌看年历；筑基后每 24 周天点一次“大事”牌
       const tag = document.querySelector('#worldTag:not([hidden])');
       if (tag && tag.offsetParent && st.cal && st.cal.w && st.cal.w.at === st.tick && !X.cine && !modal()) { tag.click(); calOpen++; seen['年历'] = 1; await sleep(60); X.closeModal(); await sleep(450); await drain(); }
-      else if (n % 24 === 13 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#time').click(); calOpen++; await sleep(60); if (title() === '年历') { seen['年历'] = 1; X.closeModal(); await sleep(450); } await drain(); }
+      else if (n % 8 === 5 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#time').click(); calOpen++; await sleep(60); if (title() === '年历') { seen['年历'] = 1; X.closeModal(); await sleep(450); } await drain(); }
       if (st.sect) {
         if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { X.doPromote(); await drain(); }
         st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i); if (L.taskCanDeliver(st, t) && st.pills >= 2) L.taskDeliver(st, i); });
@@ -351,35 +407,43 @@ const path = require('path');
         if (st.sect.rank >= 6) for (const b of L.BUILDS) if (st.stones > L.buildCost(st.sect.build[b.k]) * 1.2) L.sectBuild(st, b.k);
       }
       if (st.home.furnace) { for (const k of ['xisui', 'jiuzhuan', 'juling', 'pojing', 'peiyuan']) if (!L.canCraft(st, k) && (k !== 'jiuzhuan' || st.p.r >= 5) && (k !== 'juling' || !st.buffs.some(b => b.cul)) && (k !== 'pojing' || st.pills < 2)) { L.craft(st, k); break; } }
-      if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7) { X.fightBossUI(k); await drain(); }
+      if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7 && (!NEW_UI || L.apLeft(st) >= (L.AP ? L.AP.boss : 1))) { X.fightBossUI(k); await drain(); }
       if (st.visitor && !st.retreat && !modal() && L.pgiftVisitor(st)) { await giftAtDoor(); await drain(); }
       if (st.visitor && !st.retreat && Math.random() < 0.5) { X.showVisitor(); await drain(); }
-      if (n % 12 === 7 && !X.cine && !modal() && !L.busy(st) && L.PPL.some(id => L.met(st, id))) { await peopleRound(); await drain(); }
-      if (L.tunaReady(st)) L.tuna(st);
-      if (n % 24 === 5 && !X.cine) await artRound();
-      if (n % 40 === 11 && !X.cine && !modal()) await codexRound();
-      if (n % 12 === 9 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
-      if (n % 12 === 3 && !X.cine && (L.petCount(st) || st.petPend.length)) await petRound();
-      if (n % 24 === 17 && !X.cine && st.sect && !modal()) await sectRound();
+      if (n % 4 === 3 && !X.cine && !modal() && !L.busy(st) && L.PPL.some(id => L.met(st, id))) { await peopleRound(); await drain(); }
+      if (typeof L.tunaReady === 'function' && L.tunaReady(st)) L.tuna(st);   // 吐纳：旧界面才有（A2 删）
+      if (n % 8 === 2 && !X.cine) await artRound();
+      if (n % 14 === 4 && !X.cine && !modal()) await codexRound();
+      if (n % 4 === 1 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();
+      if (n % 4 === 0 && !X.cine && (L.petCount(st) || st.petPend.length)) await petRound();
+      if (n % 8 === 6 && !X.cine && st.sect && !modal()) await sectRound();
       if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
       if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !X.cine && !modal()) {
         if (L.mjCan(st, true)) await realmRound(true);
         else if (L.mjCan(st) && (mjRuns < 2 || Math.floor(st.tick / 12) % 4 === 0)) await realmRound(false);
       }
-      if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0) {
-        if (trips >= 2 && L.canRetreat(st)) { trips = 0; L.startRetreat(st); }
-        else {
+      // ---- 行动点：先做目标卡【去】指向的主线行动，剩下的点花在闭关 / 历练上；点花完（或只剩 1 点自动打坐）就点【下一季】 ----
+      if (!L.busy(st) && !L.isReady(st) && !L.isFull(st) && st.p.inj <= 0 && !X.cine && !modal()) {
+        await goalGo();
+        for (let g = 0; g < 3 && (!NEW_UI || L.apLeft(st) >= (L.AP ? L.AP.exp : 2)) && !st.exp && !L.isFull(st) && !L.isReady(st) && st.p.r < 9 && !modal(); g++) {
+          if (trips >= 2 && L.canRetreat(st)) {
+            trips = 0;
+            if (NEW_UI) { if (!L.act(st, 'retreat')) break; await settleUI(); } else L.startRetreat(st);
+            if (!NEW_UI) break; else continue;
+          }
           const a = L.apprOpen(st, 2) && st.stats.exp % 3 === 1 ? 2 : L.apprOpen(st, 1) && st.stats.exp % 4 === 3 ? 1 : 0;
           const c = L.expBest(st, a);
           // 前几趟走界面：历练面板 → 确认页 → 出发
-          if (uiExp < 4) { uiExp++; X.showExp(); await sleep(40); X.confirmExp(c.k, c.d, c.a); await sleep(40); { const sw = document.querySelector('#modal #ppCompSw'); if (sw && !L.comp(st)) { sw.click(); await sleep(60); const cc = document.querySelector('#modal [data-cc]:not([data-cc=""])'); if (cc) { cc.click(); ppl.comp++; await sleep(60); } } } document.querySelector('#modal .foot .btn.gold').click(); await sleep(450); }
-          else L.startExp(st, c.k, c.d, c.a, L.chainOpen(st) && n % 5 === 0 ? { chain: 3 } : undefined);
-          if (st.exp) { trips++; if (st.exp.comp) ppl.compTrips++; }
+          if (uiExp < 4) { uiExp++; X.showExp(); await sleep(40); X.confirmExp(c.k, c.d, c.a); await sleep(40); { const sw = document.querySelector('#modal #ppCompSw'); if (sw && !L.comp(st)) { sw.click(); await sleep(60); const cc = document.querySelector('#modal [data-cc]:not([data-cc=""])'); if (cc) { cc.click(); ppl.comp++; await sleep(60); } } } const go0 = document.querySelector('#modal .foot .btn.gold'); if (go0) go0.click(); await sleep(60); await drain(); }
+          else if (NEW_UI) { if (!L.act(st, 'exp', [c.k, c.d, c.a])) break; L.tripAuto(st, ev => { const ok = (ev.choices || []).map((x, i) => i).filter(i => L.costOk(st, ev.choices[i].cost)); if (ok.length) L.resolveChoice(st, ev, ok[Math.floor(Math.random() * ok.length)]); }); L.tripEnd(st); await settleUI(); }
+          else L.startExp(st, c.k, c.d, c.a);
+          if (st.exp || NEW_UI) { trips++; if (st.exp && st.exp.comp) ppl.compTrips++; }
+          if (!NEW_UI) break;
         }
       }
-      L.flow(st, 1);
-      X.onTick();
-      await drain();
+      // 放置不走时间（§8.4）：第 6 季前后，主界面没有任何层时，站着 60 秒，st.tick 不变（新界面才判）
+      if (NEW_UI && !idleChecked && n >= 6 && !modal() && !X.cine && !st.exp) { idleChecked = true; idleTick0 = st.tick; await sleep(60000); idleOK = X.st.tick === idleTick0; }
+      await advance();
     }
     await drain();
     const st = X.st;
@@ -424,13 +488,26 @@ const path = require('path');
         if (s2.rebirth !== 1) res.life2 = '没有转世成功（' + title() + '）';
         else {
           await drain();
-          for (let w = 0; w < 30; w++) { L.flow(s2, 1); X.onTick(); await drain(); }
-          res.life2 = `第 2 世：出身 ${s2.origin}、试炼 ${s2.trials.join('/') || '无'}、周天 ${s2.tick}、境界 ${s2.p.r}、图鉴 ${L.codexCells(s2)} 格、道果 ${s2.meta.daoguo}（上一世 +${dg}）`;
-          res.life2ok = s2.tick >= 25 && L.codexCells(s2) > 0;
+          for (let w = 0; w < 10; w++) await advance();   // 10 季（= 30 个月）
+          res.life2 = `第 2 世：出身 ${s2.origin}、试炼 ${s2.trials.join('/') || '无'}、月 ${s2.tick}、境界 ${s2.p.r}、图鉴 ${L.codexCells(s2)} 格、道果 ${s2.meta.daoguo}（上一世 +${dg}）`;
+          res.life2ok = s2.tick >= 24 && L.codexCells(s2) > 0;
         }
       }
     }
     res.codexOpen = cxOpen;
+    // 界面层零延迟（§4.2）：关键戏开播时，前面紧挨着一层（结算卡 / 对决 / 章末卡 / 抉择），两层之间没有露出主界面（空隙 < 700ms）
+    const lead = [];   // 每个关键戏：{ id, trg, title, prev, gap }
+    for (const r of STORYLOG) {
+      if (!H1KEY(r.trg)) continue;
+      let k = -1; for (let i = 0; i < LAY.length; i++) if (LAY[i].t <= r.t && /^m:/.test(LAY[i].to) && (!r.title || LAY[i].to.slice(2).includes(r.title.slice(0, 4)) || i === LAY.length - 1)) k = i;
+      if (k < 0) { lead.push({ id: r.id, trg: r.trg, miss: true }); continue; }
+      // 往前找：这一层开出来之前，最近一次“变成空”的时间离它多远，空之前的那一层是什么
+      let e = k - 1; while (e >= 0 && LAY[e].to !== '') e--;
+      const gap = e >= 0 ? LAY[k].t - LAY[e].t : 1e9, prev = e > 0 ? LAY[e].from : '';
+      lead.push({ id: r.id, trg: r.trg, prev, gap: Math.round(gap), first: gap >= 700 && k > 0 && LAY[k].from === '' });
+    }
+    res.zd = { newUi: NEW_UI, recBug: window.__lrRecBug, keyStories: lead.length, leadFirst: lead.filter(x => x.first).map(x => `${x.id}(${x.trg})`), leadMiss: lead.filter(x => x.miss).length,
+      chainEnds: chainEnds.length, chainLeft: chainEnds.filter(x => x.q > 0).slice(0, 5), idle: idleOK, goalActs, goalMiss };
     return res;
   });
   clearInterval(prog);
@@ -438,6 +515,16 @@ const path = require('path');
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
+  const zd = result.zd || {};
+  if (zd.recBug) console.log('注意：L.rec 是 NaN（artrec.js 把 L.REC 覆盖了），本次已临时垫回 { base: 6, k: 13.4, d: 2.37 }。');
+  if (!zd.newUi) console.log('注意：界面里没有 window.__xm.nextSeason（界面线 C 还没合进来）——本次退回逐月推进旧界面，下面三条新断言（链结束队列空 / 关键戏不在链首 / 放置不走时间）不判。');
+  else {
+    if (zd.chainLeft && zd.chainLeft.length) errors.push(`[B/C] 链结束时 st.storyQ 还有剧情压着（${zd.chainLeft.length}+ 条链）：` + zd.chainLeft.map(x => `第 ${x.tick} 月 ${x.ids.join('、')}`).join('；'));
+    if (zd.leadFirst && zd.leadFirst.length) errors.push(`[B/C] 关键戏开播时是它那条链的第一层（前面没有它对应的结算卡，或两层之间露出了主界面）：` + zd.leadFirst.slice(0, 6).join('、'));
+    if (zd.idle === false) errors.push('[C] 放置 60 秒 st.tick 变了（时间不该自己走）');
+    if (zd.idle === null) errors.push('放置 60 秒的检查没跑到（没有一个空闲的季初）');
+    if (!(zd.keyStories > 0)) errors.push('一条关键戏也没记到（STORYLOG 空）');
+  }
   if (!result.life2ok) errors.push('轮回流程：' + result.life2);
   if (!result.codexOpen) errors.push('机器人没有打开过图鉴');
   // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
