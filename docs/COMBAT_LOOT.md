@@ -785,6 +785,7 @@ L.matsAdd(st, mats)                           // C2：战斗掉的灵核等入�
 - 对决（P1-1）：`L.duelWin(st, S, Q, foe, p, opt)` 取代各处的 `R() < p`：胜率仍是 `L.duelP` 的 p（备战卡与 sim 都认它），胜负由一场回合战打出来（按招式签名缓存“战力比 → 胜率”表，反查出让胜率等于 p 的战力比）。最近一场 `L.duelLast = { seed, Q, p, foe, opt, res, win }`；`L.duelBattle(st, Q, foe, p, seed, opt)` 可重放。`L.DUEL_ON = false` 回到掷骰。
 - 存档：`st.exp` 的节点字段（见 1）；`st.meta.foes`（见过的敌人，跨世）；`st.flags.btSeen`（第一次看到蓄力 / 罩 / 克 / 怒气满的停顿）；`st.flags.autoUlt`（第二章起“怒气满了自动放”）；`st.stats.btKe`（打出过“克”，解锁表“战技·五行”的掌握信号）；`st.btPol`（sim 的自动策略）。
 - 法宝的战斗效果一律读 C2 的 **`L.gearBattle(st)`**（`L.btMe` 里）：14 条战斗词条、藏锋、克 X（打该系 +20%，普攻也算）、8 条金词条（燎原、归一也已接上）、开锋（锋 +6% 伤害 / 灵 器技冷却 −1 / 韧 +8% 气血）。逐条检查：`node tools/battle_check.js`（同种子带 / 不带各打一批，任何一条没生效退出码 1）。
+- 预计评价 `L.expForecast(...)` 在回合战下：`dist / lo / hi / pOk / risk` 来自 `L.tripDist`；`base` 改成引擎跑出来的连续评价分换算到旧分数刻度（`L.tripScoreC` 每趟 0～4 的连续分、`L.tripBase(ec)` 换成 30～111，`L.ratingOf(base)` 与档位一致），所以换战技、淬灵（器技五行）、强化、换法宝的试算都能比出涨幅。
 - 开关：`L.TRIP_ON = false`（sim 的 `notrip`）回到预掷分数制；sim 另有 `noke`、`pp=` / `pa=`（临时改 `PACT_POWER / PACT_ASSIST`）。
 
 ### 6. 刷宝 + 炼器线 C2 实际提供的（C2 维护）
