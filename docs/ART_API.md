@@ -283,3 +283,18 @@
 - 4：`src/ui/panel-exp.js` 的 `dropFlipHTML / dropFlipRun`（改成翻牌）、`src/ui/panel-codex.js`（掉落图鉴）。
 - 5：`src/ui/panel-gear.js` 的法宝详情卡。
 - 6：新 `src/ui/cine2.js`。
+
+---
+
+## 阶段八·变强页
+
+配合 `docs/KAIRO_PLAN.md` §10“变强页重做”。用在界面里的样子见 `docs/kairo_mock/g1_goal.png`～`g3_stuck.png`（源 `growth.html`，`node tools/growth_shots.js` 重新生成）。代码在 `src/art.js` 末尾“阶段八”一节，只追加、没动已有接口。尚未接线。
+
+新图标（`ART.icon(name)`，16×16，已进 `ART.iconNames()`）：
+
+- `'adv_rec'` 推荐章：红底金边的小旗章，中间一支向上的金箭头。盖在“最划算”那张动作卡的左上角（2 倍，向外探出 7 像素）；一屏只出现一次。
+- `'adv_gap'` 还差：没装满的口袋，上面一圈虚线和一个红色小十字。“还差 8 灵矿”那行大数字前面用（1 倍）。
+- `'adv_swap'` 换招：一口剑，左上右下各一支绿色箭头。“换克制的战技 / 换上更好的”动作卡的图标格用（3 倍）；和 `'f_reroll'`（洗练）区分开。
+- `'adv_ledger'` 明细：一本账，纸页上三道长短不一的条。“明细”折叠行行首用（1 倍）。
+
+接线位置：`src/ui/panel-growth.js` 的 `showGrowth` 与动作卡部件 `advCards`。
