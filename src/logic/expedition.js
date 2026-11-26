@@ -98,13 +98,15 @@ L.expForecast = function (st, k, d, a) {
   const pt = L.expParts(st, k, d, a), known = L.affKnown(st, k, a), ax = L.artExp(st, k, d, a);
   // 地图五行没去过：克制那 ±8 不算进预计（确认页写“？”）
   const ep = pt.extra.find(x => x[2] === 'elem'), elemUnknown = !!ep && !L.elemKnown(st, k);
-  const base = pt.pow + (known ? pt.aff : (a === 2 ? 6 : 0)) + pt.guts - (elemUnknown ? ep[1] : 0);
+  let base = pt.pow + (known ? pt.aff : (a === 2 ? 6 : 0)) + pt.guts - (elemUnknown ? ep[1] : 0);
   const first = L.firstTrip(st) && !k && !d && !a;
   const pGE = th => clamp((base + 12 - th) / 24, 0, 1);
   let dist = [1 - pGE(L.RATE_TH[0]), pGE(L.RATE_TH[0]) - pGE(L.RATE_TH[1]), pGE(L.RATE_TH[1]) - pGE(L.RATE_TH[2]), pGE(L.RATE_TH[2]) - pGE(L.RATE_TH[3]), pGE(L.RATE_TH[3])];
   // 回合战（trip.js）：同一套节点跑若干种子的分布；倒下（哪怕过了一场）也算负伤风险
   const td = L.tripDist && L.TRIP_ON !== false ? L.tripDist(st, k, d, a) : null;
   if (td) dist = td.dist.slice();
+  // 旧分数制的分数（相性、法衣、克制 ±8…）；回合战时 base 改成引擎跑出来的连续评价分（trip.js 的 L.tripBase），试算换招、淬灵都看得出涨幅
+  if (td && td.ec !== undefined) base = L.tripBase(td.ec);
   // 六阶法衣：丁等 30% 改判丙
   const ds = L.gearDingSave(st); if (ds) { dist[1] += dist[0] * ds; dist[0] *= 1 - ds; }
   // 负伤风险：丁等的概率 × 没躲过的份（敛息术）；血遁、潜渊（禁地）、护主（每 12 月一次）丁等不负伤

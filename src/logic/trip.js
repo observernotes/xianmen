@@ -146,13 +146,13 @@ L.TRIP_N = 20;
 L.tripDist = function (st, k, d, a) {
   const T = L.btPower(st, k, d, a), rq = L.tripRec(st, k, d, a), ratio = T / rq;
   const len = L.expLen(k, st), seq = L.tripSeq(st) <= 2 ? 1 : 0;
-  if (ratio >= 4) return { dist: [0, 0, 0, 0, 1], dead: 0 };
-  if (ratio <= 0.25) return { dist: [1, 0, 0, 0, 0], dead: 1 };
+  if (ratio >= 4) return { dist: [0, 0, 0, 0, 1], dead: 0, ec: 4 };
+  if (ratio <= 0.25) return { dist: [1, 0, 0, 0, 0], dead: 1, ec: 0 };
   const me = L.btMe(st, T);
   const key = [k, d, a, len, seq, Math.round(Math.log2(T / rq) * 24), me.el, me.skills.map(s => s.id + (s.el || '') + (s.lv || 0)).join(), me.ult.id, me.pas ? me.pas.id : '', Object.keys(me.aff).join(), Object.keys(me.ke).join(), Object.keys(me.gold).join(), Math.round(me.hpMax / L.BAT.hpK / Math.sqrt(T) * 20)].join('|');
   const hit = memo.get(key); if (hit) return hit;
   const nodes = L.expNodes(st, k, d, a, len), dist = [0, 0, 0, 0, 0];
-  let dead = 0;
+  let dead = 0, ec = 0;
   for (let j = 0; j < L.TRIP_N; j++) {
     const e = { k, d, a, seed: 9001 + j * 7, nodes, rq, ni: 0, hp: 1, rage: 0, bt: newBt() };
     for (let i = 0; i < nodes.length && !e.bt.dead && !e.bt.fled; i++) {
@@ -164,12 +164,23 @@ L.tripDist = function (st, k, d, a) {
     }
     dist[L.expRating(st, e)]++;
     if (e.bt.dead) dead++;
+    ec += L.tripScoreC(e);
   }
-  const out = { dist: dist.map(x => x / L.TRIP_N), dead: dead / L.TRIP_N };
+  const out = { dist: dist.map(x => x / L.TRIP_N), dead: dead / L.TRIP_N, ec: ec / L.TRIP_N };
   if (memo.size > 600) memo.clear();
   memo.set(key, out);
   return out;
 };
+
+// 连续的“评价分”（0～4）：评价的整数档 + 档内的位置（过了几场 / 剩多少血）。预计评价的 base 用它（advise 的试算：换招、淬灵、强化都能看出涨了多少）
+L.tripScoreC = function (e) {
+  const b = e.bt, nf = e.nodes.filter(L.nodeIsFight).length;
+  if (b.won < nf) return b.dead && b.won === 0 ? 0 : Math.min(1.99, 1 + b.won / Math.max(1, nf));
+  const hp = e.lastHp === undefined ? e.hp : e.lastHp, cut = b.brk > 0 ? 0.10 : 0, a = 0.45 - cut, t = 0.75 - cut;
+  return hp >= t ? 4 : hp >= a ? 3 + (hp - a) / (t - a) : 2 + Math.max(0, hp) / a;
+};
+// 连续评价分 → 旧的“分数”刻度（L.ratingOf(分数) 正好落在同一档：丙 48、乙 66、甲 88、天 105）
+L.tripBase = ec => { const A = [30].concat(L.RATE_TH), j = Math.min(3, Math.floor(ec)); return ec >= 4 ? A[4] + 6 : A[j] + (A[j + 1] - A[j]) * (ec - j); };
 
 // ---------- 结算 ----------
 { const re0 = L.resolveExp; L.resolveExp = function (st) {
