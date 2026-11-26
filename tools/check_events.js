@@ -35,7 +35,8 @@ const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'i
   'ore', 'feed', 'yin', 'token', 'art', 'gear', 'pet', 'mastery', 'grudge', 'favor', 'karma', 'unkarma', 'plan', 'recipe', 'hp', 'petForm', 'petHeart',
   'toxin', 'plus', 'affix', 'busy', 'duty', 'disc', 'rookie'];
 const COST_KEYS = ['stones', 'pills', 'herbs', 'yin', 'ore', 'feed', 'token'];
-const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat', 'rk'];   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
+const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat', 'rk',
+  'cradle', 'town', 'shamed', 'lowly', 'exHouse', 'zhaoDebt', 'r1open', 'body', 'tkStand', 'tkFoe', 'stele'];   // 出身换词与楚天阔的处境（story.js）   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
 // 引擎会置上的 flag（不是事件 fx 置的）：首次击败宿敌、结为道侣
 const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye']);
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）

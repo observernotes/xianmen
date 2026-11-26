@@ -638,7 +638,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_map_4', where: 'home', visit: true, chain: 'ch_map', step: 4, need: ['map_3'], maxR: 7, speaker: 'elder', once: true, weight: 2, title: '本座的字',
+  id: 'ch_map_4', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_map', step: 4, need: ['map_3'], maxR: 7, speaker: 'elder', once: true, weight: 2, title: '本座的字',
   text: '三片残图只缺东北一角。戒指忽然开口，语气古怪：“这棵歪脖子树，这只坛子，这个‘勿偷喝’——是本座的字。本座的酒窖。”',
   choices: [
     { t: '缺的那角？', dao: 'w',
@@ -650,7 +650,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_map_5', where: 'home', visit: true, chain: 'ch_map', step: 5, need: ['map_4'], maxR: 7, speaker: 'elder', once: true, weight: 3, title: '老槐树下',
+  id: 'ch_map_5', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_map', step: 5, need: ['map_4'], maxR: 7, speaker: 'elder', once: true, weight: 3, title: '老槐树下',
   text: '老槐树往东第八步，你挖出一间小石窖：一排酒坛，一架锈剑，一只木匣，灰积了三千年。老祖说：“挑一样，其余封回去。”',
   choices: [
     { t: '取剑',
@@ -664,8 +664,8 @@ const LIST = [
 
 /* ---------- ch_tea 卖茶翁：一碗茶 → 一句闲话 → 雷火煮茶 → 不该来的客 → 最后一碗 ---------- */
 {
-  id: 'ch_tea_1', where: 'home', visit: true, chain: 'ch_tea', step: 1, maxR: 0, weight: 3, once: true, title: '卖茶翁',
-  text: '破庙门口不知何时支起茶摊，耳背的老头只答：“一碗一枚灵石。”茶汤浑黄。老祖嘀咕：“荒山野岭，卖给鬼喝？”',
+  id: 'ch_tea_1', where: 'home', visit: true, chain: 'ch_tea', step: 1, maxR: 1, weight: 3, once: true, title: '卖茶翁',
+  text: '{cradle}门口不知何时支起茶摊，耳背的老头只答：“一碗一枚灵石。”茶汤浑黄。老祖嘀咕：“荒山野岭，卖给鬼喝？”',
   choices: [
     { t: '来一碗', cost: { stones: 0.05 }, dao: 'r',
       ok: { text: '苦得直吸气，咽下却有一线回甘升起。老头慢吞吞道：“后生，慢点长。”', fx: { xp: 2, flag: 'tea_1_drink' } } },
@@ -845,7 +845,7 @@ const LIST = [
 },
 /* ch_sword 第 5 步 = tianheng_2（ev_realm_rivals.js）：第三截在陆天衡腰间，了断后取得。 */
 {
-  id: 'ch_sword_6', where: 'home', visit: true, chain: 'ch_sword', step: 6, need: ['sword_4', 'sword_5'], minR: 7, maxR: 7, speaker: 'elder', once: true, weight: 3, title: '玄霄',
+  id: 'ch_sword_6', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_sword', step: 6, need: ['sword_4', 'sword_5'], minR: 7, maxR: 7, speaker: 'elder', once: true, weight: 3, title: '玄霄',
   text: '三截残剑摆在器炉前，第三截是从陆天衡腰间解下的。只缺剑镡。老祖先开口：“剑镡不必熔，本座在哪它就在哪。锻法只说一遍。”',
   choices: [
     { t: '一字一句记', dao: 'w',
@@ -883,7 +883,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_mo_3', where: 'home', visit: true, chain: 'ch_mo', step: 3, need: ['mo_2'], npc: 'mo', maxR: 5, speaker: 'elder', once: true, weight: 2, title: '战书',
+  id: 'ch_mo_3', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_mo', step: 3, need: ['mo_2'], npc: 'mo', maxR: 5, speaker: 'elder', once: true, weight: 2, title: '战书',
   text: '第二封抬头是“陆师兄”：“你袖中藏的东西，我看见了。师尊渡劫那日，我会站在你身后。”老祖问：“天衡袖中藏了什么？”',
   choices: [
     { t: '您想不起？', dao: 'w',
@@ -895,7 +895,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_mo_4', where: 'home', visit: true, chain: 'ch_mo', step: 4, need: ['mo_3'], npc: 'mo', maxR: 5, speaker: 'elder', once: true, weight: 2, title: '错字',
+  id: 'ch_mo_4', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_mo', step: 4, need: ['mo_3'], npc: 'mo', maxR: 5, speaker: 'elder', once: true, weight: 2, title: '错字',
   text: '第三封没写完，墨迹中断，溅着几点褐色。老祖只看一行就认出：“这‘霄’字少了一点。本座教他时写错的……他一辈子没改。”',
   choices: [
     { t: '念下去', dao: 'w',
@@ -922,7 +922,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_fox_2', where: 'home', visit: true, chain: 'ch_fox', step: 2, need: ['fox_1'], npc: 'bai', once: true, weight: 2, title: '妖市狐翁',
+  id: 'ch_fox_2', where: 'home', visit: true, chain: 'ch_fox', step: 2, need: ['fox_1', 'bai_met'], npc: 'bai', once: true, weight: 2, title: '妖市狐翁',
   text: '妖市卖狐火灯的老狐狸凑近白小九嗅了嗅，浑浊的眼睛一下红了：“九尾家的……雪见坡最后那一窝？”',
   choices: [
     { t: '问他来历', dao: 'w',
@@ -1040,7 +1040,7 @@ const LIST = [
 },
 {
   // 与 tiankuo_2（楚天阔独自拓碑）是同一块碑的两场戏：那边是他自己查，这边是老祖来认。
-  id: 'ch_tianjian_2', where: 'home', visit: true, chain: 'ch_tianjian', step: 2, need: ['tianjian_1'], minR: 4, maxR: 7, speaker: 'elder', once: true, weight: 2, title: '凿痕',
+  id: 'ch_tianjian_2', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_tianjian', step: 2, need: ['tianjian_1'], minR: 4, maxR: 7, speaker: 'elder', once: true, weight: 2, title: '凿痕',
   text: '葬剑渊底立着一块凿平的无字剑碑，相传祖师在此悟剑。你手一按上去，老祖声音很轻：“本座认得这凿法。是天衡的手。”',
   choices: [
     { t: '让老祖读', dao: 'w',
@@ -1061,7 +1061,7 @@ const LIST = [
       ok: { text: '赵乾哆嗦着说：“藏经阁第九层！宗主每年上去一回，下来眼都是红的。”', fx: { grudge: { zhao: 10 } } },
       fail: { text: '他挣开了：“我是落魄了，不是废了！”骂完却蹲下哭，哭着把那半句说了。', fx: { grudge: { zhao: -5 } } } },
     { t: '你不必说', dao: 'r',
-      ok: { text: '他走到门口回头：“藏经阁，第九层。这算我还你当年那一脚。”', fx: { grudge: { zhao: -20 }, xp: 2 } } }
+      ok: { text: '他走到门口回头：“藏经阁，第九层。这算我还你{zhaoDebt}。”', fx: { grudge: { zhao: -20 }, xp: 2 } } }
   ]
 },
 {
@@ -1079,7 +1079,7 @@ const LIST = [
   ]
 },
 {
-  id: 'ch_tianjian_5', where: 'home', visit: true, chain: 'ch_tianjian', step: 5, need: ['tianjian_4'], minR: 6, maxR: 7, speaker: 'elder', once: true, weight: 3, title: '闭口禅',
+  id: 'ch_tianjian_5', not: ['st_farewell'], where: 'home', visit: true, chain: 'ch_tianjian', step: 5, need: ['tianjian_4'], minR: 6, maxR: 7, speaker: 'elder', once: true, weight: 3, title: '闭口禅',
   text: '金刚寺的慧能闭口禅坐了三千年，眉毛长到膝盖——他当年路过剑冢，回来就不再开口。你一走近，戒指先亮了：“……小和尚？”',
   choices: [
     { t: '跪下求他', dao: 'w',

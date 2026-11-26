@@ -4,7 +4,9 @@
  *   L.CHAPTERS[i].prog(st) → [{ k, t, v, max, text }]：这一章目标的进度（1～2 条，落后的那条排第一；v / max 是比例）
  *   L.CHAPTERS[i].short / blurb：目标卡第一行（≤ 10 字）与路径页的一句话（≤ 14 字）
  *   L.ONB[j].ch：这一项在第几章开放（路径页“已开 / 还有几样”）
- *   L.chapterNow(st)：当前章 = 第一个主线没做完的章，但不小于到过的最高境界（输了三年之约、境界已经过去的那章记作 miss）
+ *   L.chapterNow(st)：当前章 = 第一个主线没做完的章（只由主线推进；境界与章节互不挂钩：境界随便升，主线没做完就停在这一章，主线目标也不看境界）。
+ *     按章走的东西：realm:N 主线剧情等“境界到 N 且章到 N”才放（story.js）；事件的境界窗口按 min(境界, 章) 判；解锁卡第一世按章开（onboard.js）；天剑宗来犯按章（第六章）。
+ *   散修之路（L.loneRoute：天道试炼“无宗”，或散修丹师不入宗）：要宗门的主线换成不要宗门的版本（L.LONE），目标卡、路径页、札记跟着换字
  *   L.pathView(st) / L.goalNow(st) / L.chapterSummary(st, i)：界面读（接口见 KAIRO_PLAN.md 末尾“接口”）
  *   emit('chapter', { from, to })：当前章变了（L.checkQuests 之后判；界面据此弹章末结算）
  *   存档 st.path = { ch, at: [{ t, pw, exp }], best: [每章最好评价] }；L.migratePath 幂等
@@ -53,12 +55,40 @@ const PROG = [
   },
   st => [duelProg(st, 'xue', '血无涯')],
   st => sortProg([contribProg(st, 6), st.sect ? sectPosProg(st, 1, '第 1') : null]),
-  st => { let p = 0; try { p = L.tribRate(st); } catch (e) { p = 0; } return [{ k: 'trib', t: '天劫', v: Math.min(1, p), max: 1, text: `飞升天劫 成功率 ${pctT(p)}` }]; },
+  st => [duelProg(st, 'yun', '云无极')],
 ];
-const SHORT = [st => (st.pact < 0 && !st.beaten.mu ? '论道击败' + st.exName : '赢下三年之约'), '入内门·进前 60', '升真传·败赵乾', st => (st.p.look.f ? '成为圣女' : '成为圣子'), '败楚天阔·压天剑', '击退天剑宗', '击败血无涯', '成宗主·带宗登顶', '渡过飞升天劫'];
-const BLURB = ['三年后，当众打回去', '拜入宗门，站上天骄榜', '结成金丹，压过赵乾', '宗门里争一个圣位', '九宗会武，剑压天剑', '守住山门', '魔道当头，一战了断', '执掌一宗，万宗之首', '雷劫九重，白日飞升'];
-L.CHAPTERS.forEach((ch, i) => { ch.prog = PROG[i]; ch.blurb = BLURB[i]; ch.shortF = SHORT[i]; });
-L.chapterGoal = (st, i) => { const s = L.CHAPTERS[i].shortF; return typeof s === 'function' ? s(st) : s; };
+const SHORT = [st => (st.pact < 0 && !st.beaten.mu ? '论道击败' + st.exName : '赢下三年之约'), '入内门·进前 60', '升真传·败赵乾', st => (st.p.look.f ? '成为圣女' : '成为圣子'), '败楚天阔·压天剑', '击退天剑宗', '击败血无涯', '成宗主·带宗登顶', '登顶·败云无极'];
+const BLURB = ['三年后，当众打回去', '拜入宗门，站上天骄榜', '结成金丹，压过赵乾', '宗门里争一个圣位', '九宗会武，剑压天剑', '守住山门', '魔道当头，一战了断', '执掌一宗，万宗之首', '天下第一，再问天门'];
+// ---------- 散修之路：不能入宗（天道试炼“无宗”），或散修丹师这一世没入宗 ----------
+// 要宗门的主线（二、三、四、五、八章）换成不要宗门的：天骄榜名次 / 宿敌 + 击败过的首领数（最小可行版，剧情串联留给后续）；第六章“击退天剑宗”照旧（来犯的是你的洞府，tick.js / story.js）
+L.loneRoute = st => !!st && !st.sect && ((L.trialOn && L.trialOn(st, 'wuzong')) || st.origin === 'sanxiu');
+// 首领只数“击败过几个不同的”（不点名哪一张图：玩家回头打、跳着打都算）
+const bossN = st => Object.keys(st.bosses || {}).filter(k => st.bosses[k]).length;
+const bossProg = (st, n) => { const v = bossN(st); return { k: 'boss', t: '首领', v: Math.min(v, n), max: n, text: v >= n ? `已击败首领 ${v} 个` : `击败首领 ${v} → ${n} 个` }; };
+L.LONE = [
+  null,
+  { t: '以散修之身进入天骄榜前 60，并击败 2 个首领', short: '散修·进前 60', blurb: '不入宗门，也站上天骄榜', c: st => st.bestRank <= 60 && bossN(st) >= 2, prog: st => sortProg([rankProg(st, 60), bossProg(st, 2)]), go: 'rivals' },
+  { t: '击败赵乾，并击败 3 个首领', short: '败赵乾·斩首领', blurb: '一人一剑，压过赵乾', c: st => !!st.beaten.zhao && bossN(st) >= 3, prog: st => sortProg([duelProg(st, 'zhao', '赵乾'), bossProg(st, 3)]), go: 'me' },
+  { t: '天骄榜进入前 20，并击败 4 个首领', short: '进前 20·斩首领', blurb: '一人一剑，闯进前二十', c: st => st.bestRank <= 20 && bossN(st) >= 4, prog: st => sortProg([rankProg(st, 20), bossProg(st, 4)]), go: 'rivals' },
+  { t: '击败楚天阔，并击败 5 个首领', short: '败楚天阔·斩首领', blurb: '不靠宗门，剑压天剑', c: st => !!st.beaten.chu && bossN(st) >= 5, prog: st => sortProg([duelProg(st, 'chu', '楚天阔'), bossProg(st, 5)]), go: 'me' },
+  null,
+  null,
+  { t: '登上天骄榜前 3，并击败 7 个首领', short: '进前 3·斩首领', blurb: '无门无派，天下前三', c: st => st.bestRank <= 3 && bossN(st) >= 7, prog: st => sortProg([rankProg(st, 3), bossProg(st, 7)]), go: 'rivals' },
+  null,
+];
+L.CHAPTERS.forEach((ch, i) => {
+  ch.prog = PROG[i]; ch.blurb = BLURB[i]; ch.shortF = SHORT[i];
+  const X = L.LONE[i]; if (!X) return;
+  const m = ch.main, c0 = m.c, t0 = m.t, go0 = m.go, p0 = ch.prog;
+  m.c = st => (L.loneRoute(st) ? X.c(st) : c0(st));
+  m.t = st => (L.loneRoute(st) ? X.t : typeof t0 === 'function' ? t0(st) : t0);
+  m.goOf = st => (L.loneRoute(st) ? X.go : go0);
+  ch.prog = st => (L.loneRoute(st) ? X.prog(st) : p0(st));
+});
+const blurbOf = (st, i) => { const X = L.LONE[i]; if (X && L.loneRoute(st)) return X.blurb; if (i === 6 && st.sect && st.sect.id === 'xuesha') return '同门相争，魔道之首'; return L.CHAPTERS[i].blurb; };
+L.chapterBlurb = blurbOf;
+L.chapterGoal = (st, i) => { const X = L.LONE[i]; if (X && L.loneRoute(st)) return X.short; const s = L.CHAPTERS[i].shortF; return typeof s === 'function' ? s(st) : s; };
+L.mainGo = (st, i) => { const m = L.CHAPTERS[i].main; return m.goOf ? m.goOf(st) : m.go; };
 
 // 各项在第几章开放（KAIRO_PLAN §2.1 的“这一章开放”一列；顺序仍是 L.ONB 的）
 const ONB_CH = {
@@ -70,16 +100,15 @@ const ONB_CH = {
 };
 for (const e of L.ONB) e.ch = ONB_CH[e.k] !== undefined ? ONB_CH[e.k] : 4;
 
-// ---------- 当前章 ----------
+// ---------- 当前章：只由主线推进 ----------
 L.chapterNow = function (st) {
   if (!st || !st.p) return 0;
-  if (st.p.r >= 9) return 8;
-  let first = 9;
-  for (let i = 0; i < 9; i++) if (!done(st, L.CHAPTERS[i].main)) { first = i; break; }
-  // 境界只把章“往前推”（防止主线卡住）；但三年之约还没了结之前，第一章不会因为先突破筑基就结束
-  const floor = st.pact ? Math.min(8, mr(st)) : 0;
-  return Math.min(8, Math.max(first, floor));
+  for (let i = 0; i < 8; i++) if (!done(st, L.CHAPTERS[i].main)) return i;
+  return 8;
 };
+// 主线进度里落后的那一条，【去】跳到哪（目标卡 / 路径页用）
+const PROG_GO = { pact: 'big', sect: 'sect', contrib: 'sect', rank: 'rivals', spos: 'sect', meet: 'sect', war: 'prep', boss: 'exp', trib: 'cult' };
+L.lockGo = (st, pr, ch) => (pr && (PROG_GO[pr.k] || (L.RIVAL_EL && L.RIVAL_EL[pr.k] ? 'rivals' : ''))) || L.mainGo(st, ch);
 const snap = st => ({ t: st.tick, pw: Math.round(L.power(st)), exp: (st.stats && st.stats.exp) || 0 });
 L.newPath = st => ({ ch: 0, at: [st ? snap(st) : { t: 0, pw: 0, exp: 0 }], best: [] });
 L.migratePath = function (st) {
@@ -92,7 +121,9 @@ L.migratePath = function (st) {
   if (!Array.isArray(st.path.at)) st.path.at = [];
   if (!Array.isArray(st.path.best)) st.path.best = [];
   if (typeof st.path.ch !== 'number') st.path.ch = L.chapterNow(st);
-  if (!st.pact && st.path.ch > L.chapterNow(st)) st.path.ch = L.chapterNow(st);   // 旧档：约战前先筑基被提前算成第二章的，退回第一章
+  // 旧档：以前境界会把章往前推（约战前先筑基、第二章没入宗就因结丹进了第三章……）——退回第一个主线没做完的那章；
+  // 补完主线时照常弹章末卡（st.path.ch 退回去了，L.pathStep 才会再报 'chapter'）
+  if (st.path.ch > L.chapterNow(st)) st.path.ch = L.chapterNow(st);
   return st;
 };
 { const ns0 = L.newState; L.newState = function () { const st = ns0.apply(this, arguments); st.path = L.newPath(st); return st; }; }
@@ -122,12 +153,12 @@ L.pathView = function (st) {
   const now = L.chapterNow(st), o = st.onb || { at: {} }, reborn = (st.rebirth || 0) > 0;
   return L.CHAPTERS.map((ch, i) => {
     const d = done(st, ch.main);
-    const state = d ? 'done' : i === now ? 'now' : i < now ? 'miss' : i === now + 1 ? 'next' : 'lock';
+    const state = d ? 'done' : i === now ? 'now' : i < now ? 'miss' : i === now + 1 ? 'next' : 'lock';   // 'miss' 只剩旧接口兼容（章只由主线推进，不会再出现）
     const keys = L.ONB.filter(e => e.ch === i);
     const opened = keys.filter(e => reborn || L.ONB_ON === false || o.at[e.k] !== undefined).map(e => e.k);
     let prog = [];
     if (state === 'now' || state === 'miss') { try { prog = ch.prog(st); } catch (e) { prog = []; } }
-    return { i, n: ch.n, chN: '第' + CN[i] + '章', realm: ch.realm, state, goal: L.chapterGoal(st, i), main: L.questText(st, ch.main), blurb: ch.blurb, prog, opened, toOpen: keys.length - opened.length };
+    return { i, n: ch.n, chN: '第' + CN[i] + '章', realm: ch.realm, state, goal: L.chapterGoal(st, i), main: L.questText(st, ch.main), blurb: blurbOf(st, i), prog, opened, toOpen: keys.length - opened.length };
   });
 };
 
@@ -187,7 +218,7 @@ L.chapterSummary = function (st, i) {
   const o = st.onb || { at: {} };
   return { i, n: C.n, chN: '第' + CN[i] + '章', realm: C.realm, done: done(st, C.main), months: b.t - a.t, pw0: a.pw, pw1: b.pw, exp: b.exp - a.exp, best, bestT: best >= 0 ? L.RATINGS[best] : '',
     rw: L.rewardText(st, C.main.rw),
-    next: N ? { i: i + 1, n: N.n, chN: '第' + CN[i + 1] + '章', goal: L.chapterGoal(st, i + 1), blurb: N.blurb, toOpen: keys.filter(e => (st.rebirth || 0) === 0 && o.at[e.k] === undefined).length, rw: L.rewardText(st, N.main.rw) } : null };
+    next: N ? { i: i + 1, n: N.n, chN: '第' + CN[i + 1] + '章', goal: L.chapterGoal(st, i + 1), blurb: blurbOf(st, i + 1), toOpen: keys.filter(e => (st.rebirth || 0) === 0 && o.at[e.k] === undefined).length, rw: L.rewardText(st, N.main.rw) } : null };
 };
 // 三年之约一了结（赢或输）就判一次章：第一章到此结束，章末卡紧跟在约战之后，不等下一个月
 { const pd0 = L.pactDuel; if (pd0) L.pactDuel = function (st) { const r = pd0.apply(this, arguments); if (st && st.pact) L.checkQuests(st); return r; }; }

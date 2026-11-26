@@ -81,7 +81,7 @@ flowchart TD
 
 ## 2. 主线：序章 + 九章
 
-章节数据在 `src/logic/quests.js`（`L.CHAPTERS`：每章一个主线目标 + 一串札记小任务）和 `src/logic/path.js`（目标卡、章末结算）。**当前章 = 第一个主线没完成的章，但不低于到过的最高境界**（`L.chapterNow`），所以章节基本和大境界一一对应；主线剧情本身由踏入境界时的 `realm:N` 触发键推出（`src/logic/cultivation.js`），同一触发键的后续剧情会在前一段结算后补发（`src/logic/chains.js`）。
+章节数据在 `src/logic/quests.js`（`L.CHAPTERS`：每章一个主线目标 + 一串札记小任务）和 `src/logic/path.js`（目标卡、章末结算）。**当前章 = 第一个主线没完成的章**（`L.chapterNow`，只由主线推进；境界与章节互不挂钩：境界随便升，主线没做完就停在这一章；主线按章序一章一章判）。主线剧情仍挂在 `realm:N` 触发键上，但要“境界到 N **且** 当前章到 N”才放（`src/logic/story.js` 的 `L.STORY_CH`：境界先到就记在 `st.path.hold`，章到了按章序补发），同一触发键的后续剧情会在前一段结算后补发（`src/logic/chains.js`）；事件的境界窗口按 min(境界, 章) 判。〔2026-11 改：原来“不低于到过的最高境界”，第二章没入宗、境界一升就进了第三章。〕
 
 | 章 | 名 / 境界 | 主线目标（`main.c`） | 章末奖励 | 本章主线剧情 | 高光过场 |
 |---|---|---|---|---|---|
@@ -94,7 +94,7 @@ flowchart TD
 | 六 | 炼虚 | 击退来犯的天剑宗 | 25 倍、称号「山门之盾」 | `story_r5`、`zhao_3` | ⑨ 守山 |
 | 七 | 合体 | 击败血无涯 | 30 倍、称号「魔道克星」 | `story_demon3`、`story_r6`、`tianheng_1`、`story_r6_mo` | ⑦ 宿敌对视·血无涯 |
 | 八 | 大乘 | 成为宗主并带宗门登顶 | 40 倍、称号「万宗之主」 | `story_r7`、`tiankuo_4`、`tianheng_2`、`sect_lord_vote` | ③ 破境短版 |
-| 九 | 渡劫 | 渡过飞升天劫 | — | `story_r8`、`yun_3`、`story_ascend` | ⑩ 飞升 |
+| 九 | 渡劫 | 击败云无极（飞升改为札记一条；主线不看境界） | 40 倍、称号「天下第一」 | `story_r8`、`yun_3`、`story_ascend` | ⑩ 飞升 |
 
 ### 序章：被逐、退婚、破庙
 
@@ -790,6 +790,8 @@ flowchart TD
 
 ## 11. 问题清单
 
+> 2026-11（故事推进修复）：流程 / 逻辑 / 触发类的已修条目在条目下标“已修 + 做法”；文案类矛盾（P02、P10、P11、P14、P23、P26、P27、P29、P30、P32～P36 等）与剧情串联留给后续。章节与剧情的新规则见 §2 开头，防回归 `node tools/story_check.js`。
+
 按严重度排列：**高** = 剧情断掉、触发不到或核心设定自相矛盾；**中** = 明显的前后矛盾、伏笔无回收、设计写了没做；**低** = 文案细节。每条给出事件 id 与建议。
 
 ### 11.1 高
@@ -797,6 +799,7 @@ flowchart TD
 **P01 非弃徒出身整条夜线断掉**（`ye_1`，连带 `ye_2`～`ye_5`、`ye_visit`、`ye_q1`、`ye_q2`、`ye_end`、`ye_left`、`pp_ye_*`、`story_daolv`）
 `L.originSkip` 用正则 `/退婚|婚约|婚书|慕容/` 过滤非弃徒出身的事件，`ye_1` 的台词里有“被退婚的废柴”，于是五种转世出身都见不到夜的初遇，`ye_met` 永远不置，夜既结不成道侣、也走不到二心以后（魔门遗孤开局夜一心，专属链是《魔门圣火》，`ye_end` 却要好感 90，只靠链上几次来访很难攒到）。同一过滤还让非弃徒没有结契大典（`story_daolv`）。
 建议：`ye_1` 改成不提退婚的通用台词（或给非弃徒一个变体，如“听说坊市 / 丹霞谷出了个狠角色”）；`originSkip` 改成显式字段（例如事件加 `qituOnly: true`），不要靠正则扫文本；`story_daolv` 把慕容家贺礼那句做成出身变体。
+> **已修**：`L.originSkip` 不再按正则扫文本；退婚 / 慕容家专属的 13 件改成显式 `origin: 'qitu'`；`ye_1` 改用 `{town}` / `{shamed}` 占位符，所有出身都能遇见夜；`story_daolv` / `story_rank12` 的“慕容家”换成 `{exHouse}`；魔门遗孤开局即置 `ye_met`（`story.js`，旧档迁移补上）。
 
 **P02 墨离最后一剑的真相前后矛盾**（`story_r6` vs `story_r6_mo`、`ch_mo_4`）
 `story_r6` 定案“墨离那一剑刺的是陆天衡”，`ch_mo_4` 里老祖想起“阿离喊的是‘师尊小心’”；可 `story_r6_mo` 让老祖想起“最后那一剑，他刺偏了半寸——故意留了本座一缕残魂”，等于说墨离的剑刺向了师父。
@@ -805,30 +808,37 @@ flowchart TD
 **P03 大乘章问剑不看楚天阔的处境**（`story_r7`、`tiankuo_4`、`tianheng_2`）
 `story_r7` 一律写“祖师碑前，楚天阔横剑而立”，对决失败文案是“你与楚天阔两败俱伤”；但此时楚天阔可能早已被逐出天剑宗（`tiankuo_3` → `tiankuo_sect` / `tiankuo_ally`，后者还是你的同伴）。另外 `story_r7` 选“只讨公道”时并不碎碑，紧接着的 `tiankuo_4` 却写“祖师碑碎石未落”、`tianheng_2` 写陆天衡“跪在碎碑间”。
 建议：`story_r7` 按 `tiankuo_ally` / `tiankuo_sect` 出三个变体（同行时他站你身边，问剑山时他在山门外观礼），守碑的人换成天剑宗长老；`tiankuo_4` / `tianheng_2` 的“碎碑”按 `story_r7` 选项置的 flag（新加 `st_stele_broken`）换词。
+> **已修（机制）**：`story_r7` 用 `{tkStand}` / `{tkFoe}` 按 `tiankuo_ally` / `tiankuo_sect` 换守碑的人；“碎碑正名”置 `st_stele_broken`，`tianheng_2` 用 `{stele}` 换“碎碑间 / 祖师碑前”。`tiankuo_4` 的“碎石未落”与具体文案留给后续剧情串联。
 
 **P04 苏的终章能把道侣送走，分开以后还能求亲**（`su_end`、`su_5`）
 `su_end` 只排除了“夜是道侣”（`not: daolv_ye`），已与苏结为道侣时照样出“丹云婆婆点苏继任济世堂、从此不再下山”，选“送你回去”就让道侣下山了；反过来，`su_end` 选了分开（`su_apart` / `su_qianyuan`）之后，`su_5`「问心」仍可触发求亲。
 建议：`su_end` 加 `daolv: false`（另写一版道侣专用的“济世堂开在洞府旁”）；`su_5` 加 `not: ['su_apart', 'su_qianyuan']`，或让 `su_end` 只在 `su_5` 之后出。
+> **已修**：`su_end` 加 `not: daolv_su`（道侣不会被送走）；`su_5` 加 `not: [su_qianyuan, su_apart]`（送走 / 分开之后不再求亲）。道侣专用的“济世堂”版本留给后续剧情串联。
 
 **P05 只有第一位新秀有剧情**（`new_1`～`new_4`）
 四件新秀剧情写了 `once: false`，但引擎对 `where: 'story'` 的事件结算后一律置 `st.evDone`、之后不再触发（`events-engine.js resolveChoice` / `eligible`），新秀每 36 月来一位，第二位起没有出场、约战、跪门、冒名剧情（只剩日志）。
 建议：仿照 `disciples.js`，在 `rivals2.js` 每位新秀登场时清掉这四个 id 的 `evDone`（或按新秀 id 单独记）；`new_1` 的“才十六岁”改成占位。
+> **已修**：`story.js` 包 `L.fireTrigger`：`rookie:*` 触发前清掉上一位新秀留下的 `evDone`，每位新秀各走一遍四件剧情。
 
 **P06 非弃徒出身仍看到大量弃徒专属文本**
 未被过滤、却默认“被天剑宗赶出 / 被退婚 / 破庙捡戒 / 混沌觉醒”的地方：`story_r1`（散修丹师等不觉醒的出身也“融成一团混沌”）、`story_r8`（“破庙那夜捡到你”）、`story_demon1`（“被逐出山门那天”）、`home_zhao`、`home_recruit`、`home_chu_tiankuo`、`re_taunt`、`exp_swords_zhao`、`sect_vein_3`、`zhao_2`、`tianheng_2`（“像破庙里的你”）、`disc_first_day`、`home_old_dream`、`home_empty_ring`、`ch_tea_1`（“破庙门口”）、`ch_tianjian_3`、`new_1`、`new_4`（落霞城）、`mu_5`（与丹红袖 / 厉枭等吃“落霞城桂花糕”）；代码里还有三宗争徒弹窗老祖台词（`boot.js showInvite`）、心魔题目兜底（`trib.js L.demonQuestion`）、飞升文案（`life.js showAscension`、`dao.js L.daoEnding` 兜底与“仁”评语里的“破庙”）、论道台词与宿敌对视台词（`duels.js RIVAL_LINES`、`cine2.js` 的“当年踢你下山”“弃徒”）、天骄榜第 72 名改名后门派仍显示“慕容家”（`core.js L.RIVALS`）。
 建议：给这些文本加出身变体（`L.ORIGINS[].` 里放“被赶出来的地方 / 捡戒处 / 对手家族”几个词，事件用占位符 `{home}`、`{ringAt}` 之类），或给赵乾线等纯弃徒剧情加 `origin: 'qitu'`。
+> **已修（大部分）**：新占位符（`story.js` 的 `L.fill`）`{cradle}` 捡戒处、`{town}`、`{shamed}`、`{lowly}`、`{exHouse}`、`{zhaoDebt}`、`{r1open}`（不觉醒的出身筑基那夜换一句）、`{body}`，接进 `story_r1`、`story_r8`、`home_recruit`、`re_taunt`、`exp_swords_zhao`、`sect_vein_3`、`zhao_2`、`tianheng_2`、`disc_first_day`、`home_old_dream`、`home_empty_ring`、`ch_tea_1`、`ch_tianjian_3`、`new_1`、`new_4`、`mu_5`、`exp_blood_ambush`、`home_challenger`；`home_zhao`、`home_chu_tiankuo` 改为弃徒专属；心魔劫·一的兜底题目按出身（`L.ORIGIN_SHAME`）；三宗争徒老祖台词、天剑宗来犯开场按出身。未改：飞升文案 / 道心评语里的“破庙”、论道台词与宿敌对视台词、天骄榜第 72 名的门派（留给后续）。
 
 **P07 非弃徒出身的约战前夜出两次**（`story_pact_eve`、`origin_pact_eve`）
 两者都是 `trigger: 'pact_eve'`，`story_pact_eve` 没有出身限制，非弃徒会连着弹两段“约战前夜”，而且 `story_pact_eve` 说的是“三年之约”。
 建议：`story_pact_eve` 加 `origin: 'qitu'`。
+> **已修**：`story_pact_eve` 加 `origin: 'qitu'`。
 
 **P08 老祖诀别之后还在说话**（`ch_map_4`、`ch_map_5`、`ch_sword_6`、`ch_mo_3`、`ch_mo_4`、`ch_tianjian_2`、`ch_tianjian_5`、`L.ascendVisitor`、`showDeath`）
 `story_r8` 之后老祖只剩“戒中余音”，但奇遇链第 2 步起放宽了境界上限（`chains.js relax`），这些由老祖开口的步骤可以在渡劫期出现（`ch_sword_6` 里老祖还“讲了三天三夜”）；飞升前夜的访客没有道侣和知己时兜底成“戒中老祖”；渡劫期寿尽坐化时老祖仍说“老夫护住你一缕真灵”。
 建议：这些链步加 `not: ['st_farewell']` 并在诀别前催完，或写“余音版”（剑意代答）；`ascendVisitor` 兜底改成徒弟 / 和解的宿敌 / “无人敲门”；坐化台词按 `st_farewell` 换成戒中剑意。
+> **已修**：`ch_map_4`、`ch_map_5`、`ch_sword_6`、`ch_mo_3`、`ch_mo_4`、`ch_tianjian_2`、`ch_tianjian_5` 加 `not: st_farewell`；`L.ascendVisitor` 诀别后兜底为墨无痕 / 徒弟 / “山下的风”；坐化台词诀别后改为“戒中剑意”。
 
 **P09 `story_r6_mo` 可能永远错过**
 它挂在 `realm:6`，只在踏入合体那一刻、或另一段 `realm:6` 剧情结算后补发；《墨家遗书》第 2 步起不看境界上限，第 4 步（`mo_memory`）晚于合体那一刻完成时，这段剧情再也不会出（`chainCatchUp` 只补链上的步骤）。
 建议：把 `story_r6_mo` 设成 `ch_mo` 的第 5 步（`chain: 'ch_mo', step: 5`），自动享受补放；或在 `ch_mo_4` 结算后手动 `fireTrigger('realm:6')`。
+> **已修**：`story.js` 的 `L.storyCatchUp`：带条件的 `realm:N` 剧情（`story_r6_mo`、`tianheng_1`……）条件后来才满足时，只要还没出过就补进剧情队列（每 3 月、每次剧情结算后各查一次）。
 
 **P10 金刚寺慧能既闭口三千年又在会武上开口**（`ch_tianjian_5` vs `sect.js L.NINE`）
 旧案链里慧能“闭口禅坐了三千年……回来就不再开口”，九宗会武金刚寺的代表却是“慧能大师”，开场白“阿弥陀佛，施主请回吧”。
@@ -847,6 +857,7 @@ flowchart TD
 **P13 人物“走了”之后照常来访、照常同行**（`chu_5`、`chu_end`、`su_end`、`ge_q1`）
 `chu_5` 闭死关、`chu_end` 下山走天下（`chu_gone`）、`su_end` 的 `su_apart` / `su_qianyuan`（“从此不再下山”）都不影响之后的 `pp_*_drop` 顺路来访、`pp_*_trip` 同伴途中与四心同行；`ge_q1` 选“不认识”葛老“不知去向”，也没有后续。
 建议：这些 flag 接进 `people.js`：来访改成书信 / 托人捎物，同伴位注明“已远行”（或保留为一次性“归来”事件）。
+> **已修（部分）**：`L.npcAway`——楚狂下山（`chu_gone`）、苏留在济世堂（`su_qianyuan` / `su_apart`，且不是道侣）之后，他们的来访 / 同行事件不再出（`_end` / `_left` 除外），也不能再当同伴。葛老“不知去向”未接。
 
 **P14 夜与“魔门圣宗”**（`ye_1`、`ye_3`、`ye_5`、`ye_q2`、`ch_fire_5`、`pp_ye_left2`、`mo_xuehe_1`）
 夜属“魔门圣宗”，从未交代它和血煞魔宗（宗主血河老祖、圣子血无涯）是什么关系；`mo_xuehe_1` 的老酒保“总给夜留一壶酒”、`su_q2` 的魔修拿的也是血玉令，读起来像同一宗。夜在 `ye_q2` 可以“一起反出去”（`ye_defect`）、在 `ch_fire_5` 可以“魔门，我不回了”（`ye_left_mo`），之后 `ye_5`、`pp_ye_left2` 仍写“执掌圣宗”。
@@ -865,6 +876,7 @@ flowchart TD
 - 宗门：`war_feint`（`sect_traitor` 将计就计，“天剑宗夜袭一头撞进真阵”没有数值或剧情效果）、`liu_soft`、`disc_favor`、`grad_word`。
 - 其他：`sword_slave_saved`（剑奴“这条命记你账上”）、`hongxiu_owes`（丹红袖“丹霞谷不欠人情”）、`snow_guest`（雪夜旅人“很快会再见”）、`wine_3`（“葛老大概闻着味就会找上门”）、`tongji_token` / `tongji_name`、`moyi_washed` / `moyi_unwashed`。
 建议：先挑承诺最明确的回收——`snow_guest`、`wine_3`、`sword_slave_saved`、`hongxiu_owes`、`war_feint`、`zhao_guide`、`tk_side_*`、`clue_fire`（可接《魔门圣火》第 4 步）、`clue_tianjian`（可接旧案链第 1 步）；人物终章与 `ascend_*` 接进飞升画面（像白小九那样多一句），其余做成章末 / 年报里的一句回顾，确定不用的删掉。
+> **已修（影响剧情的部分）**：`war_feint`（将计就计）→ 下一场天剑宗来犯我方 ×1.3；`zhao_guide`（押回天剑宗、没欠你人情）→ 来犯时他带路，我方 ×0.9；`trial_hint` → 记进 `st.meta.trialHint`（见 P24）；`st_stele_broken` / `tiankuo_*` 接进问剑那夜的文本（见 P03）。其余 flag 的回收（飞升画面、章末回顾）留给后续剧情串联。
 
 **P17 设计写了、代码没做**
 - 五心“前缘：下一世开局即一心”（DESIGN §7）——`su_end` 的“下辈子，换你来找我”（`su_qianyuan`）就是在等它。
@@ -883,18 +895,22 @@ flowchart TD
 **P19 天剑宗来犯不看陆天衡的结局**
 来犯失败后每 24 月重来（`sect.js L.sectWar`），条件只看身份与境界；大乘了断陆天衡、天剑宗“改立墨离牌位”之后，仍可能继续“天剑宗大举来犯”。
 建议：`st_justice` 或任一 `tianheng_*` 之后不再来犯（直接记 `warWon`，或改成“天剑宗残部”）。
+> **流程上已不成问题**：天剑宗来犯现在按第六章来（`L.warChapter`），正名（第八章）一定在击退来犯之后；开场按出身换词。
 
 **P20 血煞魔宗弟子的身份冲突**（`L.SECT_HEIR.xuesha`、第五 / 六 / 七章）
 拜入血煞魔宗时，圣子之争（元婴）的对手是血无涯——他同时是要到合体后期才肯上台的卡位宿敌、魔道圣子；第七章“魔道当头，一战了断”也不变。`xue_1` 里血无涯给同门送管事人头也显得怪。
 建议：血煞魔宗的原圣子换一个人（如厉枭的师兄），血无涯保持“圣子”；魔宗一世的第七章文案改成“与圣子争魔道之首”。
+> **已修**：血煞魔宗的原圣子改为厉千秋（`L.SECT_HEIR.xuesha`）；魔宗一世第七章的路径页一句话改为“同门相争，魔道之首”。
 
 **P21 没见面就“认识”了**（`sect_marriage`、`disc_kind`、`world_tongji`、`ch_fox_2`）
 `L.addAff` 会给没见过的人物建档（`L.met` 变真）：`sect_marriage` 失败时苏、夜“同时冷着脸来了一趟洞府”，`disc_kind` 里苏来看义诊，`world_tongji` 给墨无痕好感——都不要求先认识。御兽遗脉开局已完成《狐族秘地》第 1 步，第 2 步 `ch_fox_2` 不要求认识白小九，第 4 个月起就可能出“妖市狐翁凑近白小九嗅了嗅”。
 建议：这几处加 `need: ['su_met'/'ye_met'/'st_mo_seen'/'bai_met']`，或 `addAff` 对未相识的人物不建档；`ch_fox_2` 加 `need: ['bai_met']`。
+> **已修**：事件顺手给的好感，对还没相识的人物不建档（`story.js` 包 `L.applyFx`）；`ch_fox_2` 加 `need: bai_met`。
 
 **P22 赵乾的信只在一个时刻判定**（`zhao_3`）
 `war_eve:tianjian` 只在第一次满足来犯条件时发一次；那之后才放过赵乾（`zhao_2` 放走或恩怨降到 −40）就再也收不到 `zhao_3`。
 建议：`warEve` 时没有 `zhao_owes` 的，在来犯前一月再补发一次；或把 `zhao_3` 改成来犯前一月的洞府访客。
+> **已修**：来犯前一月还欠着赵乾人情（`zhao_owes`）、`zhao_3` 没出过的，补发一次 `war_eve:tianjian`。
 
 **P23 老祖的记忆前后不一**（`story_r1`、`story_r4`、`mo_q2`、`home_elder_tale`）
 筑基时老祖梦呓“天衡，你那一剑，真狠啊”，化神时却“只记得墨离持剑刺来”、骂墨离逆徒；`home_elder_tale`（炼虚以前）已自承“看人这事，本座不如你”。
@@ -903,6 +919,7 @@ flowchart TD
 **P24 两处“天道试炼提示”只有一处生效**（`yun_3`、`ch_tea_5`）
 试炼道果 +5% 来自卖茶翁链终点写入的 `st.meta.trialHint`；`yun_3` 和 `ch_tea_5` 置的 `trial_hint` flag 没人读，击败云无极得到的“上面的规矩”手札（选“陪他看天”）没有任何效果。
 建议：`yun_3` 也写 `meta.trialHint`（或另给一条“试炼题面预知”）；删掉多余的 `trial_hint` flag。
+> **已修**：`trial_hint` 一置就记进 `st.meta.trialHint`（击败云无极也算试炼提示）。
 
 **P25 玄霄第三截的来路与了断分支冲突**（`ch_sword_6`、`tianheng_2`）
 `ch_sword_6` 写“第三截是从陆天衡腰间解下的”，但 `tianheng_2` 选“放他走”时他“踉跄下山”，选“公之于众”时他自摘宗主印；另外“公之于众”写“楚天阔在会武台上念完旧档”，而这一幕发生在天剑宗碎碑间。
@@ -923,6 +940,7 @@ flowchart TD
 **P30 混沌圣体“只在一个人身上见过”没有下文**（`story_r1`）：从未揭晓那人是谁（陆天衡？玄霄自己？）。建议在 `story_r6` 或 `story_demon3` 补一句（陆天衡同为杂灵根正好接得上）。
 
 **P31 卖茶翁链极易错过**（`ch_tea_1`）：第一步只在炼气期、第一世约战前不催；错过这几十个月，本世整条链（以及以后每世的试炼 +5%）都拿不到。建议放宽到筑基，或约战后补催一次。
+> **已修**：`ch_tea_1` 放宽到筑基（`maxR: 1`），占位符换成 `{cradle}`。
 
 **P32 轮回后剧情逐字重演**：弃徒转世时老祖再说一遍“等了你三千年”、`story_r1`～`story_r8` 原样重来；轮回殿“老祖的记性”只给数值。建议给 `rebirth > 0` 加几句老祖台词变体（“又是你？这回别再……”）。
 

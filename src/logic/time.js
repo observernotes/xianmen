@@ -33,7 +33,7 @@ L.lifeMonths = function (st) {
 // ---------- 大节点 ----------
 const WARN_AT = [12, 6, 3];
 L.BIG_WARN = WARN_AT;
-const warOn = st => !!st.sect && !st.flags.warWon && st.sect.rank >= 2 && st.p.r >= 5;
+const warOn = st => !st.flags.warWon && L.warChapter(st) && ((!!st.sect && st.sect.rank >= 2) || (!!L.loneRoute && L.loneRoute(st)));   // 按章来（tick.js 的 L.warChapter）；散修之路：来犯的是你的洞府（story.js）
 L.bigList = function (st) {
   if (!st || !st.p || st.p.r > L.MAXR) return [];
   const a = [];

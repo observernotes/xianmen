@@ -120,13 +120,14 @@ L.CHAPTERS = [
       { t: '修到大乘圆满', c: fullAt(7), rw: { inc: 30 }, go: 'cult' },
     ] },
   { n: '渡劫', realm: '渡劫',
-    main: { t: '渡过飞升天劫，白日飞升', c: st => st.p.r >= 9, rw: {}, go: 'cult' },
+    main: { t: '登顶天骄榜，击败云无极', c: st => !!st.beaten.yun, rw: { inc: 40, title: '天下第一' }, go: 'me' },   // 主线不看境界（飞升是札记里的一条）
     tasks: [
       { t: '踏入渡劫', c: st => mr(st) >= 8, rw: { inc: 25 }, go: 'cult' },
       { t: '登顶天骄榜', c: st => st.bestRank <= 1, rw: { inc: 40 }, go: 'me' },
       { t: '备好一枚九转金丹', c: st => !!st.flags.sureBt, rw: { inc: 20 }, go: 'home' },
       { t: '听完老祖的诀别', c: st => !!st.eflags.st_farewell, rw: { title: '戒中余音' }, go: 'cult' },
       { t: '修到渡劫圆满', c: fullAt(8), rw: { inc: 30 }, go: 'cult' },
+      { id: 'c8_asc', t: '渡过飞升天劫，白日飞升', c: st => st.p.r >= 9, rw: {}, go: 'cult' },
     ] },
 ];
 // 任务 id 按序号（存档里记的就是它）；后来插进去的任务自带 id，不占序号，免得旧档的完成记录错位
@@ -159,30 +160,36 @@ function grantReward(st, rw) {
   if (rw.title) L.grantTitle(st, rw.title);
   return text;
 }
-// 完成即领。只检查已经到过的境界对应的章节；上一章没做完的主线仍然可以完成
+// 完成即领。小任务：只检查已经到过的境界对应的章节。主线：按章序一章一章判（只看主线自己的条件，不看境界）——
+// 前一章的主线没做完，后一章的主线条件早满足了也先不算，等前一章做完再接着判，所以章末卡永远按章序一张一张来
 L.checkQuests = function (st) {
   if (!st.quest) st.quest = { done: {} };
   st.flags.maxI = maxI(st);
   const top = Math.min(8, Math.max(mr(st), st.p.r));
-  for (let r = 0; r <= top; r++) {
+  let gate = true;
+  for (let r = 0; r <= 8; r++) {
     const ch = L.CHAPTERS[r];
-    for (const q of ch.tasks.concat([ch.main])) {
+    const mainOk = gate && !ch.main.off && (st.quest.done[ch.main.id] || ch.main.c(st));
+    for (const q of (r <= top ? ch.tasks : []).concat([ch.main])) {
+      if (q.main && !gate) continue;
       if (q.off || st.quest.done[q.id] || !q.c(st)) continue;
       st.quest.done[q.id] = 1;
       const text = grantReward(st, q.rw);
       emit('quest', { id: q.id, t: L.questText(st, q), rw: text, main: !!q.main, ch: r });
       L.log(st, `【${q.main ? '第' + '一二三四五六七八九'[r] + '章·完' : '札记'}】${L.questText(st, q)}${text ? '，' + text : ''}`, 'gold');
     }
+    if (!mainOk) gate = false;
   }
 };
 // 界面用：当前章节、主线、前三条未完成的小任务、以前章节没做完的主线
 L.questView = function (st) {
+  // 小任务按境界那一章列；主线永远是当前章（第一个没做完的主线，path.js 的 L.chapterNow）的那一条
   const r = Math.min(8, st.p.r), ch = L.CHAPTERS[r], done = (st.quest && st.quest.done) || {};
   const live = ch.tasks.filter(q => !q.off);
   const list = live.filter(q => !done[q.id]).slice(0, 3);
   const old = [];
-  for (let j = 0; j < r; j++) if (!done[L.CHAPTERS[j].main.id]) old.push(L.CHAPTERS[j].main);
-  const main = done[ch.main.id] ? null : ch.main;
+  const cm = L.CHAPTERS[L.chapterNow ? L.chapterNow(st) : r].main;
+  const main = done[cm.id] ? null : cm;
   return { r, ch, main, list, old, first: list[0] || main || old[0] || null, doneN: live.filter(q => done[q.id]).length, total: live.length };
 };
 });
