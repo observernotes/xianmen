@@ -265,7 +265,7 @@ const LIST = [
 /* ---------- 慕容（mu）：mu_1 → 和解线 mu_2 / mu_3，寻仇线 mu_4 ---------- */
 {
   // 计划“约战胜后 12～36 周天”：用 beat_mu + 筑基～金丹近似这个窗口。
-  id: 'mu_1', where: 'home', visit: true, need: ['beat_mu'], minR: 1, maxR: 2, once: true, title: '封口钱',
+  id: 'mu_1', origin: 'qitu', where: 'home', visit: true, need: ['beat_mu'], minR: 1, maxR: 2, once: true, title: '封口钱',
   text: '慕容家账房捧来锦盒：“家主说往事不必再提。这点心意，换您往后不提‘退婚’二字。”盒缝里漏出灵石的光。',
   choices: [
     { t: '收下锦盒', dao: 'w',
@@ -278,7 +278,7 @@ const LIST = [
 },
 {
   // 样稿；把“她 / 粉衣”改成不分性别的写法（{ex}可能是慕容轩）。
-  id: 'mu_2', where: 'exp', bg: ['hill', 'tomb'], minR: 2, once: true, need: ['mu_asked'], title: '狭路',
+  id: 'mu_2', origin: 'qitu', where: 'exp', bg: ['hill', 'tomb'], minR: 2, once: true, need: ['mu_asked'], title: '狭路',
   text: '乱石后，{ex}一身华服染了半边血，三只尸傀正围上来。对方看见是你，立刻别过脸，握剑的手在抖。',
   choices: [
     { t: '出手', duel: 0.9, dao: 'r',
@@ -293,7 +293,7 @@ const LIST = [
 {
   // “质问慕容家（后续 mu_4）”：mu_4 的条件是恩怨 ≥ 60，数据里写不出“或”。这里置 mu_press，
   // 建议引擎让 mu_4 在 mu_press 时也可触发（客卿的文本两条线都说得通）。
-  id: 'mu_3', where: 'home', visit: true, grudge: ['mu', -100, -40], minR: 3, once: true, title: '婚书',
+  id: 'mu_3', origin: 'qitu', where: 'home', visit: true, grudge: ['mu', -100, -40], minR: 3, once: true, title: '婚书',
   text: '{ex}独自来，把褪色的婚书放在你桌上：“退婚，是家里拿我换了天剑宗的庇护。我没拦，这是我欠你的。”',
   choices: [
     { t: '收进抽屉', dao: 'w',
@@ -306,7 +306,7 @@ const LIST = [
 },
 {
   // “归零”写不成赋值，按 −70 近似。请宗门出面需真传（srankMin 2），不满足时只见另外两项。
-  id: 'mu_4', where: 'home', visit: true, grudge: ['mu', 60, 100], minR: 3, once: true, title: '客卿',
+  id: 'mu_4', origin: 'qitu', where: 'home', visit: true, grudge: ['mu', 60, 100], minR: 3, once: true, title: '客卿',
   text: '慕容家的客卿立在你门口，腰挂七枚剑穗，一枚一场胜仗：“慕容家的脸面被你踩了三年。今日，讨个说法。”',
   choices: [
     { t: '出门应战', duel: 1.2, dao: 'k',
@@ -341,7 +341,7 @@ const LIST = [
     { t: '放他走', dao: 'r',
       ok: { text: '你丢给他干粮伤药，指了条小路。他憋出一句：“……我欠你的，我会还。”', fx: { grudge: { zhao: -30 }, flag: 'zhao_owes' } } },
     { t: '押回天剑宗', dao: 'k',
-      ok: { text: '执法堂点给你一袋灵石，看都没看他。他被拖走时的眼神，比当年还冷。', fx: { stones: 20, grudge: { zhao: 40 }, karma: 'zhao_bounty', flag: 'zhao_guide' } } },
+      ok: { text: '执法堂点给你一袋灵石，看都没看他。他被拖走时的眼神，冷得像冰。', fx: { stones: 20, grudge: { zhao: 40 }, karma: 'zhao_bounty', flag: 'zhao_guide' } } },
     { t: '逼问内情',
       ok: { text: '丢的是禁层一卷旧档，记着三千年前一桩事。说到这儿他闭了嘴，当夜自己爬出了渊。', fx: { grudge: { zhao: 10 }, flag: ['clue_tianjian', 'zhao_guide'] } } }
   ]
@@ -503,7 +503,7 @@ const LIST = [
 {
   // 计划列了四种结局，所以是四项；“公之于众”只在旧案链走完（tianjian_6）时出现，平时只见三项。
   id: 'tianheng_2', where: 'story', chain: 'ch_sword', step: 5, trigger: 'realm:7', need: ['st_justice'], speaker: 'elder', title: '了断',
-  text: '陆天衡跪在碎碑间，剑断冠散，竟有几分像破庙里的你：“师父还在戒指里吧？替我问一句，他后悔收我吗？”老祖没有出声。',
+  text: '陆天衡跪在{stele}，剑断冠散，竟有几分像{cradle}里的你：“师父还在戒指里吧？替我问一句，他后悔收我吗？”老祖没有出声。',
   choices: [
     { t: '一剑了断', dao: 'k',
       ok: { text: '他没躲。血还没干，戒指里一声很轻的：“……也好。”', fx: { xp: 10, karma: 'tianheng', flag: 'tianheng_dead' } } },
@@ -522,7 +522,7 @@ const LIST = [
   text: '天骄榜末尾冒出一个新名字，还有句狂话传遍坊市：“三年之内，我踩着{name}上去。”说话的少年才十六岁。',
   choices: [
     { t: '记下名字', dao: 'w',
-      ok: { text: '你把名字写在墙上，想起当年破庙墙上，你也这么写过一个名字。', fx: { xp: 1 } } },
+      ok: { text: '你把名字写在墙上，想起当年{cradle}墙上，你也这么写过一个名字。', fx: { xp: 1 } } },
     { t: '去看他一眼',
       ok: { text: '那少年拳风里一股不服输的狠劲，你认得——那是你自己。', fx: { flag: 'rookie_seen' } } }
   ]
@@ -556,7 +556,7 @@ const LIST = [
 {
   // 计划第三项“亲自去收拾”是一趟 4 周天的特殊历练；这里就地写成一场对决（不另开历练），如要做成历练再改。
   id: 'new_4', where: 'story', trigger: 'rookie:trouble', need: ['rookie_taught'], once: false, title: '冒名',
-  text: '你指点过的那个少年砸了落霞城一家赌坊，报的是你的名号：“我师父是{name}！”赌坊打手已到山下。',
+  text: '你指点过的那个少年砸了{town}一家赌坊，报的是你的名号：“我师父是{name}！”赌坊打手已到山下。',
   choices: [
     { t: '认下这笔账', cost: { stones: 8 }, dao: 'r',
       ok: { text: '你赔了桌椅，顺手收走假骰子。街角那少年看你的眼神，从心虚变成了别的什么。', fx: { flag: 'rookie_loyal', unflag: 'rookie_taught' } } },
@@ -595,7 +595,7 @@ const LIST = [
 },
 {
   // 计划是“宿敌在场”，定为{ex}：慕容家拿婚事换来的家底，正好砸在拍卖场上。
-  id: 'auc_rival', where: 'market', trigger: 'auction:rival', grudge: ['mu', 20, 100], title: '隔空比价',
+  id: 'auc_rival', origin: 'qitu', where: 'market', trigger: 'auction:rival', grudge: ['mu', 20, 100], title: '隔空比价',
   text: '三楼雅座里，{ex}隔着满堂朝你比了个价。慕容家的家底，看来都押在今天了。台上那件，恰好是你想要的。',
   choices: [
     { t: '替{ex}抬价', p: 0.6, dao: 'k',

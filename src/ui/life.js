@@ -36,7 +36,7 @@ function showDeath() {
     body: `${bdImg('rest', 200)}<div class="center">${myAvImg(66, undefined, 'filter:grayscale(1)')}</div>
       <p class="center">${lim ? `天道试炼·限时：第 ${L.TRIAL_LIMIT} 个月到了。` : '寿元耗尽。'}${esc(p.name)}于洞府中静静坐化，享年 ${Math.floor(p.age)} 岁，止步${L.stageName(p)}。</p>
       <p class="center goldt">这一世可带走道果约 ${fmt(f.total)}</p>
-      <div class="quote">戒中老祖：“别灰心。老夫护住你一缕真灵，带着这一世的感悟，再来一次！”</div>`,
+      ${st.eflags && st.eflags.st_farewell ? '<div class="quote">戒中剑意轻轻一颤，护住你一缕真灵。再来一次。</div>' : '<div class="quote">戒中老祖：“别灰心。本座护住你一缕真灵，带着这一世的感悟，再来一次！”</div>'}`,
     foot: [{ t: '转世重修', gold: true, fn: () => rebirthFlow('rest') }] });
 }
 // 人物页：飞升后“再入轮回”，金丹以后“兵解转世”（二次确认）

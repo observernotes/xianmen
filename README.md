@@ -146,6 +146,9 @@ tools/onboard.js  上手审计：浏览器里照老祖走的机器人按手表�
                   加 --life 是全程手表机器人：不开浏览器，照 sim 的 guided 玩完第一世，按 L.monthSec 与读字口径记手表，
                   对照 KAIRO_PLAN §3.4 的逐章预算（--assert：全程 270～360 分钟；--time=mul:2/1.6/… 临时试旋钮）
 tools/check_events.js 事件校验；加 report 列出上线 / 闸住的数量与闸住最多的键
+tools/story_check.js 故事推进 / 章节进度防回归（不开浏览器）：照引导玩、随手选、只冲境界不做主线再回头补、约战输、六个出身、八条天道试炼、
+                  魔宗、散修不入宗、旧档迁移各跑几局，断言章节单调不跳（只由主线推进）、realm:N 主线剧情按章序各一次、身世线揭示顺序、
+                  每章主线不卡死（单章 ≤ 420 月）、每个出身走到飞升或第六章、解锁卡不比章早；quick 每种一局，v 打印每局的章节月份
 tools/preview.js  美术预览：渲染 tools/preview.html 里的精灵与场景
 tools/shot.js     Playwright 冒烟测试与截图
 tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【换上】、每 24 周天在功法页点“荐”；法宝对比卡更强就换、否则熔炼、偶尔锁定，
@@ -182,6 +185,8 @@ tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对�
 pip install fonttools brotli
 python3 tools/build.py
 ```
+
+故事推进（`src/logic/path.js` + `src/logic/story.js`，docs/STORY.md §2 / §11）：当前章 = 第一个没完成的主线（`L.chapterNow`），境界与章节互不挂钩——境界随便升，主线没做完就停在这一章，主线目标本身不看境界（第九章是“击败云无极”，飞升是札记）；主线按章序一章一章判，章末卡一张一张来。按章走的东西用一个通用机制：剧情触发键在 `L.STORY_CH` 里登了章号的（`realm:N` → N，`boss:5`、`demon:3`、`trib:1` 另登），要“触发条件成立且当前章到了”才放，境界先到就记在 `st.path.hold`、章到了按序补发；事件的境界窗口按 `L.storyR(st)` = min(境界, 章) 判；解锁卡第一世按 `L.ONB[].ch` 开；天剑宗来犯按第六章来（`L.warChapter`）。不能入宗时（天道试炼“无宗”、散修丹师不入宗，`L.loneRoute`）要宗门的几章主线换成 `L.LONE` 的散修版本。出身换词占位符 `{cradle}` `{town}` `{shamed}` `{lowly}` `{exHouse}` 等在 `story.js`。`node tools/story_check.js` 防回归。
 
 ## 字体
 

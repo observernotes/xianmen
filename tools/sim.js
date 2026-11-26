@@ -617,7 +617,8 @@ function advCheck(st, rec) {
   } catch (e) { A0.bad.push('err ' + e.message); } finally { L.rng = r0; }
 }
 
-// opt.st0：从这个存档接着玩（life2 的第二世）；opt.keep：留下 st 但不打印
+// opt.st0：从这个存档接着玩（life2 的第二世）；opt.keep：留下 st 但不打印；
+// opt.maxT：最多跑几个月；opt.sect：入宗选哪一宗；opt.onTick(st, out)：每月结算完调（tools/story_check.js 用）
 function run(strat, seed, trace, opt) {
   opt = opt || {};
   if (!opt.st0) L.rng = rngFor(seed);
@@ -627,7 +628,7 @@ function run(strat, seed, trace, opt) {
   const rec = { realmAt: {}, srankAt: {}, beatAt: {}, artAt: {}, gearAt: {}, daojiAt: {}, ratio: [], maxPills: 0, passive: 0, streak: 0, maxStreak: 0, lifeRed: false, sold: 0, shop: 0, bids: 0, aucWon: 0, worlds: 0, petAt: {},
     tribs: 0, hints: 0, hintRight: 0, aidN: 0, extraPills: 0, grades: {}, demons: 0, vaultBuys: 0, gifts: 0, favAt: {}, favWait: {}, npcGifts: 0, pq: 0, sx: 0, affAt: {},
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
-  const maxT = strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : strat === 'goalcard' ? 120 : 1300;
+  const maxT = opt.maxT || (strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : strat === 'goalcard' ? 120 : 1300);
   for (let n = 0; n < maxT; n++) {
     const p = st.p;
     tryBreak(st, rec, strat);
@@ -661,7 +662,7 @@ function run(strat, seed, trace, opt) {
     if (out.pact) { rec.zhanN = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').length; rec.wStar = st.gear.w ? st.gear.w.star || 0 : -1; rec.wPlus = st.gear.w ? st.gear.w.plus || 0 : -1; rec.bossCh1 = !!st.bosses[0]; rec.wishHit = (st.stats.wishHit || 0) > 0; rec.infuse = (st.stats.infuse || 0) > 0; }
     if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win;
       const w = L.gearEq(st, 'w'); rec.loot1 = { star: w ? w.star || 0 : 0, wish: st.stats.wishHit || 0, plus: st.stats.plus || 0, infuse: st.stats.infuse || 0, zhan: Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').length, boss: !!st.bosses[0], cards: st.stats.lootGear || 0 }; }
-    if (out.invite && strat !== 'idle') L.joinSect(st, ['jian', 'dan', 'dao'][seed % 3]);
+    if (out.invite && strat !== 'idle') L.joinSect(st, opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3]);
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
       // guided：论道前按克制换战技（第一场的宿敌）；换完下个周天 artOpt 再按平时的最优搭配换回来
@@ -688,6 +689,7 @@ function run(strat, seed, trace, opt) {
       rec.streak = q > 40 && L.unlocked(st, 'market') ? rec.streak + 1 : 0; rec.maxStreak = Math.max(rec.maxStreak, rec.streak);
     }
     rec.maxPills = Math.max(rec.maxPills, st.pills);
+    if (opt.onTick) opt.onTick(st, out);
     if (out.death) { rec.death = st.tick; rec.deathR = p.r; break; }
     if (trace && st.tick % 12 === 0) {
       const sl = L.artSlots(st).map(id => (id ? L.art(id).n.slice(0, 2) + L.art(id).t + L.MAST.n[L.artLv(st, id)][0] : '-')).join('/');

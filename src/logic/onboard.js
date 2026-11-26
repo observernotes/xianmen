@@ -8,7 +8,8 @@
  *     ① 离上一次解锁至少 gap 个月（系统 L.ONB_GAP.sys，子项 L.ONB_GAP.sub）；
  *     ② 系统（sys）要等上一个系统“掌握”：master(st) 为真（用过几次 / 达成某结果），或解锁后过了 maxWait 个月（玩家不理它也不会卡死）。
  *        子项（sub，例如历练的采药、坊市的行情）只等它的父系统解锁，不占“掌握”。
- *   · force(st) 为真的（突破、三年之约、入宗、遇见人物、拿到灵宠……）立刻解锁，不等间隔——那件事已经发生了，界面不能装作没有。
+ *   · 第一世还要“当前章 ≥ 这一项的 ch”（path.js 标的、路径页按它分章）：解锁卡跟着主线走，不跟着境界走。
+ *   · force(st) 为真的（突破、三年之约、入宗、遇见人物、拿到灵宠……）立刻解锁，不等间隔、不看章——那件事已经发生了，界面不能装作没有。
  *   · 存档 st.onb = { at: { key: 解锁时的月 }, m: { key: 掌握时的月 }, last: 上次解锁的月, c: { 计数 } }；
  *     旧档（没有 st.onb）：原门槛已满足的全部算已解锁、已掌握（老玩家的东西不会消失），L.migrateOnb 幂等。
  *   · 解锁时 emit('unlock', key)，掌握时 emit('master', key)；界面（src/ui/guide.js 的 UI.isOpen）据此决定底栏入口、分页、按钮、HUD 格、角标、问老祖、札记显示与否。
@@ -124,6 +125,7 @@ L.onbStep = function (st) {
     if (o.at[e.k] !== undefined || !(e.start || call(e.base, st))) continue;
     if (e.par && o.at[e.par] === undefined) continue;
     if (!reborn && e.i > E.bt.i && !st.pact) continue;   // 第一章只有历练、洞府、闭关、突破（和采药）：其余的都等三年之约之后
+    if (!reborn && e.ch !== undefined && L.chapterNow && L.chapterNow(st) < e.ch) continue;   // 解锁卡按章开（path.js 给每项标了 ch）：境界超前、主线没跟上时，后面章的系统先不开
     if (e.sys && sysWait) continue;   // 上一个系统还没掌握：别的系统等着，子项可以先开
     const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着

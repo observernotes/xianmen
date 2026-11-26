@@ -217,7 +217,7 @@ function showInvite() {
     body: `<p>筑基消息传出，天下震动！${SC.length > 3 ? '三大正宗的长老同时登门，血煞魔宗也递来一封血帖' : '三大宗门的长老同时登门'}，争相招揽：</p>
       <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
-      <div class="quote">戒中老祖：“当年天剑宗把你踢下山，如今人家抢着要你。痛快不痛快？”</div>`,
+      <div class="quote">戒中老祖：“${(st.origin || 'qitu') === 'qitu' ? '当年天剑宗把你踢下山' : '当年人家当你是个' + esc(L.originWord(st, 'lowly'))}，如今人家抢着要你。痛快不痛快？”</div>`,
     foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 月后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
@@ -234,9 +234,9 @@ function runWar() {
   const res = L.sectWar(st);
   const sc = L.sectOf(st);
   duel({
-    title: '天剑宗来犯', intro: `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个弃徒！`,
+    title: '天剑宗来犯', intro: sc ? `天剑宗长老率众杀上${sc.n}山门，扬言要讨回当年那个${L.originWord ? L.originWord(st, 'lowly') : '弃徒'}！` : '天剑宗长老率众杀到你的洞府门前：散修也敢翻天剑宗的旧账？',
     right: { img: rivalAvImg({ n: '天剑宗长老团', id: 'zhao' }, 66), name: '天剑宗长老团', sub: fmt(res.Q) }, Q: res.Q, S: res.S, p: res.p, win: res.win,
-    stage: HAS_MO ? 'sect_mo' : 'sect', foe: ftGen('天剑宗长老', { f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542', extra: 2, el: L.foeEl ? L.foeEl({ kind: 'war', id: 'tianjian' }) : '' }),   // 魔宗演武场、天剑宗金系剑气（duel-scene.js）
+    stage: !sc ? 'wild' : HAS_MO ? 'sect_mo' : 'sect', foe: ftGen('天剑宗长老', { f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542', extra: 2, el: L.foeEl ? L.foeEl({ kind: 'war', id: 'tianjian' }) : '' }),   // 魔宗演武场、天剑宗金系剑气（duel-scene.js）
     quote: '天剑宗长老：“交出那个弃徒，饶你们满门不死！”',
     winText: `你一人一剑立于山门之前，剑光过处，天剑宗众人倒飞而出！<br>宗门贡献 +${fmt(res.contrib || 0)}，灵石 +${fmt(res.stones || 0)}`,
     loseText: '宗门众长老联手苦战，方才逼退来敌。天剑宗扬言还会再来……',

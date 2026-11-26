@@ -113,9 +113,11 @@ L.chainHint = function (st, id) {
   if (!p.started) return '起点：' + p.start;
   return `下一步：${p.where}${p.cond.length ? '（' + p.cond.join('、') + '）' : ''}`;
 };
+// 剧情用的境界：境界与当前章取小的（story.js 的 L.storyR：realm:N 的剧情要章也到了 N 才放）
+const sr = st => (L.storyR ? L.storyR(st) : st.p.r);
 // 现在就能出（按它自己的 where，不看访客位、冷却以外的随机）
 function chainReady(st, ev) {
-  if (ev.where === 'story') { const m = /^realm:(\d)$/.exec(ev.trigger || ''); return !!m && st.p.r >= +m[1] && L.eligible(st, ev, 'story', { trigger: ev.trigger }); }
+  if (ev.where === 'story') { const m = /^realm:(\d)$/.exec(ev.trigger || ''); return !!m && sr(st) >= +m[1] && L.eligible(st, ev, 'story', { trigger: ev.trigger }); }
   return L.eligible(st, ev, ev.where, ev.where === 'home' ? { visit: !!ev.visit } : {});
 }
 // 下一步是历练途中、在哪张图（sim 与界面用：去那儿走一趟）；返回 [{ id, k, ev }]
@@ -200,7 +202,7 @@ L.chainCatchUp = function (st) {
     for (const ev of L.chainNextEvs(st, c.id)) {
       if (ev.where !== 'story' || st.evDone[ev.id] || st.storyQ.includes(ev.id)) continue;
       const m = /^realm:(\d)$/.exec(ev.trigger || '');
-      if (m && st.p.r >= +m[1] && L.eligible(st, ev, 'story', { trigger: ev.trigger })) { st.storyQ.push(ev.id); n++; }
+      if (m && sr(st) >= +m[1] && L.eligible(st, ev, 'story', { trigger: ev.trigger })) { st.storyQ.push(ev.id); n++; }
     }
   }
   return n;

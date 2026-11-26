@@ -33,7 +33,7 @@ L.sectsFor = st => L.SECTS.filter(sc => L.sectJoinable(st, sc.id));
 // 魔宗弟子不会碰上的正道事件
 const MO_SKIP = ['sect_war_xuesha', 'sect_alliance'];
 // 原圣子 / 圣女（圣子之争的对手；美术 id 见 docs/ART_API.md 批次八）
-L.SECT_HEIR = { jian: { n: '萧凌风', nf: '苏清寒', img: 'xiao' }, dan: { n: '丹红袖', img: 'hongxiu' }, dao: { n: '陆知白', img: 'zhibai' }, xuesha: { n: '血无涯', img: 'xue' } };
+L.SECT_HEIR = { jian: { n: '萧凌风', nf: '苏清寒', img: 'xiao' }, dan: { n: '丹红袖', img: 'hongxiu' }, dao: { n: '陆知白', img: 'zhibai' }, xuesha: { n: '厉千秋', img: 'lixiao' } };   // 血煞魔宗的原圣子不是血无涯（他是要到第七章才肯上台的卡位宿敌，STORY P20）
 L.heirName = st => { const H = st.sect && L.SECT_HEIR[st.sect.id]; return H ? (st.p.look.f && H.nf ? H.nf : H.n) : '原圣子'; };
 
 // ---------- 长老（CONTENT §9） ----------

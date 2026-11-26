@@ -5,6 +5,8 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
+// 天剑宗来犯按章（第六章“击退天剑宗”）来，不看境界（path.js 的 L.chapterNow；没装上时退回炼虚）
+L.warChapter = st => (L.chapterNow ? L.chapterNow(st) >= 5 : st.p.r >= 5);
 // ---------- 推进 ----------
 L.flow = function (st, f) {
   const g = L.gain(st) * f;
@@ -80,7 +82,7 @@ L.tick = function (st, cont) {
     const sc = L.sectOf(st);
     // 丹霞谷：每 6 月俸禄附一枚破境丹（手里不足 L.DAN_PILL_CAP 枚时才发，免得越攒越多）
     if (sc.pill && st.tick % 6 === 0 && st.pills < L.DAN_PILL_CAP) st.pills++;
-    if (!st.flags.warWon && st.sect.rank >= 2 && p.r >= 5 && st.tick >= (st.flags.war || 0) && !L.busy(st)) { out.war = true; st.flags.war = st.tick + 9999; }
+    if (!st.flags.warWon && st.sect.rank >= 2 && L.warChapter(st) && st.tick >= (st.flags.war || 0) && !L.busy(st)) { out.war = true; st.flags.war = st.tick + 9999; }
     if (L.canPromote(st) && !st.flags.promoNote) { st.flags.promoNote = 1; emit('promote', st.sect.rank + 1); }
     if (!L.canPromote(st)) st.flags.promoNote = 0;
   }

@@ -518,7 +518,7 @@ const LIST = [
  * ============================================================ */
 {
   id: 'disc_first_day', where: 'story', trigger: 'disciple', sect: true, maxR: 7, speaker: 'elder', title: '第一个问题',
-  text: '新徒弟磕完头，憋出第一个问题：“师父，您当年真是被赶出来的吗？”老祖笑得直抖：“本座也想听你怎么答。”',
+  text: '新徒弟磕完头，憋出第一个问题：“师父，您当年真是{shamed}吗？”老祖笑得直抖：“本座也想听你怎么答。”',
   choices: [
     { t: '是，要争气', dao: 'w',
       ok: { text: '徒弟用力点头，当晚就在院子里扎了两个时辰的马步，把你养的灵兔吓得不敢出窝。', fx: { flag: 'disc_strict', xp: 2 } } },
@@ -695,7 +695,7 @@ const LIST = [
   ]
 },
 {
-  id: 'su_end', where: 'home', visit: true, npc: 'su', speaker: 'su', aff: [90, 100], need: ['su_q2_done'], not: ['daolv_ye'], minR: 5, once: true, weight: 2, title: '济世堂',
+  id: 'su_end', where: 'home', visit: true, npc: 'su', speaker: 'su', aff: [90, 100], need: ['su_q2_done'], not: ['daolv_ye', 'daolv_su'], minR: 5, once: true, weight: 2, title: '济世堂',
   text: '丹云婆婆点了{su}继任济世堂，坐堂谷中，从此不再下山。{su}站在你门口，什么也没说，只把药箱从左手换到了右手。',
   choices: [
     { t: '留下来', p: 0.7,
@@ -935,7 +935,7 @@ const LIST = [
  * 八、主线补段（6）
  * ============================================================ */
 {
-  id: 'story_pact_eve', where: 'story', trigger: 'pact_eve', maxR: 1, speaker: 'elder', title: '约战前夜',
+  id: 'story_pact_eve', origin: 'qitu', where: 'story', trigger: 'pact_eve', maxR: 1, speaker: 'elder', title: '约战前夜',
   text: '明天就是三年之约。你擦了三遍剑还是睡不着。老祖难得没骂人：“问你句正经的——明天赢了，往后想干什么？”',
   choices: [
     { t: '让他们抬头', dao: 'k',

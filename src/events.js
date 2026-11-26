@@ -13,7 +13,7 @@ const EVENTS = [
 {
   id: 'story_r1', where: 'story', trigger: 'realm:1', speaker: 'elder',
   title: '混沌初醒',
-  text: '筑基功成，五色杂灵根竟融成一团混沌。老祖声音头一回发颤：“混沌圣体……三千年了，本座只在一个人身上见过。”',
+  text: '筑基功成，{r1open}老祖声音头一回发颤：“混沌圣体……三千年了，本座只在一个人身上见过。”',
   choices: [
     { t: '追问到底', ok: { text: '老祖装睡，鼾声震天。你却听见一句梦呓：“……天衡，你那一剑，真狠啊。”', fx: { xp: 5, flag: 'st_r1' } } },
     { t: '乖乖修炼', ok: { text: '“这还差不多。”老祖哼了一声，悄悄渡来一缕精纯剑意，助你稳固境界。', fx: { xp: 8, flag: 'st_r1' } } }
@@ -67,7 +67,7 @@ const EVENTS = [
   text: '天骄榜金光一闪，你挤进了前十二。榜首处，云无极的名字微微一亮——那位天下第一，隔着万里看了你一眼。',
   choices: [
     { t: '遥遥举杯', ok: { text: '万里外传来一声轻笑：“我在榜首等你，别让我等太久。”', fx: { xp: 6, title: '榜上钉子户' } } },
-    { t: '大摆流水席', cost: { stones: 10 }, ok: { text: '流水席摆了三天。慕容家的贺礼原封退回，附言四字：当日之赐。', fx: { xp: 4, buff: { cul: 1.5, ticks: 10 } } } }
+    { t: '大摆流水席', cost: { stones: 10 }, ok: { text: '流水席摆了三天。{exHouse}的贺礼原封退回，附言四字：当日之赐。', fx: { xp: 4, buff: { cul: 1.5, ticks: 10 } } } }
   ]
 },
 {
@@ -111,11 +111,11 @@ const EVENTS = [
 {
   id: 'story_r7', where: 'story', trigger: 'realm:7', npc: 'mo', speaker: 'elder',
   title: '问剑天剑宗',
-  text: '你与墨无痕并肩踏上天剑宗山门。护山大阵应声而开——“这阵，是本座教的。”祖师碑前，楚天阔横剑而立。',
+  text: '你与墨无痕并肩踏上天剑宗山门。护山大阵应声而开——“这阵，是本座教的。”祖师碑前，{tkStand}。',
   choices: [
     { t: '碎碑正名', duel: 1.2,
-      ok: { text: '碑碎，剑典上卷重见天日，墨离之名刻入正史。墨无痕背过身去，肩头微颤。', fx: { xp: 12, power: 0.05, aff: { mo: 15 }, flag: 'st_justice', title: '清理门户' } },
-      fail: { text: '你与楚天阔两败俱伤，墨无痕补上最后一剑。他扶你下山：“欠你的。”', fx: { inj: 3, xp: 8, aff: { mo: 15 }, flag: 'st_justice' } } },
+      ok: { text: '碑碎，剑典上卷重见天日，墨离之名刻入正史。墨无痕背过身去，肩头微颤。', fx: { xp: 12, power: 0.05, aff: { mo: 15 }, flag: ['st_justice', 'st_stele_broken'], title: '清理门户' } },
+      fail: { text: '你与{tkFoe}两败俱伤，墨无痕补上最后一剑。他扶你下山：“欠你的。”', fx: { inj: 3, xp: 8, aff: { mo: 15 }, flag: 'st_justice' } } },
     { t: '只讨公道', ok: { text: '天剑宗昭告天下、改立墨离牌位，山门留着。老祖轻声道：“比本座当年有气度。”', fx: { xp: 10, cul: 0.05, aff: { mo: 10 }, flag: 'st_justice', title: '以德服宗' } } }
   ]
 },
@@ -124,14 +124,14 @@ const EVENTS = [
   title: '最后一课',
   text: '劫云压顶，老祖的声音轻得像风：“第一道心劫，为师替你挡。”戒指上的锈迹片片剥落，露出温润玉色。',
   choices: [
-    { t: '师父，别走', ok: { text: '“头一回叫师父，偏挑这时候。破庙那夜捡到你，是本座最走运的事。”', fx: { xp: 12, buff: { cul: 2, ticks: 12 }, flag: 'st_farewell', title: '玄霄传人' } } },
+    { t: '师父，别走', ok: { text: '“头一回叫师父，偏挑这时候。{cradle}那夜捡到你，是本座最走运的事。”', fx: { xp: 12, buff: { cul: 2, ticks: 12 }, flag: 'st_farewell', title: '玄霄传人' } } },
     { t: '磕三个头', ok: { text: '你郑重三拜。戒中再无声息，一道剑意护在你心口，像按在肩头的手。', fx: { xp: 8, power: 0.08, flag: 'st_farewell', title: '玄霄传人' } } }
   ]
 },
 {
   id: 'story_daolv', where: 'story', trigger: 'daolv',
   title: '结契之礼',
-  text: '结契大典，三宗来贺，流霞铺了十里。刚拜完天地，门口一静——慕容家的贺礼到了，管事满头是汗。',
+  text: '结契大典，三宗来贺，流霞铺了十里。刚拜完天地，门口一静——{exHouse}的贺礼到了，管事满头是汗。',
   choices: [
     { t: '收礼不见人', ok: { text: '礼单照收，人请回。你从头到尾没往门口看一眼——这才是最响的一巴掌。', fx: { stones: 15, xp: 5 } } },
     { t: '请进来喝一杯', ok: { text: '你添了副碗筷。来人坐立难安，一杯酒喝得比吞剑还难。', fx: { xp: 8, title: '以酒服人' } } }
@@ -197,7 +197,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'su_5', where: 'home', visit: true, need: ['su_bond'], npc: 'su', speaker: 'su', aff: [90, 100], daolv: false, weight: 3,
+  id: 'su_5', where: 'home', visit: true, need: ['su_bond'], not: ['su_qianyuan', 'su_apart'], npc: 'su', speaker: 'su', aff: [90, 100], daolv: false, weight: 3,
   title: '问心',
   text: '丹霞谷为{su}定了亲。{su}连夜跑来，眼眶微红还嘴硬：“就问一句。你说不在乎，我明天就回去。”',
   choices: [
@@ -210,7 +210,7 @@ const EVENTS = [
 {
   id: 'ye_1', where: 'home', visit: true, not: ['ye_met'], minR: 1, npc: 'ye', speaker: 'ye',
   title: '屋顶来客',
-  text: '半夜有人翘腿坐在你房梁上，喝着你的酒：“听说落霞城出了个被退婚的废柴，来瞧瞧。”腰间一枚血玉令——魔门圣宗。',
+  text: '半夜有人翘腿坐在你房梁上，喝着你的酒：“听说{town}出了个{shamed}，来瞧瞧。”腰间一枚血玉令——魔门圣宗。',
   choices: [
     { t: '再拿一坛酒', ok: { text: '对方眼睛一亮，与你对饮到天明，临走把空坛扣你头上：“记住了，我叫{ye}。”', fx: { aff: { ye: 12 }, xp: 3, flag: 'ye_met' } } },
     { t: '出手擒拿', duel: 1.3,
@@ -518,7 +518,7 @@ const EVENTS = [
 {
   id: 'home_challenger', where: 'home', visit: true,
   title: '上门踢馆',
-  text: '锦衣修士踹开院门，下巴抬得比天高：“你就是那个被退婚的废物？跪下磕头，收你当个提鞋的。”跟班齐声叫好。',
+  text: '锦衣修士踹开院门，下巴抬得比天高：“你就是那个{shamed}？跪下磕头，收你当个提鞋的。”跟班齐声叫好。',
   choices: [
     { t: '一招解决', duel: 0.8,
       ok: { text: '一招。锦衣公子嵌进院墙，抠都抠不下来，跟班还赔了修门钱。', fx: { stones: 8, xp: 3 } },
@@ -529,7 +529,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_zhao', where: 'home', visit: true, minR: 1, maxR: 4, once: true,
+  id: 'home_zhao', origin: 'qitu', where: 'home', visit: true, minR: 1, maxR: 4, once: true,
   title: '大师兄驾到',
   text: '赵乾负手立在门前，还是当年踢你下山的嘴脸：“杂灵根走了狗屎运罢了。今日教你什么叫云泥之别。”他抬起了脚——还是那只脚。',
   choices: [
@@ -540,7 +540,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_ex_letter', where: 'home', visit: true, minR: 2, once: true,
+  id: 'home_ex_letter', origin: 'qitu', where: 'home', visit: true, minR: 2, once: true,
   title: '迟来的信',
   text: '慕容家送来{ex}的信：当年退婚“另有苦衷”，盼能“一叙旧谊”。信纸熏的香，和退婚书是同一种。',
   choices: [
@@ -562,7 +562,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_heart_demon', where: 'home', visit: true, minR: 3, once: true,
+  id: 'home_heart_demon', origin: 'qitu', where: 'home', visit: true, minR: 3, once: true,
   title: '心魔',
   text: '深夜入定，眼前回到落霞城：哄笑声里，退婚书甩在你脸上。一个和你一样的声音低语：“你骨子里，还是那个废物。”',
   choices: [
@@ -652,7 +652,7 @@ const EVENTS = [
 {
   id: 'home_recruit', where: 'home', visit: true, sect: false, minR: 1, maxR: 7,
   title: '三宗抢人',
-  text: '太虚剑宗、丹霞谷、玄天道宗的使者同时到了，礼单越摞越高。老祖幸灾乐祸：“当年踢你下山时，可没人排队。”',
+  text: '太虚剑宗、丹霞谷、玄天道宗的使者同时到了，礼单越摞越高。老祖幸灾乐祸：“当年你还是个{shamed}的时候，可没人排队。”',
   choices: [
     { t: '礼先收下', ok: { text: '你笑眯眯收下见面礼，只说“容我考虑”。三位使者出门时还在互相使绊子。', fx: { stones: 12, pills: 1 } } },
     { t: '考校使者', duel: 1.0,
@@ -696,7 +696,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_chu_tiankuo', where: 'home', visit: true, minR: 3, maxR: 6, once: true,
+  id: 'home_chu_tiankuo', origin: 'qitu', where: 'home', visit: true, minR: 3, maxR: 6, once: true,
   title: '圣子战帖',
   text: '天剑宗圣子楚天阔送来烫金战帖：“弃徒侥幸得势，终是沐猴而冠。三日后山门外，替师门清理门户。”',
   choices: [
@@ -718,7 +718,7 @@ const EVENTS = [
 {
   id: 'home_old_dream', where: 'home', visit: true, maxR: 3, once: true,
   title: '旧梦',
-  text: '你梦见了当年的自己：蜷在破庙角落，浑身是伤，攥着一枚生锈的戒指发抖。那个狼狈的自己抬起头，问你：“后来……我们赢了吗？”',
+  text: '你梦见了当年的自己：蜷在{cradle}角落，浑身是伤，攥着一枚生锈的戒指发抖。那个狼狈的自己抬起头，问你：“后来……我们赢了吗？”',
   choices: [
     { t: '“正在赢”', ok: { text: '梦里的自己笑了，笑着笑着就散了。你醒来时枕边微湿，心境却前所未有地通透。', fx: { xp: 8 } } },
     { t: '披上一件外袍', ok: { text: '你什么也没说，只是把外袍披了过去。醒来后道心澄明，戒指贴着指根，微微发暖。', fx: { buff: { cul: 1.6, ticks: 10 } } } }
@@ -775,7 +775,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'home_murong_gift', where: 'home', visit: true, minR: 3, once: true,
+  id: 'home_murong_gift', origin: 'qitu', where: 'home', visit: true, minR: 3, once: true,
   title: '慕容家的礼',
   text: '慕容家大管事抬着八口箱子登门，腰弯得极低：“当年纯属误会……”三年前，正是他把退婚书甩在你脸上。',
   choices: [
@@ -788,7 +788,7 @@ const EVENTS = [
   title: '空戒',
   text: '你对着戒指说了半天：雷云又厚了一层，隔壁散修搬走了，晚饭的鱼有点咸。戒指安安静静，再没人骂你话多。',
   choices: [
-    { t: '继续说下去', ok: { text: '讲到破庙那夜，心口那道剑意轻轻一颤，像有人“哼”了一声。', fx: { xp: 8, buff: { cul: 1.5, ticks: 10 } } } },
+    { t: '继续说下去', ok: { text: '讲到{cradle}那夜，心口那道剑意轻轻一颤，像有人“哼”了一声。', fx: { xp: 8, buff: { cul: 1.5, ticks: 10 } } } },
     { t: '擦净戒指', ok: { text: '你把戒指擦得莹润如新：“看好了，师父。我替你上去看看。”', fx: { xp: 5, buff: { atk: 1.5, ticks: 10 } } } }
   ]
 },
@@ -840,7 +840,7 @@ const EVENTS = [
 {
   id: 're_taunt', where: 'home', visit: true, weight: 0.9,
   title: '上门打脸',
-  text: '天剑宗弟子路过洞府，隔着篱笆高声道：“哟，这不是当年被逐出师门的废物吗？”',
+  text: '天剑宗弟子路过洞府，隔着篱笆高声道：“哟，这不是那个{shamed}吗？”',
   choices: [
     { t: '一指点出', ok: { text: '一指点出，那人倒飞三里。他的同伴慌忙赔上一袋灵石，头也不敢回。', fx: { stones: 2 } } },
     { t: '关门修炼', ok: { text: '门外骂了半个时辰，自觉没趣走了。你的心境反倒更稳了。', fx: { xp: 2 } } }
@@ -985,7 +985,7 @@ const EVENTS = [
 {
   id: 'exp_blood_ambush', where: 'exp', bg: ['blood'], minR: 3,
   title: '血衣截杀',
-  text: '血雾中走出七名血衣人，亮出血无涯的令牌：“混沌圣体，活的最好，死的也行。”脚下血色阵纹正在成形。',
+  text: '血雾中走出七名血衣人，亮出血无涯的令牌：“{body}，活的最好，死的也行。”脚下血色阵纹正在成形。',
   choices: [
     { t: '破阵', duel: 1.25,
       ok: { text: '阵未成，你已杀到阵眼。留下一个回去报信：让血无涯洗干净脖子。', fx: { xp: 8, stones: 14, title: '反杀' } },
@@ -1010,7 +1010,7 @@ const EVENTS = [
 {
   id: 'exp_swords_zhao', where: 'exp', bg: ['swords'], minR: 2, maxR: 6,
   title: '冤家路窄',
-  text: '剑冢深处一口剑泉即将喷涌，天剑宗的人已围了个严实。赵乾一见是你，皮笑肉不笑：“剑泉乃我天剑宗先发现的。弃徒，也配染指？”',
+  text: '剑冢深处一口剑泉即将喷涌，天剑宗的人已围了个严实。赵乾一见是你，皮笑肉不笑：“剑泉乃我天剑宗先发现的。{lowly}，也配染指？”',
   choices: [
     { t: '打进去', duel: 1.1,
       ok: { text: '你把天剑宗弟子一个个丢出圈外，独占剑泉。赵乾挂在一柄残剑上，骂声渐弱。', fx: { xp: 10, buff: { atk: 1.4, ticks: 8 } } },
@@ -1132,7 +1132,7 @@ const EVENTS = [
   ]
 },
 {
-  id: 'exp_palace_ex', where: 'exp', bg: ['palace'], minR: 3, once: true,
+  id: 'exp_palace_ex', origin: 'qitu', where: 'exp', bg: ['palace'], minR: 3, once: true,
   title: '狭路',
   text: '传承殿前，你与{ex}迎面撞上。对方瞳孔微缩，随即冷笑：“传承只有一份。当年你配不上慕容家，如今也配不上它。”',
   choices: [
@@ -1233,7 +1233,7 @@ const EVENTS = [
       { t: '破阵夺脉', duel: 1.1, ok: { text: '你一剑斩碎血阵，灵脉重归平静。消息传回宗门，掌门亲自给你记了一功。', fx: { vein: 1, contrib: 4, power: 0.03 } }, fail: { text: '血阵反噬，你吐血倒退。魔修大笑着带走了半条灵脉。', fx: { inj: 3 } } },
       { t: '回宗报信', ok: { text: '宗门长老赶来时魔修已经撤了，但灵脉总算保住一半。', fx: { contrib: 2 } } } ] },
   { id: 'sect_vein_3', where: 'home', visit: true, sect: true, minR: 5, weight: 1, title: '九宗分脉',
-    text: '九宗会盟，议定天下灵脉归属。轮到{sect}时，天剑宗长老冷笑：“一个靠弃徒撑门面的宗门，也配分脉？”',
+    text: '九宗会盟，议定天下灵脉归属。轮到{sect}时，天剑宗长老冷笑：“一个靠{lowly}撑门面的宗门，也配分脉？”',
     choices: [
       { t: '当场问剑', duel: 1.2, ok: { text: '三招，天剑宗长老的剑断了。会盟鸦雀无声，{sect}多分了灵脉。', fx: { vein: 2, contrib: 5, title: '一剑分脉' } }, fail: { text: '你惜败半招。天剑宗长老得意地拂袖，{sect}只分到一条贫脉。', fx: { vein: 1, inj: 2 } } },
       { t: '据理力争', p: 0.6, ok: { text: '你把天剑宗当年偷师的旧账翻出来，满座哗然。{sect}多分得一条灵脉。', fx: { vein: 1, contrib: 3 } }, fail: { text: '众人只当你在攀咬，什么也没分到。', fx: { stones: -5 } } } ] },

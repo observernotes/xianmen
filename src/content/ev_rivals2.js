@@ -10,7 +10,7 @@ const LIST = [
 
 /* ---------- 恩怨 ≥ 60：伏击 ---------- */
 {
-  id: 'rv_ambush_mu', where: 'exp', grudge: ['mu', 60, 100], minR: 1, weight: 3, cooldown: 36, title: '剑阵',
+  id: 'rv_ambush_mu', origin: 'qitu', where: 'exp', grudge: ['mu', 60, 100], minR: 1, weight: 3, cooldown: 36, title: '剑阵',
   text: '灌木里同时亮起剑光，慕容家护院结阵围住了你。{ex}在坡上没有拔剑：“三年前的账，今天一并算清。”',
   choices: [
     { t: '破阵', duel: 1.0, foe: 'mu', dao: 'k',
@@ -113,7 +113,7 @@ const LIST = [
 },
 {
   id: 'mu_5', where: 'home', visit: true, grudge: ['mu', -100, -40], minR: 2, need: ['beat_mu'], once: true, title: '桂花糕',
-  text: '{ex}独自提着一篮落霞城桂花糕，说是路过。一盏茶里谁也没提从前，临走才开口：“天骄榜上，你别输给别人。”',
+  text: '{ex}独自提着一篮{town}的桂花糕，说是路过。一盏茶里谁也没提从前，临走才开口：“天骄榜上，你别输给别人。”',
   choices: [
     { t: '送到山门', dao: 'r',
       ok: { text: '{ex}回头看了洞府一眼，像要记住它。篮底压着一枚绣工很笨的护身符。', fx: { xp: 2, grudge: { mu: -10 }, flag: 'mu_friend' } } },

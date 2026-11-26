@@ -483,7 +483,7 @@
 L.CHAPTERS[i].prog(st) → [{ k, t, v, max, text }]   // 1～2 条，落后的那条排第一；v/max 为比例，text 如 '胜算 62% → 目标 80%'
 L.CHAPTERS[i].blurb                                   // ≤ 14 字一句话；L.chapterGoal(st, i) → 目标卡第一行（≤ 10 字）
 L.ONB[j].ch                                           // 该项在第几章开放（0 起）
-L.chapterNow(st) → i                                  // 当前章（0～8）：第一个主线没做完的章，但不小于到过的最高境界
+L.chapterNow(st) → i                                  // 当前章（0～8）：第一个主线没做完的章（只由主线推进，不看境界；见 README“故事推进”）
 L.pathView(st) → [{ i, n, chN, realm, state: 'done'|'now'|'next'|'lock'|'miss', goal, main, blurb, prog, opened: [ONB 键], toOpen: 数量 }]
                                                       // 'miss'：境界已经越过、主线没做（仍可补）；prog 只给 now / miss
 L.goalNow(st) → { ch, chN: '第一章', t: '赢下三年之约', bar: { v, max, text, k }, prog, next }
