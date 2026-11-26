@@ -335,7 +335,7 @@ L.supportTrigger('war_eve:');
 // 天剑宗来犯前 6 月（war_eve:tianjian）：头一回满足来犯条件时先排日子、先来一封信
 function warEve(st) {
   if (!st.sect || st.flags.warWon || st.flags.warEve) return;
-  if (!(st.sect.rank >= 2 && L.warChapter(st))) return;
+  if (!L.warChapter(st)) return;   // 第六章来犯不看宗门身份（后来才入宗的也来）
   st.flags.warEve = st.tick;
   if (!(st.flags.war > st.tick)) st.flags.war = st.tick + 6;
   L.fireTrigger(st, 'war_eve:tianjian');

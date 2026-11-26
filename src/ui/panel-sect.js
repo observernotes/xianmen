@@ -12,8 +12,8 @@ function sectTabs(tab) {
 function showSect(tab) {
   const p = st.p;
   if (!st.sect) {
-    sheet({ title: shellTitle('world'), body: meTabs('sect') + `${emptyNoteHTML('vault', p.r >= 1 ? `散修一个。约 <b>${Math.max(0, (st.flags.inviteAt || 0) - st.tick)}</b> 月后宗门再来招揽。` : '散修一个。筑基后三大宗门会来招揽。')}
-      <div class="quote">戒中老祖：“急什么。等你筑基，那些宗门自会八抬大轿来请你。”</div>` });
+    const s0 = sheet({ title: shellTitle('world'), body: meTabs('sect') + sectJoinHTML() });   // 投帖：不看境界（mainline.js）
+    bindSectJoin(s0);
     return;
   }
   tab = tab || sectTab; sectTab = tab;
@@ -45,7 +45,7 @@ function sectIdHTML() {
   let promo;
   if (nx) {
     const needs = L.promoteNeeds(st), can = L.canPromote(st), left = needs.filter(x => !x.ok).length;
-    const duelLine = nx.duel ? (() => { const foe = { kind: 'heir', sect: st.sect.id }; return `<div class="pn-line seal">当众击败原${L.srankName(st, sr + 1)}${esc(L.heirName(st))}：胜算 ${L.pct(L.duelP(st, L.duelPower(st, foe), L.heirPower(), foe))}</div>`; })() : '';
+    const duelLine = nx.duel ? (() => { const foe = { kind: 'heir', sect: st.sect.id }; return `<div class="pn-line seal">当众击败原${L.srankName(st, sr + 1)}${esc(L.heirName(st))}：胜算 ${L.pct(L.duelP(st, L.duelPower(st, foe), L.heirPower(st), foe))}</div>`; })() : '';
     promo = `<div class="pn-hero" id="promoCard"><div class="row"><div class="grow"><div>晋升 <b>${L.srankName(st, sr + 1)}</b></div><div class="pn-k">俸禄 ×${L.SRANKS[sr].pay} → <b class="pn-up">×${nx.pay}</b></div></div>
       <button class="btn ${can ? 'gold' : 'alt'} eq" id="btnPromo" ${can ? '' : 'disabled'} style="flex:none;min-width:88px">晋升${can ? '' : `<small>差 ${left || 1} 条</small>`}</button></div>
       ${needs.map(x => `<div class="pn-line ${x.ok ? 'jadet' : 'muted'}">${x.ok ? '✓' : '·'} ${esc(x.t)}</div>${!x.ok && x.v !== undefined ? bar(Math.min(1, x.v), false) : ''}${x.elders ? `<div class="felders">${L.eldersOf(st).map(e => { const v = L.favor(st, e.id); return `<span class="fel ${v >= L.FAV.promo ? 'ok' : ''}">${ptImg(e.img, pxs(24, 1))}<span>${esc(e.n)}<br><b class="num">${v}</b>/${L.FAV.promo}</span></span>`; }).join('')}</div>` : ''}`).join('')}${duelLine}</div>`;
@@ -214,11 +214,11 @@ function showInvite() {
   const SC = L.sectsFor(st);
   const s = sheet({
     title: SC.length > 3 ? '四宗争徒' : '三宗争徒', center: true, noClose: true,
-    body: `<p>筑基消息传出，天下震动！${SC.length > 3 ? '三大正宗的长老同时登门，血煞魔宗也递来一封血帖' : '三大宗门的长老同时登门'}，争相招揽：</p>
+    body: `<p>你的名字传开了，天下震动！${SC.length > 3 ? '三大正宗的长老同时登门，血煞魔宗也递来一封血帖' : '三大宗门的长老同时登门'}，争相招揽：</p>
       <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
       <div class="quote">戒中老祖：“${(st.origin || 'qitu') === 'qitu' ? '当年天剑宗把你踢下山' : '当年人家当你是个' + esc(L.originWord(st, 'lowly'))}，如今人家抢着要你。痛快不痛快？”</div>`,
-    foot: [{ t: '再想想', alt: true, fn: () => { L.log(st, `婉拒了三大宗门的招揽，${12} 月后他们还会再来`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
+    foot: [{ t: '再想想', alt: true, fn: () => { L.inviteDecline(st); L.log(st, `婉拒了宗门的招揽，${L.inviteNext(st)} 月后他们还会再来；想入宗也可以去【江湖·宗门】投帖`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
   const show = () => {

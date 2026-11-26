@@ -60,7 +60,7 @@ L.bigInfo = function (st, b) {
   try {
     if (b.k === 'pact') { const pi = L.pactInfo(st); Object.assign(o, { S: pi.S, Q: pi.Q, p: pi.p, foe: { n: st.exName, pw: pi.Q } }); }
     else if (b.k === 'tour') { const f = L.tourFoe && L.tourFoe(st); if (f) { const S = L.duelPower(st, f.foe); Object.assign(o, { S, Q: f.Q, p: L.duelP(st, S, f.Q, f.foe), foe: { n: L.rivalName ? L.rivalName(st, f.id) : f.id, pw: f.Q, id: f.id } }); } else o.S = L.power(st); }
-    else if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }, S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower(); Object.assign(o, { S, Q, p: L.duelP(st, S, Q, foe), foe: { n: '天剑宗长老团', pw: Q } }); }
+    else if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }, S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower(st); Object.assign(o, { S, Q, p: L.duelP(st, S, Q, foe), foe: { n: '天剑宗长老团', pw: Q } }); }
     else o.S = L.power(st);
   } catch (e) { /* 缺模块时只给名字与月数 */ }
   return o;

@@ -43,7 +43,7 @@ function scalePw(m, fn) { const a0 = L.atkMult; L.atkMult = st => a0(st) * m; tr
 function bigP(st, b) {
   if (b.k === 'pact') { const pi = L.pactInfo(st); return { m: s => L.pactInfo(s).p, foe: L.PACT_FOE, Q: pi.Q, scale: S => S * L.pactAssist(st), t: '赢下三年之约' }; }
   if (b.k === 'tour' && has('tourFoe')) { const f = L.tourFoe(st); if (!f) return null; return { m: s => L.duelP(s, L.duelPower(s, f.foe), f.Q, f.foe), foe: f.foe, Q: f.Q, scale: S => S, t: '论道 · ' + (L.rivalName ? L.rivalName(st, f.id) : f.rv.n) }; }
-  if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }; let Q = 1; try { Q = L.warPower(); } catch (e) { return null; } return { m: s => L.duelP(s, L.duelPower(s, foe) * L.wardMult(s), Q, foe), foe, Q, scale: S => S * L.wardMult(st), t: '击退天剑宗' }; }
+  if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }; let Q = 1; try { Q = L.warPower(st); } catch (e) { return null; } return { m: s => L.duelP(s, L.duelPower(s, foe) * L.wardMult(s), Q, foe), foe, Q, scale: S => S * L.wardMult(st), t: '击退天剑宗' }; }
   return null;
 }
 function cellFoe(st, k, d) {
