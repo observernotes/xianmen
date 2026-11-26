@@ -5,7 +5,7 @@
  *   三态：L.clockMode(st) → 'idle'（打坐）| 'trip'（历练）| 'away'（闭关、特训、讲道……）；“停”由界面判（面板、聚光、秘境、自动停）。
  *         ×1 一月多少秒：L.monthSec(st)（onboard.js 的 L.TIME）。
  *   大节点：L.bigList(st) → 三年之约、天骄论道（每 12 月）、九宗会武（每 24 月）、天剑宗来犯（排上日子以后）。
- *         L.tick 产出 out.warn（还有 12 / 6 / 3 月；论道每年一届，12 月那次与上一届同月，不报）、out.prep（还有 1 月：备战卡，自动停）。
+ *         L.tick 产出 out.warns / out.warn（还有 12 / 6 / 3 月；同一个月两个节点都报；论道每年一届，12 月那次与上一届同月，不报）、out.prep（还有 1 月：备战卡，自动停）。
  *   出发拦截：L.expBlock(st, k) / L.retBlock(st, n)：行程比离大节点的月数还长 → 拒绝（“来不及了：还有 N 月”）；正好等长的历练放行，
  *         节点前 1 月提前归来，收获按走过的月数折算（out.exp.cut）。闭关类等长也拒绝（闭关没法折一半）。
  *   访客：在外（历练 / 闭关）时访客的等待不减（tick.js），从你回到洞府起算 L.VISIT.stay 月。
@@ -85,6 +85,21 @@ if (L.startBusy) { const f0 = L.startBusy; L.startBusy = function (st, n) {
   if (ok) { const c = clk(st); c.awayAt = st.tick; c.idle = 0; }
   return ok;
 }; }
+// 推荐格：原来那一格回不来时，改荐赶得回来的最好一格（同样“预计至少乙、不负伤”）；都不行就照旧给原来那格（出发键会写“来不及了”）
+{ const f0 = L.expBest; L.expBest = function (st, a) {
+  const b = f0.apply(this, arguments);
+  if (!KON() || !b || !L.expBlock(st, b.k)) return b;
+  let best = null; const aa = a === undefined ? 0 : a;
+  for (let k = 0; k < L.REGIONS.length; k++) {
+    if (L.expBlock(st, k)) continue;
+    for (let d = 0; d < 3; d++) {
+      if (!L.expOpen(st, k, d, aa)) continue;
+      const f = L.expForecast(st, k, d, aa);
+      if (f.first || (f.risk <= 0 && f.pOk >= 0.8)) { if (!best || L.rew(k, d) > L.rew(best.k, best.d)) best = { k, d, a: aa, f, fit: true }; }
+    }
+  }
+  return best || b;
+}; }
 // 闭关按钮上写为什么不能闭关（L.canRetreat 读它）
 { const f0 = L.retWhy; L.retWhy = function (st) { const w = f0(st); if (w || !KON()) return w; const b = L.retBlock(st, L.RET.len); return b ? b.why : ''; }; }
 // 老祖特训：约战前 8 月内才有，特训 4 月；撞上就不给
@@ -163,8 +178,9 @@ function cutTrip(st, out) {
   // 预告与备战（最近的那一个节点；两个节点同月时都报）
   for (const b of L.bigList(st)) {
     if (b.left === 1 && !out.prep) out.prep = L.bigInfo(st, b);
-    else if (WARN_AT.includes(b.left) && !(b.k === 'tour' && b.left === 12) && !out.warn) out.warn = { k: b.k, n: b.n, left: b.left, p: b.p };
+    else if (WARN_AT.includes(b.left) && !(b.k === 'tour' && b.left === 12)) (out.warns = out.warns || []).push({ k: b.k, n: b.n, left: b.left, p: b.p });
   }
+  if (out.warns) out.warn = out.warns[0];
   // 空转：在洞府连续打坐满 3 月
   if (!L.busy(st) && !out.exp && !out.retreat) {
     c.idle = (c.idle || 0) + 1;
