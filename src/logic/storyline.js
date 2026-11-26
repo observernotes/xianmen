@@ -294,6 +294,9 @@ L.epilogue = function (st) {
   return out;
 };
 L.EPILOGUE = EPI;
+// D 线：结局正文、后日谈卡片、结局的变体在 src/content/endings.js（浏览器里事件脚本先于逻辑载入，挂在 globalThis.XM_ENDINGS；node 里 require）。
+// 它的 install(L, END, EPI) 把上面的占位稿换掉，并包一层 L.endingOf / L.epilogue；文件缺了就用占位稿。
+{ let X = globalThis.XM_ENDINGS; if (!X && typeof require === 'function') { try { X = require('../content/endings.js').ENDINGS; } catch (err) { X = null; } } if (X && X.install) X.install(L, END, EPI); }
 // 天外线索：每条让天道试炼道果 +5%（P24：云无极、卖茶翁、星墟仙人三处统一）；问天之后记 meta.sky
 { const rc0 = L.resolveChoice; L.resolveChoice = function (st, ev, idx) {
   const res = rc0.apply(this, arguments);

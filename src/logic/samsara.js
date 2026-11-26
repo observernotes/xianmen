@@ -13,7 +13,8 @@
  * 天道试炼（L.TRIALS）：v1 五条 + §16 三条（五行缺一、孤星、无宗），可多选，道果系数相加。
  * 传承（L.legacyCands / meta.legacy）：一门圆满或化境的功法（下一世从小成起；第二传承功法可带两门）、一件法宝的器灵（下一世第一件同槽法宝带它一条词条）、
  *   一只五心灵宠的血脉（下一世第一枚蛋必为该种）。三样都可以带。
- * 存档：st.trials、st.trialEl、st.legacy、st.settle（每世）；st.meta.daoguo、st.meta.perk、st.meta.legacy、st.meta.trialHint（跨世）。L.migrateSamsara 幂等。 */
+ * 跨世的故事记录（STORY_PLAN §3.3）：st.meta.endings 点亮过的结局、st.meta.picks 每个抉择选过哪几项（storyline.js 记）、st.meta.sky 问过天、st.meta.fate 前缘、st.meta.prev 上一世的收场。
+ * 存档：st.trials、st.trialEl、st.legacy、st.settle、st.fate（每世）；st.meta.daoguo、st.meta.perk、st.meta.legacy、st.meta.trialHint、st.meta.endings / picks / sky / fate / prev（跨世）。L.migrateSamsara 幂等。 */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
 const { R, ri, pick, wpick, clamp, emit } = L.U;
@@ -224,6 +225,7 @@ L.daoFruit = function (st) {
   if (tm > 1) mults.push({ n: '天道试炼（' + (st.trials || []).map(id => L.TRIAL[id].n).join('、') + '）', v: tm });
   const kr = L.karmaRebirth ? L.karmaRebirth(st) : { n: 0, mult: 1 };
   if (kr.n) mults.push({ n: `未了的因果 ${kr.n} 条（每条 −${Math.round((L.KARMA_REB || 0.02) * 100)}%）`, v: kr.mult });
+  if (L.skyBorn(st)) mults.push({ n: '问过天（这一世，你知道题面）', v: L.SKY_MULT });
   for (const m of mults) mult *= m.v;
   const codex = parts.filter(x => x.how === 'codex').reduce((a, x) => a + x.v, 0);
   return { parts, base, mults, mult, total: Math.max(0, Math.round(base * mult)), codex: Math.round(codex * mult), karmaTitle: kr.title || null };
@@ -240,9 +242,29 @@ L.settle = function (st, how) {
   if (f.karmaTitle) L.grantTitle(st, f.karmaTitle);
   st.settle = { total: f.total, base: f.base, mult: f.mult, parts: f.parts, mults: f.mults, codex: f.codex, ends, freshEnd, how: how || (st.p.r >= 9 ? 'ascend' : 'rest'), at: st.tick };
   L.log(st, `轮回结算：道果 +${L.fmt(f.total)}（轮回殿余 ${L.fmt(st.meta.daoguo)}）`, 'gold');
+  L.metaLife(st, ends);
   emit('settle', st.settle);
   return st.settle;
 };
+// 跨世的故事记录（STORY_PLAN §3.3；不是事件标志位）：
+//   st.meta.endings = { 结局 id: { n 次数, life 头一回是第几世, tags, at 那一世修了多少年 } }——图鉴结局页用；
+//   st.meta.sky：问天之后 = 1（storyline.js 置），转世时变成 2（“这一世知道题面了”：道果 ×1.10，记在 st.flags.skyBorn）；
+//   st.meta.fate = { 人物 id: 1 }——前缘：上一世五心（或苏那句“下辈子换你来找我”）的人，下一世开局一心；每世重算。
+//   st.meta.prev = { end, name, year }——上一世怎么结束的（转世后的开场卡上，老祖“看你顺眼得有些没道理”的那一句按它换）。
+L.FATE_AFF = 20;
+L.metaLife = function (st, ends) {
+  const m = st.meta; if (!m) return;
+  const E = m.endings && typeof m.endings === 'object' ? m.endings : (m.endings = {});
+  const main = (ends && ends[0]) || 'rest', tags = st.p.r >= 9 && L.endingOf ? L.endingOf(st).tags.slice() : [];
+  for (const id of ends || []) { const r = E[id] || (E[id] = { n: 0, life: (st.rebirth || 0) + 1 }); if (id === main || !r.n) r.n++; if (id === main) { r.tags = tags; r.at = Math.floor(st.year || 0) + 1; r.last = (st.rebirth || 0) + 1; if (id === 'daolv') r.who = st.daolv; } }
+  const fate = {};
+  for (const id of L.FATE_IDS || []) if (st.npc && st.npc[id] && (st.npc[id].aff || 0) >= 100) fate[id] = 1;
+  if (st.eflags && st.eflags.su_qianyuan) fate.su = 1;
+  m.fate = fate;
+  m.prev = { end: main, name: st.p.name, year: Math.floor(st.year || 0) + 1 };
+};
+L.skyBorn = st => !!(st && st.flags && st.flags.skyBorn);
+L.SKY_MULT = 1.10;
 { const ls0 = L.lifeSummary; L.lifeSummary = function (st) { const o = ls0(st); o.origin = st.origin || 'qitu'; o.trials = (st.trials || []).slice(); if (st.settle) { o.dg = st.settle.total; o.end = st.settle.ends[0]; } return o; }; }
 
 // ---------- 传承 ----------
@@ -333,7 +355,7 @@ function applyOrigin(st) {
   const st = ns0(o);
   st.trials = [].concat(o.trials || []).filter(id => L.TRIAL[id]);
   st.trialEl = trialOn(st, 'wuxing') ? pick(SEAL_EL) : '';
-  st.legacy = {}; st.settle = null;
+  st.legacy = {}; st.settle = null; st.fate = [];
   if (!st.meta.perk) st.meta.perk = {};
   if (typeof st.meta.daoguo !== 'number') st.meta.daoguo = 0;
   // 这些只在转世时生效（第一世不读轮回殿，三年之约门槛不变）
@@ -347,6 +369,12 @@ function applyOrigin(st) {
     if (lg.pet) st.legacy.pet = lg.pet;
     st.meta.legacy = {};
     if (trialOn(st, 'wuzong')) st.flags.inviteAt = 1e9;
+    // 前缘：开局一心（孤星试炼不拦相识，只拦同伴与道侣）
+    const fate = st.meta.fate || {};
+    for (const id of Object.keys(fate)) if (L.NPCS[id] && L.addAff) { const have = (st.npc && st.npc[id] && st.npc[id].aff) || 0; if (have < L.FATE_AFF) L.addAff(st, id, L.FATE_AFF - have); st.fate.push(id); }
+    st.meta.fate = {};
+    // 问天之后的那一世
+    if (st.meta.sky === 1) { st.meta.sky = 2; st.flags.skyBorn = 1; }
     if (L.codexCells) { L.codexSeed(st); st.cx0 = L.codexCells(st); st.cxBirth = L.codexPct(st); st.cxCnt = null; L.codexCheck(st); }
   }
   return st;
@@ -358,6 +386,12 @@ L.rebirthState = function (old, opt) {
   return L.newState({ name: old.p.name, female: old.p.look.f, rebirth: (old.rebirth || 0) + 1, t: opt.t, tr: opt.tr, lives: old.lives, meta: old.meta, origin, trials: opt.trials || [] });
 };
 
+// 桃李前辈：前世出师的徒弟来访那个月（disciples.js 送灵石、记日志），再排一场戏（src/content/endings.js 的 taoli_senior）
+if (typeof L.discTick === 'function') { const f0 = L.discTick; L.discTick = function (st, out) {
+  const r = f0.apply(this, arguments);
+  if (out && out.taoliVisit && st.eflags && !st.eflags.taoli_prev) { st.eflags.taoli_prev = 1; st.flags.taoliName = out.taoliVisit.n; L.fireTrigger(st, 'taoli'); }
+  return r;
+}; }
 // ---------- 存档 ----------
 L.migrateSamsara = function (s) {
   s.meta.perk = s.meta.perk && typeof s.meta.perk === 'object' ? s.meta.perk : {};
@@ -369,5 +403,11 @@ L.migrateSamsara = function (s) {
   if (!s.legacy || typeof s.legacy !== 'object') s.legacy = {};
   if (s.settle === undefined) s.settle = null;
   if (!L.ORIGINS[s.origin]) s.origin = 'qitu';
+  if (!s.meta.endings || typeof s.meta.endings !== 'object') s.meta.endings = {};
+  // 旧档：图鉴里已经点亮的结局补一条记录（次数不详，记 1）
+  { const cx = s.meta.cx && s.meta.cx.end; if (cx) for (const id of Object.keys(cx)) if (cx[id] && !s.meta.endings[id]) s.meta.endings[id] = { n: 1, life: 0 }; }
+  if (!s.meta.picks || typeof s.meta.picks !== 'object') s.meta.picks = {};
+  if (!s.meta.fate || typeof s.meta.fate !== 'object') s.meta.fate = {};
+  if (!Array.isArray(s.fate)) s.fate = [];
 };
 });
