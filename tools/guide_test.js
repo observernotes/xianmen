@@ -62,11 +62,11 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   // ---------- 归来结算卡 ----------
   if (await ev(() => !!window.__xm.st.exp)) { await ev(() => { const X = window.__xm; X.st.exp.left = 1; }); await adv(1); }
   await page.waitForTimeout(800); await shot('g05-result');
-  const res = await ev(() => ({ title: (document.querySelector('#modal h2') || {}).textContent || '', body: (document.querySelector('#modal .body') || {}).textContent || '', btns: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent), stamp: (document.querySelector('#modal .kstamp') || {}).textContent }));
+  const res = await ev(() => ({ title: (document.querySelector('#modal h2') || {}).textContent || '', body: (document.querySelector('#modal .body') || {}).textContent || '', btns: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent), stamp: (document.querySelector('#modal .kstamp') || {}).textContent, flip: !!document.querySelector('#modal .lt-cards') }));
   check(/历练归来/.test(res.title) && /用了 \d+ 月/.test(res.title), `结算卡标题：${res.title}`);
   check(/^[乙甲天]$/.test(res.stamp), `评价印“${res.stamp}”（回合战按打出来的定）`);
   check(/战力\s*\d+\s*→\s*\d+/.test(res.body.replace(/\s+/g, ' ')) && /离目标/.test(res.body) && /还有 \d+ 月/.test(res.body), '结算卡：战力 前 → 后、离目标、还有 N 月');
-  check(/已戴上/.test(res.body), '第一件法宝：已戴上（不讲解）');
+  check(/已戴上/.test(res.body) || res.flip, '第一件法宝：已戴上（不讲解）或在归途翻牌里（刷宝线）');
   check(res.btns.length === 1 && res.btns[0] === '回洞府', `第一张结算卡只有【回洞府】（${res.btns.join('/')}）`);
   await page.click('#modal .foot .btn'); await page.waitForTimeout(900);
   // ---------- 解锁卡：洞府 · 聚灵阵 ----------
