@@ -25,6 +25,7 @@ const path = require('path');
   await page.waitForTimeout(300);
   const T0 = Date.now();
   const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => window.__lr || null))); } catch (e) { /* 页面忙时跳过 */ } }, 120000);
+  const beat = setInterval(() => { page.evaluate(() => { const s = window.__xm.st; return `周天 ${s.tick} 境界 ${s.p.r}`; }).then(s => console.error('[进度]', s), () => {}); }, 120000);   // 机器忙时心跳，看得出没卡死
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
     X.setSpeed(3);   // 暂停：时间由下面的循环推进
@@ -32,6 +33,7 @@ const path = require('path');
     setInterval(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); }, 200); // 老祖的提示一律点“好”
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const modal = () => !document.getElementById('modal').hidden;
+    const ppl = { gift: 0, like: 0, sx: 0, comp: 0, pq: 0, compTrips: 0 };
     let duelSkips = 0, zSwap = 0, petAct = 0, petFeed = 0, popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
     const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
     // 坊市：先过坊市事件（打开坊市时弹），再卖、买、出价——都点界面上的按钮
@@ -241,6 +243,27 @@ const path = require('path');
       if (title() === '人物' || document.querySelector('#cxGrid')) { cxOpen++; seen['图鉴'] = 1; }
       X.closeModal(); await sleep(450); await drain();
     }
+    // 人物（SYSTEMS §12）：来访的人物点【送礼】（列表第一项：已知 ♥ 排最前）；【人物】→ 羁绊里：能双修就【双修】、同伴位空着且有四心的就点【同行】、能交付的委托点【交付】
+    async function giftAtDoor() {
+      const s = X.st, id = L.pgiftVisitor(s);
+      if (!id || L.pgiftWhy(s, id)) return;
+      X.showVisitor(); await sleep(120);
+      const g = document.querySelector('#modal #ppGift:not([disabled])'); if (!g) return;
+      g.click(); await sleep(120);
+      const o = document.querySelector('#modal .pgiftopt'); if (!o) return;
+      if (/^\s*♥/.test(o.textContent)) ppl.like++;
+      o.click(); await sleep(120); ppl.gift++;
+      const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click(); await sleep(120);
+    }
+    async function peopleRound() {
+      X.showMe('bond'); await sleep(150);
+      const s = X.st, sx = document.querySelector('#modal #btnSx:not([disabled])');
+      if (sx) { sx.click(); ppl.sx++; await sleep(150); return; }
+      if (!L.comp(s)) { const c = document.querySelector('#modal [data-ppcomp]:not([data-ppcomp=""])'); if (c) { c.click(); ppl.comp++; await sleep(150); X.showMe('bond'); await sleep(150); } }
+      const q = document.querySelector('#modal [data-ppq]:not([disabled])');
+      if (q) { q.click(); ppl.pq++; await sleep(150); const go = document.querySelector('#modal .foot .btn.gold'); if (go) go.click(); await sleep(150); }
+      if (modal()) X.closeModal();
+    }
     async function drain() {
       for (let guard = 0; guard < 600; guard++) {
         if (guard % 100 === 99) console.log(`LR drain guard=${guard} modal=${modal()} title=${(document.querySelector('#modal h2') || {}).textContent} cine=${!!X.cine} duel=${!!X.duelFx}`);
@@ -319,7 +342,9 @@ const path = require('path');
       }
       if (st.home.furnace) { for (const k of ['xisui', 'jiuzhuan', 'juling', 'pojing', 'peiyuan']) if (!L.canCraft(st, k) && (k !== 'jiuzhuan' || st.p.r >= 5) && (k !== 'juling' || !st.buffs.some(b => b.cul)) && (k !== 'pojing' || st.pills < 2)) { L.craft(st, k); break; } }
       if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && L.duelChance(L.power(st), L.bossPower(k)) > 0.7) { X.fightBossUI(k); await drain(); }
+      if (st.visitor && !st.retreat && !modal() && L.pgiftVisitor(st)) { await giftAtDoor(); await drain(); }
       if (st.visitor && !st.retreat && Math.random() < 0.5) { X.showVisitor(); await drain(); }
+      if (n % 12 === 7 && !X.cine && !modal() && !L.busy(st) && L.PPL.some(id => L.met(st, id))) { await peopleRound(); await drain(); }
       if (L.tunaReady(st)) L.tuna(st);
       if (n % 24 === 5 && !X.cine) await artRound();
       if (n % 40 === 11 && !X.cine && !modal()) await codexRound();
@@ -337,9 +362,9 @@ const path = require('path');
           const a = L.apprOpen(st, 2) && st.stats.exp % 3 === 1 ? 2 : L.apprOpen(st, 1) && st.stats.exp % 4 === 3 ? 1 : 0;
           const c = L.expBest(st, a);
           // 前几趟走界面：历练面板 → 确认页 → 出发
-          if (uiExp < 4) { uiExp++; X.showExp(); await sleep(40); X.confirmExp(c.k, c.d, c.a); await sleep(40); document.querySelector('#modal .foot .btn.gold').click(); await sleep(450); }
+          if (uiExp < 4) { uiExp++; X.showExp(); await sleep(40); X.confirmExp(c.k, c.d, c.a); await sleep(40); { const sw = document.querySelector('#modal #ppCompSw'); if (sw && !L.comp(st)) { sw.click(); await sleep(60); const cc = document.querySelector('#modal [data-cc]:not([data-cc=""])'); if (cc) { cc.click(); ppl.comp++; await sleep(60); } } } document.querySelector('#modal .foot .btn.gold').click(); await sleep(450); }
           else L.startExp(st, c.k, c.d, c.a, L.chainOpen(st) && n % 5 === 0 ? { chain: 3 } : undefined);
-          if (st.exp) trips++;
+          if (st.exp) { trips++; if (st.exp.comp) ppl.compTrips++; }
         }
       }
       L.flow(st, 1);
@@ -349,7 +374,7 @@ const path = require('path');
     await drain();
     const st = X.st;
     const qv = L.questView(st);
-    const res = { home: L.homePlots(st).filter(Boolean).map(k => L.HOME_B[k].n + st.home[k]).join(' ') + `；建造 ${builds} 次、换阵 ${zhenSets} 次、阵图 ${L.zhenOwnList(st).length} 张`, npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
+    const res = { people: Object.assign({ daolv: st.daolv || null, aff: JSON.stringify(Object.fromEntries(Object.entries(st.npc || {}).map(([k, v]) => [k, v.aff]))), dex: L.giftDex(st).found, quests: st.ppl.qn }, ppl), home: L.homePlots(st).filter(Boolean).map(k => L.HOME_B[k].n + st.home[k]).join(' ') + `；建造 ${builds} 次、换阵 ${zhenSets} 次、阵图 ${L.zhenOwnList(st).length} 张`, npc: JSON.stringify(st.npc), daolv: st.daolv, ach: Object.keys(st.ach).length, events: st.stats.events, bosses: st.stats.bosses, tick: st.tick, realm: L.stageName(st.p), ascended: st.p.r >= 9, age: Math.floor(st.p.age), rank: st.rank, sect: st.sect ? L.srankName(st, st.sect.rank) : '-', beaten: Object.keys(st.beaten), quests: Object.keys(st.quest.done).length + ' 条（当前第 ' + (qv.r + 1) + ' 章）', trips: st.stats.exp, gear: L.GEAR_SLOTS.map(s => st.gear[s] ? L.gearBase(st.gear[s].id).n + '+' + st.gear[s].plus : '-').join(' / ') + `；对比卡换上 ${gEq} / 熔炼 ${gSmelt} / 锁定 ${gLock}，强化点了 ${gPlus} 下，灵矿 ${st.ore}`, arts: Object.keys(st.arts.own).length + ' 门，换上 ' + artEq + ' 次（卡）/ ' + artPage + ' 次（功法页），共鸣 ' + Object.keys(st.meta.combo).length,
       market: `卖出 ${mSell} 次（共 ${st.stats.sold || 0} 灵石）/ 买轮换货 ${mBuy} 件 / 出价 ${mBid} 次、拿下 ${st.stats.auction || 0} 件、被人拍走 ${st.stats.aucLost || 0} 件 / 坊市事件 ${mEv} 件 / 年历打开 ${calOpen} 次、大势 ${Object.values(st.cal.n || {}).reduce((a, b) => a + b, 0)} 件`,
       duelSkips,
       pets: `名册 ${st.pets.map(p => L.petName(p) + ' Lv' + p.lv + (p.aw ? '觉醒' : '') + (p.job ? '·' + L.PET_JOB[p.job].n : '')).join('、')} / 出战 ${L.petOut(st) ? L.petName(L.petOut(st)) : '-'} / 点兽栏 ${petAct} 次、喂 ${petFeed} 口、进化 ${st.stats.petEvo || 0} 次、觉醒 ${st.stats.petAwake || 0} 次`, retreats: st.stats.retreat, btFails: st.stats.btFails, popups, titles: Object.keys(seen),
@@ -399,12 +424,16 @@ const path = require('path');
     return res;
   });
   clearInterval(prog);
+  clearInterval(beat);
   console.log(JSON.stringify(result, null, 1));
   await page.screenshot({ path: process.argv[2] || '/tmp/longrun.png' });
   if (!result.ascended) errors.push('这一世没有飞升（' + result.realm + '）');
   if (!result.life2ok) errors.push('轮回流程：' + result.life2);
   if (!result.codexOpen) errors.push('机器人没有打开过图鉴');
   // 灵宠派岗不强求：新灵宠进名册时已自动派到推荐的空岗，机器人只在有闲着的时才点派岗（派岗卡由 shot.js 测）
+  if (!(result.people.gift > 0)) errors.push('机器人一次也没给来访的人物送礼');
+  if (!(result.people.comp > 0 || result.people.compTrips > 0)) errors.push('机器人一次也没带上同伴');
+  if (result.daolv && !(result.people.sx > 0)) errors.push('有道侣却一次也没双修');
   for (const k of ['行情卖出', '拍卖竞价', '年历', '灵宠喂食', '灵宠进化', '秘境', '收徒', '宗门送礼', '宗门宝库']) if (!result.titles.includes(k)) errors.push('机器人没用上' + k);
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();
