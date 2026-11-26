@@ -91,8 +91,8 @@ function goalOf(st) {
 // c = { id, cls, icon, n, say, go, btn, instant, out(要出门), must, cost: [{icon,n,have}], short: { n, unit, icon } | null（不够的料）, fix: { t, go },
 //       tr: fn => 试一下这个改动时 fn() 的值；save: 修炼提前的月数（闭关）；gm: 修炼倍率文字；stones: 历练带回灵石；fixed: { rate, life } }
 function cands(st, G) {
-  const out = [], p = st.p, add = c => { if (c) out.push(c); };
-  const away = L.busy(st);
+  // 行动点（docs/AP_PLAN.md §6.1）：花点的牌带 ap（◆N），点不够时写 why；“在外”没有了（历练当场打完），不再标 away
+  const out = [], p = st.p, apL = L.apLeft ? L.apLeft(st) : 3, add = c => { if (!c) return; if (c.ap && c.ap > apL && !c.why) c.why = '点不够（下一季）'; out.push(c); };
   // 1. 去突破
   if (L.isReady(st)) {
     const n = Math.min(L.BT.maxPills, st.pills || 0), r = btShown(st);
@@ -164,7 +164,7 @@ function cands(st, G) {
     if (!ok || !L.BOSSES[k]) continue;
     let P = 0; try { const Q = L.bossPower(k), S = L.duelPower(st, { kind: 'boss', k, el: L.REGIONS[k].el }); P = L.duelChance(S, Q); } catch (e) { P = 0; }
     if (P < 0.6) continue;
-    add({ id: 'boss:' + k, cls: 'boss', icon: 'boss' + Math.min(10, k), n: cut('再战' + L.BOSSES[k].n, 8), say: cut('再战' + L.BOSSES[k].n, 12), go: 'exp', btn: '去', out: 1, cost: [], fixed: { goal: 0.15, text: '35%', sub: '专属' } });
+    add({ id: 'boss:' + k, cls: 'boss', icon: 'boss' + Math.min(10, k), n: cut('再战' + L.BOSSES[k].n, 8), say: cut('再战' + L.BOSSES[k].n, 12), go: 'do:boss:' + k, btn: '去', out: 1, ap: L.AP ? L.AP.boss : 1, cost: [], fixed: { goal: 0.15, text: '35%', sub: '专属' } });
     break;
   }
   // 8. 洞府升级（聚灵阵 / 灵田 / 丹炉 / 洞府……；同类只出最值的一项）
@@ -180,10 +180,10 @@ function cands(st, G) {
   }
   // 9. 闭关
   if (L.retOpen(st) && !L.isFull(st) && p.r <= L.MAXR) {
-    const ri = L.retInfo(st), blk = L.retBlock ? L.retBlock(st) : null;
-    if (ri.save >= 1 && !blk && !st.retreat) {
+    const ri = L.retInfo(st);
+    if (ri.save >= 1 && !st.retreat) {
       const sh = ri.free ? 0 : Math.max(0, ri.cost - st.stones);
-      add({ id: 'retreat', cls: 'retreat', icon: 'retreat', n: `闭关 ${ri.len} 月`, say: `闭关 ${ri.len} ${L.UNIT || '月'}`, go: 'do:retreat', btn: '闭关', out: 1, cost: ri.free ? [] : [{ icon: 'stone', n: ri.cost, have: Math.floor(st.stones) }],
+      add({ id: 'retreat', cls: 'retreat', icon: 'retreat', n: '闭关', say: '闭关', go: 'do:retreat', btn: '闭关', out: 1, ap: L.AP ? L.AP.retreat : 2, cost: ri.free ? [] : [{ icon: 'stone', n: ri.cost, have: Math.floor(st.stones) }],
         short: sh ? { n: sh, unit: '灵石', icon: 'stone' } : null, fix: { t: '去刷', go: 'exp' }, save: ri.save, gm: ri.m });
     }
   }
@@ -219,12 +219,19 @@ function cands(st, G) {
     const pr = L.price(st, 'life'), mo = Math.floor(L.lifespan(st) * 0.1 / L.REALMS[Math.min(p.r, L.MAXR)].mpt);
     add({ id: 'life', cls: 'life', icon: 'yanshou', n: '买延寿丹', say: '买一枚延寿丹', go: 'market', btn: '去买', must: 1, cost: [{ icon: 'stone', n: pr, have: Math.floor(st.stones) }], fixed: { goal: 1, text: `+${mo} 月`, sub: '寿元' } });
   }
-  // 14. 去历练（兜底；灵石页签算“每月多多少”）
+  // 14. 扫荡（1 点，不播战斗；拿过甲、战力 ≥ 推荐 ×1.8 的格子里灵石最多的一格）
+  if (p.r <= L.MAXR && L.sweepOpen && L.sweepOpen(st)) {
+    const c = L.sweepBest ? L.sweepBest(st) : null;
+    if (c) add({ id: `sweep:${c.k}:${c.d}:${c.a}`, cls: 'sweep', icon: 'slay', n: cut('扫荡' + L.REGIONS[c.k].n, 8), say: '扫荡一趟', go: `do:sweep:${c.k}:${c.d}:${c.a}`, btn: '扫荡', instant: 1, ap: L.AP.sweep, cost: [{ icon: 'ap', n: L.AP.sweep }], fixed: { goal: 0.03, text: '约 +' + fmt(c.f.stones), sub: '灵石' } });
+  }
+  // 15. 打坐（1 点，+1 月修为；剩下的点【下一季】时也会自动打坐）
+  //     只在“别的大事不划算”时出：负伤、只剩 1 点、离圆满不到 2 个月
+  if (p.r <= L.MAXR && !L.isFull(st) && L.sitGain && (p.inj > 0 || apL < 2 || L.ticksToNext(st) <= 2)) add({ id: 'sit', cls: 'sit', icon: 'cult', n: '打坐', say: '打坐一点', go: 'do:sit', btn: '打坐', instant: 1, ap: L.AP ? L.AP.sit : 1, cost: [{ icon: 'ap', n: 1 }], fixed: { goal: 0.01, text: '+' + fmt(L.sitGain(st, 1)), sub: '修为' } });
+  // 16. 去历练（兜底；灵石页签算“每季多多少”）：2 点
   if (p.r <= L.MAXR && !L.isFull(st)) {
     const b = L.expBest(st);
-    add({ id: `exp:${b.k}:${b.d}`, cls: 'exp', icon: 'slay', n: cut('去' + L.REGIONS[b.k].n, 8), say: '去历练', go: `exp:${b.k}:${b.d}:${b.a}`, btn: '去', out: 1, cost: [{ icon: 'time', n: `${b.f.len} 月` }], stones: b.f.stones, len: b.f.len, cell: b });
+    add({ id: `exp:${b.k}:${b.d}`, cls: 'exp', icon: 'slay', n: cut('去' + L.REGIONS[b.k].n, 8), say: '去历练', go: `exp:${b.k}:${b.d}:${b.a}`, btn: '去', out: 1, ap: L.AP ? L.AP.exp : 2, cost: [{ icon: 'ap', n: L.AP ? L.AP.exp : 2 }], stones: b.f.stones, len: 3, cell: b });
   }
-  for (const c of out) if (away && c.out) c.away = 1;
   return out;
 }
 
@@ -306,7 +313,7 @@ function order(list) {
 }
 function toAct(c) {
   const r = c.r, gap = c.short ? { icon: c.short.icon, n: c.short.n, unit: c.short.unit, fix: c.fix } : null;
-  return { id: c.id, cls: c.cls, icon: c.icon, n: c.n, gain: { unit: r.unit || '', from: r.from, to: r.to, text: r.text, sub: r.sub }, cost: c.cost || [], gap, go: gap ? c.fix.go : c.go, btn: gap ? c.fix.t : c.btn, instant: !!c.instant && !gap, out: !!c.out, away: !!c.away, must: !!c.must, score: r.score, say: c.say, hl: c.hl || null, ke: c.ke || null, d: r.d || 0, save: r.save, why: c.why || '' };
+  return { id: c.id, cls: c.cls, icon: c.icon, n: c.n, gain: { unit: r.unit || '', from: r.from, to: r.to, text: r.text, sub: r.sub }, cost: c.cost || [], gap, go: gap ? c.fix.go : c.go, btn: gap ? c.fix.t : c.btn, instant: !!c.instant && !gap, out: !!c.out, away: false, ap: c.ap || 0, must: !!c.must, score: r.score, say: c.say, hl: c.hl || null, ke: c.ke || null, d: r.d || 0, save: r.save, why: c.why || '' };
 }
 
 // ---------- 页签与头 ----------
@@ -385,7 +392,7 @@ L.advise = function (st, focus) {
   if (!acts.length || acts.every(a => a.gap)) {
     const ex = list.find(c => c.cls === 'exp'), n = toStage(st);
     const idle = { id: 'idle', cls: 'idle', icon: 'cult', n: '稳着呢', gain: { unit: 'month', text: isFinite(n) && !L.isFull(st) ? `约 ${n} 月` : '—', sub: L.isFull(st) ? '已圆满' : '升下一层' }, cost: ex ? ex.cost : [], gap: null,
-      go: ex ? ex.go : 'exp', btn: '去历练', instant: false, out: true, away: L.busy(st), must: false, score: 0, say: '去历练', hl: null, ke: null, d: 0 };
+      go: ex ? ex.go : 'exp', btn: '去历练', instant: false, out: true, away: false, ap: ex ? ex.ap : 2, must: false, score: 0, say: '去历练', hl: null, ke: null, d: 0 };
     acts = [idle].concat(acts.filter(a => a.gap).slice(0, 1));
   }
   const H = headOf(st, focus, G);
@@ -411,10 +418,14 @@ L.adviseDo = function (st, id) {
     if (k === 'infuse') { if (!has('gearInfuse')) return fail('还不能淬灵'); const x = st.gear[a]; if (!x) return fail('没有兵器'); const why = has('gearInfuseWhy') ? L.gearInfuseWhy(st, x.u, b) : ''; if (why) return fail(why); r = L.gearInfuse(st, x.u, b); return r ? { ok: true, done: true, res: r } : fail('淬灵不了'); }
     if (k === 'wishset') { if (!has('setWish')) return fail('还不能钉心愿'); r = L.setWish(st, +a, +b, +c); return r ? { ok: true, done: true, res: r } : fail('钉不上'); }
     if (k === 'up') { r = L.upgrade(st, a); return r ? { ok: true, done: true } : fail('灵石不够'); }
-    if (k === 'retreat') { r = L.startRetreat(st); return r ? { ok: true, done: true } : fail(L.retWhy(st) || '闭不了关'); }
+    // 花点的事一律走 L.act（扣点、排进结算链）；历练只出发，节点由界面 / sim 接着打（L.tripStep → L.tripEnd）
+    if (k === 'retreat') { r = L.act ? L.act(st, 'retreat') : L.startRetreat(st); return r ? { ok: true, done: true, res: r } : fail(L.actLastWhy || L.retWhy(st) || '闭不了关'); }
+    if (k === 'sit') { r = L.act(st, 'sit'); return r ? { ok: true, done: true, res: r } : fail(L.actLastWhy || '打坐不了'); }
+    if (k === 'sweep') { r = L.act(st, 'sweep', { k: +a, d: +b || 0, a: +c || 0 }); return r ? { ok: true, done: true, res: r } : fail(L.actLastWhy || '扫荡不了'); }
+    if (k === 'boss') { r = L.act(st, 'boss', { k: +a }); return r ? { ok: true, done: true, res: r } : fail(L.actLastWhy || '首领没现身'); }
     if (k === 'pill') { r = L.takePill(st, a); return r ? { ok: true, done: true, res: r } : fail(L.takeWhy(st, a)); }
     if (k === 'heal') { r = L.heal(st); return r ? { ok: true, done: true } : fail('没有丹'); }
-    if (k === 'exp' || k === 'wish') { r = L.startExp(st, +a, +b || 0, +c || 0); return r ? { ok: true, done: true } : fail('出不了门'); }
+    if (k === 'exp' || k === 'wish') { r = L.act ? L.act(st, 'exp', { k: +a, d: +b || 0, a: +c || 0 }) : L.startExp(st, +a, +b || 0, +c || 0); return r ? { ok: true, done: true } : fail(L.actLastWhy || '出不了门'); }
     if (k === 'pet' && a === 'feed') {
       const i = st.petOut, p = st.pets[i]; if (!p) return fail('没有出战的灵宠');
       const lv0 = p.lv; let n = 0;

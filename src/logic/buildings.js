@@ -4,7 +4,7 @@
  *   兽栏 喂养 +8%/级（pets.js 的 L.petFeedEff）、岗位 +5%/级（pets.js 的 jobV 读 L.penJobMult）；养兽阵也走这两处。
  *   聚宝阁 出售价 +3%/级（market.js 的 L.sellParts；被动灵石在 home.js 的 incMul）。
  *   迎客亭 访客 +10%/级（calendar.js 的 L.calVisitMult）、来访好感 +1（L.visitFavorBonus，fx.aff 的钩子；人物线读它）。
- *   传送阵 3 级历练时长 −1（L.expLen）、6 级已通关地图（外围评价乙）的禁地直接开（L.depthOpen）、9 级秘境不耗月（realm.js 读 st.home.portal）。
+ *   传送阵 3 级脚力 +25%（L.strideParts，原历练时长 −1）、6 级已通关地图（外围评价乙）的禁地直接开（L.depthOpen）、9 级秘境只花 1 点（realm.js 的 L.mjAp）。
  *   灵泉 新添的伤每 2 级少养 1 月（L.homeTick）；泉中鱼 spring_fish 丹毒每月多退 0.5。
  *   阵图来源：生财阵 坊市轮换货（market.js 的 L.zhenShopOk）；迷踪 / 护山 / 养兽 拍卖（L.zhenAucLot）；迷踪 仙府秘藏（realm.js 的 L.mjChestExtra）；
  *            养兽 万妖山脉腹地（妖市）、太古仙府任一深度评价乙以上时偶得（L.resolveExp）；丹火 葛老三心；锻魂 剑气秘境；渡劫 story_trib1。
@@ -36,7 +36,7 @@ wrap('calVisitMult', b => st => b(st) * (ON() && st.home.pavilion ? 1 + V().pavV
 wrap('toxDecay', b => st => b(st) + (st.eflags && st.eflags.spring_fish ? V().springTox : 0));
 // ---------- 传送阵 ----------
 L.portalLv = st => (ON() ? (st && st.home && st.home.portal) || 0 : 0);
-wrap('expLen', b => (k, st) => { const n = b(k, st); return st && L.portalLv(st) >= V().portalLen ? Math.max(2, Math.min(n, n - 1)) : n; });
+wrap('strideParts', b => (st, k) => { const o = b(st, k); if (st && L.portalLv(st) >= V().portalLen) o.push(['传送阵', 1]); return o; });   // 传送阵 3 级：脚力 +25%（原历练时长 −1）
 wrap('depthOpen', b => (st, k, d) => b(st, k, d) || (d === 2 && L.portalLv(st) >= V().portalDeep && L.bestOf(st, k, 0) >= 2));
 
 // ---------- 阵图来源 ----------

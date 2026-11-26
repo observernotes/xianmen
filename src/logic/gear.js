@@ -50,7 +50,7 @@ L.AFFIX = {
   cangfeng: { n: '藏锋', d: '被克时不减伤害', slots: 'wr' },
   huzhu: { n: '护主', d: '丁等不负伤（每 12 月一次）', slots: 'ro' },
   zhenjie: { n: '镇劫', d: '天劫承劫 +5%', slots: 'ro' },
-  qingling: { n: '轻灵', d: '历练时长 −1（最少 2 月）', slots: 'wr', minT: 3 },
+  qingling: { n: '轻灵', d: '脚力 +25%（每趟历练；攒满返还 1 点行动点）', slots: 'wr', minT: 3 },
   jucai: { n: '聚财', d: '历练灵石 +12%', slots: 'wro' },
   xunzhen: { n: '寻珍', d: '历练法宝功法掉率 +15%', slots: 'wro' },
   cailing: { n: '采灵', d: '历练灵草 +30%', slots: 'ro' },
@@ -300,8 +300,8 @@ L.gearExp = function (st) {
   if (!ON()) return { stone: 1, item: 1, herb: 1, leap: 1 };
   return { stone: (1 + L.AFF_V.jucai * L.gearAffN(st, 'jucai')) * (1 + accV(st, 'gold')), item: 1 + L.AFF_V.xunzhen * L.gearAffN(st, 'xunzhen'), herb: 1 + L.AFF_V.cailing * L.gearAffN(st, 'cailing'), leap: 1 + L.AFF_V.shixue * L.gearAffN(st, 'shixue') };
 };
-// 历练时长：轻灵 −1（最少 2）
-L.gearExpLen = (st, n) => (st && L.gearAffN(st, 'qingling') ? Math.max(2, Math.min(n, n - 1)) : n);
+// 脚力来源数（AP_PLAN §2.3，原“历练时长 −1”）：身上有轻灵词条算 1 个来源（两件都有也只算 1，和原来一样不叠）
+L.gearExpLen = st => (st && L.gearAffN(st, 'qingling') ? 1 : 0);
 // 负伤：法衣三阶起少 1 月；护主每 12 月挡一次丁等负伤；六阶法衣丁等 30% 改判丙
 L.gearInjCut = st => L.gearOInj(eq(st, 'r'));
 L.gearHuzhuReady = st => L.gearAffN(st, 'huzhu') > 0 && st.tick - (st.gear.huzhu === undefined ? -99 : st.gear.huzhu) >= L.AFF_V.huzhuCd;

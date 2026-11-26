@@ -25,10 +25,14 @@ L.SEASONS = [
 ];
 L.SEASON_V = { herb: 0.5, visit: 0.3, beast: 0.15, rice: 0.5, price: 0.2, ret: 0.2, xingheRet: 0.5 };
 L.seasonOf = t => { const m = ((t % 12) + 12) % 12; return m >= 1 && m <= 3 ? 0 : m >= 4 && m <= 6 ? 1 : m >= 7 && m <= 9 ? 2 : 3; };
-L.season = st => L.seasonOf(st.tick);
+// “现在”是哪个月（docs/AP_PLAN.md §1.2）：回合之间 st.tick 停在上一季的最后一个月，玩家正在过的是下一个月（st.tick + 1）；
+// 只有 L.tick 推过月之后、这个月的结算进行中（tick.js 把 L._inMonth 设成这个 st），“现在”才是 st.tick。
+// 四季、换季加成（采药、冬季闭关、夏季秘境……）一律看它，所以行动时拿到的是本回合这一季，不再差一季
+L.monthNow = st => (L._inMonth === st ? st.tick : st.tick + 1);
+L.season = st => L.seasonOf(L.monthNow(st));
 L.seasonKey = st => L.SEASONS[L.season(st)].id;
-// 本季还剩几个月（含本月）；下一季从哪个月开始
-L.seasonLeft = st => { const m = ((st.tick % 12) + 12) % 12; const end = m === 0 ? 0 : Math.ceil(m / 3) * 3; return (end === 0 ? 0 : end - m) + 1; };
+// 本季还剩几个月（含本月）
+L.seasonLeft = st => { const m = ((L.monthNow(st) - 1) % 12 + 12) % 12 + 1; return Math.ceil(m / 3) * 3 - m + 1; };
 // 第一世要筑基、并且三年之约打完（之前“大事”牌还是约战的锦囊，老祖也只顾着约战）；转世后一开始就有
 // L.CAL_ON = false：四季与大势全关（tools/sim.js 的 nocal 用它量这一刀的影响）
 L.CAL_ON = true;
@@ -231,11 +235,12 @@ L.calMarks = function (st, n) {
   return out;
 };
 // 秘境的夏季窗口：还有几个月开（0 = 正开着）、开着的话还剩几个月
-L.realmWindow = function (st) {
-  const m = ((st.tick % 12) + 12) % 12;
+L.realmWindowAt = function (t) {
+  const m = ((t % 12) + 12) % 12;
   if (m >= 4 && m <= 9) return { open: true, left: 10 - m };
   return { open: false, in: m < 4 ? 4 - m : 16 - m };
 };
+L.realmWindow = st => L.realmWindowAt(L.monthNow(st));
 // 下一次掷大势还有几个月
 L.nextWorldRoll = st => { const m = ((st.tick % 12) + 12) % 12; return m < L.CAL.worldAt ? L.CAL.worldAt - m : 12 + L.CAL.worldAt - m; };
 

@@ -16,7 +16,7 @@
  *
  * 接入点（本模块加载时包一层，别的模块不用改）：items 的 L.giveItem / L.itemText 的灵宠分支在 items.js 里转到这里；
  *   L.resolveExp（出战经验、斩妖兽粮、禁地趟数、青羽雀）、L.craft（下品丹 → pet_sick）、L.eligible / L.choiceShown（灵宠事件的前提、进化分支的条件）、
- *   L.spawnVisitor（巡山）、L.ageRate、L.alchRate、L.retBaseMult、L.choiceLuck、L.leapMult、L.expLen、L.gearDingSave、L.gearInjCut、L.expStoneMult、
+ *   L.spawnVisitor（巡山）、L.ageRate、L.alchRate、L.retBaseMult、L.choiceLuck、L.leapMult、L.strideParts、L.gearDingSave、L.gearInjCut、L.expStoneMult、
  *   L.lifespan、L.affKnown、L.elemKnown、L.expElem、L.duelElem、L.gearAffN、L.addAff、L.addMastery、L.gearSmeltOre、L.toxDecay、L.vaultCost / L.vaultBuy（天赋与岗位）。
  *   tick.js 每月调 L.petTick；save.js 调 L.migratePets（没有 st.pets 时把旧的 st.p.pet 折成名册，可重复调用）；market.js 的灵兽蛋与“兽粮一袋”调 L.petEgg / L.feedSack。
  *   L.PETS_ON = false（sim 的 nopets）：只剩种的初阶倍率，没有等级、进化、好感、岗位与天赋，量 SYSTEMS §18 的预算。 */
@@ -38,7 +38,7 @@ L.PET_TAL = {
   realmUnk: { k: 'add', v: 0.04, d: () => '秘境“？”门少一半' },   // realm.js 的 L.mjUnkP 读（有就减半）
   leap: { k: 'mul', v: 1.2, d: v => `越级奖励 +${pc(v - 1)}` },
   herbx: { k: 'add', v: 0.1, d: v => `历练 ${pc(v)} 多带一份灵草` },
-  explen: { k: 'flag', v: 1, d: () => '历练时长 −1 月（最少 2）' },
+  explen: { k: 'flag', v: 1, d: () => '脚力 +25%（每趟历练；攒满返还 1 点行动点）' },
   visitAff: { k: 'add', v: 1, d: v => `人物好感每次多 +${Math.round(v)}` },
   dingSave: { k: 'add', v: 0.3, d: v => `丁等 ${pc(v)} 改判丙等` },
   robe: { k: 'add', v: 0.3, d: v => `法衣效果 +${pc(v)}（历练分数）` },
@@ -616,7 +616,7 @@ wrap('alchRate', b => st => clamp(b(st) + jobV(st, 'furnace') + tv(st, 'alchUp')
 wrap('retBaseMult', b => st => b(st) + tv(st, 'ret'));
 wrap('choiceLuck', b => st => b(st) + tv(st, 'luck') + (L.seasonKey(st) === 'winter' ? tv(st, 'winterLuck') : 0));
 wrap('leapMult', b => st => b(st) * tv1(st, 'leap'));
-wrap('expLen', b => (k, st) => { const n = b(k, st); return st && tv(st, 'explen') ? Math.max(2, Math.min(n, n - 1)) : n; });
+wrap('strideParts', b => (st, k) => { const o = b(st, k); if (st && tv(st, 'explen')) o.push(['灵宠', 1]); return o; });   // 天赋“历练时长 −1”改成脚力 +25%
 wrap('gearDingSave', b => st => { const a = b(st), v = Math.min(0.9, tv(st, 'dingSave')); return 1 - (1 - a) * (1 - v); });
 wrap('gearInjCut', b => st => b(st) + Math.round(tv(st, 'injCut2')));
 wrap('toxDecay', b => st => b(st) + tv(st, 'toxin'));
