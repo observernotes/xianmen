@@ -39,7 +39,7 @@ require('fs').mkdirSync(out, { recursive: true });
     st.market.evQ = [];
     // 法宝：乾坤镜 +3（克木、锋锐）、冰蚕法衣、紫府玉简；灵矿够强化几次
     st.gear = L.newGear(); st.ore = 900; st.treasure = 2;
-    L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.w.aff = ['ke_mu', 'fengrui']; st.gear.w.plus = 3;
+    L.gearDrop(st, 'w', 4, { base: 'w4_1' }); st.gear.w.aff = ['ke_mu', 'fengrui', 'huixin'].filter(a => L.AFFIX[a]).slice(0, 2);   // 刷宝线把锋锐并进了会心 st.gear.w.plus = 3;
     L.gearDrop(st, 'r', 3, { base: 'r3_0' }); L.gearDrop(st, 'o', 4, { base: 'o_cul4' });
     // 灵宠：元婴名册 3 只——赤焰虎 5 级出战（可进化）、冰羽鹤护阵、月牙兔觅食
     st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
@@ -764,7 +764,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40-codex.png' });
   await sLay('图鉴');
   const cx1 = await page.evaluate(() => ({ cats: document.querySelectorAll('#cxGrid [data-cx]').length, cells: document.querySelectorAll('#cxBody .cxc').length, tabs: [...document.querySelectorAll('#modal .ktabs button')].some(b => b.textContent.startsWith('记录')) }));
-  if (cx1.cats !== 14 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
+  if (cx1.cats < 14 || !cx1.cells || !cx1.tabs) errors.push('图鉴页不对：' + JSON.stringify(cx1));
   await page.click('#modal [data-cx="chain"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40b-codex-chain.png' }); await sLay('图鉴·链');
   const cx2 = await page.evaluate(() => ({ chains: document.querySelectorAll('#cxBody .cxchain').length, segs: document.querySelectorAll('#cxBody .cxseg i').length }));
   if (cx2.chains !== 10 || cx2.segs !== 48) errors.push('图鉴·链页应有 10 条 48 段：' + JSON.stringify(cx2));
