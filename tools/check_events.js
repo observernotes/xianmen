@@ -71,8 +71,8 @@ function checkText(id, s, where) {
 // 对话场景（STORY_PLAN §6.4）：一句 ≤ 36 字；一场（含最长的分支）≤ 40 句；说话人写法 'id[:表情[+叠加]][:显示名]' / 'me' / 'nar' / '?:名字'
 const TALK_MOOD = ['n', 'joy', 'ang', 'shock', 'sad', 'cold'], TALK_FX = ['tear', 'shade', 'blush', 'blood', 'sweat', 'mono', 'fade'];
 const TALK_LIM = { line: 36, lines: 40 };
-const TALK_CMD = ['cg', 'scene', 'sfx', 'shake', 'flash', 'bgm', 'wait', 'zoom', 'fx', 'dim'];   // 不占一句的指令
-const TALK_OPT = ['slow', 'fast', 'loud', 'soft', 'sfx', 'flash', 'shake', 'bgm', 'zoom', 'x', 'y', 'dim', 'fx'];   // 台词第三项：这一句自带的演出
+const TALK_CMD = ['cg', 'scene', 'sfx', 'shake', 'flash', 'bgm', 'wait', 'zoom', 'fx', 'dim', 'bars'];   // 不占一句的指令
+const TALK_OPT = ['slow', 'fast', 'loud', 'soft', 'sfx', 'flash', 'shake', 'bgm', 'zoom', 'x', 'y', 'dim', 'fx', 'bars', 'ms'];   // 台词第三项：这一句自带的演出
 function checkTalk(id, talk, where) {
   let n = 0;
   const walk = (list, w) => {

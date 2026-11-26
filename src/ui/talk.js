@@ -357,7 +357,7 @@ if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function 
 }; }
 if (typeof onbPump === 'function') { const op0 = onbPump; onbPump = function () { if (tk) return; return op0.apply(this, arguments); }; }
 // 剧情线加的几个音效名（分镜与对话里按名字调）
-Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap() });
+Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap(), boom: () => SFX.boom(), shine: () => SFX.shine(), whoosh: () => SFX.whoosh() });
 
 // ---------- 二、数据式分镜 ----------
 // 一段：{ n 名字, no 序号, bgm, thumb 底图写法, shots: [ 镜头 ] }
