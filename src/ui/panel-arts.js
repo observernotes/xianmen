@@ -1,7 +1,7 @@
 /* 废柴仙途 · 界面片段 panel-arts：功法页（【人物】→ 功法）、五行标记、功法图标、掉落卡里的【换上】、共鸣揭晓
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * SYSTEMS §2：三个大槽 + 下方已有功法（按“换上后修炼 / 战力变化”排序，第一项标“荐”）。点槽 → 点功法，两下完成。
- * 数字一律取自逻辑层：L.artList（排序与变化量）、L.artXMult / L.artZMult（倍率）、L.artProg（熟练）、L.expElem / L.duelElem（克制）。 */
+ * “荐 / 换上”一律问 L.artRecommend（src/logic/artrec.js，带原因）；数字取自逻辑层：L.artList（排序与变化量）、L.artXMult / L.artZMult（倍率）、L.artProg（熟练）、L.expElem / L.duelElem（克制）。 */
 // ---------- 小部件 ----------
 const EL_CLS = { jin: 'el-jin', mu: 'el-mu', shui: 'el-shui', huo: 'el-huo', tu: 'el-tu' };
 function elChip(el, unknown) { return unknown ? '<span class="el el-unk">？</span>' : `<span class="el ${EL_CLS[el] || 'el-none'}">${L.elName(el)}</span>`; }
@@ -31,23 +31,23 @@ function artDeltaText(id) {
   return `<span class="${v > 0 ? 'jadet' : 'seal'}">战力 ${v > 0 ? '+' : '−'}${fmt(Math.abs(v))}</span>`;
 }
 
-// 有更强的心法 / 战技没换上（【人物】角标“功”、老祖气泡用）：返回 { i, row } 或 null。每月最多算一次
+// 该换的心法 / 战技（【人物】角标“功”、老祖气泡用）：返回 { i, rc } 或 null。口径就是 L.artRecommend 平时的推荐（artrec.js），与功法页“荐”、变强页同一门
 let artRecCache = { t: -1, v: null };
 function artRec() {
   if (!st || !st.arts) return null;
-  const key = st.tick + '|' + Object.keys(st.arts.own).length + '|' + L.artSlots(st).join();
+  const key = (L.adviseKey ? L.adviseKey(st) : st.tick) + '|' + L.artSlots(st).join();
   if (artRecCache.t === key) return artRecCache.v;
   let v = null;
-  for (const i of [0, 1]) { if (!L.artSlotOpen(st, i)) continue; const r = L.artList(st, i).find(x => x.rec && x.score >= 1.03); if (r) { v = { i, row: r }; break; } }
+  for (const i of [0, 1]) { const rc = L.artRecommend(st, i); if (rc && !rc.same && rc.id) { v = { i, rc }; break; } }
   artRecCache = { t: key, v };
   return v;
 }
-// 每月：新出现的“更强的一门”老祖提一句（每门一次，不打断）
+// 每月：新出现的推荐老祖提一句（每门一次，不打断），带原因
 function artRecTip() {
   const r = artRec();
   if (!r || L.busy(st)) return;
-  const A = r.row.A, d = r.row.d;
-  tip('artrec_' + r.row.id, r.i === 0 ? `《${A.n}》比你现在的心法强：修炼 +${dec(d.g1 - d.g0)}/月。去【人物】→ 功法点一下换上。` : `《${A.n}》比你现在的战技强：战力 ${fmt(d.p0)} → ${fmt(d.p1)}。去【人物】→ 功法点一下换上。`);
+  const A = L.art(r.rc.id);
+  tip('artrec_' + r.rc.id, `换上${r.i === 0 ? '心法' : '战技'}《${A.n}》：${r.rc.why}。去【人物】→ 功法点一下换上。`);
 }
 // ---------- 功法页 ----------
 let artSel = 0;
@@ -88,8 +88,9 @@ function showArts(sel, still) {
     const gen = r.gen.same >= 2 && !r.cur ? `<span class="alink gen">同属+${Math.round((r.gen.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%</span>` : '';
     const dt = r.cur ? '<span class="chip ok">装备中</span>' : open ? artDeltaText(r.id) : '';
     const why = r.rec ? `<span class="chip ok">荐</span>` : '';
+    const recWhy = r.rec && r.why ? `<div class="jadet arec-why">${esc(r.why)}</div>` : '';
     return `<div class="card arow pn-arow${r.cur ? ' cur' : ''}" data-art="${r.id}">${artImg(r.id, 2)}<div class="main"><div class="line">${why}<b class="pn-nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</b>${elChip(A.el)}${links}${gen}</div>
-      <div class="muted">${A.k !== 'm' ? esc(artMain(r.id)) + ' · ' : ''}熟练 ${L.MAST.n[L.artLv(st, r.id)]}</div></div>
+      <div class="muted">${A.k !== 'm' ? esc(artMain(r.id)) + ' · ' : ''}熟练 ${L.MAST.n[L.artLv(st, r.id)]}</div>${recWhy}</div>
       <div class="right">${dt}</div></div>`;
   }).join('') || emptyNoteHTML('vault', `还没有${L.ART_CAT[L.ART_SLOTS[artSel]]}：寻宝、历练、宗门宝库都会给。`);
   const descs = rows.map(r => `<div class="dexrow">${tierTag(r.A.t)} 《${esc(r.A.n)}》：${esc(r.A.k === 'm' ? L.artDesc(st, r.id) : artMain(r.id) + ' · ' + L.artDesc(st, r.id))}${masteryHTML(r.id, true)}</div>`).join('');
@@ -142,7 +143,7 @@ function artLine(it) {
   if (it.frag && !it.fragDone) tail = `<div>残篇 <b>${it.frag} / 3</b>，集齐自动合成</div>`;
   else if (it.dup) tail = `<div>已会：参照着练，熟练 <b>+${it.mastery}</b>（${L.MAST.n[L.artLv(st, it.art)]}）</div>`;
   else if (it.equip || L.artSlots(st).includes(it.art)) tail = `<div class="jadet">已装上${it.fragDone ? '（三片残篇合一）' : ''}</div>`;
-  else if (L.artBetter(st, it.art)) tail = `<div class="row"><span class="grow pn-key">${artDeltaText(it.art)} ▲</span><button class="btn sm gold eq" data-eqart="${it.art}">换上</button></div>`;
+  else if (L.artRecWhy(st, it.art)) tail = `<div class="row"><span class="grow pn-key">${esc(L.artRecWhy(st, it.art))} ▲</span><button class="btn sm gold eq" data-eqart="${it.art}">换上</button></div>`;   // 是平时的推荐才给【换上】（artrec.js），原因同功法页
   else tail = `<div class="muted">先收着，【人物】→ 功法随时换</div>`;
   return `<div class="quote artline"><div class="row">${head}${tail}</div></div></div>`;
 }
@@ -157,8 +158,8 @@ function bindEquipButtons(root) {
     updateHUD();
   });
 }
-// 历练确认页的五行一行：已知写“你的火系战技克此地（金）：分数 +8”，未知写“？”；有更合适的战技给一键换上
-function elemLine(k) {
+// 历练确认页的五行一行（旧分数制）：已知写“你的火系战技克此地（金）：分数 +8”，未知写“？”；L.artRecommend 按这一格推荐时给一键换上（带原因）
+function elemLine(k, d) {
   if (!L.artSlotOpen(st, 1)) return '';
   const rg = L.REGIONS[k], known = L.elemKnown(st, k), e = L.expElem(st, k), sl = L.artSlots(st), z = sl[1] && L.art(sl[1]);
   let main;
@@ -168,15 +169,11 @@ function elemLine(k) {
   else if (e.v > 0) main = `<span class="jadet">${L.elName(e.me)}克${L.elName(e.it)}：分数 +${e.v}</span>`;
   else if (e.v < 0) main = `<span class="seal">${L.elName(e.it)}克${L.elName(e.me)}：分数 −${-e.v}</span>`;
   else main = `${L.elName(e.me)}与${L.elName(e.it)}不相克`;
+  // 有更合适的战技：L.artRecommend 按这一格（与功法页、变强页同一套打分），写原因
   let swap = '';
-  if (known && rg.el) {
-    let best = null;
-    for (const id of Object.keys(st.arts.own)) {
-      if (L.art(id).k !== 'z' || id === sl[1]) continue;
-      const v = L.expElem(st, k, [sl[0], id, sl[2]]).v;
-      if (v > e.v && (!best || v > best.v || (v === best.v && L.art(id).t > L.art(best.id).t))) best = { id, v };
-    }
-    if (best) { const B = L.art(best.id); swap = `<button class="btn sm alt eq" data-swapz="${best.id}">换上《${esc(B.n)}》（${L.elName(L.atkEl(st, rg.el, [sl[0], best.id, sl[2]]))}）：分数 ${best.v - e.v > 0 ? '+' : ''}${best.v - e.v}</button>`; }
-  }
+  const rc = L.artRecommend(st, 1, { k, d: d || 0, here: true });
+  if (rc && !rc.same && rc.id) { const B = L.art(rc.id); swap = `<button class="btn sm alt eq" data-swapz="${rc.id}">换上《${esc(B.n)}》：${esc(rc.why)}</button>`; }
+  const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d: d || 0, here: true, force: true }) : null;   // 近期大节点优先：克这张图的另有一门只提一句
+  if (alt && alt.id !== (rc.same ? rc.cur : rc.id) && alt.why && /克/.test(alt.why)) swap += `<span class="muted">克这张图的是《${esc(L.art(alt.id).n)}》；${esc(rc.ctx.label)}还有 ${rc.ctx.left} 月，先按它配</span>`;
   return `<div id="expElem" class="elemline">${elChip(rg.el, rg.el && !known)}<span class="grow">${main}</span>${swap}</div>`;
 }

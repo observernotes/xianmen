@@ -146,6 +146,7 @@ L.migrate = function (s) {
   if (L.migrateOnb) L.migrateOnb(s);   // 上手曲线：旧档里已经在用的系统算开了（onboard.js，幂等，不升版本）
   if (L.migrateKairo) L.migrateKairo(s);   // 开罗式重整：路径 st.path、时钟与纸鹤 st.clk / st.inbox、年报 st.rep / st.repHist（path.js / time.js / report.js，幂等，不升版本）
   if (L.migrateStory) L.migrateStory(s);   // 剧情流程：按章补发的剧情键 st.path.hold、魔门遗孤认识夜、试炼提示（story.js，幂等，不升版本）
+  if (L.migrateAp) L.migrateAp(s);   // 行动点与季度回合：在外的历练、闭关当场结掉，tick 补齐到季界，吐纳折成修为，st.ap（ap.js，幂等，不升版本；排在 migrateTime 之后）
   s.v = L.SAVE_V;
   return s;
 };

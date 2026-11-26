@@ -923,4 +923,42 @@ L.chainOpen(st, why)            // 一条链开始（why: 'act' | 'season' | 'lo
 
 ### 实际提供的接口（A1 完成后由线 A 在这里补写）
 
-（待补）
+A1 已合入：`src/logic/ap.js`（`MODULES` 里 `time` 之后、`report` 之前）。上面约定的名字**全部按原样提供**；下面只写行为细节、偏差和多出来的东西。**行为粗、签名定死**：A2 / B 往里填，不改签名。
+
+**常量与存档**：`L.SEASON_LEN`、`L.AP`（§3.5 的初值，键与 §10 一致）、`L.AP_ON` 已有；`expRew / lootRew / stride / 负伤月数` 还没接进公式（A2）。`st.ap = { left, stride, debt, seq, pend, log }` 由新档（包 `L.newState`）和 `L.migrateAp`（`save.js` 迁移链最后一行，在 `migrateKairo → migrateTime` 之后）建；迁过的档只补字段，跑两遍结果相同。`L.migrateAp` 另外多记 `st.ap.migrated = 1`。`L.apState(st)` 取 `st.ap` 并补齐缺的字段。
+
+**日历**：`L.seasonNo / seasonNow / seasonsLeft / dateText` 照约定；另有 `L.yearNo(st)`、`L.seasonName(i)`。**`L.season(st)` 没改**（仍是 `L.seasonOf(st.tick)`）——回合进行中它返回的是上一季，换季加成（采药、闭关冬季 +0.2、秘境夏季）在行动时差一季，A2 决定是改 `L.season` 还是逐处改用 `L.seasonNow`。
+
+**行动点**：`L.apLeft / apCost / apWhy / apSpend(st, n, id) / act / regAct` 照约定。
+- `args` 两种写法都认：数组按位置（`'exp'` 是 `[k, d, a, opt]`），或对象（`{ k, d, a, opt }`）。各 id 的对象键：`exp {k,d,a,opt}`、`deeper {res}`（上一趟的结算对象）、`sweep {k,d,a}`、`boss {k}`、`retreat {sx}`（`sx: true` = 与道侣双修）、`train`、`sit`、`realm {xf}`、`errand {task}` 或 `{u, art}`、`duel {id}`、`join {id}`、`final`（原样转给 `L.finalFight`）。
+- `L.regAct(id, spec)`：`spec = { ap: 数 | (st, args) => 数, why: (st, args) => '' | 原因, run: (st, args) => 结果 | null, label?, card? }`；同 id 再登记是**合并覆盖**（线 B 用它换掉 `duel / join / final` 的缺省）。`card: false` 表示 `L.act` 不把结果排进结算链（秘境用）。
+- `L.act` 失败返回 `null`，原因放在 `L.actLastWhy`。成功时扣点、`st.ap.seq++`，并把 `{ kind: 'result', id, data: 结果, lv: 1 }` 排进结算链（`exp / deeper` 出发时不排，等 `L.tripEnd`）。
+- 缺省实现：`duel` 有 `L.challenge` / `L.challengeWhy` 就转调，否则“下战帖还没开放”；`join` 有 `L.knock` / `L.knockWhy` 就转调，否则直接 `L.joinSect`（条件：没宗门、三年之约已了结、`L.sectJoinable`；不看境界）；`final` 有 `L.finalFight` / `L.finalWhy` 就转调。
+- 新增：`L.ACTS`（登记表本身）、`L.actArg(args, i, name)`、`L.expWhy(st, k, d, a)`、`L.sweepWhy(st, k, d, a)`。
+
+**历练**：`L.startExp` 不变。
+- `L.act(st, 'exp', …)` 只出发并扣 2 点（`st.exp.apPaid = 1`），返回 `st.exp`；之后 `L.tripStep` 逐节点、`L.tripEnd` 结算。没经 `L.act` 直接 `L.startExp` 的，`L.tripEnd` 补扣（扫荡 1 / 深入 1 / 历练 2）。
+- `L.tripStep(st, res)`：`res` 是界面打完这一场的结果（原 `L.expNodeDone` 的参数，非战斗节点传 `null`）；**不传 `res`**（`undefined`）时按 `e.pol` 自动打这一格。返回 `{ done, enc, res }`。途中遭遇在“走过一半那个节点之后”出（原 tick.js 的规则搬过来：前两趟不出、60%、白小九同行 ×1.5、扫荡不出），事件 id 记在 `e.encEv`，选项由调用方 `L.resolveChoice`（事件对这一趟的加减分照旧生效，所以要在 `tripEnd` 之前选）。`e.left` 现在 = 还剩几个节点。
+- `L.tripEnd(st)` → `L.resolveExp` 的结算对象 + `refund: 0 | 1`。脚力：`L.strideSrc(st, k)`（缺省按 `artExpLen / gearExpLen` 缩短了几个月算来源数；A2 提供 `L.strideSrcN(st, k)` 后优先用它）× `L.AP.stride`，上限 `strideCap`，攒满 1 返还 1 点。
+- 新增：`L.tripAuto(st, onEnc)`（剩下的节点一口气自动打完，遭遇交给 `onEnc(ev)`；sim、迁移、旧界面垫片用）、`L.tripDone(st)`。
+- `L.sweep(st, k, d, a)`：`L.sweepWhy` 不过返回 `null`；条件 = `L.sweepOpen`（原“连续历练”的解锁，见下）+ `L.quickOk`（拿过甲、战力 ≥ 推荐 × 1.8）。结算对象多 `sweep: true`。
+- 连续历练删了：`L.startExp` 的 `opt.chain` 不再起作用；原来的解锁判定 `L.chainOpen(st)` **改名 `L.sweepOpen(st)`**（expedition.js；onboard.js 的 `chainExp` 闸改包它），`L.chainOpen` 这个名字给了结算链。
+
+**修炼**：`L.sit / sitGain` 照约定（`L.sitMult = L.tunaStep`）。`L.retreatNow(st, opt)`：`opt.sx` 双修、`opt.kind === 'train'` 特训，其余同 `L.startRetreat`；内部是“`startRetreat` → 当场补 `gainCalm × retTicks × (m − 1)` → `endRetreat(st, true)`”，所以各模块包在 `endRetreat` 上的东西（顿悟、分身、讲道贡献、第一位访客、丹药、徒弟）照旧生效。返回值就是 `endRetreat` 的结果。`L.retInfo` 多 `gotNow`。
+- 新增：`L.retGotNow(st, m)`、`L.retFinish(st, frac)`（把挂着的 `st.retreat` 当场结掉）、`L.errandNow(st, args)`（讲法 / 指点师弟 / 传授当场办完）。
+- 事件效果 `fx.busy`（“占住 v 个月”）：`L.startBusy(st, n, 'event')` 被包成 `st.ap.debt += (n ≥ 4 ? 2 : 1)`，不再设 `st.retreat`（文案“占住 N 个月”留给 A2 改）。讲法、传授仍走 `startBusy`，由 `errand` 当场结掉。
+
+**回合**：`L.seasonEnd(st)` → `S` 照约定，另多：`seasonNo`、`outs`（3 个月各自的 `out`，原样）、`out`（合并后的：数值相加、数组拼接、`harvest / mats` 按键相加、其余取第一次）、`pre`（季末前顺手结掉的旧状态：`{ exp, retreat }`）、`debt`、`spent`、`xp.pre`。`S.big` 的元素是 `{ k, data }`，`k` ∈ `pact / tour / meet / war / rookie / death`（再加迁移压着的）。`S.notes` 目前只有“有人来访 / 天下大势起 / 拍卖会开槌 / 新秀出世”。`S.next = { season, name, cal: L.SEASONS[i], bigSoon: { k, n, left, seasons } }`。**大事本身不在 `seasonEnd` 里打**（约战、论道、会武、来犯、新秀照旧由调用方看 `S.big` / `S.outs` 去调 `L.pactDuel / L.tournament / …`；sim 就是这样做的）。`st.tick` 不在季界时（旧界面逐月推过）只推到下一个季界。
+- `L.seasonReport(st, S)` → `{ title, lines, btn, year }`，粗版；A2 换完整版。
+
+**结算链**（缺省实现，线 B 包）：`L.chainOpen(st, why)` 返回链内计数对象 `{ why, n, story, at }`；`L.nextBlock(st)` 的顺序：行动 / 季末排进来的卡（`result`、`season` / `year`、`big`）→ 迁移压着的旧历练结算（`{ kind: 'result', old: true }`）→ `st.storyQ[0]`（`kind: 'story'`，`data` 是事件对象）→ 迁移压着的大事。`L.blockDone(st, x)` 出队（`story` 类在 `storyQ[0] === x.id` 时 shift）；**`lag` 还没记**（B）。排着的卡挂在 `st` 的不可枚举属性 `_apBlk` 上，不进存档。另有 `L.blockPush(st, x)`（往链里排一张）、`L.chainInfo(st)`。
+
+**tick.js / time.js**：tick 里历练、闭关的逐月推进与吐纳已删，访客等待每月照减；三宗争徒、来犯去掉了 `!L.busy`（story.js 里散修来犯的那处 `!L.busy` 归线 B）。time.js 删了 `tripBlock / expBlock / retBlock / expCut / cutTrip`、对 `startExp / startRetreat / startBusy / expBest / retWhy / canTrain` 的拦截包装、空转 `out.idle`；`L.notifyGate` 恒返回 `'now'`；`out.prep`（备战）改在 `left === 3` 那个月出（即“本季末”那一季开始时）；`L.bigList` 每项加 `seasons`；`L.timeBar` 一格一季（第一章 12 格、之后每年 4 格，多 `unit: '季'`、`big.seasons`，`label` 写“还有 N 季 / 本季末”）。`L.KAIRO_ON` 留着但不起作用。
+
+**兼容垫片（线 C 改完界面后拆）**：
+1. ap.js 包 `L.tick`：旧界面还在逐月 `L.flow + L.tick`。若有挂着的 `st.exp`，按旧节奏一个月推一格（界面已打完就跳过），满 `total` 个月或倒下就 `L.tripEnd`，结果放 `out.exp`（遭遇放 `out.choice`）；挂着的 `st.retreat` 当月 `L.retFinish`，结果放 `out.retreat`。新流程里 `L.seasonEnd` 推月之前已经清掉这两样，垫片不触发。
+2. `L.chainOpen(st)` 不带 `why` 调用时返回 `false`（界面 panel-exp 的“连续 ×3”、guide-ask 的提示还在问）。
+3. `L.seasonEnd` 开头顺手结掉挂着的 `st.exp / st.retreat`（不另扣点）。
+4. 吐纳的函数（`L.tuna / tunaReady / TUNA_FULL`）还在（界面 scene / boot / guide 还在读），但 tick 不再蓄，所以永远不满；A2 删。
+
+**sim**：主循环按季（每季：突破 → 行动直到点花完或花不出去 → 家务 → `L.seasonEnd` → 逐月 `out` 照旧处理）。历练走 `L.act('exp') → L.tripStep… → L.tripEnd`，闭关 / 特训 / 双修 / 首领 / 秘境 / 讲法 / 传授走 `L.act`；`opt.onTick(st, out, S)` 每季对 3 个 `out` 各调一次（第三个参数是 `S`）；`opt.maxT` 仍按月，内部换成 `ceil(maxT / 3)` 季。新开关 `noap`（`L.AP_ON = false`），`nokairo` 删。

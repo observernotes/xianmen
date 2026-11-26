@@ -1,6 +1,6 @@
 /* 废柴仙途 · 逻辑模块 onboard：上手曲线——系统解锁表 + 掌握信号（docs/ONBOARDING.md）
  * 模块写法见 src/logic.js 顶部说明。排在 MODULES 最后：它把前面各模块的“开放”判定（L.retOpen、L.homeUnlocked、L.artSlotOpen、L.gearOpen、
- * L.calOpen、L.shelfOpen、L.sellOpen、L.mjUnlocked、L.cropsOpen、L.yinOpen、L.zhenOpen、L.chainOpen、L.petJobsOpen、L.dutyOpen、L.discOpen……）
+ * L.calOpen、L.shelfOpen、L.sellOpen、L.mjUnlocked、L.cropsOpen、L.yinOpen、L.zhenOpen、L.sweepOpen、L.petJobsOpen、L.dutyOpen、L.discOpen……）
  * 各包一层“并且已解锁”，所以界面、逻辑、sim 看到的是同一份开放状态。
  *
  * 规则（第一世；转世后 L.unlocked 一律为真，只剩各系统原来的门槛）：
@@ -24,7 +24,7 @@ const S = (st, k) => (st.stats && st.stats[k]) || 0;
 const C = (st, k) => (st.onb && st.onb.c && st.onb.c[k]) || 0;
 // 原来的开放判定（包之前先存一份；解锁条件只看原门槛，不会绕回自己）
 const O = {};
-for (const k of ['retOpen', 'apprOpen', 'tunaReady', 'homeUnlocked', 'artSlotOpen', 'gearOpen', 'calOpen', 'shelfOpen', 'sellOpen', 'mjUnlocked', 'cropsOpen', 'yinOpen', 'zhenOpen', 'chainOpen', 'petJobsOpen', 'dutyOpen', 'discOpen', 'auctionOpen'])
+for (const k of ['retOpen', 'apprOpen', 'tunaReady', 'homeUnlocked', 'artSlotOpen', 'gearOpen', 'calOpen', 'shelfOpen', 'sellOpen', 'mjUnlocked', 'cropsOpen', 'yinOpen', 'zhenOpen', 'sweepOpen', 'petJobsOpen', 'dutyOpen', 'discOpen', 'auctionOpen'])
   O[k] = L[k];
 const hasArt = (st, kind) => !!(st.arts && Object.keys(st.arts.own || {}).some(id => L.art(id) && L.art(id).k === kind));
 const metAny = st => Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]);
@@ -65,7 +65,7 @@ L.ONB = [
   // ---- 三年之约之后：一次一样，掌握了再开下一样 ----
   { k: 'tour', n: '天骄论道·天骄榜', par: 'exp', base: st => !!st.pact, force: st => !!st.pact, master: () => true },
   { k: 'market', n: '坊市', sys: true, gap: 8, base: st => !!st.pact || mr(st) >= 1, master: st => S(st, 'shop') >= 1, goal: '在坊市买一样东西', maxWait: 8 },
-  { k: 'sect', n: '宗门·任务板', sys: true, base: st => mr(st) >= 1 && !!st.pact, force: st => !!st.sect, master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
+  { k: 'sect', n: '宗门·任务板', sys: true, base: st => !!st.pact, force: st => !!st.sect || !!(st.evDone && st.evDone.s2_invite) || (!!st.pact && !!L.chapterNow && L.chapterNow(st) >= 2), master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
   { k: 'visitor', n: '访客·奇遇', sys: true, base: st => !!st.pact, force: st => !!st.visitor || S(st, 'visits') > 0, master: st => S(st, 'visits') >= 1, goal: '见一位访客', maxWait: 14 },
   { k: 'tuna', n: '吐纳', par: 'home', base: st => !!st.pact },
   { k: 'field', n: '灵田', sys: true, base: st => O.homeUnlocked(st, 'field'), master: st => st.home.field >= 1, goal: '开一块灵田', maxWait: 12 },
@@ -89,7 +89,7 @@ L.ONB = [
   { k: 'mishu', n: '秘术', par: 'arts', base: st => O.artSlotOpen(st, 2) },
   { k: 'auction', n: '拍卖会', par: 'market', base: st => mr(st) >= 2 },
   { k: 'petJobs', n: '灵宠岗位', par: 'pets', base: st => O.petJobsOpen(st) && L.petCount(st) >= 1 },
-  { k: 'chainExp', n: '连续历练', par: 'exp', base: st => O.chainOpen(st) },
+  { k: 'chainExp', n: '连续历练', par: 'exp', base: st => O.sweepOpen(st) },
   { k: 'duty', n: '宗门·职司', par: 'sect', base: st => O.dutyOpen(st) },
   { k: 'disc', n: '徒弟', sys: true, base: st => O.discOpen(st), force: st => S(st, 'discTaken') > 0, master: st => S(st, 'discTaken') >= 1, goal: '收一个徒弟', maxWait: 16 },
   { k: 'codex', n: '图鉴', sys: true, base: st => mr(st) >= 2, master: () => false, maxWait: 8 },
@@ -175,7 +175,7 @@ wrap('mjUnlocked', f => st => f(st) && U(st, 'realm'));
 wrap('cropsOpen', f => st => f(st) && U(st, 'crops'));
 wrap('yinOpen', f => st => f(st) && U(st, 'yin'));
 wrap('zhenOpen', f => st => f(st) && U(st, 'zhen'));
-wrap('chainOpen', f => st => f(st) && U(st, 'chainExp'));
+wrap('sweepOpen', f => st => f(st) && U(st, 'chainExp'));   // 解锁表的 chainExp 现在管“扫荡”
 wrap('petJobsOpen', f => st => f(st) && U(st, 'petJobs'));
 wrap('dutyOpen', f => st => f(st) && U(st, 'duty'));
 wrap('discOpen', f => st => f(st) && U(st, 'disc'));

@@ -1,0 +1,431 @@
+/* 废柴仙途 · 逻辑模块 ap：行动点与季度回合（docs/AP_PLAN.md，A1 内核骨架；接口见 AP_PLAN §10）
+ * 模块写法见 src/logic.js 顶部说明。排在 time 之后、report 之前（包 L.newState、L.tick、L.startBusy、L.retInfo）。
+ *
+ *   一回合 = 一季：每季 L.AP.per = 3 点。底层 st.tick 仍按月计；点【下一季】= L.seasonEnd(st)：剩下的点自动打坐 → 连推 3 个 L.tick → 合并成一张季末卡 S。
+ *   回合之间 st.tick % 3 === 0（季界）。回合进行中“本季”是 L.seasonNow(st) = L.seasonOf(st.tick + 1)。
+ *   花点的事一律 L.act(st, id, args)：检查（L.apWhy）→ 执行（登记表里的 run）→ 扣点（L.apSpend）→ st.ap.seq++ → 返回结果（null = 没做成）。
+ *   历练当场打完：L.act(st, 'exp', …) 只出发（扣 2 点）；之后界面一个节点一个节点 L.tripStep，走完 L.tripEnd（结算 + 脚力）。
+ *   闭关、特训、讲法、传授、双修当场结算（L.retreatNow 等），不再有“在外 / 闭关中”这一段时间。
+ *   结算链：L.chainOpen(st, why) 开一条链；界面循环 L.nextBlock(st) → 出一张 → L.blockDone(st, x)，到 null 为止。
+ *         这里是缺省实现（行动结果卡 → 季末卡 / 年报 → storyQ 的第一条 → 迁移时压着的大事）；线 B 在 storyline.js 里包成完整的八级优先级。
+ *   存档 st.ap = { left, stride, debt, seq, pend: [], log: {} }；L.migrateAp 幂等（AP_PLAN §7）。 */
+(function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
+'use strict';
+const { R } = L.U;
+
+// ---------- 常量 ----------
+L.SEASON_LEN = 3;
+L.AP = { per: 3, exp: 2, deeper: 1, sweep: 1, boss: 1, retreat: 2, train: 2, sit: 1, realm: 2, realmPortal: 1, duel: 1, join: 1, errand: 1, final: 1,
+  sitTicks: 1, retTicks: 4, expRew: 0.65, lootRew: 1, stride: 0.25, strideCap: 0.75 };
+L.AP_ON = L.AP_ON === undefined ? true : L.AP_ON;   // sim 对照（noap）：false = expRew 1、负伤 3 月（A2 接上数值后生效）
+const LOG_KEEP = 8;
+
+// ---------- 存档 ----------
+const newAp = () => ({ left: L.AP.per, stride: 0, debt: 0, seq: 0, pend: [], log: {} });
+const ap = st => {
+  let a = st.ap;
+  if (!a || typeof a !== 'object') a = st.ap = newAp();
+  if (typeof a.left !== 'number' || !isFinite(a.left)) a.left = L.AP.per;
+  for (const k of ['stride', 'debt', 'seq']) if (typeof a[k] !== 'number' || !isFinite(a[k])) a[k] = 0;
+  if (!Array.isArray(a.pend)) a.pend = [];
+  if (!a.log || typeof a.log !== 'object') a.log = {};
+  return a;
+};
+L.apState = ap;
+// 不进存档的东西（这一条链里排着的结算卡、链内计数）：挂在不可枚举的属性上，JSON.stringify 不会带走
+const hid = (st, k, v) => { if (!Object.prototype.hasOwnProperty.call(st, k)) Object.defineProperty(st, k, { value: v(), enumerable: false, writable: true, configurable: true }); return st[k]; };
+const blk = st => hid(st, '_apBlk', () => []);
+const chn = st => hid(st, '_apChain', () => ({ why: '', n: 0, story: 0, at: -1 }));
+
+// ---------- 日历 ----------
+const SN = ['春', '夏', '秋', '冬'];
+L.seasonNo = st => Math.floor(st.tick / L.SEASON_LEN);
+L.seasonNow = st => L.seasonOf(st.tick + 1);
+L.seasonsLeft = m => Math.max(0, Math.ceil(m / L.SEASON_LEN));
+L.yearNo = st => Math.floor(st.tick / 12) + 1;
+L.dateText = st => `第 ${L.yearNo(st)} 年 · ${SN[L.seasonNow(st)]}`;
+L.seasonName = i => SN[((i % 4) + 4) % 4];
+
+// ---------- 行动登记表 ----------
+const ACTS = {};
+L.ACTS = ACTS;
+// spec = { ap: 数字或 (st, args) => 数字, why: (st, args) => '' | 原因, run: (st, args) => 结果对象 | null/false, label? }
+L.regAct = function (id, spec) { ACTS[id] = Object.assign({ ap: 1, why: () => '', run: () => null }, ACTS[id] || {}, spec); return ACTS[id]; };
+// args 既可以是数组（按位置：'exp' 的 [k, d, a, opt]），也可以是对象（{ k, d, a, opt }）
+const arg = (args, i, name) => (Array.isArray(args) ? args[i] : args && typeof args === 'object' ? args[name] : i === 0 ? args : undefined);
+L.actArg = arg;
+L.apLeft = st => (st ? ap(st).left : 0);
+L.apCost = function (st, id, args) {
+  const a = ACTS[id]; if (!a) return 0;
+  const c = typeof a.ap === 'function' ? a.ap(st, args) : a.ap;
+  return Math.max(0, Math.floor(c || 0));
+};
+L.apWhy = function (st, id, args) {
+  const a = ACTS[id];
+  if (!st || !a) return '没有这个行动';
+  if (st.p && st.p.r > L.MAXR) return '已证大道';
+  const c = L.apCost(st, id, args);
+  if (c > L.apLeft(st)) return '点不够（下一季）';
+  return (a.why && a.why(st, args)) || '';
+};
+// 扣点并记账：st.ap.log[季序号] = { spent, acts }
+L.apSpend = function (st, n, id) {
+  const a = ap(st); n = Math.max(0, Math.floor(n || 0));
+  const used = Math.min(n, a.left);
+  a.left -= used;
+  const s = L.seasonNo(st), lg = a.log[s] || (a.log[s] = { spent: 0, acts: [] });
+  lg.spent += used; if (id) lg.acts.push(id);
+  return used;
+};
+let acting = 0;   // L.act 进行中：里面调到的 L.tripEnd 等不再自己扣点
+L.act = function (st, id, args) {
+  const why = L.apWhy(st, id, args);
+  if (why) { L.actLastWhy = why; return null; }
+  const a = ACTS[id], cost = L.apCost(st, id, args);
+  let res;
+  acting++;
+  try { res = a.run(st, args); } finally { acting--; }
+  if (!res) { L.actLastWhy = '没做成'; return null; }
+  L.actLastWhy = '';
+  L.apSpend(st, cost, id);
+  ap(st).seq++;
+  if (a.card !== false && !(st.exp && res === st.exp)) pushBlk(st, { kind: 'result', id, data: res, lv: 1 });
+  return res;
+};
+
+// ---------- 修炼：打坐、闭关、特训、差事 ----------
+L.sitMult = st => (L.tunaStep ? L.tunaStep(st) : 1);   // 原吐纳的“引气诀让打坐多得”
+L.sitGain = (st, n) => (n === undefined ? 1 : n) * L.AP.sitTicks * L.gainCalm(st) * L.sitMult(st);
+L.sit = function (st) {
+  if (!st || st.p.r > L.MAXR) return 0;
+  const g = L.sitGain(st, 1);
+  L.addXp(st, g);
+  st.stats.sit = (st.stats.sit || 0) + 1;
+  return g;
+};
+// 闭关这次当场能得多少：gainCalm × retTicks × (m − 1)（自然修炼另在季末给，所以只给“多出来的那一截”）
+L.retGotNow = (st, m) => L.gainCalm(st) * L.AP.retTicks * Math.max(0, (m === undefined ? L.retMult(st) : m) - 1);
+{ const ri0 = L.retInfo; L.retInfo = function (st) { const o = ri0.apply(this, arguments); o.gotNow = L.retGotNow(st); return o; }; }
+// 把 st.retreat（闭关、特训、双修、指点师弟、讲法、传授、事件占住）当场结掉；left 是还没坐的月数（旧档迁移时 < total）
+function finishRetreat(st, frac) {
+  const r = st.retreat; if (!r) return null;
+  if (r.kind !== 'busy' && r.kind !== 'teach' && r.m > 1) {
+    const g = L.retGotNow(st, r.m) * (frac === undefined ? 1 : frac);
+    if (g > 0) { L.addXp(st, g); r.got = (r.got || 0) + g; }
+  }
+  r.left = 0;
+  return L.endRetreat(st, true) || { kind: r.kind, got: r.got || 0, done: true, epi: 0 };
+}
+L.retFinish = finishRetreat;
+// 闭关（opt.sx：与道侣双修，不花灵石；opt.kind 'train'：老祖特训）→ { got, epi, fenshen, contrib, visitor, … }
+L.retreatNow = function (st, opt) {
+  opt = opt || {};
+  let ok;
+  if (opt.sx) ok = !!L.shuangxiu(st);
+  else if (opt.kind === 'train') ok = L.startTrain(st);
+  else ok = L.startRetreat(st, opt);
+  if (!ok || !st.retreat) return null;
+  return finishRetreat(st);
+};
+// 差事（讲法 / 指点师弟：宗门任务序号 task；传授：{ u, art }）当场办完
+L.errandNow = function (st, args) {
+  const u = arg(args, 0, 'u'), art = arg(args, 1, 'art'), task = arg(args, 0, 'task');
+  let ok = false;
+  if (art !== undefined && L.discTeach) ok = L.discTeach(st, u, art);
+  else if (task !== undefined && st.sect && st.sect.tasks) ok = L.taskTake(st, task);
+  if (!ok) return null;
+  return st.retreat ? finishRetreat(st) : { kind: 'errand', done: true };
+};
+// 事件效果“占住 v 个月”（sect2.js 的 fx.busy）：不再占时间，改成下一季少 1 点（v ≥ 4 少 2 点），记在 st.ap.debt
+if (L.startBusy) { const sb0 = L.startBusy; L.startBusy = function (st, n, what) {
+  if (what === 'event' && st && st.p && st.p.r <= L.MAXR && n > 0) { const a = ap(st); a.debt = Math.min(L.AP.per, a.debt + (n >= 4 ? 2 : 1)); return true; }
+  return sb0.apply(this, arguments);
+}; }
+
+// ---------- 历练（当场） ----------
+const busyWhy = st => (st.exp ? '历练途中' : st.run ? '秘境里' : st.retreat ? '眼下有事在身' : '');
+// 脚力来源数（御风诀、风行水上、轻灵词条……）：原来缩短历练时长的效果，每个来源 0.25（A2 把 artExpLen / gearExpLen 改成直接返回来源数）
+L.strideSrc = function (st, k) {
+  if (L.strideSrcN) return L.strideSrcN(st, k);
+  const b = 10; let n = b;
+  if (L.artExpLen) n = L.artExpLen(st, n);
+  if (L.gearExpLen) n = L.gearExpLen(st, n);
+  return Math.max(0, b - n);
+};
+L.strideGain = (st, k) => Math.min(L.AP.strideCap, L.strideSrc(st, k) * L.AP.stride);
+// 一趟走完：攒脚力，满 1 返还 1 点
+function strideAdd(st, k) {
+  const a = ap(st), g = L.strideGain(st, k);
+  if (!(g > 0)) return 0;
+  a.stride = Math.round((a.stride + g) * 1e6) / 1e6;
+  if (a.stride >= 1) { a.stride -= 1; a.left = Math.min(L.AP.per, a.left + 1); return 1; }
+  return 0;
+}
+const tripDone = e => !e || (e.nodes ? e.ni >= e.nodes.length || !!(e.bt && (e.bt.dead || e.bt.fled)) : e.left <= 0);
+L.tripDone = st => tripDone(st.exp);
+// 推一个节点：res 是界面打完这一场的结果（L.expNodeDone 的那个）；不传 res 时按 e.pol 自动打（非战斗节点直接走过）
+// → { done: 这一趟是否走完, enc: 途中遭遇（事件对象）或 null, res }
+L.tripStep = function (st, res) {
+  const e = st.exp; if (!e) return { done: true, enc: null, res: null };
+  if (tripDone(e)) return { done: true, enc: null, res: null };
+  let r = res;
+  if (e.nodes) {
+    if (res === undefined) r = L.expNodeRun(st, e.pol);
+    else L.expNodeDone(st, res);
+    e.left = Math.max(0, e.nodes.length - e.ni);
+  } else e.left = Math.max(0, e.left - 1);
+  // 途中遭遇：走过一半那个节点之后，60%（白小九同行 ×1.5），前两趟不出，扫荡不出
+  let enc = null;
+  const half = Math.ceil(e.total / 2), at = e.nodes ? e.ni : e.total - e.left;
+  const evMul = L.friend(st, 'bai') ? 1.5 : 1;
+  if (!e.quick && !e.encEv && e.plan && at === half && !tripDone(e) && st.stats.exp >= 2 && e.plan.enc < L.ENC_P * evMul) {
+    const ev = L.pickEvent(st, 'exp', { bg: L.REGIONS[e.k].bg });
+    if (ev) { e.encEv = ev.id; e.chain = 0; enc = ev; }
+  }
+  return { done: tripDone(e), enc, res: r };
+};
+// 剩下的节点一口气自动打完（sim、读档、旧档迁移）；途中遭遇交给 onEnc(ev)（不给就照默认不选，事件留在 e.encEv）
+L.tripAuto = function (st, onEnc) {
+  let enc = null;
+  for (let g = 0; g < 24 && st.exp && !tripDone(st.exp); g++) { const x = L.tripStep(st); if (x.enc) { enc = x.enc; if (onEnc) onEnc(x.enc); } }
+  return enc;
+};
+// 结算（原 L.resolveExp）+ 扣点（没经 L.act 出发的）+ 脚力 → 结算对象（多 refund: 0 | 1）
+L.tripEnd = function (st) {
+  const e = st.exp; if (!e) return null;
+  const k = e.k, paid = !!e.apPaid, id = e.quick ? 'sweep' : e.deeper ? 'deeper' : 'exp';
+  const r = L.resolveExp(st);
+  if (!r) return null;
+  if (!paid && !acting) { L.apSpend(st, L.apCost(st, id), id); ap(st).seq++; }
+  r.refund = strideAdd(st, k);
+  if (!acting) pushBlk(st, { kind: 'result', id, data: r, lv: 1 });
+  return r;
+};
+// 扫荡：已拿过甲、战力 ≥ 推荐 × 1.8 的格子，不播战斗、不出途中遭遇，直接出结算
+L.sweepWhy = function (st, k, d, a) {
+  const b = busyWhy(st); if (b) return b;
+  if (L.sweepOpen && !L.sweepOpen(st)) return '还没学会扫荡';
+  if (!L.expOpen(st, k, d || 0, a || 0)) return '这一格还没开放';
+  if (L.quickOk && !L.quickOk(st, k, d || 0, a || 0)) return '要这一格拿过甲、战力到推荐 ×1.8';
+  return '';
+};
+L.sweep = function (st, k, d, a) {
+  if (L.sweepWhy(st, k, d, a)) return null;
+  if (!L.startExp(st, k, d || 0, a || 0, { quick: true, quiet: true })) return null;
+  st.exp.quick = 1;
+  L.tripAuto(st);
+  const r = L.tripEnd(st);
+  if (r) r.sweep = true;
+  return r;
+};
+L.expWhy = function (st, k, d, a) {
+  const b = busyWhy(st); if (b) return b;
+  if (!L.expOpen(st, k, d || 0, a || 0)) return '这一格还没开放';
+  return '';
+};
+
+// ---------- 登记 AP_PLAN §10 的行动 ----------
+L.regAct('exp', { ap: () => L.AP.exp, label: '历练',
+  why: (st, x) => L.expWhy(st, arg(x, 0, 'k'), arg(x, 1, 'd'), arg(x, 2, 'a')),
+  run: (st, x) => { if (!L.startExp(st, arg(x, 0, 'k'), arg(x, 1, 'd') || 0, arg(x, 2, 'a') || 0, arg(x, 3, 'opt'))) return null; st.exp.apPaid = 1; return st.exp; } });
+L.regAct('deeper', { ap: () => L.AP.deeper, label: '趁势深入',
+  why: (st, x) => { const b = busyWhy(st); if (b) return b; const res = arg(x, 0, 'res'); return res && L.deeperOk && L.deeperOk(st, L.tripOf(res)) ? '' : '这一趟不能再深入'; },
+  run: (st, x) => { if (!L.startDeeper(st, arg(x, 0, 'res'))) return null; st.exp.apPaid = 1; return st.exp; } });
+L.regAct('sweep', { ap: () => L.AP.sweep, label: '扫荡',
+  why: (st, x) => L.sweepWhy(st, arg(x, 0, 'k'), arg(x, 1, 'd'), arg(x, 2, 'a')),
+  run: (st, x) => L.sweep(st, arg(x, 0, 'k'), arg(x, 1, 'd'), arg(x, 2, 'a')) });
+L.regAct('boss', { ap: () => L.AP.boss, label: '讨伐首领',
+  why: (st, x) => { const b = busyWhy(st); if (b) return b; return L.bossReady(st, arg(x, 0, 'k')) ? '' : '首领还没现身'; },
+  run: (st, x) => L.fightBoss(st, arg(x, 0, 'k')) });
+L.regAct('retreat', { ap: () => L.AP.retreat, label: '闭关',
+  why: (st, x) => (x && arg(x, 0, 'sx') ? (L.sxWhy ? L.sxWhy(st) : '还没开放') : L.retWhy(st)),
+  run: (st, x) => L.retreatNow(st, x && arg(x, 0, 'sx') ? { sx: true } : undefined) });
+L.regAct('train', { ap: () => L.AP.train, label: '老祖特训',
+  why: st => (L.canTrain(st) ? '' : '眼下不能特训'),
+  run: st => L.retreatNow(st, { kind: 'train' }) });
+L.regAct('sit', { ap: () => L.AP.sit, label: '打坐',
+  why: st => busyWhy(st),
+  run: st => { const g = L.sit(st); return { got: g }; } });
+L.regAct('realm', { ap: st => ((L.mjCost ? L.mjCost(st) : 1) === 0 ? L.AP.realmPortal : L.AP.realm), label: '秘境', card: false,
+  why: (st, x) => (L.mjWhy ? L.mjWhy(st, arg(x, 0, 'xf')) : '秘境还没开放'),
+  run: (st, x) => (L.mjEnter && L.mjEnter(st, { xf: arg(x, 0, 'xf') }) ? st.run : null) });
+L.regAct('errand', { ap: () => L.AP.errand, label: '宗门差事',
+  why: st => busyWhy(st),
+  run: (st, x) => L.errandNow(st, x) });
+// 下战帖、拜山门、主线最后一仗：线 B（mainline.js）用 L.regAct 换成完整实现；这里是缺省（有 L.challenge / L.knock / L.finalFight 就转调）
+L.regAct('duel', { ap: () => L.AP.duel, label: '下战帖',
+  why: (st, x) => (L.challengeWhy ? L.challengeWhy(st, arg(x, 0, 'id')) : L.challenge ? '' : '下战帖还没开放'),
+  run: (st, x) => (L.challenge ? L.challenge(st, arg(x, 0, 'id')) : null) });
+L.regAct('join', { ap: () => L.AP.join, label: '拜山门',
+  why: (st, x) => {
+    if (L.knockWhy) return L.knockWhy(st, arg(x, 0, 'id'));
+    const id = arg(x, 0, 'id');
+    if (st.sect) return '已有宗门';
+    if (!st.pact) return '三年之约还没了结';
+    if (!L.SECTS || !L.SECTS.some(s => s.id === id)) return '没有这个宗门';
+    if (L.sectJoinable && !L.sectJoinable(st, id)) return '血煞魔宗不收你';
+    return '';
+  },
+  run: (st, x) => { const id = arg(x, 0, 'id'); if (L.knock) return L.knock(st, id); L.joinSect(st, id); return st.sect ? { id, sect: st.sect } : null; } });
+L.regAct('final', { ap: () => L.AP.final, label: '主线一战',
+  why: st => (L.finalWhy ? L.finalWhy(st) : L.finalFight ? '' : '还没到最后一仗'),
+  run: (st, x) => (L.finalFight ? L.finalFight(st, x) : null) });
+
+// ---------- 回合：季末结算 ----------
+const OBJ_SUM = { harvest: 1, mats: 1 };
+function mergeOut(S, out) {
+  for (const k in out) {
+    const v = out[k];
+    if (v === undefined || v === null || v === false) continue;
+    const o = S[k];
+    if (typeof v === 'number' && (typeof o === 'number' || o === undefined)) S[k] = (o || 0) + v;
+    else if (Array.isArray(v)) S[k] = (Array.isArray(o) ? o : []).concat(v);
+    else if (OBJ_SUM[k] && v && typeof v === 'object') { const t = S[k] && typeof S[k] === 'object' ? S[k] : (S[k] = {}); for (const j in v) t[j] = (typeof t[j] === 'number' ? t[j] : 0) + (+v[j] || 0); }
+    else if (!o) S[k] = v;
+  }
+}
+const BIG = [['pact', 'pact'], ['tourney', 'tour'], ['meet', 'meet'], ['war', 'war'], ['rookie', 'rookie'], ['death', 'death']];
+// 季末：（先结掉还挂着的历练 / 闭关）→ 剩余的点自动打坐 → 3 个 L.tick → 合并
+L.seasonEnd = function (st) {
+  const a = ap(st), p = st.p;
+  const S = { season: L.seasonNow(st), seasonNo: L.seasonNo(st), tick: st.tick, sat: 0, xp: { flow: 0, sit: 0, pre: 0 }, stones: 0, crops: null, pay: 0, notes: [], big: [], visitor: null, year: false, next: null, outs: [], out: {}, pre: {} };
+  // 0. 还挂着的（旧界面直接调了 L.startExp / L.startRetreat）：先结掉，不另扣点
+  if (st.exp) { st.exp.apPaid = 1; L.tripAuto(st); S.pre.exp = L.tripEnd(st); }
+  if (st.retreat) { const x0 = p.xp; S.pre.retreat = finishRetreat(st); S.xp.pre += Math.max(0, p.xp - x0); }
+  // 1. 剩余行动点自动打坐
+  if (a.left > 0 && p.r <= L.MAXR) { S.sat = a.left; S.xp.sit = L.sitGain(st, a.left); L.addXp(st, S.xp.sit); st.stats.sit = (st.stats.sit || 0) + a.left; }
+  if (a.left > 0) L.apSpend(st, a.left, 'sit*');
+  const s0 = L.seasonNo(st), stones0 = st.stones;
+  // 2. 连推 3 个月（每次 L.tick 里先 L.flow(st, 1)）；旧界面逐月推过、不在季界时只推到下一个季界
+  const nT = L.SEASON_LEN - (((st.tick % L.SEASON_LEN) + L.SEASON_LEN) % L.SEASON_LEN);
+  for (let i = 0; i < nT; i++) {
+    S.xp.flow += p.r <= L.MAXR ? L.gain(st) : 0;
+    const out = L.tick(st);
+    S.outs.push(out);
+    mergeOut(S.out, out);
+    if (out.death) break;
+    if (p.r > L.MAXR) break;
+  }
+  S.stones = Math.floor(st.stones - stones0);
+  S.crops = S.out.harvest || null;
+  S.pay = S.out.pay || 0;
+  S.visitor = S.out.visitor || null;
+  // 3. 一次性的大事记进 S.big；迁移时压着的也并进来
+  for (const [k, n] of BIG) if (S.out[k]) S.big.push({ k: n, data: S.out[k] });
+  if (a.pend.length) { for (const x of a.pend) if (x && x.k !== 'exp') S.big.push(x); a.pend = a.pend.filter(x => x && x.k === 'exp'); }
+  if (S.visitor) S.notes.push('有人来访');
+  if (S.out.world) S.notes.push('天下大势起');
+  if (S.out.auction) S.notes.push('拍卖会开槌');
+  if (S.out.rookieNew) S.notes.push('新秀出世');
+  // 4. 季数 +1（tick 已推 3），行动点回满（扣掉事件占的点），脚力不清
+  a.seq++;
+  a.left = Math.max(0, L.AP.per - a.debt); S.debt = a.debt; a.debt = 0;
+  const keys = Object.keys(a.log).map(Number).sort((x, y) => x - y);
+  while (keys.length > LOG_KEEP) delete a.log[keys.shift()];
+  S.year = st.tick % 12 === 0;
+  const big = L.bigNext ? L.bigNext(st) : null;
+  S.next = { season: L.seasonNow(st), name: SN[L.seasonNow(st)], cal: L.SEASONS ? L.SEASONS[L.seasonNow(st)] : null, bigSoon: big ? { k: big.k, n: big.n, left: big.left, seasons: L.seasonsLeft(big.left) } : null };
+  S.spent = (a.log[s0] || { spent: 0 }).spent;
+  pushBlk(st, { kind: S.year ? 'year' : 'season', id: 'season:' + s0, data: S, lv: 1 });
+  for (const b of S.big) pushBlk(st, { kind: 'big', id: b.k, data: b, lv: 7 });
+  return S;
+};
+// 季末卡的显示数据（A2 换成完整版；冬季的季末卡由界面换成年报 L.yearReport）
+L.seasonReport = function (st, S) {
+  if (!S) return null;
+  const xp = S.xp.flow + S.xp.sit + S.xp.pre;
+  const lines = [`修为 +${L.fmt(xp)}（自然 +${L.fmt(S.xp.flow)}${S.xp.sit ? ' · 打坐 +' + L.fmt(S.xp.sit) : ''}）`];
+  if (S.stones) lines.push(`灵石 ${S.stones > 0 ? '+' : ''}${L.fmt(S.stones)}`);
+  if (S.notes.length) lines.push(S.notes.join(' · '));
+  const bs = S.next && S.next.bigSoon;
+  if (bs) lines.push(bs.seasons <= 1 ? `${bs.n} 本季末` : `${bs.n} 还有 ${bs.seasons} 季`);
+  return { title: `第 ${Math.floor(S.tick / 12) + 1} 年 · ${SN[S.season]}  结束`, lines, btn: `入${S.next ? S.next.name : ''} ▸`, year: S.year };
+};
+
+// ---------- 结算链（缺省实现；线 B 在 storyline.js 包成完整版） ----------
+function pushBlk(st, x) { const q = blk(st); q.push(x); if (q.length > 40) q.splice(0, q.length - 40); }
+L.blockPush = pushBlk;
+L.chainOpen = function (st, why) {
+  if (why === undefined) return false;   // 兼容垫片：旧的“连续历练开没开”（界面 panel-exp / guide-ask 还在问）——连续历练已删，一律 false；那个解锁判定改名 L.sweepOpen
+  const c = chn(st); c.why = why; c.n = 0; c.story = 0; c.at = ap(st).seq;
+  return c;
+};
+L.chainInfo = st => chn(st);
+L.nextBlock = function (st) {
+  if (!st) return null;
+  const q = blk(st);
+  if (q.length) return q[0];
+  const a = ap(st);
+  const ex = a.pend.find(x => x && x.k === 'exp');
+  if (ex) return { kind: 'result', id: 'exp', data: ex.res, lv: 1, old: true, pend: ex };
+  if (st.storyQ && st.storyQ.length) { const id = st.storyQ[0]; return { kind: 'story', id, data: L.eventById ? L.eventById(id) : null, lv: 2 }; }
+  const bg = a.pend.find(x => x && x.k !== 'exp');
+  if (bg) return { kind: 'big', id: bg.k, data: bg, lv: 7, pend: bg };
+  return null;
+};
+L.blockDone = function (st, x) {
+  if (!st || !x) return;
+  const q = blk(st), i = q.indexOf(x);
+  if (i >= 0) q.splice(i, 1);
+  else if (x.kind === 'story' && st.storyQ && st.storyQ[0] === x.id) st.storyQ.shift();
+  if (x.pend) { const a = ap(st), j = a.pend.indexOf(x.pend); if (j >= 0) a.pend.splice(j, 1); }
+  chn(st).n++; if (x.kind === 'story') chn(st).story++;
+};
+
+// ---------- 旧界面兼容垫片（线 C 改完界面后拆掉）：旧主循环还在逐月调 L.tick ----------
+// 新流程里 L.seasonEnd 推月之前已经把历练 / 闭关结掉了，这里只接住旧界面直接出发、直接闭关留下的状态：
+// 历练的节点都打完了（或倒下 / 撤）就结算，闭关当月出关，结果照旧放进 out.exp / out.retreat
+let ticking = 0;
+{ const t0 = L.tick; L.tick = function (st, cont) {
+  ticking++;
+  let out;
+  try { out = t0.apply(this, arguments); } finally { ticking--; }
+  const e = st.exp;
+  if (e) {
+    // 照旧主循环的节奏：一个月一个节点（界面已经打完这一格就跳过），走满 total 个月或倒下 / 撤就结算
+    e.apPaid = 1;
+    const m = e.shimM || 0;
+    if (e.nodes && e.ni <= m && !tripDone(e)) { const x = L.tripStep(st); if (x.enc) out.choice = x.enc; }
+    e.shimM = m + 1;
+    if (tripDone(e) || e.shimM >= e.total) { L.tripAuto(st); out.exp = L.tripEnd(st); blk(st).pop(); }
+  }
+  if (st.retreat) { out.retreat = finishRetreat(st); if (out.retreat && out.retreat.visitor) out.visitor = out.retreat.visitor; }
+  return out;
+}; }
+L.ticking = () => ticking > 0;
+
+// ---------- 新档与迁移（AP_PLAN §7） ----------
+{ const ns0 = L.newState; L.newState = function () { const st = ns0.apply(this, arguments); st.ap = newAp(); return st; }; }
+const up3 = v => (typeof v === 'number' && isFinite(v) ? Math.ceil(v / 3) * 3 : v);
+L.migrateAp = function (st) {
+  if (!st || !st.p) return st;
+  if (st.ap && typeof st.ap === 'object') { ap(st); return st; }   // 迁过了：只补字段
+  const a = ap(st);
+  // 历练在外：没打的节点按 e.pol 自动打完，结算（旧规则下出发的，收获全给）；第一条结算链的第一张就是它
+  if (st.exp) {
+    st.exp.apPaid = 1; st.exp.chain = 0; st.expSum = null;
+    acting++;
+    let r = null;
+    try { L.tripAuto(st); r = L.resolveExp(st); } finally { acting--; }
+    if (r) { r.old = true; a.pend.push({ k: 'exp', res: r }); }
+    st.exp = null;
+  }
+  // 闭关中：已得的 got 留着，再补 left × gainCalm × (m − 1)；按坐满算
+  if (st.retreat) { const r = st.retreat, f = r.total > 0 ? Math.max(0, r.left) / L.AP.retTicks : 1; finishRetreat(st, f); }
+  // 补齐到季界：静默连推，期间到期的大事记进 pend
+  for (let g = 0; g < 2 && st.tick % L.SEASON_LEN !== 0 && st.p.r <= L.MAXR; g++) {
+    const out = L.tick(st);
+    for (const [k, n] of BIG) if (out[k]) a.pend.push({ k: n, data: typeof out[k] === 'object' ? out[k] : true });
+    if (out.exp) a.pend.push({ k: 'exp', res: out.exp });
+  }
+  // 吐纳环：满 6 的部分折成修为
+  if (typeof st.tuna === 'number' && st.tuna > 0) { const n = Math.floor(st.tuna / 6); if (n > 0 && st.p.r <= L.MAXR) L.addXp(st, L.gainCalm(st) * n); }
+  delete st.tuna;
+  if (st.flags) { if (st.flags.war > 0 && st.flags.war < 1e6) st.flags.war = up3(st.flags.war); }
+  if (st.story && st.story.retry) for (const id in st.story.retry) st.story.retry[id] = up3(st.story.retry[id]);
+  if (Array.isArray(st.inbox)) for (const x of st.inbox) if (x) x.away = false;
+  a.left = L.AP.per;
+  st.ap.migrated = 1;
+  return st;
+};
+});

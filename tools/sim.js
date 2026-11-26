@@ -88,8 +88,8 @@ const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
 const only = ['guided', 'lazy', 'idle', 'goalcard'].includes(arg[0]) ? arg[0] : null;
-// nokairo：关掉出发拦截与节点前提前归来（L.KAIRO_ON = false），与默认对照量 docs/KAIRO_PLAN.md §3 这一刀对数值的影响
-if (arg.includes('nokairo')) L.KAIRO_ON = false;
+// noap：行动点制的数值折算关掉（L.AP_ON = false：expRew 1、负伤 3 月；A2 接上数值后才有差别），对照量 docs/AP_PLAN.md 这一刀
+if (arg.includes('noap')) L.AP_ON = false;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
 const seed0 = Number(arg[3]) || 1;
@@ -345,7 +345,7 @@ function sectGuided(st, rec) {
     // 长老以前金丹就出师；长老起留两个最强的打三人会武，第三个金丹出师
     const keep = st.sect.rank >= 4 && L.discTop(st, 2).includes(x);
     if (L.discCanGrad(x) && !keep) { const r = L.discAskGrad(st, x.u); if (r && r.ev) L.resolveChoice(st, r.ev, 0); continue; }
-    if (!L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 4) { const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5 && x.taught.length < 2)); if (id && L.discTeach(st, x.u, id)) return; }
+    if (!L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 4) { const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5 && x.taught.length < 2)); if (id && L.act(st, 'errand', { u: x.u, art: id })) return; }
   }
 }
 // guided 的秘境（SYSTEMS §8）：夏天有令、没伤、第一层战斗房掉血不到一半就进；门照老祖的“荐”走，最好的门也会出事 / 气血见底没泉就带着收获走；
@@ -354,7 +354,7 @@ function mjGuided(st, rec) {
   if (!L.mjCan(st) && !L.mjCan(st, true)) return false;
   const xf = L.mjCan(st, true), th = xf ? null : L.mjThemeNow(st);
   if (!xf && L.mjDmg(st, 'fight', 1, null, th.id) > L.mjMaxHp(st) * 0.5) return false;
-  if (!L.mjEnter(st, { xf })) return false;
+  if (!L.act(st, 'realm', { xf })) return false;   // 秘境：2 点（传送阵 9 级 1 点）
   rec.mj.runs++;
   let sum = null;
   for (let g = 0; g < 60 && st.run; g++) {
@@ -375,7 +375,6 @@ function mjGuided(st, rec) {
   if (!sum) return true;
   rec.mj[sum.how]++; rec.mj.deep += sum.deep; rec.mj.stones += sum.got.stones || 0;
   L.gearAutoAll(st);
-  st._mjWait = sum.ticks - 1;
   return true;
 }
 function rngFor(seed) { let s = (seed * 2654435761) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -415,7 +414,7 @@ function zhenGuided(st, rec) {
 let simSect = '';   // 这一局入宗选哪一宗（run 里按 opt.sect / seed 定；剧情里的“三张帖子”跟三宗争徒的弹窗选同一家）
 function pickChoice(st, ev) {
   if (ev.id === 's2_invite') {
-    if (st.flags.inviteAt >= 1e9) { st.evDone.s2_invite = 1; return; }   // “三宗一律不理”的局面：这场戏也不接帖
+    if (st.flags.inviteAt >= 1e9) { const k = ev.choices.findIndex(c => c.ok && c.ok.fx && [].concat(c.ok.fx.flag || []).includes('path_san')); if (k >= 0) { L.resolveChoice(st, ev, k); return; } }   // “三宗一律不理”的局面：这场戏选“哪家也不去”（和界面同一条路）
     const i = ev.choices.findIndex(c => c.ok && c.ok.fx && c.ok.fx.join === simSect && L.choiceShown(st, c));
     if (i >= 0) { L.resolveChoice(st, ev, i); return; }
   }
@@ -467,11 +466,27 @@ function tryBreak(st, rec, strat) {
   if (r && r.ok) { rec.realmAt[r.to] = st.tick; rec.artAt[r.to] = art; rec.gearAt[r.to] = gearShare(st); rec.daojiAt[r.to] = L.daoji(st); rec.petAt[r.to] = petShare(st); }
 }
 
+// 历练（AP_PLAN §2.3）：L.act 出发（2 点）→ 一个节点一个节点打完（途中遭遇当场选）→ L.tripEnd 结算
+let curRec = null;
+function goTrip(st, rec, strat, k, d, a, opt) {
+  if (!L.act(st, 'exp', { k, d, a, opt })) return false;
+  for (let g = 0; g < 24 && st.exp && !L.tripDone(st); g++) {
+    const t0 = BT_TIMING ? process.hrtime.bigint() : 0n;
+    const x = L.tripStep(st);
+    if (BT_TIMING) { btNs += Number(process.hrtime.bigint() - t0); btNodes++; }
+    if (x.enc && strat !== 'idle') pickChoice(st, x.enc);
+  }
+  const r = L.tripEnd(st);
+  if (r && rec) expDone(st, rec, r);
+  return !!r;
+}
+// 一趟历练结算完（原来 out.exp 那几行）：第一章各趟的评价
+function expDone(st, rec, r) {
+  if (!st.pact) { rec.c1n = (rec.c1n || 0) + 1; if (r.rating >= 3) rec.c1jia = (rec.c1jia || 0) + 1; if (r.bt && r.bt.ke) rec.c1ke = (rec.c1ke || 0) + 1; }
+}
 function actGuided(st, rec, seed) {
   const p = st.p;
   if (p.r > L.MAXR) return;
-  if (st._mjWait > 0) { st._mjWait--; return; }   // 秘境出来的 3 个周天
-  if (L.tunaReady(st)) L.tuna(st);
   artOpt(st);
   // 坊市：行情卖丹卖草、轮换货、拍卖（拍卖差一点钱时这几个周天先不升洞府）
   if (MARKET_SIM) marketGuided(st, rec);
@@ -493,7 +508,8 @@ function actGuided(st, rec, seed) {
     if (SECT2) sectGuided(st, rec);
     else for (const k of ['vart', 'vwep', 'vplan']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
     st.sect.tasks.forEach((t, i) => {
-      if (!t.taken && t.ty !== 'teach' && (t.ty !== 'lecture' || (SECT2 && !L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 6))) L.taskTake(st, i);
+      if (!t.taken && t.ty !== 'teach' && t.ty !== 'lecture') L.taskTake(st, i);
+      else if (!t.taken && t.ty === 'lecture' && SECT2 && !L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 6) L.act(st, 'errand', { task: i });   // 讲法：1 点，当场办完
       const enough = t.ty === 'herbs' ? st.herbs >= t.n * 1.5 : t.ty === 'pill' ? st.pills >= 3 : t.ty === 'forge' ? (st.ore || 0) >= t.n * 3 : t.ty === 'tame' ? (st.feed || 0) >= t.n * 2 : false;
       if (L.taskCanDeliver(st, t) && enough) L.taskDeliver(st, i);
     });
@@ -502,10 +518,10 @@ function actGuided(st, rec, seed) {
   cropGuided(st);
   alchGuided(st, rec);
   peopleGuided(st, rec);
-  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k)) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.fightBoss(st, k); } }
+  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && !L.apWhy(st, 'boss', { k })) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.act(st, 'boss', { k }); return; } }
   if (L.busy(st) || L.isFull(st)) return;
   if (p.inj > 0 && st.pills > 0) L.heal(st);
-  if (L.canTrain(st)) { L.startTrain(st); return; }
+  if (L.canTrain(st) && L.act(st, 'train')) return;
   // 快圆满时留在家：圆满前最后一段路，在家比出门再回来快
   const tt = L.ticksToNext(st);
   if (p.s === 3 && tt <= 3) return;
@@ -513,8 +529,8 @@ function actGuided(st, rec, seed) {
   if (p.inj > 0) return;
   if (mjGuided(st, rec)) return;
   // 该闭关时：有道侣、双修到时候了就双修（不花灵石，另得一门对方的功法）
-  if ((st._trips || 0) >= 2 && L.PEOPLE2_ON !== false && L.sxInfo(st).ok) { st._trips = 0; if (L.shuangxiu(st)) { rec.sx++; return; } }
-  if ((st._trips || 0) >= 2 && L.canRetreat(st)) { st._trips = 0; L.startRetreat(st); return; }
+  if ((st._trips || 0) >= 2 && L.PEOPLE2_ON !== false && L.sxInfo(st).ok && !L.apWhy(st, 'retreat', { sx: true })) { if (L.act(st, 'retreat', { sx: true })) { st._trips = 0; rec.sx++; return; } }
+  if ((st._trips || 0) >= 2 && !L.apWhy(st, 'retreat')) { if (L.act(st, 'retreat')) { st._trips = 0; return; } }
   // 行事：轮着来，缺灵草多采药；宗门任务点名的优先
   let a = 0;
   const n = st.stats.exp;
@@ -541,7 +557,7 @@ function actGuided(st, rec, seed) {
   }
   // 出门前换上克制这一格精英的战技（COMBAT_LOOT §2.6；回合战关掉时照旧看地图五行）
   if (L.TRIP_ON !== false && !NOKE) { const ce = L.cellFoes(cell.k, cell.d), fe = L.FOES[ce.elite]; artFor(st, { k: cell.k, fel: fe ? fe.el : '' }); } else if (!NOKE) artFor(st, { k: cell.k });
-  if (L.startExp(st, cell.k, cell.d, cell.a, escort !== undefined ? { escort } : undefined)) st._trips = (st._trips || 0) + 1;
+  if (goTrip(st, rec, 'guided', cell.k, cell.d, cell.a, escort !== undefined ? { escort } : undefined)) st._trips = (st._trips || 0) + 1;
 }
 function actLazy(st, rec) {
   const p = st.p;
@@ -566,7 +582,7 @@ function actLazy(st, rec) {
   let a = 0;
   if (st.sect) st.sect.tasks.forEach(t => { if (t.taken && !t.done && t.ty === 'exp' && L.expOpen(st, t.k, 0, t.a)) a = t.a; });
   const cell = L.expBest(st, a);
-  if (L.startExp(st, cell.k, cell.d, cell.a)) st._trips++;
+  if (goTrip(st, rec, 'lazy', cell.k, cell.d, cell.a)) st._trips++;
 }
 
 // goalcard：只照目标卡“下一步”行动（一个月里最多照着做 4 步；做不了的那一步就去历练）
@@ -575,10 +591,10 @@ function goExp(st, n) {
   const b = L.expBest(st);
   let a = b.a;
   if (n && /采药/.test(n.t) && L.apprOpen(st, 2) && L.expOpen(st, b.k, b.d, 2)) a = 2;
-  return L.startExp(st, b.k, b.d, a);
+  return goTrip(st, curRec, 'goalcard', b.k, b.d, a);
 }
 function goHome(st, n) {
-  if (/闭关/.test(n.t) || n.k === 'retreat') return !L.busy(st) && L.startRetreat(st);
+  if (/闭关/.test(n.t) || n.k === 'retreat') return !L.busy(st) && !!L.act(st, 'retreat');
   if (n.k === 'array') { const u = L.upInfo(st, 'array'); return !!u && !u.max && st.stones >= u.cost && L.upgrade(st, 'array'); }
   const k = /灵田/.test(n.t) ? 'field' : 'array';
   const u = L.upInfo(st, k);
@@ -592,7 +608,9 @@ function actGoal(st, rec) {
     if (!n || n.why === 'away' || n.why === 'prep' || n.why === 'ready' || (n.act && n.act.id === 'bt')) return;
     let did = false;
     // 变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡【去】= L.adviseDo 那一张牌；做不了（去别处的牌）就去历练
-    if (n.why === 'adv' && n.act) { const r = L.adviseDo(st, n.act.id === 'idle' ? n.act.go : n.act.id); did = !!(r && r.done); if (did && L.busy(st)) { rec.goalSteps = (rec.goalSteps || 0) + 1; return; } if (!did) { goExp(st, n); return; } rec.goalSteps = (rec.goalSteps || 0) + 1; continue; }
+    if (n.why === 'adv' && n.act) {
+      if (n.act.id === 'retreat') { did = !!L.act(st, 'retreat'); if (!did) goExp(st, n); else rec.goalSteps = (rec.goalSteps || 0) + 1; return; }
+      const r = L.adviseDo(st, n.act.id === 'idle' ? n.act.go : n.act.id); did = !!(r && r.done); if (did && L.busy(st)) { rec.goalSteps = (rec.goalSteps || 0) + 1; return; } if (!did) { goExp(st, n); return; } rec.goalSteps = (rec.goalSteps || 0) + 1; continue; }
     if (n.go === 'gear') { if (n.art) did = !!L.equipArt(st, n.art); else did = L.gearAutoAll(st).length > 0; }
     else if (n.go === 'arts') did = n.art ? !!L.equipArt(st, n.art) : false;
     else if (n.go === 'home' || n.go === 'field') did = goHome(st, n);
@@ -604,9 +622,9 @@ function actGoal(st, rec) {
   }
 }
 
-// 变强建议抽查（KAIRO_PLAN §10.9）：guided 第一章的第 2 / 8 / 14 / 20 / 27 / 34 月，复制一份存档：acts 非空；目标卡同源；
+// 变强建议抽查（KAIRO_PLAN §10.9）：guided 第一章的第 3 / 9 / 15 / 21 / 27 / 33 月（季初），复制一份存档：acts 非空；目标卡同源；
 // 当场能做的第一张做完（固定随机数，不动主线的种子）后目标数确实变好，且与牌上写的“到多少”差 ≤ 1 个显示单位
-const ADV_AT = [2, 8, 14, 20, 27, 34];
+const ADV_AT = [3, 9, 15, 21, 27, 33];   // 季界（回合之间 tick % 3 === 0）
 function advCheck(st, rec) {
   const r0 = L.rng; L.rng = () => 0.5;
   const A0 = rec.adv || (rec.adv = { n: 0, empty: 0, same: 0, diff: 0, chk: 0, better: 0, match: 0, bad: [] });
@@ -640,40 +658,57 @@ function run(strat, seed, trace, opt) {
     mj: { runs: 0, clear: 0, leave: 0, wipe: 0, deep: 0, ev: 0, stones: 0 }, rv: { swap: 0, swapGain: 0, crushWin: 0, crushLose: 0, crushP: 0, teach: 0 }, trials: 0, baoqi: 0, toxSum: 0, toxMax: 0, ticks: 0, rice: 0, plots: 0, yinGot: 0, zhenSet: 0, zhenAid: 0 };
   const maxT = opt.maxT || (strat === 'idle' ? 700 : strat === 'lazy' ? 1700 : strat === 'goalcard' ? 120 : 1300);
   simSect = opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3];
-  for (let n = 0; n < maxT; n++) {
+  // 主循环按季（docs/AP_PLAN.md §8.2）：季初突破 → 行动把 3 点花完（花不出去的季末自动打坐）→ 家务 → L.seasonEnd（3 个月）→ 逐月的 out 照旧处理
+  curRec = rec;
+  const maxS = Math.ceil(maxT / L.SEASON_LEN);
+  for (let n = 0; n < maxS; n++) {
     const p = st.p;
     tryBreak(st, rec, strat);
     if (p.r >= 9) { rec.ascend = st.tick; rec.gearAt[9] = gearShare(st); rec.petAt[9] = petShare(st); rec.petEvo = st.stats.petEvo || 0; rec.petAw = st.stats.petAwake || 0; rec.feedUsed = st.stats.petFeed || 0; break; }
     if (strat === 'guided' && seed <= 20 && ADV_AT.includes(st.tick)) advCheck(st, rec);
-    if (strat === 'guided') actGuided(st, rec, seed);
-    else if (strat === 'lazy') actLazy(st, rec);
-    else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
+    const pactSeason = !st.pact && st.tick === L.PACT_TICK - L.SEASON_LEN;   // 这一季季末就是三年之约
+    for (let g = 0; g < 6 && L.apLeft(st) > 0 && p.r <= L.MAXR; g++) {
+      const left = L.apLeft(st), seq = st.ap.seq;
+      if (g) tryBreak(st, rec, strat);
+      if (p.r > L.MAXR) break;
+      if (strat === 'guided') actGuided(st, rec, seed);
+      else if (strat === 'lazy') actLazy(st, rec);
+      else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
+      if (st.retreat && !st.run) L.retFinish(st);   // 走了旧入口（L.adviseDo 的闭关等）留下的：当场结掉
+      if (L.apLeft(st) === left && st.ap.seq === seq) break;   // 这一点花不出去：季末自动打坐
+      rec.acts = (rec.acts || 0) + 1;
+    }
+    if (p.r > L.MAXR) continue;
     if (strat === 'lazy') { artLazy(st); L.gearAutoAll(st); }
     if (strat === 'guided') gearGuided(st);
-    if (strat === 'guided' && !NOKE && !st.pact && st.tick === L.PACT_TICK - 1) artFor(st, { foe: L.PACT_FOE });
-    if (strat === 'guided' && st.sect && st.tick % L.MEET_EVERY === L.MEET_AT - 1) { const pos = L.sectPos(st); artFor(st, { foe: { kind: 'sect', id: L.nineAt(st, pos === 1 ? 2 : pos - 1).id } }); }
-    if (strat === 'guided' && !st.pact && st.tick === L.PACT_TICK - 1) battlePill(st, rec, L.pactInfo(st).p);
-    rec.passive += L.income(st);
-    rec.toxSum += st.toxin || 0; rec.toxMax = Math.max(rec.toxMax, st.toxin || 0); rec.ticks++;
-    if (L.plotCount(st)) { rec.rice += L.riceCount(st); rec.plots += L.plotCount(st); }
-    const t0 = BT_TIMING ? process.hrtime.bigint() : 0n;
-    const out = L.tick(st);
-    if (BT_TIMING && st.exp && st.exp.nodes) { btNs += Number(process.hrtime.bigint() - t0); btNodes++; }
-    // 回合战（COMBAT_LOOT §8.5 的新断言）：第一章各趟的评价、首领战
-    if (out.exp && !st.pact) { rec.c1n = (rec.c1n || 0) + 1; if (out.exp.rating >= 3) rec.c1jia = (rec.c1jia || 0) + 1; if (out.exp.bt && out.exp.bt.ke) rec.c1ke = (rec.c1ke || 0) + 1; }
+    if (strat === 'guided' && !NOKE && pactSeason) artFor(st, { foe: L.PACT_FOE });
+    if (strat === 'guided' && st.sect && [1, 2, 3].some(i => (st.tick + i) % L.MEET_EVERY === L.MEET_AT)) { const pos = L.sectPos(st); artFor(st, { foe: { kind: 'sect', id: L.nineAt(st, pos === 1 ? 2 : pos - 1).id } }); }
+    if (strat === 'guided' && pactSeason) battlePill(st, rec, L.pactInfo(st).p);
+    rec.passive += L.income(st) * L.SEASON_LEN;
+    rec.toxSum += (st.toxin || 0) * L.SEASON_LEN; rec.toxMax = Math.max(rec.toxMax, st.toxin || 0); rec.ticks += L.SEASON_LEN;
+    if (L.plotCount(st)) { rec.rice += L.riceCount(st) * L.SEASON_LEN; rec.plots += L.plotCount(st) * L.SEASON_LEN; }
+    rec.seasons = (rec.seasons || 0) + 1;
+    const S = L.seasonEnd(st);
+    if (S.pre.exp) expDone(st, rec, S.pre.exp);
+    let dead = false;
+    for (const out of S.outs) {
     if (out.harvest) for (const k in out.harvest) if (L.YIN_N[k]) rec.yinGot += out.harvest[k];
     if (out.choice && strat !== 'idle') pickChoice(st, out.choice);
     if (out.visitor && strat === 'guided') giftGuided(st, rec);
     if (out.visitor && strat !== 'idle') pickChoice(st, out.visitor);
-    while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle') L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
+    while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle' && !(ev.id === 's2_invite' && st.flags.inviteAt >= 1e9)) L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
     // 坊市事件（换货、开拍、买轮换货时）：会去坊市的人打开坊市时碰上，随手选一个
     if (strat !== 'idle') for (let g = 0, ev; g < 3 && (ev = L.marketEvent(st)); g++) { pickChoice(st, ev); L.marketEventDone(st, ev.id); }
     if (out.world) rec.worlds++;
-    if (out.train && strat === 'guided') L.startTrain(st);
     if (out.pact) { rec.zhanN = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').length; rec.wStar = st.gear.w ? st.gear.w.star || 0 : -1; rec.wPlus = st.gear.w ? st.gear.w.plus || 0 : -1; rec.bossCh1 = !!st.bosses[0]; rec.wishHit = (st.stats.wishHit || 0) > 0; rec.infuse = (st.stats.infuse || 0) > 0; }
     if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win;
       const w = L.gearEq(st, 'w'); rec.loot1 = { star: w ? w.star || 0 : 0, wish: st.stats.wishHit || 0, plus: st.stats.plus || 0, infuse: st.stats.infuse || 0, zhan: Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').length, boss: !!st.bosses[0], cards: st.stats.lootGear || 0 }; }
-    if (out.invite && strat !== 'idle') L.joinSect(st, opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3]);
+    // 三宗争徒的弹窗（界面 showInvite：挑一家点【拜入】，或【再想想】）：不看境界，第二章“三张帖子”结过、还没宗门才来
+    if (out.invite) { if (strat !== 'idle' && !opt.noSect) L.joinSect(st, simSect); else L.inviteDecline(st); }
+    // 这一章要打的宿敌：只剩他时上门下战书（out.mainFoe，界面 runMainFoe）；guided 胜算 ≥ 45% 应战，lazy 一半一半，idle 改日
+    if (out.mainFoe) { const I = L.challengeInfo(st, out.mainFoe); const go = I && !I.why && (strat === 'guided' ? I.p >= 0.45 : strat === 'lazy' ? L.rng() < 0.5 : false); if (go) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, out.mainFoe); } else L.mainFoeLater(st, out.mainFoe); }
+    // 目标卡上的主线一步（mainline.js 的 L.mainStep）：胜算过半的下战书——guided 照做，lazy 三回里做一回（晋升、投帖上面已经照做）
+    if (!opt.noChal && strat !== 'idle') { const ms = L.mainStep(st); if (ms && ms.foe && (strat === 'guided' || L.rng() < 0.33)) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, ms.foe); } }
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
       // guided：论道前按克制换战技（第一场的宿敌）；换完下个周天 artOpt 再按平时的最优搭配换回来
@@ -688,6 +723,11 @@ function run(strat, seed, trace, opt) {
       while (st.storyQ.length) { const ev = L.eventById(st.storyQ.shift()); if (ev) { if (strat === 'idle') L.resolveChoice(st, ev, ev.choices.findIndex(c => L.costOk(st, c.cost))); else pickChoice(st, ev); } }
     }
     if (out.meet) L.sectMeet(st);
+    if (opt.onTick) opt.onTick(st, out, S);
+    if (out.death) { rec.death = st.tick; rec.deathR = p.r; dead = true; break; }
+    }
+    if (dead) break;
+    // 迁移时压着的大事（st.ap.pend 并进了 S.big；新档不会有）由下一季照常的 out 接手，这里不重复处理
     for (const id of ['mu', 'zhao', 'chu', 'xue', 'yun']) if (st.beaten[id] && rec.beatAt[id] === undefined) rec.beatAt[id] = st.tick;
     if (st.rank === 1 && rec.rank1 === undefined) rec.rank1 = st.tick;
     for (const m of [60, 80]) if (rec.affAt[m] === undefined && L.NPCS && Object.keys(st.npc || {}).some(id => L.NPCS[id] && L.aff(st, id) >= m)) rec.affAt[m] = st.tick;
@@ -700,8 +740,6 @@ function run(strat, seed, trace, opt) {
       rec.streak = q > 40 && L.unlocked(st, 'market') ? rec.streak + 1 : 0; rec.maxStreak = Math.max(rec.maxStreak, rec.streak);
     }
     rec.maxPills = Math.max(rec.maxPills, st.pills);
-    if (opt.onTick) opt.onTick(st, out);
-    if (out.death) { rec.death = st.tick; rec.deathR = p.r; break; }
     if (trace && st.tick % 12 === 0) {
       const sl = L.artSlots(st).map(id => (id ? L.art(id).n.slice(0, 2) + L.art(id).t + L.MAST.n[L.artLv(st, id)][0] : '-')).join('/');
       const gs = L.GEAR_SLOTS.map(s => (st.gear[s] ? st.gear[s].t + '+' + st.gear[s].plus : '-')).join('/');

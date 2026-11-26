@@ -50,7 +50,7 @@ const PROG = [
   st => {
     if (st.flags.warWon) return [{ k: 'war', t: '守山', v: 1, max: 1, text: '已击退天剑宗' }];
     const foe = { kind: 'war', id: 'tianjian' }; let S = 0, Q = 1;
-    try { S = L.duelPower(st, foe) * L.wardMult(st); Q = L.warPower(); } catch (e) { /* 没入宗 */ }
+    try { S = L.duelPower(st, foe) * L.wardMult(st); Q = L.warPower(st); } catch (e) { /* 没入宗 */ }
     return [{ k: 'war', t: '守山', v: Math.min(S, Q), max: Q, text: `战力 ${L.fmt(S)} → 来犯 ${L.fmt(Q)}` }];
   },
   st => [duelProg(st, 'xue', '血无涯')],
@@ -195,6 +195,9 @@ function goalNext0(st) {
   // 其余都取变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡、老祖头像、变强页同一张表；必须先做的（突破、疗伤、新法宝）压过新系统上手
   const A = L.advise ? L.advise(st, 'goal') : null, a0 = A && A.acts[0];
   if (a0 && a0.must) return advNext(a0);
+  // 主线眼下就能做的一步（投帖、晋升、胜算过半的下战书；mainline.js）
+  const ms = L.mainStep ? L.mainStep(st) : null;
+  if (ms && ms.must) return { t: cut(ms.t, 12), go: ms.go, hl: ms.hl, why: 'main', k: ms.id, foe: ms.foe };
   // 刚开、还没学会的系统
   const og = L.onbGoal(st);
   if (og) return { t: cut(og.goal, 12), go: ONB_GO[og.k] || 'path', hl: null, why: 'onb', k: og.k };

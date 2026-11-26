@@ -427,7 +427,7 @@ L.mjChestRec = function (st, opts) {
   opts.forEach((o, i) => {
     let s = 0, w = '';
     if (o.k === 'art' && o.id === 'x_hunyuan') { s = 10; w = '三门功法视为同属性，通用共鸣 +10% 一直在'; }
-    else if (o.k === 'art') { const b = L.artBetter(st, o.id); s = b ? 8 : L.art(o.id).pool === 'frag' ? 6 : 5; w = b ? '比你现在装的强，拿了就能换上' : L.art(o.id).pool === 'frag' ? `残篇 ${(st.arts.frag[o.id] || 0)} → ${(st.arts.frag[o.id] || 0) + 1}/3，别处难得` : '秘境独有，别处得不到'; }
+    else if (o.k === 'art') { const b = L.artRecIf ? !!L.artRecIf(st, o.id) : L.artBetter(st, o.id); s = b ? 8 : L.art(o.id).pool === 'frag' ? 6 : 5; w = b ? '比你现在装的强，拿了就能换上' : L.art(o.id).pool === 'frag' ? `残篇 ${(st.arts.frag[o.id] || 0)} → ${(st.arts.frag[o.id] || 0) + 1}/3，别处难得` : '秘境独有，别处得不到'; }
     else if (o.k === 'plan') { s = 6; w = '器方阵图只在这里出'; }
     else if (o.k === 'pet') { const P = petInfo(o.id), c = curPet(st), cur = c ? c[1] : 0; s = P[1] > cur ? 7 : 2; w = P[1] > cur ? `灵宠 ${L.PETS[cur].n} → ${L.PETS[P[1]].n}：战力 ×${(L.PETS[P[1]].m / L.PETS[cur].m).toFixed(2)}` : ''; }
     else if (o.k === 'treasure') { s = st.treasure < 3 ? 4 : 3; w = `天材地宝手里只有 ${st.treasure}`; }

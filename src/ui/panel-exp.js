@@ -114,7 +114,7 @@ function confirmExp(k, d, a, still) {
   const yrs = f.len * L.REALMS[Math.min(st.p.r, 8)].mpt;
   const s = sheet({
     title: rg.n, center: true, still,
-    body: `${typeof btPrepHTML === 'function' && L.TRIP_ON !== false ? btPrepHTML(k, d, a) : UI.isOpen('zhanji') ? elemLine(k) : ''}
+    body: `${typeof btPrepHTML === 'function' && L.TRIP_ON !== false ? btPrepHTML(k, d, a) : UI.isOpen('zhanji') ? elemLine(k, d) : ''}
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
       ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>

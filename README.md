@@ -120,6 +120,8 @@ src/logic/        逻辑模块：core 参数与公式、事件能力登记 → s
                   → chains 奇遇链进度（催一下、放宽境界上限、补放剧情步）→ codex 图鉴（十四类、见多识广、成组）→ samsara 轮回（道果、轮回殿、出身、天道试炼、传承）
                     ——这三个包了 L.tick、L.newState、L.eligible 等，所以排在 tick 后面
                   → onboard 上手曲线（解锁表、掌握信号；L.TIME 时钟旋钮）→ path 游戏路径（九章、目标卡“下一步”、章末）
+                  → story 剧情按章放 → storyline 剧情串联（节拍、抉择、结局；关键事件的戏零延迟 L.storyKick）
+                  → mainline 主线保底（各章主线的组成表 L.mainReqs、入宗不看境界与随时投帖、散修之路、下战书与宿敌上门、卡住时老祖提示与降要求、旧档救场；docs/STORY_PLAN.md §13）
                   → time 时间流逝（大节点预告与备战、出发拦截、纸鹤消息匣、打断节流）→ report 年报（docs/KAIRO_PLAN.md §2 §3 §6.2）
                   → advise 变强建议（KAIRO_PLAN §10：L.advise / adviseDo / adviseSeen；目标卡“下一步”、老祖头像、变强页、备战卡、锦囊、S 气泡共用；只读状态，全用现成试算）
                   → slots 存档位（自动 3 格轮换 + 手动 3 格的规则、档位摘要、导出字符串的 LZW 压缩；存储由界面给，只管规则）
@@ -153,6 +155,14 @@ tools/story_ui.js    剧情界面检查与截图（对话场景播放器、数�
 tools/story_shots.js 剧情美术预览（docs/story_mock/art_preview.png）：node tools/story_shots.js
 tools/preview.js  美术预览：渲染 tools/preview.html 里的精灵与场景
 tools/shot.js     Playwright 冒烟测试与截图
+tools/story_accept.js    主线可走通性验收（逻辑层，矩阵与结论见 docs/STORY_ACCEPTANCE.md）：借 sim 的策略打怪升级，但把逻辑捷径全堵上——入宗只能走“三宗争徒弹窗”或“三张帖子”
+                  的选项、剧情只在洞府弹、灰选项不能选、解锁卡的真实时间间隔按 ×1 / ×4 折进去、飞升后补“天门”；每月跑死锁探测器（tools/story_probe.js）。
+                  `node tools/story_accept.js [quick] [only=<正则>] [list] [v] [json=<文件>]`，约 10 分钟；2.4.0-beta1 上的基线 121 / 134（失败的 13 条是回归用例）
+tools/story_accept_ui.js 同一件事的真实界面版（Playwright）：时间只在真人那边也会走的时候推进，主线相关的每一步只点按钮；另量“关键事件 → 对应剧情”隔了几个月。
+                  `node tools/story_accept_ui.js [only=<正则>] [list] [dist=<旧构建的 index.html>] [until=<月>] [json=<文件>]`，约 30 分钟
+tools/story_accept3.js   3.0（行动点制，docs/AP_PLAN.md）的验收：只用 L.act / L.seasonEnd / L.nextBlock / L.mainActs 玩，查零延迟、三年之约同 tick、mainActs 非空等硬断言；
+                  3.0 的接口没合进来时以退出码 2 结束。`node tools/story_accept3.js [list]`
+tools/story_fixtures/    旧存档样本（2.3.1 / 2.3.2 / 2.4.0-beta1 真跑出来的，另有一份照用户描述手工拼的），上面三个脚本的旧档用例读它
 tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【换上】、每 24 周天在功法页点“荐”；法宝对比卡更强就换、否则熔炼、偶尔锁定，
                   每 12 周天去法宝页点【强化】；每 6 周天逛坊市：处理坊市事件、卖多的破境丹、买轮换货、拍卖会出价；大势起了点小牌看年历；
                   每 12 周天进兽栏：出战最强的、空着的派岗、喂兽粮、发光的点进化、名册满时放生或替换；天劫准备页把手段全点上、心魔劫随手选、那一停补满再继续；
@@ -164,6 +174,7 @@ tools/kairo_check.js 面板版式断言（KAIRO_PLAN §4.2 / §7）：各面板�
 tools/jitter_check.js 窗口切换抖动：底栏五格互点、各面板分页、弹窗开关与 A 关 B 开、变强页原地重画、目标卡展开、进出战斗、结算卡翻牌、突破过场接结果卡，逐帧记关键元素的位置并统计 CLS；--assert 时要求 CLS < 0.02、一直在屏上的元素一帧位移 ≤ 4px、卷轴不闪不重放入场（进出战斗、目标卡展开这类换屏只许“一下到位”）；node tools/jitter_check.js --assert [--dev "Pixel 7"|360|desk|both|all] [--only 名字] [--shots]。做法：弹窗开着时再调 sheet() = 同一个卷轴换内容（不重放入场、同页重画保留滚动、同名窗口只长不缩），底栏面板和带分页的窗口固定高度，传讯 + 底栏贴底，四周的块高度一变当场重排场景
 tools/cine_test.js 高光过场（src/ui/cine2.js，docs/COMBAT_LOOT.md §9）：十段过场各截三帧、时长 ±20%、【跳过】0.3 秒内、点一下快进 / 长按跳过、字幕一行、停表、只播一次、在外排队回洞府先播、破境 → 结果卡、约战前后、回忆页；node tools/cine_test.js <目录> ["Pixel 7"|360]。playwright 下过场默认快放（照常记看过、走回调，不出画面），window.__xm_cine.fast = false 才播
 tools/save_check.js 存档位（src/logic/slots.js + src/ui/saves.js）：轮换、手动存读删、旧档成为自动 1、读档后接着跑 30 个月、导出导入、容量；界面 Pixel 7 与 360×640 逐步截图；node tools/save_check.js <目录>
+tools/rec_check.js 功法推荐一致性（src/logic/artrec.js 的 L.artRecommend，docs/SYSTEMS.md §2 推荐口径）：只有通用 / 正要去某五行地图 / 三年之约前 / 论道前四种情境下，功法页“荐”、变强页换战技牌、掉落卡【换上】、出发页、备战与论道准备页说同一门并带原因；照换后不推回、连续多月不横跳；guided 三世每月变强页不乒乓；界面 Pixel 7 截图核对；node tools/rec_check.js [目录] [--noui] [--html 旧dist --loose]（量修之前）
 tools/kairo_shots.js 开罗式重整前后对照截图（开局、出发、结算、第一章中段、装备、路径、在外、年报）
 tools/guide30.js  前 30 分钟节奏：照着老祖走的机器人玩到约第 200 周天，每段讲解截图，写出讲解 / 气泡 / 对决的时间表并核对节奏（约战前讲解段数、同一周天不连讲、句句带数）
 tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对比卡、强化与保底、继承、词条、熔炼、fx.ore / fx.plus、打造、v4 → v5 迁移）、人物分页、
