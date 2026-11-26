@@ -36,6 +36,7 @@ function tkParse(text) {
 }
 const tkPlain = text => text.replace(/[*|]/g, '');
 // 把 talk 摊平成一行一行（条件当场判）：台词 { who, mood, fx, name, text, o, echo }；指令 { bg } { sfx } { shake } { flash } { bgm } { wait } { zoom } { amb } { dim } { black }
+let tkSlotEv = '';   // 正在摊平的是哪一场（空位按场景 id 取）
 function tkFlat(list, out, echo) {
   out = out || [];
   for (const it of list || []) {
@@ -44,6 +45,10 @@ function tkFlat(list, out, echo) {
       const mf = unk ? [] : (p[1] || 'n').split('+');
       out.push({ who: unk ? '?' : p[0], mood: mf[0] || 'n', fx: mf.slice(1).join(' '), name: unk ? p[1] : p[2], text: L.fill(st, it[1]), o: it[2] || {}, echo: echo || '' });
       echo = '';
+    } else if (it.slot) {   // 共用场景的空位：别的线填了就用填的，没有就用这里的缺省（L.storySlot）
+      if (!L.storyCond(st, it.if)) continue;
+      const got = tkSlotEv ? L.storySlot(st, tkSlotEv, it.slot, it.max) : [];
+      if (got.length) for (const x of got) tkFlat(x.say, out, x.echo || echo); else tkFlat(it.say, out, it.echo || echo);
     } else if (it.say) { if (L.storyCond(st, it.if)) tkFlat(it.say, out, it.echo || echo); }
     else if (it.pick) { const o = it.pick.find(x => L.storyCond(st, x.if)); if (o) tkFlat(o.say, out, o.echo || echo); }
     else if ('black' in it) out.push({ who: 'black', mood: 'n', fx: '', text: L.fill(st, it.black), o: it, echo: '' });
@@ -223,6 +228,7 @@ function tkClose() {
 // 播一场。ev：带 talk 的事件；back：结算卡【继续】之后回到哪
 function playTalk(ev, back) {
   if (tk) tkClose();
+  tkSlotEv = ev.id;
   const root = tkMount();
   tk = { ev, back, root, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, prevCine: cine, k: 1,
     zoom: 1, zc: 1, zx: 100, zy: 60, dim: 1, dimT: 0, flashAt: -9999, amb: undefined };
@@ -428,6 +434,8 @@ const CINE_DATA = {
   end_zhige: { n: '止戈', no: '㉝', bgm: 'home', thumb: 'end:zhige', shots: [
     { bg: 'end:zhige', cam: 'push', ms: 6000, sub: '“那一年，没有打起来。”', sfx: [[600, 'bell']] }] },
 };
+// 内容文件里的分镜（src/content/cine_data.js：同名的盖掉上面的，新的接在后面）
+Object.assign(CINE_DATA, window.CINE_DATA_X || {});
 for (const id in CINE_DATA) {
   const D = CINE_DATA[id];
   CINE[id] = { n: D.n, no: D.no, s: Math.round(D.shots.reduce((a, s) => a + (s.ms || 4000), 0) / 1000), thumb: () => cnBgOf(D.thumb), shots: () => cnFromData(D) };

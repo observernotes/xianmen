@@ -35,6 +35,7 @@ function cond1(st, c) {
   if (typeof c === 'function') return !!c(st);
   if (c[0] === '!') return !cond1(st, c.slice(1));
   let m;
+  if ((m = /^any:(.+)$/.exec(c))) return m[1].split('|').some(x => cond1(st, x));   // 任一满足：'any:war_zheng|war_mo|war_stop'、'any:aff:su>=40|aff:ye>=40'
   if ((m = /^path:(\w+)$/.exec(c))) return L.storyPath(st) === m[1];
   if ((m = /^daolv:(\w+)$/.exec(c))) return m[1] === 'none' ? !st.daolv : m[1] === 'any' ? !!st.daolv : st.daolv === m[1];
   if ((m = /^origin:(\w+)$/.exec(c))) return (st.origin || 'qitu') === m[1];
@@ -52,6 +53,18 @@ function cond1(st, c) {
   return !!E(st)[c];
 }
 L.storyCond = (st, c) => (c === undefined || c === null ? true : Array.isArray(c) ? c.every(x => cond1(st, x)) : cond1(st, c));
+
+// ---------- 共用场景的空位（STORY_PLAN §10 并行约定） ----------
+// 场景的 talk 里写 { slot: 'su', say: [ 没人填时的缺省 ] } 或 { slot: '*', max: 3, say: [ … ] }；各线在自己的内容文件里往
+// globalThis.STORY_SLOTS['s8_steps'] 里 push { who: 'zhao', if: 'zhao_owes', echo: '…', say: [ … ] }（if 的写法同 storyCond）。
+// 取法：先按 who 归组（'*' = 所有人，按第一次出现的顺序），每组取第一条满足条件的——别的线填的排在框架自带的（base: 1）前面；'*' 最多取 max 组。
+L.STORY_SLOTS = globalThis.STORY_SLOTS || (globalThis.STORY_SLOTS = {});
+L.storySlot = function (st, evId, who, max) {
+  const list = (L.STORY_SLOTS[evId] || []).filter(x => x && x.say && (who === '*' || x.who === who) && L.storyCond(st, x.if));
+  const order = [], by = {};
+  for (const x of list) { if (!by[x.who]) { by[x.who] = x; order.push(x.who); } else if (by[x.who].base && !x.base) by[x.who] = x; }
+  return order.slice(0, who === '*' ? max || 3 : 1).map(w => by[w]);
+};
 
 // ---------- 有条件的选项 ----------
 const moSide = st => L.aff(st, 'ye') >= 60 || L.storyPath(st) === 'mo' || (L.grudge ? L.grudge(st, 'xue') : 0) <= -40;

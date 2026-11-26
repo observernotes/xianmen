@@ -10,9 +10,10 @@ function showIntro() {
   const lines = [
     ['天剑宗外门。', '“杂灵根也配修仙？滚出山门！”', '你被大师兄赵乾一脚踢下了山。'],
     ['同一天，婚约也被当众撕毁：', '“废物，你配不上慕容家。三年后落霞城论剑，你若敢来，我便让你输得心服口服。”', '“莫欺少年穷！三年之后，我必登台！”'],
-    ['当夜，荒山破庙。', '一枚生锈的戒指在月光下微微发烫……', '“小家伙，本座在戒中等了你三千年。”'],
-    ['一个废柴的逆天仙途，从此开始。', '三年之约、天剑宗、天骄榜、宗门之巅——', '还有那九九天劫之后的，白日飞升。'],
+    // 原来的第 3 页（破庙、锈戒、“本座等了你三千年”）并进建档后当场播的过场⑪与“破庙第一夜”（talk.js 的 storyStart），这里只留一句引子
+    ['当夜，荒山破庙。', '一个废柴的逆天仙途，从这里开始。', '三年之约、天剑宗、天骄榜、宗门之巅——', '还有那九九天劫之后的，白日飞升。'],
   ];
+  const PANEL = [0, 1, 2];   // 每页配哪一格开场画：最后一页用破庙那一格
   let page = 0, typing = null;
   // 每一页配一格开场画（ART.introPanel 200×120，整数倍放大；屏幕太窄时退一档）
   const panel = n => {
@@ -23,7 +24,7 @@ function showIntro() {
   };
   const render = () => {
     const ls = lines[page];
-    box.innerHTML = `<div class="story">${page === 0 ? '<h1>废柴仙途</h1>' : ''}${panel(page)}${ls.map(() => '<p></p>').join('')}<div class="ipager">${lines.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}<p class="hint">点击继续 ▸</p></div></div>`;
+    box.innerHTML = `<div class="story">${page === 0 ? '<h1>废柴仙途</h1>' : ''}${panel(PANEL[page])}${ls.map(() => '<p></p>').join('')}<div class="ipager">${lines.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}<p class="hint">点击继续 ▸</p></div></div>`;
     const ps = box.querySelectorAll('p:not(.hint)');
     let li = 0, ci = 0;
     clearInterval(typing);
