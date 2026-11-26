@@ -33,7 +33,7 @@ function showExp() {
     if (!open) { void lockedShown; continue; }   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
     if (L.bossReady(st, k)) {
       const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
-      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战可得首领材料${L.BOSS_MAT[k]} ×1（打造用）与灵石；每 ${L.BOSS_AGAIN} 月一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
+      rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战：首领材料 ×1、灵石，35% 掉专属（第 3 次必出）；每 ${L.BOSS_AGAIN} 月一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span></div></div>`);
     }
     const c = defaultCell(st, k), f = L.expForecast(st, k, c.d, c.a);
     const bb = Math.max(0, ...[0, 1, 2].map(d => L.bestOf(st, k, d)));
@@ -68,9 +68,10 @@ function fightBossUI(k) {
     stage: 'wild', foe: ftBoss(k),
     quote: `${B.n}：“${B.line}”`,
     winText: !res.win ? '' : res.again ? `再败${esc(B.n)}！<div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
-      : `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText ? `<span>${esc(res.planText)}</span>` : ''}</div>${it ? gearLine(it) : ''}${res.art ? artLine(res.art) : ''}`,
+      : `斩杀${esc(B.n)}！获得称号「${esc(B.t)}」<div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`,
     loseText: '首领太强，重伤而归（负伤 4 月）。变强之后再来！',
-    done: closeModal,
+    // 首领的牌（loot.js 的 L.bossLoot）：对决演完再翻
+    done: () => { if (res.win && res.cards && res.cards.length) showLootFlip(res.cards, null, { title: `${esc(B.n)} · 翻牌` }); else closeModal(); },
   });
 }
 // 出发确认页：深度一排、行事一排、预计评价与负伤风险（L.expForecast 算出的分布）
@@ -117,7 +118,7 @@ function confirmExp(k, d, a, still) {
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
       <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 月${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
       ${notes.join('')}${opts.join('')}
-      ${dist}`,
+      ${dist}${lootPrepHTML(k, d)}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(!blk && L.quickOk && L.quickOk(st, k, d, a) ? [{ t: '速战', alt: true, fn: () => { if (L.startExp(st, k, d, a)) { st.exp.quick = 1; SFX.coin(); closeModal(); } } }] : []).concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
@@ -130,6 +131,7 @@ function confirmExp(k, d, a, still) {
   s.querySelectorAll('[data-btswap]').forEach(b => b.onclick = () => { SFX.tap(); btSwapOpen = !btSwapOpen; confirmExp(k, d, a, true); });
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
   if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
+  bindLootPrep(s, k, d, () => confirmExp(k, d, a, true));   // 这里掉什么、心愿（loot.js）
 }
 function itemLine(it) {
   if (it.kind === 'a') return artLine(it);
@@ -232,8 +234,12 @@ function showExpResult(res) {
   if (res.treasure) loot.push(`${artIcon('treasure', 16)} +${res.treasure}`);
   if (res.contrib) loot.push(`${artIcon('contrib', 16)} +${fmt(res.contrib)}`);
   if (loot.length) lines.push(`<div class="kloot">${loot.slice(0, 4).map(x => `<div>${x}</div>`).join('')}</div>` + (loot.length > 4 ? `<div class="kloot">${loot.slice(4, 8).map(x => `<div>${x}</div>`).join('')}</div>` : ''));
+  // 归途翻牌（src/ui/loot.js；牌里的法宝、功法翻开后在牌下出对比行），牌以外的（灵宠、仙府秘藏）照旧一行一件
+  const cards = res.sum ? res.sum.cards : res.cards, inCards = new Set((cards || []).map(c => c.item).filter(Boolean));
+  if (cards && cards.length) lines.push(lootFlipHTML(cards));
   // 新法宝 / 功法 / 灵宠：第一件“已戴上”；待定的【换上】【先收着】（先收着 = 留在【装备】的“新到”里，不熔）
   for (const it of res.items) {
+    if (inCards.has(it)) continue;
     if (it.gear) {
       const x = it.gear, B = L.gearBase(x.id), cell = `<div class="cell">${qcellHTML(x.t, gearImg(x, 2), 2)}</div>`;
       if (it.pend && L.gearPend(st, x.u)) {
@@ -278,6 +284,7 @@ function showExpResult(res) {
   }
   if (foot.length === 1) { foot[0].alt = false; foot[0].gold = true; }
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
+  if (cards && cards.length) lootFlipRun(s, cards, { onWish: () => { closeModal(); confirmExp(res.k, res.d, res.a); } });
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
   s.querySelectorAll('[data-btgo]').forEach(b => b.onclick = () => { const id = b.dataset.btgo; if (L.equipArt(st, id)) { SFX.coin(); b.outerHTML = `<span class="chip ok">已换上《${esc(L.art(id).n)}》</span>`; } });

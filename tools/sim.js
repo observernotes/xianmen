@@ -126,7 +126,7 @@ function gearGuided(st) {
   }
   // 重铸：兵器（非固定词条）没有锋锐时，花多余的天材地宝（留 3 个炼丹）重抽价值最低的一条，新的更好才留
   const wx = L.gearEq(st, 'w');
-  if (wx && !L.gearBase(wx.id).fixed && st.treasure > 3 && !wx.aff.includes('fengrui') && wx.aff.length) {
+  if (wx && !L.gearBase(wx.id).fixed && st.treasure > 3 && !wx.aff.includes('huixin') && wx.aff.length) {
     let worst = 0, wv = Infinity;
     wx.aff.forEach((a, i) => { wx.aff.splice(i, 1); const v = -L.gearValue(st); wx.aff.splice(i, 0, a); if (v < wv) { wv = v; worst = i; } });
     const v0 = L.gearValue(st), rf = L.gearReforge(st, 'w', worst);

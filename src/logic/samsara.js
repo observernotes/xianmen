@@ -268,7 +268,7 @@ L.legacySet = function (st, picks) {
 L.legacyAuto = function (st) {
   const c = L.legacyCands(st);
   const arts = c.arts.slice().sort((a, b) => L.art(b.id).t - L.art(a.id).t || b.lv - a.lv).slice(0, c.artN).map(x => x.id);
-  const gear = c.gear.find(x => /^ke_|fengrui/.test(x.aff)) || c.gear[0];
+  const gear = c.gear.find(x => /^ke_|huixin/.test(x.aff)) || c.gear[0];
   return L.legacySet(st, { arts, gear: gear && { slot: gear.slot, aff: gear.aff }, pet: c.pets[0] && c.pets[0].sp });
 };
 // 器灵：下一世第一件同槽法宝带这条词条
