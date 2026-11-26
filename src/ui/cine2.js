@@ -341,7 +341,7 @@ function cnSize() {
   const ext = Math.max(0, Math.min(30, py - (tall ? top : 0)));
   cn.G = { Wl, Hl, dpr, py: Math.max(0, py), ext, tall, x0: Math.floor((Wl - 200) / 2) };
   cn.g.imageSmoothingEnabled = false; cn.am = cnCv(Math.max(8, Math.ceil(Wl / 6)), Math.max(8, Math.ceil(Hl / 6))); cn.at = cnCv(Math.ceil(cn.am.width / 2), Math.ceil(cn.am.height / 2)); cn.amN = 0;
-  const subY = (cn.G.py + 120 + ext) * k / dpr + (tall ? 20 : 10);
+  const subY = Math.min((cn.G.py + 120 + ext) * k / dpr + (tall ? 20 : 10), vh - 104);
   cn.root.style.setProperty('--cn-sub', subY + 'px');
 }
 // 画面以外的底色：这一帧上沿 12 行拉到屏幕顶、下沿 12 行拉到屏幕底、左右两条拉到屏幕边，缩小再放大糊开，压暗

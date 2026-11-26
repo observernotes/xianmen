@@ -87,7 +87,10 @@ function tkSize() {
   const kp = Math.max(1, Math.min(Math.round(P * dpr0 / dpr), Math.floor(0.66 * baseTop * dpr0 / 128), Math.floor(0.56 * vw * dpr0 / 96)));
   const ptH = 128 * kp / dpr0, topL = tall ? Math.ceil(54 * dpr / P) : 0, lim = (baseTop + 14 - ptH * 0.8) * dpr / P;   // 人物肩线以上留给画面
   const py = tall ? Math.round(topL + Math.max(0, lim - topL - 120) * 0.45) : Math.max(0, Math.min(Hl - 120, Math.round(((baseTop + 30) * dpr / P - 120) / 2)));
-  T.G = { P, Wl, Hl, dpr, kp, py, tall, ext: tall ? Math.max(0, Math.min(26, py - topL + 6)) : Math.min(py, 20) };
+  const ext = tall ? Math.max(0, Math.min(26, py - topL + 6)) : Math.min(py, 20);
+  // 关键画面（cg / end）时立绘多半不在：画面往下挪到顶条与对话框的正中偏上，推近时能长得更高
+  const pyC = tall ? Math.round(topL + Math.max(0, baseTop * dpr / P - topL - 120) * 0.4) : py, extC = tall ? Math.max(0, Math.min(40, pyC - topL + 6)) : ext;
+  T.G = { P, Wl, Hl, dpr, kp, py, tall, ext, pyN: py, extN: ext, pyC, extC }; T.pyc = undefined;
   T.root.style.setProperty('--tk-pt-b', (tall ? T.baseGap - 14 : 0) + 'px'); T.root.style.setProperty('--tk-cast', Math.max(0, (vw - (tall ? 900 : 1040)) / 2) + 'px');
   T.ambC = null; T.ambPrev = null;
   tkDraw();
@@ -131,7 +134,10 @@ function tkStage(now) {
   let bg = null; try { bg = tkBg(T.bg); } catch (e) { bg = null; }
   if (T.bgSeen !== T.bg) { T.bgPrev = T.bgC; T.ambPrev = T.ambC; T.ambC = null; T.bgSeen = T.bg; T.bgAt = T.bgPrev ? now : -9999; }   // 换底图：叠化 0.3 秒
   T.bgC = bg;
-  if (!T.ambC && bg) T.ambC = tkAmbient(bg, G);
+  const cgm = /^(cg|end):/.test(T.bg), pyT = cgm ? G.pyC : G.pyN; G.ext = cgm ? G.extC : G.extN;
+  T.pyc = T.pyc === undefined ? pyT : T.pyc + (pyT - T.pyc) * (1 - Math.exp(-dt / 160)); if (Math.abs(pyT - T.pyc) < 0.2) T.pyc = pyT;
+  G.py = Math.round(T.pyc * P) / P;
+  if (!T.ambC && bg) T.ambC = tkAmbient(bg, Object.assign({}, G, { py: pyT }));
   const xf = cnClamp((now - T.bgAt) / 300, 0, 1); if (xf >= 1) { T.bgPrev = null; T.ambPrev = null; }
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.fillStyle = '#07050c'; g.fillRect(0, 0, cw, ch);
   g.imageSmoothingEnabled = true;
