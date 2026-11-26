@@ -62,9 +62,9 @@ L.chapterGoal = (st, i) => { const s = L.CHAPTERS[i].shortF; return typeof s ===
 
 // 各项在第几章开放（KAIRO_PLAN §2.1 的“这一章开放”一列；顺序仍是 L.ONB 的）
 const ONB_CH = {
-  exp: 0, home: 0, herb: 0, retreat: 0, bt: 0,
-  tour: 1, market: 1, sect: 1, visitor: 1, tuna: 1, field: 1, treasure: 1, gearCmp: 1, trib: 1,
-  furnace: 2, arts: 2, trib2: 2, pets: 2, plus: 2, cal: 2, zhanji: 2, sell: 2, world: 2, shelf: 2, crops: 2, robe: 2,
+  exp: 0, home: 0, herb: 0, retreat: 0, bt: 0, arts: 0, zhanji: 0, plus: 0, gearCmp: 0, wish: 0, infuse: 0, boss: 0,   // COMBAT_LOOT §7.4：这几样提到第一章
+  tour: 1, market: 1, sect: 1, visitor: 1, tuna: 1, field: 1, treasure: 1, trib: 1,
+  furnace: 2, trib2: 2, pets: 2, cal: 2, sell: 2, world: 2, shelf: 2, crops: 2, robe: 2,
   realm: 3, yin: 3, bond: 3, plots: 3, vault: 3, zhen: 3, dao: 3, mishu: 3, auction: 3, codex: 3,
   petJobs: 4, chainExp: 4, duty: 4, disc: 4, comp: 4, orn: 4, forge: 4,
 };

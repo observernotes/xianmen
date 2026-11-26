@@ -106,7 +106,8 @@ bash tools/build_apk.sh
 
 ```
 src/logic.js      逻辑入口（node 用）：按 MODULES 顺序把 src/logic/*.js 装到同一个 L 上，浏览器和 node 共用
-src/logic/        逻辑模块：core 参数与公式、事件能力登记 → stats 倍率汇总 → items → arts 五行与功法 → gear 法宝三槽·词条·强化·打造 → home → npc → rivals 天骄榜·宿敌资料·对决 → sect → expedition
+src/logic/        逻辑模块：core 参数与公式、事件能力登记 → stats 倍率汇总 → items → arts 五行与功法 → gear 法宝三槽·词条·强化·打造 → battle 回合战引擎（招式、五行、罩、怪物表；docs/COMBAT_LOOT.md）→ home → npc → rivals 天骄榜·宿敌资料·对决 → sect → expedition
+                  → trip 历练一趟 4～6 个节点、评价按打出来的定、速战、首领与对决换引擎
                   → cultivation 吐纳·突破（筑基的一次掷与天劫共用的结算）·闭关 → calendar 四季·固定历·天下大势 → market 货架·行情·拍卖竞价·坊市事件 → realm 秘境 → alchemy 炼丹·药引丹方·丹毒·续炼 → events-engine
                   → pets 灵宠名册·岗位·进化 → crops 灵田作物·药引库存 → quests → meta → trib 天劫（预掷、护劫手段、临场一停、评价与道基、心魔劫）→ dao 道心·因果
                   → sect2 宗门加深（任务板四类、宝库轮换、职司、人脉、血煞魔宗）→ disciples 徒弟（候选、成长、差事、传授、出师、性情事件、三人会武）
@@ -127,14 +128,17 @@ src/ui/           界面片段（共用一个作用域），按 tools/build.py �
                   goalcard 主画面（时间条、目标卡三行、一行传讯、固定五格底栏与两种角标、面板浮在底栏之上、hlOnly 金框、目标卡【去】的跳转表）、
                   panel-equip【装备】（法宝 · 功法 · 灵宠 · 包裹）、panel-me 外壳分页条（装备 / 江湖 / 仙途 / 洞府四组）与【仙途】属性 · 记录 · 设置、
                   panel-path【仙途】路径页、章末结算、年报、纸鹤列表、onboard 解锁卡（阻塞讲解只留头三步与突破金框）、panel-exp 新结算卡、
-                  panel-growth 变强页（页签 / 头 / 老祖一句 / 动作卡部件 advCards / 明细与小卡）与三年之约页
+                  panel-growth 变强页（页签 / 头 / 老祖一句 / 动作卡部件 advCards / 明细与小卡）与三年之约页、
+                  battle 历练的节点与回合战画面（btDrive 按节点推进月份、#bt 气血 / 怒气 / 招式栏 / 大按钮、首领在场景里真打、出发页的敌人格与克制条）
+                  cine2 高光过场播放器（十段分镜、点一下快进 / 长按或【跳过】跳过、只播一次记 st.meta.cine、在外进 st.cnQ 等回洞府、排在弹窗队列 / 章末卡 / 解锁卡之前；【仙途 → 记录 → 回忆】重看；C1 战斗画面调 playCine('ult' | 'boss')）
 src/template.html 样式与页面骨架
 tools/build.py    裁剪像素字体并打包成单文件 → dist/
 tools/sim.js      数值模拟：node tools/sim.js（三种策略 × 200 种子汇总）；node tools/sim.js guided 1 v 7（单局逐 12 周天）；
                   加 noarts 关掉功法系统、nogear 关掉法宝的新东西（法衣、饰品、强化、词条）、nocal 关掉四季与大势、nomarket 让 guided 不用行情拍卖轮换货、norealm 关掉秘境、nopets 关掉灵宠的等级进化岗位天赋、nodaoji 渡劫评价不给道基、nocrops 灵田只种灵稻、noalch 关掉药引丹方与丹毒、nosect2 让 guided 不送礼不收徒不领职司（宝库照旧）、norivals2 关掉宿敌与新秀（恩怨不驱动伏击抬价带头、没有新秀、宿敌不得奇遇、法宝不克你、论道前不换战技）、nohome2 回到洞府地块之前（只有聚灵阵、灵田、丹炉、洞府四项），nopeople2 关掉人物加深（不送礼、没有委托同伴双修、串门同行事件不出、知己与道侣加成照旧），
                   与默认对照量 SYSTEMS §18 的预算；nochains 关掉奇遇链、nocodex 关掉图鉴的加成；
                   node tools/sim.js guided 50 life2 每个种子连玩两世（第一世结算道果、轮回殿照顺序买、带传承、默认出身投胎），看第二世快多少
-                  goalcard 策略（只照目标卡“下一步”行动，到第 120 月）量第一章；nokairo 关掉出发拦截与节点前提前归来对照
+                  goalcard 策略（只照目标卡“下一步”行动，到第 120 月）量第一章；nokairo 关掉出发拦截与节点前提前归来对照；
+                  notrip 历练回到预掷分数制（没有回合战）、noke guided 出发前不换克制、pp=125 / pa=2.4 临时改约战战力与老祖借力
 tools/onboard.js  上手审计：浏览器里照老祖走的机器人按手表时间记讲解 / 弹窗 / 解锁，并核对“在外零打断”；
                   加 --life 是全程手表机器人：不开浏览器，照 sim 的 guided 玩完第一世，按 L.monthSec 与读字口径记手表，
                   对照 KAIRO_PLAN §3.4 的逐章预算（--assert：全程 270～360 分钟；--time=mul:2/1.6/… 临时试旋钮）
@@ -149,6 +153,7 @@ tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【�
                   每 12 周天进【洞府】有空地就点空地建“荐”的那一样，阵法页按“荐”布阵：快渡劫时布渡劫阵、渡完换回聚灵阵），检查全程无报错且飞升
 tools/guide_test.js 按真实玩家的点法走第一章（开罗式引导）：头三步手把手、在外零打断、结算卡、解锁卡【带我去】、装备 1 次点击、年报、备战卡、章末，逐步截图
 tools/kairo_check.js 面板版式断言（KAIRO_PLAN §4.2 / §7）：各面板第一屏 ≤ 60 字、≤ 6 个按钮、没有小于 14px 的字、不横向溢出；装备 / 功法 / 灵宠的点击数；node tools/kairo_check.js <目录> ["Pixel 7"|360]
+tools/cine_test.js 高光过场（src/ui/cine2.js，docs/COMBAT_LOOT.md §9）：十段过场各截三帧、时长 ±20%、【跳过】0.3 秒内、点一下快进 / 长按跳过、字幕一行、停表、只播一次、在外排队回洞府先播、破境 → 结果卡、约战前后、回忆页；node tools/cine_test.js <目录> ["Pixel 7"|360]。playwright 下过场默认快放（照常记看过、走回调，不出画面），window.__xm_cine.fast = false 才播
 tools/kairo_shots.js 开罗式重整前后对照截图（开局、出发、结算、第一章中段、装备、路径、在外、年报）
 tools/guide30.js  前 30 分钟节奏：照着老祖走的机器人玩到约第 200 周天，每段讲解截图，写出讲解 / 气泡 / 对决的时间表并核对节奏（约战前讲解段数、同一周天不连讲、句句带数）
 tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对比卡、强化与保底、继承、词条、熔炼、fx.ore / fx.plus、打造、v4 → v5 迁移）、人物分页、

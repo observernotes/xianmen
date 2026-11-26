@@ -134,7 +134,7 @@ L.promote = function (st) {
     const S = L.duelPower(st, foe), Q = L.heirPower();
     const p = L.duelP(st, S, Q, foe);
     if (L.revealFoe) L.revealFoe(st, foe);
-    res.duel = { S, Q, p, win: R() < p };
+    res.duel = { S, Q, p, win: L.duelWin(st, S, Q, foe, p) };
     if (!res.duel.win) { st.flags.promoFail = st.tick; L.log(st, `挑战原${L.srankName(st, st.sect.rank + 1)}失利，来日再战`, 'red'); return res; }
   }
   st.sect.rank++;
@@ -170,7 +170,7 @@ L.sectWar = function (st) {
   const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower() * (lead ? lead.m : 1);
   const p = L.duelP(st, S, Q, foe);
   if (L.revealFoe) L.revealFoe(st, foe);
-  const win = R() < p;
+  const win = L.duelWin(st, S, Q, foe, p);
   const res = { S, Q, p, win, lead };
   if (win) {
     st.flags.warWon = 1;
@@ -201,9 +201,9 @@ L.sectMeet = function (st) {
     const Sr = L.duelPower(st, fo);
     const p = L.duelP(st, Sr, Q, fo);
     if (L.revealFoe) L.revealFoe(st, fo);
-    let win = R() < p, xx = false;
+    let win = L.duelWin(st, Sr, Q, fo, p), xx = false;
     // 玄霄在手：老祖“请出手”，每届 2 次，输掉的一场重掷（gear.js）
-    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = R() < p; }
+    if (!win && L.gearXuanxiao(st) && (res.xx || 0) < L.XX_TIMES) { res.xx = (res.xx || 0) + 1; xx = true; win = L.duelWin(st, Sr, Q, fo, p); }
     const rd = { q, foe, Q, S: Sr, p, win, defend: pos === 1, xx };
     if (win) {
       if (pos > 1) { const o = st.sect.order; [o[pos - 1], o[q - 1]] = [o[q - 1], o[pos - 1]]; }

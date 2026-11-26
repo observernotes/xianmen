@@ -47,7 +47,7 @@ function bigP(st, b) {
   return null;
 }
 function cellFoe(st, k, d) {
-  const C = L.CELL_FOES && L.CELL_FOES[k] && L.CELL_FOES[k][d], F = C && L.FOES && L.FOES[C.elite];
+  const C = has('cellFoes') ? L.cellFoes(k, d) : L.CELL_FOES && L.CELL_FOES[k] && L.CELL_FOES[k][d], F = C && L.FOES && L.FOES[C.elite];
   return { n: F ? F.n : '', el: F && F.el ? F.el : L.REGIONS[k].el };
 }
 function goalOf(st) {
@@ -146,7 +146,7 @@ function cands(st, G) {
       add({ id: `infuse:w:${el}`, cls: 'infuse', icon: 'f_infuse', n: `兵器淬成${L.elName(el)}`, say: `兵器淬成${L.elName(el)}`, go: `do:infuse:w:${el}`, btn: '淬灵', instant: 1,
         cost: [{ icon: 'core:' + el, n: C.core, have: haveC }, { icon: 'ore', n: C.ore, have: st.ore || 0 }],
         short: haveC < C.core ? { n: C.core - haveC, unit: '枚', icon: 'core:' + el } : (st.ore || 0) < C.ore ? { n: C.ore - (st.ore || 0), unit: '灵矿', icon: 'ore' } : null,
-        fix: { t: '去刷', go: 'exp' }, tr: fn => (el === base.el ? withSet(w, 'el', undefined, fn) : withSet(w, 'el', el, fn)) });
+        fix: { t: '去刷', go: 'exp' }, tr: fn => (has('gearElTry') ? L.gearElTry(st, el, () => fn()) : withSet(w, 'el', el, fn)) });
     }
   }
   // 7. 心愿（刷宝线 L.wishInfo / setWish / dropTable）/ 首领再战（L.bossAgain）

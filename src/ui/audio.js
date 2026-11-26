@@ -53,6 +53,19 @@ const SFX = {
   goal() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * 0.07, 0.14, 'square', 0.1)); },
   hit() { noise(0, 0.08, 0.25, 2600); tone(180, 0, 0.06, 'square', 0.08); },
   slash() { tone(1400, 0, 0.05, 'sawtooth', 0.03); },
+  // 翻牌（COMBAT_LOOT §5.5）：第 i 张、几颗星。音高按翻的顺序沿五声音阶上行，一路翻过去是一句上行的旋律；
+  // 无星 do、★ mi、★★ sol、★★★ 高八度 do + 锣（SFX.jackpot）
+  flip(i, star) {
+    const base = 392 * Math.pow(2, [0, 2, 4, 7, 9, 12, 14][Math.max(0, Math.min(6, i | 0))] / 12);
+    const f = base * Math.pow(2, [0, 4, 7, 12][Math.max(0, Math.min(3, star | 0))] / 12);
+    noise(0, 0.05, 0.12, 3200);
+    tone(f, 0.02, 0.16, 'square', 0.12); tone(f * 2, 0.04, 0.12, 'triangle', 0.05);
+    if (star >= 2) tone(f * 1.5, 0.12, 0.3, 'triangle', 0.1);
+  },
+  shiver() { tone(1760, 0, 0.03, 'square', 0.03); tone(2093, 0.05, 0.03, 'square', 0.025); },   // 带星的牌背抖一下
+  star(i) { tone(1046 * Math.pow(2, [0, 4, 7][Math.max(0, Math.min(2, i | 0))] / 12), 0, 0.12, 'square', 0.12); noise(0, 0.03, 0.15, 5000); },
+  jackpot() { tone(98, 0, 2.2, 'triangle', 0.35); tone(196, 0, 1.6, 'sine', 0.18); [1046, 1318, 1568, 2093].forEach((f, i) => tone(f, 0.05 + i * 0.07, 0.35, 'triangle', 0.12)); noise(0, 0.5, 0.25, 1800); },
+  beam() { [523, 784, 1046].forEach((f, i) => tone(f, i * 0.05, 0.4, 'sine', 0.08)); },
 };
 const SCALE = [0, 2, 4, 7, 9];
 const MELODY = (() => {

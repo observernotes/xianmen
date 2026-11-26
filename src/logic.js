@@ -19,8 +19,8 @@
  *    用 L.addCulMod / L.addAtkMod（见 stats.js）把自己的倍率接进修炼与战力，不要去改 L.gain / L.power。
  *
  * 加载顺序（也是 tools/build.py 内联进 dist 的顺序，build.py 直接读下面这个数组）：
- *   core 工具·参数·境界表·公式·新档 → stats 倍率汇总 → items 阶表与发放 → arts 五行与功法 → gear 法宝三槽·强化·词条·打造 → home 洞府 → npc 羁绊
- *   → rivals 天骄榜·对决·约战·论道 → sect 宗门·任务板 → expedition 历练·首领 → cultivation 吐纳·突破·闭关·疗伤
+ *   core 工具·参数·境界表·公式·新档 → stats 倍率汇总 → items 阶表与发放 → arts 五行与功法 → gear 法宝三槽·强化·词条·打造 → battle 历练回合战引擎·招式·怪物表 → home 洞府 → npc 羁绊
+ *   → rivals 天骄榜·对决·约战·论道 → sect 宗门·任务板 → expedition 历练·首领 → trip 历练节点·评价按打出来的定·首领换引擎 → loot 刷宝：归途翻牌·掉落表·心愿·保底 → cultivation 吐纳·突破·闭关·疗伤
  *   → calendar 四季·固定历·天下大势 → market 坊市货架·行情·拍卖竞价 → realm 秘境 → alchemy 炼丹·药引丹方·丹毒 → events-engine 奇遇·访客 → pets 灵宠名册·岗位·进化 → crops 灵田作物·药引 → quests 札记 → meta 成就·转世
  *   → trib 天劫·护劫手段·道基·心魔劫 → dao 道心·因果（包了几个前面模块的函数，所以排在它们后面）
  *   → sect2 宗门加深：任务板四类、宝库轮换、职司、人脉、血煞魔宗 → disciples 徒弟·差事·传授·出师·三人会武
@@ -35,7 +35,7 @@
  */
 (function () {
 'use strict';
-const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'home', 'npc', 'rivals', 'sect', 'expedition', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'rivals2', 'formation', 'buildings', 'people', 'save', 'tick', 'chains', 'codex', 'samsara', 'onboard', 'path', 'time', 'report', 'advise'];
+const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'battle', 'home', 'npc', 'rivals', 'sect', 'expedition', 'trip', 'loot', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'rivals2', 'formation', 'buildings', 'people', 'save', 'tick', 'chains', 'codex', 'samsara', 'onboard', 'path', 'time', 'report', 'advise'];
 if (typeof module === 'object' && module.exports) {
   const L = {};
   for (const m of MODULES) require('./logic/' + m + '.js')(L);

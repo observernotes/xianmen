@@ -43,6 +43,7 @@ L.tick = function (st, cont) {
   const evMul = L.friend(st, 'bai') ? 1.5 : 1;
   if (st.exp) {
     const e = st.exp;
+    if (e.nodes && L.expNodeTick) L.expNodeTick(st);   // 这一月的节点：界面没打就自动打（trip.js）；倒下 / 撤会把 e.left 压到 1
     e.left--;
     if (e.left > 0 && e.plan && !e.encEv && e.total - e.left === Math.ceil(e.total / 2) && st.stats.exp >= 2 && e.plan.enc < L.ENC_P * evMul) {
       const ev = L.pickEvent(st, 'exp', { bg: L.REGIONS[e.k].bg });
@@ -52,7 +53,7 @@ L.tick = function (st, cont) {
       const r = L.resolveExp(st);
       // 连续历练：三趟合并成一张结算；丁等、遭遇、修为圆满时中断
       const sum = st.expSum || { n: 0, stones: 0, herbs: 0, pills: 0, treasure: 0, contrib: 0, xp: 0, items: [], ratings: [] };
-      sum.n++; sum.stones += r.stones; sum.herbs += r.herbs; sum.pills += r.pills; sum.treasure += r.treasure; sum.contrib += r.contrib; sum.xp += r.xp; sum.items = sum.items.concat(r.items); sum.ratings.push(r.rating);
+      sum.n++; sum.stones += r.stones; sum.herbs += r.herbs; sum.pills += r.pills; sum.treasure += r.treasure; sum.contrib += r.contrib; sum.xp += r.xp; sum.items = sum.items.concat(r.items); sum.cards = (sum.cards || []).concat(r.cards || []); sum.ratings.push(r.rating);
       if (r.chain > 0 && r.rating > 0 && !r.enc && !L.isFull(st) && L.startExp(st, r.k, r.d, r.a, { chain: r.chain, quiet: true })) st.expSum = sum;
       else { st.expSum = null; if (sum.n > 1) r.sum = sum; out.exp = r; }
     }

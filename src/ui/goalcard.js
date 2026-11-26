@@ -98,7 +98,7 @@ $('#btnPause').addEventListener('click', () => {
 // ===================== 底栏固定五格（§4.1）：位置永远不变；没开的那一格灰剪影 + 一行条件 =====================
 const NAV_N = { exp: '历练', home: '洞府', gear: '装备', world: '江湖', path: '仙途' };
 // 每一格里有哪些系统（“新 N”角标数这些里开了、没看过的）
-const NAV_KEYS = { exp: ['exp', 'herb', 'treasure', 'chainExp', 'realm'], home: ['home', 'retreat', 'tuna', 'field', 'crops', 'furnace', 'yin', 'plots', 'zhen'], gear: ['gearCmp', 'robe', 'orn', 'plus', 'forge', 'arts', 'zhanji', 'mishu', 'pets', 'petJobs'],
+const NAV_KEYS = { exp: ['exp', 'herb', 'treasure', 'chainExp', 'realm', 'wish', 'boss'], home: ['home', 'retreat', 'tuna', 'field', 'crops', 'furnace', 'yin', 'plots', 'zhen'], gear: ['gearCmp', 'robe', 'orn', 'plus', 'infuse', 'forge', 'arts', 'zhanji', 'mishu', 'pets', 'petJobs'],
   world: ['tour', 'market', 'sect', 'sell', 'shelf', 'auction', 'vault', 'duty', 'disc', 'bond', 'comp'], path: ['cal', 'world', 'dao', 'codex'] };
 function navState(nav) {
   if (!st) return { open: true, why: '' };
