@@ -25,6 +25,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(400);
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(120); }
   await page.click('#goStart'); await page.waitForTimeout(400);
+  // 这里造的都是中后期局面：关掉上手曲线（docs/ONBOARDING.md），界面回到 2.0.0 的全开 + 灰锁；上手曲线自己的检查见 tools/onboard.js / guide_test.js
+  await page.evaluate(() => { window.__xm.L.ONB_ON = false; });
   const close = async () => { for (let i = 0; i < 3; i++) { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450); } };
   await page.evaluate(() => {
     const { st, L } = window.__xm;
@@ -2738,6 +2740,7 @@ require('fs').mkdirSync(out, { recursive: true });
       await pg.goto(PAGE); await pg.waitForTimeout(400);
       for (let i = 0; i < 12; i++) { if (await pg.$('#goStart')) break; await pg.click('#intro .story'); await pg.waitForTimeout(120); }
       await pg.click('#goStart'); await pg.waitForTimeout(500);
+      await pg.evaluate(() => { window.__xm.L.ONB_ON = false; });   // 同上：中后期局面，上手曲线关掉
       await pg.evaluate(() => { const X = window.__xm, { st } = X; X.setSpeed(3); st.guide = { step: 99, done: true }; for (const h of X.hints) st.hintSeen[h.id] = 1; st.storyQ = []; });
       return { ctx, pg };
     };

@@ -29,21 +29,21 @@ const hasArt = (st, kind) => !!(st.arts && Object.keys(st.arts.own || {}).some(i
 const metAny = st => Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]);
 const EXTRA_B = ['forge', 'pen', 'room', 'library', 'spring', 'vault', 'pavilion', 'portal'];
 
-// 间隔（周天）。×1 一周天 L.TICK_SEC 秒（界面读它）：炼气期 6 秒，筑基起 5 秒
-L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 10), sub: 4, reborn: 3 };
-L.TICK_SEC = st => (st && !st.rebirth && st.p.r < 1 ? 6 : 5);
+// 间隔（周天）。×1 一周天 L.TICK_SEC 秒（界面读它）：第一世元婴之前 6 秒（系统一样一样开的这一段），之后 5 秒
+L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn: 3 };
+L.TICK_SEC = st => (st && !st.rebirth && st.p.r < 3 ? 6 : 5);
 // k：键；n：名字；sys：系统（true）/ 子项（false，par 是父系统）；base：原门槛；force：已经发生了，立刻开；
 // master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个周天就当掌握了
 L.ONB = [
   // ---- 第一章：三年之约之前只开这四样（DESIGN §2.4 的脚本收窄） ----
   { k: 'exp', n: '历练', sys: true, start: true, master: st => S(st, 'exp') >= 1, goal: '外出历练一次' },
   { k: 'home', n: '洞府·聚灵阵', sys: true, base: st => S(st, 'exp') >= 1, master: st => st.home.array >= 2, goal: '聚灵阵升到 2 级', maxWait: 10 },
-  { k: 'herb', n: '行事·采药', par: 'home', base: st => S(st, 'exp') >= 1 },
+  { k: 'herb', n: '行事·采药', par: 'home', gap: 4, base: st => S(st, 'exp') >= 1 },   // 采药开得早晚直接改约战战力（多斩妖多掉法宝），钉在洞府开后 4 周天
   { k: 'retreat', n: '闭关', sys: true, base: st => O.retOpen(st), master: st => S(st, 'retreat') >= 1, goal: '闭关一次', maxWait: 10 },
   { k: 'bt', n: '突破', sys: true, base: st => L.isReady(st), force: st => L.isReady(st) || mr(st) >= 1, master: st => mr(st) >= 1, goal: '突破筑基' },
   // ---- 三年之约之后：一次一样，掌握了再开下一样 ----
   { k: 'tour', n: '天骄论道·天骄榜', par: 'exp', base: st => !!st.pact, force: st => !!st.pact, master: () => true },
-  { k: 'market', n: '坊市', sys: true, base: st => !!st.pact || mr(st) >= 1, master: st => S(st, 'shop') >= 1, goal: '在坊市买一样东西', maxWait: 8 },
+  { k: 'market', n: '坊市', sys: true, gap: 8, base: st => !!st.pact || mr(st) >= 1, master: st => S(st, 'shop') >= 1, goal: '在坊市买一样东西', maxWait: 8 },
   { k: 'sect', n: '宗门·任务板', sys: true, base: st => mr(st) >= 1 && !!st.pact, force: st => !!st.sect, master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
   { k: 'visitor', n: '访客·奇遇', sys: true, base: st => !!st.pact, force: st => !!st.visitor || S(st, 'visits') > 0, master: st => S(st, 'visits') >= 1, goal: '见一位访客', maxWait: 14 },
   { k: 'tuna', n: '吐纳', par: 'home', base: st => !!st.pact },
@@ -91,7 +91,7 @@ L.unlocked = function (st, k) {
   return ob(st).at[k] !== undefined;
 };
 // 界面用：开了，而且原门槛也满足（转世后也要原门槛满足才显示）
-L.onbShown = (st, k) => (!E[k] ? true : !ON() ? (E[k].start || !E[k].base || call(E[k].base, st) || call(E[k].force, st)) : L.unlocked(st, k));
+L.onbShown = (st, k) => (!E[k] || !ON() ? true : L.unlocked(st, k));   // 关掉上手曲线（L.ONB_ON = false）时界面和 2.0.0 一样全摆出来，由各系统原来的门槛（灰锁）管
 L.onbMastered = (st, k) => { const o = ob(st); return o.m[k] !== undefined; };
 const lastSys = st => { const o = ob(st); let best = null; for (const e of L.ONB) if (e.sys && o.at[e.k] !== undefined && (!best || o.at[e.k] >= o.at[best.k])) best = e; return best; };
 const masteredNow = (st, e) => { const o = ob(st); return o.m[e.k] !== undefined || call(e.master, st) || st.tick - o.at[e.k] >= (e.maxWait || 12); };
@@ -110,7 +110,7 @@ L.onbStep = function (st) {
     if (e.par && o.at[e.par] === undefined) continue;
     if (!reborn && e.i > E.bt.i && !st.pact) continue;   // 第一章只有历练、洞府、闭关、突破（和采药）：其余的都等三年之约之后
     if (e.sys && sysWait) continue;   // 上一个系统还没掌握：别的系统等着，子项可以先开
-    const gap = reborn ? L.ONB_GAP.reborn : e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub;
+    const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着
     o.at[e.k] = st.tick; o.last = st.tick;
     if (!e.master || reborn) o.m[e.k] = st.tick;

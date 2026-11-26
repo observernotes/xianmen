@@ -21,7 +21,10 @@ for (const h of HINTS) { const k = HINT_KEY[h.id]; if (!k) continue; const w = h
 const PANEL_IS = { home: () => modalTitle() === '洞府', me: () => modalTitle() === '人物', sect: () => modalOpen() && !!document.querySelector('#modal [data-stab]') };
 for (const [id, pn] of [['field', 'home'], ['retreat', 'home'], ['sect', 'sect'], ['furnace', 'home'], ['alch', 'home'], ['art1', 'me'], ['zhanji', 'me'], ['gearPlus', 'me'], ['pet1', 'home'], ['crops', 'home'], ['yinGrid', 'home'], ['plots', 'home']]) {
   const h = HINTS.find(x => x.id === id); if (!h || !h.btn) continue;
-  delete h.btn; h.until = PANEL_IS[pn];
+  // 关掉上手曲线（L.ONB_ON = false）时照 2.0.0：阻塞讲解、点“好”
+  const btn0 = h.btn; delete h.btn;
+  Object.defineProperty(h, 'btn', { get: () => (L.ONB_ON === false ? btn0 : undefined), configurable: true });
+  Object.defineProperty(h, 'until', { get: () => (L.ONB_ON === false ? undefined : PANEL_IS[pn]), configurable: true });
 }
 // 子项解锁（不是新系统，是已经会的系统里多了一样）：只冒一条老祖气泡，带数字，不暂停
 const SUB_SAY = {
@@ -65,7 +68,7 @@ function pickBadge(cands) { const c = cands.find(x => x && x.t && UI.navOpen(x.n
 for (const id of ['depth', 'tuna']) {
   const h = HINTS.find(x => x.id === id); if (!h) continue;
   const w = h.when;
-  h.when = () => { if (!st || st.hintSeen[id] || !w()) return false; st.hintSeen[id] = 1; try { tip('h_' + id, typeof h.text === 'function' ? h.text() : h.text, { html: true }); } catch (e) { /* 算不出数就不说 */ } return false; };
+  h.when = () => { if (L.ONB_ON === false) return w(); if (!st || st.hintSeen[id] || !w()) return false; st.hintSeen[id] = 1; try { tip('h_' + id, typeof h.text === 'function' ? h.text() : h.text, { html: true }); } catch (e) { /* 算不出数就不说 */ } return false; };
 }
 // ---------- 文案 v2（docs/ONBOARDING.md §6）：老祖一段话最多两句，每句一个高亮数字，第二句说“现在点哪里” ----------
 // 原来的台词留着做兜底：新台词算不出来（缺数据）时退回原来那句
@@ -99,7 +102,7 @@ reText(HINTS, 'trib', () => { const max = Math.min(L.BT.maxPills, st.pills); ret
 reText(HINTS, 'art1', () => { const c = artWithout(0, () => L.gain(st)); return `这是心法，管修炼：每周天 +${dec(c.off)} → ${Bn('+' + dec(c.on))}。点【人物】→ 功法 看它。`; });
 reText(HINTS, 'zhanji', () => { const id = L.artSlots(st)[1]; if (!id) return `战技槽开了：战技管战力，还定你的五行。寻宝、历练掉一门就能装，战力 ${Bn('×' + L.ZHAN_M[0])} 起。`; const c = artWithout(1, () => L.power(st)); return `战技槽开了：战力 ${fmt(c.off)} → ${Bn(fmt(c.on))}。它还定你的五行，克得住的地方分数 ${Bn('+' + L.EL_EXP)}。`; });
 reText(HINTS, 'gearPlus', () => { const info = L.gearPlusInfo(st, 'w'); return `能强化了：战力 ${fmt(info.a.p)} → ${Bn(fmt(info.b.p))}。点【人物】→ 法宝 →【强化】。`; });
-reText(HINTS, 'toxin', () => `这个小葫芦是丹毒，现在 ${Bn(Math.round(st.toxin))}/${L.TOX.max}。过 ${Bn(L.TOX.half)} 药力减半，每周天自己退。`);
+reText(HINTS, 'toxin', () => `看这个小葫芦：丹毒 ${Bn(Math.round(st.toxin))}/${L.TOX.max}。过 ${Bn(L.TOX.half)} 药力减半，每周天自己退。`);
 reText(HINTS, 'crops', () => `灵田能改种了：灵草每 3 周天收 ${Bn(dec(L.cropHarvest(st, 'herb')))} 株。点画面左下的田。`);
 reText(HINTS, 'pet1', () => { const p = L.petOut(st); return `这小东西认你做主了，战力 ${Bn('×' + mult2(L.petAtkOf(st, p)))}。点【洞府】→ 兽栏喂它。`; });
 reText(HINTS, 'tuna', () => `气满了：点画面里的你自己，立得 ${Bn(dec(L.gainCalm(st)))} 修为。`);
@@ -107,4 +110,4 @@ reText(HINTS, 'depth', () => `【腹地】开了：推荐战力 ${Bn(fmt(L.rec(0
 reText(HINTS, 'me', () => `你现在天骄榜第 ${Bn(st.rank)}。【人物】→ 天骄榜 能看宿敌。`);
 reText(HINTS, 'gearCmp', () => { const el = document.querySelector('#modal [data-gcmp]'); el.scrollIntoView({ block: 'nearest' }); const x = L.gearPend(st, +el.dataset.gcmp), D = L.gearDelta(st, x); const gain = fmt(D.a.p) !== fmt(D.b.p) ? `战力 ${fmt(D.a.p)} → ${Bn(fmt(D.b.p))}` : `历练分数 ${sgn(D.a.s)} → ${Bn(sgn(D.b.s))}`; return `新法宝换上：${gain}。不要就【熔炼】，得灵矿 ${Bn(D.smelt)}。`; });
 // 子项的阻塞讲解改由上面那条气泡带过（一次只教一件事，子项不停下来讲）：法衣、饰品、秘术、灵宠岗位
-for (const id of ['gearRobe', 'gearOrn', 'mishu', 'pet2']) { const h = HINTS.find(x => x.id === id); if (h) h.when = () => false; }
+for (const id of ['gearRobe', 'gearOrn', 'mishu', 'pet2']) { const h = HINTS.find(x => x.id === id); if (h) { const w = h.when; h.when = () => L.ONB_ON === false && w(); } }

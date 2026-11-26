@@ -107,10 +107,10 @@ function updateHUD() {
   updateToxin();   // 丹毒葫芦（panel-alchemy.js）
   // 底栏：没开的入口直接不出现（docs/ONBOARDING.md）；第一次出现时播锁碎 + 扫光
   $$('#nav button').forEach(b => {
-    const open = UI.navOpen(b.dataset.nav), was = !b.hidden;
+    const open = UI.navOpen(b.dataset.nav), was = !b.hidden && !b.classList.contains('locked'), lk = open && !!navLock(b.dataset.nav);
     if (b.hidden === open) b.hidden = !open;
-    b.classList.toggle('locked', open && !!navLock(b.dataset.nav));
-    if (!was && open && st.tick > 0 && b._seen) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); lockBreakFx(b); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
+    b.classList.toggle('locked', lk);
+    if (!was && open && !lk && st.tick > 0 && b._seen) { b.classList.remove('unlock'); void b.offsetWidth; b.classList.add('unlock'); lockBreakFx(b); SFX.reveal(3); setTimeout(() => b.classList.remove('unlock'), 1200); }
     b._seen = true;
   });
   // HUD：没用到的数值格不出现

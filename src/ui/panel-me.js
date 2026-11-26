@@ -14,7 +14,7 @@ function ladderHTML() {
 // 人物页的分页条（功法页在 panel-arts.js、法宝页在 panel-gear.js，共用这一条）
 // 没开的分页直接不出现（docs/ONBOARDING.md）：属性一直有；功法、法宝、道心、羁绊、图鉴、天骄榜各等自己的系统开了；成就等拿到第一个
 const ME_TAB_KEY = { art: 'arts', gear: 'gearCmp', dao: 'dao', bond: 'bond', codex: 'codex', rank: 'tour' };
-const meTabOpen = k => (k === 'ach' ? !!st.rebirth || Object.keys(st.ach || {}).length > 0 : !ME_TAB_KEY[k] || UI.isOpen(ME_TAB_KEY[k]));
+const meTabOpen = k => (k === 'ach' ? L.ONB_ON === false || !!st.rebirth || Object.keys(st.ach || {}).length > 0 : !ME_TAB_KEY[k] || UI.isOpen(ME_TAB_KEY[k]));
 function meTabs(tab) { const list = [['attr', '属性'], ['art', '功法'], ['gear', '法宝'], ['dao', '道心'], ['bond', '羁绊'], ['ach', '成就'], ['codex', '图鉴'], ['rank', '天骄榜']].filter(([k]) => k === tab || meTabOpen(k)); return list.length < 2 ? '' : '<div class="tabs">' + list.map(([k, n]) => `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('') + '</div>'; }
 function bindMeTabs(s) { s.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { SFX.tap(); showMe(b.dataset.t); }); }
 function showMe(tab) {

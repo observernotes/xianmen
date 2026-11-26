@@ -4,7 +4,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = L.fmt;
-// ×1 时一周天的真实毫秒数：第一世炼气期 6 秒，其余 5 秒（docs/ONBOARDING.md §5：上手期慢一点，留出“练手”的时间）
+// ×1 时一周天的真实毫秒数：第一世元婴之前 6 秒，其余 5 秒（docs/ONBOARDING.md §5：上手期慢一点，留出“练手”的时间）
 const TICK_MS_BASE = 5000;
 const tickMs = () => (st && L.TICK_SEC ? L.TICK_SEC(st) * 1000 : TICK_MS_BASE);
 const SPEEDS = [1, 2, 4, 0];

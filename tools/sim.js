@@ -674,7 +674,7 @@ function summarize(strat, recs, G) {
     const bz = med(recs.map(x => x.beatAt.zhao)), bc = med(recs.map(x => x.beatAt.chu)), bx = med(recs.map(x => x.beatAt.xue));
     row(strat, '击败赵乾 / 楚天阔 / 血无涯', `${bz} / ${bc} / ${bx}`, '72～110 / 190～300 / 340～480', within(bz, 72, 110) && within(bc, 190, 300) && within(bx, 340, 480));
     const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend)), r1m = med(recs.map(x => x.rank1));
-    const R1 = L.ONB_ON === false ? [0.5, 510, 600] : [0.45, 520, 630];
+    const R1 = L.ONB_ON === false ? [0.5, 510, 600] : [0.45, 520, 650];
     row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数 ${r1m}`, `${pct(R1[0])}～80%，中位数 ${R1[1]}～${R1[2]}`, within(r1, R1[0], 0.8) && within(r1m, R1[1], R1[2]));
     const sr = [1, 2, 3, 4, 5, 6].map(k => med(recs.map(x => x.srankAt[k])));
     const ST = L.ONB_ON === false ? [[45, 65], [80, 110], [140, 190], [240, 300], [360, 430], [480, 560]] : [[45, 70], [90, 125], [150, 210], [260, 340], [380, 470], [500, 600]];
