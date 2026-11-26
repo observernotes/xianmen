@@ -3,12 +3,12 @@
  *
  *   单位：界面上的“月”都叫“月”（L.UNIT）；3 月一季、12 月一年；日历年 = floor(tick / 12) + 1。逻辑层的 tick 不改名、不改数值。
  *   三态：L.clockMode(st) → 'idle'（打坐）| 'trip'（历练）| 'away'（闭关、特训、讲道……）；“停”由界面判（面板、聚光、秘境、自动停）。
- *         ×1 一月多少秒：L.monthSec(st)（onboard.js 的 L.TIME）。
+ *         （×1 一月多少秒的 L.monthSec / L.TIME 时钟旋钮已删：时间不再自己走，AP_PLAN §1）
  *   回合（AP_PLAN）：出发拦截、节点前提前归来、空转提醒、“在外 / 两次打断之间”的节流都已删；时间条一格一季，bigList 每项带 seasons（还有几季）。
  *   大节点：L.bigList(st) → 三年之约、天骄论道（每 12 月）、九宗会武（每 24 月）、天剑宗来犯（排上日子以后）。
  *         L.tick 产出 out.warns / out.warn（还有 12 / 6 / 3 月；同一个月两个节点都报；论道每年一届，12 月那次与上一届同月，不报）、out.prep（还有 1 月：备战卡，自动停）。
- *   访客：在外（历练 / 闭关）时访客的等待不减（tick.js），从你回到洞府起算 L.VISIT.stay 月。
- *   纸鹤：st.inbox，L.mailPush / L.mailbox / L.mailTake / L.mailAway；界面 notify() 在外一律投进来，打坐时两次主动打断至少隔 L.TIME.interruptGapMonths 月。
+ *   访客：没有“在外”了，等待每月照减（tick.js），L.VISIT.stay 月 = 2 季。
+ *   纸鹤：st.inbox，L.mailPush / L.mailbox / L.mailTake / L.mailAway；只收非阻塞消息（访客、大势、拍卖、宿敌消息）。
  *         L.notifyGate(st, kind) 是 notify 的规则本身（界面和 tools/onboard.js 的手表机器人共用）。
  *   存档 st.clk = { last: 上次主动打断的月, idle: 连续打坐月数, awayAt: 这一趟出发的月, prepSeen: 看过备战卡的月, lifeRed: 寿元第一次变红的月 }；st.inbox；L.migrateTime 幂等
  */

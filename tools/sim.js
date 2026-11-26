@@ -1077,8 +1077,8 @@ function life2(n) {
   }
   const asc1 = r1.map(x => x.ascend), asc2 = r2.map(x => x.ascend), ratio = r1.map((x, i) => (x.ascend && r2[i].ascend ? r2[i].ascend / x.ascend : undefined));
   console.log(`连玩两世 × ${n} 个种子（guided；第二世默认出身、不选试炼）`);
-  console.log(`第一世飞升 ${span(asc1)}；道果 ${span(dg)}`);
-  console.log(`第二世飞升 ${span(asc2)}，飞升率 ${pct(frac(r2, x => x.ascend !== undefined))}；与第一世之比 ${med(ratio).toFixed(2)}（${q(ratio, 0.1).toFixed(2)}～${q(ratio, 0.9).toFixed(2)}，DESIGN 阶段四：0.75～0.90）`);
+  console.log(`第一世飞升（季） ${sSpan(asc1)}；道果 ${span(dg)}`);
+  console.log(`第二世飞升（季） ${sSpan(asc2)}（目标 125～150，AP_PLAN §3.6），飞升率 ${pct(frac(r2, x => x.ascend !== undefined))}；与第一世之比 ${med(ratio).toFixed(2)}（${q(ratio, 0.1).toFixed(2)}～${q(ratio, 0.9).toFixed(2)}，DESIGN 阶段四：0.75～0.90）`);
   console.log(`第二世三年之约胜率 ${pct(frac(r2, x => x.pactWin))}；命格灵根中位 ${med(cards)} 档；图鉴完成度 第一世 ${pct(med(r1.map(x => x.cxPct)))} → 第二世 ${pct(med(r2.map(x => x.cxPct)))}`);
   console.log('轮回殿买了（种子数）：' + Object.entries(bought).map(([k, v]) => `${L.HALL_NODE[k].n} ${v}`).join('、'));
 }
