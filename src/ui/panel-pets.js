@@ -30,22 +30,24 @@ function jobEffect(i, k) {
   if (k === 'patrol') { const v = L.petTry(st, mut, () => L.petJobVal(st, 'patrol')); return `坏访客、盗贼 −${L.pct(v)}`; }
   return '';
 }
+// 名册满时新来的一只：第一屏 它是谁 + 出战倍率 + 【放生】（金）；替换哪一只是一排纸按钮；天赋收进详情
 function petPendHTML() {
   return (st.petPend || []).map((p, j) => {
     const m = L.petAtkOf(st, p), left = 12 - (st.tick - (p.pendAt || 0));
-    const rep = st.pets.map((x, i) => `<button class="btn sm alt" data-ppend="${j}:${i}">替换【${esc(L.petName(x))}】<small>Lv${x.lv} ×${mult2(L.petAtkOf(st, x))}</small></button>`).join('');
-    return `<div class="pend"><div class="row">${petCardImg(p.sp, 0, 0, 1.5)}<div class="grow"><div><b>${esc(L.petName(p))}</b> ${petTierTag(L.petTier(p))} ${petElChip(L.PET_SP[p.sp].el)} ${L.PET_TY[L.PET_SP[p.sp].ty]}</div>
-      <div class="muted">想跟你走，名册已满（${st.pets.length}/${L.petCap(st)}）。出战倍率 ×${mult2(m)} · ${esc(L.petTalText(p))}${left > 0 ? ` · ${left} 周天不决定就放它走` : ''}</div></div></div>
-      <div class="gbtns"><button class="btn sm gold" data-ppend="${j}:-1">放生<small>兽粮 +${L.petReleaseFeed(p)}</small></button>${rep}</div></div>`;
+    const rep = st.pets.map((x, i) => `<button class="btn sm alt" data-ppend="${j}:${i}">${esc(L.petName(x))}<small>Lv${x.lv} ×${mult2(L.petAtkOf(st, x))}</small></button>`).join('');
+    return `<div class="pend pn-pend"><div class="row">${petCardImg(p.sp, 0, 0, 1.5)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b>${petTierTag(L.petTier(p))}${petElChip(L.PET_SP[p.sp].el)}</div>
+      <div class="pn-key">出战 <b>×${mult2(m)}</b></div><div class="muted">名册满了（${st.pets.length}/${L.petCap(st)}）${left > 0 ? ` · ${left} 周天后自己走` : ''}</div></div></div>
+      <div class="gbtns"><button class="btn sm gold" data-ppend="${j}:-1">放生<small>兽粮 +${L.petReleaseFeed(p)}</small></button></div>
+      <div class="muted">或者换掉一只：</div><div class="gbtns pn-rep">${rep}</div>
+      <details class="more pn-more"><summary>它的天赋</summary><div class="jadet">${esc(L.petTalText(p))}</div><div class="muted">${L.PET_TY[L.PET_SP[p.sp].ty]}型 · ${L.PET_EL_N[L.PET_SP[p.sp].el]}</div></details></div>`;
   }).join('');
 }
 function petLine(it) {
   if (it.pend) return petPendHTML();
   const p = L.petByU(st, it.u);
-  const role = it.out ? `出战：战力倍率 ×${mult2(p ? L.petAtkOf(st, p) : 1)}` : it.job ? `派去${L.PET_JOB[it.job].n}` : '进了兽栏';
-  return `<div class="quote row">${petCardImg(it.sp, 0, 0, 1)}<span class="grow">收服【${esc(it.name)}】（${it.tier} 阶 · ${L.PET_TY[L.PET_SP[it.sp].ty]} · ${L.PET_EL_N[it.el]}）！${role}。<span class="muted">【洞府】→ 兽栏</span></span></div>`;
+  const role = it.out ? `出战 ×${mult2(p ? L.petAtkOf(st, p) : 1)}` : it.job ? L.PET_JOB[it.job].n : '进了兽栏';
+  return `<div class="quote row">${petCardImg(it.sp, 0, 0, 1)}<span class="grow">收服【${esc(it.name)}】 <span class="chip ok">${role}</span><br><span class="muted">${it.tier} 阶 · ${L.PET_TY[L.PET_SP[it.sp].ty]} · ${L.PET_EL_N[it.el]}</span></span></div>`;
 }
-// 名册满时的放生 / 替换按钮（掉落卡、兽栏里都有）
 function bindPetButtons(m) {
   m.querySelectorAll('[data-ppend]').forEach(b => b.onclick = e => {
     e.stopPropagation();
@@ -59,48 +61,57 @@ function bindPetButtons(m) {
 }
 
 // ---------- 兽栏 ----------
+// 卡片：图 + 名字 + “Lv · 心” + 一个角标（可进化 / 出战 / 岗位 / 闲着）；选中那只：现在给什么（大字）、经验条、
+// 三个按钮【出战】【派岗】【喂食】只有一个是金的（能进化时金色给【进化】），天赋、好感、规则收进详情
 function showPets(u, still) {
   if (u !== undefined) { const i = L.petIdx(st, u); if (i >= 0) petSel = i; }
   if (petSel >= st.pets.length) petSel = Math.max(0, st.pets.length - 1);
-  const cap = L.petCap(st), nxt = ['', '金丹', '元婴', '合体'][cap] || '';
+  const cap = L.petCap(st);
   const cards = st.pets.map((p, i) => {
-    const glow = L.petGlow(st, p);
-    return `<button class="pcard${i === petSel ? ' sel' : ''}${glow ? ' glow' : ''}" data-pi="${i}">${petCardImg(p.sp, p.form, p.aw, 2)}<span class="nm">${esc(L.petName(p))}</span><span>Lv${p.lv}${glow ? ' <b class="goldt">★</b>' : ''}</span>${hearts(p)}<span class="prole">${petRoleIcon(i, p)}${petRole(i, p)}</span></button>`;
-  }).join('') + Array.from({ length: Math.max(0, cap - st.pets.length) }, () => '<div class="pcard empty"><span class="aempty">空</span><span class="muted">灵兽蛋、采药偶遇、奇遇</span></div>').join('')
-    + (cap < 4 ? `<div class="pcard empty lock"><span class="aempty">锁</span><span class="muted">${nxt ? nxt + '开第 ' + (cap + 1) + ' 只' : '境界越高名册越大'}</span></div>` : '');
+    const glow = L.petGlow(st, p), rest = L.petResting(st, p);
+    const badge = glow ? '<span class="chip warn">可进化</span>' : rest ? '<span class="chip bad">休养</span>' : i === st.petOut ? `<span class="chip ok prole">${petRoleIcon(i, p)}出战</span>` : p.job ? `<span class="chip prole">${petRoleIcon(i, p)}${L.PET_JOB[p.job].n}</span>` : '<span class="chip bad">闲着</span>';
+    return `<button class="pcard pn-pcard${i === petSel ? ' sel' : ''}${glow ? ' glow' : ''}" data-pi="${i}">${petCardImg(p.sp, p.form, p.aw, 1.5)}<span class="nm">${esc(L.petName(p))}</span><span class="num">Lv${p.lv} <span class="phearts">♥${p.heart}</span></span>${badge}</button>`;
+  }).join('') + Array.from({ length: Math.max(0, cap - st.pets.length) }, () => '<div class="pcard empty pn-pcard"><span class="aempty">空</span></div>').join('');
   let det = '';
   const p = st.pets[petSel];
   if (p) {
-    const i = petSel, S = L.PET_SP[p.sp], out = i === st.petOut, need = L.petNeed(p), maxLv = L.petMaxLv(p);
+    const i = petSel, S = L.PET_SP[p.sp], out = i === st.petOut, need = L.petNeed(p), maxLv = L.petMaxLv(p), glow = L.petGlow(st, p);
     const why = L.petFeedWhy(st, i), n = why ? 0 : L.petPortion(st, p);
-    // 喂一口之后：经验多少、升不升级、倍率与战力（出战的）或岗位效果
-    let feedNote = '';
+    // 喂一口能升级：写升级后的倍率（出战的写战力）
+    let feedUp = '', feedNote = '';
     if (!why) {
       const up = p.xp + n * L.petFeedEff(st) >= need;
       if (up) {
         const up1 = () => { const q = st.pets[i]; q.lv++; q.xp = 0; };   // 只改等级，不走 L.petAddXp（那会触发进化事件、写日志）
         const [m0, m1] = petDelta(up1, () => L.petAtkOf(st, st.pets[i]));
         const [w0, w1] = out ? petDelta(up1, () => L.power(st)) : [0, 0];
-        feedNote = `这一口升到 Lv${p.lv + 1}：出战倍率 ×${mult2(m0)} → ×${mult2(m1)}${out ? `，战力 ${arrowNum(w0, w1)}` : p.job ? `，${L.PET_JOB[p.job].n}效果 +${Math.round(L.PET_N.jobStep * 100)}%` : ''}`;
-      } else feedNote = `经验 ${fmt(p.xp)} → ${fmt(p.xp + n * L.petFeedEff(st))} / ${fmt(need)}（还要兽粮约 ${fmt(Math.ceil((need - p.xp) / L.petFeedEff(st)))}）`;
+        feedUp = `<div class="jadet pn-key">喂这一口升 Lv${p.lv + 1}：${out ? `战力 ${arrowNum(w0, w1)}` : `倍率 ×${mult2(m0)} → <b>×${mult2(m1)}</b>`} ▲</div>`;
+        if (!out && p.job) feedNote = `${L.PET_JOB[p.job].n}效果 +${Math.round(L.PET_N.jobStep * 100)}%`;
+      } else feedNote = `再喂约 ${fmt(Math.ceil((need - p.xp) / L.petFeedEff(st)))} 兽粮升一级`;
     }
-    const lvLine = p.lv >= L.PET_N.lvMax ? `<div class="goldt">10 级${p.aw ? '·已觉醒' : '：可觉醒'}</div>` : maxLv === p.lv ? `<div class="goldt">5 级：先进化才能再升</div>${bar(1, true)}` : `<div class="muted">Lv${p.lv} → Lv${p.lv + 1}：经验 ${fmt(p.xp)} / ${fmt(need)}（出战每趟历练 +${fmt(L.PET_N.tripXp * need)}）</div>${bar(p.xp / need)}`;
-    const outBtn = out ? `<button class="btn sm alt" disabled>出战中<small>×${mult2(L.petAtkOf(st, p))}</small></button>` : `<button class="btn sm gold" id="petOut">${icon16('job_out', 1)} 出战<small>${jobEffect(i, 'out')}</small></button>`;
-    const jobBtn = L.petJobsOpen(st) ? `<button class="btn sm alt" id="petJob">${icon16(p.job ? L.PET_JOB[p.job].icon : 'job_forage', 1)} 派岗<small>${p.job ? '现在：' + L.PET_JOB[p.job].n : '五个岗位'}</small></button>` : '<button class="btn sm alt" disabled>派岗<small>金丹后开放</small></button>';
-    const feedBtn = `<button class="btn sm ${why ? 'alt' : 'gold'} pfeed" id="petFeed" ${why ? 'disabled' : ''}>${icon16('feed', 1)} 喂食${why ? '' : ' ×' + n}<small>${why || '长按连喂'}</small></button>`;
-    const evo = L.petCanEvo(p) ? `<button class="btn ${L.petGlow(st, p) ? 'gold pglowb' : 'alt'}" id="petEvo">进化（二选一）${L.petGlow(st, p) ? ' · 条件已满足' : ' · 看看条件'}</button>`
-      : L.petCanAwake(p) ? '<button class="btn gold pglowb" id="petAwake">觉醒：天赋 ×1.5、品阶 +1</button>' : '';
-    const role = out ? `出战：战力倍率 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}${L.petJobMatch(p, p.job) ? '（对口 ×1.5）' : ''}` : '<span class="seal">闲着：连着 24 周天没事干会掉好感</span>';
+    const lvLine = p.lv >= L.PET_N.lvMax ? `<div class="goldt">满 10 级${p.aw ? ' · 已觉醒' : '：能觉醒'}</div>` : maxLv === p.lv ? `<div class="goldt">Lv${p.lv}：先进化才能再升</div>${bar(1, true)}` : `<div class="muted num">Lv${p.lv} → ${p.lv + 1} · 经验 ${fmt(p.xp)}/${fmt(need)}</div>${bar(p.xp / need)}`;
+    const evoGold = glow || L.petCanAwake(p);
+    const outBtn = out ? `<button class="btn sm alt" disabled>出战中</button>` : `<button class="btn sm alt" id="petOut">${icon16('job_out', 1)} 出战<small>${petOutGain(i)}</small></button>`;
+    const jobBtn = L.petJobsOpen(st) ? `<button class="btn sm alt" id="petJob">${icon16(p.job ? L.PET_JOB[p.job].icon : 'job_forage', 1)} 派岗<small>${p.job ? L.PET_JOB[p.job].n : '没派'}</small></button>` : '';
+    const feedBtn = `<button class="btn sm ${why || evoGold ? 'alt' : 'gold'} pfeed" id="petFeed" ${why ? 'disabled' : ''}>${icon16('feed', 1)} 喂食<small>${why ? esc(why) : '兽粮 ' + n}</small></button>`;
+    const evo = L.petCanEvo(p) ? `<button class="btn ${glow ? 'gold pglowb' : 'alt'}" id="petEvo">进化<small>${glow ? ' · 条件齐了' : ' · 看条件'}</small></button>`
+      : L.petCanAwake(p) ? '<button class="btn gold pglowb" id="petAwake">觉醒</button>' : '';
+    const role = L.petResting(st, p) ? `<span class="seal">挡过天劫，休养 ${p.rest - st.tick} 周天</span>` : out ? `出战：战力 <b>×${mult2(L.petAtkOf(st, p))}</b>` : p.job ? `${L.PET_JOB[p.job].n}：<b>${esc(L.PET_JOB[p.job].d(L.petJobVal(st, p.job) || L.petJobV(p, p.job)))}</b>` : '<span class="seal">闲着：久了会掉好感</span>';
     const tal = L.PET_TAL[L.petTalId(p)];
-    det = `<div class="pdet"><div class="row">${petSprImg(p, 3)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b> ${petTierTag(L.petTier(p))} ${petElChip(S.el)} <span class="chip">${L.PET_TY[S.ty]}</span>${p.aw ? ' <span class="chip warn">觉醒</span>' : ''}</div>
-      <div>${role}</div><div class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</div><div class="muted">好感 ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '，五心能挡天劫（+10%，挡完休养 12 周天）、不会出走' : ''}${L.petResting(st, p) ? `<br><span class="seal">挡过天劫，休养中：还有 ${p.rest - st.tick} 周天，这期间不出力</span>` : ''}</div></div></div>
-      ${lvLine}${petMsg ? `<div class="quote">${petMsg}</div>` : ''}${feedNote ? `<div class="muted">${feedNote}</div>` : ''}
-      <div class="gbtns pbtns">${outBtn}${jobBtn}${feedBtn}</div>${evo}</div>`;
-  } else det = emptyNoteHTML('pet', '还没有灵宠。筑基后坊市有灵兽蛋（每届论道换一种属性），采药历练容易遇到当地的灵兽，奇遇里也有。');
-  const body = `<div class="gres">${icon16('feed', 1)} 兽粮 <b class="num">${fmt(st.feed || 0)}</b> · 名册 ${st.pets.length}/${cap} · 灵草 ${fmt(st.herbs)}</div>
-    ${petPendHTML()}<div class="pcards">${cards}</div>${det}
-    <div class="muted">每级要兽粮 6 × 1.5^级 × 阶，每级让倍率的超出部分 +5%、岗位效果 +4%；5 级二选一进化（品阶 +1），10 级觉醒。出战每趟历练另得一级的一成经验，斩妖带回兽粮。岗位类型对口 ×1.5：护阵（护）、觅食·守田（寻）、看炉（灵）、巡山（战）。</div>`;
-  const s = sheet({ title: '兽栏', still, sub: p ? `出战：${L.petOut(st) ? esc(L.petName(L.petOut(st))) + ' ×' + mult2(L.petAtkOf(st, L.petOut(st))) : '无'} · 战力 ${fmt(L.power(st))}` : '', body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+    det = `<div class="pdet pn-pdet"><div class="row">${petSprImg(p, 2)}<div class="grow"><div class="line"><b>${esc(L.petName(p))}</b>${petTierTag(L.petTier(p))}${petElChip(S.el)}${p.aw ? '<span class="chip warn">觉醒</span>' : ''}</div>
+      <div class="pn-key">${role}</div></div></div>
+      ${lvLine}${feedUp}${petMsg ? `<div class="quote">${petMsg}</div>` : ''}
+      <div class="gbtns pbtns">${outBtn}${jobBtn}${feedBtn}</div>${evo}
+      <details class="more pn-more"><summary>天赋 · 好感 · 喂养</summary>
+        <div><span class="chip">${L.PET_TY[S.ty]}型</span> <span class="jadet">天赋：${esc(L.petTalText(p))}${tal.job ? `（${L.PET_JOB[tal.job].n}时生效）` : '（出战时生效）'}</span></div>
+        <div class="muted">好感 ${hearts(p)} ${p.heart}/5：每心效果 +2%${p.heart >= 5 ? '；五心能挡天劫（+10%，挡完休养 12 周天）、不会出走' : '；闲着 24 周天会掉一心'}</div>
+        ${feedNote ? `<div class="muted">${feedNote}</div>` : ''}
+        <div class="muted">点【喂食】喂一口，按住连喂。每级要兽粮 6 × 1.5^级 × 阶，每级让倍率的超出部分 +5%、岗位效果 +4%；5 级二选一进化（品阶 +1），10 级觉醒。出战每趟历练另得一级的一成经验（+${fmt(L.PET_N.tripXp * need)}），斩妖带回兽粮。</div>
+      </details></div>`;
+  } else det = emptyNoteHTML('pet', '还没有灵宠：坊市的灵兽蛋、采药时偶遇都能得到。');
+  const body = `<div class="gres pn-res">${icon16('feed', 1)} 兽粮 <b class="num">${fmt(st.feed || 0)}</b> · 名册 ${st.pets.length}/${cap}</div>
+    ${petPendHTML()}<div class="pcards pn-pcards" style="grid-template-columns:repeat(${Math.max(2, cap)},minmax(0,1fr))">${cards}</div>${det}`;
+  const s = sheet({ title: '兽栏', still, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
   petMsg = '';
   s.querySelectorAll('[data-pi]').forEach(b => b.onclick = () => { SFX.tap(); petSel = +b.dataset.pi; showPets(undefined, true); });
   const ob = s.querySelector('#petOut'); if (ob) ob.onclick = () => { const pw0 = L.power(st); if (L.petSetOut(st, petSel)) { SFX.coin(); petMsg = `【${esc(L.petName(st.pets[petSel]))}】出战：战力 ${fmt(pw0)} → <b>${fmt(L.power(st))}</b>`; showPets(undefined, true); } };
@@ -109,6 +120,8 @@ function showPets(u, still) {
   const eb = s.querySelector('#petEvo'); if (eb) eb.onclick = () => { SFX.tap(); showPetEvo(petSel); };
   const ab = s.querySelector('#petAwake'); if (ab) ab.onclick = () => { SFX.tap(); showPetEvo(petSel); };
 }
+// 【出战】按钮下的小字：换它出战，战力差多少
+function petOutGain(i) { const [a, b] = petDelta(() => L.petSetOut(st, i), () => L.power(st)); const v = b - a; return fmt(a) === fmt(b) ? '战力不变' : `战力 ${v > 0 ? '+' : '−'}${fmt(Math.abs(v))}`; }
 function doFeed(i) {
   const r = L.petFeed(st, i);
   if (!r) return null;
@@ -143,14 +156,15 @@ function showPetJobs(i) {
     const why = k === 'out' ? '' : L.petJobWhy(st, i, k), cur = k === 'out' ? i === st.petOut : p.job === k;
     const holder = k === 'out' ? L.petOut(st) : L.petJobHolder(st, k), other = holder && holder !== p ? holder : null;
     const match = k !== 'out' && L.petJobMatch(p, k);
-    const swap = other ? `<div class="muted">现在是【${esc(L.petName(other))}】，换下来去${k === 'out' ? (p.job ? L.PET_JOB[p.job].n : '闲着') : p.job ? L.PET_JOB[p.job].n : i === st.petOut ? '闲着' : '闲着'}</div>` : '';
-    return `<button class="pjob${cur ? ' cur' : ''}" data-job="${k}" ${why || cur ? 'disabled' : ''}>${icon16(k === 'out' ? 'job_out' : J.icon, 2)}<span class="grow"><span class="line"><b>${k === 'out' ? '出战' : J.n}</b>${k === rec ? '<span class="chip ok">荐</span>' : ''}${k !== 'out' ? `<span class="chip${match ? ' ok' : ''}">对口：${L.PET_TY[J.ty]}${match ? ' ×1.5' : ''}</span>` : ''}${cur ? '<span class="chip warn">当前</span>' : ''}</span>
+    const swap = other ? `<span class="muted fxs">换下【${esc(L.petName(other))}】</span>` : '';
+    return `<button class="pjob${cur ? ' cur' : ''}" data-job="${k}" ${why || cur ? 'disabled' : ''}>${icon16(k === 'out' ? 'job_out' : J.icon, 2)}<span class="grow"><span class="line"><b>${k === 'out' ? '出战' : J.n}</b>${k === rec ? '<span class="chip ok">荐</span>' : ''}${match ? '<span class="chip ok">对口 ×1.5</span>' : ''}${cur ? '<span class="chip warn">当前</span>' : ''}</span>
       <span class="fxs">${why ? `<span class="seal">${esc(why)}</span>` : cur ? (k === 'out' ? `战力倍率 ×${mult2(L.petAtkOf(st, p))}` : esc(J.d(L.petJobVal(st, k)))) : jobEffect(i, k)}</span>${swap}</span></button>`;
   };
   const order = L.PET_JOBS.slice().sort((a, b) => (b.k === rec) - (a.k === rec));
-  const body = `<div class="row">${petCardImg(p.sp, p.form, p.aw, 1.5)}<div class="grow"><b>${esc(L.petName(p))}</b> Lv${p.lv} · ${L.PET_TY[L.PET_SP[p.sp].ty]}型 · 每级岗位效果 +4%、每心 +2%</div></div>
+  const body = `<div class="row">${petCardImg(p.sp, p.form, p.aw, 1.5)}<div class="grow"><b>${esc(L.petName(p))}</b> <span class="muted">Lv${p.lv} · ${L.PET_TY[L.PET_SP[p.sp].ty]}型</span></div></div>
     <div class="pjobs">${row('out', null)}${order.map(J => row(J.k, J)).join('')}</div>
-    ${p.job ? '<button class="btn alt" id="petIdle">收回来（闲着会掉好感）</button>' : ''}`;
+    ${p.job ? '<button class="btn alt" id="petIdle">收回来<small> · 闲着会掉好感</small></button>' : ''}
+    <details class="more"><summary>岗位规则</summary><div class="muted">每级岗位效果 +4%、每心 +2%。类型对口 ×1.5：护阵（护）、觅食·守田（寻）、看炉（灵）、巡山（战）。一个岗位只站一只。</div></details>`;
   const s = sheet({ title: '派岗 · ' + esc(L.petName(p)), body, foot: [{ t: '回兽栏', alt: true, fn: () => showPets() }] });
   s.querySelectorAll('[data-job]').forEach(b => b.onclick = () => {
     const k = b.dataset.job, txt = jobEffect(i, k);
@@ -161,7 +175,6 @@ function showPetJobs(i) {
   });
   const ib = s.querySelector('#petIdle'); if (ib) ib.onclick = () => { L.petSetJob(st, i, ''); SFX.tap(); showPets(p.u); };
 }
-
 // ---------- 进化（5 级二选一）与觉醒（10 级）：卡片上方一块小画布放 ART.drawEvo ----------
 let evoAnim = null;
 function evoCanvas(p, k) {
@@ -186,24 +199,30 @@ function evoCanvas(p, k) {
   requestAnimationFrame(step);
   return c;
 }
+// 进化二选一：每支一张卡（图 / 名字 / 进化后的倍率 ▲ / 条件 / 天赋）；两支都能选时，倍率高的那支按钮是金的
 function showPetEvo(i) {
   const p = st.pets[i]; if (!p) return showPets();
   if (L.petCanAwake(p)) return showPetAwake(i);
   const S = L.PET_SP[p.sp], pw = L.power(st), out = i === st.petOut;
-  const br = b => {
-    const B = S[b === 1 ? 'a' : 'b'], known = L.petEvoKnown(st, p.sp, b), needs = L.petBranchNeeds(st, p, b), ok = needs.every(x => x.ok);
+  const info = [1, 2].map(b => {
+    const needs = L.petBranchNeeds(st, p, b), ok = needs.every(x => x.ok);
     const [m0, m1] = petDelta(() => { st.pets[i].form = b; }, () => L.petAtkOf(st, st.pets[i]));
+    return { b, needs, ok, m0, m1 };
+  });
+  const goldB = (info.filter(x => x.ok).sort((x, y) => y.m1 - x.m1)[0] || {}).b;
+  const br = ({ b, needs, ok, m0, m1 }) => {
+    const B = S[b === 1 ? 'a' : 'b'], known = L.petEvoKnown(st, p.sp, b);
     const [w0, w1] = out ? petDelta(() => { st.pets[i].form = b; }, () => L.power(st)) : [pw, pw];
     const show = known || ok;
     const tal = L.PET_TAL[B.tal];
     return `<div class="pbr${ok ? ' ok' : ''}">${known ? petCardImg(p.sp, b, 0, 2) : `<span class="psilbox">${petSprImg({ sp: p.sp, form: b }, 2).replace('class="px"', 'class="px psil"')}</span>`}<div class="nm">${known ? esc(L.petFormName(p.sp, b)) : '？？？'}</div>
-      <div class="fxs jadet">${known ? '天赋：' + esc(tal.d(tal.k === 'mul' ? 1 + (tal.v - 1) * (1 + 0.02 * p.heart) : tal.v * (1 + 0.02 * p.heart))) : '线索：' + esc(B.hint)}</div>
-      <div class="fxs">${needs.map(x => `<span class="${x.ok ? 'jadet' : 'seal'}">${x.ok ? '✓' : '✗'} ${show ? esc(x.t) : '？'}${x.need !== undefined && show ? `（${fmt(x.have)}/${fmt(x.need)}）` : ''}</span>`).join('<br>')}</div>
-      <div class="fxs muted">品阶 ${L.petTier(p)} → ${L.petTier(p) + 1}：出战倍率 ×${mult2(m0)} → ×${mult2(m1)}${out ? `，战力 ${arrowNum(w0, w1)}` : ''}</div>
-      <button class="btn sm ${ok ? 'gold' : 'alt'}" data-evo="${b}" ${ok ? '' : 'disabled'}>${ok ? '选这一支' : '条件未满足'}</button></div>`;
+      <div class="jadet pn-key">${out && fmt(w0) !== fmt(w1) ? `战力 → <b>${fmt(w1)}</b>` : `×${mult2(m0)} → <b>×${mult2(m1)}</b>`} ▲</div>
+      <div class="fxs">${needs.map(x => `<span class="${x.ok ? 'jadet' : 'seal'}">${x.ok ? '✓' : '✗'} ${show ? esc(x.t) : '？'}${x.need !== undefined && show ? ` ${fmt(x.have)}/${fmt(x.need)}` : ''}</span>`).join('<br>')}</div>
+      <div class="fxs muted">${known ? '天赋：' + esc(tal.d(tal.k === 'mul' ? 1 + (tal.v - 1) * (1 + 0.02 * p.heart) : tal.v * (1 + 0.02 * p.heart))) : '线索：' + esc(B.hint)}</div>
+      <button class="btn sm ${b === goldB ? 'gold' : 'alt'}" data-evo="${b}" ${ok ? '' : 'disabled'}>${ok ? '选它' : '未满足'}</button></div>`;
   };
-  const body = `<div class="center" id="evoBox"></div><p class="center">【${esc(L.petName(p))}】浑身发光，两股气息在争：选一支，品阶 +1。<span class="muted">“？”是没试过的分支，试出来记进图鉴。</span></p>
-    <div class="pbrs">${br(1)}${br(2)}</div>`;
+  const body = `<div class="center" id="evoBox"></div><p class="center">选一支进化：品阶 ${L.petTier(p)} → <b>${L.petTier(p) + 1}</b></p>
+    <div class="pbrs">${info.map(br).join('')}</div><div class="muted center">“？”是没试过的分支，试出来记进图鉴</div>`;
   const s = sheet({ title: '进化 · ' + esc(L.petName(p)), body, foot: [{ t: '再等等', alt: true, fn: () => showPets(p.u) }] });
   s.querySelector('#evoBox').appendChild(evoCanvas(p));
   s.querySelectorAll('[data-evo]').forEach(b => b.onclick = () => {
@@ -226,7 +245,7 @@ function showPetAwake(i) {
   const p = st.pets[i];
   const [m0, m1] = petDelta(() => { st.pets[i].aw = 1; }, () => L.petAtkOf(st, st.pets[i]));
   const [t0, t1] = petDelta(() => { st.pets[i].aw = 1; }, () => L.petTalText(st.pets[i]));
-  const body = `<div class="center" id="evoBox"></div><p class="center">【${esc(L.petName(p))}】满 10 级了：觉醒不分支——天赋升级、品阶再 +1、外形加光环。</p>
+  const body = `<div class="center" id="evoBox"></div><p class="center">满 10 级：天赋升级、品阶 +1</p>
     <dl class="grid2 delta"><dt>品阶</dt><dd>${L.petTier(p)} → <b>${Math.min(6, L.petTier(p) + 1)}</b></dd><dt>出战倍率</dt><dd>×${mult2(m0)} → <b>×${mult2(m1)}</b></dd><dt>天赋</dt><dd class="jadet">${esc(t0)} → <b>${esc(t1)}</b></dd></dl>`;
   const s = sheet({ title: '觉醒 · ' + esc(L.petName(p)), body, foot: [{ t: '再等等', alt: true, fn: () => showPets(p.u) }, { t: '觉醒', gold: true, fn: () => {
     const r = L.petAwake(st, i); if (!r) return;
