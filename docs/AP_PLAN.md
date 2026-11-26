@@ -962,3 +962,24 @@ A1 已合入：`src/logic/ap.js`（`MODULES` 里 `time` 之后、`report` 之前
 4. 吐纳的函数（`L.tuna / tunaReady / TUNA_FULL`）还在（界面 scene / boot / guide 还在读），但 tick 不再蓄，所以永远不满；A2 删。
 
 **sim**：主循环按季（每季：突破 → 行动直到点花完或花不出去 → 家务 → `L.seasonEnd` → 逐月 `out` 照旧处理）。历练走 `L.act('exp') → L.tripStep… → L.tripEnd`，闭关 / 特训 / 双修 / 首领 / 秘境 / 讲法 / 传授走 `L.act`；`opt.onTick(st, out, S)` 每季对 3 个 `out` 各调一次（第三个参数是 `S`）；`opt.maxT` 仍按月，内部换成 `ceil(maxT / 3)` 季。新开关 `noap`（`L.AP_ON = false`），`nokairo` 删。
+
+### 线 B 实际提供的接口（剧情零延迟与主线行动）
+
+**结算链**（新模块 `src/logic/blocks.js`，`MODULES` 里紧跟 `ap`；函数体不在 storyline.js——storyline 加载早于 ap，包不到 A1 的缺省实现）：
+- `L.nextBlock(st)` 每次现算：① `result / season / year`（ap.js 排进来的）→ ②～⑤ 按章排（同章内：开章 1 → 三张帖子 1.5 → 补发的 realm:N 1.2 → 系统剧情 2 → 过了章补放的中段 2.5 → pre 3 → 推迟的那一仗 `kind: 'act'` 3.5 → 高潮 4 → 收尾 5 → 章末卡 `kind: 'chapter'`（`id: 'chapter:i'`，`data` = `L.chapterSummary`）6；跨两章时照章序连着出）→ ⑥ force 类解锁卡 `kind: 'unlock'` → ⑦ 大事 `kind: 'big'`（`pact / tour / meet / war / rookie / death`，另加宿敌上门 `foe`）→ ⑧ 季初（只在 `chainOpen(st, 'season')` 的链尾）：一场闲戏 + 一张排队的解锁卡，`lv: 8`。块上带 `lv`（1～8）、story 块另带 `ch / loc`。
+- 闲戏（这一章的中段节拍、人物戏 `sb:mid`）与主线戏在同一个 `st.storyQ` 里，但按 `L.storyIdle` 分两类：闲戏只在季初出、永远排在主线戏后面；`nextBlock` 不再只看 `storyQ[0]`。
+- `L.blockRun(st, x)`：执行 `big` / `act` 块并返回结果（约战、论道、会武、来犯、新秀默认“指点”、宿敌上门默认“改日”、推迟的下战帖 / 圣子之战）。**界面演出大事时调它拿结果，不要再从 `S.outs` 自己调 `L.pactDuel / L.tournament`**；不调的话 `L.blockDone` 代为执行。
+- `L.blockDone(st, x)`：story 块从 `storyQ` 里删掉它本身（不一定是队首）、记 `lag.shown`；chapter 块记 `st.story.chCard`；unlock 块记 `st.story.ucard`。
+- `L.chainOpen(st, why)` 另外在 `L.act`（`'act'`）与 `L.seasonEnd`（`'season'`）里自动开一次；开链时补一次 `L.storyKick / storyRepush / storyCatchUp / storyRelease`，之后每出一张之前再补一次（补发一条链最多 3 场）。
+- 打点：`st.story.lag[id] = { due, shown, via: 'chain' | 'resolve', t }`；`due` 是进队时的 seq，行动 / 季末结算进行中进队的记成结算完以后的 seq（与出链同一口径）；没走链、直接 `resolveChoice` 掉的记 `via: 'resolve'`。
+- 新存档字段（都在 `st.story` 下，旧档由 `L.migrate` 补齐，已过的章末卡 / 已开的解锁项算出过）：`qm`、`lag`、`chCard`、`ucard`、`bigQ`（大事另存一份，链断在半路读档后接着出）、`defer`。
+- pre：玩家做“这一章的最后一仗”（点名的人、正好够上名次门槛的那一场、圣子之战）时，`L.act` 先 `L.storyPreFire` 放 pre，那一仗记在 `st.story.defer`，链里排在 pre 之后（`kind: 'act'`）再打；点数在 `L.act` 时已扣。没有可放的 pre 就当场打。
+- `L.storyTick` 只在季界（`tick % 3 === 0`）判，一季至多一场中段戏；固定日子的 pre（守山）在那一季季初；`L.storyRelease` 不再在 `L.tick` 里调。
+
+**主线行动**（`src/logic/mainline.js`，登记在 blocks.js）：
+- `L.mainActs(st, { side })` → `[{ id, t, ap, ok, why, do: { id, args } | null, p?, grow?, wait?, side? }]`。`do` 一律交给 `L.act(st, do.id, do.args)`；`do.id` ∈ `duel`（`{ id }` 点名的人 / `{ q }` 天骄榜第 q 名）、`join`（`{ id }`）、`promote`（0 点）、`final`、`boss`（`{ k }`）、`exp`（`{ k, d, a }`，界面接着 `tripStep / tripEnd`）、`retreat`、`sit`。`do: null` 的是固定日子 / 剧情（`wait: true`，why 写还有几季）。主线行动做不了或胜算不到六成时表尾跟“变强”行动（`grow: true`；第九章先闭关）。`side: true` 时追加【拜山门】（路线选择，不算这条路的进度，所以默认不列）。
+- `L.mainNext(st)`：目标卡“下一步”取的那一项；`L.goalNext` 的返回值多 `ap / do`（`do` 可能为 null = 只跳页），做不了时多 `need`（差什么）。`goalNext0` 删了在外 / 备战两支。
+- `L.challenge(st, args) / challengeWhy / challengeTargets / duelInfo`；旧名 `challengeRival / challengeInfo` 留作转调。输：负伤 4 月（下季末痊愈）、这个人 4 季内不接帖（降过级 1 季），冷却记在 `st.mainG.cd`（不是 §5.2 写的 `st.rv2.cool`）。名次门槛那一场的对手在降过级的章同样封顶（不随日历变强）。
+- `L.knock / knockWhy`（旧名 `sectApply / sectApplyWhy` 转调）；`L.finalFight / finalWhy / finalKind / finalP`：只有第四章圣子之战（`heir`）与第六章讨回山门（`war`，来犯输过以后）。第七章阵前、第八章问剑是剧情抉择（s7_war / tianheng_2），前置一满足当场放，输了按 `fx.retry` 取到季界、到时季初再放——**与 §5.2“点了才打”不同**：自动放是零延迟，也不让 sim / 只看目标卡的玩家卡在这两章。
+- `L.loneRoute = st => !st.sect`；三宗争徒不再由 tick 触发（`out.invite` 没了，`L.inviteDue` 恒假）；`L.MAIN_V_S`（单位季：hint 8、ease 12、step 4、inCh 30、inStep 8、cd 4、cdEase 1）、`L.MAIN_V` 是换算成的月。来犯的日子取到季界，输了 4 季后再来。
+- 旧档 R4：`L.migrateMainline` 清掉与新条件不符的第七～九章旧成绩并重开那几章的节拍；`L.storyUnmiss` 把以前记成“错过”、场景一场没放的开章 / 抉择节拍重新放。
