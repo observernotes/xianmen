@@ -434,11 +434,10 @@ require('fs').mkdirSync(out, { recursive: true });
   if (!['大概能过', '悬', '过不了'].includes(pz.hint) || !pz.bar) errors.push('那一停没有护体条与提示：' + JSON.stringify(pz));
   lay44(await big44('#modal [data-ex], #modal [data-exp], #modal .foot .btn', '那一停'));
   for (let i = 0; i < 2; i++) { const b = await page.$('#modal [data-exp="1"]:not([disabled])'); if (b) { await b.click(); await page.waitForTimeout(150); } }
-  await page.evaluate(() => { const L = window.__xm.L; L.rng0 = L.rng; L.rng = () => 0; });   // 元婴劫起成功率封顶 65%：这里要看“成功 + 道基印”，把骰子压到最低
+  await page.evaluate(() => { const t = window.__xm.st.trib; if (t && t.cur) t.cur.u = 0; });   // 元婴劫起成功率封顶 65%：骰子在开渡时就掷好了，这里要看“成功 + 道基印”，把已掷的 u 压到最低
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(1300); await page.screenshot({ path: out + '/11c-trib-final.png' });
   for (let i = 0; i < 40 && await page.evaluate(() => window.__xm.cine); i++) await page.waitForTimeout(200);
   await page.waitForTimeout(300); await page.screenshot({ path: out + '/12-btres.png' });
-  await page.evaluate(() => { const L = window.__xm.L; if (L.rng0) { L.rng = L.rng0; L.rng0 = null; } });
   const bres = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#tribGrade img'), r: window.__xm.st.p.r }));
   if (bres.t !== '渡劫成功' || !bres.stamp || bres.r !== 4) errors.push('补满手段后渡劫应成功并盖道基印：' + JSON.stringify(bres));
   await close();

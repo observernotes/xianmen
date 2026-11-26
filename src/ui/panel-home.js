@@ -281,7 +281,7 @@ function homeTickFx(out) {
   if (st.home.tut && $('#modal').hidden && !cine) {
     delete st.home.tut;
     const cand = L.homePlots(st).map((k, i) => ({ k, i })).filter(x => x.i > 0 && x.k).sort((a, b) => st.home[a.k] - st.home[b.k])[0];
-    if (cand) pushPopup(() => { homeMsg = `老祖指着【${HB(cand.k).n}】那块地：“拆它。退你 ${fmt(L.homeRefund(st, cand.k))} 灵石，等级记着，往后重建从 ${Math.max(1, Math.floor(st.home[cand.k] * L.HV.keep))} 级起。”`; showHome(false, cand.i); homeDemo = cand.k; showHome(true); });
+    if (cand) pushPopup(() => { const msg = `老祖指着【${HB(cand.k).n}】那块地：“拆它。退你 ${fmt(L.homeRefund(st, cand.k))} 灵石，等级记着，往后重建从 ${Math.max(1, Math.floor(st.home[cand.k] * L.HV.keep))} 级起。”`; homeMsg = msg; showHome(false, cand.i); homeDemo = cand.k; homeMsg = msg; showHome(true); });
     return;
   }
   if (!st.guide || !st.guide.done || cine) return;
