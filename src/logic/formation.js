@@ -70,6 +70,16 @@ L.zhenWhere = function (st, id) {
   return null;
 };
 
+// 老祖推荐布什么（阵法页“荐”与变强页“换上渡劫阵”共用一个口径）：要渡劫了 → 渡劫；灵草够炼很多炉 → 丹火；否则聚灵。
+// 换阵要 L.ZV.switch 月才生效，所以丹火布着时灵草掉到 6 炉以下不马上叫你换回聚灵（3 炉以下才换），免得来回布阵
+L.zhenRec = function (st) {
+  const has = id => L.zhenOwned(st, id), pct = L.pct;
+  if (has('f_dujie') && L.tribNeeded(st) && st.p.s === 3 && (L.isFull(st) || L.ticksToNext(st) <= 6)) return { id: 'f_dujie', why: `要渡劫了：承劫 +${pct(L.formationVal(st, 'f_dujie'))}，${L.ZV.switch} 个月后生效` };
+  const rc = L.RECIPES[0], n = st.home.furnace ? Math.floor(st.herbs / Math.max(1, L.herbCost(st, rc))) : 0;
+  if (has('f_danhuo') && (n >= 6 || (n >= 3 && L.zhenWhere(st, 'f_danhuo')))) return { id: 'f_danhuo', why: `灵草够炼 ${n} 炉：成丹率 ${pct(L.alchRate(st))} → ${pct(Math.min(0.97, L.alchRate(st) + L.zhenNum(st, 'f_danhuo', 1).alch))}` };
+  return { id: 'f_juling', why: `平时聚灵：修炼 ×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}` };
+};
+
 // ---------- 效果的数（界面、老祖讲解、各接入点共用） ----------
 const lvOf = st => st.home.array || 0;
 L.zhenNum = function (st, id, k) {
