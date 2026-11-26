@@ -50,6 +50,7 @@ function showChapterCard(ch) {
   st.flags.chEnd = st.flags.chEnd || {};
   if (st.flags.chEnd[ch]) return;
   st.flags.chEnd[ch] = 1;
+  saveLocal('章末');   // 关键节点存一份（自动档轮换，saves.js）
   const S = L.chapterSummary(st, ch), N = S.next;
   const Sp = ART.stamp ? ART.stamp('完') : null;
   sheet({ title: `${chName(ch)} ${esc(S.n)} · 完`, center: true, noClose: true,
@@ -70,6 +71,7 @@ function showChapterCard(ch) {
 function yearClose() { L.yearClose(st); }
 function showYearReport() {
   if (!st) return;
+  saveLocal('年报');   // 关键节点存一份
   const R = L.yearReport(st), nx = R.next || {}, big = nx.big;
   const up = (a, b, f) => `${f(a)} → <span class="big">${f(b)}</span>${b > a ? ` <span class="kup" style="font-size:14px">▲${f(b - a)}</span>` : ''}`;
   const opened = (R.opened || []).filter(k => L.ONB_K[k] && L.ONB_K[k].sys).slice(0, 4);

@@ -35,7 +35,7 @@
  */
 (function () {
 'use strict';
-const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'battle', 'home', 'npc', 'rivals', 'sect', 'expedition', 'trip', 'loot', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'rivals2', 'formation', 'buildings', 'people', 'save', 'tick', 'chains', 'codex', 'samsara', 'onboard', 'path', 'time', 'report', 'advise'];
+const MODULES = ['core', 'stats', 'items', 'arts', 'gear', 'battle', 'home', 'npc', 'rivals', 'sect', 'expedition', 'trip', 'loot', 'cultivation', 'calendar', 'market', 'realm', 'alchemy', 'events-engine', 'pets', 'crops', 'quests', 'meta', 'trib', 'dao', 'sect2', 'disciples', 'rivals2', 'formation', 'buildings', 'people', 'save', 'tick', 'chains', 'codex', 'samsara', 'onboard', 'path', 'time', 'report', 'advise', 'slots'];
 if (typeof module === 'object' && module.exports) {
   const L = {};
   for (const m of MODULES) require('./logic/' + m + '.js')(L);
