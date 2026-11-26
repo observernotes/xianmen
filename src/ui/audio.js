@@ -461,6 +461,11 @@ const SFX_DEF = {
   bell() { sxP('bell', 72, 0, 2, 0.24, true); sxP('bell', 60, 0, 2, 0.12); },
   luo() { sxO('triangle', 620, 0, 0.9, 0.2, { f2: 760, ft: 0.12 }); sxO('sine', 1240, 0, 0.5, 0.06, { f2: 1520, ft: 0.12 }); sxN(0, 0.3, 0.14, { type: 'bandpass', f: 3000, q: 1 }); },
   wind() { sxN(0, 1.8, 0.4, { type: 'bandpass', f: 400, f2: 900, q: 0.7, a: 0.5 }); },
+  // —— 剧情（talk.js：对话场景与数据式分镜）——
+  heart() { sxO('sine', 58, 0, 0.16, 0.6, { f2: 40 }); sxO('sine', 52, 0.2, 0.22, 0.45, { f2: 34 }); },   // 心跳：咚、咚（抉择之前、揭晓之前）
+  slash() { sxN(0, 0.16, 0.5, { type: 'bandpass', f: 5200, f2: 900, q: 1.2 }); sxO('triangle', 1900, 0.01, 0.12, 0.08, { f2: 500 }); },   // 挥剑：一道破空
+  sting() { sxDuck(1.6, 0.2); sxP('qin', 40, 0, 1.4, 0.3); sxP('qin', 46, 0.02, 1.2, 0.2); sxN(0, 0.5, 0.2, { f: 300, f2: 90 }); },   // 转折：低处一声闷弦，音乐让一下
+  fire() { sxN(0, 0.5, 0.16, { type: 'bandpass', f: 1400, f2: 500, q: 0.8, a: 0.2 }); sxN(0.12, 0.05, 0.14, { type: 'highpass', f: 3500 }); sxN(0.31, 0.04, 0.1, { type: 'highpass', f: 4200 }); },   // 火堆噼啪
 };
 const sfxLast = {};
 const SFX = {};

@@ -13,29 +13,43 @@ const tkFast = () => { const x = window.__xm_talk; if (x && typeof x.fast === 'b
 const TK_NAME = { elder: '老祖', zhao: '赵乾', tian: '楚天阔', xue: '血无涯', yun: '云无极', tianheng: '陆天衡', jian: '凌虚子', dan: '丹云婆婆', dao: '玄微子', teaman: '卖茶翁', xuehe: '血河老祖' };
 const tkName = id => (id === 'me' ? st.p.name : id === 'mu' ? st.exName : L.NPCS[id] ? L.npcName(st, id) : TK_NAME[id] || id);
 const tkAlt = id => (id === 'su' || id === 'ye' || id === 'mu') && !!st.p.look.f;
+// 表情：五种基础表情 + cold（冷：平脸、眉眼压一层阴影）；+ 后面是叠加（泪、血、汗……）
 function tkFace(who, mood, fx) {
+  if (mood === 'cold') { mood = 'n'; fx = (fx ? fx + ' ' : '') + 'shade'; }
   if (who === 'me') { const c = myAvCanvas(undefined, mood); return fx ? ART.portraitX(c, '', fx) : c; }
   if (!ART.hasPortrait || !ART.hasPortrait(who)) return null;
-  // 诀别之后的老祖：只剩余音
-  if (who === 'elder' && st.eflags.st_farewell && !/fade/.test(fx || '')) fx = (fx ? fx + ' ' : '') + 'fade';
+  if (who === 'elder' && st.eflags.st_farewell && !/fade/.test(fx || '')) fx = (fx ? fx + ' ' : '') + 'fade';   // 诀别之后的老祖：只剩余音
   return ART.portraitX(who, mood, fx || '', tkAlt(who));
 }
 const tkBg = spec => { const p = String(spec || 'cave').split(':'); return p[0] === 'cg' ? ART.storyCg(p[1], p[2] && /^\d+$/.test(p[2]) ? +p[2] : p[2] || 0) : p[0] === 'end' ? ART.endingPic(p[1]) : ART.storyBg(p[p.length - 1]); };
-// 把 talk 摊平成一行一行（条件当场判）：{ who, mood, fx, name, text, echo } | { bg } | { sfx } | { shake }
+// 场景自带的气氛：雨、雪、火星、流萤（{ fx: '' } 关掉，{ fx: 'rain' } 换）
+const TK_AMB = { temple: 'rain', trib3k: 'storm', grave: 'snow', field: 'ember', blood: 'ember', lantern: 'glow', heaven: 'mote', void: 'mote', herb: 'petal', dusk: 'ember' };
+// 一句台词里的记号：*重音*（放大、金色、抖一下）、| 停一拍。返回 [{ ch, em, wait }]
+function tkParse(text) {
+  const out = []; let em = false;
+  for (const ch of text) {
+    if (ch === '*') { em = !em; continue; }
+    if (ch === '|') { if (out.length) out[out.length - 1].wait = (out[out.length - 1].wait || 0) + 420; continue; }
+    out.push({ ch, em, wait: /[。！？…]/.test(ch) ? 230 : /[，、；：—]/.test(ch) ? 110 : 0 });
+  }
+  return out;
+}
+const tkPlain = text => text.replace(/[*|]/g, '');
+// 把 talk 摊平成一行一行（条件当场判）：台词 { who, mood, fx, name, text, o, echo }；指令 { bg } { sfx } { shake } { flash } { bgm } { wait } { zoom } { amb } { dim } { black }
 function tkFlat(list, out, echo) {
   out = out || [];
   for (const it of list || []) {
     if (Array.isArray(it)) {
       const p = it[0].split(':'), unk = p[0] === '?';
       const mf = unk ? [] : (p[1] || 'n').split('+');
-      out.push({ who: unk ? '?' : p[0], mood: mf[0] || 'n', fx: mf.slice(1).join(' '), name: unk ? p[1] : p[2], text: L.fill(st, it[1]), echo: echo || '' });
+      out.push({ who: unk ? '?' : p[0], mood: mf[0] || 'n', fx: mf.slice(1).join(' '), name: unk ? p[1] : p[2], text: L.fill(st, it[1]), o: it[2] || {}, echo: echo || '' });
       echo = '';
     } else if (it.say) { if (L.storyCond(st, it.if)) tkFlat(it.say, out, it.echo || echo); }
     else if (it.pick) { const o = it.pick.find(x => L.storyCond(st, x.if)); if (o) tkFlat(o.say, out, o.echo || echo); }
-    else if ('cg' in it) out.push({ bg: 'cg:' + it.cg + ':' + (it.f || 0) });
+    else if ('black' in it) out.push({ who: 'black', mood: 'n', fx: '', text: L.fill(st, it.black), o: it, echo: '' });
+    else if ('cg' in it) out.push({ bg: 'cg:' + it.cg + ':' + (it.f || 0), flash: it.flash });
     else if ('scene' in it) out.push({ bg: it.scene });
-    else if ('sfx' in it) out.push({ sfx: it.sfx });
-    else if ('shake' in it) out.push({ shake: it.shake });
+    else out.push(Object.assign({ cmd: 1 }, it));   // sfx / shake / flash / bgm / wait / zoom / fx / dim
   }
   return out;
 }
@@ -45,7 +59,7 @@ function tkMount() {
   root.innerHTML = `<div class="tk-top"><button class="tk-log" aria-label="回看">回看</button><span class="tk-title"></span><button class="tk-skip" aria-label="跳过">跳过 ▸▸</button></div>
     <div class="tk-stage"><canvas class="tk-cv"></canvas><canvas class="tk-pt l"></canvas><canvas class="tk-pt r"></canvas></div>
     <div class="tk-box"><div class="tk-name" hidden></div><div class="tk-text"></div><canvas class="tk-next" width="9" height="8"></canvas><div class="tk-picks" hidden></div></div>
-    <div class="tk-echo" hidden></div><div class="tk-hint">点一下继续 · 长按快进</div><div class="tk-hist" hidden></div>`;
+    <div class="tk-echo" hidden></div><div class="tk-hint">点一下继续 · 长按快进</div><div class="tk-black" hidden><p></p></div><div class="tk-hist" hidden></div>`;
   for (const k of ['talk', 'talkName', 'talkNameMe', 'talkPick']) root.style.setProperty('--fr-' + k, `url(${ART.frame(k).url})`);
   document.body.appendChild(root);
   return root;
@@ -60,57 +74,108 @@ function tkSize() {
   tk.root.querySelector('.tk-box').style.width = Math.min(vw - 12, 200 * k / dpr + 8) + 'px';
   tkDraw();
 }
-function tkDraw() {
-  if (!tk) return;
-  const g = tk.cv.getContext('2d'); g.imageSmoothingEnabled = false;
-  let bg = null; try { bg = tkBg(tk.bg); } catch (e) { bg = null; }
-  g.fillStyle = '#000'; g.fillRect(0, 0, 200, 120); if (bg) g.drawImage(bg, 0, 0);
-  const cg = /^(cg|end):/.test(tk.bg), ln = tk.cur || {};
-  [['l', tk.left], ['r', tk.right]].forEach(([side, f], i) => {
-    const c = tk.pts[i], on = !!f && ((side === 'l') === (ln.who === 'me')) && !!ln.who && ln.who !== 'nar';
-    const show = !!f && (!cg || on);
-    c.hidden = !show; if (!show) return;
+// 舞台：底图（可推近）+ 气氛粒子 + 压暗 + 闪白。每帧画（半身像是另外两块画布，只在换人时画）
+function tkStage(now) {
+  const T = tk; if (!T) return;
+  const g = T.cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  let bg = null; try { bg = tkBg(T.bg); } catch (e) { bg = null; }
+  // 镜头：推近到 z 倍（缓动），中心 (zx, zy)
+  T.zc += (T.zoom - T.zc) * 0.08; if (Math.abs(T.zoom - T.zc) < 0.002) T.zc = T.zoom;
+  const z = Math.max(1, T.zc), sw = 200 / z, sh = 120 / z, sx = cnClamp(T.zx - sw / 2, 0, 200 - sw), sy = cnClamp(T.zy - sh / 2, 0, 120 - sh);
+  g.fillStyle = '#000'; g.fillRect(0, 0, 200, 120);
+  if (bg) g.drawImage(bg, sx, sy, sw, sh, 0, 0, 200, 120);
+  // 气氛
+  const a = T.amb === undefined ? TK_AMB[String(T.bg).split(':').pop()] || (/^cg:(stab|fade)/.test(T.bg) ? 'storm' : '') : T.amb, t = now / 1000;
+  if (a === 'rain' || a === 'storm') { g.fillStyle = a === 'storm' ? 'rgba(200,224,255,.5)' : 'rgba(200,212,255,.28)'; for (let i = 0; i < (a === 'storm' ? 46 : 22); i++) { const x = (i * 53 + t * 40) % 210 - 5, y = (i * 37 + t * (a === 'storm' ? 260 : 170) + i * i) % 130 - 6; g.fillRect(Math.round(x - y * 0.12), Math.round(y), 1, a === 'storm' ? 6 : 4); } }
+  else if (a === 'snow') { g.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 34; i++) { const y = (i * 29 + t * (9 + i % 5 * 3)) % 126 - 3, x = (i * 61 + Math.sin(t * 0.8 + i) * 6 + 200) % 200; g.fillRect(Math.round(x), Math.round(y), i % 4 ? 1 : 2, 1); } }
+  else if (a === 'ember' || a === 'mote' || a === 'glow' || a === 'petal') { const col = a === 'ember' ? ['#ffb23f', '#ff7a5a'] : a === 'glow' ? ['#ffd86a', '#ffb23f'] : a === 'petal' ? ['#f6a0c0', '#ffffff'] : ['#ffffff', '#c8b8e8']; for (let i = 0; i < 20; i++) { const u = (t * (0.05 + i % 4 * 0.02) + i * 0.137) % 1, x = (i * 47 + Math.sin(t * 0.6 + i * 2) * 8 + 200) % 200, y = a === 'petal' ? u * 124 - 2 : 122 - u * 124; g.globalAlpha = 0.25 + 0.6 * Math.sin(u * Math.PI); g.fillStyle = col[i % 2]; g.fillRect(Math.round(x), Math.round(y), 1, 1); } g.globalAlpha = 1; }
+  if (T.dim > 0.01 || T.dimT > 0.01) { T.dim += (T.dimT - T.dim) * 0.1; g.globalAlpha = Math.min(0.9, T.dim); g.fillStyle = '#07050c'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; }
+  const f = now - T.flashAt; if (f < 380) { g.globalAlpha = Math.max(0, 1 - f / 380); g.fillStyle = T.flashCol || '#ffffff'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; }
+  requestAnimationFrame(tkStage);
+}
+function tkFlash(col) { if (tk) { tk.flashAt = performance.now(); tk.flashCol = col || '#ffffff'; } }
+function tkShakeNow(n) { const T = tk; if (!T) return; const s = T.root.querySelector('.tk-stage'); s.style.setProperty('--tk-amp', (n || 4) + 'px'); s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake'); }
+function tkSfx(n) { try { (CSFX[n] || (() => {}))(); } catch (e) { /* 没声音就算了 */ } }
+function tkBgm(k) { if (k === '' || k === 0) BGM.play('', { while: () => !!tk }); else if (k) BGM.play(k, { while: () => !!tk }); }
+// 半身像：换人、换表情时重画；说话的亮并跳一下，不说的暗；loud 的那句抖
+function tkDraw(hop) {
+  const T = tk; if (!T) return;
+  const cg = /^(cg|end):/.test(T.bg), ln = T.cur || {};
+  [['l', T.left], ['r', T.right]].forEach(([side, f], i) => {
+    const c = T.pts[i], on = !!f && ((side === 'l') === (ln.who === 'me')) && !!ln.who && ln.who !== 'nar' && ln.who !== 'black';
+    const show = !!f && (!cg || on) && ln.who !== 'black';
+    const was = !c.hidden; c.hidden = !show; if (!show) return;
     const pg = c.getContext('2d'); pg.imageSmoothingEnabled = false; pg.clearRect(0, 0, 48, 48);
     if (side === 'r' && f.who !== 'me') { pg.save(); pg.translate(48, 0); pg.scale(-1, 1); pg.drawImage(f.c, 0, 0); pg.restore(); } else pg.drawImage(f.c, 0, 0);
     c.classList.toggle('on', on);
+    if (hop && on) { const cls = !was || f.fresh ? 'in' : ln.o && ln.o.loud ? 'rage' : 'hop'; f.fresh = false; c.classList.remove('in', 'hop', 'rage'); void c.offsetWidth; c.classList.add(cls); }
   });
 }
-// 出一行：换底图 / 音效不占一句，接着出下一行
+function tkCmd(x) {
+  const T = tk;
+  if (x.bg) { T.bg = x.bg; T.amb = undefined; if (x.flash) tkFlash(); }
+  if (x.sfx) tkSfx(x.sfx);
+  if (x.shake) tkShakeNow(x.shake);
+  if (x.cmd && x.flash) tkFlash(typeof x.flash === 'string' ? x.flash : '');
+  if ('bgm' in x) tkBgm(x.bgm);
+  if ('zoom' in x) { T.zoom = x.zoom || 1; if (x.x !== undefined) T.zx = x.x; if (x.y !== undefined) T.zy = x.y; if (!x.zoom) { T.zx = 100; T.zy = 60; } }
+  if ('fx' in x) T.amb = x.fx;
+  if ('dim' in x) T.dimT = x.dim;
+}
+// 出一行：指令不占一句（wait 除外：停那么久再往下），接着出下一行
 function tkShow(i) {
   const T = tk; if (!T) return;
-  while (i < T.lines.length && !T.lines[i].text) {
-    const x = T.lines[i++];
-    if (x.bg) T.bg = x.bg;
-    if (x.sfx) { try { (CSFX[x.sfx] || (() => {}))(); } catch (e) { /* 没声音就算了 */ } }
-    if (x.shake) { T.root.classList.remove('shake'); void T.root.offsetWidth; T.root.classList.add('shake'); }
+  clearTimeout(T.tm); clearTimeout(T.ffT);
+  while (i < T.lines.length && T.lines[i].text === undefined) {
+    const x = T.lines[i++]; tkCmd(x);
+    if (x.wait && !T.ff && !T.skipping) { T.i = i; T.full = false; T.waiting = true; T.tm = setTimeout(() => { if (tk === T) { T.waiting = false; tkShow(i); } }, x.wait); return; }
   }
-  T.i = i;
+  T.i = i; T.waiting = false;
   if (i >= T.lines.length) { tkDraw(); T.after(); return; }
-  const ln = T.lines[i]; T.cur = ln;
-  if (ln.who === 'me') T.left = { who: 'me', c: tkFace('me', ln.mood, ln.fx) };
-  else if (ln.who !== 'nar') { const c = ln.who === '?' ? null : tkFace(ln.who, ln.mood, ln.fx); T.right = c ? { who: ln.who, c } : null; if (!T.left && T.withMe) T.left = { who: 'me', c: tkFace('me', 'n', '') }; }
-  const nm = T.root.querySelector('.tk-name'), tx = T.root.querySelector('.tk-text');
-  nm.hidden = ln.who === 'nar'; nm.textContent = ln.who === 'nar' ? '' : ln.name || tkName(ln.who); nm.classList.toggle('me', ln.who === 'me');
-  tx.classList.toggle('nar', ln.who === 'nar'); tx.textContent = '';
-  const ec = T.root.querySelector('.tk-echo'); ec.hidden = !ln.echo; if (ln.echo) { ec.innerHTML = `<img class="px" src="${urlOf(ART.icon('echo'), 'ic|echo')}" alt="">因为：${esc(ln.echo)}`; SFX.bell && SFX.bell(); }
-  T.hist.push(ln); T.typed = 0; T.full = false; T.root.querySelector('.tk-next').style.visibility = 'hidden';
-  clearInterval(T.tm);
-  T.tm = setInterval(() => {
-    if (tk !== T) { clearInterval(T.tm); return; }
-    T.typed = Math.min(ln.text.length, T.typed + (T.ff ? 4 : 1)); tx.textContent = ln.text.slice(0, T.typed);
-    if (!T.ff && T.typed % 3 === 1) SFX.type();
-    if (T.typed >= ln.text.length) { clearInterval(T.tm); T.full = true; T.root.querySelector('.tk-next').style.visibility = ''; if (T.ff) T.ffT = setTimeout(() => { if (tk === T && T.ff) tkShow(T.i + 1); }, 120); }
-  }, 28);
-  tkDraw();
+  const ln = T.lines[i], o = ln.o || {}; T.cur = ln;
+  if (ln.who === 'me') { const fresh = !T.left; T.left = { who: 'me', c: tkFace('me', ln.mood, ln.fx), fresh }; }
+  else if (ln.who !== 'nar' && ln.who !== 'black') { const c = ln.who === '?' ? null : tkFace(ln.who, ln.mood, ln.fx), fresh = !T.right || T.right.who !== ln.who; T.right = c ? { who: ln.who, c, fresh } : null; if (!T.left) T.left = { who: 'me', c: tkFace('me', 'n', ''), fresh: true }; }
+  const root = T.root, nm = root.querySelector('.tk-name'), bk = root.querySelector('.tk-black'), black = ln.who === 'black';
+  const tx = black ? bk.querySelector('p') : root.querySelector('.tk-text');
+  bk.hidden = !black; if (black) { bk.classList.remove('in'); void bk.offsetWidth; bk.classList.add('in'); }
+  nm.hidden = ln.who === 'nar' || black; nm.textContent = nm.hidden ? '' : ln.name || tkName(ln.who); nm.classList.toggle('me', ln.who === 'me');
+  if (!black) { tx.className = 'tk-text' + (ln.who === 'nar' ? ' nar' : '') + (o.loud ? ' loud' : '') + (o.soft ? ' soft' : ''); }
+  tx.textContent = '';
+  // 这一句自带的演出
+  if (o.sfx) tkSfx(o.sfx);
+  if (o.flash) tkFlash(typeof o.flash === 'string' ? o.flash : '');
+  if (o.shake || o.loud) tkShakeNow(o.shake || 3);
+  if ('bgm' in o) tkBgm(o.bgm);
+  if ('zoom' in o) tkCmd({ zoom: o.zoom, x: o.x !== undefined ? o.x : ln.who === 'me' ? 50 : ln.who === 'nar' ? 100 : 150, y: o.y !== undefined ? o.y : 70 });
+  if ('dim' in o) T.dimT = o.dim;
+  if ('fx' in o) T.amb = o.fx;
+  const ec = root.querySelector('.tk-echo'); ec.hidden = !ln.echo; if (ln.echo) { ec.innerHTML = `<img class="px" src="${urlOf(ART.icon('echo'), 'ic|echo')}" alt="">因为：${esc(ln.echo)}`; ec.classList.remove('in'); void ec.offsetWidth; ec.classList.add('in'); SFX.bell(); }
+  T.hist.push(ln); T.typed = 0; T.full = false; root.querySelector('.tk-next').style.visibility = 'hidden';
+  const toks = tkParse(ln.text), base = o.slow ? 85 : o.fast ? 14 : black ? 60 : 32;
+  const html = n => { let h = '', open = false; for (let j = 0; j < n; j++) { const k = toks[j]; if (k.em && !open) { h += '<em>'; open = true; } if (!k.em && open) { h += '</em>'; open = false; } h += esc(k.ch); } return h + (open ? '</em>' : ''); };
+  T.finish = () => { clearTimeout(T.tm); T.typed = toks.length; tx.innerHTML = html(toks.length); T.full = true; if (!black) root.querySelector('.tk-next').style.visibility = ''; if (T.ff) T.ffT = setTimeout(() => { if (tk === T && T.ff) tkShow(T.i + 1); }, 140); else if (black && ln.o && ln.o.auto) T.ffT = setTimeout(() => { if (tk === T && T.i === i) tkShow(i + 1); }, ln.o.auto); };
+  const step = () => {
+    if (tk !== T) return;
+    if (T.ff) { T.finish(); return; }
+    if (T.typed >= toks.length) { T.finish(); return; }
+    const k = toks[T.typed++]; tx.innerHTML = html(T.typed);
+    if (T.typed % 3 === 1 && !/\s/.test(k.ch)) SFX.type();
+    if (k.em && (T.typed === 1 || !toks[T.typed - 2].em)) { tkShakeNow(2); }
+    T.tm = setTimeout(step, base + (k.wait || 0));
+  };
+  tkDraw(true);
+  T.tm = setTimeout(step, black ? 350 : 60);
 }
 function tkTap() {
-  const T = tk; if (!T || T.picking || T.histOn) return;
-  if (!T.full) { clearInterval(T.tm); const ln = T.lines[T.i]; if (ln) { T.root.querySelector('.tk-text').textContent = ln.text; T.full = true; T.root.querySelector('.tk-next').style.visibility = ''; } return; }
+  const T = tk; if (!T || T.picking || T.histOn || T.locked) return;
+  if (T.waiting) { clearTimeout(T.tm); T.waiting = false; tkShow(T.i); return; }
+  if (!T.full) { if (T.finish) T.finish(); return; }
   SFX.tap(); tkShow(T.i + 1);
 }
+// 选项。关键抉择：先静一拍（音乐压下去、舞台暗下来、两声心跳），选项一个一个浮上来；选完当场有回响（闪白 + 黑屏一句你选的话）
 function tkPicks() {
   const T = tk, ev = T.ev, box = T.root.querySelector('.tk-picks');
-  T.picking = true; T.ff = false; clearInterval(T.tm);
+  T.picking = true; T.ff = false; clearTimeout(T.tm); clearTimeout(T.ffT);
   T.root.querySelector('.tk-next').style.visibility = 'hidden'; T.root.querySelector('.tk-hint').textContent = '';
   const picks = (st.meta && st.meta.picks && st.meta.picks[ev.id]) || {}, luck = L.choiceLuck(st);
   const key = ev.choices.some(c => c.key);
@@ -124,29 +189,33 @@ function tkPicks() {
     else if (c.p !== undefined) bits.push('把握 ' + L.pct(Math.min(0.95, c.p + luck)));
     return `<button class="tk-pick${c.key ? ' key' : ''}" data-c="${i}" ${can ? '' : 'disabled'}>${c.key ? `<img class="px" src="${urlOf(ART.icon('branch'), 'ic|branch')}" alt="">` : ''}<span>${esc(L.fill(st, c.t))}${picks[i] ? '<i class="tk-dot" title="上一世选过"></i>' : ''}</span><small>${esc(bits.join(' · '))}</small></button>`;
   }).join('');
-  box.hidden = false; T.root.classList.add('picking');
-  if (key) SFX.gong(); else SFX.reveal(2);
-  // 选项刚出来的 0.6 秒不可点（防连点误触）
-  const t0 = performance.now();
+  [...box.querySelectorAll('.tk-pick')].forEach((b, j) => { b.style.animationDelay = (j * 110) + 'ms'; });
+  const lead = key && !T.skipping ? 1100 : 0;
+  if (key) { bgmDuck(lead / 1000 + 2.2, 0.12); T.dimT = 0.5; if (lead) { SFX.heart(); setTimeout(() => { if (tk === T) SFX.heart(); }, 560); } }
+  const open = () => { if (tk !== T) return; box.hidden = false; T.root.classList.add('picking'); if (key) { T.root.classList.add('keypick'); SFX.drum(); } else SFX.reveal(2); T.t0 = performance.now(); };
+  if (lead) setTimeout(open, lead); else open();
   box.querySelectorAll('button[data-c]').forEach(b => b.onclick = e => {
-    e.stopPropagation(); if (performance.now() - t0 < 600 || b.disabled) return;
-    SFX.tap();
-    const res = L.resolveChoice(st, ev, +b.dataset.c); if (!res) return;
-    const br = ev.choices[+b.dataset.c][res.ok ? 'ok' : 'fail'] || ev.choices[+b.dataset.c].ok || {};
-    box.hidden = true; T.picking = false; T.root.classList.remove('picking'); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进';
+    e.stopPropagation(); if (performance.now() - (T.t0 || 0) < 600 || b.disabled) return;   // 刚出来的 0.6 秒不可点（防连点误触）
+    const ci = +b.dataset.c, c = ev.choices[ci];
+    const res = L.resolveChoice(st, ev, ci); if (!res) return;
+    const br = c[res.ok ? 'ok' : 'fail'] || c.ok || {};
+    box.hidden = true; T.picking = false; T.root.classList.remove('picking', 'keypick'); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进'; T.dimT = 0; T.skipping = false;
     const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); if (br.cine && !res.duel) cnAfter(playCine(br.cine, {}), card); else if (br.cine) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(br.cine, {}); }); else card(); };
-    if (br.talk && br.talk.length) { T.lines = tkFlat(br.talk); T.after = fin; tkShow(0); } else fin();
+    // 当场的回响：关键抉择闪一下，黑屏上落一句你选的话，再接结果里的台词
+    const lines = tkFlat(br.talk || []);
+    if (c.key) { SFX.clang(); tkFlash(); lines.unshift({ who: 'black', mood: 'n', fx: '', text: '—— ' + tkPlain(L.fill(st, c.t)).replace(/^“|”$/g, ''), o: { auto: 1100 }, echo: '' }); } else SFX.tap();
+    if (lines.length) { T.lines = lines; T.after = fin; tkShow(0); } else fin();
   });
 }
 function tkHist() {
   const T = tk; if (!T) return; const h = T.root.querySelector('.tk-hist');
   T.histOn = !T.histOn; h.hidden = !T.histOn;
-  if (T.histOn) h.innerHTML = '<div class="tk-hh">回看（点任意处关闭）</div>' + T.hist.map(l => `<p class="${l.who === 'nar' ? 'nar' : ''}">${l.who === 'nar' ? '' : `<b>${esc(l.name || tkName(l.who))}</b>　`}${esc(l.text)}</p>`).join('');
+  if (T.histOn) h.innerHTML = '<div class="tk-hh">回看（点任意处关闭）</div>' + T.hist.map(l => `<p class="${l.who === 'nar' || l.who === 'black' ? 'nar' : ''}">${l.who === 'nar' || l.who === 'black' ? '' : `<b>${esc(l.name || tkName(l.who))}</b>　`}${esc(tkPlain(l.text))}</p>`).join('');
   if (T.histOn) h.scrollTop = h.scrollHeight;
 }
 function tkClose() {
   const T = tk; if (!T) return;
-  tk = null; clearInterval(T.tm); clearTimeout(T.hold); clearTimeout(T.ffT); T.root.remove();
+  tk = null; clearTimeout(T.tm); clearTimeout(T.hold); clearTimeout(T.ffT); T.root.remove();
   if (cine && cine.tk) cine = T.prevCine || null;
   BGM.auto();
   if (st) { saveLocal(); updateHUD(); }
@@ -155,7 +224,8 @@ function tkClose() {
 function playTalk(ev, back) {
   if (tk) tkClose();
   const root = tkMount();
-  tk = { ev, back, root, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, withMe: true, prevCine: cine, k: 1 };
+  tk = { ev, back, root, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, prevCine: cine, k: 1,
+    zoom: 1, zc: 1, zx: 100, zy: 60, dim: 1, dimT: 0, flashAt: -9999, amb: undefined };
   const T = tk;
   cine = { cn: true, tk: true, t: 0 };   // 停表、挡住弹窗队列（与高光过场同一个哨兵）
   $('#tip').hidden = true;
@@ -163,20 +233,21 @@ function playTalk(ev, back) {
   if (ev.bgm) BGM.play(ev.bgm, { while: () => !!tk });
   { const c = ART.talkNext(0), g = root.querySelector('.tk-next').getContext('2d'); g.drawImage(c, 0, 0); }
   T.after = () => tkPicks();
-  root.querySelector('.tk-skip').onclick = e => { e.stopPropagation(); if (!tk || T.picking) return; SFX.tap(); clearInterval(T.tm); clearTimeout(T.ffT); T.ff = false;
-    for (let j = T.i; j < T.lines.length; j++) { const x = T.lines[j]; if (x.bg) T.bg = x.bg; else if (x.text && j > T.i) T.hist.push(x); }
-    T.i = T.lines.length; T.cur = { who: 'nar' };
-    if (ev.gist && T.after !== null) { root.querySelector('.tk-name').hidden = true; const tx = root.querySelector('.tk-text'); tx.classList.add('nar'); tx.textContent = '（' + L.fill(st, ev.gist) + '）'; }
+  root.querySelector('.tk-skip').onclick = e => { e.stopPropagation(); if (!tk || T.picking || T.locked) return; SFX.tap(); clearTimeout(T.tm); clearTimeout(T.ffT); T.ff = false; T.skipping = true; T.waiting = false;
+    for (let j = T.i; j < T.lines.length; j++) { const x = T.lines[j]; if (x.text === undefined) tkCmd(Object.assign({}, x, { sfx: '', shake: 0, flash: 0 })); else if (j > T.i) T.hist.push(x); }
+    T.i = T.lines.length; T.cur = { who: 'nar' }; root.querySelector('.tk-black').hidden = true; T.zoom = 1;
+    if (ev.gist && T.after !== null) { root.querySelector('.tk-name').hidden = true; const tx = root.querySelector('.tk-text'); tx.className = 'tk-text nar'; tx.textContent = '（' + L.fill(st, ev.gist) + '）'; }
     tkDraw(); T.after(); };
   root.querySelector('.tk-log').onclick = e => { e.stopPropagation(); SFX.tap(); tkHist(); };
   root.querySelector('.tk-hist').onclick = e => { e.stopPropagation(); tkHist(); };
   for (const b of root.querySelectorAll('.tk-top button')) b.addEventListener('pointerdown', e => e.stopPropagation());
   root.querySelector('.tk-picks').addEventListener('pointerdown', e => e.stopPropagation());
-  root.addEventListener('pointerdown', () => { if (!tk || T.picking || T.histOn) return; T.down = performance.now(); clearTimeout(T.hold); T.hold = setTimeout(() => { if (tk === T && T.down) { T.ff = true; if (T.full) tkShow(T.i + 1); } }, 400); });
+  root.addEventListener('pointerdown', () => { if (!tk || T.picking || T.histOn) return; T.down = performance.now(); clearTimeout(T.hold); T.hold = setTimeout(() => { if (tk === T && T.down) { T.ff = true; if (T.waiting) { clearTimeout(T.tm); T.waiting = false; tkShow(T.i); } else if (T.full) tkShow(T.i + 1); else if (T.finish) T.finish(); } }, 400); });
   root.addEventListener('pointerup', () => { if (!tk) return; const was = T.ff; T.ff = false; clearTimeout(T.hold); clearTimeout(T.ffT); if (T.down && !was) tkTap(); T.down = 0; });
   root.addEventListener('pointercancel', () => { if (tk) { T.down = 0; T.ff = false; clearTimeout(T.hold); } });
   root.addEventListener('click', e => e.stopPropagation());
   tkSize();
+  requestAnimationFrame(tkStage);
   tkShow(0);
 }
 window.addEventListener('resize', () => { if (tk) tkSize(); });
@@ -192,7 +263,6 @@ document.addEventListener('keydown', e => { if (!tk || tk.picking) return; if (e
   if (!queue.length && st && st.storyQ && st.storyQ.length && typeof unlockQ !== 'undefined' && unlockQ.length && $('#modal').hidden && !cine) { if (typeof onbPump === 'function') onbPump(); if (queue.length || !$('#modal').hidden) return pq1.apply(this, arguments); return; }
   return pq1.apply(this, arguments);
 }; }
-// 弹窗队列、章末卡、解锁卡：对话在播就等（哨兵 cine.cn 已经挡住大部分；这里补上 processQueue 之外直接调的）
 // 章末卡排在这一章高潮那场戏之后：主线刚完成时先看一眼节拍，高潮的戏到了就先放它（不受“一季一次”管），章末卡等它收场
 const tkForced = new Set();
 if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function () {
@@ -205,11 +275,13 @@ if (typeof chapPump === 'function') { const cp0 = chapPump; chapPump = function 
   return cp0.apply(this, arguments);
 }; }
 if (typeof onbPump === 'function') { const op0 = onbPump; onbPump = function () { if (tk) return; return op0.apply(this, arguments); }; }
+// 剧情线加的几个音效名（分镜与对话里按名字调）
+Object.assign(CSFX, { heart: () => SFX.heart(), slash: () => SFX.slash(), sting: () => SFX.sting(), fire: () => SFX.fire(), tap: () => SFX.tap() });
 
 // ---------- 二、数据式分镜 ----------
 // 一段：{ n 名字, no 序号, bgm, thumb 底图写法, shots: [ 镜头 ] }
 // 镜头：{ bg 底图写法（'temple' 这样的 storyBg / cineBg kind，'cg:stab:1'，'end:shitu'，'bd:summit'）, frames: [[ms, bg]] 中途换图, ms, cam: 'push' | 'pull' | 'panR' | 'panL' | 'panUp' | 'panDown' | 'hold',
-//         sub 字幕（≤ 12 字）, cut / cut2: { who, mood, fx, side: 'l' | 'r', col, y, at }, dim 压暗, tint 罩色, lines 集中线色, seal 盖印, sfx: [[ms, 名]], shake: [[ms, 持续, 幅度]], if 条件（不满足就没有这一镜） }
+//         sub 字幕（≤ 12 字）, cut / cut2: { who, mood, fx, side: 'l' | 'r', col, y, at }, dim 压暗, tint 罩色, flash: [ms] 闪白, lines 集中线色, seal 盖印, sfx: [[ms, 名]], shake: [[ms, 持续, 幅度]], if 条件（不满足就没有这一镜） }
 const CN_CAM = {
   hold: () => ({ x: 100, y: 60, z: 1 }), push: u => ({ x: 100, y: 60, z: 1 + 0.35 * u }), pull: u => ({ x: 100, y: 60, z: 1.35 - 0.35 * u }),
   panR: u => ({ x: 70 + 60 * u, y: 60, z: 1.3 }), panL: u => ({ x: 130 - 60 * u, y: 60, z: 1.3 }), panUp: u => ({ x: 100, y: 78 - 36 * u, z: 1.3 }), panDown: u => ({ x: 100, y: 42 + 36 * u, z: 1.3 }),
@@ -228,7 +300,7 @@ function cnFromData(D) {
     const sub = typeof S.sub === 'function' ? S.sub() : S.sub;
     return { ms: S.ms || 4000, sub, sfx: S.sfx, shake: S.shake, fade: S.fade, cam: CN_CAM[S.cam || 'hold'],
       draw: (g, t) => { let b = fr[0][1]; for (const f of fr) if (t >= f[0]) b = f[1]; cnImg(g, cnBgOf(b), 0, 0); if (S.tint) cnDim(g, S.tint[1], S.tint[0]); if (S.dim) cnDim(g, S.dim); },
-      over: (g, t) => { if (S.lines && t > (S.linesAt || 0)) cnLines(g, t, S.lines, 100, 60, 0.8); if (cut) cnCut(g, cut.cv, cut.flip, cut.y, t - cut.at); if (cut2) cnCut(g, cut2.cv, cut2.flip, cut2.y, t - cut2.at); if (S.seal) cnSeal(g, S.seal, 100, 60, 28, t - (S.sealAt || 1200)); } };
+      over: (g, t) => { for (const f of S.flash || []) if (t >= f && t < f + 320) { g.globalAlpha = 1 - (t - f) / 320; g.fillStyle = '#ffffff'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; } if (S.lines && t > (S.linesAt || 0)) cnLines(g, t, S.lines, 100, 60, 0.8); if (cut) cnCut(g, cut.cv, cut.flip, cut.y, t - cut.at); if (cut2) cnCut(g, cut2.cv, cut2.flip, cut2.y, t - cut2.at); if (S.seal) cnSeal(g, S.seal, 100, 60, 28, t - (S.sealAt || 1200)); } };
   });
 }
 const daolvCol = () => (st && st.daolv === 'ye' ? '#a81e3a' : '#7fd8b0');
@@ -239,7 +311,7 @@ const CINE_DATA = {
     { bg: 'temple', dim: 0.5, ms: 4200, cut: { who: 'elder', mood: 'n', side: 'l' }, sub: '“本座等了你三千年。”', sfx: [[2600, 'bell']] }] },
   xiushu_shame: { n: '休书·念', no: '⑫', bgm: 'vow', thumb: 'dusk', shots: [
     { bg: 'dusk', dim: 0.4, cam: 'push', ms: 3200, cut: { who: 'me', mood: 'ang', fx: 'shade', side: 'l' }, sub: '“今日休之。”', sfx: [[300, 'drum']] },
-    { bg: 'ink', ms: 2800, lines: '#1b1326', shake: [[300, 400, 4]], sfx: [[300, 'paper'], [700, 'luo']] },
+    { bg: 'ink', ms: 2800, lines: '#1b1326', flash: [300], shake: [[300, 400, 4]], sfx: [[300, 'paper'], [700, 'luo']] },
     { bg: 'dusk', dim: 0.55, ms: 4200, cut: { who: 'mu', mood: 'sad', fx: 'tear', side: 'r' }, sub: '“你和他们，没有两样。”', sfx: [[400, 'wind']] }] },
   xiushu_spare: { n: '休书·收', no: '⑫', bgm: 'vow', thumb: 'dusk', shots: [
     { bg: 'dusk', cam: 'panL', ms: 3800, sub: '“两清了。”', sfx: [[300, 'drum']] },
@@ -268,11 +340,11 @@ const CINE_DATA = {
   najian: { n: '那一剑', no: '⑱', bgm: 'sorrow', thumb: 'cg:stab:1', shots: [
     { bg: 'cg:jade:1', cam: 'push', ms: 3000, sfx: [[300, 'reveal']] },
     { bg: 'cg:stab:0', ms: 4000, sub: '“他只记得这一幕。”', sfx: [[500, 'thunder']] },
-    { bg: 'cg:stab:0', frames: [[0, 'cg:stab:0'], [1800, 'cg:stab:1']], ms: 5000, lines: '#e8f4ff', linesAt: 1800, sub: '“师尊，小心——”', shake: [[1800, 600, 5]], sfx: [[1800, 'clang'], [2000, 'thunder']] },
+    { bg: 'cg:stab:0', frames: [[0, 'cg:stab:0'], [1800, 'cg:stab:1']], ms: 5000, lines: '#e8f4ff', linesAt: 1800, flash: [1800], sub: '“师尊，小心——”', shake: [[1800, 600, 5]], sfx: [[400, 'heart'], [1100, 'heart'], [1800, 'slash'], [1850, 'clang'], [2000, 'thunder']] },
     { bg: 'trib3k', dim: 0.5, ms: 5000, cut: { who: 'elder', mood: 'sad', fx: 'tear', side: 'l' }, sub: '“本座骂了他三千年。”', sfx: [[3200, 'bell']] }] },
   zhen_zheng: { n: '阵前·斩魔', no: '⑲', bgm: 'vow', thumb: 'field', shots: [
     { bg: 'field', cam: 'panL', ms: 3000, sfx: [[200, 'wardrum']] },
-    { bg: 'field', dim: 0.55, ms: 3200, cut: { who: 'me', mood: 'ang', side: 'l', y: 8 }, cut2: { who: 'xue', mood: 'joy', side: 'r', y: 62, at: 500 }, sub: '“借你人头一用。”', shake: [[1400, 400, 5]], sfx: [[1400, 'clang']] },
+    { bg: 'field', dim: 0.55, ms: 3200, cut: { who: 'me', mood: 'ang', side: 'l', y: 8 }, cut2: { who: 'xue', mood: 'joy', side: 'r', y: 62, at: 500 }, sub: '“借你人头一用。”', flash: [1400], shake: [[1400, 400, 5]], sfx: [[1400, 'slash'], [1450, 'clang']] },
     { bg: 'field', dim: 0.3, ms: 4000, seal: '胜', sealAt: 600, sub: '“此战首功。”', sfx: [[600, 'win']] }] },
   zhen_mo: { n: '阵前·倒戈', no: '⑲', bgm: 'boss', thumb: 'field', shots: [
     { bg: 'field', cam: 'panR', ms: 3000, sfx: [[200, 'wardrum']] },
@@ -288,7 +360,7 @@ const CINE_DATA = {
     { bg: 'stele', ms: 4000, sub: '“问剑，天剑宗。”', sfx: [[600, 'gong']] }] },
   liaoduan_dead: { n: '了断·一剑', no: '㉑', bgm: 'sorrow', thumb: 'cg:kneel:0', shots: [
     { bg: 'cg:kneel:0', cam: 'push', ms: 3000, sfx: [[200, 'wind']] },
-    { bg: 'cg:kneel:0', ms: 1800, lines: '#ffffff', shake: [[200, 400, 5]], sfx: [[200, 'clang']] },
+    { bg: 'cg:kneel:0', ms: 1800, lines: '#ffffff', flash: [200], shake: [[200, 400, 5]], sfx: [[200, 'slash'], [260, 'clang']] },
     { bg: 'stele', dim: 0.5, ms: 5000, cut: { who: 'elder', mood: 'sad', side: 'l' }, sub: '“……也好。”', sfx: [[3000, 'bell']] }] },
   liaoduan_crippled: { n: '了断·废', no: '㉑', bgm: 'sorrow', thumb: 'cg:kneel:0', shots: [
     { bg: 'cg:kneel:0', cam: 'push', ms: 4200, sub: '“原来是这个滋味。”', sfx: [[300, 'gather']] },
@@ -306,8 +378,8 @@ const CINE_DATA = {
     { bg: 'cg:sword:0', ms: 2600, lines: '#8ff0d0', shake: [[300, 300, 4], [1100, 300, 4], [1900, 300, 4]], sfx: [[300, 'hit'], [1100, 'hit'], [1900, 'hit']] },
     { bg: 'cg:sword:1', ms: 5000, sub: '“这杯，敬阿离。”', sfx: [[300, 'reveal'], [3000, 'bell']] }] },
   zuihou_farewell: { n: '最后一课', no: '㉓', bgm: 'sorrow', thumb: 'cg:fade:1', shots: [
-    { bg: 'temple', tint: ['#1a1030', 0.35], ms: 4000, sub: '“这一道，为师替你挡。”', shake: [[400, 500, 5]], sfx: [[400, 'thunder']] },
-    { bg: 'cg:fade:0', frames: [[0, 'cg:fade:0'], [2000, 'cg:fade:1'], [4000, 'cg:fade:2']], ms: 6000, sub: '“是本座最走运的事。”', sfx: [[2000, 'gather']] },
+    { bg: 'temple', tint: ['#1a1030', 0.35], ms: 4000, flash: [400], sub: '“这一道，为师替你挡。”', shake: [[400, 500, 5]], sfx: [[400, 'thunder']] },
+    { bg: 'cg:fade:0', frames: [[0, 'cg:fade:0'], [2000, 'cg:fade:1'], [4000, 'cg:fade:2']], ms: 6000, sub: '“是本座最走运的事。”', sfx: [[600, 'heart'], [2000, 'gather'], [4000, 'bell']] },
     { bg: 'cg:ring:1', frames: [[0, 'cg:ring:1'], [2400, 'cg:ring:2']], cam: 'push', ms: 5000, sfx: [[2400, 'bell']] }] },
   zuihou_kept: { n: '最后一课·留魂', no: '㉓', bgm: 'vow', thumb: 'cg:sword:1', shots: [
     { bg: 'temple', tint: ['#1a1030', 0.35], ms: 4000, sub: '“规矩第三条，不许死。”', shake: [[400, 500, 5]], sfx: [[400, 'thunder']] },
@@ -328,7 +400,7 @@ const CINE_DATA = {
     { bg: 'heaven', cam: 'push', ms: 3000, sfx: [[200, 'wind']] },
     { bg: 'void', cam: 'panR', ms: 5000, sub: '“它们出题，从不改卷。”', sfx: [[300, 'rumble']] },
     { bg: 'void', dim: 0.5, ms: 3200, cut: { who: 'me', mood: 'ang', side: 'l' }, sub: '“那就，换我出一题。”', sfx: [[600, 'drum'], [1200, 'drum']] },
-    { bg: 'end:wentian', ms: 6000, lines: '#c8fff0', sub: '问天', shake: [[200, 700, 6]], sfx: [[200, 'clang'], [500, 'thunder']] }] },
+    { bg: 'end:wentian', ms: 6000, lines: '#c8fff0', flash: [200], sub: '问天', shake: [[200, 700, 6]], sfx: [[200, 'slash'], [260, 'clang'], [500, 'thunder']] }] },
   end_dixian: { n: '结局·守人间', no: '㉘', bgm: 'home', thumb: 'end:dixian', shots: [
     { bg: 'heaven', cam: 'panDown', ms: 4000, sfx: [[300, 'wind']] },
     { bg: 'temple', tint: ['#ffb23f', 0.18], ms: 4000, sub: '“屋顶，得修。”', sfx: [[600, 'bell']] },
@@ -395,4 +467,5 @@ function storyStart() {
 }
 // 测试与截图用（tools/story_ui.js）
 window.__xm_talk = { fast: undefined, DATA: CINE_DATA, play: id => { const ev = L.eventById(id); if (ev) showChoice(ev); return !!ev; }, close: tkClose, tap: tkTap, ascend: () => showAscension(),
+  get stage() { return tk ? { bg: tk.bg, zoom: tk.zoom, dimT: tk.dimT, amb: tk.amb } : null; },
   get on() { return tk ? { id: tk.ev.id, i: tk.i, n: tk.lines.length, picking: !!tk.picking, full: !!tk.full, bg: tk.bg, text: tk.root.querySelector('.tk-text').textContent } : null; } };

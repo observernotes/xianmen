@@ -86,7 +86,7 @@ const HINTS = [
   { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每月自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${u.payback} 个月</b>回本。`; } },
   { id: 'retreat', intro: true, when: () => st.guide.done && L.retOpen(st) && !st.stats.retreat && !L.busy(st) && !modalOpen() && !L.isFull(st), target: '[data-nav="home"]', btn: '好', text: () => {
       const ri = L.retInfo(st);
-      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：${ri.len} 个月，修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为。${ri.free ? '头一回老夫护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
+      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：${ri.len} 个月，修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为。${ri.free ? '头一回本座护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
     } },
   { id: 'retBtn', intro: true, when: () => modalTitle() === '洞府' && L.canRetreat(st) && !st.stats.retreat && !!document.querySelector('#btnRet'), target: '#btnRet', text: () => `点这里闭关：4 个月修炼 <b>×${L.retInfo(st).m.toFixed(2)}</b>，期间不能出门。`, until: () => !!st.retreat || st.stats.retreat > 0 },
   { id: 'visitor', intro: true, when: () => !!st.visitor && !modalOpen() && !L.busy(st), target: '#sceneWrap', btn: '好', text: () => `门口有人。点画面里门口的<b>【！】</b>看看。这种事不急，<b>${st.visitor.left} 个月</b>内理他就行。` },
@@ -124,11 +124,11 @@ const HINTS = [
       if (!id) return head + `手里还没有战技，寻宝或历练掉一门就能装，战力 <b>×${L.ZHAN_M[0]}</b> 起。` + tail;
       const c = artWithout(1, () => [L.power(st), L.pactInfo(st).p]);
       const pp = !st.pact && L.pct(c.off[1]) !== L.pct(c.on[1]) ? `，约战胜算 <b>${L.pct(c.off[1])} → ${L.pct(c.on[1])}</b>` : '';
-      return head + `老夫给你装上了《${esc(L.art(id).n)}》（${L.elName(L.art(id).el)}）：战力 <b>${fmt(c.off[0])} → ${fmt(c.on[0])}</b>${pp}。` + tail;
+      return head + `本座给你装上了《${esc(L.art(id).n)}》（${L.elName(L.art(id).el)}）：战力 <b>${fmt(c.off[0])} → ${fmt(c.on[0])}</b>${pp}。` + tail;
     } },
   { id: 'mishu', intro: true, when: () => artCalm() && L.artSlotOpen(st, 2) && !st.rebirth, target: '[data-nav="me"]', btn: '好', text: () => {
       const id = L.artSlots(st)[2];
-      return `<b>秘术槽</b>开了：秘术不加倍率，只给特效。` + (id ? `老夫给你装上了《${esc(L.art(id).n)}》：${esc(L.artDesc(st, id))}。` : '你还没有秘术：寻宝、宗门宝库都换得到。') + `三槽齐了，三门同属的共鸣是修炼、战力各 <b>+${Math.round(L.GEN.three * 100)}%</b>。`;
+      return `<b>秘术槽</b>开了：秘术不加倍率，只给特效。` + (id ? `本座给你装上了《${esc(L.art(id).n)}》：${esc(L.artDesc(st, id))}。` : '你还没有秘术：寻宝、宗门宝库都换得到。') + `三槽齐了，三门同属的共鸣是修炼、战力各 <b>+${Math.round(L.GEN.three * 100)}%</b>。`;
     } },
   { id: 'ke', intro: true, when: () => { const k = L.REGIONS.findIndex(r => r.n === modalTitle()); return k >= 0 && L.elemKnown(st, k) && L.expElem(st, k).v < 0 && !!document.querySelector('#expElem'); }, target: '#expElem', btn: '知道了', text: () => {
       const k = L.REGIONS.findIndex(r => r.n === modalTitle()), e = L.expElem(st, k), z = L.art(L.artSlots(st)[1]);

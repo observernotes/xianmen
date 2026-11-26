@@ -200,6 +200,33 @@ L.storyTick = function (st) {
 { const wc0 = L.warChapter; L.warChapter = st => wc0(st) && !(st.flags && st.flags.warWon); }
 { const tk1 = L.tick; L.tick = function (st, cont) { if (st && st.flags && !st.flags.warWon && (any(st, L.STORY_LU) || E(st).war_stop) && L.chapterNow(st) > 5) st.flags.warWon = st.flags.warWon || 1; return tk1(st, cont); }; }
 
+// ---------- 境界先到、戏还没到：老祖先把东西传了 ----------
+// 主线剧情跟着章走，可剧情里给的功法、灵根、永久加成是修行本身要用的——境界超前的人（不爱做主线的）不该因为戏没到就少一截战力。
+// 踏入境界 N 时，第 N 章的开章剧情（story_rN）还没出：先按它头一个带这些奖励的选项发掉（功法 / 灵根 / 永久修炼与战力），记在 st.story.adv；
+// 以后那场戏出的时候只讲故事，这几样不再重发（别的奖励——修为、好感、称号、标志位——照旧）。
+const ADV_KEYS = ['cul', 'power', 'talent', 'art'];
+L.storyAdvance = function (st, n) {
+  if (L.STORYLINE === false || L.STORY_ADV === false) return null;
+  const ev = L.eventById('story_r' + n); if (!ev || st.evDone[ev.id] || st.storyQ.includes(ev.id)) return null;
+  const s = S(st); s.adv = s.adv || {}; if (s.adv[n]) return null;
+  const fx0 = ev.choices.map(c => c.ok && c.ok.fx).find(f => f && ADV_KEYS.some(k => f[k] !== undefined)); if (!fx0) { s.adv[n] = 1; return null; }
+  const fx = {}; for (const k of ADV_KEYS) if (fx0[k] !== undefined) fx[k] = fx0[k];
+  s.adv[n] = 1;
+  const out = L.applyFx(st, fx);
+  L.log(st, `老祖：“往事以后再说，东西先拿着。”${out.join('、')}`, 'gold');
+  return out;
+};
+{ const ft1 = L.fireTrigger; L.fireTrigger = function (st, key) {
+  const r = ft1(st, key);
+  const m = /^realm:(\d)$/.exec(key || ''); if (m && st && st.p && L.chapterNow(st) < +m[1]) L.storyAdvance(st, +m[1]);
+  return r;
+}; }
+{ const af1 = L.applyFx; L.applyFx = function (st, fx, ctx) {
+  const ev = ctx && ctx.ev, m = ev && /^story_r(\d)$/.exec(ev.id);
+  if (m && fx && st && st.story && st.story.adv && st.story.adv[+m[1]] && ADV_KEYS.some(k => fx[k] !== undefined)) { fx = Object.assign({}, fx); for (const k of ADV_KEYS) delete fx[k]; }
+  return af1(st, fx, ctx);
+}; }
+
 // ---------- 结局 ----------
 const END = {
   wentian: { n: '问天', d: '没有进门，把那张空白的卷劈成了两半', bg: 'ascend', pic: 'wentian', text: '你没有进那扇门。玄霄出鞘的时候，门后那片星海头一回起了风。那张空白的大卷从中裂开，朱印碎成两半。它们出了三千年的题，这是头一回，有人把卷子交了回去。' },

@@ -865,7 +865,7 @@ const EVENTS = [
 {
   id: 're_ring', where: 'home', visit: true, weight: 0.3, maxR: 7, speaker: 'elder',
   title: '戒中传功',
-  text: '夜深人静，戒指微微发烫……“小子，你的根基够了。坐好，老夫传你一门新功法！”',
+  text: '夜深人静，戒指微微发烫……“小子，你的根基够了。坐好，本座传你一门新功法！”',
   choices: [
     { t: '洗耳恭听', ok: { text: '老祖讲了一夜，你记了一夜。天亮时，一门新的心法已在经脉里运转自如。', fx: { item: 'a', itemUp: 1 } } }
   ]

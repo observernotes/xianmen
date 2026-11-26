@@ -6,6 +6,9 @@
  *   scene 底图（ART.storyBg / cineBg 的 kind）、bgm 配乐、gist 跳过时的一句梗概、cine 开场前播的过场；
  *   talk: [ ['elder:ang', '台词'], ['me', '…'], ['nar', '旁白'], ['?:屋顶上的声音', '…'],
  *           { if: 条件, echo: '回响小标的说明', say: [ … ] }, { pick: [ { if, say }, { say } ] }, { cg: 'stab', f: 1 }, { scene: 'grave' }, { sfx: 'thunder' }, { shake: 4 } ]
+ *   演出：台词里 *重音*（放大、金色、落下来抖一下）、| 停一拍；台词第三项 { slow 慢慢说, fast, loud 喊（字大、镜头与立绘一起抖）, soft 低声, sfx, flash 闪白, shake, bgm 换曲（'' = 静下来）, zoom 推近, dim 压暗 }；
+ *         不占一句的指令 { wait: 毫秒 }、{ flash }、{ shake }、{ sfx }、{ bgm }、{ zoom: 1.5, x, y }（{ zoom: 0 } 拉回）、{ fx: 'rain' | 'storm' | 'snow' | 'ember' | 'glow' | 'mote' | 'petal' | '' }、{ dim: 0～1 }；{ black: '黑屏上的一句' }。
+ *         表情：n joy ang shock sad cold（冷），+ 后面叠 tear shade blush blood sweat mono fade。
  *   选项：key: 1 关键抉择、hint 小字、gate 有条件（不满足时灰着，写明缺什么）；结果 ok / fail 里可以再带 talk 与 cine。
  *   text 仍然要写：没有播放器的地方（日志、旧界面、自动化测试的快放）用它。 */
 (function (root) {
@@ -41,26 +44,26 @@ const PATCH = {
   // 真相（样稿 6）：抉择五
   story_r6: { trigger: 'sb:c7_open', scene: 'trib3k', bgm: 'sorrow', cine: 'najian', gist: '两块玉简合上了。那一剑，刺的不是师父。',
     talk: [
-      { cg: 'jade', f: 1 }, ['nar', '两块玉简合上的时候，没有声音。'],
-      { cg: 'stab', f: 0 }, ['elder', '……就是这一幕。本座看了三千年。'], ['elder:ang', '雷落到第八道。阿离从左边来。剑尖对着本座。'],
+      { cg: 'jade', f: 1 }, { bgm: '' }, ['nar', '两块玉简合上的时候，|没有声音。', { slow: 1, sfx: 'reveal' }],
+      { cg: 'stab', f: 0, flash: 1 }, { sfx: 'thunder' }, { bgm: 'sorrow' }, ['elder:cold', '……就是这一幕。|本座看了三千年。'], ['elder:ang', '雷落到第八道。阿离从左边来。|*剑尖对着本座*。', { zoom: 1.5, x: 80, y: 60 }],
       { if: 'met:mo', say: [['mo:sad', '师祖。请往下看。']] },
-      { cg: 'stab', f: 1 }, { sfx: 'thunder' }, ['nar', '剑过去了。擦着他的肩，过去了。'], ['nar', '他身后还有一个人。举着剑。'],
-      ['elder:shock', '……'], ['elder:shock', '天衡。'],
-      ['elder:sad', '他喊的是“师尊小心”。'], ['elder:sad', '本座听成了什么？本座三千年，听成了什么？'],
+      { bgm: '' }, { sfx: 'heart' }, { wait: 700 }, { cg: 'stab', f: 1, flash: 1 }, { sfx: 'slash' }, { shake: 6 }, { zoom: 1.6, x: 124, y: 50 }, ['nar', '剑过去了。|擦着他的肩，*过去了*。', { slow: 1, sfx: 'thunder' }], ['nar', '他身后|还有一个人。|举着剑。', { slow: 1 }], { zoom: 0 },
+      ['elder:shock', '……', { slow: 1, sfx: 'heart' }], ['elder:shock', '*天衡*。', { slow: 1, sfx: 'sting' }], { bgm: 'sorrow' },
+      ['elder:sad', '他喊的是|“*师尊小心*”。', { slow: 1 }], ['elder:sad+tear', '本座听成了什么？|本座三千年，听成了什么？'],
       { if: 'met:mo', say: [['mo:sad+tear', '先祖把您封进剑镡的时候，手是抖的。'], ['mo:sad', '所以您记不全。他到死都以为，是自己没封好。']] },
       { if: 'elder_doubt', echo: '你一直留着个心眼', say: [['me', '（你早就觉得哪里不对。可你宁愿是自己想错了。）']] },
       { if: 'elder_trust', echo: '你说过信他', say: [['me', '前辈。您没有看错人。您只看错了一个。']] },
-      ['elder:ang', '够了。'], ['elder:ang', '小子。拿剑。现在就上天剑宗。'], ['elder:ang', '本座要问问他，那一剑，他手抖没抖。'],
+      ['elder:ang', '*够了*。', { loud: 1, sfx: 'thunder', flash: 1 }], { bgm: 'boss' }, ['elder:ang', '小子。拿剑。|现在就上天剑宗。'], ['elder:ang+shade', '本座要问问他，那一剑，|他*手抖没抖*。', { slow: 1 }],
     ],
     choices: [
       { t: '我陪您去，一剑了断', key: 1, hint: '恨就是恨', dao: 'k',
-        ok: { talk: [['elder:ang', '好。'], { if: 'met:mo', say: [['mo:sad', '……杀了他，墨家的骂名，还在史书上。']] }, ['elder', '那是后面的事。']],
+        ok: { talk: [['elder:ang+shade', '*好*。', { loud: 1, sfx: 'clang' }], { if: 'met:mo', say: [['mo:sad', '……杀了他，墨家的骂名，还在史书上。']] }, ['elder', '那是后面的事。']],
           text: '老祖只说了一个字：“好。”剑典下卷，当夜传你。', fx: { xp: 10, power: 0.05, aff: { mo: 10 }, flag: ['st_truth', 'vow_blood'], art: 'x_xuanxiao_xin' } } },
       { t: '先让天下人知道', key: 1, hint: '他偷的是名，就把名拿回来', dao: 'w',
-        ok: { talk: [['elder:ang', '本座等了三千年，你叫本座再等？'], ['me', '您等了三千年。墨家也等了三千年。'], ['elder:sad', '……'], ['elder:sad', '说得对。阿离等得比本座久。'], { if: 'met:mo', say: [['mo:joy', '……多谢。']] }],
+        ok: { talk: [['elder:ang', '本座等了三千年，|你叫本座*再等*？', { loud: 1 }], { bgm: 'sorrow' }, ['me', '您等了三千年。|墨家也等了三千年。', { slow: 1 }], ['elder:sad', '……'], ['elder:sad', '说得对。阿离等得比本座久。'], { if: 'met:mo', say: [['mo:joy', '……多谢。']] }],
           text: '“阿离等得比本座久。”老祖把剑典下卷传给你，又加了一句：先把字抄好看些。', fx: { xp: 10, cul: 0.05, aff: { mo: 15 }, flag: ['st_truth', 'vow_justice'], art: 'x_xuanxiao_xin' } } },
       { t: '师父，都过去了', key: 1, hint: '放下，不是算了', dao: 'r',
-        ok: { talk: [['elder:shock', '你叫本座什么？'], ['me', '师父。'], ['elder:sad+tear', '……偏挑这种时候。'], ['elder:sad', '过不去。过不去的。'], ['elder:sad', '——让本座想想。别说话。陪着。']],
+        ok: { talk: [{ bgm: '' }, ['elder:shock', '你叫本座什么？'], ['me', '*师父*。', { slow: 1 }], { bgm: 'sorrow' }, ['elder:sad+tear', '……偏挑这种时候。', { slow: 1 }], ['elder:sad', '过不去。过不去的。'], ['elder:sad', '——让本座想想。别说话。陪着。']],
           text: '老祖三天没有说话。第四天，他说：“……也是。”', fx: { xp: 10, talent: 1, aff: { mo: 10 }, flag: ['st_truth', 'vow_letgo'], art: 'x_xuanxiao_xin' } } },
     ] },
 
@@ -68,46 +71,47 @@ const PATCH = {
   tianheng_2: { trigger: 'sb:c8_climax', scene: 'stele', bgm: 'sorrow', gist: '陆天衡跪在碑前，只问了一句：他后悔收我吗？',
     talk: [
       { pick: [{ if: 'st_stele_broken', say: [{ cg: 'kneel', f: 1 }] }, { say: [{ cg: 'kneel', f: 0 }] }] },
-      ['nar', '他把腰间那截断剑解下来，横在地上。'],
-      ['tianheng', '三千年。我没敢用过它。'], ['tianheng', '也没敢扔。'], ['elder', '……'],
+      { bgm: '' }, { sfx: 'wind' }, ['nar', '他把腰间那截断剑解下来，横在地上。', { sfx: 'clang', zoom: 1.5, x: 66, y: 100 }], { zoom: 0 }, { bgm: 'sorrow' },
+      ['tianheng', '三千年。|我没敢用过它。', { slow: 1 }], ['tianheng', '也没敢扔。', { soft: 1 }], ['elder:cold', '……'],
       ['tianheng:sad', '师尊不肯说话。那我问这位小友。'],
       ['tianheng', '你也被人叫过废柴。有人把你从泥里拎出来，教你握剑。'],
       ['tianheng:sad', '然后你发现，他最好的那一卷，是留给别人的。'],
-      ['me', '所以你从背后给了他一剑。'], ['tianheng', '所以我给了他一剑。'],
+      ['me:cold', '所以你从*背后*给了他一剑。'], ['tianheng', '所以|我给了他一剑。', { slow: 1 }],
       { if: 'vow_blood', echo: '你说过，一剑了断', say: [['tianheng', '你的眼神，和他年轻时一样。动手吧。']] },
       { if: 'vow_letgo', echo: '你叫过他一声师父', say: [['tianheng:shock', '……你看我的眼神，没有恨。为什么？']] },
       { if: 'vow_justice', echo: '你说过，先让天下人知道', say: [['tianheng', '你抄了九份旧案，送去九宗。我都看过了。'], ['tianheng', '字不错。比我当年强。']] },
-      ['tianheng:sad', '我不后悔。我只想问一句。'], ['tianheng:sad+tear', '他后悔收我吗？'],
-      ['nar', '戒指很久没有动静。'],
+      { bgm: '' }, ['tianheng:sad', '我不后悔。|我只想问一句。'], { sfx: 'heart' }, { wait: 600 }, ['tianheng:sad+tear', '他*后悔*收我吗？', { slow: 1, zoom: 1.4, x: 100, y: 90 }], { zoom: 0 },
+      { sfx: 'heart' }, { black: '戒指很久没有动静。' },
     ],
     patchChoices: (c, i) => {
       c.key = 1; c.hint = ['这一剑，替两个人出的', '让他做回凡人', '让他自己念', '这个答案，不该由我来给'][i];
       if (i === 2) { delete c.need; c.gate = 'expose'; c.t = '昭告天下'; c.ok.text = '楚天阔举着旧档，陆天衡在祖师碑前念了一夜。念完，他把宗主印放在碑前，断剑放在印旁边。'; c.ok.cine = 'liaoduan_exposed'; }
-      if (i === 0) { c.ok.talk = [['nar', '他没有躲。'], ['elder:sad', '……也好。'], ['elder:sad', '那截剑，捡起来。是本座的。']]; c.ok.cine = 'liaoduan_dead'; }
-      if (i === 1) { c.ok.talk = [['tianheng:sad', '废柴。——呵。原来是这个滋味。我都忘了。'], ['nar', '他把断剑往你这边推了推，自己站起来，走下山去。']]; c.ok.cine = 'liaoduan_crippled'; }
+      if (i === 0) { c.ok.talk = [{ bgm: '' }, ['nar', '他没有躲。', { slow: 1, sfx: 'slash', flash: 1, shake: 5 }], { wait: 700 }, ['elder:sad', '……也好。', { slow: 1, soft: 1 }], ['elder:sad', '那截剑，捡起来。是本座的。']]; c.ok.cine = 'liaoduan_dead'; }
+      if (i === 1) { c.ok.talk = [{ sfx: 'gather' }, { flash: 1 }, ['tianheng:sad', '*废柴*。|——呵。原来是这个滋味。我都忘了。', { slow: 1 }], ['nar', '他把断剑往你这边推了推，自己站起来，走下山去。']]; c.ok.cine = 'liaoduan_crippled'; }
       if (i === 3) { c.ok.cine = 'liaoduan_spared'; c.ok.talk = [
         { if: 'vow_blood', say: [['elder:ang', '小子！——'], ['elder:sad', '……算了。你比本座强。']] },
-        { if: 'vow_letgo', echo: '你叫过他一声师父', say: [['elder:sad', '天衡。'], ['tianheng:shock', '……师尊？'], ['elder:sad', '不后悔。收你，收阿离，本座都不后悔。'], ['elder:ang', '滚吧。剑留下。']] },
+        { if: 'vow_letgo', echo: '你叫过他一声师父', say: [{ bgm: '' }, ['elder:sad', '*天衡*。', { slow: 1 }], ['tianheng:shock+tear', '……师尊？', { slow: 1, sfx: 'heart' }], { bgm: 'sorrow' }, ['elder:sad+tear', '*不后悔*。|收你，收阿离，本座都不后悔。', { slow: 1 }], ['elder:ang', '滚吧。剑留下。']] },
         ['nar', '他磕了一个头。断剑留在碑前。']]; c.ok.text = '他磕了一个头，下山去了。断剑留在碑前。'; }
     } },
 
   // 最后一课（样稿 9）：留魂
   story_r8: { trigger: 'sb:c9_open', scene: 'temple', bgm: 'sorrow', gist: '劫云到了。老祖要替你挡第一道。',
+    text: '劫云压顶，老祖的声音轻得像风：“头一道最阴，专劈心里没放下的东西。这一道，为师替你挡。”戒指上的锈迹片片剥落，露出温润玉色。',
     talk: [
-      ['nar', '你回了一趟{cradle}。屋顶还是漏的。'], ['nar', '劫云从四面八方压过来，比你见过的任何一次都低。'],
-      ['elder', '九九天劫。本座当年走到第八道。'], ['elder', '头一道最阴，专劈心里没放下的东西。'], ['elder', '这一道，为师替你挡。'],
-      ['me:shock', '您刚才说——'], ['elder:ang', '说什么了？听错了。'],
-      ['elder:sad', '……挡完这一道，本座就没了。残魂经不起。'], ['elder', '别这副脸。三千年，够本了。'],
-      { if: 'sword_6', echo: '玄霄重铸了', say: [['nar', '玄霄在鞘里响了一声。'], ['nar', '你想起他说过：剑里空着一块，够住一缕魂。']] },
+      ['nar', '你回了一趟{cradle}。屋顶还是漏的。'], { fx: 'storm' }, ['nar', '劫云从四面八方压过来，比你见过的任何一次都低。', { sfx: 'rumble', shake: 3, dim: 0.25 }],
+      ['elder', '九九天劫。本座当年走到第八道。'], ['elder', '头一道最阴，专劈心里没放下的东西。'], { bgm: '' }, ['elder', '这一道，|*为师*替你挡。', { slow: 1 }],
+      ['me:shock', '您刚才说——'], ['elder:ang', '说什么了？听错了。', { fast: 1 }], { bgm: 'sorrow' },
+      ['elder:sad', '……挡完这一道，|本座就没了。残魂经不起。', { slow: 1, sfx: 'thunder', flash: 1 }], ['elder', '别这副脸。三千年，够本了。'],
+      { if: 'sword_6', echo: '玄霄重铸了', say: [['nar', '玄霄在鞘里响了一声。', { sfx: 'clang' }], ['nar', '你想起他说过：剑里空着一块，够住一缕魂。']] },
     ],
     patchChoices: (c, i) => {
       c.ok.cine = 'zuihou_farewell';
-      if (i === 0) c.ok.talk = [['elder:sad', '头一回正经叫师父，偏挑这时候。'], ['elder:sad+tear', '{cradle}那夜捡到你，是本座最走运的事。'], ['elder', '最后一课：往后没人骂你了。你自己骂自己。']];
+      if (i === 0) c.ok.talk = [['elder:sad', '头一回正经叫师父，|偏挑这时候。', { slow: 1 }], { bgm: '' }, ['elder:sad+tear', '{cradle}那夜捡到你，|是本座*最走运*的事。', { slow: 1 }], ['elder', '最后一课：往后没人骂你了。你自己骂自己。']];
       if (i === 1) c.ok.talk = [['nar', '第一个，谢他教你握剑。第二个，谢他教你记仇。'], ['nar', '第三个，谢他教你——仇记完了，要放下。'], ['elder:sad', '……起来。地上凉。']];
     },
     addChoices: [
       { t: '把玄霄递过去', key: 1, hint: '“师父，住这儿。”', gate: 'kept', dao: 'r',
-        ok: { talk: [['elder:shock', '胡闹！剑里多一个魂，天劫要多劈你一成！'], ['me', '那就多劈一成。'], ['me', '规矩第三条是您立的。不许死。'], ['elder:sad+tear', '……'], ['elder:ang', '逆徒。'], ['elder:joy', '——这剑鞘，回头给本座换个软和的。']],
+        ok: { talk: [['elder:shock', '*胡闹*！剑里多一个魂，天劫要多劈你一成！', { loud: 1 }], ['me:cold', '那就多劈一成。'], { bgm: '' }, ['me', '规矩第三条是您立的。|*不许死*。', { slow: 1 }], { sfx: 'heart' }, ['elder:sad+tear', '……', { slow: 1 }], { bgm: 'vow' }, ['elder:ang', '*逆徒*。', { loud: 1 }], ['elder:joy', '——这剑鞘，回头给本座换个软和的。']],
           cine: 'zuihou_kept', text: '老祖的残魂住进了玄霄。剑鞘里从此多了一个嫌东嫌西的声音。', fx: { xp: 12, power: 0.05, flag: 'elder_kept', title: '玄霄传人' } } },
     ] },
 };
@@ -118,16 +122,16 @@ const LIST = [
 { id: 's1_night', origin: 'qitu', where: 'story', trigger: 'sb:c1_open', speaker: 'elder', title: '破庙第一夜', scene: 'temple', bgm: 'home', gist: '戒指里的老头给你立了三条规矩。',
   text: '雨从塌了一半的屋顶漏下来。戒指里的老头验完你的灵根，立了三条规矩，然后问：今天被人踩成这样，就没什么想说的？',
   talk: [
-    ['nar', '雨从塌了一半的屋顶漏下来。火快灭了。'], ['nar', '戒指烫得握不住。'],
+    { sfx: 'wind' }, ['nar', '雨从塌了一半的屋顶漏下来。火快灭了。'], { sfx: 'fire' }, ['nar', '戒指烫得握不住。', { sfx: 'gather', zoom: 1.4, x: 60, y: 96 }], { zoom: 0 },
     { pick: [
       { if: 'rebirth', say: [['elder', '松手。烫的是你，又不是——'], ['elder:shock', '……怪了。'], ['me', '什么？'], { pick: [{ if: 'sky', say: [['elder', '上回你劈了什么东西，本座在戒里都听见了。']] }, { say: [['elder', '没什么。看你有点顺眼。没道理的事。']] }] }] },
       { say: [['elder', '松手。烫的是你，又不是本座。'], ['me:shock', '……谁？'], ['elder', '你手上那个。别找了，本座没有身子。'], ['elder:ang', '本座在这破铜烂铁里等了三千年，等来一个——']] },
     ] },
     ['elder', '手伸出来。'], ['nar', '一缕凉意从指根走到丹田，转了一圈，又退回去。'],
-    ['elder:sad', '金木水火土，五行俱全。'], ['me:joy', '那是好事？'], ['elder:ang', '样样稀松。本座三千年没见过这么杂的。'],
-    ['elder', '……三千年前倒见过一个。'], ['me', '谁？'], ['elder:ang', '轮得到你问？听好，三条规矩。'],
-    ['elder', '一，戒指上的锈不许擦。那是包浆。'], ['elder', '二，在外头叫前辈。叫别的，本座不应。'], ['elder', '三——'], ['elder', '三，不许死。本座懒得再等三千年。'],
-    ['nar', '火“啪”地响了一声。'], ['elder', '今天那些人把你踩成这样。你就没什么想说的？'],
+    ['elder:sad', '金木水火土，五行俱全。'], ['me:joy', '那是好事？'], ['elder:ang', '*样样稀松*。本座三千年没见过这么杂的。', { loud: 1 }],
+    ['elder:cold', '……三千年前|倒见过一个。', { slow: 1, soft: 1 }], ['me', '谁？'], ['elder:ang', '轮得到你问？听好，三条规矩。'],
+    ['elder', '一，戒指上的锈不许擦。那是包浆。'], ['elder', '二，在外头叫前辈。叫别的，本座不应。'], ['elder', '三——'], { wait: 600 }, ['elder', '三，*不许死*。|本座懒得再等三千年。', { slow: 1 }],
+    ['nar', '火“啪”地响了一声。', { sfx: 'fire' }], ['elder', '今天那些人把你踩成这样。|你就没什么想说的？'],
   ],
   choices: [
     { t: '“让他们抬头看我。”', dao: 'k', ok: { talk: [['elder:joy', '口气不小。本座当年也这么说。'], ['elder', '——后来他们真抬头了。脖子都仰酸了。']], text: '老祖笑了一声：“口气不小。本座当年也这么说。”', fx: { xp: 2, flag: 'oath_k' } } },
@@ -139,19 +143,19 @@ const LIST = [
 { id: 's1_pact_after', origin: 'qitu', where: 'story', trigger: 'sb:c1_climax', need: ['beat_mu'], cond: 'pact:win', title: '休书', scene: 'dusk', bgm: 'vow', gist: '约战赢了，休书在你手里。',
   text: '擂台下三千人，没有一个出声。三年前那张纸，你一个字一个字照着写了一份。现在它在你手里。',
   talk: [
-    ['nar', '擂台下三千人，没有一个出声。'], ['mu:shock', '……你赢了。'], ['elder:joy', '愣着干什么。赢了要说话，本座教过。'],
-    ['nar', '三年前那张纸，你一个字一个字照着写了一份。'], ['nar', '现在它在你手里。'],
+    { bgm: '' }, ['nar', '擂台下三千人，没有一个出声。', { sfx: 'wind' }], ['mu:shock', '……你赢了。', { slow: 1 }], ['elder:joy', '愣着干什么。赢了要说话，本座教过。'],
+    ['nar', '三年前那张纸，你一个字一个字照着写了一份。', { sfx: 'paper' }], ['nar', '现在|它在你手里。', { slow: 1, zoom: 1.3, x: 100, y: 80 }], { zoom: 0 },
     { if: 'mu_letter', echo: '你拆过那封信', say: [['me', '（那封信上的字，和{ex}现在的脸色，对不上。）']] },
   ],
   choices: [
     { t: '当众念休书', key: 1, hint: '这一句，全城都听得见', dao: 'k',
-      ok: { talk: [['me:ang', '“{ex}，性骄，无德——今日休之。”'], ['nar', '台下炸了。有人在笑，有人在记。'], ['mu:sad+tear', '……念得好。'], ['mu:ang', '{name}。你和三年前那些人，没有两样。'], ['elder', '……'], ['elder', '痛快是痛快。走吧。']],
+      ok: { talk: [{ bgm: 'vow' }, ['me:ang+shade', '“{ex}，性骄，无德——|*今日休之*。”', { loud: 1 }], ['nar', '台下炸了。有人在笑，有人在记。', { sfx: 'luo', shake: 3 }], { bgm: 'sorrow' }, ['mu:sad+tear', '……念得好。', { slow: 1 }], ['mu:cold', '{name}。|你和三年前那些人，*没有两样*。'], ['elder', '……'], ['elder', '痛快是痛快。走吧。']],
         cine: 'xiushu_shame', text: '休书传遍了落霞城。慕容家的大门，三天没开。', fx: { xp: 4, grudge: { mu: 20 }, flag: 'mu_shame' } } },
     { t: '把休书收回袖中', key: 1, hint: '不说话，也是一种话', dao: 'w',
-      ok: { talk: [['me', '两清了。'], ['mu:shock', '你——你不念？'], ['me', '念给谁听。'], ['nar', '你转身下台。背后很久没有声音。'], ['elder:joy', '哼。有点本座的样子了。'], ['elder', '——本座当年可没这么便宜人。']],
+      ok: { talk: [['me', '*两清了*。', { slow: 1, sfx: 'paper' }], ['mu:shock', '你——你不念？'], ['me:cold', '念给谁听。'], { bgm: 'home' }, ['nar', '你转身下台。|背后很久没有声音。', { slow: 1 }], ['elder:joy', '哼。有点本座的样子了。'], ['elder', '——本座当年可没这么便宜人。']],
         cine: 'xiushu_spare', text: '你转身下了擂台。那张纸，后来一直压在箱底。', fx: { xp: 4, grudge: { mu: -10 }, flag: 'mu_spare' } } },
     { t: '问一句', key: 1, hint: '“当年，是你的意思吗？”', gate: 'letter', dao: 'r',
-      ok: { talk: [['me', '当年那张纸。是你的意思吗？'], ['mu:shock', '……'], ['mu:sad', '是我写的。'], ['mu:sad', '这就够了。你别问了。'], ['nar', '{ex}走得很快。走到台边，停了一步。'], ['mu', '……三年。你剑练得不错。'], ['elder', '这孩子没说实话。'], ['elder', '——也没说假话。记着，以后用得上。']],
+      ok: { talk: [['me', '当年那张纸。|是你的意思吗？', { slow: 1 }], { sfx: 'heart' }, ['mu:shock', '……', { slow: 1 }], ['mu:sad', '是我*写*的。'], ['mu:sad', '这就够了。你别问了。'], ['nar', '{ex}走得很快。走到台边，停了一步。'], ['mu', '……三年。你剑练得不错。'], ['elder', '这孩子没说实话。'], ['elder', '——也没说假话。记着，以后用得上。']],
         cine: 'xiushu_spare', text: '没有回答。但走到台边的时候，停了一步。', fx: { xp: 4, grudge: { mu: -30 }, flag: ['mu_spare', 'mu_asked'] } } },
   ] },
 { id: 's1_pact_lost', origin: 'qitu', where: 'story', trigger: 'sb:c1_climax', cond: 'pact:lost', speaker: 'elder', title: '输了', scene: 'temple', bgm: 'sorrow', gist: '约战输了。老祖没有骂你。',
@@ -169,8 +173,8 @@ const LIST = [
     { if: 'mu_shame', echo: '你当众念了休书', say: [['dan', '念休书那一手，老身听说了。够狠。丹霞谷不怕狠的。']] },
     { if: 'mu_spare', echo: '你把休书收回了袖中', say: [['jian:joy', '赢了不踩人。这样的剑，太虚要。']] },
     ['me', '当年有人说，我这样的不配修仙。'], ['jian:ang', '那种话，剑宗向来当风听。'], ['elder:joy', '这句中听。'],
-    { if: 'gate:xuesha', echo: '魔门有人认得你', say: [['nar', '“啪”。一张红帖从屋顶落下来，钉在三位中间。'], ['?:屋顶上的声音', '正道三家抢一个。那我们也凑个热闹。'], ['?:屋顶上的声音', '血煞魔宗。不问灵根，不问出身，只问你恨不恨。'], ['dao:shock', '魔门的人——']] },
-    ['elder', '都别吵。小子，你自己挑。'], ['elder', '本座只有一条：跟天剑宗穿一条裤子的，不行。'],
+    { if: 'gate:xuesha', echo: '魔门有人认得你', say: [{ bgm: '' }, ['nar', '“啪”。一张*红帖*从屋顶落下来，钉在三位中间。', { sfx: 'clang', shake: 4, flash: '#c8323c' }], { bgm: 'boss' }, ['?:屋顶上的声音', '正道三家抢一个。那我们也凑个热闹。'], ['?:屋顶上的声音', '血煞魔宗。不问灵根，不问出身，只问你恨不恨。'], ['dao:shock', '魔门的人——']] },
+    ['elder:ang', '*都别吵*。', { loud: 1 }], { bgm: 'town' }, ['elder', '小子，你自己挑。'], ['elder:cold', '本座只有一条：跟天剑宗穿一条裤子的，|*不行*。'],
   ],
   choices: [
     { t: '接太虚剑宗的帖', key: 1, hint: '剑修的路：战力见长', ok: { talk: [['jian:joy', '好。剑宗的山门，为你开一次正门。']], text: '你接了太虚剑宗的帖子。', fx: { join: 'jian' } } },
@@ -186,16 +190,16 @@ const LIST = [
 { id: 's3_zhao_fall', origin: 'qitu', where: 'story', trigger: 'sb:c3_climax', need: ['beat_zhao'], not: ['zhao_owes', 'zhao_guide', 'clue_tianjian'], title: '那一脚的来历', scene: 'dusk', bgm: 'sorrow', gist: '赵乾败了。他说，当年那一脚是宗主亲口吩咐的。',
   text: '赵乾的剑钉在台柱上，还在抖。他低头看着自己的脚：“师弟……当年那一脚，不是我要踢的。是宗主亲口吩咐的。”戒指凉了一下。',
   talk: [
-    ['nar', '赵乾的剑飞出去，钉在台柱上，还在抖。'], ['zhao:shock+sweat', '不可能……你一个杂灵根——'], ['me', '还是这只脚？'],
+    ['nar', '赵乾的剑飞出去，钉在台柱上，还在抖。', { sfx: 'clang', shake: 4, flash: 1 }], ['zhao:shock+sweat', '不可能……你一个杂灵根——'], ['me:cold', '还是|这只脚？', { slow: 1 }],
     ['nar', '他低头看自己的脚。没有抬起来。'], ['zhao:sad', '……师弟。'], ['elder:joy', '哟。改口倒快。'],
-    ['zhao:sad', '当年那一脚，不是我要踢的。'], ['me:ang', '你的脚，不是你要踢的？'], ['zhao:sad+sweat', '是宗主。宗主亲口吩咐的。'],
+    ['zhao:sad', '当年那一脚，不是我要踢的。'], ['me:ang', '你的脚，不是你要踢的？'], { bgm: '' }, ['zhao:sad+sweat', '是宗主。|宗主*亲口*吩咐的。', { sfx: 'sting' }],
     ['zhao:sad', '外门三千人，宗主一年见不了三个。'], ['zhao:sad', '那天他看了你的灵根，脸色变了。回头就叫我去。'],
-    ['nar', '戒指凉了一下。'], ['elder', '……'], ['me', '（老祖没有说话。这不像他。）'],
+    ['nar', '戒指凉了一下。', { sfx: 'heart', zoom: 1.4, x: 50, y: 90 }], ['elder:cold', '……', { slow: 1 }], { zoom: 0 }, ['me', '（老祖没有说话。这不像他。）', { soft: 1 }],
   ],
   choices: [
     { t: '“你走吧。”', key: 1, hint: '他也是替人办事的', dao: 'r', ok: { talk: [['zhao:shock', '你放我？'], ['me', '你也是替人办事的。'], ['zhao:sad', '……我欠你的。我会还。']], text: '赵乾走了。走之前说：我欠你的，我会还。', fx: { xp: 4, grudge: { zhao: -30 }, flag: 'zhao_owes' } } },
     { t: '押他回天剑宗', key: 1, hint: '让他们自己看', dao: 'k', ok: { talk: [['me', '这句话，回去当着你们宗主的面，再说一遍。'], ['zhao:shock+sweat', '你疯了！他会——'], ['elder', '押。本座也想看看，那边接不接。']], text: '你把赵乾押到了天剑宗山门下。山门没有开。', fx: { xp: 4, grudge: { zhao: 40 }, karma: 'zhao_bounty', flag: 'zhao_guide' } } },
-    { t: '“宗主还说了什么？”', key: 1, hint: '问到底', dao: 'w', ok: { talk: [['zhao:sad', '他说：别让他死在山门里。'], ['zhao:sad', '还有一句，我没听懂。'], ['zhao', '他说：“又一个。”'], ['elder:ang', '——够了。让他滚。']], text: '“又一个。”老祖那一夜，没有再说话。', fx: { xp: 5, flag: 'clue_tianjian' } } },
+    { t: '“宗主还说了什么？”', key: 1, hint: '问到底', dao: 'w', ok: { talk: [['zhao:sad', '他说：别让他死在山门里。'], ['zhao:sad', '还有一句，我没听懂。'], { wait: 500 }, ['zhao', '他说：|“*又一个*。”', { slow: 1, sfx: 'sting' }], ['elder:ang', '——*够了*。让他滚。', { loud: 1 }]], text: '“又一个。”老祖那一夜，没有再说话。', fx: { xp: 5, flag: 'clue_tianjian' } } },
   ] },
 
 // 第四章（样稿 5）
@@ -203,11 +207,11 @@ const LIST = [
   text: '{su}带着药来的那一夜，{ye}正坐在你的房梁上。药放在桌子左边，酒放在桌子右边。',
   talk: [
     ['nar', '你肋下的伤还没好。门响了。'], ['su:ang', '又是肋下。你是拿肋骨挡剑的吗？'], ['su', '坐好。别动。诊金另算。'],
-    ['nar', '房梁上“咔”的一声。'], ['ye:joy', '哟。小废柴屋里有客？'], ['su:shock', '——梁上有人！'], ['ye:joy', '梁上一直有人。我比你先来的，小大夫。'],
+    ['nar', '房梁上“咔”的一声。', { sfx: 'tap', shake: 2 }], ['ye:joy', '哟。小废柴屋里有客？'], ['su:shock', '——*梁上有人*！', { loud: 1 }], ['ye:joy', '梁上一直有人。我比你先来的，小大夫。'],
     ['nar', '{ye}落下来，手里一坛酒，坛口的泥还是湿的。'], ['ye', '伤了？正好。喝两口，不疼。'], ['su:ang', '有内伤，沾不得酒。'], ['ye:joy', '你那碗黑水我闻见了。喝了才会死。'],
-    ['me', '我能说句话吗。'], ['su:ang', '不能。'], ['ye:joy', '不能。'], ['elder:joy', '哈。本座三千年没看过这么好的戏。'],
+    ['me', '我能说句话吗。', { soft: 1 }], ['su:ang', '*不能*。', { fast: 1 }], ['ye:joy', '*不能*。', { fast: 1 }], ['elder:joy', '哈。本座三千年没看过这么好的戏。'],
     ['nar', '药放在桌子左边。酒放在桌子右边。'], ['su', '……你是魔门的人。'], ['ye', '你是丹霞谷的人。'],
-    ['ye', '我见过你。疫镇那回，谷里不拨药，是你一个人背进去的。'], ['su:shock', '……'], ['ye:joy', '骗你的。我听人说的。'],
+    { bgm: '' }, ['ye:cold', '我见过你。疫镇那回，谷里不拨药，|是你一个人背进去的。', { slow: 1 }], ['su:shock', '……'], { bgm: 'home' }, ['ye:joy', '骗你的。我听人说的。'],
     { pick: [
       { if: 'aff:su>=aff:ye', say: [['nar', '{ye}先走的。走窗户。酒留下了。'], ['su', '……酒收好。伤好之前不许碰。'], ['su:sad', '伤好了以后——随你。']] },
       { say: [['nar', '{su}先走的。走门。药留下了，碗底压着一张方子。'], ['ye', '这字真丑。'], ['ye', '……方子倒是好方子。喝了吧。我看着你喝。']] },
@@ -223,10 +227,10 @@ const LIST = [
 { id: 's7_war', where: 'story', trigger: 'sb:c7_climax', need: ['st_truth'], not: WAR, title: '阵前', scene: 'field', bgm: 'boss', gist: '正魔两军对阵，所有人都在等你往哪边走。',
   text: '谷地两头，蓝旗和红旗，中间空着一条路。盟主的大旗下，白衣负剑的那个人在看你。他把你摆在两军正中间：谁的箭先到，他都不亏。',
   talk: [
-    ['nar', '谷地两头，蓝旗和红旗。中间空着一条路。'], ['nar', '盟主的大旗在蓝阵最后面。旗下那个人，白衣，负剑。'], ['elder:ang', '他在看你。别看回去。'],
+    { sfx: 'wardrum' }, ['nar', '谷地两头，蓝旗和红旗。|中间空着一条路。', { shake: 2 }], { sfx: 'wardrum' }, ['nar', '盟主的大旗在蓝阵最后面。旗下那个人，|*白衣，负剑*。', { zoom: 1.7, x: 30, y: 84, slow: 1 }], ['elder:cold', '他在看你。|别看回去。', { sfx: 'heart' }], { zoom: 0 },
     ['xue:joy', '小东西。你来晚了，酒都温第二遍了。'], ['xue', '正道请你来杀我。我请你来喝酒。你挑。'],
     ['?:剑十三', '魔头，休要蛊惑！——这位道友，盟主有令，你打头阵。'], ['me', '头阵。'], ['?:剑十三', '盟主说，你与血煞有旧怨，正该由你了断。'],
-    ['elder', '听见没有。他把你摆在两军正中间。'], ['elder', '谁的箭先到，他都不亏。'],
+    { bgm: '' }, ['elder', '听见没有。|他把你摆在两军*正中间*。', { slow: 1 }], ['elder:cold', '谁的箭先到，他都不亏。', { sfx: 'sting' }], { bgm: 'boss' },
     { pick: [
       { if: 'daolv:ye', echo: '你的道侣在对面', say: [['nar', '红旗下，{ye}没有戴面纱。手按着刀，在看你。']] },
       { if: 'daolv:su', echo: '你的道侣在身后', say: [['nar', '伤兵营的帘子掀开一角。{su}没有出来。']] },
@@ -238,10 +242,10 @@ const LIST = [
       ok: { cine: 'zhen_zheng', text: '血无涯退了七步，红旗倒了。九宗给你记了首功。盟主亲自来“贺喜”，笑得很温和。', fx: { xp: 8, power: 0.05, aff: { ye: -15 }, flag: 'war_zheng', title: '破魔之剑' } },
       fail: { text: '你与血无涯两败俱伤，两军各退三十里。半年后，还要再对阵一次。', fx: { inj: 4, retry: 6 } } },
     { t: '转身，向蓝旗拔剑', key: 1, hint: '从此，正道没有你这个人', duel: 1.1, dao: 'k',
-      ok: { talk: [['?:剑十三', '你——你敢！'], ['me', '盟主让我打头阵。没说打哪边。']], cine: 'zhen_mo', text: '蓝旗倒了。远处那个白衣人转身走了，一次也没有回头。', fx: { xp: 8, power: 0.05, grudge: { xue: -40 }, aff: { su: -15 }, flag: 'war_mo', unsect: 1 } },
+      ok: { talk: [['?:剑十三', '你——*你敢*！', { loud: 1 }], ['me:cold', '盟主让我打头阵。|没说打*哪边*。', { slow: 1, sfx: 'slash' }]], cine: 'zhen_mo', text: '蓝旗倒了。远处那个白衣人转身走了，一次也没有回头。', fx: { xp: 8, power: 0.05, grudge: { xue: -40 }, aff: { su: -15 }, flag: 'war_mo', unsect: 1 } },
       fail: { text: '剑十三的剑阵把你挡了回来。两军各退三十里，半年后再对阵。', fx: { inj: 4, retry: 6 } } },
     { t: '把剑插在两军正中', key: 1, hint: '“谁先过这把剑，我先接谁。”', gate: 'stop', duel: 1.25, dao: 'r',
-      ok: { talk: [['me', '这一仗是谁要打的，诸位心里有数。'], ['me', '今天谁先过这把剑，我先接谁。'], ['xue:joy', '有意思。那我先来。'], ['?:剑十三', '狂妄！']], cine: 'zhen_stop', text: '你接了血无涯一招，又接了剑十三一招。剑还插在那里。那一年的仗，没有打起来。', fx: { xp: 10, cul: 0.05, grudge: { xue: -20 }, flag: 'war_stop', title: '止戈' } },
+      ok: { talk: [['nar', '你走到两军正中，把剑插进土里。', { sfx: 'clang', shake: 4, flash: 1 }], ['me', '这一仗是谁要打的，诸位心里有数。'], ['me:ang', '今天谁先过这把剑，|*我先接谁*。', { loud: 1 }], ['xue:joy', '有意思。那我先来。'], ['?:剑十三', '狂妄！']], cine: 'zhen_stop', text: '你接了血无涯一招，又接了剑十三一招。剑还插在那里。那一年的仗，没有打起来。', fx: { xp: 10, cul: 0.05, grudge: { xue: -20 }, flag: 'war_stop', title: '止戈' } },
       fail: { text: '第二招你没有接住。两军各退三十里，半年后再对阵。', fx: { inj: 4, retry: 6 } } },
   ] },
 
@@ -249,20 +253,20 @@ const LIST = [
 { id: 's9_gate', where: 'story', trigger: 'sb:c9_climax', not: ['asc_go', 'asc_stay', 'asc_break'], title: '天门', scene: 'heaven', bgm: 'ascend', cine: 'tianmen', gist: '门开了一条缝。',
   text: '第八十一道雷散了。云上有一扇门，开了一条缝，里面的光没有温度。你回头看了一眼：山下有灯，从山门一直点到当年的{cradle}。',
   talk: [
-    ['nar', '第八十一道雷散了。云上有一扇门。'], ['nar', '门开了一条缝。里面的光，没有温度。'],
+    { bgm: '' }, ['nar', '第八十一道雷散了。|云上有一扇门。', { slow: 1, sfx: 'rumble' }], { bgm: 'ascend' }, ['nar', '门开了一条缝。|里面的光，*没有温度*。', { slow: 1, sfx: 'bell', zoom: 1.5, x: 100, y: 56 }], { zoom: 0 },
     { if: 'elder_kept', echo: '剑里住着一个人', say: [['elder', '就是这儿。本座当年，差一道。'], ['elder', '……比想的小。']] },
     { if: 'yun_codex', echo: '你陪云无极看过天', say: [['yun', '你到了。'], ['yun', '我一直没进去。我想等一个人，问问他怎么选。']] },
     { if: 'tea_5', echo: '你喝过最后一碗茶', say: [['nar', '你想起一个卖茶的老头。他说，上面没什么好的。']] },
-    { pick: [{ if: 'ascend_alone', say: [['nar', '你说过，别等我。可你还是回头看了一眼。']] }, { say: [['nar', '你回头看了一眼。']] }] },
-    ['nar', '山下有灯。从山门，一直点到当年的{cradle}。'],
+    { pick: [{ if: 'ascend_alone', say: [['nar', '你说过，别等我。可你还是回头看了一眼。']] }, { say: [{ black: '你回头看了一眼。' }] }] },
+    ['nar', '山下有灯。|从山门，一直点到当年的{cradle}。', { slow: 1, fx: 'glow' }],
   ],
   choices: [
-    { t: '踏进去', key: 1, hint: '你走了这么远，就是为了这扇门', ok: { talk: [['me', '此去，天外见。']], text: '你踏进了那扇门。', fx: { flag: 'asc_go' } } },
+    { t: '踏进去', key: 1, hint: '你走了这么远，就是为了这扇门', ok: { talk: [['me', '此去，|*天外见*。', { slow: 1, sfx: 'bell', flash: 1 }]], text: '你踏进了那扇门。', fx: { flag: 'asc_go' } } },
     { t: '转身', key: 1, hint: '人间还有人等你', gate: 'stay', dao: 'r',
-      ok: { talk: [['nar', '门在你身后，又等了一会儿。然后关上了。'], { if: 'elder_kept', say: [['elder:joy', '哼。没出息。——走吧，回去修屋顶。']] }, { if: 'daolv:su', say: [['nar', '山路上有人提着灯。灯下是一只药箱。']] }, { if: 'daolv:ye', say: [['nar', '屋顶上有人坐着。脚边两坛酒，一坛开了。']] }],
+      ok: { talk: [['nar', '门在你身后，又等了一会儿。|然后关上了。', { slow: 1, sfx: 'drum', dim: 0.3 }], { dim: 0 }, { bgm: 'home' }, { if: 'elder_kept', say: [['elder:joy', '哼。没出息。——走吧，回去修屋顶。']] }, { if: 'daolv:su', say: [['nar', '山路上有人提着灯。灯下是一只药箱。']] }, { if: 'daolv:ye', say: [['nar', '屋顶上有人坐着。脚边两坛酒，一坛开了。']] }],
         text: '门在你身后关上了。你下了山。', fx: { flag: 'asc_stay' } } },
     { t: '拔出玄霄', key: 1, hint: '这一剑，问问出题的人', gate: 'break', dao: 'k',
-      ok: { talk: [['me', '出题的人，在里面？'], { if: 'yun_codex', say: [['yun:joy', '……原来还能这么选。'], ['yun', '算我一个。我替你数着，它们有几个。']] }, { if: 'elder_kept', say: [['elder:joy', '这才是本座的徒弟！劈！']] }],
+      ok: { talk: [{ bgm: '' }, ['me:cold', '出题的人，|在*里面*？', { slow: 1, sfx: 'clang' }], { bgm: 'boss' }, { if: 'yun_codex', say: [['yun:joy', '……原来还能这么选。'], ['yun', '算我一个。我替你数着，它们有几个。']] }, { if: 'elder_kept', say: [['elder:joy', '这才是本座的徒弟！*劈*！', { loud: 1, sfx: 'slash', flash: 1 }]] }],
         text: '你没有进门。你把门后那张空白的卷，劈成了两半。', fx: { flag: 'asc_break' } } },
   ] },
 ];

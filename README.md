@@ -191,7 +191,7 @@ python3 tools/build.py
 
 故事推进（`src/logic/path.js` + `src/logic/story.js`，docs/STORY.md §2 / §11）：当前章 = 第一个没完成的主线（`L.chapterNow`），境界与章节互不挂钩——境界随便升，主线没做完就停在这一章，主线目标本身不看境界（第九章是“击败云无极”，飞升是札记）；主线按章序一章一章判，章末卡一张一张来。按章走的东西用一个通用机制：剧情触发键在 `L.STORY_CH` 里登了章号的（`realm:N` → N，`boss:5`、`demon:3`、`trib:1` 另登），要“触发条件成立且当前章到了”才放，境界先到就记在 `st.path.hold`、章到了按序补发；事件的境界窗口按 `L.storyR(st)` = min(境界, 章) 判；解锁卡第一世按 `L.ONB[].ch` 开；天剑宗来犯按第六章来（`L.warChapter`）。不能入宗时（天道试炼“无宗”、散修丹师不入宗，`L.loneRoute`）要宗门的几章主线换成 `L.LONE` 的散修版本。出身换词占位符 `{cradle}` `{town}` `{shamed}` `{lowly}` `{exHouse}` 等在 `story.js`。`node tools/story_check.js` 防回归。
 
-剧情串联（`src/logic/storyline.js` + `src/content/ev_story.js` + `src/ui/talk.js`，方案 docs/STORY_PLAN.md）：主线剧情挂在每章的节拍上（`L.STORY_BEATS`，触发键 `sb:c3_open` 这样的），不看境界；第七～九章的主线只看故事标志位（真相与正魔大战、了断陆天衡、天门前的选择）。带 `talk` 的事件走对话场景播放器（半身像 + 一句一句，可快进、可跳过，选项跳不过去）；八个抉择点用十二个故事标志位驱动，`L.endingOf` 判八个结局，`L.epilogue` 出后日谈。写新场景照 STORY_PLAN §4 的清单与 §6.3 的数据格式，`node tools/check_events.js` 查规格，`node tools/story_check.js quick` 查分支与结局。
+剧情串联（`src/logic/storyline.js` + `src/content/ev_story.js` + `src/ui/talk.js`，方案 docs/STORY_PLAN.md）：主线剧情挂在每章的节拍上（`L.STORY_BEATS`，触发键 `sb:c3_open` 这样的），不看境界；第七～九章的主线只看故事标志位（真相与正魔大战、了断陆天衡、天门前的选择）。带 `talk` 的事件走对话场景播放器（半身像 + 一句一句，可快进、可跳过，选项跳不过去）；八个抉择点用十二个故事标志位驱动，`L.endingOf` 判八个结局，`L.epilogue` 出后日谈。写新场景照 STORY_PLAN §4 的清单与 §6.4 的数据格式，`node tools/check_events.js` 查规格，`node tools/story_check.js quick` 查分支与结局。
 
 ## 字体
 

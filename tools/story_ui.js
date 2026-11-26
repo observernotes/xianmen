@@ -26,7 +26,8 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const layout = () => ev(() => {
     const r = document.querySelector('.tk-wrap'); if (!r) return null; const vw = window.innerWidth;
     const sk = r.querySelector('.tk-skip').getBoundingClientRect(), tx = r.querySelector('.tk-text'), cv = r.querySelector('.tk-cv').getBoundingClientRect();
-    const over = [...r.querySelectorAll('*')].filter(x => !x.hidden && !x.closest('[hidden]')).some(x => { const q = x.getBoundingClientRect(); return q.width && (q.right > vw + 1 || q.left < -1); });
+    const over = [...r.querySelectorAll('*')].filter(x => !x.hidden && !x.closest('[hidden]') && !x.closest('.tk-stage') && x.tagName !== 'EM')   /* 舞台震屏、半身像滑入、重音字落下的那一下不算溢出（.tk-wrap 裁掉了） */
+     .some(x => { const q = x.getBoundingClientRect(); return q.width && (q.right > vw + 1 || q.left < -1); });
     const picks = [...r.querySelectorAll('.tk-picks:not([hidden]) .tk-pick')].map(x => ({ h: x.getBoundingClientRect().height, dis: x.disabled, t: x.textContent }));
     return { skH: sk.height, skW: sk.width, lines: Math.round(tx.getBoundingClientRect().height / parseFloat(getComputedStyle(tx).lineHeight)), over, cvW: cv.width, picks, bottom: r.querySelector('.tk-box').getBoundingClientRect().bottom, vh: window.innerHeight };
   });
@@ -50,7 +51,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await shot('talk_2_pick');
   await page.click('.tk-skip'); await page.waitForTimeout(150);
   o = await on(); check(o && o.picking, '选项跳不过去');
-  await page.waitForTimeout(600); await page.click('.tk-pick[data-c="2"]'); await page.waitForTimeout(200);
+  await page.waitForTimeout(700); await page.click('.tk-pick[data-c="2"]'); await page.waitForTimeout(300);
   await walk(); await page.waitForTimeout(400);
   check(!(await on()) && (await ev(() => !!window.__xm.st.eflags.oath_r && !document.querySelector('#modal').hidden)), '选完：结果里的台词播完，落到结算卡，oath_r 置上');
   await shot('talk_3_result');
@@ -62,22 +63,53 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   for (let i = 0; i < 12; i++) { const t = await ev(() => !document.querySelector('.tk-echo').hidden); if (t) break; await ev(() => { window.__xm_talk.tap(); window.__xm_talk.tap(); }); await page.waitForTimeout(60); }
   check(await ev(() => !document.querySelector('.tk-echo').hidden), '回响小标亮了（拆过那封信）');
   await page.waitForTimeout(500); await shot('talk_4_echo');
-  await walk(); await page.waitForTimeout(200); await shot('talk_5_key');
+  await walk(); await page.waitForTimeout(1500); await shot('talk_5_key');
   l = await layout(); check(l && l.picks.length === 3 && l.picks.every(p => p.h >= 44) && !l.over && l.bottom < l.vh, `抉择一：三个选项，每个 ≥ 44px（${l && l.picks.map(p => Math.round(p.h)).join('/')}）`);
-  await page.waitForTimeout(600); await page.click('.tk-pick[data-c="1"]'); await page.waitForTimeout(150); await walk(); await page.waitForTimeout(400);
+  await page.waitForTimeout(600); await page.click('.tk-pick[data-c="1"]'); await page.waitForTimeout(1500); await walk(); await page.waitForTimeout(400);
   check(await ev(() => !!window.__xm.st.eflags.mu_spare), '抉择一 → mu_spare');
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(400);
   await ev(() => { const s = window.__xm.st; s.eflags.st_truth = 1; s.eflags.beat_xue = 1; s.storyQ.length = 0; window.__xm_talk.play('s7_war'); });
-  await page.waitForTimeout(300); await walk(); await page.waitForTimeout(200); await shot('talk_6_gate');
+  await page.waitForTimeout(300); await walk(); await page.waitForTimeout(1500); await shot('talk_6_gate');
   l = await layout(); check(l && l.picks.length === 3 && l.picks[2].dis && /没有人肯听你说话/.test(l.picks[2].t), `抉择六：止战灰着，写明缺什么（${l && l.picks[2] && l.picks[2].t.slice(-14)}）`);
   await ev(() => window.__xm_talk.close()); await page.waitForTimeout(200);
+
+  // ---------- 演出：重音字、推近、黑屏字幕、抉择前的静默、选后的回响 ----------
+  {
+    const until = async (re, max) => { for (let i = 0; i < (max || 60); i++) { const o = await on(); if (!o || o.picking) return false; const t = await ev(() => { const r = document.querySelector('.tk-wrap'); const b = r.querySelector('.tk-black'); return (b.hidden ? r.querySelector('.tk-text').textContent : '【黑】' + b.textContent); }); if (re.test(t)) return true; await ev(() => { window.__xm_talk.tap(); }); await page.waitForTimeout(30); } return false; };   // 一次只点一下：先出完这句、看一眼，再点才是下一句
+    const stage = () => ev(() => window.__xm_talk.stage);
+    await ev(() => { const s = window.__xm.st; s.storyQ.length = 0; s.npc.mo = s.npc.mo || { aff: 30 }; window.__xm_talk.play('story_r6'); }); await page.waitForTimeout(200);
+    let ok = await until(/擦着他的肩/); await page.waitForTimeout(900);
+    let sg = await stage();
+    check(ok && sg && sg.zoom > 1.2 && /^cg:stab:1/.test(sg.bg) && (await ev(() => !!document.querySelector('.tk-text em'))), `真相那一镜：换到“那一剑”第二帧、镜头推近 ×${sg && sg.zoom}、重音字`);
+    await shot('show_1_reveal');
+    ok = await until(/天衡/); await page.waitForTimeout(700); await shot('show_2_name');
+    check(ok && (await ev(() => document.querySelector('.tk-pt.r.on') && !document.querySelector('.tk-pt.r').hidden)), '“天衡。”：说话的人亮着');
+    await walk(); await page.waitForTimeout(300);
+    sg = await stage(); check(sg && sg.dimT >= 0.4 && (await ev(() => document.querySelector('.tk-picks').hidden)), '关键抉择之前：舞台暗下来、先静一拍（选项还没出）');
+    await page.waitForTimeout(1300); await shot('show_3_keypick');
+    check(await ev(() => !document.querySelector('.tk-picks').hidden && document.querySelector('.tk-wrap').classList.contains('keypick')), '静默之后选项浮上来');
+    await page.waitForTimeout(500); await page.click('.tk-pick[data-c="2"]'); await page.waitForTimeout(1250);
+    check(await ev(() => { const b = document.querySelector('.tk-black'); return !b.hidden && /师父，都过去了/.test(b.textContent); }), '选后的回响：闪白，黑屏上落下你选的那句话');
+    await shot('show_4_echo_black');
+    await page.waitForTimeout(900); ok = await until(/偏挑这种时候/); await page.waitForTimeout(600); await shot('show_5_tear');
+    check(ok, '接着是人物的反应（老祖落泪）');
+    await ev(() => window.__xm_talk.close()); await page.waitForTimeout(100);
+    await ev(() => { const s = window.__xm.st; s.storyQ.length = 0; s.eflags.st_justice = 1; window.__xm_talk.play('tianheng_2'); }); await page.waitForTimeout(200);
+    ok = await until(/【黑】戒指很久没有动静/); await page.waitForTimeout(900); await shot('show_6_black');
+    check(ok, '了断：黑屏字幕“戒指很久没有动静。”');
+    await ev(() => window.__xm_talk.close()); await page.waitForTimeout(100);
+    await ev(() => { const s = window.__xm.st; s.storyQ.length = 0; window.__xm_talk.play('s7_war'); }); await page.waitForTimeout(200);
+    ok = await until(/白衣，负剑/); await page.waitForTimeout(900); sg = await stage(); await shot('show_7_zoom');
+    check(ok && sg.zoom > 1.5, `阵前：镜头推到盟主旗下（×${sg && sg.zoom}）`);
+    await ev(() => { window.__xm_talk.close(); delete window.__xm.st.eflags.st_justice; delete window.__xm.st.eflags.vow_letgo; delete window.__xm.st.eflags.st_truth; window.__xm.st.eflags.st_truth = 1; window.__xm.st.evDone = Object.assign(window.__xm.st.evDone, {}); delete window.__xm.st.evDone.story_r6; }); await page.waitForTimeout(100);
+  }
 
   // ---------- 每场对话走一遍：台词不超过两行、没有溢出 ----------
   const ids = await ev(() => window.__xm.L.events().filter(e => e.talk).map(e => e.id));
   for (const id of ids) {
     await ev(id => { const s = window.__xm.st; s.storyQ.length = 0; window.__xm_talk.play(id); }, id);
     await page.waitForTimeout(150);
-    const w = await walk(); await page.waitForTimeout(80); const p = await layout();
+    const w = await walk(); await page.waitForTimeout(1350); const p = await layout();
     check(w.mx <= 2 && !w.over && p && !p.over && p.bottom < p.vh, `${id}：${w.n} 句，最多 ${w.mx} 行，选项 ${p ? p.picks.length : 0} 个，没有溢出`);
     if (id === 'story_r6' || id === 'tianheng_2' || id === 's9_gate' || id === 's2_invite') await shot('talk_' + id);
     await ev(() => window.__xm_talk.close()); await page.waitForTimeout(60);

@@ -191,7 +191,7 @@ function daolvReady() { return ['su', 'ye'].filter(id => !st.daolv && L.met(st, 
 const peopleHints = [
   { id: 'ppGift', intro: true, when: () => st.guide && st.guide.done && st.p.r >= 1 && L.PEOPLE2_ON !== false && modalOpen() && !!document.querySelector('#ppGift:not([disabled])') && !!L.pgiftVisitor(st), target: '#ppGift', btn: '好', text: () => {
       const id = L.pgiftVisitor(st), t = giftHintLike(id), a = L.aff(st, id), nx = pplNext(id), ta = pplTa(id);
-      return `${esc(L.npcName(st, id))}来串门，可以<b>【送礼】</b>：身上现有的东西点一样。老夫知道${ta}最喜欢<b>${esc(L.GIFT_TAG_N[t])}</b>，送一份 <b>${pmkVal('like')}</b> 好感，现在 <b>${a}/100</b>${nx ? `，到 <b>${nx.v}</b> 就是${nx.n}` : ''}。别的一般 ${pmkVal('mid')}，送错了 ${pmkVal('hate')}；试过的记上 ♥ / ✕，下一世还记得。`;
+      return `${esc(L.npcName(st, id))}来串门，可以<b>【送礼】</b>：身上现有的东西点一样。本座知道${ta}最喜欢<b>${esc(L.GIFT_TAG_N[t])}</b>，送一份 <b>${pmkVal('like')}</b> 好感，现在 <b>${a}/100</b>${nx ? `，到 <b>${nx.v}</b> 就是${nx.n}` : ''}。别的一般 ${pmkVal('mid')}，送错了 ${pmkVal('hate')}；试过的记上 ♥ / ✕，下一世还记得。`;
     } },
   { id: 'ppQuest', intro: true, when: () => pplCalm() && L.pqActive(st).length > 0, target: '[data-nav="me"]', btn: '好', text: () => {
       const x = L.pqActive(st)[0], a = L.aff(st, x.id);

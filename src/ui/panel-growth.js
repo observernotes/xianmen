@@ -153,7 +153,7 @@ function showPact() {
       <div class="vsx">VS</div>
       <div class="side">${rivalAvImg({ n: st.exName, id: 'mu' }, 56)}<div>${esc(st.exName)}</div><div class="muted">单灵根·炼气后期·法器${muEl}</div><div class="num seal">${fmt(pi.Q)}</div></div></div>
     <div class="center big ${pi.p < 0.45 ? 'seal' : pi.p < 0.8 ? 'goldt' : 'jadet'}">胜算 ${L.pct(pi.p)}</div>
-    ${pi.assist > 1 ? `<p class="muted center">×${pi.assist} 是老夫借你的神魂之力，只在你筑基之前有效。</p>` : ''}
+    ${pi.assist > 1 ? `<p class="muted center">×${pi.assist} 是本座借你的神魂之力，只在你筑基之前有效。</p>` : ''}
     <p class="muted center">五五线：战力 ${fmt(L.duelLines(pi.Q).even)} · 稳赢线：${fmt(L.duelLines(pi.Q).sure)}</p>
     <div class="ksec"><span>老祖锦囊</span><span>涨多少 · 花什么</span></div>${acts.length ? advCards(acts) : '<p class="muted">已经稳了，安心等着打脸吧。</p>'}`;
   const s = sheet({ title: '三年之约', body });

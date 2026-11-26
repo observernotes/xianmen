@@ -239,7 +239,7 @@ function daoHook(type, data) {
   if (type === 'dao') {
     const D0 = L.DAO[data.k], nx = L.DAO_TH[data.lv];
     const num = { k: [`越级奖励 ×${(2 * L.DAO_V.leap).toFixed(1)}（原来 ×2）`, `对决胜算再低也有 ${L.pct(L.DAO_V.lo)}（原来 3%）`, '丁等不直接负伤，“以伤换命”再战一次'],
-      w: [`突破成功率 +${L.pct(L.DAO_V.bt)}`, `闭关花费 −${L.pct(1 - L.DAO_V.ret)}（现在 ${fmt(L.retCost(st))} 灵石）`, '天劫那一停，老夫的提示十成准'],
+      w: [`突破成功率 +${L.pct(L.DAO_V.bt)}`, `闭关花费 −${L.pct(1 - L.DAO_V.ret)}（现在 ${fmt(L.retCost(st))} 灵石）`, '天劫那一停，本座的提示十成准'],
       r: [`来访的人好感多 +${L.DAO_V.aff}`, `徒弟成长 +${L.pct(L.DAO_V.disc - 1)}`, `人物五心只要好感 ${L.DAO_V.heart5}`] }[data.k][data.lv - 1];
     // 头一回升级由阻塞讲解 dao1 讲（时间暂停）；之后每次升级是气泡
     if (st.hintSeen && st.hintSeen.dao1) tip(`dao_${data.k}${data.lv}`, `道心·${D0.n}到了${'一二三'[data.lv - 1]}级（${data.n} 笔）：${num}。${nx ? `再 ${nx - data.n} 笔到下一级。` : '三级已满。'}【人物】→ 道心。`);
@@ -258,19 +258,19 @@ function chapterTip(ch) { if (st.guide && st.guide.done) tip('chend_' + ch, L.da
 const tribHints = [
   // 排在 'trib'（护劫手段）之后、'btGo'（点它）之前
   { id: 'tribPause', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()) && st.p.r >= 1 && !!st.hintSeen.trib && !!document.querySelector('#tribAids'), target: '#modal .foot .btn.gold', btn: '知道了', text: () => {
-      return `雷劫落到倒数第二道之前会<b>停一下</b>：老夫看一眼护体，说能不能过（<b>${L.pct(L.tribHintAcc(st))}</b> 准）。那时还能补上没用的手段，临阵吞丹每枚 <b>+${L.pct(L.TRIB.pill)}</b>（丹毒 +${L.TRIB.toxin}）。`;
+      return `雷劫落到倒数第二道之前会<b>停一下</b>：本座看一眼护体，说能不能过（<b>${L.pct(L.tribHintAcc(st))}</b> 准）。那时还能补上没用的手段，临阵吞丹每枚 <b>+${L.pct(L.TRIB.pill)}</b>（丹毒 +${L.TRIB.toxin}）。`;
     } },
 ];
 const tribNowHint = { id: 'tribNow', urgent: true, intro: true, when: () => modalTitle() === '临阵一停' && !!document.querySelector('#tribAdd') && !!cine && !!cine.trib, target: '#tribAdd', btn: '好', text: () => {
     const v = cine.v, ex = { fa: 1, pet: 1, daolv: 1, pills: v.pillMax }, p1 = L.tribPeek(st, ex), can = v.canAdd.length || v.pillMax;
-    return `这就是那一停：护体还剩 <b>${L.pct(v.shield)}</b>，老夫看<b>${v.hint.text}</b>。${p1 > v.p + 1e-9 ? `下面能补的全补上，成功率 <b>${L.pct(v.p)} → ${L.pct(p1)}</b>。` : can ? `成功率已经 <b>${L.pct(v.p)}</b>，再补也是白补。` : '能补的都用过了，硬扛吧。'}`;
+    return `这就是那一停：护体还剩 <b>${L.pct(v.shield)}</b>，本座看<b>${v.hint.text}</b>。${p1 > v.p + 1e-9 ? `下面能补的全补上，成功率 <b>${L.pct(v.p)} → ${L.pct(p1)}</b>。` : can ? `成功率已经 <b>${L.pct(v.p)}</b>，再补也是白补。` : '能补的都用过了，硬扛吧。'}`;
   } };
 // 道心、因果各一次阻塞讲解（SYSTEMS §17），之后的升级与新账走气泡（daoHook）
 const daoCalm = () => st.guide && st.guide.done && !modalOpen() && !L.busy(st);
 const daoHints = [
   { id: 'dao1', intro: true, when: () => daoCalm() && L.DAO_KEYS.some(k => L.daoLv(st, k) >= 1), target: '[data-nav="me"]', btn: '好', text: () => {
       const k = L.DAO_KEYS.find(x => L.daoLv(st, x) >= 1), d = st.dao;
-      return `你做的选择老夫都记着：狂 <b>${d.k}</b>、稳 <b>${d.w}</b>、仁 <b>${d.r}</b> 笔。${L.DAO[k].n}到 <b>${L.DAO_TH[0]}</b> 笔得了一级：${esc(L.DAO[k].fx[0])}。各到 ${L.DAO_TH.join(' / ')} 笔一级，【人物】→ 道心能看。`;
+      return `你做的选择本座都记着：狂 <b>${d.k}</b>、稳 <b>${d.w}</b>、仁 <b>${d.r}</b> 笔。${L.DAO[k].n}到 <b>${L.DAO_TH[0]}</b> 笔得了一级：${esc(L.DAO[k].fx[0])}。各到 ${L.DAO_TH.join(' / ')} 笔一级，【人物】→ 道心能看。`;
     } },
   { id: 'karma1', intro: true, when: () => daoCalm() && L.karmaOpen(st).length > 0, target: '[data-nav="me"]', btn: '知道了', text: () => {
       const k = L.karmaOpen(st)[0];

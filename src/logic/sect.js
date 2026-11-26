@@ -39,7 +39,7 @@ L.NINE = [
   { id: 'tianjian', n: '天剑宗', champ: '楚天阔', line: '当年的弃徒，也配代表一宗？' },
   { id: 'xuesha', n: '血煞魔宗', champ: '血无涯', line: '正道宗门？不过是待宰的羔羊。' },
   { id: 'wanfa', n: '万法阁', champ: '诸葛千机', line: '你的每一招，我都算到了。' },
-  { id: 'jingang', n: '金刚寺', champ: '慧能大师', line: '阿弥陀佛，施主请回吧。' },
+  { id: 'jingang', n: '金刚寺', champ: '慧明大师', line: '师叔闭口三千年了，贫僧替他念一声佛。' },
   { id: 'jian', n: '太虚剑宗', champ: '剑十三', line: '我这一剑，你接不住。' },
   { id: 'dao', n: '玄天道宗', champ: '玄微子', line: '道法自然，胜负亦然。请。' },
   { id: 'dan', n: '丹霞谷', champ: '丹红袖', line: '丹修也能打，你信不信？' },

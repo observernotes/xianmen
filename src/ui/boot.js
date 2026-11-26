@@ -53,7 +53,7 @@ function showTrain() {
   if (!L.canTrain(st)) return;
   const pi = L.pactInfo(st);
   sheet({ title: '老祖特训', center: true, noClose: true,
-    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个月，胜算才 <b>${L.pct(pi.p)}</b>。坐下，老夫亲自给你<b>特训</b>：${L.RET.len} 个月，修炼 <b>×3</b>，不收灵石。</p></div>`,
+    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个月，胜算才 <b>${L.pct(pi.p)}</b>。坐下，本座亲自给你<b>特训</b>：${L.RET.len} 个月，修炼 <b>×3</b>，不收灵石。</p></div>`,
     foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 月 · 修炼 ×3`); } closeModal(); } }] });
 }
 function showVisitor() {

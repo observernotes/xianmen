@@ -78,6 +78,7 @@
 | | `forgeOk(lv)` / `forgeFail` | 强化成 / 败；开锋 = `forgeOk(7)` |
 | | `infuse` / `reforge` | 淬灵 / 洗练 |
 | 过场 | `drum` `wardrum` `tear` `paper` `clang` `bell` `luo` `wind` `thunder` `rumble` `gather` | cine2.js 的分镜按名字调（`CSFX`） |
+| 剧情 | `heart` 心跳（咚、咚）/ `slash` 挥剑破空 / `sting` 转折的一声闷弦（音乐让一下）/ `fire` 火堆噼啪 | 对话场景与数据式分镜（talk.js）：台词里 `{ sfx: 'heart' }` 这样按名字调；关键抉择之前自动两声心跳。对话里 `{ bgm: '' }` 静音、`{ bgm: 'sorrow' }` 换曲 |
 
 ## 4. 接口
 

@@ -67,7 +67,7 @@ function afterBreakthrough(res) {
     else if (res.guard) lines.push('<div class="center muted">老祖护法，一举功成</div>');
     if (res.carry >= 1) more.push(`<div class="center muted">圆满后多攒的修为 +${fmt(res.carry)} 带进了新境界</div>`);
     if (res.awaken) {
-      lines.push(res.awaken.stage === 1 ? '<div class="quote">戒中老祖：“小子，你以为你真是杂灵根？老夫封住你的灵根，就是为了今天！”</div>' : `<div class="quote">戒中老祖：“混沌灵根第 ${res.awaken.stage} 次觉醒。哼，有本座三成风采了。”</div>`);
+      lines.push(res.awaken.stage === 1 ? '<div class="quote">戒中老祖：“小子，你以为你真是杂灵根？本座封住你的灵根，就是为了今天！”</div>' : `<div class="quote">戒中老祖：“混沌灵根第 ${res.awaken.stage} 次觉醒。哼，有本座三成风采了。”</div>`);
       const T0 = L.talentInfo(st, res.awaken.from), T1 = L.talentInfo(st, res.awaken.to);
       lines.push(`<div class="center">灵根蜕变：${talentTag(res.awaken.from)} → ${talentTag(res.awaken.to)}</div>`);
       more.push(`<div class="center muted">灵根：修炼 ×${T0.cul} → ×${T1.cul}，战力 ×${T0.atk} → ×${T1.atk}</div>`);

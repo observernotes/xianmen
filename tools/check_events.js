@@ -68,9 +68,11 @@ function checkText(id, s, where) {
   for (const m of s.matchAll(/\{(\w*)\}/g)) if (!PLACEHOLDERS.includes(m[1])) err(id, `${where} 未知占位符 ${m[0]}`);
   if (/[{}]/.test(s.replace(/\{\w+\}/g, ''))) err(id, `${where} 花括号不配对`);
 }
-// 对话场景（STORY_PLAN §6.3）：一句 ≤ 36 字；一场（含最长的分支）≤ 40 句；说话人写法 'id[:表情[+叠加]][:显示名]' / 'me' / 'nar' / '?:名字'
-const TALK_MOOD = ['n', 'joy', 'ang', 'shock', 'sad'], TALK_FX = ['tear', 'shade', 'blush', 'blood', 'sweat', 'mono', 'fade'];
+// 对话场景（STORY_PLAN §6.4）：一句 ≤ 36 字；一场（含最长的分支）≤ 40 句；说话人写法 'id[:表情[+叠加]][:显示名]' / 'me' / 'nar' / '?:名字'
+const TALK_MOOD = ['n', 'joy', 'ang', 'shock', 'sad', 'cold'], TALK_FX = ['tear', 'shade', 'blush', 'blood', 'sweat', 'mono', 'fade'];
 const TALK_LIM = { line: 36, lines: 40 };
+const TALK_CMD = ['cg', 'scene', 'sfx', 'shake', 'flash', 'bgm', 'wait', 'zoom', 'fx', 'dim'];   // 不占一句的指令
+const TALK_OPT = ['slow', 'fast', 'loud', 'soft', 'sfx', 'flash', 'shake', 'bgm', 'zoom', 'x', 'y', 'dim', 'fx'];   // 台词第三项：这一句自带的演出
 function checkTalk(id, talk, where) {
   let n = 0;
   const walk = (list, w) => {
@@ -83,13 +85,17 @@ function checkTalk(id, talk, where) {
         if (typeof who !== 'string' || typeof text !== 'string') { err(id, `${w} 台词写法不对：${JSON.stringify(it).slice(0, 40)}`); continue; }
         const p = who.split(':');
         if (p[0] !== '?' && p[1] && p[1] !== '') { const [m, ...fx] = p[1].split('+'); if (!TALK_MOOD.includes(m)) err(id, `${w} 表情不认识：${who}`); for (const f of fx) if (!TALK_FX.includes(f)) err(id, `${w} 表情叠加不认识：${who}`); }
-        checkText(id, text, w);
-        if (len(text) > TALK_LIM.line) err(id, `${w} 一句过长 ${len(text)}/${TALK_LIM.line}：${text.slice(0, 16)}…`);
+        if (it[2] !== undefined) { if (!it[2] || typeof it[2] !== 'object') err(id, `${w} 台词第三项要是对象`); else for (const k of Object.keys(it[2])) if (!TALK_OPT.includes(k)) err(id, `${w} 台词演出不认识：${k}`); }
+        const plain = text.replace(/[*|]/g, '');
+        if ((text.match(/\*/g) || []).length % 2) err(id, `${w} 重音的 * 没有成对：${text.slice(0, 16)}`);
+        checkText(id, plain, w);
+        if (len(plain) > TALK_LIM.line) err(id, `${w} 一句过长 ${len(plain)}/${TALK_LIM.line}：${text.slice(0, 16)}…`);
         if (/老夫/.test(text) && p[0] === 'elder') err(id, `${w} 老祖自称一律“本座”：${text.slice(0, 16)}`);
       } else if (it && typeof it === 'object') {
         if (it.say) k += walk(it.say, w);
         else if (it.pick) { let mx = 0; for (const o of it.pick) mx = Math.max(mx, walk(o.say || [], w)); k += mx; }
-        else if (!('cg' in it) && !('scene' in it) && !('sfx' in it) && !('shake' in it)) err(id, `${w} 不认识的指令：${JSON.stringify(it).slice(0, 40)}`);
+        else if ('black' in it) { k++; if (typeof it.black !== 'string' || len(it.black.replace(/[*|]/g, '')) > 24) err(id, `${w} 黑屏字幕要 ≤ 24 字`); }
+        else if (!TALK_CMD.some(c => c in it)) err(id, `${w} 不认识的指令：${JSON.stringify(it).slice(0, 40)}`);
         if (it.echo !== undefined && (typeof it.echo !== 'string' || len(it.echo) > 16)) err(id, `${w} echo 要 ≤ 16 字`);
       } else err(id, `${w} 不认识的一行`);
     }
