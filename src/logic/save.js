@@ -142,6 +142,7 @@ L.migrate = function (s) {
   if (L.migrateSamsara) L.migrateSamsara(s);
   if (L.migrateCodex) L.migrateCodex(s);
   if (L.migrateOnb) L.migrateOnb(s);   // 上手曲线：旧档里已经在用的系统算开了（onboard.js，幂等，不升版本）
+  if (L.migrateKairo) L.migrateKairo(s);   // 开罗式重整：路径 st.path、时钟与纸鹤 st.clk / st.inbox、年报 st.rep / st.repHist（path.js / time.js / report.js，幂等，不升版本）
   s.v = L.SAVE_V;
   return s;
 };

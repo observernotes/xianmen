@@ -4,10 +4,11 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = L.fmt;
-// ×1 时一周天的真实毫秒数：第一世元婴之前 6 秒，其余 5 秒（docs/ONBOARDING.md §5：上手期慢一点，留出“练手”的时间）
-const TICK_MS_BASE = 5000;
-const tickMs = () => (st && L.TICK_SEC ? L.TICK_SEC(st) * 1000 : TICK_MS_BASE);
-const SPEEDS = [1, 2, 4, 0];
+// ×1 时一月的真实毫秒数：按时钟三态取（docs/KAIRO_PLAN.md §3.2；旋钮在 src/logic/onboard.js 的 L.TIME）——打坐 15 秒、历练 8 秒、闭关类 3 秒，转世后减半
+const TICK_MS_BASE = 15000;
+const tickMs = () => (st && L.monthSec ? L.monthSec(st) * 1000 : TICK_MS_BASE);
+const SPEEDS = [1, 2, 0];   // ×1 / ×2 / 暂停
+const UNIT = L.UNIT || '月';   // 时间单位：界面上一律叫“月”（原来的“周天”）
 let st = null;
 let speedIdx = 0;
 let cine = null;
