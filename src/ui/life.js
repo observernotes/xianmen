@@ -14,16 +14,20 @@ function showAscension() {
   const p = st.p;
   recordLife();
   saveLocal();
-  const ends = L.endingsOf(st), f = L.daoFruit(st), fox = st.eflags.bai_nine ? '白小九拖着九条尾巴，跟在你身后一起上了天。' : st.eflags.bai_stay ? '山下那间小院里，一只白狐趴在门槛上，替你看着人间。' : '';
-  sheet({ title: '飞升', center: true, noClose: true,
-    body: `${bdImg(ends.includes('summit') || ends.includes('mozun') ? 'summit' : ends.includes('hermit') ? 'hermit' : 'ascend', 200)}<div class="center">${myAvImg(66, 9)}</div>
-      <div class="center big goldt">${esc(p.name)} 白日飞升</div>
-      <p class="center">九九天劫散尽，仙门大开。当年被逐出山门、被当众退婚的废柴，踏云而去，位列仙班。</p>
-      <p class="center" id="daoEnding">${esc(L.daoEnding(st))}</p>${fox ? `<p class="center">${esc(fox)}</p>` : ''}
+  const ends = L.endingsOf(st), f = L.daoFruit(st);
+  // 主结局、副标签、后日谈（storyline.js 的 L.endingOf / L.epilogue；STORY_PLAN §3）
+  const E = L.endingOf(st), epi = L.epilogue(st), pic = ART.endingPic ? ART.endingPic(E.pic) : null, pw = pxFit(200, 300);
+  const stay = !!st.eflags.asc_stay;
+  sheet({ title: esc(E.n), center: true, noClose: true,
+    body: `${pic ? `<img class="px" src="${urlOf(pic, 'endpic|' + E.pic)}" style="width:${pw}px;height:${pw * 0.6}px;display:block;margin:0 auto" alt="">` : bdImg(E.bg, 200)}
+      <div class="center big goldt">${esc(p.name)} · ${esc(E.n)}</div>${E.tags.length ? `<p class="center muted" style="margin:2px 0">${E.tags.map(esc).join(' · ')}</p>` : ''}
+      <p class="center">${esc(L.fill(st, E.text))}</p>
+      <p class="center" id="daoEnding">${esc(L.daoEnding(st))}</p>
+      ${epi.length ? `<div class="ksec"><span>后日谈</span></div>${epi.map(c => `<div class="quote" style="text-align:left"><b>${esc(c.who)}</b>　${esc(L.fill(st, c.text))}</div>`).join('')}` : ''}
       <dl class="grid2"><dt>结局</dt><dd>${ends.map(endName).join(' · ')}</dd><dt>修仙</dt><dd>${Math.floor(st.year) + 1} 年 · ${fmt(p.age)} 岁</dd><dt>天骄榜</dt><dd>最高第 ${st.bestRank}</dd><dt>宗门</dt><dd>${st.sect ? L.sectOf(st).n + L.srankName(st, st.sect.rank) : '散修'}</dd>
         <dt>道基</dt><dd>+${Math.round(L.daoji(st) * 100)}%${st.trib && st.trib.dan ? ' · ' + esc(st.trib.dan) : ''}</dd>${L.karmaOpen(st).length ? `<dt>因果</dt><dd>未了 ${L.karmaOpen(st).length} 条</dd>` : ''}
         <dt>道果</dt><dd class="goldt">约 ${fmt(f.total)}（其中图鉴 +${fmt(f.codex)}）</dd></dl>
-      <div class="quote">恭喜通关！再入轮回：结算道果、在轮回殿换永久加成，选出身、命格与天道试炼，开始新的一世。也可以留在此世，之后在【人物】里再入轮回。</div>`,
+      <div class="quote">${stay ? '你留在了人间。日子照旧过；哪天想走了，在【人物】里再入轮回。' : '恭喜通关！再入轮回：结算道果、在轮回殿换永久加成，选出身、命格与天道试炼，开始新的一世。也可以留在此世，之后在【人物】里再入轮回。'}</div>`,
     foot: [{ t: '留在此世', alt: true, fn: closeModal }, { t: '再入轮回', gold: true, fn: () => rebirthFlow('ascend') }] });
 }
 function showDeath() {

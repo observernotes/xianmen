@@ -76,5 +76,6 @@ function setupForm() {
     banner('废柴仙途', '三年之约 · 倒计时');
     st.guide = { step: 0, done: false }; st.hintSeen = {};
     saveLocal();
+    if (typeof storyStart === 'function') storyStart();   // 第一章开章“破庙第一夜”（talk.js）：建档后当场播，播完才开始引导
   };
 }

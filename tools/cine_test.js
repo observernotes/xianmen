@@ -165,7 +165,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#kCine'); await page.waitForTimeout(400);
   await page.screenshot({ path: `${out}/${tag}-recall.png` });
   const rc = await ev(() => ({ n: document.querySelectorAll('[data-cn]').length, on: document.querySelectorAll('[data-cn]:not([disabled])').length, over: [...document.querySelectorAll('#modal *')].some(x => { const b = x.getBoundingClientRect(); return b.width && (b.right > window.innerWidth + 1 || b.left < -1); }), small: [...document.querySelectorAll('#modal .cn-tile, #modal .cn-tile *')].filter(x => x.childNodes.length && [...x.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(x).fontSize) < 13.9).length, minH: Math.min(...[...document.querySelectorAll('[data-cn]')].map(x => x.getBoundingClientRect().height)) }));
-  check(rc.n === 11 && rc.on >= 5 && !rc.over && !rc.small && rc.minH >= 44, `回忆：${rc.n} 格、看过的 ${rc.on} 格可点、溢出 ${rc.over}、小字 ${rc.small}、最矮 ${Math.round(rc.minH)}px`);
+  check(rc.n >= 11 && /* 十段老的 + 剧情线的数据式分镜（talk.js 的 CINE_DATA） */ rc.on >= 5 && !rc.over && !rc.small && rc.minH >= 44, `回忆：${rc.n} 格、看过的 ${rc.on} 格可点、溢出 ${rc.over}、小字 ${rc.small}、最矮 ${Math.round(rc.minH)}px`);
   await page.click('[data-cn="pojing"]'); await page.waitForTimeout(400);
   const rp = await on(); check(rp && rp.id === 'pojing', '回忆里点了重看');
   await page.click('.cn-skip'); await page.waitForTimeout(300);

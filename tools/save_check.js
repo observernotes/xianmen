@@ -118,7 +118,7 @@ const sizes = {};
     const ev = (fn, a) => page.evaluate(fn, a);
     // 旧档：升级前那一份（只有 xiantu_save_v2、没有索引）
     await page.goto(url); await page.waitForTimeout(300);
-    const oldJson = JSON.stringify(Object.assign(JSON.parse(JSON.stringify(st0)), { guide: { step: 99, done: true }, hintSeen: {} }));
+    const oldJson = JSON.stringify(Object.assign(JSON.parse(JSON.stringify(st0)), { guide: { step: 99, done: true }, hintSeen: {}, evDone: { s1_night: 1 } }));
     await ev(j => { localStorage.clear(); localStorage.setItem('xiantu_save_v2', j); }, oldJson);
     await page.reload(); await page.waitForTimeout(700);
     check(await ev(() => document.getElementById('intro').hidden && window.__xm.st && window.__xm.st.p.name === '甲'), '旧档：开游戏直接读进来');
@@ -140,7 +140,8 @@ const sizes = {};
     let sh = await shape();
     check(!sh.small.length && !sh.over, `存档页：可点的都 ≥ 44px${sh.small.length ? '（小：' + sh.small.join(',') + '）' : ''} · ${sh.over ? '横向溢出' : '不溢出'}`);
     await page.screenshot({ path: `${out}/${tag}-saves.png` });
-    // 手动 1：存到这里
+    // 手动 1：存到这里（这份档里不留排着的剧情：读回来不该冒出弹窗；开章那场戏算看过了）
+    await ev(() => { const s = window.__xm.st; s.storyQ.length = 0; s.evDone.s1_night = 1; });
     await page.click('#modal [data-sv="m0"]'); await page.waitForTimeout(250);
     await page.screenshot({ path: `${out}/${tag}-slot-new.png` });
     const t0 = await ev(() => window.__xm.st.tick);

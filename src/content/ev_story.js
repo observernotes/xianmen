@@ -76,6 +76,7 @@ const PATCH = {
       ['me', '所以你从背后给了他一剑。'], ['tianheng', '所以我给了他一剑。'],
       { if: 'vow_blood', echo: '你说过，一剑了断', say: [['tianheng', '你的眼神，和他年轻时一样。动手吧。']] },
       { if: 'vow_letgo', echo: '你叫过他一声师父', say: [['tianheng:shock', '……你看我的眼神，没有恨。为什么？']] },
+      { if: 'vow_justice', echo: '你说过，先让天下人知道', say: [['tianheng', '你抄了九份旧案，送去九宗。我都看过了。'], ['tianheng', '字不错。比我当年强。']] },
       ['tianheng:sad', '我不后悔。我只想问一句。'], ['tianheng:sad+tear', '他后悔收我吗？'],
       ['nar', '戒指很久没有动静。'],
     ],
@@ -114,7 +115,7 @@ const PATCH = {
 // ---------- 二、新场景 ----------
 const LIST = [
 // 第一章开章（样稿 1）
-{ id: 's1_night', origin: 'qitu', where: 'story', trigger: 'sb:c1_open', speaker: 'elder', title: '破庙第一夜', scene: 'temple', bgm: 'home', cine: 'ring', gist: '戒指里的老头给你立了三条规矩。',
+{ id: 's1_night', origin: 'qitu', where: 'story', trigger: 'sb:c1_open', speaker: 'elder', title: '破庙第一夜', scene: 'temple', bgm: 'home', gist: '戒指里的老头给你立了三条规矩。',
   text: '雨从塌了一半的屋顶漏下来。戒指里的老头验完你的灵根，立了三条规矩，然后问：今天被人踩成这样，就没什么想说的？',
   talk: [
     ['nar', '雨从塌了一半的屋顶漏下来。火快灭了。'], ['nar', '戒指烫得握不住。'],

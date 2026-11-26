@@ -12,6 +12,7 @@
  *   C 主线剧情（story_r1～r8，挂在第 N+1 章的开章节拍上）各出一次、按 N 的顺序出，出的时候“当前章 ≥ N”；不看境界。
  *   D 老祖身世线（STORY.md §3 的“确定”几件）按揭示顺序：r1 < r2 < r3 < r4 < r5 < r6 < 隔空传音 < r7 < r8；万剑低眉在 r3 之后。
  *   E 不卡死：照引导玩的每一章主线都在合理月数内完成（单章 ≤ 420 月），每个出身都走到飞升或至少第六章。
+ *   G 串联层：八个抉择场景齐全、节拍都挂得上、预设路线各落在预期的结局、有条件的选项、每个故事标志位至少两处回声（第 9 节）。
  *   F 解锁卡跟着章走：第一世按表解锁（非“已经发生”的强制解锁）的那一刻，当前章 ≥ 这一项的 ch。 */
 'use strict';
 const path = require('path');
@@ -187,6 +188,73 @@ for (let s = 1; s <= N; s++) {
   w.st = rec.st || s2;
   if (!mainDone(w.st, 1)) fail(w.who, '迁移后一直没补上第二章');
   sum.runs++;
+}
+
+// 9. 串联层（storyline.js，docs/STORY_PLAN.md §2、§3、§10）：抉择场景齐全、节拍挂得上、十二条预设路线各落在预期的结局
+{
+  const who = '串联';
+  const evs = L.events(), byId = id => evs.find(e => e.id === id);
+  // 八个抉择点的场景都在，关键选项置的标志位对得上
+  const PICKS = { s1_pact_after: ['mu_shame', 'mu_spare'], s2_invite: ['path_san'], su_5: [], ye_5: [], tiankuo_3: ['tiankuo_ally', 'tiankuo_sect'], story_r6: L.STORY_VOW, s7_war: L.STORY_WAR, tianheng_2: L.STORY_LU, story_r8: ['elder_kept', 'st_farewell'], s9_gate: L.STORY_ASC };
+  for (const id in PICKS) {
+    const ev = byId(id); if (!ev) { fail(who, `抉择场景 ${id} 不在`); continue; }
+    if (!ev.choices.some(c => c.key)) fail(who, `${id} 没有关键抉择（key）`);
+    const set = [].concat(...ev.choices.map(c => [].concat((c.ok.fx && c.ok.fx.flag) || [])));
+    for (const f of PICKS[id]) if (!set.includes(f)) fail(who, `${id} 没有选项置 ${f}`);
+  }
+  // 节拍：sb: 触发键都对得上节拍表；每章的开章与高潮（带主线的章）都挂了场景
+  const beats = new Set(L.STORY_BEATS.map(b => b.id)), used = new Set();
+  for (const e of evs) if (e.where === 'story' && /^sb:/.test(e.trigger || '')) { const k = e.trigger.slice(3); used.add(k); if (k !== 'mid' && !beats.has(k)) fail(who, `${e.id} 挂在不存在的节拍 ${k} 上`); }
+  for (const k of ['c1_open', 'c1_climax', 'c2_open', 'c2_mid1', 'c3_open', 'c3_climax', 'c4_open', 'c5_open', 'c5_mid3', 'c6_open', 'c7_open', 'c7_mid2', 'c7_climax', 'c8_open', 'c8_mid2', 'c8_climax', 'c9_open', 'c9_climax']) if (!used.has(k)) fail(who, `节拍 ${k} 上没有场景`);
+  // 主线目标不写境界：第七、八、九章只看故事标志位
+  { const st = L.newState({ name: '测试' }); st.p.r = 9; for (let i = 0; i < 9; i++) st.quest.done['c' + i + '_m'] = i < 6 ? 1 : 0;
+    if (L.CHAPTERS[6].main.c(st) || L.CHAPTERS[7].main.c(st) || L.CHAPTERS[8].main.c(st)) fail(who, '境界到了、故事没走，第七～九章的主线却算完成了');
+    Object.assign(st.eflags, { st_truth: 1, war_stop: 1, tianheng_spared: 1, asc_go: 1 }); st.p.r = 3;
+    if (!(L.CHAPTERS[6].main.c(st) && L.CHAPTERS[7].main.c(st) && L.CHAPTERS[8].main.c(st))) fail(who, '故事走完了，第七～九章的主线没算完成'); }
+  // 预设路线 → 结局（STORY_PLAN §10 的表）
+  const lord = st => { st.sect = { id: 'jian', rank: 6, best: 1, total: 0, pts: 0, joined: 0, veins: 0, order: L.NINE.map(x => x.id), meets: 0, tasks: [], build: { ward: 0, lib: 0, vein: 0 } }; };
+  const sect = id => st => { st.sect = { id, rank: 3, best: 4, total: 0, pts: 0, joined: 0, veins: 0, order: L.NINE.map(x => x.id), meets: 0, tasks: [], build: { ward: 0, lib: 0, vein: 0 } }; };
+  const ROUTES = [
+    ['R1 正统', ['mu_spare', 'vow_justice', 'war_zheng', 'tianheng_crippled', 'asc_go'], sect('jian'), 'ascend'],
+    ['R2 药香', ['mu_spare', 'mu_asked', 'tiankuo_ally', 'vow_letgo', 'war_stop', 'tianheng_spared', 'asc_go'], st => { sect('dan')(st); st.daolv = 'su'; }, 'daolv'],
+    ['R3 红月', ['mu_spare', 'tiankuo_sect', 'vow_justice', 'war_stop', 'tianheng_exposed', 'asc_go'], st => { sect('dao')(st); st.daolv = 'ye'; }, 'daolv'],
+    ['R4 掌宗', ['mu_spare', 'tiankuo_ally', 'vow_justice', 'war_zheng', 'tianheng_exposed', 'asc_go'], lord, 'summit'],
+    ['R5 师徒', ['mu_spare', 'tiankuo_ally', 'vow_letgo', 'war_stop', 'tianheng_spared', 'sword_6', 'elder_kept', 'asc_go'], st => { sect('dao')(st); st.daolv = 'su'; }, 'shitu'],
+    ['R6 地仙', ['mu_spare', 'path_san', 'tiankuo_sect', 'vow_letgo', 'war_stop', 'tianheng_spared', 'sword_6', 'elder_kept', 'asc_stay'], st => { st.daolv = 'su'; }, 'hermit'],
+    ['R7 问天', ['mu_spare', 'tiankuo_ally', 'vow_justice', 'war_stop', 'tianheng_exposed', 'sword_6', 'elder_kept', 'yun_codex', 'tea_5', 'star_4', 'asc_break'], sect('jian'), 'wentian'],
+    ['R8 魔尊', ['mu_shame', 'vow_blood', 'war_mo', 'tianheng_dead', 'asc_go'], st => { sect('xuesha')(st); st.daolv = 'ye'; st.bestRank = 1; }, 'mozun'],
+    ['R9 孤峰', ['mu_shame', 'vow_blood', 'war_zheng', 'war_blood', 'tianheng_dead', 'asc_go'], sect('jian'), 'gufeng'],
+    ['R10 倒戈', ['mu_shame', 'tiankuo_sect', 'vow_blood', 'war_mo', 'tianheng_crippled', 'asc_go'], st => { st.daolv = 'ye'; }, 'daolv'],
+    ['R11 约输', ['path_san', 'vow_justice', 'war_zheng', 'tianheng_crippled', 'asc_go'], null, 'ascend'],
+  ];
+  const seenEnd = new Set(), seenFlag = new Set();
+  for (const [n, flags, mk, want] of ROUTES) {
+    const st = L.newState({ name: '测试' }); st.p.r = 9; st.bestRank = 5; if (mk) mk(st); for (const f of flags) { st.eflags[f] = 1; seenFlag.add(f); }
+    const E = L.endingOf(st); seenEnd.add(E.id);
+    if (E.id !== want) fail(who, `${n} 落在结局 ${E.id}（要 ${want}）`);
+    if (L.endingsOf(st)[0] !== E.id) fail(who, `${n} L.endingsOf 的第一项不是主结局`);
+    if (!L.epilogue(st).length) fail(who, `${n} 没有后日谈`);
+    if (!L.ENDING[E.id]) fail(who, `结局 ${E.id} 不在图鉴的结局表里`);
+  }
+  { const st = L.newState({ name: '测试' }); if (L.endingOf(st).id !== 'rest') fail(who, 'R12 没飞升不是坐化'); seenEnd.add('rest'); }
+  for (const id of Object.keys(L.STORY_END)) if (!seenEnd.has(id)) fail(who, `结局 ${id} 没有一条预设路线走得到`);
+  for (const f of L.STORY_FLAGS) if (!seenFlag.has(f) && !['daolv_su', 'daolv_ye'].includes(f)) fail(who, `故事标志位 ${f} 没有一条预设路线用到`);
+  // 有条件的选项：条件不满足时不显示（界面画成灰的），满足了才显示
+  { const st = L.newState({ name: '测试' }), ev = byId('s9_gate'), shown = () => ev.choices.map(c => L.choiceShown(st, c) ? 1 : 0).join('');
+    if (shown() !== '100') fail(who, `天门：什么都没有时该只有“踏进去”（${shown()}）`);
+    st.daolv = 'su'; st.eflags.sword_6 = 1; st.eflags.yun_codex = 1; st.eflags.tea_5 = 1;
+    if (shown() !== '111') fail(who, `天门：有牵挂、有玄霄、两处线索时三项都该能选（${shown()}）`); }
+  // 回声：每个故事标志位至少被两处读到（对话里的 if、事件 / 选项的 need / not / cond、后日谈、结局判定）
+  { const read = {}; const hit = f => { if (typeof f === 'string') { f = f.replace(/^!/, ''); read[f] = (read[f] || 0) + 1; } };
+    const walk = t => { for (const it of t || []) { if (Array.isArray(it)) continue; [].concat(it.if === undefined ? [] : it.if).forEach(hit); if (it.say) walk(it.say); if (it.pick) walk(it.pick); } };
+    for (const e of evs) { [].concat(e.need || [], e.not || [], e.cond === undefined ? [] : e.cond).forEach(hit); walk(e.talk); for (const c of e.choices) { [].concat(c.need || [], c.not || []).forEach(hit); for (const b of ['ok', 'fail']) if (c[b]) walk(c[b].talk); } }
+    for (const [, list] of L.EPILOGUE) for (const [c] of list) hit(c);
+    const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'logic', 'storyline.js'), 'utf8');
+    for (const f of ['mu_shame', 'mu_spare', 'vow_blood', 'vow_justice', 'vow_letgo', 'war_zheng', 'war_mo', 'war_stop', 'tianheng_dead', 'tianheng_spared', 'elder_kept', 'tiankuo_ally', 'tiankuo_sect']) {
+      const n = (read[f] || 0) + (src.split(f).length - 1 > 2 ? 1 : 0);
+      if (n < 2) fail(who, `故事标志位 ${f} 只有 ${n} 处读它（回声不够）`);
+    } }
+  sum.runs += ROUTES.length + 1;
 }
 
 const sec = Math.round((Date.now() - t0) / 1000);

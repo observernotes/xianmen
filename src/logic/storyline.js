@@ -133,7 +133,7 @@ L.STORY_BEATS = [];
 for (let ch = 0; ch < 9; ch++) for (const slot of ORDER[ch] || ['open', 'mid1', 'mid2', 'mid3', 'pre', 'climax', 'end']) {
   const id = 'c' + (ch + 1) + '_' + slot;
   L.STORY_BEATS.push({ id, ch, slot, must: slot === 'open' || !!MUST[id], when: (st, x) =>
-    slot === 'open' ? true
+    slot === 'open' ? (ch > 0 || x.inCh >= 24)   // 第一章的开章：新开一局时界面在建档后当场播（talk.js 的 storyStart）；没播过的（转世、快放的自动化）等上手那两年过去再放
       : slot === 'climax' ? CLIMAX[ch](st)
         : slot === 'end' ? mainDone(st, ch)
           : slot === 'pre' ? (x.pr >= 0.85 || x.inCh >= 72 || CLIMAX[ch](st))
@@ -164,6 +164,7 @@ L.storyTick = function (st) {
   const s = S(st), now = L.chapterNow(st);
   for (let c = 0; c <= now; c++) if (s.chAt[c] === undefined) s.chAt[c] = st.tick;
   if (L.busy(st)) return 0;
+  if (st.guide && !st.guide.done && st.tick < 36) return 0;   // 开头的上手引导没走完：先不放戏（KAIRO §3：引导期间不叠阻塞弹窗）
   let n = repush(st);
   if (st.storyQ.length) return n;
   for (const b of L.STORY_BEATS) {
@@ -248,6 +249,7 @@ const EPI = [
   ['天下', [['war_stop', '那一年的仗没有打起来。两面旗在谷地里插了很多年，旗杆上后来缠了牵牛花。'], ['war_zheng', '正道独大。三十年后，又有一个杂灵根的少年被人踢下了山门。'], ['war_mo', '魔道当兴。血池边新立了一条规矩：不许门人碰别家的孩子。']]],
   ['老祖', [['elder_kept', '玄霄的剑鞘里偶尔传出鼾声。换过三回鞘，他都嫌硬。'], ['st_farewell', '那枚玉戒留在了庙里。有人年年来擦，从不擦掉剩下的那一点锈。']]],
   ['陆天衡', [['tianheng_dead', '天剑阁第九层空了。铁匣里那卷剑典的末页，“弟子知罪”四个字被人用袖子擦过。'], ['tianheng_crippled', '山下多了个卖剑的老人。他的剑都没开刃，也从不讲价。'], ['tianheng_exposed', '他守着墨离的衣冠冢，每天扫一遍雪，扫完对着碑坐到天黑。'], ['tianheng_spared', '没有人再见过他。只是每年那一天，碑前会多一坛没开封的酒。']]],
+  ['墨离', [['vow_justice', '史书上“弑师”那一页，有人添了两个字的批注：护师。'], ['st_justice', '天剑宗的祖师堂里，多了一块小小的牌位。香是楚天阔上的。']]],
   ['墨无痕', [['mo_brother', '墨无痕成了你的师弟。他学会的第一个字是“霄”，这一回没有人教错。'], ['mo_guard', '墨无痕留下来看门。面巾他再没戴过。'], ['mo_grave', '墨无痕每年去扫一次墓。墨家改过姓的那四十一支，陆续有人把姓改了回来。'], ['st_mo_seen', '墨无痕回了乡。墨家祠堂里，“弑师”那块匾被他亲手摘了。']]],
   ['苏', [['daolv_su', '药庐搬到了洞府旁边。方子越来越不苦，她嘴上说是药材好。'], ['su_tang', '济世堂搬下了山。堂前那块匾，是她自己写的，字还是那么丑。'], ['su_stay', '她留在了山下。药箱上多了一个名字。'], ['su_qianyuan', '她回了丹霞谷，再没下山。她说：下辈子，换你来找我。'], ['su_met', '济世堂的药箱每年都来，从不署名。']]],
   ['夜', [['daolv_ye', '屋顶上常年放着两坛酒。一坛开了，一坛留着。'], ['ye_life', '东海的蛟珠给她续了命。她说这笔账记你头上，慢慢还。'], ['ye_ten', '十年。她一天没多，一天没少。灯是你点的，也是你吹的。'], ['ye_defect', '她自立了门户，不叫魔，也不叫正。'], ['ye_met', '圣宗换了主人。头一道令：不许门人再碰正道的孩子。']]],

@@ -40,6 +40,12 @@ function showChoice(ev, back) {
     SFX.tap();
     const res = L.resolveChoice(st, ev, +b.dataset.c);
     if (!res) return;
+    choiceResult(ev, res, done);
+  });
+}
+// 选完之后的结算：对决演出或结果卡（对话场景播放器 talk.js 选完也走这里）
+function choiceResult(ev, res, done) {
+  {
     // 得到的功法、法宝单列一行（功法更强时带【换上】；法宝走对比卡）
     const items = res.fx.items || (res.fx.item ? [res.fx.item] : []);
     const arts = items.filter(it => it && it.kind === 'a'), gears = items.filter(it => it && it.gear);
@@ -57,7 +63,7 @@ function showChoice(ev, back) {
     sheet({ title: esc(L.fill(st, ev.title)), center: true, noClose: true,
       body: `<div class="speaker">${speakerImg(ev, 48, res.hasRisk ? (res.ok ? 'joy' : 'sad') : 'n')}<p class="grow" style="margin:0">${esc(res.text)}</p></div>${chips}`,
       foot: [{ t: '继续', gold: true, fn: done }] });
-  });
+  }
 }
 
 // ---------- 随机事件 ----------

@@ -54,19 +54,21 @@
 | 章 | 名 | 主线目标 `main.c` | 无宗时 | 高潮场景 |
 |---|---|---|---|---|
 | 一 | 废柴 | 赢下三年之约（输了：论道击败约战对手） | 同 | 约战 → 抉择一 |
-| 二 | 入世 | 晋升内门，并进天骄榜前 60 | 天骄榜前 50 | 抉择二（入哪条路）、入宗第一天 |
-| 三 | 旧怨 | 晋升真传，并击败赵乾 | 击败赵乾，并进榜前 45 | 赵乾落败 |
-| 四 | 立名 | 成为圣子 / 圣女 | 天骄榜前 30，并在落霞城立擂连胜三场 | 圣子之战；抉择三（苏与夜）在本章开放 |
-| 五 | 问剑 | 击败楚天阔，并在九宗会武压过天剑宗 | 击败楚天阔，并斩剑冢守墓人 | 楚天阔落败 → 抉择四（他的去路） |
+| 二 | 入世 | 晋升内门，并进天骄榜前 60 | 天骄榜前 60，并击败 2 个首领 | 抉择二（入哪条路）、入宗第一天 |
+| 三 | 旧怨 | 晋升真传，并击败赵乾 | 击败赵乾，并击败 3 个首领 | 赵乾落败 |
+| 四 | 立名 | 成为圣子 / 圣女 | 天骄榜前 20，并击败 4 个首领 | 圣子之战；抉择三（苏与夜）在本章开放 |
+| 五 | 问剑 | 击败楚天阔，并在九宗会武压过天剑宗 | 击败楚天阔，并击败 5 个首领 | 楚天阔落败 → 抉择四（他的去路） |
 | 六 | 守山 | 击退来犯的天剑宗 | 同（来犯的是你的洞府与落霞城） | 守山 |
 | 七 | 真相 | 得知三千年前的真相（`st_truth`），并了结正魔大战（`war_done`） | 同 | 抉择五（怎么恨）、抉择六（站哪边） |
-| 八 | 了断 | 问剑天剑宗，了断陆天衡（任一 `tianheng_*`） | 同 | 抉择七（面对陆天衡） |
+| 八 | 了断 | 登上天骄榜前二，问剑天剑宗，了断陆天衡（任一 `tianheng_*`） | 同 | 抉择七（面对陆天衡） |
 | 九 | 飞升 | 渡过九九天劫，并在天门前作出选择（任一 `asc_*`） | 同 | 抉择八（天门） |
 
 改动说明：
 
-- 第七章原目标“击败血无涯”并进正魔大战：站正道时阵前一战的对手就是血无涯；站魔道时对手换成正道盟军的先锋（太虚剑宗剑十三）；止战要连接双方各一招。
-- 第八章原目标“成为宗主并带宗门登顶”降为本章札记任务（奖励照旧），同时是结局“掌宗飞升”的条件。原因：了断陆天衡才是全剧的高潮，不该被“攒贡献”挡住。
+- 第七章原目标“击败血无涯”并进正魔大战：先在论道上击败血无涯（这是本章的战力门槛，打过他，两军才都拿你当回事），阵前那场戏才开；站正道时阵前的对手还是他，站魔道时换成正道盟军的先锋（太虚剑宗剑十三），止战要连接双方各一招。阵前的对决输了：养伤，六个月后两军再对阵一次。“击败血无涯”另留一条札记。
+- 第八章原目标“成为宗主并带宗门登顶”降为本章札记任务（奖励照旧），同时是结局“掌宗飞升”的条件。原因：了断陆天衡才是全剧的高潮，不该被“攒贡献”挡住。本章的战力门槛换成“天骄榜前二”——问一宗之主的剑，头上只能剩云无极一个人。
+- 第九章的主线是“渡过九九天劫，并在天门前作出选择”；“击败云无极”是本章札记（称号「天下第一」），也是“问天”的线索之一。
+- 无宗一栏沿用章节进度那条线定的“散修之路”（`L.loneRoute` / `L.LONE`：天道试炼“无宗”、散修丹师不入宗）；抉择二选了“哪家也不去”（`path_san`）且之后一直没入宗的，也走这一栏。
 - 第二～四章仍挂着宗门身份（内门 / 真传 / 圣子）。身份晋升自己有境界门槛，那是宗门系统的规则，不是主线写的条件；无宗一栏完全不看身份。
 
 ### 1.2 节拍：一章怎么排戏
@@ -85,7 +87,9 @@
 
 - **只在洞府播**，在外（历练 / 闭关 / 秘境）触发的进队列，回来第一次空下来时播（沿用 `st.storyQ` 与 KAIRO §3.3 的排队）。
 - 同一季（3 个月）最多一场；高潮与章末两场可以连播（中间隔着战斗或结算卡）。
-- 节拍只在**当前章**推进；玩家越过了某个节拍的条件（比如一口气把主线打完），没放的中段戏在下一章开章前补播最多一场，其余记为“错过”，在【仙途 → 记录 → 回忆】里可以补看（不给选项，按默认分支）。**带抉择的场景永远补播，不会错过。**
+- 节拍按表里的顺序一个一个放；玩家越过了某个节拍的条件（比如一口气把两章主线打完），没放的中段戏记为“错过”（以后在【仙途 → 记录 → 回忆】里补看，不给选项、按默认分支——这一项留给 D 线）。**每章的开章（主线剧情）和带抉择的场景永远补播，不会错过**（一个月补一场）。
+- 开头的上手引导没走完时不放戏；有解锁卡等着时，解锁卡先出。
+- 放过的节拍、场景却没结算（队列被清、对决输了要重来），每月补进队列一次。
 - 系统剧情不占节拍：`story_sect`（入宗）、`story_pet`、`story_trib1`、三段心魔劫 `story_demon1～3`、`story_boss5`（首杀剑冢）、`story_daolv`、`story_rank12` 仍按各自的系统触发键（`sect`、`trib:1`、`demon:N`、`boss:5`……）。心魔劫跟着突破走，这是突破系统的戏，不是主线进度。
 
 ### 1.3 九章
@@ -129,7 +133,7 @@
 - 冲突：楚天阔骄傲，但不脏；他越正直，越衬出他师门的事不对。
 - 转折：半块玉简——“问师祖，可曾信过墨离？”老祖暴怒。
 - 高潮：楚天阔落败，回去查碑，被逐出门墙——**抉择四**：留他、给他指条路、劝他回去认错。
-- 节拍：`open` story_r4 半块玉简 → `mid1` s5_mo_ask 一人一魂 → `mid2` s5_meet 会武前夜 → `climax` s5_tiankuo_fall 你的剑是谁教的 → `mid3` s5_tiankuo_exile 逐出门墙（抉择四，击败后 ≥ 6 个月）→ `end` s5_end 剑压天剑。
+- 节拍：`open` story_r4 半块玉简 → `mid1` s5_mo_ask 一人一魂 → `mid2` s5_meet 会武前夜 → `climax` s5_tiankuo_fall 你的剑是谁教的 → `mid3` 逐出门墙（抉择四，击败后 ≥ 6 个月；就是现有的 `tiankuo_3`，改成主线、不再要求旧案链走到第 4 步）→ `end` s5_end 剑压天剑。
 - 过渡：会武上丢了脸的天剑宗放出话来——那枚戒指是“邪物”。
 
 **第六章 守山** —— 别人打上门来，你才发现自己有了要守的东西。
@@ -174,7 +178,7 @@
 | 一 | 一 | s1_pact_after | 当众念休书 → `mu_shame`；收回袖中 → `mu_spare`；问一句“是你的意思吗”（需读过那封信）→ `mu_spare` + `mu_asked` | 赢了以后你是什么样的人 |
 | 二 | 二 | s2_invite | 三正宗之一 / 血帖（有条件）/ 都不接 → 由 `st.sect` 推出 `正 / 魔 / 散` | 你站在哪儿看这个天下 |
 | 三 | 四起 | su_5 / ye_5 | 苏 → `daolv_su`；夜 → `daolv_ye`；都没有 | 谁在等你回家 |
-| 四 | 五 | s5_tiankuo_exile | 留下他 → `tiankuo_ally`；指条路 → `tiankuo_sect`；劝他认错 → 无 | 对手的徒弟，算不算对手 |
+| 四 | 五 | tiankuo_3 | 留下他 → `tiankuo_ally`；指条路 → `tiankuo_sect`；劝他认错 → 无 | 对手的徒弟，算不算对手 |
 | 五 | 七 | story_r6 | 一剑了断 → `vow_blood`；让天下人知道 → `vow_justice`；师父，放下吧 → `vow_letgo` | 怎么恨 |
 | 六 | 七 | s7_war | 站正道 → `war_zheng`；站魔道 → `war_mo`；止战（有条件）→ `war_stop` | 别人的仗，你怎么打 |
 | 七 | 八 | tianheng_2 | 杀 → `tianheng_dead`；废 → `tianheng_crippled`；昭告天下（有条件）→ `tianheng_exposed`；放 → `tianheng_spared` | 你成了谁 |
@@ -384,7 +388,7 @@
 | s5_meet | mid2 | 九宗代表群像 | hall | 会武前夜的宴：云无极不喝酒，血无涯只喝酒，金刚寺来的是慧明（“师叔闭口三千年了，贫僧替他念一声佛”，P10） | 读路线（你坐哪一桌） | M |
 | story_boss5（保留） | 系统 | 老祖 | — | 万剑低眉 | — | S |
 | s5_tiankuo_fall | climax | 楚天阔 | dusk | “你的剑，是谁教的？”你答不答，他都要回去查那块碑 | 说 / 不说（置 `tk_told`，现有） | M |
-| s5_tiankuo_exile（改 tiankuo_3） | mid3 | 楚天阔 | gate | **抉择四**。“天剑宗，已经没有楚天阔了。” | 置 `tiankuo_ally` / `tiankuo_sect` / 无 | M |
+| tiankuo_3（改，挂主线） | mid3 | 楚天阔 | gate | **抉择四**。“天剑宗，已经没有楚天阔了。” | 置 `tiankuo_ally` / `tiankuo_sect` / 无 | M |
 | s5_end | end | 老祖 | cave | 称号“剑压天剑”送到，老祖让你把匾翻过来挂——“字太丑” | 无 | S |
 
 **第六章**
@@ -525,8 +529,8 @@
 - 旁白用短句，现在时，不写心理活动的结论（写“你的手在抖”，不写“你很愤怒”）。
 - 称呼按上表，不混用。老祖一律“本座”。
 - 时间一律写“当年”“那年”，不写“三年前”（约战那一章除外，P11）。
-- 出身相关的词用占位符：`{home}`（被赶出来的地方）、`{ringAt}`（捡到戒指的地方）、`{ex}`（约战对手）、`{exHouse}`（对手家），不要写死“天剑宗 / 破庙 / 慕容家”（P06）。弃徒专属的戏加 `origin: 'qitu'`。
-- 选项文案 ≤ 12 个字，写动作不写态度（“把休书收回袖中”，不写“大度地原谅她”）。关键抉择的每个选项下面有一行小字，说这个选择**是什么**，不剧透后果（“这一句，全城都听得见”）。
+- 出身相关的词用占位符（`src/logic/story.js` 已经有）：`{cradle}`（捡到戒指的地方：破庙 / 炉房 / 小铺……）、`{town}`（家门口的城）、`{ex}`（约战对手）、`{exHouse}`（对手一家）、`{shamed}`（当年被人看扁的说法）、`{lowly}`（对头骂你的那个词）；`{su}` `{ye}` `{name}` `{sect}` 照旧。不要写死“破庙 / 落霞城 / 慕容家”（P06）。弃徒专属的戏加 `origin: 'qitu'`。涉及 `{su}` / `{ye}` / `{ex}` 的句子不用“他 / 她”（主角与这三位的性别会变）。
+- 选项文案 ≤ 10 个字，写动作不写态度（“把休书收回袖中”，不写“大度地原谅她”）。关键抉择的每个选项下面有一行小字（`hint`，≤ 16 字），说这个选择**是什么**，不剧透后果（“这一句，全城都听得见”）。回响小标的说明（`echo`）≤ 16 字。
 
 ---
 
@@ -595,9 +599,9 @@
   choices: [
     { t: '当众念休书', key: 1, hint: '这一句，全城都听得见', dao: 'k',
       ok: { talk: [['me:ang', '“慕容雪，性骄，无德——今日休之。”'], ['mu:sad+tear', '……好。念得好。']],
-            cine: 'xiushu:shame', text: '休书传遍了落霞城。', fx: { flag: 'mu_shame', xp: 4 } } },
+            cine: 'xiushu_shame', text: '休书传遍了落霞城。', fx: { flag: 'mu_shame', xp: 4 } } },
     { t: '把休书收回袖中', key: 1, hint: '不说话，也是一种话', dao: 'w',
-      ok: { talk: [['me', '两清了。'], ['mu:shock', '……你——']], cine: 'xiushu:spare', text: '你转身下了擂台。', fx: { flag: 'mu_spare', xp: 4 } } },
+      ok: { talk: [['me', '两清了。'], ['mu:shock', '……你——']], cine: 'xiushu_spare', text: '你转身下了擂台。', fx: { flag: 'mu_spare', xp: 4 } } },
     { t: '问她一句', key: 1, hint: '“当年，是你的意思吗？”', dao: 'r', need: ['mu_letter'],
       ok: { talk: [/* … */], text: '她没有回答。但她没有走。', fx: { flag: ['mu_spare', 'mu_asked'], xp: 4 } } },
   ],
@@ -613,7 +617,7 @@
 | `['me', '……']` / `['me:ang', '……']` | 主角 |
 | `['nar', '……']` | 旁白 |
 | `['?:黑衣人', '……']` / `['mo:n:黑衣人', '……']` | 第三段是显示的名字（没露身份时用）；`?` 开头 = 没有半身像，只有剪影 |
-| `{ if: 'flag', say: [...] }` | 有这个标志位才说。`if` 可以是数组（全满足），`'!flag'` 表示没有；也可以是 `'path:mo'`、`'daolv:su'`、`'origin:qitu'`、`'aff:su>=60'` 这几种固定写法 |
+| `{ if: 'flag', say: [...] }` | 有这个标志位才说。`if` 可以是数组（全满足），`'!flag'` 表示没有；也可以是这几种固定写法（`L.storyCond`）：`'path:zheng|mo|san'`、`'daolv:su|ye|none|any'`、`'origin:qitu'`、`'aff:su>=60'`、`'aff:su>=aff:ye'`、`'met:mo'`、`'grudge:xue<=-40'`、`'ch>=3'`、`'pact:win|lost'`、`'trial:wuzong'`、`'gate:stop'`（某个有条件的选项此刻满足）、`'rebirth'`、`'sky'`（上一世问过天）、`'awakens'` |
 | `{ if: …, echo: '一句说明', say: [...] }` | 同上，并亮回响小标 |
 | `{ pick: [ { if: 'a', say: [...] }, { if: 'b', say: [...] }, { say: [...] } ] }` | 从上往下取第一条满足的（最后一条不写 `if` = 缺省） |
 | `{ cg: 'stab', f: 1 }` / `{ scene: 'grave' }` | 换底图（关键画面 / 场景），不占一句 |
@@ -621,7 +625,9 @@
 
 人物 id 用半身像的 id（`elder mu zhao tian xue yun su ye chu ge bai mo tianheng teaman`、长老与圣子的 id 见 ART_API 阶段三·批次八）；没有半身像的小角色用 `'?:名字'`。
 
-规格限制（`tools/story_check.js` 会查）：一句 ≤ 36 字；一场 `talk` + 最长分支 ≤ 40 句；`key: 1` 的选项必须有 `hint`；每场必须有 `gist`；`if` 里出现的标志位必须在 §2.3 的表里或被某个事件置过；一场戏读的故事标志位 ≤ 2 个（`s8_steps`、`s9_farewells` 豁免）。
+选项上另有：`key: 1` 关键抉择、`hint` 小字、`gate: 'stop' | 'expose' | 'stay' | 'break' | 'kept' | 'xuesha' | 'letter'`（有条件的选项：不满足时灰着，写明缺什么，见 `L.STORY_GATES`）、`cond`（同 `if` 的写法，不满足就不显示）。事件上另有 `chMin` / `chMax`（当前章的上下限，0 起）、`cond`。结果的 `fx` 新增：`join: 'jian'`（拜入宗门）、`retry: 6`（这场戏 6 个月后重来，对决输了用）、`unsect: 1`（被正宗除名）。
+
+规格限制（`tools/check_events.js` 会查）：一句 ≤ 36 字；一场 `talk` + 最长分支 ≤ 40 句；`key: 1` 的选项必须有 `hint`；每场必须有 `gist`（≤ 30 字）；表情与叠加的名字必须认识；老祖的台词里不出现“老夫”。`tools/story_check.js` 查：每个故事标志位至少两处回声、抉择场景齐全、节拍都挂得上、预设路线落在预期的结局。
 
 ---
 
@@ -1027,44 +1033,44 @@
 
 ## 8. 过场扩充：23 段分镜
 
-沿用 `cine2.js` 的规矩：200×120，每段 2～4 个镜头，每个镜头一句字幕（≤ 12 字），点一下快进、长按跳过，每段每世自动播一次，【回忆】里可重看。编号接在现有 ①～⑩ 后面。分支版本用“段:版本”的键（`xiushu:shame`）。镜头运动：**推** = 推近，**摇** = 横移，**定** = 定格，**震** = 震屏。配乐是 `AUDIO.md` 的曲名，音效是 `CSFX` 的名字。
+沿用 `cine2.js` 的规矩：200×120，每段 2～4 个镜头，每个镜头一句字幕（≤ 12 字），点一下快进、长按跳过，每段每世自动播一次，【回忆】里可重看。编号接在现有 ①～⑩ 后面。分支版本用“段_版本”的键（`xiushu_shame`）。镜头运动：**推** = 推近，**摇** = 横移，**定** = 定格，**震** = 震屏。配乐是 `AUDIO.md` 的曲名，音效是 `CSFX` 的名字。
 
 为了让写手线也能加过场，串联层提供一种**数据式分镜**（`CINE_DATA`，见 §11）：下面每一行就是一条数据，不用写画图代码。
 
 | 段 | 何时 | 配乐 | 镜头（画面 · 运动 · 字幕 · 音效 · 秒） |
 |---|---|---|---|
 | **⑪ 锈戒** `ring` | 第一章开章 s1_night 之前（转世不重播） | sorrow | ① storyBg temple · 摇（从屋顶破洞到火堆）· 无 · wind · 4 ‖ ② storyCg ring 0 · 推 · “小家伙。” · gather · 3 ‖ ③ 老祖特写带（金）压在 temple 上 · 定 · “本座等了你三千年。” · bell · 4 |
-| **⑫ 休书·羞辱** `xiushu:shame` | 抉择一 A 之后 | vow | ① cineBg dusk + 主角特写带（ang+shade）· 推 · “今日休之。” · drum · 3 ‖ ② cineBg ink + tornLetter 0 飞向右 · 震 · 无 · paper、luo · 3 ‖ ③ 慕容特写带（sad+tear）· 定 · “你和他们，没有两样。” · wind · 4 |
-| **⑫ 休书·两清** `xiushu:spare` | 抉择一 B / C 之后 | vow → home | ① cineBg dusk，主角背影走下擂台 · 摇 · “两清了。” · drum · 4 ‖ ② 慕容特写带（shock）· 定 · 无 · wind · 3 ‖ ③ cineBg ink，袖口露出一角红纸 · 推 · “莫欺少年穷。” · bell · 3 |
+| **⑫ 休书·羞辱** `xiushu_shame` | 抉择一 A 之后 | vow | ① cineBg dusk + 主角特写带（ang+shade）· 推 · “今日休之。” · drum · 3 ‖ ② cineBg ink + tornLetter 0 飞向右 · 震 · 无 · paper、luo · 3 ‖ ③ 慕容特写带（sad+tear）· 定 · “你和他们，没有两样。” · wind · 4 |
+| **⑫ 休书·两清** `xiushu_spare` | 抉择一 B / C 之后 | vow → home | ① cineBg dusk，主角背影走下擂台 · 摇 · “两清了。” · drum · 4 ‖ ② 慕容特写带（shock）· 定 · 无 · wind · 3 ‖ ③ cineBg ink，袖口露出一角红纸 · 推 · “莫欺少年穷。” · bell · 3 |
 | **⑬ 血帖** `xuetie` | 抉择二 D（入魔）之后，替代过场⑤ | boss | ① storyBg town 压暗，一张红帖钉在地上 · 推 · 无 · clang · 3 ‖ ② storyBg blood · 摇（自上而下到血池）· “剑是什么颜色，” · rumble · 4 ‖ ③ 主角特写带（朱红带换成暗红）· 定 · “看握剑的人。” · gong · 4 |
 | **⑭ 夜半黑衣** `heiyi` | story_r2 之前 | realm | ① storyBg cave 压暗，窗前一个剪影 · 推 · 无 · wind · 3 ‖ ② storyCg ring 0，一只手的影子伸过来 · 推 · “给我。” · gather · 3 ‖ ③ 墨无痕特写带（墨色）与老祖特写带上下对切 · 定 · “墨家。” · clang · 3 |
 | **⑮ 万剑低眉** `wanjian` | story_boss5 之前（首杀剑冢守墓人） | realm → sorrow | ① cineBg ink 上满坡残剑（剪影）· 摇 · 无 · wind · 4 ‖ ② 残剑一齐转向、剑尖朝下 · 震 · 无 · clang ×3 · 3 ‖ ③ 老祖特写带（sad）· 定 · “本座回来晚了。” · bell · 4 |
 | **⑯ 半块玉简** `yujian` | story_r4 之前 | sorrow | ① storyCg jade 0（只亮左半）· 推 · “祖训只有一句。” · reveal · 4 ‖ ② 墨无痕特写带 · 定 · “可曾信过墨离？” · drum · 4 ‖ ③ 老祖特写带（ang+shade）· 震 · “那个逆徒，也配问？” · thunder · 3 |
 | **⑰ 祖师画像** `huaxiang` | story_r5 之前 | boss | ① storyBg tjgate，阵前展开一幅长卷（竖幅，画中人白衣负剑）· 摇（自下而上）· 无 · paper · 4 ‖ ② 陆天衡半身像（mono）在画里，老祖特写带压上来 · 推 · “陆、天、衡。” · drum ×3 · 4 ‖ ③ 画从中裂开，夹层里一点青光 · 震 · “本座的好大徒弟。” · tear、reveal · 4 |
 | **⑱ 那一剑** `najian` | story_r6 开场 | sorrow | ① storyCg jade 1 · 推 · 无 · reveal · 3 ‖ ② storyCg stab 0 · 定 · “他只记得这一幕。” · thunder · 4 ‖ ③ stab 0 → stab 1 叠化，集中线收向剑尖 · 震 · “师尊，小心——” · clang、thunder · 5 ‖ ④ 老祖特写带（sad+tear）· 定 · “本座骂了他三千年。” · bell · 5 |
-| **⑲ 阵前·斩魔** `zhen:zheng` | 抉择六 A 胜后 | vow | ① storyBg field · 摇（蓝旗一侧）· 无 · wardrum · 3 ‖ ② 主角与血无涯特写带对切 · 震 · “借你人头一用。” · clang · 3 ‖ ③ 红旗倒下，盖“胜”印 · 定 · “此战首功。” · win · 4 |
-| **⑲ 阵前·倒戈** `zhen:mo` | 抉择六 B 胜后 | boss | ① storyBg field · 摇（转向蓝旗）· 无 · wardrum · 3 ‖ ② 主角特写带（shade），色带暗红 · 推 · “没说打哪边。” · clang · 3 ‖ ③ 蓝旗倒下；远处白衣人转身 · 定 · “正道，再无此人。” · gong · 4 |
-| **⑲ 阵前·止戈** `zhen:stop` | 抉择六 C 成功后 | vow → home | ① storyBg field，正中一口剑插在地上 · 推 · “谁先过这把剑。” · clang · 4 ‖ ② 左右两条特写带（血无涯、剑十三）同时滑入又同时停住 · 震 · 无 · drum ×2 · 3 ‖ ③ endingPic zhige（两面旗插在一处）· 定 · “这一仗，不打了。” · bell · 5 |
+| **⑲ 阵前·斩魔** `zhen_zheng` | 抉择六 A 胜后 | vow | ① storyBg field · 摇（蓝旗一侧）· 无 · wardrum · 3 ‖ ② 主角与血无涯特写带对切 · 震 · “借你人头一用。” · clang · 3 ‖ ③ 红旗倒下，盖“胜”印 · 定 · “此战首功。” · win · 4 |
+| **⑲ 阵前·倒戈** `zhen_mo` | 抉择六 B 胜后 | boss | ① storyBg field · 摇（转向蓝旗）· 无 · wardrum · 3 ‖ ② 主角特写带（shade），色带暗红 · 推 · “没说打哪边。” · clang · 3 ‖ ③ 蓝旗倒下；远处白衣人转身 · 定 · “正道，再无此人。” · gong · 4 |
+| **⑲ 阵前·止戈** `zhen_stop` | 抉择六 C 成功后 | vow → home | ① storyBg field，正中一口剑插在地上 · 推 · “谁先过这把剑。” · clang · 4 ‖ ② 左右两条特写带（血无涯、剑十三）同时滑入又同时停住 · 震 · 无 · drum ×2 · 3 ‖ ③ endingPic zhige（两面旗插在一处）· 定 · “这一仗，不打了。” · bell · 5 |
 | **⑳ 九百级石阶** `shijie` | story_r7 开场 | vow | ① storyBg tjgate · 摇（自下而上）· “这阵，是本座教的。” · wind、rumble · 5 ‖ ② 主角与墨无痕背影并肩上阶（storyCg two 换 tjgate 底）· 推 · 无 · drum ×4 · 4 ‖ ③ storyBg stele，碑前一人横剑 · 定 · “问剑，天剑宗。” · gong · 4 |
-| **㉑ 了断·一剑** `liaoduan:dead` | 抉择七 A | sorrow | ① storyCg kneel · 推 · 无 · wind · 3 ‖ ② 一道白光横过画面 · 震 · 无 · clang · 2 ‖ ③ 地上一截断剑，旁边空了 · 定 · “……也好。” · bell · 5 |
-| **㉑ 了断·废** `liaoduan:crippled` | 抉择七 B | sorrow | ① storyCg kneel · 推 · “原来是这个滋味。” · gather（倒放感：灵气散开）· 4 ‖ ② storyBg tjgate，一个白衣人影独自下阶 · 摇 · 无 · wind · 5 |
-| **㉑ 了断·昭告** `liaoduan:exposed` | 抉择七 C | sorrow → vow | ① storyBg stele，碑前跪着的人与举着卷宗的人 · 定 · “师父，您来念。” · paper · 4 ‖ ② 阶下九宗的旗（storyBg field 的旗换九色）· 摇 · 无 · bell ×3 · 4 ‖ ③ 碑上新刻的两个字发光 · 推 · “墨离。” · reveal · 5 |
-| **㉑ 了断·放** `liaoduan:spared` | 抉择七 D | sorrow | ① storyCg kneel · 定 · “他后悔收我吗？” · wind · 4 ‖ ② 老祖特写带（sad）· 定 · “不后悔。”（`vow_letgo` 才有这一镜；否则跳过）· bell · 4 ‖ ③ 碑前只剩那截断剑 · 推 · “剑留下。” · paper · 4 |
+| **㉑ 了断·一剑** `liaoduan_dead` | 抉择七 A | sorrow | ① storyCg kneel · 推 · 无 · wind · 3 ‖ ② 一道白光横过画面 · 震 · 无 · clang · 2 ‖ ③ 地上一截断剑，旁边空了 · 定 · “……也好。” · bell · 5 |
+| **㉑ 了断·废** `liaoduan_crippled` | 抉择七 B | sorrow | ① storyCg kneel · 推 · “原来是这个滋味。” · gather（倒放感：灵气散开）· 4 ‖ ② storyBg tjgate，一个白衣人影独自下阶 · 摇 · 无 · wind · 5 |
+| **㉑ 了断·昭告** `liaoduan_exposed` | 抉择七 C | sorrow → vow | ① storyBg stele，碑前跪着的人与举着卷宗的人 · 定 · “师父，您来念。” · paper · 4 ‖ ② 阶下九宗的旗（storyBg field 的旗换九色）· 摇 · 无 · bell ×3 · 4 ‖ ③ 碑上新刻的两个字发光 · 推 · “墨离。” · reveal · 5 |
+| **㉑ 了断·放** `liaoduan_spared` | 抉择七 D | sorrow | ① storyCg kneel · 定 · “他后悔收我吗？” · wind · 4 ‖ ② 老祖特写带（sad）· 定 · “不后悔。”（`vow_letgo` 才有这一镜；否则跳过）· bell · 4 ‖ ③ 碑前只剩那截断剑 · 推 · “剑留下。” · paper · 4 |
 | **㉒ 玄霄重铸** `chongzhu` | ch_sword_6 之后 | vow | ① storyCg sword 0 · 摇（三截依次亮起）· 无 · clang ×3 · 4 ‖ ② forgeBench 1 放大，落锤 · 震 · 无 · hit ×3 · 3 ‖ ③ storyCg sword 1 · 定 · “这杯，敬阿离。” · reveal、bell · 5 |
-| **㉓ 最后一课·诀别** `zuihou:farewell` | story_r8 A / B 之后 | trib → sorrow | ① storyBg temple 上压劫云（drawTribClouds）· 震 · “这一道，为师替你挡。” · thunder · 4 ‖ ② storyCg fade 0 → 1 → 2 · 定 · “是本座最走运的事。” · gather · 6 ‖ ③ storyCg ring 1 → 2（锈迹剥落）· 推 · 无 · bell · 5 |
-| **㉓ 最后一课·留魂** `zuihou:kept` | story_r8 C 之后 | trib → vow | ① 同上① · 震 · “规矩第三条，不许死。” · thunder · 4 ‖ ② storyCg fade 1，光点不往上散、往右收进一口剑 · 推 · 无 · gather · 4 ‖ ③ storyCg sword 1 · 定 · “……逆徒。” · reveal · 4 |
+| **㉓ 最后一课·诀别** `zuihou_farewell` | story_r8 A / B 之后 | trib → sorrow | ① storyBg temple 上压劫云（drawTribClouds）· 震 · “这一道，为师替你挡。” · thunder · 4 ‖ ② storyCg fade 0 → 1 → 2 · 定 · “是本座最走运的事。” · gather · 6 ‖ ③ storyCg ring 1 → 2（锈迹剥落）· 推 · 无 · bell · 5 |
+| **㉓ 最后一课·留魂** `zuihou_kept` | story_r8 C 之后 | trib → vow | ① 同上① · 震 · “规矩第三条，不许死。” · thunder · 4 ‖ ② storyCg fade 1，光点不往上散、往右收进一口剑 · 推 · 无 · gather · 4 ‖ ③ storyCg sword 1 · 定 · “……逆徒。” · reveal · 4 |
 | **㉔ 最后的访客** `fangke` | story_ascend 之前 | home | ① storyCg door 0 · 推 · 无 · wind · 4 ‖ ② storyCg door 1（没有访客时停在 door 0，字幕换成“没有人来。”）· 定 · “明天，还回来吗？” · bell · 5 |
 | **㉕ 天门** `tianmen` | s9_gate 之前 | ascend | ① cineBg clouds，最后一道雷散开 · 震 · 无 · thunder、rumble · 3 ‖ ② storyBg heaven · 摇（自下而上）· 无 · bell ×3 · 5 ‖ ③ 主角背影小小地站在门前 · 推 · “门开了一条缝。” · gather · 4 |
-| **㉖ 结局·师徒同归** `end:shitu` | 结局 | ascend | ① storyBg heaven，两道身影 · 摇 · “比想的小。” · bell · 4 ‖ ② 老祖特写带（joy）与主角特写带上下并排 · 定 · “这回，本座看着你渡完。” · reveal · 5 ‖ ③ endingPic shitu · 推，白出 · “师徒同归。” · win · 6 |
-| **㉗ 结局·问天** `end:wentian` | 结局 | boss → vow | ① storyBg heaven，门缝 · 推（穿进门缝）· 无 · wind · 3 ‖ ② storyBg void · 摇 · “它们出题，从不改卷。” · rumble · 5 ‖ ③ 主角特写带（ang）· 定 · “那就，换我出一题。” · drum ×2 · 3 ‖ ④ endingPic wentian · 震，集中线 · “问天。” · clang、thunder · 6 |
-| **㉘ 结局·地仙** `end:dixian` | 结局（转身之后；也用在留人间坐化时） | home | ① storyBg heaven，门在身后合上 · 摇（自上而下）· 无 · wind · 4 ‖ ② storyBg temple（白天版：压一层暖色）· 定 · “屋顶，得修。” · bell · 4 ‖ ③ endingPic dixian · 推 · “守人间。” · reveal · 6 |
-| **㉙ 结局·孤峰** `end:gufeng` | 结局 | sorrow | ① storyBg heaven，一个人 · 定 · “没有人来送。” · wind · 5 ‖ ② 陆天衡半身像（mono）一闪 · 定 · “他站得太高。” · bell · 3 ‖ ③ endingPic gufeng · 推（拉远）· “从没回头。” · wind · 7 |
-| **㉚ 结局·魔尊** `end:mozun` | 结局 | boss | ① storyBg blood · 摇（自下而上，从血池到骨座）· 无 · rumble · 4 ‖ ② 主角特写带（shade，暗红带）· 定 · “正道容不下我。” · drum · 3 ‖ ③ endingPic mozun · 定 · “那就，换个天下。” · gong · 6 |
-| **㉛ 结局·道侣同升** `end:daolv:su` / `end:daolv:ye` | 结局 | ascend | ① endingPic daolv_su（或 daolv_ye）· 摇 · 无 · bell · 5 ‖ ② 主角与道侣特写带上下并排 · 定 · 苏：“上面，有没有病人？” / 夜：“我赌你不敢松手。” · reveal · 5 ‖ ③ storyCg two（同行者道袍色：苏青绿、夜暗红）· 推，白出 · “同去。” · win · 6 |
-| **㉜ 结局·掌宗飞升** `end:summit` | 结局 | ascend | ① storyBg hall · 推（沿红毯到宗主座）· 无 · bell · 4 ‖ ② cineBg gate，阶下换色小人跪了一路 · 摇 · “都起来。” · wardrum · 4 ‖ ③ backdrop summit · 定 · “山门在，我在。” · win · 6 |
-| **㉝ 止戈**（副标签卡） `end:zhige` | `war_stop` 时，接在主结局过场后面 | home | ① endingPic zhige · 推 · “那一年，没有打起来。” · bell · 6 |
+| **㉖ 结局·师徒同归** `end_shitu` | 结局 | ascend | ① storyBg heaven，两道身影 · 摇 · “比想的小。” · bell · 4 ‖ ② 老祖特写带（joy）与主角特写带上下并排 · 定 · “这回，本座看着你渡完。” · reveal · 5 ‖ ③ endingPic shitu · 推，白出 · “师徒同归。” · win · 6 |
+| **㉗ 结局·问天** `end_wentian` | 结局 | boss → vow | ① storyBg heaven，门缝 · 推（穿进门缝）· 无 · wind · 3 ‖ ② storyBg void · 摇 · “它们出题，从不改卷。” · rumble · 5 ‖ ③ 主角特写带（ang）· 定 · “那就，换我出一题。” · drum ×2 · 3 ‖ ④ endingPic wentian · 震，集中线 · “问天。” · clang、thunder · 6 |
+| **㉘ 结局·地仙** `end_dixian` | 结局（转身之后；也用在留人间坐化时） | home | ① storyBg heaven，门在身后合上 · 摇（自上而下）· 无 · wind · 4 ‖ ② storyBg temple（白天版：压一层暖色）· 定 · “屋顶，得修。” · bell · 4 ‖ ③ endingPic dixian · 推 · “守人间。” · reveal · 6 |
+| **㉙ 结局·孤峰** `end_gufeng` | 结局 | sorrow | ① storyBg heaven，一个人 · 定 · “没有人来送。” · wind · 5 ‖ ② 陆天衡半身像（mono）一闪 · 定 · “他站得太高。” · bell · 3 ‖ ③ endingPic gufeng · 推（拉远）· “从没回头。” · wind · 7 |
+| **㉚ 结局·魔尊** `end_mozun` | 结局 | boss | ① storyBg blood · 摇（自下而上，从血池到骨座）· 无 · rumble · 4 ‖ ② 主角特写带（shade，暗红带）· 定 · “正道容不下我。” · drum · 3 ‖ ③ endingPic mozun · 定 · “那就，换个天下。” · gong · 6 |
+| **㉛ 结局·道侣同升** `end_daolv_su` / `end_daolv_ye` | 结局 | ascend | ① endingPic daolv_su（或 daolv_ye）· 摇 · 无 · bell · 5 ‖ ② 主角与道侣特写带上下并排 · 定 · 苏：“上面，有没有病人？” / 夜：“我赌你不敢松手。” · reveal · 5 ‖ ③ storyCg two（同行者道袍色：苏青绿、夜暗红）· 推，白出 · “同去。” · win · 6 |
+| **㉜ 结局·掌宗飞升** `end_summit` | 结局 | ascend | ① storyBg hall · 推（沿红毯到宗主座）· 无 · bell · 4 ‖ ② cineBg gate，阶下换色小人跪了一路 · 摇 · “都起来。” · wardrum · 4 ‖ ③ backdrop summit · 定 · “山门在，我在。” · win · 6 |
+| **㉝ 止戈**（副标签卡） `end_zhige` | `war_stop` 时，接在主结局过场后面 | home | ① endingPic zhige · 推 · “那一年，没有打起来。” · bell · 6 |
 
-合计 23 段（⑪～㉝），含分支与结局版本共 31 个版本；加上现有过场里要随分支改一句字幕的 7 处（⑦ 宿敌对视的三句按恩怨正负各一版、⑨ 守山按 `war_mercy` / `war_blood` 各一句、⑩ 飞升字幕按结局取），总共 38 个可见版本。
+合计 23 段（⑪～㉝），含分支与结局版本共 31 个版本，已全部按数据式分镜做进 `src/ui/talk.js` 的 `CINE_DATA`（个别镜头用现成的底图顶替表里的专门画面，如“一张红帖钉在地上”“残剑转向”——等对应的小图画出来再换）；加上现有过场里要随分支改一句字幕的 7 处（⑦ 宿敌对视的三句按恩怨正负各一版、⑨ 守山按 `war_mercy` / `war_blood` 各一句、⑩ 飞升字幕按结局取），总共 38 个可见版本。
 
 新美术对应：`ART.storyBg` 14 张（temple cave town lantern herb tjgate stele stele2 trib3k field blood grave hall heaven void）、`ART.storyCg` 8 组 17 帧（ring stab kneel sword jade door fade two）、`ART.endingPic` 8 张（shitu wentian dixian gufeng mozun daolv_su daolv_ye zhige）、`ART.portraitX` 7 种表情叠加、对话框四件套与三枚图标。
 
@@ -1076,12 +1082,12 @@
 
 | # | 问题 | 处置 | 谁做 |
 |---|---|---|---|
-| P01 | 非弃徒出身夜线断掉 | `ye_1` 改成不提退婚的通用开场：“听说{home}出了个狠角色。”；`originSkip` 的正则换成显式字段 `origin: 'qitu'`；`story_daolv` 慕容家贺礼那句做成 `{ if: 'origin:qitu' }` | 底 + B |
+| P01 | 非弃徒出身夜线断掉 | `ye_1` 改成不提退婚的通用开场：“听说{town}出了个{shamed}，来瞧瞧。”（已改）；`originSkip` 的正则换成显式字段 `origin: 'qitu'`；`story_daolv` 慕容家贺礼那句做成 `{ if: 'origin:qitu' }` | 底 + B |
 | P02 | 墨离最后一剑自相矛盾 | 统一口径（样稿 6）：**剑擦着师父的肩过去，刺的是身后的陆天衡；封魂时手是抖的，所以老祖记不全。**`story_r6_mo` 改成：“阿离封本座的时候，手抖了半寸——他到死都以为是自己没封好。” | A |
 | P03 | 问剑不看楚天阔的处境、碎碑前后不一 | `story_r7` 守碑的换成天剑宗长老；楚天阔按抉择四三态出场（§2.2）；新增 `st_stele_broken`，`tiankuo_4` / `tianheng_2` 的“碎碑间 / 碑前”用 `{ pick }` 换词，底图 stele / stele2 | 串 + A |
 | P04 | 苏的终章能把道侣送走 | `su_end` 加 `daolv: false`，道侣专用版写成 su_s4 之后的“济世堂搬到洞府旁”；`su_5` 加 `not: ['su_apart', 'su_qianyuan']` | B |
 | P05 | 只有第一位新秀有剧情 | 每位新秀登场时清掉 `new_1～4` 的 `evDone`；“才十六岁”改占位 | 底 |
-| P06 | 非弃徒看到弃徒专属文本 | 文案占位符 `{home}` `{ringAt}` `{exHouse}`（§5 文案规则）；纯弃徒的戏加 `origin: 'qitu'`（`home_zhao` → `s2_zhao`、赵乾线、慕容线、s1_letter、s1_pact_after）；`story_r1` 不觉醒出身用另一版 | 串（占位符）+ A + C |
+| P06 | 非弃徒看到弃徒专属文本 | 文案占位符 `{cradle}` `{town}` `{exHouse}` 等（§5 文案规则，`story.js` 已有）；纯弃徒的戏加 `origin: 'qitu'`（`home_zhao` → `s2_zhao`、赵乾线、慕容线、s1_letter、s1_pact_after）；`story_r1` 不觉醒出身用另一版 | 串（占位符）+ A + C |
 | P07 | 约战前夜出两次 | `story_pact_eve` 加 `origin: 'qitu'` | 底 |
 | P08 | 诀别后老祖还在说话 | 老祖开口的链步加 `not: ['st_farewell']`，并在第八章内催完（节拍 `mid3` 的空位优先给它们）；`elder_kept` 时这些戏照常（他在剑里）；`ascendVisitor` 兜底改成 徒弟 → 无人敲门（过场㉔的“没有人来。”）；坐化台词按 `st_farewell` 换成“戒指凉着。心口那一点剑意，把你一缕真灵裹住了。” | 串 + D |
 | P09 | `story_r6_mo` 可能错过 | 挂成 `ch_mo` 第 5 步 | 底 |
@@ -1161,18 +1167,36 @@
 
 ---
 
-## 11. 串联层接口
+## 11. 串联层接口（已实现）
 
-串联层是“哪场戏在什么时候出、读什么、通向哪里”的那一层，由主策划实现；写手线只往里填词。
+串联层是“哪场戏在什么时候出、读什么、通向哪里”的那一层，已经落在代码里；写手线只往里填词。
 
 | 东西 | 在哪 | 说明 |
 |---|---|---|
-| 章节主线目标 | `src/logic/quests.js` `L.CHAPTERS[i].main` | §1.1 的表；无宗一栏用 `L.noSect(st)` 分支 |
-| 节拍表 | `src/logic/story.js` `L.STORY_BEATS` | `[{ id: 'c3_mid1', ch: 2, slot: 'mid1', when(st) }]`；`L.storyTick(st)` 每月看一次当前章该放哪个节拍，放的时候 `L.fireTrigger(st, 'sb:c3_mid1')`；`st.story = { beat: { id: 月份 }, last: 月份, chAt: [每章开始的月份] }` |
-| 触发键 | 事件的 `trigger` | `sb:<节拍 id>`（主线）；人物戏用 `sb:any_mid`（任何一章的中段空位）+ 现有的 `npc` / `aff` / 新字段 `chMin` / `chMax`（章节上下限，替代 `minR` / `maxR`） |
-| 故事量 | `src/logic/story.js` | `L.storyPath(st)`、`L.storyDark(st)`、`L.storyBonds(st)`、`L.storySky(st)`、`L.storyCond(st, 'path:mo')`（§6.3 的 `if` 写法都走它） |
-| 抉择的条件 | `src/logic/story.js` `L.STORY_GATES` | 止战、昭告、转身、问天四个有条件的选项：`{ ok, why }`，`why` 是灰掉时的那行小字 |
-| 结局 | `src/logic/story.js` `L.endingOf(st)` → `{ id, tags, pic, cine }`；`L.epilogue(st)` → 卡片数组 | §3；`L.ENDINGS`（图鉴）补 `wentian`、`gufeng`、`shitu`，`hermit` 改名“地仙” |
-| 对话播放器 | `src/ui/talk.js` `playTalk(ev, done)` | §6；`showChoice(ev)` 发现 `ev.talk` 就交给它，选完回到原来的结算卡 |
-| 数据式分镜 | `src/ui/cine2.js` `CINE_DATA` + `cnFromData(spec)` | §8 表里的一行 = `{ bg: 'storyBg:temple' | 'cg:stab:1' | 'end:shitu' | 'cine:dusk', cam: 'push' | 'panR' | 'panUp' | 'hold', sub, cut: { who, mood, fx, side }, sfx: [[ms, 名]], shake, ms, dim }` |
-| 检查器 | `tools/story_check.js` | §10 的七条验收 |
+| 章节主线目标 | `src/logic/storyline.js`（改写 `L.CHAPTERS[6～8]`，章名与副题）；一～六章在 `quests.js` / `path.js` | §1.1 的表；无宗一栏是 `path.js` 的 `L.LONE` |
+| 节拍表 | `src/logic/storyline.js` `L.STORY_BEATS` | `{ id: 'c3_mid1', ch: 2, slot: 'mid1', must, when(st, x) }`；`L.storyTick(st)` 每月看一次该放哪个节拍，放的时候 `L.fireTrigger(st, 'sb:c3_mid1')`；存档 `st.story = { beat: { id: 月份（−1 = 错过） }, last, chAt, retry }` |
+| 触发键 | 事件的 `trigger` | `sb:<节拍 id>`（主线）；人物戏用 `sb:mid`（任何一章的中段空位：那个位子没有主线戏时让给人物戏，一次一场，按 `weight` 取）+ 现有的 `npc` / `aff` + 新字段 `chMin` / `chMax` / `cond` |
+| 故事量 | `src/logic/storyline.js` | `L.storyPath(st)`、`L.storyDark(st)`、`L.storyBonds(st)`、`L.storySky(st)`、`L.storyCond(st, 写法)`；`L.STORY_FLAGS` 是十二个故事标志位的登记表 |
+| 有条件的选项 | `L.STORY_GATES` / `L.storyGate(st, 名)` / `L.choiceGate(st, 选项)` | `{ ok, why }`，`why` 是灰掉时的那行小字；不满足时 `L.choiceShown` 为假（旧弹窗里就是不显示） |
+| 结局 | `L.endingOf(st)` → `{ id, n, tags, pic, cine, text }`；`L.endingsOf(st)`（第一项是主结局）；`L.epilogue(st)` → `[{ who, text }]`；`L.STORY_END`、`L.EPILOGUE` | §3；图鉴的 `L.ENDINGS` 补了 `wentian`、`gufeng`、`shitu`，`hermit` 改名“地仙·守人间”。结局正文与后日谈现在是占位稿（一句到位，够用），D 线重写 |
+| 对话播放器 | `src/ui/talk.js` `playTalk(ev, back)` | §6；`showChoice(ev)` 发现 `ev.talk` 就交给它，选完回到 `events.js` 的 `choiceResult`（原来的结算卡 / 对决演出） |
+| 数据式分镜 | `src/ui/talk.js` `CINE_DATA` + `cnFromData` | 一个镜头 = `{ bg: 'temple' | 'cg:stab:1' | 'end:shitu' | 'bd:summit', frames: [[ms, bg]], ms, cam: 'push' | 'pull' | 'panR' | 'panL' | 'panUp' | 'panDown' | 'hold', sub, cut / cut2: { who, mood, fx, side, col, y, at }, dim, tint, lines, seal, sfx: [[ms, 名]], shake: [[ms, 持续, 幅度]], if }`；登记进 `CINE`，【回忆】里自动多一格 |
+| 飞升的接线 | `src/ui/talk.js`（包 `showAscension`） | 渡过九九天劫 → 过场㉕ → “天门”（抉择八）→ 结局过场 → 结局卡（`life.js`：结局画面、正文、副标签、后日谈） |
+| 现有事件挂节拍 | `src/content/ev_story.js` 的 `PATCH` | `story_r1～r8`、`tianheng_1/2`、`tiankuo_3/4` 的 `trigger` 从 `realm:N` 改成 `sb:`；`story_r6` / `tianheng_2` / `story_r8` 加了对话与新选项；`su_5` / `ye_5` 第四章起；`sect_war_xuesha` 并进 `s7_war` |
+| 检查器 | `tools/check_events.js`（对话的规格）、`tools/story_check.js`（章节、节拍、路线、回声；`node tools/story_check.js quick`）、`tools/story_ui.js`（播放器与过场的界面检查与截图） | §10 的验收 |
+
+## 12. 落地状态
+
+**已经在代码里（可以玩到）**
+
+- 九章的主线目标与节拍；八个抉择点全部可选、标志位置上、条件判定生效；八个结局 + 坐化的判定、结局过场、结局卡与后日谈。
+- 对话场景播放器；数据式分镜 31 个版本（⑪～㉝）。
+- 写成对话的场景 11 场（都是 §7 的样稿）：`s1_night`、`s1_pact_after`、`s1_pact_lost`、`s2_invite`、`s3_zhao_fall`、`s4_two_lamps`、`story_r6`、`s7_war`、`tianheng_2`、`story_r8`、`s9_gate`。
+- 仍是旧弹窗、已挂到节拍上的主线：`story_r1～r5`、`story_r7`、`tianheng_1`、`tiankuo_3`、`tiankuo_4`、`story_pact_eve`、`story_ascend`、`yun_3`——A 线改写成对话。
+
+**留给写手线（§10）**
+
+- §4 清单里其余的场景：主线新增 36 场、改写 14 场、人物线 45 场；节拍位已经在，写完挂上 `trigger` 就会出。没有场景的节拍位现在是空过（不弹任何东西）。
+- 过场 ⑭～⑰、⑳、㉒、㉔ 的数据已经有，但还没有场景引用它们（对应的场景写成对话时在 `cine` 字段写上 id 即可：`heiyi`、`wanjian`、`yujian`、`huaxiang`、`shijie`、`chongzhu`、`fangke`）。
+- 结局正文与后日谈的定稿；转世后的“又是你”各章版本；【再登天门】；回忆里补看错过的中段戏；`st.meta.picks` 已经在记，抉择按钮上“上一世选过”的小点已经显示。
+- §9 里标给 A～D 线的文案修订。标“底”的那些已由章节进度那条线做完（P01、P03～P09、P13、P16 的一部分、P19～P22、P24、P31）。
