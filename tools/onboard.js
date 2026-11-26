@@ -270,7 +270,7 @@ const TERMS = [
       const mm = T.mainMax[Math.min(d.m, T.mainMax.length - 1)]; if (d.mx > mm) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟主界面元素最多 ${d.mx}（目标 ≤ ${mm}）`);
     }
     for (let i = 1; i < sysU.length; i++) if (sysU[i].clock - sysU[i - 1].clock < 75 && !['bt', 'trib', 'sect'].includes(sysU[i].k)) fails.push(`${sysU[i - 1].k} → ${sysU[i].k} 只隔 ${Math.round(sysU[i].clock - sysU[i - 1].clock)} 秒（目标 ≥ 75 秒）`);
-    for (const r of rows) if ((r.main.badgeTxt || '').length > 1) fails.push(`${fmtT(r.clock)} 底栏同时 ${r.main.badgeTxt.length} 个角标（目标 ≤ 1）`);
+    for (const r of rows) if (r.main.badges > 1) fails.push(`${fmtT(r.clock)} 底栏同时 ${r.main.badges} 个角标（${r.main.badgeTxt}，目标 ≤ 1）`);   // 数角标个数，不数字数（“新 3”是一个角标）
     L1.push('', `前 10 分钟新名词 ${c10}（参考），解锁系统 ${sysFirst10}；三年之约在 ${fmtT(pactAt)}，之前解锁系统 ${pre}`);
     L1.push('', fails.length ? '## 未通过\n\n' + fails.map(f => '- ' + f).join('\n') : '## 节奏核对全部通过');
   }
