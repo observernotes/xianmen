@@ -4,10 +4,10 @@
  *   L.artRecommend(st, slot, ctx) → null | { id, cur, same, why, ctx, … }
  *     slot：0 心法 / 1 战技（秘术没有裸倍率，功法页仍按 L.artList 的阶与共鸣排）
  *     ctx：省略 = 平时（功法页“荐”、【人物】角标、老祖气泡、变强页与锦囊 / 备战卡的动作卡、掉落卡【换上】都用这个）；
- *          { k, d } = 正要去的这一格（历练出发页；近期大节点仍优先，{ k, d, force } 才只看这一格）；{ foe, Q, scale, n } = 正要打的这个人（论道准备、新秀挑战、宿敌卡、约战）
+ *          { k, d } = 指定某一格（近期大节点仍优先，{ k, d, force } 才只看这一格）；出发页不传 ctx，先 L.artRecSelect 选中这一格再问平时的推荐；{ foe, Q, scale, n } = 正要打的这个人（论道准备、新秀挑战、宿敌卡、约战）
  *     平时的情境（L.artCtx）按优先级取第一个成立的：
  *       1. 近期大节点：L.bigNext 还有 ≤ L.ART_REC.big 月、对手算得出（三年之约 / 论道第一场的宿敌 / 天剑来犯）→ 比对决胜算
- *       2. 历练图：正在走的这一趟，否则上一趟去的那一格（L.lastExp）。精英（回合战）或地图（旧分数制）的五行见过才算克制
+ *       2. 历练图：最近打开出发页选中的那一格，或最近一次出发的那一格（L.artRecMap，存 st.flags.recMap，没有字段时退回 st.exp / lastExp）。精英（回合战）或地图（旧分数制）的五行见过才算克制
  *       3. 通用：战力与修炼（对数相加）
  *     情境只看“接下来要做的事”，和你装着哪一门无关，所以换上推荐的那门之后不会再推回去；
  *     同分时现在装着的优先（滞后：胜算差 < 0.5%、分数差 < 1%（心法 2%，换心法要转修）不换）。
@@ -53,7 +53,7 @@ L.artCtx = function (st, ctx) {
   // 平时：1. 近期大节点
   const bc = bigCtx(st); if (bc) return bc;
   // 2. 正在走 / 上一趟的历练图
-  const e = st.exp || st.lastExp;
+  const e = L.artRecMap(st);
   if (e && L.REGIONS[e.k]) return L.artCtx(st, { k: e.k, d: e.d || 0 });
   return { kind: 'gen', label: '' };
 };
@@ -74,6 +74,15 @@ function bigCtx(st) {
   const who = b.k === 'pact' ? st.exName : b.k === 'war' ? '天剑宗' : foeName(st, P.foe);
   return Object.assign(L.artCtx(st, { foe: P.foe, Q: P.Q, scale: P.scale, n: who }), { label: b.n, left: b.left, big: b.k });
 }
+// 推荐看的那一格：最近一次打开出发页选中的格（L.artRecSelect），或最近一次出发的格（L.startExp 时记下）；都没有时退回 st.exp / st.lastExp。
+// 行动点制下历练是一下子走完的，没有“正在走”；出发页、功法页、变强页都看这同一格，所以同一时刻只有一个答案
+L.artRecSelect = function (st, k, d) {
+  if (!st || !st.flags || !L.REGIONS[k]) return;
+  const m = st.flags.recMap;
+  if (!m || m.k !== k || m.d !== (d || 0)) st.flags.recMap = { k, d: d || 0 };
+};
+L.artRecMap = st => (st.flags && st.flags.recMap) || st.exp || st.lastExp || null;
+{ const f0 = L.startExp; L.startExp = function (st, k, d) { const ok = f0.apply(this, arguments); if (ok) L.artRecSelect(st, k, d || 0); return ok; }; }
 const ctxKey = c => (c.kind === 'duel' ? `duel|${c.foe.kind}|${c.foe.id || ''}|${c.foe.k === undefined ? '' : c.foe.k}|${Math.round(c.Q || 0)}|${c.fe}` : c.kind === 'map' ? `map|${c.k}|${c.d}|${c.fe}` : 'gen');
 
 // 一门（id 可为 null = 空着）在这个情境里的分：pri 主分（情境的目标），g 通用分（战力 + 修炼的对数；心法只看修炼）
@@ -102,7 +111,7 @@ L.artRecommend = function (st, slot, ctx) {
   const c = L.artCtx(st, ctx);
   const k = L.ART_SLOTS[slot], cur = L.artSlots(st)[slot];
   const own = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === k && !(L.artSealed && L.artSealed(st, id)));
-  const base = (L.adviseKey ? L.adviseKey(st) : st.tick) + '|' + own.map(id => id + L.artLv(st, id)).join() + '|' + L.artSlots(st).join() + '|' + (st.trialEl || ''), key = slot + '|' + ctxKey(c);
+  const base = (L.adviseKey ? L.adviseKey(st) : st.tick) + '|' + own.map(id => id + L.artLv(st, id)).join() + '|' + L.artSlots(st).join() + '|' + (st.trialEl || '') + '|' + JSON.stringify(L.artRecMap(st)), key = slot + '|' + ctxKey(c);
   if (cache.st !== st || cache.key !== base) cache = { st, key: base, v: {} };
   if (key in cache.v) return cache.v[key];
   const rows = own.map(id => scoreOf(st, slot, id, c));

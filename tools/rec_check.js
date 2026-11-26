@@ -66,24 +66,29 @@ function logic() {
   // ---------- 情境 ----------
   const s15 = idle(give(sim.run('guided', 1, false, { keep: true, maxT: 15 }).st));
   // 1. 只有通用：没去过历练、大节点还远
-  { const st = clone(s15); delete st.lastExp; const E = agree('只有通用', st); check(E.rc && E.rc.ctx.kind === 'gen', `只有通用：情境是 gen（${E.rc && E.rc.ctx.kind}）`); stable('只有通用', st, 6); out.gen = st; }
-  // 2. 要去某五行地图：黑风岭外围（精英刀疤头目，金）→ 火克金；后山野林腹地（铁背熊，土）→ 木克土
-  for (const [k, d, want] of [[1, 0, 'z_liaoyuan'], [0, 1, 'z_qingteng']]) {
-    const st = clone(s15); delete st.lastExp;
-    const row = L.cellFoes(k, d); st.meta.foes = st.meta.foes || {}; st.meta.foes[row.elite] = 1;
-    // 起手装着另一门（青藤缚 / 燎原式互换），看出发页推什么
-    st.arts.slot[1] = want === 'z_liaoyuan' ? 'z_qingteng' : 'z_liaoyuan';
-    const here = L.artRecommend(st, 1, { k, d, here: true });
-    check(here && here.id === want && /克这张图/.test(here.why), `出发页 ${L.REGIONS[k].n}${L.DEPTHS[d]}：推《${name(here && here.id)}》（${here && here.why}）`);
-    // 出发（lastExp 记下这一格）→ 回来：平时的推荐还是它，不叫换回去
+  { const st = clone(s15); delete st.lastExp; if (st.flags) delete st.flags.recMap; const E = agree('只有通用', st); check(E.rc && E.rc.ctx.kind === 'gen', `只有通用：情境是 gen（${E.rc && E.rc.ctx.kind}）`); stable('只有通用', st, 6); out.gen = st; }
+  // 2. 要去某五行地图：黑风岭外围（精英刀疤头目，金）→ 火克金；后山野林腹地（铁背熊，土）→ 木克土。
+  //    行动点制下历练一下子走完，没有“正在走”：打开出发页就选中这一格（L.artRecSelect），之后各入口都看这一格
+  for (const [k, d, other] of [[1, 0, 'z_qingteng'], [0, 1, 'z_liaoyuan']]) {
+    const tag = L.REGIONS[k].n + L.DEPTHS[d];
+    const st = clone(s15); delete st.lastExp; if (st.flags) delete st.flags.recMap;
+    const row = L.cellFoes(k, d), fe = L.FOES[row.elite].el; st.meta.foes = st.meta.foes || {}; st.meta.foes[row.elite] = 1;
+    st.arts.slot[1] = other;   // 起手装一门不克这里的（青藤缚 / 燎原式）
+    // 克这一格精英的、分数最高的那门（与 L.artRecommend 的打分同一套）就是答案
+    const kes = Object.keys(st.arts.own).filter(id => L.art(id).k === 'z' && L.elKe(L.art(id).el, fe));
+    L.artRecSelect(st, k, d);
+    const here = L.artRecommend(st, 1), forced = L.artRecommend(st, 1, { k, d, force: true });
+    check(here && here.ctx.kind === 'map' && here.ctx.k === k && kes.includes(here.id) && here.id === forced.id && new RegExp(`克${tag}（${L.elName(fe)}）`).test(here.why), `出发页 ${tag}（精英 ${L.FOES[row.elite].n}，${L.elName(fe)}）：选中后推《${name(here && here.id)}》（${here && here.why}）= 只看这一格《${name(forced.id)}》`);
+    agree(`选中${tag}`, st);
+    // 出发（startExp 记下这一格）→ 回来：平时的推荐还是它，不叫换回去
     L.equipArt(st, here.id); st.lastExp = { k, d, a: 0, r: 3, t: st.tick };
-    const E = agree(`从${L.REGIONS[k].n}${L.DEPTHS[d]}回来`, st);
-    check(E.r === '' && E.rc.ctx.kind === 'map', `从${L.REGIONS[k].n}${L.DEPTHS[d]}回来：不叫换回去（${E.rc && E.rc.ctx.kind} · ${E.r ? '推《' + name(E.r) + '》' : '不用换'}）`);
+    const E = agree(`从${tag}回来`, st);
+    check(E.r === '' && E.rc.ctx.kind === 'map', `从${tag}回来：不叫换回去（${E.rc && E.rc.ctx.kind} · ${E.r ? '推《' + name(E.r) + '》' : '不用换'}）`);
     // 换回另一门再看：推荐就是出发页那门
-    st.arts.slot[1] = want === 'z_liaoyuan' ? 'z_qingteng' : 'z_liaoyuan';
-    const E2 = agree(`${L.REGIONS[k].n}${L.DEPTHS[d]}（装着另一门）`, st);
-    check(E2.r === want, `${L.REGIONS[k].n}${L.DEPTHS[d]}：平时的推荐 = 出发页那门《${name(want)}》（${E2.rc && E2.rc.why}）`);
-    stable(`${L.REGIONS[k].n}${L.DEPTHS[d]}之后`, st, 6);
+    st.arts.slot[1] = other;
+    const E2 = agree(`${tag}（装着另一门）`, st);
+    check(E2.r === here.id, `${tag}：平时的推荐 = 出发页那门《${name(here.id)}》（${E2.rc && E2.rc.why}）`);
+    stable(`${tag}之后`, st, 6);
     out['map' + k + d] = st;
   }
   // 3. 三年之约前（还有 2 月）：慕容是水 → 土克水
@@ -165,15 +170,16 @@ async function ui(states) {
   for (const [key, k, d, start] of scen) {
     const s = states[key]; if (!s) continue;
     const s2 = clone(s); s2.guide = Object.assign({ step: 99 }, s2.guide, { done: true }); s2.hintSeen = Object.assign({}, s2.hintSeen); if (start || s._start) s2.arts.slot[1] = start || s._start;
-    if (key.startsWith('map')) delete s2.lastExp;   // 正要去：还没去过这一格
+    if (key.startsWith('map')) { delete s2.lastExp; if (s2.flags) delete s2.flags.recMap; }   // 正要去：还没去过、也没选过这一格
     await ev(q => { if (q) window.__xm.L.PACT_POWER = q; }, s2._pactQ || 0);
     await ev(x => { window.__xm.loadState(x); window.__xm.closeModal(); window.__xm.setSpeed(window.__xm.pauseIdx); for (const h of window.__xm.hints) window.__xm.st.hintSeen[h.id] = 1; }, s2);
     await page.waitForTimeout(200);
     const read = async (what, open, sel) => { await ev(open.fn, open.a); await page.waitForTimeout(350); await page.screenshot({ path: `${OUT}/p7-${key}-${what}.png` }); return ev(sel); };
-    const arts = await read('arts', { fn: () => window.__xm.showArts(1) }, () => { const r = [...document.querySelectorAll('#modal .arow')].find(x => /荐/.test((x.querySelector('.chip') || {}).textContent || '')); return r ? { id: r.dataset.art, why: ((r.querySelector('.arec-why') || {}).textContent || '') } : { id: '', why: '' }; });
-    const grow = await read('growth', { fn: () => window.__xm.showGrowth('goal') }, () => { const { st, L } = window.__xm, A = L.advise(st, 'goal'); const i = A.acts.findIndex(a => /^swap:/.test(a.id)); const el = i >= 0 && document.querySelectorAll('#modal .gw-act')[i]; return { id: i >= 0 ? A.acts[i].id.slice(5) : '', nm: el ? el.querySelector('.nm').textContent : '', why: el ? el.querySelector('.gw-cost').textContent : '' }; });
+    // 先打开出发页（选中这一格），再看功法页、变强页：三处说同一门
     let exp = null;
     if (k !== null) exp = await read('exp', { fn: x => window.__xm.confirmExp(x[0], x[1], 0), a: [k, d] }, () => { const b = document.querySelector('#modal .bt-rec [data-swapz], #modal #expElem [data-swapz]'); return { id: b ? b.dataset.swapz : '', t: b ? b.textContent : '' }; });
+    const arts = await read('arts', { fn: () => window.__xm.showArts(1) }, () => { const r = [...document.querySelectorAll('#modal .arow')].find(x => /荐/.test((x.querySelector('.chip') || {}).textContent || '')); return r ? { id: r.dataset.art, why: ((r.querySelector('.arec-why') || {}).textContent || '') } : { id: '', why: '' }; });
+    const grow = await read('growth', { fn: () => window.__xm.showGrowth('goal') }, () => { const { st, L } = window.__xm, A = L.advise(st, 'goal'); const i = A.acts.findIndex(a => /^swap:/.test(a.id)); const el = i >= 0 && document.querySelectorAll('#modal .gw-act')[i]; return { id: i >= 0 ? A.acts[i].id.slice(5) : '', nm: el ? el.querySelector('.nm').textContent : '', why: el ? el.querySelector('.gw-cost').textContent : '' }; });
     // 照出发页（或功法页）的推荐换上，回到变强页 / 功法页：都不再推别的
     const take = exp && exp.id ? exp.id : arts.id;
     let after = null;

@@ -171,7 +171,7 @@ function elemLine(k, d) {
   else main = `${L.elName(e.me)}与${L.elName(e.it)}不相克`;
   // 有更合适的战技：L.artRecommend 按这一格（与功法页、变强页同一套打分），写原因
   let swap = '';
-  const rc = L.artRecommend(st, 1, { k, d: d || 0, here: true });
+  L.artRecSelect(st, k, d || 0); const rc = L.artRecommend(st, 1);   // 选中这一格，问平时的推荐（与功法页、变强页同一个答案）
   if (rc && !rc.same && rc.id) { const B = L.art(rc.id); swap = `<button class="btn sm alt eq" data-swapz="${rc.id}">换上《${esc(B.n)}》：${esc(rc.why)}</button>`; }
   const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d: d || 0, here: true, force: true }) : null;   // 近期大节点优先：克这张图的另有一门只提一句
   if (alt && alt.id !== (rc.same ? rc.cur : rc.id) && alt.why && /克/.test(alt.why)) swap += `<span class="muted">克这张图的是《${esc(L.art(alt.id).n)}》；${esc(rc.ctx.label)}还有 ${rc.ctx.left} 月，先按它配</span>`;
