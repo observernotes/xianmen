@@ -88,7 +88,11 @@ function logic() {
   }
   // 3. 三年之约前（还有 2 月）：慕容是水 → 土克水
   {
-    let st = idle(give(sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK - 2 }).st));
+    // 行动点制下 sim 按季推进（maxT 落在季末），所以不按 maxT 取，而是逐月看：约战没打、离约战 ≤ L.REC.big 月、人在洞府的最后一个月
+    let found = null;
+    sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK + 3, onTick: s => { const b = L.bigNext(s); if (!s.pact && b && b.k === 'pact' && b.left <= L.REC.big && b.left >= 1) found = clone(s); } });
+    check(!!found, `三年之约前：取到约战前 ≤ ${L.REC.big} 月的存档（第 ${found && found.tick} 月，还有 ${found && L.bigNext(found).left} 月）`);
+    let st = idle(give(found));
     st.arts.slot[1] = 'z_liaoyuan';
     const pi = L.pactInfo(st), foe = { foe: L.PACT_FOE, Q: pi.Q, scale: S => S * L.pactAssist(st) };
     const E = agree('三年之约前', st, foe);
