@@ -6,6 +6,9 @@
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE（排在 panel-rivals 之后：用 rvPortrait / zSwapRow / showRivalCard）。 */
 GO_K.mainfoe = () => { const id = L.mainFoes(st)[0]; if (id) showRivalCard(id, () => showWorld('rank')); else showWorld('rank'); };
 GO_NAV.mainfoe = 'world';
+// 晋升：宗门页总是落在“身份”分页（上回停在任务板也一样），【晋升】按钮 #btnPromo 才在眼前
+GO_K.sectid = () => { sectTab = 'id'; showWorld('sect'); };
+GO_NAV.sectid = 'world';
 const chalCd = () => (L.mainEase(st) >= 1 ? L.MAIN_V.cdEase : L.MAIN_V.cd);
 // 准备页：VS、胜算、换战技；o = { visit 上门的那一回, intro, back }
 function chalPrep(id, o) {

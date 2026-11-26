@@ -222,7 +222,7 @@ async function play(route, seed) {
     if (r === 'nosect' && !/哪家也不去/.test(s.picks.s2_invite || '')) F(`三张帖子没选“哪家也不去”（${s.picks.s2_invite}）`);
     if (r === 'pactlose' && !s.pactLost) F('约战没输（局面没造出来）');
     if (r === 'guided' && !s.sect) F('照引导玩却没入宗');
-    if (r === 'oldsave') { if (!s.rescue || !s.rescue.rescue || !s.rescue.invite) F('旧档读进来没救场（' + JSON.stringify(s.rescue) + '）'); if (!(s.visits > 0)) F('旧档读进来赵乾没上门'); }
+    if (r === 'oldsave') { if (!s.rescue || !s.rescue.rescue || !s.rescue.invite) F('旧档读进来没救场（' + JSON.stringify(s.rescue) + '）'); if (!(s.visits > 0 || s.chals > 0)) F('旧档读进来赵乾既没上门、也没能下战书'); }
     if (process.env.PT_LOG) console.log('  剧情：' + (s.storyIds || []).join(' ') + ' 节拍 ' + s.beat + ' 队列 ' + s.storyQ);
     console.log(`  ${r.padEnd(9)} ${s.asc ? '飞升' : '第' + N[s.ch] + '章'} ${s.tick} 月 境界 ${s.r}${s.ending ? ' 结局 ' + s.ending : ''} · ${s.sect ? '宗门 ' + s.sect : s.lone ? '散修' : '无宗门'} · 每章用时 ${dur.join(' ')} · 目标卡主线一步 ${s.goMain} 次 · 入宗 ${s.joins} · 晋升 ${s.promos} · 下战书 ${s.chals} · 上门 ${s.visits} · 帖子弹窗 ${s.invites} · 老祖提示 ${s.hints} · 降要求 ${s.eases} · 剧情 ${s.story} 场 · 关键事件→剧情 ${(s.lag || []).filter(g => g.shown !== null).map(g => g.id.replace('_climax', '') + '+' + (g.shown - g.ev)).join(' ')} · ${x.sec} 秒${s.rescue ? ' · 旧档：读档即降到 ' + s.rescue.e + ' 级、补帖 ' + s.rescue.invite : ''}`);
   }

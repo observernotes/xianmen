@@ -281,7 +281,7 @@ function progItem(st, x, ch, e) {
   return null;
 }
 // 进度项 → 界面跳转键（goalcard.js 的 GO_K；mainfoe = 这一章要打的宿敌的宿敌卡）
-const GO_OF = { pact: 'big', sect: 'sect', contrib: 'sect', promo: 'sect', meet: 'sect', rank: 'rivals', boss: 'exp', war: 'prep', story: 'home', trib: 'cult' };
+const GO_OF = { pact: 'big', sect: 'sect', contrib: 'sect', promo: 'sectid', meet: 'sect', rank: 'rivals', boss: 'exp', war: 'prep', story: 'home', trib: 'cult' };
 const goKey = pr => (pr ? GO_OF[pr.k] || (L.RIVAL_INFO[pr.k] ? 'mainfoe' : '') : '');
 L.mainGoKey = goKey;
 const sortP = a => a.filter(Boolean).sort((x, y) => Math.min(1, x.v / (x.max || 1)) - Math.min(1, y.v / (y.max || 1)));
@@ -306,7 +306,7 @@ L.mainStep = function (st) {
     if (x.k === 'srank') {
       // 三张帖子那场戏还没来（第二章开头一两个月）：等它；没有那场戏的局面（旧档错过了、剧情关着）才直接去投帖
       if (!st.sect && !L.loneRoute(st) && !wuzong(st) && st.pact && L.chapterNow(st) >= 1 && !invitePending(st)) return { id: 'main:join', t: '投帖入宗', say: '去宗门投帖', go: 'sect', hl: '#modal [data-join]', must: 1 };
-      if (st.sect && L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 1) return { id: 'main:promo', t: '晋升' + promoName(st, st.sect.rank + 1), say: '去宗门晋升', go: 'sect', hl: '#btnPromo', must: 1 };
+      if (st.sect && L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 1) return { id: 'main:promo', t: '晋升' + promoName(st, st.sect.rank + 1), say: '去宗门晋升', go: 'sectid', hl: '#btnPromo', must: 1 };
     }
     if (x.k === 'rival') { const I = L.challengeInfo(st, x.id); if (I && !I.why && (I.p >= 0.5 || e >= 2)) return { id: 'main:chal:' + x.id, t: '向' + I.n + '下战书', say: `向${I.n}下战书（${pct(I.p)}）`, go: 'mainfoe', hl: '#btnChal', must: 1, foe: x.id }; }
   }
