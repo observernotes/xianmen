@@ -129,69 +129,8 @@ function gearLeave(oldU, keep) {
 }
 
 // ---------- 法宝页 ----------
-// 上：灵矿一行；待定的对比卡；开了的几格（图标 + 名字 + 关键数 + 角标）；选中那格：一个【强化】（金）和强化后的变化；词条、重铸、锁定收进详情
+// 法宝详情（showGearDetail）= 炼器台：强化 / 淬灵 / 洗练三页，见 src/ui/forge.js（COMBAT_LOOT §6）
 let gearSel = 'w', gearMsg = '', gearHold = null;
-function showGearDetail(sel, still) {
-  if (sel) gearSel = sel;
-  const g = st.gear;
-  const open = L.GEAR_SLOTS.filter(s => L.gearOpen(st, s));
-  if (!open.includes(gearSel)) gearSel = 'w';
-  const plusOpen = L.gearOpen(st, 'plus');
-  const slots = open.map(s => {
-    const x = g[s], cls = 'aslot gslot pn-gslot' + (s === gearSel ? ' sel' : '');
-    let inner;
-    if (!x) inner = `<span class="k">${L.GEAR_N[s]}</span><span class="aempty">空</span>`;
-    else {
-      const B = L.gearBase(x.id), why = plusOpen ? L.gearPlusWhy(st, s) : 'x';
-      const badge = g.lock[s] ? '<span class="chip">锁</span>' : !why && L.gearPlusRate(st, x) >= 0.8 ? '<span class="chip ok">可强化</span>' : '';
-      inner = `<span class="k">${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]}</span>${qcellHTML(x.t, gearImg(x, 2), 2)}<span class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${plusTag(x.plus)}</span><span class="num pn-key">${esc(gearKey(x))}</span>${badge}`;
-    }
-    return `<div class="${cls}" data-gslot="${s}">${inner}</div>`;
-  }).join('');
-  // 选中格：名字、主属性全文、强化（一个金按钮）；词条与重铸、锁定当前收进详情
-  const x = g[gearSel];
-  let det = '';
-  if (x) {
-    const B = L.gearBase(x.id), info = L.gearPlusInfo(st, gearSel);
-    let plusSec = '';
-    if (plusOpen && info.max) plusSec = '<div class="goldt">已强化到 +9</div>';
-    else if (plusOpen) {
-      const pRows = gearDeltaRows(info.a, info.b, info.k).slice(0, 3);
-      plusSec = `<div class="gplusinfo"><div class="pn-ph">强化 +${x.plus} → +${x.plus + 1} · 成功率 <b>${L.pct(info.rate)}</b>${x.fail ? ` <span class="muted">（失败 ${x.fail} 次，保底已加）</span>` : ''}</div>${pRows.length ? `<dl class="grid2 delta pn-key">${pRows.join('')}</dl>` : ''}
-        <button class="btn ${info.why ? 'alt' : 'gold'} gplusb pn-plusb" data-plus="${gearSel}" ${info.why ? 'disabled' : ''}>强化<small>${info.why ? esc(info.why) : `${oreImg(pxs(8, 2))}${fmt(info.cost.ore)} · 灵石 ${fmt(info.cost.stones)}`}</small></button></div>`;
-    }
-    const affRows = x.aff.map((a, i) => {
-      const why = L.gearReforgeWhy(st, gearSel, i);
-      return `<div class="garow"><span class="gaff${B.fixed ? ' fixed' : ''}">${affImg(a)}${L.AFFIX[a].n}</span><span class="grow muted">${esc(L.AFFIX[a].d)}</span>${B.fixed ? '<span class="muted">固定</span>' : `<button class="btn sm alt eq" data-rf="${i}" ${why ? 'disabled' : ''}>重铸</button>`}</div>`;
-    }).join('') || '<div class="muted">没有词条</div>';
-    const more = `<details class="more pn-more"${g.rf ? ' open' : ''}><summary>词条${x.aff.length ? ' ' + x.aff.length + ' 条' : ''} · 重铸 · 锁定</summary>
-      ${B.note ? `<div class="jadet">${esc(B.note)}</div>` : ''}${B.xx ? '<div class="jadet">老祖“请出手”：每届论道、会武各 2 次，输掉的一场重来</div>' : ''}
-      ${affRows}${B.fixed ? '' : `<div class="muted fxs">重铸：花天材地宝 1 重抽一条，二选一保留（你有 ${st.treasure}）</div>`}
-      <div class="row"><span class="grow muted fxs">${g.lock[gearSel] ? `已锁定：低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼、不弹卡` : `锁定后，低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼`}</span><button class="btn sm alt eq" data-glock="${gearSel}">${g.lock[gearSel] ? '解锁' : '锁定'}</button></div></details>`;
-    det = `<div class="gdet pn-gdet" style="border-left-color:${gTierBorder(x.t)}"><div class="row">${gearImg(x, 3)}<div class="grow"><div class="line">${pnName(esc(B.n), x.t)}${plusTag(x.plus)}${gTierTag(x.slot, x.t)}${B.el ? elChip(B.el) : ''}</div><div class="muted">${esc(L.gearMainText(st, x))}</div></div></div>
-      ${gearMsg ? `<div class="quote">${gearMsg}</div>` : ''}${plusSec}${more}</div>`;
-  } else det = emptyNoteHTML('vault', `${L.GEAR_N[gearSel]}空着：历练、寻宝、首领都会掉。`);
-  // 重铸的二选一
-  const rf = g.rf;
-  const rfCard = rf ? `<div class="gcmp better" id="gRf"><div>重铸【${esc(L.gearBase(st.gear[rf.slot].id).n)}】：留哪条？</div><div class="gbtns"><button class="btn sm alt" data-rfk="0"><span class="gaff">${affImg(rf.old)}${L.AFFIX[rf.old].n}</span> 留旧</button><button class="btn sm gold" data-rfk="1"><span class="gaff">${affImg(rf.neu)}${L.AFFIX[rf.neu].n}</span> 换新</button></div><div class="muted fxs">旧：${esc(L.AFFIX[rf.old].d)}；新：${esc(L.AFFIX[rf.neu].d)}</div></div>` : '';
-  const pendL = g.pend.filter(y => !y.hold), held = L.gearHeld(st);
-  const pend = (pendL.length ? `<div class="seal">${pendL.length} 件新法宝待定，离开就熔掉</div>` + pendL.map(gearCmpHTML).join('') : '')
-    + (held.length ? `<div class="muted">收着：${held.map(y => `【${esc(L.gearBase(y.id).n)}】`).join('、')}，槽一开自动戴上</div>` : '');
-  // 器炉：开了、或手里有器方 / 首领材料时才有这一行
-  const nPlan = Object.keys(g.plans).length, nMat = Object.keys(g.mats).reduce((n, k) => n + (g.mats[k] > 0 ? g.mats[k] : 0), 0);
-  const forge = L.gearOpen(st, 'forge') || nPlan || nMat ? `<div class="row pn-row">${scrollImg()}<span class="grow">器炉 · 器方 ${nPlan}/${L.PLANS.length}${nMat ? ` · 首领材料 ${nMat}` : ''}</span><button class="btn sm alt eq" id="btnForge">器炉</button></div>` : '';
-  const body = meTabs('gear') + `<div class="gres pn-res">${oreImg()} 灵矿 <b class="num">${fmt(st.ore || 0)}</b>${st.treasure ? ` · 天材地宝 ${st.treasure}` : ''}</div>
-    ${rfCard}${pend}<div class="aslots gslots pn-gslots" style="grid-template-columns:repeat(${open.length},minmax(0,1fr))">${slots}</div>${det}${forge}
-    <details class="more"><summary>强化、灵矿怎么来</summary><div class="muted">强化：每级让主属性的超出部分 +${Math.round(L.PLUS.step * 100)}%（兵器 +9 约 ×1.3～1.5）；成功率 100%→40%，失败不掉级，下次 +10%。换装备时强化继承一半。点一下强化一次，按住连强。<br>灵矿：历练（斩妖 ×${L.ORE.slay}，黑风岭 ×2、剑冢 ×3、星墟 ×4）、熔炼（4 × 2^阶）、坊市一筐、宗门器堂、首领、奇遇。</div></details>`;
-  const s = sheet({ title: shellTitle('gear'), body, still, foot: [{ t: '回法宝', alt: true, fn: () => showGear() }] });
-  bindMeTabs(s);
-  s.querySelectorAll('[data-gslot]').forEach(b => b.onclick = () => { SFX.tap(); gearMsg = ''; showGearDetail(b.dataset.gslot, true); });
-  s.querySelectorAll('[data-plus]').forEach(b => bindPlusButton(b));
-  s.querySelectorAll('[data-rf]').forEach(b => b.onclick = () => { if (L.gearReforge(st, gearSel, +b.dataset.rf)) { SFX.reveal(3); showGearDetail(gearSel, true); } });
-  s.querySelectorAll('[data-rfk]').forEach(b => b.onclick = () => { const r = L.gearReforgeKeep(st, b.dataset.rfk === '1'); if (r) { SFX.coin(); gearMsg = `重铸：保留「${L.AFFIX[r.keep].n}」`; showGearDetail(gearSel, true); } });
-  const lk = s.querySelector('[data-glock]'); if (lk) lk.onclick = () => { SFX.tap(); L.gearLock(st, lk.dataset.glock, !st.gear.lock[lk.dataset.glock]); showGearDetail(gearSel, true); };
-  const fb = s.querySelector('#btnForge'); if (fb) fb.onclick = () => { SFX.tap(); showForge(); };
-}
 // 强化一次：成功率、花费、前后战力都在逻辑层算；格子上放一下锤击 / 成功 / 失败的特效（ART.drawForge）
 function doPlus(slot) {
   const info = L.gearPlusInfo(st, slot);
@@ -206,6 +145,7 @@ function doPlus(slot) {
   return r;
 }
 function forgeFx(slot, kind) {
+  benchHit();   // 炼器台落锤（forge.js）
   const cell = document.querySelector(`#modal [data-gslot="${slot}"]`); if (!cell) return;
   const c = document.createElement('canvas'); c.width = 40; c.height = 32; c.className = 'px gfx';
   const z = pxs(1, 2); c.style.width = 40 * z + 'px'; c.style.height = 32 * z + 'px';
@@ -286,7 +226,7 @@ function bagItems() {
   add('常用', 'stones', '灵石', 'stone', st.stones, '历练、灵田、宗门俸禄、坊市卖货', '洞府建造与升级、坊市、强化');
   add('常用', 'herbs', '灵草', 'herb', st.herbs || 0, '采药历练、灵田、觅食的灵宠', '炼丹、灵宠进化、坊市行情好时卖', st.home && st.home.furnace ? ['炼丹', () => showAlchemy()] : null);
   add('常用', 'ore', '灵矿', 'ore', st.ore || 0, '斩妖历练、熔炼法宝、坊市、首领', '强化法宝、器炉打造', L.gearOpen(st, 'plus') ? ['去强化', () => showGear()] : null);
-  add('常用', 'treasure', '天材地宝', 'treasure', st.treasure || 0, '首领、禁地、奇遇', '重铸法宝词条、洗髓丹、九转金丹', UI.isOpen('gearCmp') ? ['看法宝', () => showGear()] : null);
+  add('常用', 'treasure', '天材地宝', 'treasure', st.treasure || 0, '首领、禁地、奇遇、翻牌', '洗髓丹、九转金丹、突破', UI.isOpen('gearCmp') ? ['看法宝', () => showGear()] : null);
   add('常用', 'pills', '破境丹', 'pojing', st.pills || 0, '坊市、历练、丹炉', `突破时服下，成功率每枚 +${L.pct(L.BT.pill)}`);
   add('常用', 'feed', '兽粮', 'feed', st.feed || 0, '斩妖历练、觅食岗的灵宠、放生', '喂灵宠升级', L.petCount && L.petCount(st) ? ['去喂', () => showPets()] : null);
   const bagN = st.dan && st.dan.bag ? Object.keys(st.dan.bag).reduce((n, k) => n + ((st.dan.bag[k] || []).length), 0) : 0;
@@ -294,6 +234,10 @@ function bagItems() {
   add('常用', 'token', '秘境令', 'token', (st.mj && st.mj.token) || 0, '每年送一枚、奇遇', '进秘境', UI.isOpen('realm') ? ['去秘境', () => showExp()] : null);
   const yin = (st.mats && st.mats.yin) || {};
   for (const k of Object.keys(BAG_YIN_IC)) add('药引', 'yin_' + k, L.YIN_N[k], BAG_YIN_IC[k], yin[k] || 0, '灵田药引作物、坊市、觅食的灵宠', '药引丹方、灵宠进化、器方', st.home && st.home.furnace ? ['炼丹', () => showAlchemy()] : null);
+  const lm = st.mats || {};
+  for (const e of L.CORE_EL || []) add('材料', 'core_' + e, `${L.ELEM[e]}灵核`, null, (lm.core && lm.core[e]) || 0, '精英、翻牌', `${L.INFUSE.n} 枚淬灵一次：兵器改成${L.ELEM[e]}系`, L.gearOpen(st, 'infuse') ? ['去淬灵', () => showGearDetail('w', false, 'infuse')] : null);
+  out.forEach(it => { if (it.k.startsWith('core_') && ART.core) { const e = it.k.slice(5); it.img0 = ART.core(e); it.imgKey = 'core|' + e; } });
+  add('材料', 'rune', '器纹石', 'rune', lm.rune || 0, '熔带星的法宝（按星数）、首领', '洗练：换一条词条', L.gearOpen(st, 'reroll') ? ['去洗练', () => showGearDetail('w', false, 'reroll')] : null);
   for (const k of Object.keys(g.mats || {})) add('材料', 'mat_' + k, L.BOSS_MAT[k], 'treasure', g.mats[k], '首领：首杀 ×2，金丹后再战 ×1', '器炉打造专属法宝', ['器炉', () => showForge()]);
   out.forEach(it => { if (it.k.startsWith('mat_') && ART.bossMat) { const k = +it.k.slice(4); it.img0 = ART.bossMat(k); it.imgKey = 'bmat|' + k; } });
   add('材料', 'plans', '器方', 'gscroll', Object.keys(g.plans || {}).length, '首领首杀、拍卖、宗门宝库、奇遇链', '器炉打造固定词条的法宝', ['器炉', () => showForge()]);
