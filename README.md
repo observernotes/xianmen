@@ -159,6 +159,7 @@ tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【�
                   每 12 周天进【洞府】有空地就点空地建“荐”的那一样，阵法页按“荐”布阵：快渡劫时布渡劫阵、渡完换回聚灵阵），检查全程无报错且飞升
 tools/guide_test.js 按真实玩家的点法走第一章（开罗式引导）：头三步手把手、在外零打断、结算卡、解锁卡【带我去】、装备 1 次点击、年报、备战卡、章末，逐步截图
 tools/kairo_check.js 面板版式断言（KAIRO_PLAN §4.2 / §7）：各面板第一屏 ≤ 60 字、≤ 6 个按钮、没有小于 14px 的字、不横向溢出；装备 / 功法 / 灵宠的点击数；node tools/kairo_check.js <目录> ["Pixel 7"|360]
+tools/jitter_check.js 窗口切换抖动：底栏五格互点、各面板分页、弹窗开关与 A 关 B 开、变强页原地重画、目标卡展开、进出战斗、结算卡翻牌、突破过场接结果卡，逐帧记关键元素的位置并统计 CLS；--assert 时要求 CLS < 0.02、一直在屏上的元素一帧位移 ≤ 4px、卷轴不闪不重放入场（进出战斗、目标卡展开这类换屏只许“一下到位”）；node tools/jitter_check.js --assert [--dev "Pixel 7"|360|desk|both|all] [--only 名字] [--shots]。做法：弹窗开着时再调 sheet() = 同一个卷轴换内容（不重放入场、同页重画保留滚动、同名窗口只长不缩），底栏面板和带分页的窗口固定高度，传讯 + 底栏贴底，四周的块高度一变当场重排场景
 tools/cine_test.js 高光过场（src/ui/cine2.js，docs/COMBAT_LOOT.md §9）：十段过场各截三帧、时长 ±20%、【跳过】0.3 秒内、点一下快进 / 长按跳过、字幕一行、停表、只播一次、在外排队回洞府先播、破境 → 结果卡、约战前后、回忆页；node tools/cine_test.js <目录> ["Pixel 7"|360]。playwright 下过场默认快放（照常记看过、走回调，不出画面），window.__xm_cine.fast = false 才播
 tools/save_check.js 存档位（src/logic/slots.js + src/ui/saves.js）：轮换、手动存读删、旧档成为自动 1、读档后接着跑 30 个月、导出导入、容量；界面 Pixel 7 与 360×640 逐步截图；node tools/save_check.js <目录>
 tools/kairo_shots.js 开罗式重整前后对照截图（开局、出发、结算、第一章中段、装备、路径、在外、年报）
