@@ -1,0 +1,171 @@
+<!doctype html><meta charset="utf8">
+<!-- 变强页重做示意图（docs/KAIRO_PLAN.md §10）。每个 .phone[id] 截一张：node tools/growth_shots.js -->
+<style>
+@font-face{font-family:px;src:url(../../tools/fusion-pixel.ttf)}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0914;font-family:px,sans-serif;color:#efe9ff;display:flex;flex-wrap:wrap;gap:24px;padding:24px;width:max-content}
+canvas.px{image-rendering:pixelated;vertical-align:middle}
+.wrap{width:412px}
+.cap{font:14px sans-serif;color:#9d93b8;margin:0 0 6px}
+.phone{width:412px;height:839px;background:#140e1f;position:relative;overflow:hidden;font-size:16px}
+.hud{background:#262038;border:2px solid #3a3155;box-shadow:inset 0 0 0 1px #1b1326}
+.top{white-space:nowrap;position:absolute;left:8px;right:8px;top:6px;height:40px;display:flex;align-items:center;gap:10px;padding:0 8px;font-size:17px;opacity:.45}
+.nav{position:absolute;left:8px;right:8px;bottom:8px;height:74px;display:flex;gap:5px;opacity:.45}
+.nav div{flex:1;text-align:center;padding-top:5px;font-size:15px;line-height:17px}
+.shade{position:absolute;inset:0;background:#0d0914b8}
+.sheet{position:absolute;left:6px;right:6px;top:52px;bottom:88px;background:#efe3c4;color:#2c2238;border:3px solid #a8742a;padding:8px 10px;display:flex;flex-direction:column}
+.sheet h2{margin:0 0 4px;font-size:22px;font-weight:normal;display:flex;align-items:center}
+.sheet h2 .x{margin-left:auto;width:36px;height:36px;border:2px solid #2c2238;text-align:center;line-height:32px;font-size:18px}
+.ink{color:#2a8a7a}.red{color:#c8323c}.mut{color:#8a7a5c}.gold{color:#a8742a}
+/* 页签：五个数，名字 + 当前值 */
+.tabs{display:flex;gap:3px;margin:2px 0 8px}
+.tabs div{flex:1;text-align:center;border:2px solid #2c2238;padding:3px 0 2px;font-size:15px;line-height:17px;background:#f6ecd2}
+.tabs div b{display:block;font-weight:normal;font-size:14px;color:#2a8a7a}
+.tabs div.on{background:#d8404a;color:#fff}.tabs div.on b{color:#fff2a8}
+.tabs div.lk{color:#b9a988;border-color:#b9a988}.tabs div.lk b{color:#b9a988}
+/* 头：一个问题、一个数、一条杠 */
+.head{background:#262038;color:#efe9ff;border:2px solid #f4c542;padding:6px 8px 7px}
+.head .l1{display:flex;align-items:center;gap:6px;font-size:16px}
+.head .l1 .rt{margin-left:auto;font-size:14px;color:#ff9a8a}
+.head .big{font-size:26px;line-height:28px;color:#fff2a8;margin:4px 0 3px;display:flex;align-items:baseline;gap:6px}
+.head .big small{font-size:14px;color:#9d93b8}
+.head .big .to{color:#8ff5d0}
+.bar{height:14px;background:#1b1326;border:1px solid #55506e;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#f4c542}.bar i.g{background:#4ccb9f}.bar i.r{background:#d8404a}
+.bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
+.bar s{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(90deg,#8ff5d0 0 3px,transparent 3px 6px);opacity:.9}
+/* 老祖一句 */
+.say{display:flex;gap:6px;align-items:center;margin:7px 0 2px}
+.say .bub{flex:1;background:#fff6dc;border:2px solid #a8742a;padding:5px 8px;font-size:15px;line-height:19px;position:relative}
+.say .bub:before{content:"";position:absolute;left:-8px;top:10px;border:4px solid transparent;border-right-color:#a8742a}
+.sec{font-size:14px;color:#8a7a5c;margin:6px 0 4px;display:flex;justify-content:space-between;align-items:center}
+/* 动作卡：图标格 + 名字 + 大数字 + 花费 + 一个按钮 */
+.act{display:flex;gap:8px;align-items:center;border:2px solid #c8b48c;background:#f6ecd2;padding:5px 6px;margin-bottom:5px;position:relative;min-height:68px}
+.act.best{border-color:#a8742a;background:#fff6dc;box-shadow:0 0 0 2px #f4c54288}
+.act .cell{width:52px;height:52px;background:#262038;display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.act .rec{position:absolute;left:-7px;top:-8px}
+.act .mid{flex:1;min-width:0}
+.act .nm{font-size:16px;line-height:18px;white-space:nowrap}
+.act .num{font-size:22px;line-height:26px;color:#2a8a7a;white-space:nowrap}
+.act .num small{font-size:14px;color:#8a7a5c}
+.act .num.gap{color:#c8323c}
+.act .cost{font-size:14px;line-height:16px;color:#8a7a5c;white-space:nowrap}
+.act .cost .no{color:#c8323c}
+.act.dim{background:#eadcb8;border-style:dashed}
+.btn{border:2px solid #2c2238;background:#f4c542;padding:9px 0;font-size:16px;text-align:center;white-space:nowrap;width:72px;flex:none}
+.btn.alt{background:#f6ecd2}.btn.go{background:#d8404a;color:#fff}
+/* 明细 */
+.fold{margin-top:auto;border-top:2px solid #c8b48c;padding-top:6px;font-size:15px;display:flex;align-items:center;gap:6px;color:#2c2238}
+.fold .rt{margin-left:auto;color:#8a7a5c;font-size:14px}
+.det{border:2px solid #c8b48c;background:#f6ecd2;padding:4px 6px;margin-top:2px}
+.dr{display:flex;align-items:center;gap:6px;height:34px;font-size:15px;border-bottom:1px solid #e2d4ae}
+.dr:last-child{border-bottom:0}
+.dr .n{width:92px;white-space:nowrap}
+.dr .pb{flex:1;height:10px;background:#e2d4ae;position:relative}
+.dr .pb i{position:absolute;left:0;top:0;bottom:0;background:#2a8a7a}
+.dr .pb i.add{background:repeating-linear-gradient(90deg,#f4c542 0 3px,#fff6dc 3px 6px)}
+.dr .v{width:52px;text-align:right;font-size:16px;color:#2a8a7a}
+.dr .v.z{color:#b9a988}
+.dr .a{width:18px;text-align:center;color:#a8742a;font-size:15px}
+.dr.lk{color:#b9a988}
+.dr.sel{background:#fff6dc;box-shadow:0 0 0 2px #a8742a;position:relative}
+/* 小卡 */
+.pop{position:absolute;left:30px;right:30px;background:#262038;color:#efe9ff;border:3px solid #f4c542;padding:9px 10px;font-size:15px;line-height:20px}
+.pop .t{font-size:17px;color:#fff2a8;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.pop .f{display:flex;align-items:center;margin-top:7px;gap:8px}
+.pop .f .btn{margin-left:auto;color:#2c2238}
+.g{color:#8ff5d0}.y{color:#f4c542}
+</style>
+<body>
+
+<!-- A 默认：目标页（目标卡“去”、老祖头像、主画面目标条 进来都落这里） -->
+<div class="wrap"><p class="cap">A 变强 · 目标页（默认落点：老祖头像 / 目标卡 / 备战卡）</p>
+<div class="phone" id="g1_goal">
+  <div class="top hud"><canvas class="px" data-art="stone" data-z="2"></canvas>627 <canvas class="px" data-art="pojing" data-z="2"></canvas>1</div>
+  <div class="nav"><div class="hud">历练</div><div class="hud">洞府</div><div class="hud">装备</div><div class="hud">江湖</div><div class="hud">仙途</div></div>
+  <div class="shade"></div>
+  <div class="sheet"><h2>变强<span class="x">×</span></h2>
+    <div class="tabs"><div class="on">目标<b>62%</b></div><div>战力<b>86</b></div><div>修炼<b>+12</b></div><div>灵石<b>+10</b></div><div>突破<b>55%</b></div></div>
+    <div class="head">
+      <div class="l1"><canvas class="px" data-art="goal" data-z="1"></canvas><span>赢下三年之约</span><span class="rt">还有 14 月</span></div>
+      <div class="big">胜算 62%<small>目标 80%</small></div>
+      <div class="bar"><i style="width:62%"></i><s style="left:62%;width:18%"></s><u style="left:80%"></u></div>
+    </div>
+    <div class="say"><canvas class="px" data-elder="1" data-z="1"></canvas><div class="bub">做完这三件，胜算到 <span class="ink">80%</span>。</div></div>
+    <div class="sec"><span>现在最划算</span><span>涨多少 · 花什么</span></div>
+    <div class="act best"><canvas class="px rec" data-art="adv_rec" data-z="2"></canvas><div class="cell"><canvas class="px" data-art="adv_swap" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">换水克火的战技</div><div class="num">▲9% <small>胜算</small></div><div class="cost">不花钱</div></div><div class="btn go">换上</div></div>
+    <div class="act"><div class="cell"><canvas class="px" data-art="f_plus" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">兵器强化 +3</div><div class="num">▲5% <small>胜算</small></div><div class="cost"><canvas class="px" data-art="ore" data-z="1"></canvas> 26 <span class="mut">有 41</span></div></div><div class="btn">强化</div></div>
+    <div class="act"><div class="cell"><canvas class="px" data-art="retreat" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">闭关 4 月</div><div class="num">▲4% <small>早 3 月升层</small></div><div class="cost"><canvas class="px" data-art="stone" data-z="1"></canvas> 80 <span class="mut">有 627</span></div></div><div class="btn">去</div></div>
+    <div class="fold"><canvas class="px" data-art="adv_ledger" data-z="1"></canvas>明细<span class="rt">胜算怎么算的 ▸</span></div>
+  </div>
+</div></div>
+
+<!-- B 某个数：修炼（修为条进来）；明细展开 + 点了一行出的小卡 -->
+<div class="wrap"><p class="cap">B 变强 · 修炼页签（修为条进来；属性页的格子进来时明细自动展开）</p>
+<div class="phone" id="g2_stat">
+  <div class="top hud"><canvas class="px" data-art="stone" data-z="2"></canvas>627 <canvas class="px" data-art="pojing" data-z="2"></canvas>1</div>
+  <div class="nav"><div class="hud">历练</div><div class="hud">洞府</div><div class="hud">装备</div><div class="hud">江湖</div><div class="hud">仙途</div></div>
+  <div class="shade"></div>
+  <div class="sheet"><h2>变强<span class="x">×</span></h2>
+    <div class="tabs"><div>目标<b>62%</b></div><div>战力<b>86</b></div><div class="on">修炼<b>+12</b></div><div>灵石<b>+10</b></div><div>突破<b>55%</b></div></div>
+    <div class="head">
+      <div class="l1"><canvas class="px" data-art="cult" data-z="1"></canvas><span>炼气后期</span><span class="rt">圆满还差 10 月</span></div>
+      <div class="big">修炼 +12<small>/月</small></div>
+      <div class="bar"><i class="g" style="width:60%"></i></div>
+    </div>
+    <div class="sec"><span>现在最划算</span><span>涨多少 · 花什么</span></div>
+    <div class="act best"><canvas class="px rec" data-art="adv_rec" data-z="2"></canvas><div class="cell"><canvas class="px" data-art="array" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">聚灵阵 Lv3</div><div class="num">+2/月 <small>早 2 月</small></div><div class="cost"><canvas class="px" data-art="stone" data-z="1"></canvas> 104 <span class="mut">有 627</span></div></div><div class="btn go">升级</div></div>
+    <div class="act"><div class="cell"><canvas class="px" data-art="retreat" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">闭关 4 月</div><div class="num">×2 <small>早 3 月</small></div><div class="cost"><canvas class="px" data-art="stone" data-z="1"></canvas> 80 <span class="mut">有 627</span></div></div><div class="btn">去</div></div>
+    <div class="sec" style="margin-top:4px"><span><canvas class="px" data-art="adv_ledger" data-z="1"></canvas> 明细 ▾</span><span>16 × 各项 = +12</span></div>
+    <div class="det">
+      <div class="dr"><canvas class="px" data-art="cult" data-z="1"></canvas><span class="n">境界</span><div class="pb"><i style="width:64%"></i></div><span class="v">16</span><span class="a"></span></div>
+      <div class="dr sel"><canvas class="px" data-art="array" data-z="1"></canvas><span class="n">聚灵阵 Lv2</span><div class="pb"><i style="width:17%"></i><i class="add" style="left:17%;width:9%"></i></div><span class="v">×1.17</span><span class="a">▲</span></div>
+      <div class="dr"><canvas class="px" data-art="gscroll" data-z="1"></canvas><span class="n">心法</span><div class="pb"></div><span class="v z">×1</span><span class="a"></span></div>
+      <div class="dr"><canvas class="px" data-art="xisui" data-z="1"></canvas><span class="n">灵根</span><div class="pb"></div><span class="v z">×1</span><span class="a"></span></div>
+      <div class="dr"><canvas class="px" data-art="hurt" data-z="1"></canvas><span class="n">负伤</span><div class="pb"></div><span class="v red">×0.5</span><span class="a">▲</span></div>
+      <div class="dr lk"><canvas class="px" data-art="lock" data-z="1"></canvas><span class="n">还有 3 项</span><div class="pb"></div><span class="v z">未开</span><span class="a"></span></div>
+    </div>
+  </div>
+  <div class="pop" style="top:538px"><div class="t"><canvas class="px" data-art="array" data-z="2"></canvas>聚灵阵 Lv2 → Lv3</div>
+    修炼 <span class="g">×1.17 → ×1.26</span>，每月多 <span class="g">2</span>。
+    <div class="f"><canvas class="px" data-art="stone" data-z="1"></canvas> 104 <span class="btn">升级</span></div></div>
+</div></div>
+
+<!-- C 卡住了：打不过腹地精英（结算卡“去变强”、失败后老祖头像冒叹号 进来） -->
+<div class="wrap"><p class="cap">C 变强 · 卡住时（刷宝 / 淬灵 / 心愿 / “还差多少”）</p>
+<div class="phone" id="g3_stuck">
+  <div class="top hud"><canvas class="px" data-art="stone" data-z="2"></canvas>212 <canvas class="px" data-art="pojing" data-z="2"></canvas>0</div>
+  <div class="nav"><div class="hud">历练</div><div class="hud">洞府</div><div class="hud">装备</div><div class="hud">江湖</div><div class="hud">仙途</div></div>
+  <div class="shade"></div>
+  <div class="sheet"><h2>变强<span class="x">×</span></h2>
+    <div class="tabs"><div class="on">目标<b>丙</b></div><div>战力<b>58</b></div><div>修炼<b>+9</b></div><div>灵石<b>+6</b></div><div class="lk">突破<b>未满</b></div></div>
+    <div class="head">
+      <div class="l1"><canvas class="px" data-art="goal" data-z="1"></canvas><span>后山腹地 · 铁背熊</span><canvas class="px" data-el="tu" data-z="1"></canvas><span class="rt">上回 丙</span></div>
+      <div class="big">预计 丙<small>目标 甲</small></div>
+      <div class="bar"><i class="r" style="width:38%"></i><s style="left:38%;width:42%"></s><u style="left:80%"></u></div>
+    </div>
+    <div class="say"><canvas class="px" data-elder="1" data-z="1"></canvas><div class="bub">金克不了土。换成木，一下就过。</div></div>
+    <div class="sec"><span>现在最划算</span><span>涨多少 · 花什么</span></div>
+    <div class="act best"><canvas class="px rec" data-art="adv_rec" data-z="2"></canvas><div class="cell"><canvas class="px" data-art="f_infuse" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">兵器淬成木</div><div class="num">丙 → 甲 <small>预计</small></div><div class="cost"><canvas class="px" data-core="mu" data-z="1"></canvas> 3/3　<canvas class="px" data-art="ore" data-z="1"></canvas> 20 <span class="mut">有 34</span></div></div><div class="btn go">淬灵</div></div>
+    <div class="act"><div class="cell"><canvas class="px" data-art="wish" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">刷心愿《青藤缚》</div><div class="num">再 2 趟 <small>必出</small></div><div class="cost">外围 · 每趟 3 月</div></div><div class="btn">去</div></div>
+    <div class="act dim"><div class="cell"><canvas class="px" data-art="f_plus" data-z="3"></canvas></div>
+      <div class="mid"><div class="nm">兵器强化 +3</div><div class="num gap"><canvas class="px" data-art="adv_gap" data-z="1"></canvas> 还差 8 <small>灵矿</small></div><div class="cost">战力 58 → 61　熔 1 件就够</div></div><div class="btn alt">去熔</div></div>
+    <div class="fold"><canvas class="px" data-art="adv_ledger" data-z="1"></canvas>明细<span class="rt">预计怎么算的 ▸</span></div>
+  </div>
+</div></div>
+
+<script src="../../src/art.js"></script>
+<script>
+const put=(el,c,z)=>{el.width=c.width*z;el.height=c.height*z;const g=el.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(c,0,0,el.width,el.height)};
+for(const el of document.querySelectorAll('canvas[data-art]'))put(el,ART.icon(el.dataset.art),+el.dataset.z||2);
+for(const el of document.querySelectorAll('canvas[data-elder]'))put(el,ART.portrait('elder','n'),+el.dataset.z||1);
+for(const el of document.querySelectorAll('canvas[data-core]'))put(el,ART.core(el.dataset.core),+el.dataset.z||1);
+for(const el of document.querySelectorAll('canvas[data-el]'))put(el,ART.elemBadge(el.dataset.el),+el.dataset.z||1);
+</script>
