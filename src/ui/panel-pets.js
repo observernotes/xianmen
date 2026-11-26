@@ -216,7 +216,7 @@ function showPetEvo(i) {
     const show = known || ok;
     const tal = L.PET_TAL[B.tal];
     return `<div class="pbr${ok ? ' ok' : ''}">${known ? petCardImg(p.sp, b, 0, 2) : `<span class="psilbox">${petSprImg({ sp: p.sp, form: b }, 2).replace('class="px"', 'class="px psil"')}</span>`}<div class="nm">${known ? esc(L.petFormName(p.sp, b)) : '？？？'}</div>
-      <div class="jadet pn-key">${out ? `战力 ${arrowNum(w0, w1)}` : `×${mult2(m0)} → <b>×${mult2(m1)}</b>`} ▲</div>
+      <div class="jadet pn-key">${out && fmt(w0) !== fmt(w1) ? `战力 → <b>${fmt(w1)}</b>` : `×${mult2(m0)} → <b>×${mult2(m1)}</b>`} ▲</div>
       <div class="fxs">${needs.map(x => `<span class="${x.ok ? 'jadet' : 'seal'}">${x.ok ? '✓' : '✗'} ${show ? esc(x.t) : '？'}${x.need !== undefined && show ? ` ${fmt(x.have)}/${fmt(x.need)}` : ''}</span>`).join('<br>')}</div>
       <div class="fxs muted">${known ? '天赋：' + esc(tal.d(tal.k === 'mul' ? 1 + (tal.v - 1) * (1 + 0.02 * p.heart) : tal.v * (1 + 0.02 * p.heart))) : '线索：' + esc(B.hint)}</div>
       <button class="btn sm ${b === goldB ? 'gold' : 'alt'}" data-evo="${b}" ${ok ? '' : 'disabled'}>${ok ? '选它' : '未满足'}</button></div>`;
