@@ -519,13 +519,15 @@ const cnPactOrig = () => !(L.pactText && L.pactText(st));
 { const js0 = L.joinSect; L.joinSect = function (s, id) { const r = js0.apply(this, arguments); if (s === st && r) cineWant('rzong', { id }); return r; }; }
 // ⑥ 斩首领（旧的首领对决；C1 的引擎首杀时自己调 playCine('boss', { k })）
 { const fb0 = L.fightBoss; L.fightBoss = function (s, k) { const r = fb0.apply(this, arguments); if (s === st && r && r.win && !r.again) cineWant('boss', { k }); return r; }; }
-// 首领首杀之后 C2 的翻牌（showLootFlip）直接换掉对决那一页、弹窗不关：排着的首领过场插在翻牌之前播
-if (typeof showLootFlip === 'function') { const lf0 = showLootFlip; showLootFlip = function () {
+// 首领首杀之后的结果卡（C1 的回合战首领 bossResultUI，牌翻在卡上）与单独一张翻牌（showLootFlip）：排着的首领过场插在它们之前播
+const cnBossFirst = fn => function () {
   const a = arguments, i = st && st.cnQ && !cn && !awayUI() ? st.cnQ.findIndex(x => x.id === 'boss') : -1;
-  if (i < 0) return lf0.apply(this, a);
+  if (i < 0) return fn.apply(this, a);
   const x = st.cnQ.splice(i, 1)[0];
-  cinePlay(x.id, x.o).then(() => lf0.apply(this, a));
-}; }
+  cinePlay(x.id, x.o).then(() => fn.apply(this, a));
+};
+if (typeof bossResultUI === 'function') bossResultUI = cnBossFirst(bossResultUI);
+if (typeof showLootFlip === 'function') showLootFlip = cnBossFirst(showLootFlip);
 // ⑨ 守山
 { const sw0 = L.sectWar; L.sectWar = function (s) { const r = sw0.apply(this, arguments); if (s === st && r && r.win) cineWant('shoushan', {}); return r; }; }
 // ⑦ 宿敌对视：第一次与赵乾 / 楚天阔 / 血无涯对决之前

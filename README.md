@@ -164,6 +164,12 @@ tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对�
                   fx.recipe、丹毒门槛、续炼、爆气丹 / 雷火丹、锦囊、疗伤丹、药引一包、变种、迁移）、老祖讲解、迁移补字段的界面测试
 ```
 
+刷宝与炼器（docs/COMBAT_LOOT.md §5、§6，线 C2）：`src/logic/loot.js`（排在 expedition 后面）管归途翻牌 `L.tripLoot` / 首领的牌 `L.bossLoot`、
+每个地点 × 深度的掉落表与图鉴 `L.dropTable`（`st.meta.drop`，跨世）、心愿 `L.setWish`（`st.wish`，8 趟必出，第一章 5 趟）、招牌与首领专属的保底、
+趁势深入 `L.startDeeper`；星（器纹）、30 条词条、金词条、灵核 / 器纹石（`st.mats.core / rune`，`L.matsAdd`）、淬灵、开锋、洗练在 `src/logic/gear.js`，
+给战斗引擎的一张表是 `L.gearBattle(st)`。界面：`src/ui/loot.js`（翻牌仪式、出发页“这里掉什么”与心愿、图鉴“掉落”页）、
+`src/ui/forge.js`（法宝详情 = 炼器台：强化 / 淬灵 / 洗练三页），CSS 前缀 `.lt-`。
+
 构建：
 
 ```
