@@ -824,7 +824,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.screenshot({ path: out + '/46-trials.png' }); await sLay('试炼');
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/47-opening.png' }); await sLay('出身开场');
   const nl = await page.evaluate(() => { const { st } = window.__xm; return { reb: st.rebirth, o: st.origin, tr: st.trials, ex: st.exName, h: document.querySelector('#modal h2') && document.querySelector('#modal h2').textContent, q: document.querySelector('#modal .quote') && document.querySelector('#modal .quote').textContent, art: Object.keys(st.meta.cx.art).length }; });
-  if (nl.reb !== 1 || nl.o !== 'sanxiu' || nl.tr.join() !== 'poor,limit' || nl.ex !== '钱通' || nl.h !== '散修丹师' || !/铺面之约/.test(nl.q || '') || !/清贫、限时/.test(nl.q || '') || nl.art < 3) errors.push('转世后状态不对：' + JSON.stringify(nl));
+  if (nl.reb !== 1 || nl.o !== 'sanxiu' || nl.tr.join() !== 'poor,limit' || nl.ex !== '钱通' || nl.h !== '散修丹师' || !nl.q   /* 2.3.2 剧情串联层改写了出身开场（戒指的一句话），不再写“铺面之约 / 清贫、限时” */ || nl.art < 3) errors.push('转世后状态不对：' + JSON.stringify(nl));
   await page.evaluate(() => window.__xm.closeModal()); await page.waitForTimeout(500);
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300);
   const cxk = await page.evaluate(() => { const { st, L } = window.__xm; return { chain: L.codexCat(st, 'chain').got, art: L.codexCat(st, 'art').got, end: L.codexCat(st, 'ending').got, aff: Object.keys(st.meta.aff).length }; });

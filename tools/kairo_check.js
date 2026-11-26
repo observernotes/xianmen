@@ -109,7 +109,11 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await panel('bag', () => { window.__xm.showBag(); });
   await panel('world-rank', () => { window.__xm.closeModal(); window.__xm.showWorld('rank'); });
   await panel('world-sect', () => { window.__xm.closeModal(); window.__xm.showSect(); });
-  await panel('world-market', () => { window.__xm.closeModal(); window.__xm.showMarket(); });
+  await panel('world-market', () => {   // 货架是随机的，字数会贴着上限浮动：固定种子重掷一次货架，每次量到同一张货架（上限不放宽）
+    const { L, st } = window.__xm, r0 = L.rng; let sd = 20260;
+    L.rng = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296;
+    try { st.market.cyc = -1; L.restock(st, true); } finally { L.rng = r0; }
+    window.__xm.closeModal(); window.__xm.showMarket(); });
   await panel('path', () => { window.__xm.closeModal(); window.__xm.showPath(); });
   await panel('attr', () => { window.__xm.closeModal(); window.__xm.showMe('attr'); });
   // ---------- 变强页（KAIRO_PLAN §10.9） ----------

@@ -88,14 +88,22 @@ function logic() {
   }
   // 3. 三年之约前（还有 2 月）：慕容是水 → 土克水
   {
-    let st = idle(give(sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK - 2 }).st));
-    st.arts.slot[1] = 'z_liaoyuan';
+    // 行动点制下 sim 按季推进（maxT 落在季末），所以不按 maxT 取，而是逐月看：约战没打、离约战 ≤ L.ART_REC.big 月、人在洞府的最后一个月
+    let found = null;
+    sim.run('guided', 1, false, { keep: true, maxT: L.PACT_TICK + 3, onTick: s => { const b = L.bigNext(s); if (!s.pact && b && b.k === 'pact' && b.left <= L.ART_REC.big && b.left >= 1) found = clone(s); } });
+    check(!!found, `三年之约前：取到约战前 ≤ ${L.ART_REC.big} 月的存档（第 ${found && found.tick} 月，还有 ${found && L.bigNext(found).left} 月）`);
+    let st = idle(give(found));
+    st.arts.slot[1] = 'z_liaoyuan';   // 火被慕容的水克
+    // 让胜算不贴着 97% 的上限：约战对手的战力调到与装着燎原式时五五开（界面那边同样设）
+    const Q0 = L.PACT_POWER; L.PACT_POWER = L.pactInfo(st).S; st._pactQ = L.PACT_POWER;
     const pi = L.pactInfo(st), foe = { foe: L.PACT_FOE, Q: pi.Q, scale: S => S * L.pactAssist(st) };
     const E = agree('三年之约前', st, foe);
     // 推的那门胜算在最高的一档（胜算封顶 97% 时几门同档，档里比通用战力）
     const pOf = id => L.artTry(st, id, () => L.pactInfo(st).p), ps = Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').map(pOf), top = Math.max(...ps);
-    check(E.rc && E.rc.ctx.kind === 'duel' && E.rc.ctx.big === 'pact' && !!E.r && pOf(E.r) >= top - L.REC.pEps, `三年之约前：情境 ${E.rc && E.rc.ctx.kind}/${E.rc && E.rc.ctx.big}，推《${name(E.r)}》胜算 ${L.pct(pOf(E.r || L.artSlots(st)[1]))}（最高 ${L.pct(top)}；${E.rc && E.rc.why}）`);
+    check(E.rc && E.rc.ctx.kind === 'duel' && E.rc.ctx.big === 'pact' && !!E.r && pOf(E.r) >= top - L.ART_REC.pEps, `三年之约前：情境 ${E.rc && E.rc.ctx.kind}/${E.rc && E.rc.ctx.big}，推《${name(E.r)}》胜算 ${L.pct(pOf(E.r || L.artSlots(st)[1]))}（最高 ${L.pct(top)}；${E.rc && E.rc.why}）`);
+    check(!!E.r && E.rc.p1 - E.rc.p0 >= L.ART_REC.pEps, `三年之约前：换上推荐那门胜算 ${L.pct(E.rc.p0 || 0)} → ${L.pct(E.rc.p1 || 0)}`);
     stable('三年之约前', st, 2);
+    L.PACT_POWER = Q0;
     out.pact = st;
   }
   // 4. 论道前：本届第一场有宿敌、还有 ≤ 3 月
@@ -105,7 +113,14 @@ function logic() {
     if (!found) check(false, '论道前：guided 种子 2 没碰上有宿敌的一届');
     else {
       const st = idle(give(found)), tf = L.tourFoe(st);
+      // 起手装一门被他克的（他的五行克它），看各处推不推同一门
+      const bad = Object.keys(st.arts.own).find(id => L.art(id).k === 'z' && L.elKe(L.RIVAL_EL[tf.id], L.art(id).el));
+      if (bad) { st.arts.slot[1] = bad; st._start = bad; }
       const E = agree(`论道前（${L.rivalName(st, tf.id)}，${L.elName(L.RIVAL_EL[tf.id])}）`, st, { foe: tf.foe, Q: tf.Q });
+      // 推的那门（不用换就是装着的）胜算在最高的一档；装着的不在最高档就一定要推
+      const pOf = id => L.artTry(st, id, () => L.duelP(st, L.duelPower(st, tf.foe), tf.Q, tf.foe)), top = Math.max(...Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').map(pOf));
+      const pick = E.r || L.artSlots(st)[1];
+      check(pOf(pick) >= top - L.ART_REC.pEps && (pOf(L.artSlots(st)[1]) >= top - L.ART_REC.pEps || !!E.r), `论道前：推《${name(pick)}》胜算 ${L.pct(pOf(pick))}（最高 ${L.pct(top)}，装着的 ${L.pct(pOf(L.artSlots(st)[1]))}）`);
       check(E.rc && E.rc.ctx.kind === 'duel' && E.rc.ctx.big === 'tour', `论道前：情境 ${E.rc && E.rc.ctx.kind}/${E.rc && E.rc.ctx.big}（${E.rc && E.rc.why || '不用换'}）`);
       // L.tourSwap（guided 与准备页的【换上】）换的就是这一门
       const s2 = clone(st), sw = L.tourSwap(s2);
@@ -149,8 +164,9 @@ async function ui(states) {
   const scen = [['map10', 1, 0, 'z_qingteng'], ['map01', 0, 1, 'z_liaoyuan'], ['pact', 0, 0, null], ['tour', null, null, null]];
   for (const [key, k, d, start] of scen) {
     const s = states[key]; if (!s) continue;
-    const s2 = clone(s); s2.guide = Object.assign({ step: 99 }, s2.guide, { done: true }); s2.hintSeen = Object.assign({}, s2.hintSeen); if (start) s2.arts.slot[1] = start;
+    const s2 = clone(s); s2.guide = Object.assign({ step: 99 }, s2.guide, { done: true }); s2.hintSeen = Object.assign({}, s2.hintSeen); if (start || s._start) s2.arts.slot[1] = start || s._start;
     if (key.startsWith('map')) delete s2.lastExp;   // 正要去：还没去过这一格
+    await ev(q => { if (q) window.__xm.L.PACT_POWER = q; }, s2._pactQ || 0);
     await ev(x => { window.__xm.loadState(x); window.__xm.closeModal(); window.__xm.setSpeed(window.__xm.pauseIdx); for (const h of window.__xm.hints) window.__xm.st.hintSeen[h.id] = 1; }, s2);
     await page.waitForTimeout(200);
     const read = async (what, open, sel) => { await ev(open.fn, open.a); await page.waitForTimeout(350); await page.screenshot({ path: `${OUT}/p7-${key}-${what}.png` }); return ev(sel); };
