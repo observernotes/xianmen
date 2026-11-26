@@ -54,23 +54,26 @@ function showField(sel, still) {
     return `<button class="fplot${i === fieldSel && !fieldAll ? ' sel' : ''}${fieldAll ? ' all' : ''}" data-fp="${i}">${plotImg(x, 2)}<span class="nm">${C.n}</span><span class="muted">${left <= 1 ? '下周天收' : left + ' 周天后收'}</span></button>`;
   }).join('');
   const rec = cropRec(), cur = plots[fieldSel];
-  const list = L.CROPS.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id)).map(C => {
+  // 作物卡：图标 + 名字（荐 / 旺季）+ 改种后的变化（灵石 a → ▲b，或一茬收多少）+【改种】；只有“荐”的那一行是金色；没开的作物收进折叠
+  const crow = C => {
     const open = L.cropOpen(st, C.id), here = !fieldAll && cur.c === C.id, every = fieldAll && plots.every(x => x.c === C.id);
     const sea = L.cropSeason(st, C), d = open ? plantDelta(C.id, fieldAll) : null;
     const delta = d && Math.abs(d.b - d.a) >= 0.05 ? `灵石 +${dec(d.a)} → <b>+${dec(d.b)}</b>/周天` : '';
     const tag = (C.id === rec.id ? '<span class="chip warn">荐</span> ' : '') + (sea ? `<span class="chip ok">旺季 +${Math.round(sea * 100)}%</span> ` : `<span class="chip">${L.SEASONS[C.s].n}季旺</span> `);
     const why = !open ? L.cropLock(st, C.id) : '';
-    const btn = here || every ? `<button class="btn sm alt" disabled>种着</button>` : `<button class="btn sm ${open ? 'gold' : 'alt'}" data-crop="${C.id}" ${open ? '' : 'disabled'}>${fieldAll ? '全部改种' : '种这块'}</button>`;
-    return `<div class="card flat crow${open ? '' : ' off'}"><div style="flex:none">${cropIcon(C.id, 2)}</div><div class="main"><div class="line">${tag}<span>${C.n}</span><span class="muted">${C.cyc} 周天一收</span></div>
-      <div class="${open ? 'jadet' : 'muted'}">${open ? cropOutText(C.id) : '产' + L.cropOutN(C)}${why ? ` · <span class="seal">${why}</span>` : ''}</div>${C.id === rec.id ? `<div class="muted">${esc(rec.why)}</div>` : ''}${delta ? `<div class="muted">${delta}</div>` : ''}</div>
-      <div class="right">${btn}</div></div>`;
-  }).join('');
+    const btn = here || every ? `<button class="btn sm alt" disabled>种着</button>` : `<button class="btn sm ${open && C.id === rec.id ? 'gold' : 'alt'}" data-crop="${C.id}" ${open ? '' : 'disabled'}>${fieldAll ? '全改' : '改种'}</button>`;
+    const key = !open ? `<span class="seal">${esc(why)}</span>` : d && Math.abs(d.b - d.a) >= 0.05 ? `灵石 <b class="${d.b > d.a ? 'pn-up' : 'pn-dn'}">${d.b > d.a ? '+' : '−'}${dec(Math.abs(d.b - d.a))}</b>/周天` : esc(cropOutText(C.id));
+    return pnFold('crop-' + C.id, { cls: 'crow' + (open ? '' : ' off pn-off'), ic: cropIcon(C.id, 2), nm: `${C.id === rec.id ? '<span class="chip warn">荐</span> ' : ''}${C.n}`, badge: sea ? `<span class="chip ok">旺季</span>` : '', k: key, right: btn,
+      body: `${C.id === rec.id ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : ''}<div class="pn-line">${C.cyc} 周天一收 · ${open ? esc(cropOutText(C.id)) : '产' + L.cropOutN(C)}</div><div class="pn-line">${tag}</div>${delta ? `<div class="pn-line">${delta}</div>` : ''}` });
+  };
+  const sorted = L.CROPS.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id)), cOpen = sorted.filter(C => L.cropOpen(st, C.id)), cLock = sorted.filter(C => !L.cropOpen(st, C.id));
+  const list = `<div class="pn-list">${cOpen.map(crow).join('')}</div>${cLock.length ? `<details class="more" data-pn="crop-lock"${pnOpenKeys.has('crop-lock') ? ' open' : ''}><summary>还没开的作物 · ${cLock.length} 种</summary><div class="pn-list">${cLock.map(crow).join('')}</div></details>` : ''}`;
   const yp = L.cropParts(st, cur.c === 'rice' ? 'herb' : cur.c).map(x => `${x[0]} ×${mult2(x[1])}`).join(' · ');
   const body = `${yinBar()}<div class="fplots">${cards}</div>
     <div class="tabs fscope"><button class="${fieldAll ? '' : 'on'}" data-scope="0">改第 ${fieldSel + 1} 块</button><button class="${fieldAll ? 'on' : ''}" data-scope="1">全部 ${plots.length} 块</button></div>
     ${fieldMsg ? `<div class="quote">${fieldMsg}</div>` : ''}${list}
-    <div class="muted">熟了自动收、接着种同一种；改种那块从头长。灵稻的灵石按周天结（全种灵稻就是灵田原来的收入），种别的就少那块的灵石。产量：${esc(yp)}。灵田每 ${L.CROP_V.plotEvery} 级多一块田（最多 ${L.CROP_V.plotMax} 块），每级作物产量 +${Math.round(L.CROP_V.lvYield * 100)}%。</div>`;
-  const s = sheet({ title: '灵田', still, sub: `${plots.length} 块田 · 灵稻 ${L.riceCount(st)} 块 · 灵石 +${fmt(L.income(st))}/周天 · 灵草 ${fmt(st.herbs)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+    <details class="more"><summary>灵田怎么长</summary><div class="muted">熟了自动收、接着种同一种；改种那块从头长。灵稻的灵石按周天结（全种灵稻就是灵田原来的收入），种别的就少那块的灵石。产量：${esc(yp)}。灵田每 ${L.CROP_V.plotEvery} 级多一块田（最多 ${L.CROP_V.plotMax} 块），每级作物产量 +${Math.round(L.CROP_V.lvYield * 100)}%。</div></details>`;
+  const s = sheet({ title: '灵田', still, sub: `灵石 +${fmt(L.income(st))}/周天 · 灵草 ${fmt(st.herbs)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
   fieldMsg = '';
   s.querySelectorAll('[data-fp]').forEach(b => b.onclick = () => { SFX.tap(); fieldSel = +b.dataset.fp; fieldAll = false; showField(undefined, true); });
   s.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { SFX.tap(); fieldAll = b.dataset.scope === '1'; showField(undefined, true); });

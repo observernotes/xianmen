@@ -154,3 +154,34 @@ function petImg(x, w) {
   if (x && typeof x === 'object' && x.sp) { const c = ART.petCard(x.sp, x.form || 0, x.aw); return `<img class="px" src="${urlOf(c, ['pc', x.sp, x.form || 0, x.aw ? 1 : 0].join('|'))}" style="width:${w}px;height:${w}px;vertical-align:middle" alt="">`; }
   const c = ART.pet(x); return `<img class="px" src="${urlOf(c, 'pet' + x)}" style="${avStyle(c, w)};vertical-align:middle" alt="">`;
 }
+
+// ---------- 系统面板 B 线（pn-）：列表卡片 = 图标 + 名字 + 一个关键数 + 至多一个角标，点开卡片才看明细 ----------
+// pnFold(key, o)：可展开的卡片（<details>），o = { ic, nm, badge, k, right, body, cls, attrs, open }；right 里的按钮点了不会展开卡片。
+// 同一个 key 展开过就记着（面板重画后仍展开），key 在面板里要唯一。没有 body 时画成不能展开的一行（pnRow）。
+const pnOpenKeys = new Set();
+function pnRowInner(o) {
+  return `<span class="pn-ic">${o.ic || ''}</span><span class="pn-m"><span class="pn-nm">${o.nm}${o.badge ? ' ' + o.badge : ''}</span>${o.k ? `<span class="pn-k">${o.k}</span>` : ''}</span>${o.right ? `<span class="pn-r">${o.right}</span>` : ''}`;
+}
+function pnRow(o) { return `<div class="pn-it pn-flat ${o.cls || ''}"${o.attrs || ''}><div class="pn-row">${pnRowInner(o)}</div></div>`; }
+function pnFold(key, o) {
+  if (!o.body) return pnRow(o);
+  const open = o.open || pnOpenKeys.has(key);
+  return `<details class="pn-it ${o.cls || ''}" data-pn="${esc(key)}"${open ? ' open' : ''}${o.attrs || ''}><summary class="pn-row">${pnRowInner(o)}</summary><div class="pn-body">${o.body}</div></details>`;
+}
+document.addEventListener('toggle', e => { const d = e.target; if (!d || !d.dataset || !d.dataset.pn) return; if (d.open) pnOpenKeys.add(d.dataset.pn); else pnOpenKeys.delete(d.dataset.pn); }, true);
+// 做了之后最重要的变化：“战力 120 → ▲150”（变好绿、变坏红；lower = 数越小越好）
+function pnDelta(label, a, b, f, lower) {
+  const fa = f ? f(a) : a, fb = f ? f(b) : b;
+  if (a === b) return `${label} ${fb}`;
+  const good = lower ? b < a : b > a;
+  return `${label} ${fa} → <b class="${good ? 'pn-up' : 'pn-dn'}">${fb}</b>`;
+}
+// 卡片上的一行要短：取第一个逗号 / 分号 / 括号之前的部分，还长就截断加“…”（全文放进卡片明细）
+function pnShort(s, n) {
+  s = String(s || ''); n = n || 14;
+  const m = s.split(/[，；。（(]/)[0];
+  const t = m.length >= 4 ? m : s;
+  return t.length > n ? t.slice(0, n - 1) + '…' : t;
+}
+// 分组小标题：左名字，右一个小字
+function pnHead(name, right, id) { return `<div class="pn-hd"${id ? ` id="${id}"` : ''}><span>${name}</span>${right ? `<span class="muted">${right}</span>` : ''}</div>`; }

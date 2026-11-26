@@ -79,7 +79,7 @@ require('fs').mkdirSync(out, { recursive: true });
   expect(await page.evaluate(() => window.__xm.st.sect.tasks[0].done === 1), '宗门任务交付完成');
   await close();
   // 拍卖会（竞价）：点【加价】出一次价
-  await page.evaluate(() => { const { st, L } = window.__xm; st.p.r = 3; L.rollAuction(st); if (st.market) st.market.evQ = []; }); await page.click('[data-nav="market"]'); await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(100); await shot('c12-auction');
+  await page.evaluate(() => { const { st, L } = window.__xm; st.p.r = 3; L.rollAuction(st); if (st.market) st.market.evQ = []; }); await page.click('[data-nav="market"]'); await page.waitForTimeout(300); await page.click('#modal [data-mtab="auc"]'); await page.waitForTimeout(150); await page.evaluate(() => document.querySelector('#aucBox').scrollIntoView()); await page.waitForTimeout(100); await shot('c12-auction');
   const au = await page.$('#modal [data-bid$=":1"]:not([disabled])'); if (au) { await au.click(); await page.waitForTimeout(900); }
   expect(await page.evaluate(() => window.__xm.st.auction.bids === 1), '拍卖会点【加价】出了一次价');
   await close();
@@ -1410,7 +1410,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal button[data-k="room"]'); await page.waitForTimeout(300);
   expect(await hq(() => window.__xm.st.home.room === 2), '已建的地块里点升级：静室 Lv2');
   // 拆除：先问，取消不动；确认后退一半、记一半等级、地块空出来
-  await page.click('#modal [data-demo="room"]'); await page.waitForTimeout(300); await shot('h02-home-demolish');
+  await page.evaluate(() => document.querySelectorAll('#modal details.more').forEach(d => { d.open = true; })); await page.click('#modal [data-demo="room"]');   // 拆除收在建筑卡的“详情”里 await page.waitForTimeout(300); await shot('h02-home-demolish');
   const hd = await hq(() => { const { st, L } = window.__xm; return { yes: !!document.querySelector('#modal [data-demo-yes]'), no: !!document.querySelector('#modal [data-demo-no]'), txt: (document.querySelector('#modal .hdet .quote') || {}).textContent || '', back: L.homeRefund(st, 'room'), room: st.home.room }; });
   expect(hd.yes && hd.no && /拆了退/.test(hd.txt) && /重建从\s*1\s*级起/.test(hd.txt) && hd.back > 0 && hd.room === 2, '拆除前要确认，写明退多少、重建从几级起：' + JSON.stringify(hd));
   await page.click('#modal [data-demo-no]'); await page.waitForTimeout(300);

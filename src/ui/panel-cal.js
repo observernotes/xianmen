@@ -13,8 +13,10 @@ function calDepth(k, a) { let d = 0; for (let j = 0; j < 3; j++) if (L.expOpen(s
 // 年历：一条 24 格的时间轴（ART.calStrip），下面每件事一行，各带倒计时和【前往】
 function showCalendar(focus) {
   const t = st.tick, s = L.season(st), S = L.SEASONS[s], f = L.seasonFx(st), w = L.world(st);
-  const rows = [];
-  const row = (o) => rows.push(`<div class="card flat calrow${focus && o.id === focus ? ' focus' : ''}" data-cal="${o.id}"><div style="flex:none">${o.img}</div><div class="main"><div>${o.key ? calKey(o.key) : ''}${o.n} <b class="goldt">${o.left}</b></div>${o.d ? `<div class="muted">${o.d}</div>` : ''}</div><div class="right">${o.go ? `<button class="btn sm alt calgo" data-go="${o.go}">${o.btn || '前往'}</button>` : ''}</div></div>`);
+  // 一件事一张卡：图标 + 名字 + 倒计时（金字）+【前往】；说明点开看。还没轮到你的（金丹后、入宗后……）收进“以后的事”
+  const rows = [], later = [];
+  const row = (o) => (o.later ? later : rows).push(pnFold('cal-' + o.id, { cls: 'calrow' + (focus && o.id === focus ? ' focus' : ''), attrs: ` data-cal="${o.id}"`, ic: o.img, nm: `${o.key ? calKey(o.key) : ''}${o.n}`,
+    k: `<b class="goldt">${o.left}</b>`, right: o.go ? `<button class="btn sm alt calgo" data-go="${o.go}">${o.btn || '前往'}</button>` : '', body: o.d ? `<div class="pn-line">${o.d}</div>` : '', open: focus && o.id === focus }));
   // 季节
   const nextS = L.SEASONS[(s + 1) % 4];
   const sd = [f.herb && `灵田灵草 +${Math.round(f.herb * 100)}%`, f.visit && `访客 +${Math.round(f.visit * 100)}%`, f.beast && `兽类地图斩妖灵石 +${Math.round(f.beast * 100)}%`, s === 1 && '秘境开放', f.rice && `灵田灵石 +${Math.round(f.rice * 100)}%`, f.price && `行情 +${mult2(f.price)}`, f.ret && `闭关倍率 +${mult2(f.ret)}${L.comboOn(st, 'c12') ? '（星河倒悬再 +0.5）' : ''}`].filter(Boolean).join('，');
@@ -29,19 +31,19 @@ function showCalendar(focus) {
   if (st.rebirth > 0 || L.mr(st) >= 2) {
     if (L.auctionOpen(st)) row({ id: 'auc', key: 'auc', img: icon16('gavel', 2), n: '拍卖会 · 正开着', left: `还剩 ${st.auction.until - t} 周天`, d: `三件竞价，还能出手 ${L.auctionBidsLeft(st)} 次。`, go: 'market', btn: '去坊市' });
     else row({ id: 'auc', key: 'auc', img: icon16('gavel', 2), n: '拍卖会', left: `${L.nextAuction(st)} 周天后`, d: `每 ${L.AUCTION.every} 周天一场，开 ${L.AUCTION.len} 周天，三件竞价。` });
-  } else row({ id: 'auc', key: 'auc', img: icon16('gavel', 2), n: '拍卖会', left: '金丹后', d: `金丹后每 ${L.AUCTION.every} 周天一场，开 ${L.AUCTION.len} 周天。` });
+  } else row({ id: 'auc', key: 'auc', img: icon16('gavel', 2), n: '拍卖会', left: '金丹后', later: 1, d: `金丹后每 ${L.AUCTION.every} 周天一场，开 ${L.AUCTION.len} 周天。` });
   // 九宗会武
   if (st.sect && st.sect.order) row({ id: 'war', key: 'war', img: icon16('paddle', 2), n: '九宗会武', left: `${L.nextMeet(st)} 周天后`, d: `每 ${L.MEET_EVERY} 周天一届，你代表${esc(L.sectOf(st).n)}出战，眼下宗门第 ${L.sectPos(st)}。`, go: 'sect', btn: '宗门' });
-  else row({ id: 'war', key: 'war', img: icon16('paddle', 2), n: '九宗会武', left: '入宗后', d: `入宗满 12 周天后，每 ${L.MEET_EVERY} 周天一届。` });
+  else row({ id: 'war', key: 'war', img: icon16('paddle', 2), n: '九宗会武', left: '入宗后', later: 1, d: `入宗满 12 周天后，每 ${L.MEET_EVERY} 周天一届。` });
   // 秘境：每个夏季
   const rw = L.realmWindow(st);
   const mth = L.mjThemeNow(st), mok = L.mjUnlocked(st);
-  row({ id: 'realm', key: 'realm', img: icon16('token', 2), n: '秘境' + (mok ? ` · ${mth.n}` : ''), left: rw.open ? `正开着，还剩 ${rw.left} 周天` : `${rw.in} 周天后开`, d: `每年入夏开放 6 个周天（本年第 4～9 周天），筑基中期起可入${mok ? `；秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}，主题每年一换（剑气 → 百草 → 熔火 → 幽泉）` : ''}。`, go: mok && L.mjCan(st) ? 'realm' : '', btn: '进入' });
+  row({ id: 'realm', key: 'realm', later: !mok, img: icon16('token', 2), n: '秘境' + (mok ? ` · ${mth.n}` : ''), left: rw.open ? `正开着，还剩 ${rw.left} 周天` : `${rw.in} 周天后开`, d: `每年入夏开放 6 个周天（本年第 4～9 周天），筑基中期起可入${mok ? `；秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}，主题每年一换（剑气 → 百草 → 熔火 → 幽泉）` : ''}。`, go: mok && L.mjCan(st) ? 'realm' : '', btn: '进入' });
   // 货架与任务板
   row({ id: 'shelf', img: icon16('sell', 2), n: '坊市换货', left: `${L.restockIn(st)} 周天后`, d: `每届论道后换三格轮换货${st.sect ? '，宗门任务板同时刷新' : ''}。`, go: navLock('market') ? '' : 'market', btn: '去坊市' });
   const legend = Object.keys(CAL_KIND).map(k => `<span>${calKey(k)}${CAL_KIND[k][0]}</span>`).join('');
   const body = `<div class="calwrap"><img class="px calstrip" id="calStrip" src="${ART.calStrip(t, L.calMarks(st)).toDataURL()}" alt="年历"><div class="calruler" id="calRuler">${[0, 6, 12, 18, 23].map(i => `<span style="left:${((1 + 8 * i + 4) / 194 * 100).toFixed(2)}%">${i ? '+' + i : '今'}</span>`).join('')}</div></div>
-    <div class="callegend">${legend}</div>${rows.join('')}`;
+    <div class="callegend">${legend}</div><div class="pn-list">${rows.join('')}</div>${later.length ? `<details class="more"><summary>以后的事 · ${later.length} 件</summary><div class="pn-list">${later.join('')}</div></details>` : ''}`;
   const sh = sheet({ title: '年历', sub: `第${Math.floor(st.year) + 1}年 · ${S.n} · 本年第 ${((t % 12) + 12) % 12 || 12} 周天`, body });
   fitCalStrip(sh);
   sh.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
@@ -49,7 +51,7 @@ function showCalendar(focus) {
     const k = b.dataset.go;
     if (k === 'pact') showPact(); else if (k === 'rank') showMe('rank'); else GO[k]();
   });
-  if (focus) { const el = sh.querySelector(`[data-cal="${focus}"]`); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  if (focus) { const el = sh.querySelector(`[data-cal="${focus}"]`); if (el) { const dd = el.closest('details.more'); if (dd) dd.open = true; el.scrollIntoView({ block: 'nearest' }); } }
 }
 // 年历条按整数个设备像素放大到装得下的最大一档
 function fitCalStrip(root) {

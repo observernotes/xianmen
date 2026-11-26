@@ -197,7 +197,7 @@ const path = require('path');
       for (const b of [...document.querySelectorAll('#modal [data-gift]:not([disabled])')].slice(0, 2)) { b.click(); gifts++; seen['宗门送礼'] = 1; await sleep(40); }
       X.showSect('vault'); await sleep(40);
       for (let k = 0; k < 2; k++) {
-        const b = [...document.querySelectorAll('#modal [data-vr]:not([disabled])')].find(x => /《|法宝|兵器|法衣|饰品/.test(x.closest('.card').textContent));
+        const b = [...document.querySelectorAll('#modal [data-vr]:not([disabled])')].find(x => /《|法宝|兵器|法衣|饰品/.test(x.closest('.vcell').textContent));
         if (!b) break;
         b.click(); vaultN++; seen['宗门宝库'] = 1; await sleep(120); await drain();
         if (!modal()) break;

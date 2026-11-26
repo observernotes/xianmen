@@ -851,6 +851,52 @@ dl.pn-key { gap: 2px 10px; margin: 0; }
 .pn-arow .main > .line { font-size: var(--fs-m); }
 .pn-arow .alink, .pn-arow .el, .pn-arow .chip, .pn-arow .right { font-size: var(--fs); }
 .pn-arow .right { max-width: 40%; text-align: right; overflow-wrap: anywhere; }
+/* ---- 系统面板 B 线（pn-，core.js 的 pnFold / pnRow / pnDelta / pnHead）：一张卡 = 图标 + 名字 + 一个关键数 + 至多一个角标 + 一个按钮；点卡片展开明细 ---- */
+.pn-list { display: flex; flex-direction: column; gap: 8px; }
+.pn-it { background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; color: var(--paper-ink); }
+details.pn-it[open] { box-shadow: 0 0 0 2px #a8740b; background: #fbf4e0; }
+.pn-it.pn-sel { box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.pn-it.pn-off { opacity: .62; }
+.pn-row { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 4px 6px; box-sizing: border-box; list-style: none; }
+summary.pn-row { cursor: pointer; }
+summary.pn-row::-webkit-details-marker { display: none; }
+summary.pn-row::after { content: '▸'; flex: none; color: var(--paper-mute); width: 12px; text-align: center; }
+details.pn-it[open] > summary.pn-row::after { content: '▾'; }
+.pn-ic { flex: none; min-width: 32px; display: flex; align-items: center; justify-content: center; }
+.pn-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pn-nm { font-size: var(--fs-m); line-height: 1.3; overflow-wrap: anywhere; }
+.pn-nm .chip { vertical-align: 1px; }
+.pn-k { font-size: var(--fs-m); line-height: 1.3; color: #1d8a63; overflow-wrap: anywhere; }
+.pn-k.muted, .pn-k .muted { color: var(--paper-mute); }
+.pn-k.seal { color: var(--seal); }
+.pn-r { flex: none; display: flex; gap: 6px; align-items: center; }
+.sheet .body .pn-row .btn, .sheet .body .pn-acts .btn { font-size: var(--fs-m); min-height: 44px; min-width: 64px; flex: none; padding: 2px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.sheet .body .pn-row .btn small, .sheet .body .pn-acts .btn small { font-size: var(--fs); opacity: .85; white-space: nowrap; max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.pn-body { padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs); line-height: 1.5; border-top: 1px dashed #cdbb92; }
+.pn-body .pn-line { overflow-wrap: anywhere; }
+.pn-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.sheet .body .pn-acts .btn { flex: 1 1 0; }
+.pn-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--seal); font-size: var(--fs-m); margin-top: 4px; flex-wrap: wrap; }
+.pn-hd .muted { font-size: var(--fs); }
+.pn-up { color: #1d8a63; font-weight: normal; } .pn-up::before { content: '▲'; }
+.pn-dn { color: var(--seal); font-weight: normal; } .pn-dn::before { content: '▼'; }
+/* 决策卡：做了之后最重要的变化（大字）+ 一个主按钮 */
+.pn-hero { background: #fff6dc; box-shadow: 0 0 0 2px #a8740b; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.pn-hero .pn-big { font-size: var(--fs-l); line-height: 1.2; }
+.pn-hero .pn-acts .btn { min-height: 48px; }
+.pn-hero .btn { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.sheet .body .pn-hero .pn-line, .sheet .body .pn-k .muted, .sheet .body .pn-k.muted { font-size: var(--fs-m); }
+.pn-line1 { font-size: var(--fs-m); color: var(--paper-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+/* 卡里套卡（拍品、选中的丹方）：里层不再画框 */
+.lot .pn-it, .pn-hero .pn-it { box-shadow: none; background: none; }
+.lot .pn-row { padding: 0; min-height: 44px; }
+.sheet .body .lot .lotcomp .muted, .sheet .body .lot .lotcomp span { font-size: var(--fs); }
+/* 三格数（宗门身份页、秘境入口等）：小字标签 + 中字数 */
+.pn-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.pn-stats > div { background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; padding: 4px 6px; display: flex; flex-direction: column; min-width: 0; }
+.pn-stats small { color: var(--paper-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-stats b { font-weight: normal; font-size: var(--fs-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <div id="app">

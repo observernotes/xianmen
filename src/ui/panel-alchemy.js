@@ -22,19 +22,28 @@ function baoqiDelta() {
   if (keep) d.next.baoqi = keep; else delete d.next.baoqi;
   return { pw0, pw1 };
 }
-function recipeRow(rc) {
+// 丹方卡（pnFold）：药丸 + 名字（角标：续炼中 / 丹囊 N）+ 一行效果 +【炼制】；丹囊里有丹的多一个【服一枚】。点开看材料、丹毒、本境界服了几枚、续炼
+// prim：本屏唯一的金色按钮（'r:<丹>' 炼制 / 'take:<丹>' 服一枚）
+function recipeRow(rc, prim, open) {
   const why = L.canCraft(st, rc.k), auto = L.autoOn(st, rc.k), bagN = rc.bag ? L.bagN(st, rc.k) : 0;
-  const take = rc.bag && rc.k !== 'liaoshang' ? L.takeWhy(st, rc.k) : '-';
-  const used = rc.per ? ` · 本境界 ${L.pillUsed(st, rc.k)}/${rc.per}` : rc.k === 'yanshou' ? ` · 本境界 ${L.pillUsed(st, rc.k)}/3` : '';
-  let takeBtn = '';
-  if (rc.bag && rc.k !== 'liaoshang') {
-    const nx = L.danNext(st, rc.k);
-    const eff = rc.k === 'baoqi' ? (() => { const d = baoqiDelta(); return `战力 ${fmt(d.pw0)} → ${fmt(d.pw1)}`; })() : '下一趟历练 +10 分';
-    takeBtn = nx ? `<button class="btn sm alt" disabled>药力在身<small>${rc.k === 'baoqi' ? '×' + mult2(nx) : '+' + nx + ' 分'}</small></button>` : `<button class="btn sm ${take ? 'alt' : 'gold'}" data-take="${rc.k}" ${take ? 'disabled' : ''}>服一枚<small>${take || eff}</small></button>`;
+  const used = rc.per ? `本境界已服 ${L.pillUsed(st, rc.k)}/${rc.per}` : rc.k === 'yanshou' ? `本境界已服 ${L.pillUsed(st, rc.k)}/3` : '';
+  let takeBtn = '', key = esc(rc.d);
+  if (rc.bag && rc.k !== 'liaoshang' && bagN) {
+    const nx = L.danNext(st, rc.k), take = L.takeWhy(st, rc.k);
+    if (nx) takeBtn = `<button class="btn sm alt" disabled>在身<small>${rc.k === 'baoqi' ? '×' + mult2(nx) : '+' + nx + ' 分'}</small></button>`;
+    else {
+      takeBtn = `<button class="btn sm ${!take && prim === 'take:' + rc.k ? 'gold' : 'alt'}" data-take="${rc.k}" ${take ? 'disabled' : ''}>服一枚</button>`;
+      if (!take) key = rc.k === 'baoqi' ? (() => { const d = baoqiDelta(); return `战力 <b class="pn-up">+${Math.round((d.pw1 / d.pw0 - 1) * 100)}%</b>`; })() : '历练 <b class="pn-up">+10 分</b>';
+      else if (!why) key = `<span class="seal">${esc(take)}</span>`;
+    }
   }
-  return `<div class="card flat arow"><div style="flex:none">${pillImg(rc.k, 2)}</div><div class="main"><div class="line"><span>${rc.n}</span>${rc.bag ? `<span class="chip">丹囊 ${bagN}</span>` : ''}${auto ? '<span class="chip ok">续炼中</span>' : ''}</div>
-    <div class="muted">${esc(rc.d)}${used}</div><div class="muted">${costHTML(rc)}</div><div class="muted">${toxNote(rc)}${why ? ` · <span class="seal">${esc(why)}</span>` : ''}</div></div>
-    <div class="right abtns"><button class="btn sm ${why ? 'alt' : 'gold'}" data-r="${rc.k}" ${why ? 'disabled' : ''}>炼制</button>${takeBtn}<button class="btn sm alt achk${auto ? ' on' : ''}" data-auto="${rc.k}" ${!auto && L.danOf(st).auto.length >= L.AUTO.max ? 'disabled' : ''}>${auto ? '☑' : '☐'} 续炼</button></div></div>`;
+  if (why) key = `<span class="seal">${esc(why)}</span>`;
+  const badge = auto ? '<span class="chip ok">续炼</span>' : bagN ? `<span class="chip">囊 ${bagN}</span>` : '';
+  const brew = `<button class="btn sm ${!why && prim === 'r:' + rc.k ? 'gold' : 'alt'}" data-r="${rc.k}" ${why ? 'disabled' : ''}>炼制</button>`;
+  const autoDis = !auto && L.danOf(st).auto.length >= L.AUTO.max;
+  const body = `<div class="pn-line">${esc(rc.d)}</div><div class="pn-line">材料：${costHTML(rc)}</div><div class="pn-line">${toxNote(rc)}</div>${used ? `<div class="pn-line">${used}</div>` : ''}
+    <div class="pn-acts"><button class="btn alt achk${auto ? ' on' : ''}" data-auto="${rc.k}" ${autoDis ? 'disabled' : ''}>${auto ? '☑' : '☐'} 续炼${autoDis ? `<small>最多 ${L.AUTO.max} 种</small>` : ''}</button></div>`;
+  return pnFold('rc-' + rc.k, { cls: 'arow', ic: pillImg(rc.k, 2), nm: rc.n, badge, k: key, right: takeBtn + brew, body, open });
 }
 function yinCellImg(a, b, k, sel, z) {
   const c = ART.yinCell(YIN_LET[a], YIN_LET[b], k || null, sel), s = pxs(22, z || 2);
@@ -56,27 +65,38 @@ function yinGridHTML() {
   return h + '</div>';
 }
 function cellDetail() {
-  if (!alchCell) return `<div class="muted center">点一格看丹方：两味药引配一炉。没试过的写“？”，【试炼】按那一格付材料，丹成就揭晓、记进图鉴（下一世还在）。</div>`;
+  if (!alchCell) return `<div class="muted center">点一格看丹方：两味药引配一炉。</div>`;
   const [a, b] = alchCell.split('|'), rc = L.yinRecipe(a, b), known = L.recipeKnown(st, rc.k);
-  if (known) return `<div class="adet">${recipeRow(rc)}</div>`;
+  if (known) return `<div class="adet">${recipeRow(rc, 'r:' + rc.k, true)}</div>`;
   const why = L.trialWhy(st, a, b);
-  return `<div class="adet card flat"><div style="flex:none">${yinCellImg(a, b, '', false, 1.5)}</div><div class="main"><div>${L.YIN_N[a]} + ${L.YIN_N[b]} → <b>？</b></div>
-    <div class="muted">${costHTML(rc)} · 丹炉 ${rc.lv} 级</div><div class="muted">成丹率 ${L.pct(L.alchRate(st))}：丹成就揭晓，炸炉只亏材料${why ? ` · <span class="seal">${esc(why)}</span>` : ''}</div></div>
-    <div class="right"><button class="btn sm ${why ? 'alt' : 'gold'}" id="btnTrial" ${why ? 'disabled' : ''}>试炼</button></div></div>`;
+  return `<div class="adet">${pnFold('trial', { open: true, ic: yinCellImg(a, b, '', false, 1.5), nm: `${L.YIN_N[a]} + ${L.YIN_N[b]} → <b>？</b>`,
+    k: why ? `<span class="seal">${esc(why)}</span>` : `成丹率 ${L.pct(L.alchRate(st))}`,
+    right: `<button class="btn sm ${why ? 'alt' : 'gold'}" id="btnTrial" ${why ? 'disabled' : ''}>试炼</button>`,
+    body: `<div class="pn-line">材料：${costHTML(rc)} · 丹炉 ${rc.lv} 级</div><div class="pn-line">丹成就揭晓、记进图鉴（下一世还在）；炸炉只亏材料。</div>` })}</div>`;
+}
+// 本屏唯一的金色按钮：丹囊里能服的战斗丹优先，其次第一种炼得了的
+function alchPrim(list) {
+  const t = list.find(rc => rc.bag && rc.k !== 'liaoshang' && L.bagN(st, rc.k) && !L.danNext(st, rc.k) && !L.takeWhy(st, rc.k));
+  if (t) return 'take:' + t.k;
+  const r = list.find(rc => !L.canCraft(st, rc.k));
+  return r ? 'r:' + r.k : '';
 }
 function showAlchemy(still) {
   const rate = L.alchRate(st), yo = L.yinOpen(st);
   if (!alchTab || (alchTab === 'grid' && !yo)) alchTab = yo ? 'grid' : 'x';
-  const tabs = [['grid', '丹方格'], ['x', L.PILL_G.x], ['z', L.PILL_G.z], ['g', L.PILL_G.g]].map(([g, n]) => `<button class="${alchTab === g ? 'on' : ''}" data-tab="${g}">${n}${g === 'grid' ? (yo ? ` ${L.recipeCount(st)}/${L.YIN_GRID.length}` : '') : ` ${L.recipeList(st, g).length}`}</button>`).join('');
+  const tabs = [['grid', '丹方格'], ['x', L.PILL_G.x], ['z', L.PILL_G.z], ['g', L.PILL_G.g]].filter(([g]) => g !== 'grid' || yo)
+    .map(([g, n]) => `<button class="${alchTab === g ? 'on' : ''}" data-tab="${g}">${n}${g === 'grid' ? ` ${L.recipeCount(st)}/${L.YIN_GRID.length}` : ` ${L.recipeList(st, g).length}`}</button>`).join('');
   let main;
-  if (alchTab === 'grid') main = yo ? `<div class="grow-sec"><h3>药引丹方<span>已揭晓 ${L.recipeCount(st)} / ${L.YIN_GRID.length}（跨世保留）</span></h3>${yinGridHTML()}${cellDetail()}</div>`
-    : `<div class="card flat" style="opacity:.7"><div class="main"><div>药引丹方 · 5×5 共 15 格</div><div class="muted">筑基中期开放：灵田能种赤炎果、寒霜莲，两味药引配一炉</div></div></div>`;
-  else main = L.recipeList(st, alchTab).map(recipeRow).join('') || `<div class="muted">${alchTab === 'z' ? '战斗类丹要药引，去【丹方格】试出来：服下管下一场对决或下一趟历练。' : '这一类还没有会炼的，去【丹方格】试炼。'}</div>`;
+  if (alchTab === 'grid') main = `${yinBar()}${yinGridHTML()}${cellDetail()}`;
+  else {
+    const list = L.recipeList(st, alchTab), prim = alchPrim(list);
+    main = list.length ? `<div class="pn-list">${list.map(rc => recipeRow(rc, prim)).join('')}</div>`
+      : emptyNoteHTML('vault', alchTab === 'z' ? '战斗丹要药引：去【丹方格】试出来。' : '还没有会炼的：去【丹方格】试炼。');
+  }
   const auto = L.danOf(st).auto;
-  const body = `${yinBar()}<div class="tabs atabs">${tabs}</div>
-    ${alchMsg ? `<div class="quote">${alchMsg}</div>` : ''}${main}
-    <div class="muted">续炼：最多勾 ${L.AUTO.max} 种（现在 ${auto.length} 种${auto.length ? '：' + auto.map(k => L.RECIPE[k].n).join('、') : ''}），每 ${L.AUTO.every} 周天材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。丹毒每周天退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。成丹分下、中、上、极四品，炸炉只亏材料。</div>`;
-  const s = sheet({ title: '炼丹房', still, sub: `灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure} · 成丹率 ${L.pct(rate)}${L.friend(st, 'ge') ? '（葛老指点）' : ''} · ${toxChip(st)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+  const rules = `<details class="more"><summary>续炼与丹毒 · 续炼 ${auto.length}/${L.AUTO.max}</summary><div class="muted">续炼：最多勾 ${L.AUTO.max} 种${auto.length ? '（' + auto.map(k => L.RECIPE[k].n).join('、') + '）' : ''}，每 ${L.AUTO.every} 周天材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。<br>丹毒每周天退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。<br>成丹分下、中、上、极四品，炸炉只亏材料。天材地宝 ${st.treasure}${L.friend(st, 'ge') ? '；葛老指点，成丹率更高' : ''}。</div></details>`;
+  const body = `<div class="tabs atabs">${tabs}</div>${alchMsg ? `<div class="quote">${alchMsg}</div>` : ''}${main}${rules}`;
+  const s = sheet({ title: '炼丹房', still, sub: `灵草 ${fmt(st.herbs)} · 成丹 ${L.pct(rate)} · ${toxChip(st)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
   alchMsg = '';
   s.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { SFX.tap(); alchTab = b.dataset.tab; showAlchemy(true); });
   s.querySelectorAll('[data-cell]').forEach(b => b.onclick = () => { SFX.tap(); alchCell = b.dataset.cell; showAlchemy(true); const d = $('#modal .adet'); if (d) d.scrollIntoView({ block: 'nearest' }); });

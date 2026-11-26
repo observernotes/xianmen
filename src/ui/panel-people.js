@@ -20,56 +20,65 @@ const pmk = m => `<span class="pmk ${PMARK[m][1]}">${PMARK[m][0]}</span>`;
 function pplNext(id) { const h = Math.min(5, L.hearts(st, id)); if (h >= 5) return null; const v = h === 4 ? L.heartMax(st) : (h + 1) * 20; return { v, n: L.HEART_N[h + 1] }; }
 
 // ---------- 【人物】→ 羁绊 ----------
+let pplGold = false;   // 羁绊页一屏只有一个金色按钮：第一个能送礼的，其次第一件能交的委托
 function bondTabHTML() {
   const vis = L.pgiftVisitor(st), comp = L.comp(st), dex = L.giftDex(st);
-  const head = L.PEOPLE2_ON === false ? '' : `<div class="mhead"><span>同伴位：${comp ? `${pplImg(comp, pxs(24, 1), 'n')}${esc(L.compName(st, comp))}（${esc(L.COMP[comp].n)}）` : '空着'}</span><span class="muted">喜好图鉴 ${dex.found}/${dex.total}</span></div>`;
-  return head + Object.keys(L.NPCS).map(id => pplCard(id, vis)).join('') + tianCard()
-    + `<div class="muted">好感：奇遇里的抉择、来访时送礼（♥ +${L.PGIFT_V.like}、一般 +${L.PGIFT_V.mid}、✕ ${L.PGIFT_V.hate}）、委托（+${L.PQ_AFF}）。二心来访、三心知己、四心同行（每趟历练、秘境带一位）、五心终章；苏与夜二人中只能与一位结为道侣。试出来的喜好记进图鉴，下一世还在。</div>`;
+  pplGold = false;
+  const head = L.PEOPLE2_ON === false ? '' : pnHead(`同伴：${comp ? `${pplImg(comp, pxs(24, 1), 'n')}${esc(L.compName(st, comp))}` : '空着'}`, `喜好图鉴 ${dex.found}/${dex.total}`);
+  const ids = Object.keys(L.NPCS).sort((a, b) => (b === vis) - (a === vis) || L.met(st, b) - L.met(st, a));   // 在门口的排第一，没见过的排最后
+  return head + `<div class="pn-list">${ids.map(id => pplCard(id, vis)).join('')}${tianCard()}</div>`
+    + `<details class="more"><summary>好感怎么涨</summary><div class="muted">奇遇里的抉择、来访时送礼（♥ +${L.PGIFT_V.like}、一般 +${L.PGIFT_V.mid}、✕ ${L.PGIFT_V.hate}）、委托（+${L.PQ_AFF}）。二心来访、三心知己、四心同行（每趟历练、秘境带一位）、五心终章；苏与夜二人中只能与一位结为道侣。试出来的喜好记进图鉴，下一世还在。</div></details>`;
 }
+// 人物卡（pnFold）：立绘 + 名字（一个角标）+ 五心与好感 + 眼下最该做的一件事的按钮（送礼 / 交付委托 / 双修 / 同行）；喜好、委托、同伴、道侣点开看
 function pplCard(id, vis) {
   const N = L.NPCS[id];
-  if (!L.met(st, id)) return `<div class="card flat" style="opacity:.55"><div class="av" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted)">？</div><div class="main"><div>？？？</div><div class="muted">${N.title} · 尚未相识</div></div></div>`;
+  if (!L.met(st, id)) return pnRow({ cls: 'pn-off', ic: '<span class="muted" style="font-size:var(--fs-l)">？</span>', nm: '？？？', k: `<span class="muted">${N.title} · 尚未相识</span>` });
   const a = L.aff(st, id), h = Math.min(5, L.hearts(st, id)), on = L.PEOPLE2_ON !== false;
-  const tag = st.daolv === id ? '<span class="chip ok">道侣</span>' : a >= 60 ? '<span class="chip ok">知己</span>' : a >= 30 ? '<span class="chip">熟识</span>' : '<span class="chip">初识</span>';
+  const tag = vis === id ? '<span class="chip bad">在门口</span>' : st.daolv === id ? '<span class="chip ok">道侣</span>' : a >= 60 ? '<span class="chip ok">知己</span>' : a >= 30 ? '<span class="chip">熟识</span>' : '<span class="chip">初识</span>';
   const rows = [];
-  rows.push(`<div class="line"><span>${esc(L.npcName(st, id))}</span>${tag}${pplHearts(id)}</div>`);
-  rows.push(`<div class="muted">${N.title} · ${L.HEART_N[h]}${vis === id ? ' · <b class="seal">正在门口</b>' : ''}</div>`);
-  rows.push(`<div class="pbarrow">${bar(a / 100, a >= 60)}<span class="num">${a}/100</span></div>`);
-  rows.push(`<div class="${a >= 60 ? 'jadet' : 'muted'}">${a >= 60 ? '✓' : '·'} 三心知己：${esc(L.friendText ? L.friendText(st, id) : N.bonus)}</div>`);
+  rows.push(`<div class="pn-line">${N.title} · ${L.HEART_N[h]}</div><div class="pbarrow">${bar(a / 100, a >= 60)}<span class="num">${a}/100</span></div>`);
+  rows.push(`<div class="pn-line ${a >= 60 ? 'jadet' : 'muted'}">${a >= 60 ? '✓' : '·'} 三心知己：${esc(L.friendText ? L.friendText(st, id) : N.bonus)}</div>`);
+  let right = '';
   if (on) {
+    // 摆在卡面上的那一个按钮
+    const gw = vis === id ? L.pgiftWhy(st, id) : null;
+    const qCan = [1, 2].find(i => { const Q = L.pqDef(id, i), pr = L.pqProg(st, id, i); return Q && Q.ty === 'give' && pr.s !== 'none' && pr.s !== 'done' && pr.can; });
+    const cw = id !== st.daolv ? L.compWhy(st, id) : 'x', cur = L.comp(st) === id;
+    const g = ok => { if (!ok || pplGold) return 'alt'; pplGold = true; return 'gold'; };
+    let top = '';
+    if (vis === id && (!gw || !qCan)) { top = 'gift'; right = `<button class="btn sm ${g(!gw)}" data-ppgift="${id}" ${gw ? 'disabled' : ''}><span>送礼</span>${gw ? `<small>${esc(gw)}</small>` : ''}</button>`; }
+    else if (qCan) { top = 'q' + qCan; right = `<button class="btn sm ${g(true)} eq" data-ppq="${id}:${qCan}"><span>交付</span></button>`; }
+    else if (st.daolv === id) { const sx = L.sxInfo(st); top = 'sx'; right = `<button class="btn sm alt eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button>`; }
+    else if (!cw) { top = 'comp'; right = `<button class="btn sm alt eq" data-ppcomp="${cur ? '' : id}">${cur ? '不带了' : '同行'}</button>`; }
     // 喜好：已知的写名字，没试出来的是“？”
     const K = (L.giftDex(st).list.find(x => x.id === id) || { cells: [] }).cells;
     rows.push(`<div class="pprefs"><span class="muted">喜好</span>${K.map(c => `<span class="ppref ${c.kind === 'like' ? 'plike' : 'phate'}">${c.kind === 'like' ? '♥' : '✕'} ${c.known ? esc(c.n) : '？'}</span>`).join('')}</div>`);
-    // 委托
-    for (const i of [1, 2]) rows.push(pqRow(id, i));
-    // 同伴
+    for (const i of [1, 2]) rows.push(pqRow(id, i, top === 'q' + i));
     if (id !== st.daolv) {
-      const why = L.compWhy(st, id), cur = L.comp(st) === id;
-      if (!why) rows.push(`<div class="pcompr"><span class="grow">四心同行：${esc(L.COMP[id].d)}</span><button class="btn sm ${cur ? 'alt' : 'gold'} eq" data-ppcomp="${cur ? '' : id}">${cur ? '不带了' : '同行'}</button></div>`);
+      if (!cw) rows.push(`<div class="pcompr"><span class="grow">四心同行：${esc(L.COMP[id].d)}</span>${top === 'comp' ? '' : `<button class="btn sm alt eq" data-ppcomp="${cur ? '' : id}">${cur ? '不带了' : '同行'}</button>`}</div>`);
       else if (h >= 3) rows.push(`<div class="muted">· 四心同行（好感 80）：${esc(L.COMP[id].d)}</div>`);
     }
-    // 道侣
     if (st.daolv === id) {
       const sx = L.sxInfo(st), A = sx.art && L.art(sx.art);
-      rows.push(`<div class="pcompr"><span class="grow">道侣同行，不占同伴位：${esc(L.COMP[id].d)}。<b>双修</b>：${sx.len} 周天修炼 ×${sx.m.toFixed(2)}，不花灵石${A ? `，${sx.artNew ? '学' : '熟练'}《${esc(A.n)}》` : ''}</span><button class="btn sm ${sx.ok ? 'gold' : 'alt'} eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button></div>`);
+      rows.push(`<div class="pcompr"><span class="grow">道侣同行，不占同伴位：${esc(L.COMP[id].d)}。<b>双修</b>：${sx.len} 周天修炼 ×${sx.m.toFixed(2)}，不花灵石${A ? `，${sx.artNew ? '学' : '熟练'}《${esc(A.n)}》` : ''}</span>${top === 'sx' ? '' : `<button class="btn sm alt eq" id="btnSx" ${sx.ok ? '' : 'disabled'}><span>双修</span>${sx.ok ? '' : `<small>${esc(sx.why)}</small>`}</button>`}</div>`);
     } else if (N.daolv && !st.daolv) rows.push(`<div class="muted">· 可结为道侣：好感 90、心意相通之后，${pplTa(id)}会来问你</div>`);
-    // 来访：送礼
-    if (vis === id) { const why = L.pgiftWhy(st, id); rows.push(`<button class="btn ${why ? 'alt' : 'gold'} giftb" data-ppgift="${id}" ${why ? 'disabled' : ''}><span>送礼</span><small>${why ? esc(why) : '身上现有的东西点一样'}</small></button>`); }
   } else if (N.daolv) rows.push('<div class="muted">· 可结为道侣（双修 修炼 ×1.25）</div>');
-  return `<div class="card flat pcard2" data-pp="${id}">${pplImg(id, pxs(48, 1), pplMood(id))}<div class="main">${rows.join('')}</div></div>`;
+  return pnFold('pp-' + id, { cls: 'pcard2', attrs: ` data-pp="${id}"`, ic: pplImg(id, pxs(48, 1), pplMood(id)), nm: esc(L.npcName(st, id)), badge: tag,
+    k: `${pplHearts(id)} <span class="muted num">${a}</span>`, right, body: rows.join('') });
 }
 // 化敌为友之后的楚天阔：只有同伴这一行（没有好感、喜好、委托）
 function tianCard() {
   if (L.PEOPLE2_ON === false || L.compWhy(st, 'tian')) return '';
   const cur = L.comp(st) === 'tian';
-  return `<div class="card flat pcard2">${pplImg('tian', pxs(48, 1), 'n')}<div class="main"><div class="line"><span>楚天阔</span><span class="chip ok">化敌为友</span></div><div class="muted">天剑宗圣子 · 说过“往后你去哪，我的剑跟着”</div>
-    <div class="pcompr"><span class="grow">同行：${esc(L.COMP.tian.d)}</span><button class="btn sm ${cur ? 'alt' : 'gold'} eq" data-ppcomp="${cur ? '' : 'tian'}">${cur ? '不带了' : '同行'}</button></div></div></div>`;
+  return pnFold('pp-tian', { cls: 'pcard2', ic: pplImg('tian', pxs(48, 1), 'n'), nm: '楚天阔', badge: '<span class="chip ok">化敌为友</span>', k: `<span class="muted">${esc(pnShort(L.COMP.tian.d, 16))}</span>`,
+    right: `<button class="btn sm alt eq" data-ppcomp="${cur ? '' : 'tian'}">${cur ? '不带了' : '同行'}</button>`,
+    body: `<div class="pn-line">天剑宗圣子 · 说过“往后你去哪，我的剑跟着”</div><div class="pn-line">同行：${esc(L.COMP.tian.d)}</div>` });
 }
-function pqRow(id, i) {
+function pqRow(id, i, noBtn) {
   const Q = L.pqDef(id, i), pr = L.pqProg(st, id, i);
   if (pr.s === 'none') return `<div class="pq off">${icon16('quest', 1)}<span class="grow muted">委托·${i === 1 ? '二心' : '四心'}：${esc(pr.t)}</span></div>`;
   const done = pr.s === 'done';
-  const give = !done && Q.ty === 'give' ? `<button class="btn sm ${pr.can ? 'gold' : 'alt'} eq" data-ppq="${id}:${i}" ${pr.can ? '' : 'disabled'}><span>交付</span>${pr.can ? '' : `<small>${esc(pr.why)}</small>`}</button>` : '';
+  const give = !noBtn && !done && Q.ty === 'give' ? `<button class="btn sm alt eq" data-ppq="${id}:${i}" ${pr.can ? '' : 'disabled'}><span>交付</span>${pr.can ? '' : `<small>${esc(pr.why)}</small>`}</button>` : '';
   return `<div class="pq ${done ? 'done' : ''}">${icon16('quest', 1)}<div class="grow"><b>委托·${esc(Q.t)}</b>${done ? ' <span class="chip ok">已完成</span>' : ` <span class="muted num">${esc(pr.t)}</span>`}
     ${done ? '' : `<div>${esc(L.pqDesc(st, id, i))}</div><div class="goldt">好感 +${L.PQ_AFF} · ${esc(Q.rwT)}</div>`}</div>${give}</div>`;
 }
@@ -85,10 +94,11 @@ function bindBondTab(s) {
 function showGift(id, back) {
   const opts = L.pgiftOpts(st, id), a = L.aff(st, id), nx = pplNext(id);
   const rows = opts.map(o => `<button class="btn alt pgiftopt" data-pg="${esc(o.key)}">${pmk(o.mark)}<span class="grow">${esc(o.text)}</span><small class="${o.mark === 'like' ? 'jadet' : o.mark === 'hate' ? 'seal' : 'muted'}">${pmkVal(o.mark)}</small></button>`).join('')
-    || '<p class="muted">身上没什么拿得出手的。灵草、灵矿、兽粮、丹药、药引、功法抄本都能送。</p>';
+    || emptyNoteHTML('vault', '身上没什么拿得出手的。灵草、灵矿、丹药、药引都能送。');
   const s = sheet({ title: `送礼 · ${esc(L.npcName(st, id))}`, center: true,
     sub: `好感 ${a}/100 · ${L.HEART_N[Math.min(5, L.hearts(st, id))]}${nx ? ` · 到 ${nx.v} 是${nx.n}` : ''}`,
-    body: `<div class="speaker">${pplImg(id, 44, pplMood(id))}<p class="grow muted" style="margin:0">一回来访送一样：♥ 喜欢 ${pmkVal('like')}、一般 ${pmkVal('mid')}、✕ 讨厌 ${pmkVal('hate')}${L.visitFavorBonus && L.visitFavorBonus(st) ? '（迎客亭 +' + L.visitFavorBonus(st) + '）' : ''}。没试过的写着“？”。</p></div><div class="pgifts">${rows}</div>`,
+    body: `<div class="speaker">${pplImg(id, 44, pplMood(id))}<p class="grow" style="margin:0">一回来访送一样。没试过的写“？”。</p></div><div class="pgifts">${rows}</div>
+      <details class="more"><summary>好感各加多少</summary><div class="muted">♥ 喜欢 ${pmkVal('like')}、一般 ${pmkVal('mid')}、✕ 讨厌 ${pmkVal('hate')}${L.visitFavorBonus && L.visitFavorBonus(st) ? '（迎客亭 +' + L.visitFavorBonus(st) + '）' : ''}。试出来的喜好记进图鉴，下一世还在。</div></details>`,
     foot: [{ t: '算了', alt: true, fn: back }] });
   s.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => {
     const r = L.pgiftGive(st, id, b.dataset.pg); if (!r) return;
