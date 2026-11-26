@@ -20,6 +20,7 @@ function sheet(o) {
   m.classList.remove('duel-m');   // 场景内对决的透明底（duels.js 打开对决时再加上）
   m.classList.toggle('unl-m', !!o.unl);   // 解锁卡（onboard.js）：无纸卷边框，居中
   const foot = (o.foot || []).map((b, i) => `<button class="btn ${b.alt ? 'alt' : ''} ${b.gold ? 'gold' : ''}" data-fi="${i}" ${b.disabled ? 'disabled' : ''}>${b.t}</button>`).join('');
+  if (m.hidden) sfxPanel(true);
   const oldU = m.hidden ? [] : gearUids(m);   // 上一页没决定的法宝对比卡：新页里不再显示的就熔炼（panel-gear.js）
   m.innerHTML = `<div class="sheet${o.still ? ' still' : ''}" role="dialog" aria-modal="true"><div class="rod"></div>
     <header><h2>${o.title}</h2>${o.noClose ? '' : '<button class="close" aria-label="关闭">×</button>'}</header>
@@ -37,7 +38,7 @@ function sheet(o) {
   bindPetButtons(m);     // 名册满时新灵宠的放生 / 替换（panel-pets.js）
   // 外壳面板的分页条（panel-me.js 的 meTabs）：点分页 = 换页；面板浮在底栏之上、那一格点亮（goalcard.js）
   const ks = m.querySelector('[data-kshell]'); if (ks) navCur = ks.dataset.kshell;
-  m.querySelectorAll('[data-kt]').forEach(b => { b.onclick = () => { SFX.tap(); openTab(b.dataset.kt); }; });
+  m.querySelectorAll('[data-kt]').forEach(b => { b.onclick = () => { SFX.tab(); openTab(b.dataset.kt); }; });
   if (st) syncNav();
   const sh = m.querySelector('.sheet'), bd = sh.querySelector('.body');
   sh.classList.toggle('full', m.classList.contains('nav-m') || !!sh.querySelector('.ktabs:not([hidden])'));
@@ -55,6 +56,7 @@ function sheet(o) {
 }
 function closeModal() {
   const m = $('#modal');
+  if (!m.hidden) sfxPanel(false);
   const oldU = m.hidden ? [] : gearUids(m);
   if (!m.hidden) { const sn = modalSnap(m); modalShut = sn; requestAnimationFrame(() => { if (modalShut === sn) modalShut = null; }); }
   m.hidden = true; m.innerHTML = ''; navCur = '';

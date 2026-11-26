@@ -205,6 +205,7 @@ function tripSnapNow() {
 function showExpResult(res) {
   // 归途翻牌就在这张结算卡上（评价章之后、“你变强了”之前；示意图 04_loot.png）：见下面的 lootFlipHTML / lootFlipRun（src/ui/loot.js）
   lastExp = res;
+  saveLocal('归来');   // 关键节点存一份（自动档轮换，saves.js）
   const rg = L.REGIONS[res.k];
   if (res.legacy) {
     const lines = [`<div class="center">${stampHTML(res.rating, true)}</div><p class="center">旧存档里那趟历练按旧规矩结算：灵石 +${fmt(res.stones)}${res.inj ? `，负伤 3 ${MO()}` : ''}。</p>`, deltaHTML(res)];
@@ -316,7 +317,7 @@ function bossResultUI(k, res) {
   const body = !res.win ? `<div class="center">${stampHTML(0, true)}</div><p class="center">${esc(B.n)}太强，重伤而归（负伤 4 ${MO()}）。变强之后再来！</p>`
     : res.again ? `<p class="center">再败${esc(B.n)}！</p><div class="fxlist"><span>${L.BOSS_MAT[k]} +${res.mat}</span><span>灵石 +${fmt(res.stones)}</span></div>`
     : `<p class="center">斩杀${esc(B.n)}！获得称号「${esc(B.t)}」</p><div class="fxlist"><span>天材地宝 +${res.treasure}</span><span>灵石 +${fmt(res.stones)}</span><span>灵草 +${fmt(res.herbs)}</span><span>${L.BOSS_MAT[k]} +${res.mat}</span>${res.planText && !res.cards ? `<span>${esc(res.planText)}</span>` : ''}</div>${res.cards ? '' : (it ? gearLine(it) : '') + (res.art ? artLine(res.art) : '')}`;
-  if (res.win) SFX.win(); else SFX.fail();
+  if (res.win) SFX.victory(); else SFX.defeat();
   // 首领的牌（loot.js 的 L.bossLoot：首杀 3 张固定，再战 1 张）：就翻在这张卡上
   const cards = res.win && res.cards && res.cards.length ? res.cards : null;
   const s = sheet({ title: '首领 · ' + B.n, center: true, body: body + (cards ? lootFlipHTML(cards) : ''), foot: [{ t: '好', gold: true, fn: closeModal }] });

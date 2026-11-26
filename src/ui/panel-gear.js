@@ -138,10 +138,10 @@ function doPlus(slot) {
   if (!r) return null;
   const nm = L.gearBase(r.x.id).n;
   if (r.ok) {
-    SFX.reveal(Math.min(6, 2 + Math.floor(r.to / 2)));
+    SFX.forgeOk(r.to);
     gearMsg = `<span class="jadet">强化成功：【${esc(nm)}】+${r.from} → <b>+${r.to}</b></span>${fmt(r.p0) !== fmt(r.p1) ? `，战力 ${fmt(r.p0)} → <b>${fmt(r.p1)}</b>` : ''}${info && info.a.pact !== null && L.pct(info.a.pact) !== L.pct(info.b.pact) ? `，约战胜算 ${L.pct(info.a.pact)} → <b>${L.pct(info.b.pact)}</b>` : ''}`;
     if (r.to >= 6) banner(`强化 +${r.to}`, nm);
-  } else { SFX.fail(); gearMsg = `<span class="seal">强化失败</span>，不掉级；下次成功率 <b>${L.pct(L.gearPlusRate(st, r.x))}</b>`; }
+  } else { SFX.forgeFail(); gearMsg = `<span class="seal">强化失败</span>，不掉级；下次成功率 <b>${L.pct(L.gearPlusRate(st, r.x))}</b>`; }
   return r;
 }
 function forgeFx(slot, kind) {
@@ -204,7 +204,7 @@ function showForge() {
   s.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
     const it = L.forge(st, b.dataset.forge);
     if (!it) return;
-    SFX.gather(); flash(0.35);
+    SFX.hammer(); SFX.gather(); flash(0.35);
     sheet({ title: '器炉开火', center: true, body: `<p class="center">炉火三日不熄，一件法宝出炉。</p>${gearLine(it)}`, foot: [{ t: '回器炉', alt: true, fn: showForge }, { t: '回法宝页', gold: true, fn: () => showGear(it.kind) }] });
   });
 }

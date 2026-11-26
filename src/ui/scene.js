@@ -26,7 +26,8 @@ function fitScene() {
   app.classList.toggle('short', short);
   const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
   const others = ['#top', '#time', '#cult', '#stats', '#bt', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
-  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * 7;
+  const nIn = [...app.children].filter(e => { const c = getComputedStyle(e); return c.display !== 'none' && c.position !== 'absolute' && c.position !== 'fixed'; }).length;   // 打仗时修为条、数值格、传讯收起，少两道缝
+  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * Math.max(1, nIn - 1);
   let n = UPX;
   const ow = outer.clientWidth || window.innerWidth;
   while (n > 1 && (180 * n / dpr > ow + 0.5 || 160 * n / dpr > avail + 0.5)) n--;
@@ -34,6 +35,9 @@ function fitScene() {
   const u = n / dpr;
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; }
   wrap.style.width = (W * u) + 'px'; wrap.style.height = (H * u) + 'px';
+  // 缩到最小（160 高、1 倍）还放不下（矮的电脑窗口里打仗）：剪掉上面一截天空，底栏不被挤出屏幕（jitter_check）
+  const over = Math.max(0, Math.ceil(H * u - avail));
+  outer.style.height = over ? (H * u - over) + 'px' : ''; wrap.style.marginTop = over ? -over + 'px' : '';
   sceneU = u; sceneCrop = Math.max(0, Math.floor((W * u - ow) / 2 / u));   // 窄屏上场景左右各被裁掉的逻辑像素（对决的血条、名字要躲开）
 }
 let sceneU = 2, sceneCrop = 0;
@@ -290,6 +294,7 @@ function floatText(x, y, text, color, big, small) {
 }
 function floatNext() { const f = floatQ.shift(); if (!f) return; floatBusy = 0; floatText(...f); if (floatQ.length) setTimeout(floatNext, 1120); }
 function floatRaw(x, y, text, color, big, small) {
+  sfxFloat(text);
   const el = document.createElement('div');
   el.className = 'float' + (big ? ' big' : '');
   el.style.left = (x / W * 100).toFixed(2) + '%'; el.style.top = ((y + OY) / H * 100).toFixed(2) + '%'; el.style.color = color || '#fff';

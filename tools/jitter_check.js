@@ -42,7 +42,7 @@ function recorder() {
       if (k === 'sheet') o.push(+getComputedStyle(el).opacity);
       if (k === 'modal') o.push(['mid', 'unl-m', 'duel-m', 'nav-m'].filter(c => el.classList.contains(c)).join(' '));
       if (k === 'body') o.push(el.scrollTop, el.offsetWidth - el.clientWidth);
-      if (k === 'tabs') { const bd = el.closest('.body'); if (bd) o[1] = Math.round((r.top + bd.scrollTop) * 10) / 10; }   // 分页条在正文里时按“滚动前”的位置比：正文滚动不算跳
+      if (k === 'tabs') { const bd = el.closest('.body'); if (bd) o[1] = Math.round((r.top + bd.scrollTop * (parseFloat(document.documentElement.style.zoom) || 1)) * 10) / 10; }   // 电脑上整页有 zoom：scrollTop 是缩放前的   // 分页条在正文里时按“滚动前”的位置比：正文滚动不算跳
       f.k[k] = o;
     }
     f.sb = window.innerWidth - document.documentElement.clientWidth;
@@ -178,6 +178,17 @@ function analyze(rec, allow) {
     await tabs('world', ['sect', 'market', 'bond', 'rank']);
     await tabs('path', ['attr', 'rec', 'set', 'path']);
     await tabs('home', ['field', 'alch', 'zhen', 'home']);
+    // ===== 设置页：音量格（原地重画，正文滚着也不跳回顶）、存档页进出 =====
+    await closeAll();
+    await scen('设置页打开', () => ev(() => window.__xm.showSettings()), () => ev(() => { const b = document.querySelector('#modal .sheet .body'); if (b) b.scrollTop = 30; }));
+    for (const [w, n] of [['m', 2], ['s', 4], ['m', 5]]) await scen(`设置·音量 ${w}${n}`, null, () => ev(([w, n]) => { const i = document.querySelector(`#modal .kvol[data-vol="${w}"] i[data-i="${n}"]`); if (i) i.click(); }, [w, n]));
+    { const top = await ev(() => { const b = document.querySelector('#modal .sheet .body'); return b ? [b.scrollTop, b.scrollHeight - b.clientHeight] : [0, 0]; }); const ok = top[1] < 1 || top[0] > 0; console.log(`${ok ? '  ok  ' : '  JIT '} ${tag} 调音量后正文滚动位置 ${top[0]}（可滚 ${top[1]}）`); if (!ok) fails.push(`${tag} 调音量后正文跳回顶`); }
+    if (await page.$('#btnSaves')) {
+      await scen('设置→存档页', null, click('#btnSaves'));
+      await scen('存档页→手动格', null, () => ev(() => { const r = document.querySelector('#modal [data-sv="m0"]'); if (r) r.click(); }));
+      await scen('手动格→取消回存档页', null, () => ev(() => { const b = [...document.querySelectorAll('#modal .foot .btn')].find(x => /取消|返回/.test(x.textContent)); if (b) b.click(); }));
+      await scen('存档页→回设置', null, click('#svBack'));
+    } else console.log('         （没有存档页）');
     await closeAll();
     // ===== 弹窗打开 / 关闭（主画面不该动）=====
     await scen('年报打开', null, () => ev(() => window.__xm.showYearReport()));

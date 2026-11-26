@@ -50,6 +50,7 @@ function showChapterCard(ch) {
   st.flags.chEnd = st.flags.chEnd || {};
   if (st.flags.chEnd[ch]) return;
   st.flags.chEnd[ch] = 1;
+  saveLocal('章末');   // 关键节点存一份（自动档轮换，saves.js）
   const S = L.chapterSummary(st, ch), N = S.next;
   const Sp = ART.stamp ? ART.stamp('完') : null;
   sheet({ title: `${chName(ch)} ${esc(S.n)} · 完`, center: true, noClose: true,
@@ -62,7 +63,7 @@ function showChapterCard(ch) {
         ${N.toOpen ? `<div class="krow"><span class="k">会开 ${N.toOpen} 样</span><div class="ksys" style="margin:0">${Array.from({ length: Math.min(7, N.toOpen) }, () => '<span class="q">?</span>').join('')}</div></div>` : ''}
         ${N.rw ? `<div class="krow"><span class="k">奖励</span><span class="v goldt">${esc(N.rw)}</span></div>` : ''}` : '<p class="center">大道已近，再无下一章。</p>'}`,
     foot: [{ t: N ? `开始${chName(N.i)} ▸` : '好', gold: true, fn: closeModal }] });
-  SFX.goal();
+  SFX.chapter();
 }
 
 // ---------- 年报（§6.2，阻塞清单 #8）：每 12 月的月初一张；在外则归来结算之后 ----------
@@ -70,6 +71,7 @@ function showChapterCard(ch) {
 function yearClose() { L.yearClose(st); }
 function showYearReport() {
   if (!st) return;
+  saveLocal('年报');   // 关键节点存一份
   const R = L.yearReport(st), nx = R.next || {}, big = nx.big;
   const up = (a, b, f) => `${f(a)} → <span class="big">${f(b)}</span>${b > a ? ` <span class="kup" style="font-size:14px">▲${f(b - a)}</span>` : ''}`;
   const opened = (R.opened || []).filter(k => L.ONB_K[k] && L.ONB_K[k].sys).slice(0, 4);
@@ -87,7 +89,7 @@ function showYearReport() {
       ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${big.left} ${MO()}</span></div>` : ''}
       ${R.say ? `<div class="ksay">${elderImg(24)}<span>老祖：“${esc(cut(R.say, 20))}”</span></div>` : ''}`,
     foot: [{ t: '新的一年 ▸', gold: true, fn: () => { yearClose(); closeModal(); } }] });
-  SFX.goal();
+  SFX.year();
 }
 // 【仙途】→ 记录 → 年报：历年的数字
 function showYearHist() {

@@ -154,6 +154,11 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   } else check(true, '当场能做的牌：此局面没有（跳过）');
   await panel('record', () => { window.__xm.closeModal(); window.__xm.showRecord(); });
   await panel('settings', () => { window.__xm.closeModal(); window.__xm.showSettings(); });
+  // 存档页（saves.js）：设置里 1 次点击进；6 格一屏；点手动 1 出存档卡
+  await page.click('#btnSaves'); await page.waitForTimeout(300);
+  check(await ev(() => /存档/.test(document.querySelector('#modal h2').textContent) && document.querySelectorAll('#modal [data-sv]').length === 6), '存档：设置 → 1 次点击，6 格');
+  await panel('saves', () => {});
+  await panel('saves-slot', () => { window.__xm.closeModal(); window.__xm.slots.writeMan(0, window.__xm.st); window.__xm.showSlot('m', 0); }, 40);
   await panel('inbox', () => { window.__xm.closeModal(); window.__xm.showInbox(); });
   await panel('year', () => { window.__xm.closeModal(); window.__xm.showYearReport(); }, 70);
   await panel('unlock', () => { window.__xm.closeModal(); window.__xm.showUnlock('field'); }, 30);

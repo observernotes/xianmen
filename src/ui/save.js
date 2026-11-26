@@ -1,15 +1,18 @@
-/* 废柴仙途 · 界面片段 save：存档：本机、云端、读档
+/* 废柴仙途 · 界面片段 save：存档：本机（自动 / 手动档位，见 saves.js 与 src/logic/slots.js）、云端、读档
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
 // ---------- 存档 ----------
 // 存档键沿用 v2 时代的名字，这样旧版本的存档能被找到；读进来一律先过 L.migrate（v2 → … → v5）
 const SAVE_KEY = 'xiantu_save_v2';
 const saveOk = s => !!s && L.SAVE_OK.includes(s.v);
 const PREF_KEY = 'xianmen_pref_v1';
-function saveLocal() { if (!st) return; try { st.savedAt = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 无痕模式等 */ } }
+// 存档位（src/logic/slots.js）：自动 1（= SAVE_KEY，开游戏读它）/ 2 / 3 轮换 + 手动 1～3；页面在 saves.js
+const SLOTS = L.slotStore({ get: k => localStorage.getItem(k), set: (k, v) => localStorage.setItem(k, v), del: k => { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } });
+// why：空 = 每月例行（覆盖自动 1，频率照旧）；'章末' / '突破' / '年报' / '归来' / '转世前' / '读档前' = 关键节点（下一次写时挤到自动 2）
+function saveLocal(why) { if (!st) return; try { st.savedAt = Date.now(); SLOTS.writeAuto(st, typeof why === 'string' ? why : ''); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-function clearLocal() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ } }
-function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx })); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
+function clearLocal() { try { SLOTS.retire(st); } catch (e) { /* ignore */ } }   // 重新开始：当前进度挤进自动 2，自动 1 空出来（手动档不动）
+function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {
@@ -49,7 +52,7 @@ function offerCloud(remote) {
   const go = () => sheet({
     title: '发现云端存档', center: true,
     body: `<p>云端有一份更新的存档：<br><b>${esc(remote.p.name)}</b> · ${esc(L.stageName(remote.p))} · 修仙第 ${Math.floor(remote.year) + 1} 年</p><p class="muted">读取后会替换当前进度。</p>`,
-    foot: [{ t: '保留当前', alt: true, fn: closeModal }, { t: '读取云存档', fn: () => { closeModal(); if (loadState(remote)) $('#intro').hidden = true; } }],
+    foot: [{ t: '保留当前', alt: true, fn: closeModal }, { t: '读取云存档', fn: () => { closeModal(); if (st) { saveLocal('读档前'); svResetUI(); } if (loadState(remote)) { $('#intro').hidden = true; saveLocal(); } } }],
   });
   if (intro) go(); else pushPopup(go);
 }

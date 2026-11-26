@@ -30,7 +30,7 @@ function showIntro() {
     typing = setInterval(() => {
       if (li >= ls.length) { clearInterval(typing); typing = null; return; }
       ps[li].textContent = ls[li].slice(0, ++ci);
-      if (ci % 2) tone(880, 0, 0.02, 'square', 0.03);
+      if (ci % 2) SFX.type();
       if (ci >= ls[li].length) { li++; ci = 0; }
     }, 40);
     box.querySelector('.story').onclick = () => {

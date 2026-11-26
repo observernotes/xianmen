@@ -28,6 +28,7 @@ function showAscension() {
 }
 function showDeath() {
   const p = st.p;
+  BGM.play('sorrow', { while: () => !$('#modal').hidden });   // 坐化到转世这一串弹窗：低回那首
   recordLife();
   saveLocal();
   const f = L.daoFruit(st), lim = L.trialOn(st, 'limit') && st.tick >= L.TRIAL_LIMIT;
@@ -53,6 +54,7 @@ function bindLifeRebirth(s) {
 // ---------- 轮回 ----------
 let RB = null;   // 这一回轮回的选择：{ how, picks, origin, trials, card }
 function rebirthFlow(how) {
+  saveLocal('转世前');   // 关键节点：结算之前的这一世存一份（自动档）
   L.settle(st, how);
   recordLife();
   RB = { how, picks: { arts: [], gear: null, pet: null }, origin: L.originOpen(st, st.origin) ? st.origin || 'qitu' : 'qitu', trials: (st.trials || []).filter(id => L.TRIAL[id]), card: null };

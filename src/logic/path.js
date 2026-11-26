@@ -76,7 +76,9 @@ L.chapterNow = function (st) {
   if (st.p.r >= 9) return 8;
   let first = 9;
   for (let i = 0; i < 9; i++) if (!done(st, L.CHAPTERS[i].main)) { first = i; break; }
-  return Math.min(8, Math.max(first, Math.min(8, mr(st))));
+  // 境界只把章“往前推”（防止主线卡住）；但三年之约还没了结之前，第一章不会因为先突破筑基就结束
+  const floor = st.pact ? Math.min(8, mr(st)) : 0;
+  return Math.min(8, Math.max(first, floor));
 };
 const snap = st => ({ t: st.tick, pw: Math.round(L.power(st)), exp: (st.stats && st.stats.exp) || 0 });
 L.newPath = st => ({ ch: 0, at: [st ? snap(st) : { t: 0, pw: 0, exp: 0 }], best: [] });
@@ -90,6 +92,7 @@ L.migratePath = function (st) {
   if (!Array.isArray(st.path.at)) st.path.at = [];
   if (!Array.isArray(st.path.best)) st.path.best = [];
   if (typeof st.path.ch !== 'number') st.path.ch = L.chapterNow(st);
+  if (!st.pact && st.path.ch > L.chapterNow(st)) st.path.ch = L.chapterNow(st);   // 旧档：约战前先筑基被提前算成第二章的，退回第一章
   return st;
 };
 { const ns0 = L.newState; L.newState = function () { const st = ns0.apply(this, arguments); st.path = L.newPath(st); return st; }; }
@@ -186,4 +189,6 @@ L.chapterSummary = function (st, i) {
     rw: L.rewardText(st, C.main.rw),
     next: N ? { i: i + 1, n: N.n, chN: '第' + CN[i + 1] + '章', goal: L.chapterGoal(st, i + 1), blurb: N.blurb, toOpen: keys.filter(e => (st.rebirth || 0) === 0 && o.at[e.k] === undefined).length, rw: L.rewardText(st, N.main.rw) } : null };
 };
+// 三年之约一了结（赢或输）就判一次章：第一章到此结束，章末卡紧跟在约战之后，不等下一个月
+{ const pd0 = L.pactDuel; if (pd0) L.pactDuel = function (st) { const r = pd0.apply(this, arguments); if (st && st.pact) L.checkQuests(st); return r; }; }
 });
