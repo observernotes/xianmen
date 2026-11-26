@@ -96,7 +96,7 @@ function showAlchemy(still) {
   const auto = L.danOf(st).auto;
   const rules = `<details class="more"><summary>续炼与丹毒 · 续炼 ${auto.length}/${L.AUTO.max}</summary><div class="muted">续炼：最多勾 ${L.AUTO.max} 种${auto.length ? '（' + auto.map(k => L.RECIPE[k].n).join('、') + '）' : ''}，每 ${L.AUTO.every} 周天材料够就各炼一炉；修炼类在丹毒会过 ${L.TOX.autoMax} 时跳过，战斗类丹囊里留 ${L.AUTO.bagKeep} 枚为止。<br>丹毒每周天退 ${dec(L.toxDecay(st))}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服。<br>成丹分下、中、上、极四品，炸炉只亏材料。天材地宝 ${st.treasure}${L.friend(st, 'ge') ? '；葛老指点，成丹率更高' : ''}。</div></details>`;
   const body = `<div class="tabs atabs">${tabs}</div>${alchMsg ? `<div class="quote">${alchMsg}</div>` : ''}${main}${rules}`;
-  const s = sheet({ title: '炼丹房', still, sub: `灵草 ${fmt(st.herbs)} · 成丹 ${L.pct(rate)} · ${toxChip(st)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+  const s = sheet({ title: shellTitle('home'), still, sub: `灵草 ${fmt(st.herbs)} · 成丹 ${L.pct(rate)} · ${toxChip(st)}`, body: meTabs('alch') + body });
   alchMsg = '';
   s.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { SFX.tap(); alchTab = b.dataset.tab; showAlchemy(true); });
   s.querySelectorAll('[data-cell]').forEach(b => b.onclick = () => { SFX.tap(); alchCell = b.dataset.cell; showAlchemy(true); const d = $('#modal .adet'); if (d) d.scrollIntoView({ block: 'nearest' }); });

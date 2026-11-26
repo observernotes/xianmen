@@ -16,6 +16,7 @@ function showEquip(tab) {
 function shellTitle(sh) {
   if (sh === 'gear') return `装备<span class="hn">战力 <b>${fmt(L.power(st))}</b></span>`;
   if (sh === 'world') return st.sect ? `江湖<span class="hn">贡献 <b>${fmt(st.sect.pts)}</b></span>` : `江湖<span class="hn">榜第 <b>${st.rank}</b></span>`;
+  if (sh === 'home') return `洞府<span class="hn">修炼 <b>+${fmt(L.gain(st))}</b>/${MO()}</span>`;
   if (sh === 'path') return `仙途<span class="hn">${chName(L.chapterNow(st))}</span>`;
   return '';
 }
@@ -33,19 +34,19 @@ function showGear(sel, still) {
     if (!L.gearOpen(st, s)) return `<div class="kslot dash"><div class="cell lk">${artIcon('lock', 32)}</div><div class="mid"><div class="nm mut" style="color:#8a7a5c">${L.GEAR_N[s]}</div><small>${esc(L.gearOpenWhy(st, s).replace('开放', '开'))}</small></div></div>`;
     const x = g[s];
     if (!x) return `<div class="kslot"><div class="cell"></div><div class="mid"><div class="nm">${L.GEAR_N[s]} · 空</div><small>历练会掉</small></div></div>`;
-    const B = L.gearBase(x.id), info = plusOpen ? L.gearPlusInfo(st, s) : null;
+    const B = L.gearBase(x.id), info = plusOpen && s === 'w' ? L.gearPlusInfo(st, s) : null;   // 第一屏只给兵器一个【强化】；法衣、饰品点图标格进明细强化
     const pb = !info ? '' : info.max ? '<button class="kb alt" disabled>+9</button>' : `<button class="kb${info.why ? '' : ''}" data-kplus="${s}" ${info.why ? 'disabled' : ''}>强化<br><small>矿 ${fmt(info.cost.ore)}</small></button>`;
     return `<div class="kslot"><button class="cell" data-kdet="${s}" aria-label="${L.GEAR_N[s]}明细" style="border:0;padding:0;cursor:pointer">${qcellHTML(x.t, gearImg(x, 2), 2)}</button><div class="mid"><div class="nm" style="color:${pnTierInk(x.t)}">${esc(B.n)}${x.plus ? ` <span class="p">+${x.plus}</span>` : ''}</div><small>${s === 'o' ? L.ACC_KIND[B.kind].n : L.GEAR_N[s]} · ${gearContrib(s)}</small></div>${pb}</div>`;
   }).join('');
-  const pend = g.pend.filter(y => !y.hold), held = L.gearHeld(st);
-  const pendRows = pend.slice(0, 2).map(y => {
+  const pend = g.pend.filter(y => !y.hold).sort((a, b) => (L.gearDelta(st, b).better ? 1 : 0) - (L.gearDelta(st, a).better ? 1 : 0)), held = L.gearHeld(st);
+  const pendRows = pend.slice(0, 1).map(y => {
     const B = L.gearBase(y.id), D = L.gearDelta(st, y), up = D.better;
     const dp = D.b.p - D.a.p, big = Math.abs(dp) >= 1;
     const num = big ? `战力 <span class="${dp >= 0 ? 'kup' : 'kdn'}" style="font-size:16px">${dp >= 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(dp))}</span>　${fmt(D.a.p)} → ${fmt(D.b.p)}` : esc(gearKey(y));
     return `<div class="kslot${up ? ' hot' : ''}"><div class="cell">${qcellHTML(y.t, gearImg(y, 2), 2)}</div><div class="mid"><div class="nm" style="color:${pnTierInk(y.t)}">${esc(B.n)}</div><small>${num}</small></div>
       <button class="kb ${up ? 'red' : 'alt'}" data-keq="${y.u}">换上</button><button class="kb ${up ? 'alt' : ''}" data-ksm="${y.u}">熔<br><small>矿+${D.smelt}</small></button></div>`;
   }).join('');
-  const rest = pend.slice(2).concat(held);
+  const rest = pend.slice(1).concat(held);
   const cells = rest.map(y => `<button data-kcell="${y.u}" aria-label="${esc(L.gearBase(y.id).n)}">${qcellHTML(y.t, gearImg(y, 1.5), 1.5)}</button>`);
   const minN = rest.length ? Math.ceil(rest.length / 6) * 6 : 0;
   while (cells.length < minN) cells.push('<div class="e"></div>');
@@ -55,7 +56,7 @@ function showGear(sel, still) {
   const body = meTabs('gear') + rows
     + (pend.length ? `<div class="ksec"><span class="red">新到 ${pend.length} 件</span><span>灵矿 ${fmt(st.ore || 0)}</span></div>${pendRows}` : `<div class="ksec"><span>新到 0 件 · 历练会掉</span><span>灵矿 ${fmt(st.ore || 0)}</span></div>`)
     + (gearNote ? `<div class="ksec"><span class="kup">${gearNote}</span></div>` : '')
-    + (rest.length ? `<div class="ksec"><span>收着的 ${rest.length}</span>${worse ? `<button id="kSmeltAll">一键熔炼低阶 ▸</button>` : ''}</div><div class="kgrid">${cells.join('')}</div>` : worse > 0 && pend.length > 2 ? '' : '')
+    + (rest.length ? `<div class="ksec"><span>收着的 ${rest.length} · 点一格比一比</span>${worse > 1 ? `<button id="kSmeltAll">一键熔炼低阶 ▸</button>` : ''}</div><div class="kgrid">${cells.join('')}</div>` : '')
     + forge;
   gearNote = '';
   const s = sheet({ title: shellTitle('gear'), body, still });

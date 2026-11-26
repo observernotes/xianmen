@@ -17,20 +17,22 @@ const SHELL_TABS = {
   gear: [['gear', '法宝'], ['art', '功法', 'arts'], ['pets', '灵宠', 'pets'], ['bag', '包裹']],
   world: [['rank', '天骄榜', 'tour'], ['sect', '宗门', 'sect'], ['market', '坊市', 'market'], ['bond', '人物', 'bond']],
   path: [['path', '路径'], ['attr', '属性'], ['rec', '记录'], ['set', '设置']],
+  home: [['home', '建筑'], ['field', '灵田'], ['alch', '炼丹'], ['zhen', '阵法']],
 };
-const TAB_SHELL = { gear: 'gear', art: 'gear', pets: 'gear', bag: 'gear', rank: 'world', sect: 'world', market: 'world', bond: 'world', path: 'path', attr: 'path', dao: 'path', rec: 'path', ach: 'path', codex: 'path', set: 'path' };
+const TAB_SHELL = { home: 'home', field: 'home', alch: 'home', zhen: 'home', gear: 'gear', art: 'gear', pets: 'gear', bag: 'gear', rank: 'world', sect: 'world', market: 'world', bond: 'world', path: 'path', attr: 'path', dao: 'path', rec: 'path', ach: 'path', codex: 'path', set: 'path' };
 const TAB_ON = { dao: 'attr', ach: 'rec', codex: 'rec' };
-const meTabOpen = k => { const sh = TAB_SHELL[k], row = sh && SHELL_TABS[sh].find(x => x[0] === k); if (k === 'pets') return UI.isOpen('pets') || L.petCount(st) > 0; if (k === 'bag') return true; if (k === 'bond') return UI.isOpen('bond') || Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]); return !row || !row[2] || UI.isOpen(row[2]); };
+const meTabOpen = k => { const sh = TAB_SHELL[k], row = sh && SHELL_TABS[sh].find(x => x[0] === k); if (k === 'pets') return UI.isOpen('pets') || L.petCount(st) > 0; if (k === 'bag') return true; if (k === 'field') return L.plotCount(st) > 0; if (k === 'alch') return st.home.furnace > 0; if (k === 'zhen') return !!L.zhenOpen(st); if (k === 'bond') return UI.isOpen('bond') || Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]); return !row || !row[2] || UI.isOpen(row[2]); };
 function meTabs(tab) {
   const sh = TAB_SHELL[tab] || 'path', on = TAB_ON[tab] || tab;
   const seen = st.flags.tabSeen || (st.flags.tabSeen = {});
   const list = SHELL_TABS[sh].filter(([k]) => k === on || meTabOpen(k));
   if (meTabOpen(on)) seen[on] = 1;
+  if (list.length < 2) return `<div class="ktabs" data-kshell="${sh}" hidden></div>`;
   return `<div class="ktabs" data-kshell="${sh}">` + list.map(([k, n]) => `<button data-kt="${k}" class="${k === on ? 'on' : ''}">${n}${!seen[k] && k !== on && SHELL_TABS[sh][0][0] !== k && st.tick > 0 ? newBadgeHTML(12) : ''}</button>`).join('') + '</div>';
 }
 function openTab(k) {
   ({ gear: () => showGear(), art: () => showArts(), pets: () => showPets(), bag: () => showBag(), rank: () => showMe('rank'), sect: () => showSect(), market: () => showMarket(), bond: () => showMe('bond'),
-    path: () => showPath(), attr: () => showMe('attr'), rec: () => showRecord(), set: () => showSettings() }[k] || (() => showPath()))();
+    home: () => showHome(), field: () => showField(), alch: () => showAlchemy(), zhen: () => showZhen(), path: () => showPath(), attr: () => showMe('attr'), rec: () => showRecord(), set: () => showSettings() }[k] || (() => showPath()))();
 }
 function bindMeTabs(s) { /* 分页条由 sheet() 统一绑定（modal.js 的 [data-kt]） */ void s; }
 // 【仙途】属性 / 【江湖】人物、天骄榜 / 【仙途】记录 → 成就（原【人物】拆开，§4.1）

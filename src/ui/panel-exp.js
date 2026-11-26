@@ -92,7 +92,7 @@ function confirmExp(k, d, a, still) {
     return `<button class="segb ${aa === a ? 'on' : ''}" data-a="${aa}" ${ok ? '' : 'disabled'}><b>${L.APPR[aa].n}</b><small>${why}</small></button>`;
   }).join('');
   const notes = [];
-  if (f.first) notes.push('<div class="quote">第一趟老夫暗中护着你：必得<b>甲</b>，还有一把凡器。</div>');
+  if (f.first) notes.push('<div class="quote">第一趟老祖护着：必得甲</div>');
   if (f.warnFull) notes.push(`<div class="seal">修为已经满了，再出去是白跑（溢出的修为最多存下一层的两成）。先回来突破${L.REALMS[Math.min(st.p.r + 1, 8)].n}。</div>`);
   if (f.warnInj) notes.push(`<div class="seal">带伤出门，战力只剩六成，预计评价 ${f.text}。吃一枚破境丹就好，或者歇 ${f.warnInj} 个周天。</div>`);
   // 大节点前（docs/KAIRO_PLAN.md §3.3 第 4 条）：回不来的行程不让出发；正好等长的提前一月赶回来（收获按走过的月数折算）
@@ -105,8 +105,8 @@ function confirmExp(k, d, a, still) {
   if (f.elemUnknown && !f.first && UI.isOpen('zhanji')) fine.push('<div class="muted">此地五行还不知道，克制的 ±8 分没算进预计。</div>');
   const escortT = st.sect && st.sect.tasks ? st.sect.tasks.findIndex(t => t.ty === 'escort' && t.taken && !t.done && t.k === k) : -1;
   const opts = [];
-  if (L.chainOpen(st)) opts.push(`<div class="check ${expOpt.chain ? 'on' : ''}" data-opt="chain"><span class="box"></span><span class="grow">连续 ×3：回来一起结算（丁等、遭遇或修为圆满时中断）</span></div>`);
-  if (escortT >= 0) opts.push(`<div class="check ${expOpt.escort ? 'on' : ''}" data-opt="escort"><span class="box"></span><span class="grow">护送同门（宗门任务）：本趟灵石归宗门，贡献 ×3</span></div>`);
+  if (L.chainOpen(st)) opts.push(`<div class="check ${expOpt.chain ? 'on' : ''}" data-opt="chain"><span class="box"></span><span class="grow">连续 ×3</span></div>`);
+  if (escortT >= 0) opts.push(`<div class="check ${expOpt.escort ? 'on' : ''}" data-opt="escort"><span class="box"></span><span class="grow">护送同门：贡献 ×3</span></div>`);
   const dist = f.first ? '' : `<div class="muted num">丁 ${L.pct(f.dist[0])} · 丙 ${L.pct(f.dist[1])} · 乙 ${L.pct(f.dist[2])} · 甲 ${L.pct(f.dist[3])} · 天 ${L.pct(f.dist[4])}</div>`;
   const yrs = f.len * L.REALMS[Math.min(st.p.r, 8)].mpt;
   const s = sheet({
@@ -114,13 +114,10 @@ function confirmExp(k, d, a, still) {
     body: `${UI.isOpen('zhanji') ? elemLine(k) : ''}
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
       ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
-      <div class="center"><div class="muted">预计评价 · 战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
+      <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
       <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 周天${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
       ${notes.join('')}${opts.join('')}
-      <details class="more"><summary>详情：评价分布、行事说明、法宝</summary><p class="muted">${rg.desc}${L.elemKnown(st, k) ? ` · 五行属${L.elemName(k)}` : ''}</p>${dist}
-      ${nAppr > 1 ? '<div class="muted">斩妖：灵石多、归来得感悟；寻宝：法宝功法掉率 ×2；采药：灵草 ×3、分数 +6</div>' : ''}
-      <dl class="grid2"><dt>负伤风险</dt><dd class="num ${f.risk > 0 ? 'seal' : ''}">${L.pct(f.risk)}（丁等负伤 3 周天）</dd><dt>耗时</dt><dd>${f.len} 周天（约 ${yrs < 1 ? Math.round(yrs * 12) + ' 个月' : fmt(yrs) + ' 年'}），途中修炼 ×0.5</dd></dl>
-      ${gearExpLine(k, d, a)}${fine.join('')}</details>`,
+      ${dist}`,
     foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
@@ -213,7 +210,7 @@ function showExpResult(res) {
   const used = res.sum ? res.sum.n * (sn ? sn.total : L.expLen(res.k, st)) : sn ? sn.total : L.expLen(res.k, st);
   const lines = [];
   // 评价
-  lines.push(`<div class="krow"><span class="k">${res.recall ? '中途折返' : '评价'}</span><span class="v s">推荐战力 ${fmt(L.rec(res.k, res.d))} · 你 ${fmt(pw0)}</span><div class="kstamp">${L.RATINGS[res.rating]}</div></div>`);
+  lines.push(`<div class="krow"><span class="k">${res.recall ? '中途折返' : '评价'}</span><span class="v s">推荐 ${fmt(L.rec(res.k, res.d))}</span><div class="kstamp">${L.RATINGS[res.rating]}</div></div>`);
   // 拿到的：有就画，没有不占位（最多四格，其余一行小字）
   const loot = [];
   if (res.stones) loot.push(`${artIcon('stone', 16)} +${fmt(res.stones)}`);
@@ -238,7 +235,7 @@ function showExpResult(res) {
     } else { const h = itemLine(it); if (h) lines.push(h); }
   }
   if (res.planText) lines.push(`<div class="quote row">${scrollImg()}<span class="grow">${esc(cut(res.planText, 24))}</span></div>`);
-  for (const u of res.unlock || []) lines.push(`<div class="krow"><span class="k">新开</span><span class="v kup">${esc(cut(u, 16))}</span></div>`);
+  for (const u of res.unlock || []) lines.push(`<div class="krow"><span class="k">${artIcon('unlock', 16)}</span><span class="v kup nm">${esc(cut(u, 16))}</span></div>`);
   if (res.inj) lines.push(`<div class="krow"><span class="k">负伤</span><span class="v kdn">${res.inj} ${MO()} · 战力 ×${dec2(L.injAtk(st))}</span></div>`);
   if (res.lifeCost) lines.push(`<div class="krow"><span class="k">血遁</span><span class="v kdn">寿元 −${fmt(res.lifeCost)} 年</span></div>`);
   if (typeof compResLine === 'function') { const c = compResLine(res); if (c) lines.push(c); }
@@ -255,8 +252,8 @@ function showExpResult(res) {
   const gv0 = sn && sn.ch === g.ch ? sn.gv : g.bar.v, gv1 = g.bar.v;
   const isPct = /%/.test(g.bar.text), pctOf = v => Math.round(v * (g.ch === 0 && !st.pact ? 80 : 100));
   lines.push(`<div class="ksec"><span>离目标</span></div>`);
-  lines.push(`<div class="krow"><span class="k">${esc(cut(g.t, 5))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
-  if (bn) { const n = Math.floor(Math.max(0, bn.left - 1) / Math.max(1, L.expLen(res.k, st))); lines.push(`<div class="krow"><span class="k">${esc(cut(bn.n, 5))}</span><span class="v kdn">还有 ${bn.left} ${MO()}</span><span class="s">够再去 ${n} 趟</span></div>`); }
+  lines.push(`<div class="krow"><span class="k">${esc(cut((g.prog && g.prog[0] && g.prog[0].t) || g.bar.text.split(' ')[0] || '目标', 4))}</span><div class="kpbar"><i class="dl" style="width:${(Math.max(gv0, gv1) * 100).toFixed(1)}%"></i><i style="width:${(Math.min(gv0, gv1) * 100).toFixed(1)}%"></i></div><span class="s">${isPct ? `${pctOf(gv0)}→<span class="kup">${pctOf(gv1)}%</span>` : esc(cut(g.bar.text, 10))}</span></div>`);
+  if (bn) { const n = Math.floor(Math.max(0, bn.left - 1) / Math.max(1, L.expLen(res.k, st))); lines.push(`<div class="krow"><span class="k">${esc(cut(bn.n, 5))}</span><span class="v kdn">还有 ${bn.left} ${MO()}</span><span class="s">可去 ${n} 趟</span></div>`); }
   // 你不在时：纸鹤汇总（线 1 的 L.mailAway）
   const away = L.mailAway ? L.mailAway(st) : [];
   if (away && away.length) { lines.push(`<div class="kaway">${artIcon('mail', 16)}<span>你不在时：${away.slice(0, 3).map(x => esc(cut(x.t, 10))).join(' · ')}</span></div>`); if (L.mailAwayClear) L.mailAwayClear(st); }

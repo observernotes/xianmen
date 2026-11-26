@@ -17,31 +17,31 @@ function showPath(tab) {
   if (tab && tab !== 'path') { openTab(tab); return; }
   const pv = L.pathView(st), g = L.goalNow(st), bn = L.bigNext(st);
   const node = (s, z) => { const c = ART.pathNode && ART.pathNode(s); if (!c) return ''; const w = pxFit(12, z * 12); return `<img class="px" src="${urlOf(c, 'pn|' + s)}" style="width:${w}px;height:${w}px" alt="">`; };
-  const rows = [`<div class="kpn done">${node('done', 2)}<div class="tt">序 · 退婚 <small>已过</small></div></div>`];
+  const rows = [`<div class="kpn done">${node('done', 2)}<div class="tt nm">序 · 退婚</div></div>`];
   let lockRun = [];
   const flushLock = () => {
     if (!lockRun.length) return;
-    if (lockRun.length >= 3) rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt">${chName(lockRun[0].i)}～${CH_NUM[lockRun[lockRun.length - 1].i]}章 <small>${lockRun.map(c => c.realm).join(' · ')}</small></div></div>`);
-    else for (const c of lockRun) rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt">${chName(c.i)} ${esc(c.realm)} <small>${esc(c.blurb || '')}</small></div></div>`);
+    if (lockRun.length >= 3) rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt nm">${chName(lockRun[0].i)}～${CH_NUM[lockRun[lockRun.length - 1].i]}章</div></div>`);
+    else for (const c of lockRun) rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt nm">${chName(c.i)} ${esc(c.realm)}</div></div>`);
     lockRun = [];
   };
   for (const c of pv) {
     if (c.state === 'lock') { lockRun.push(c); continue; }
     flushLock();
-    if (c.state === 'done' || c.state === 'miss') rows.push(`<div class="kpn done">${node('done', 2)}<div class="tt">${chName(c.i)} ${esc(c.n)} <small>${c.state === 'miss' ? '主线未了 · 仍可补' : '已过'}</small></div></div>`);
+    if (c.state === 'done' || c.state === 'miss') rows.push(`<div class="kpn done">${node('done', 2)}<div class="tt"><span class="nm">${chName(c.i)} ${esc(c.n)}</span>${c.state === 'miss' ? ' <small>主线未了</small>' : ''}</div></div>`);
     else if (c.state === 'now') {
       const prog = (c.prog && c.prog.length ? c.prog : [{ v: g.bar.v, max: 1, text: g.bar.text }]).slice(0, 2);
       const pbar = (v, t) => `<div class="krow" style="min-height:20px"><div class="kpbar"><i style="width:${(Math.max(0, Math.min(1, v)) * 100).toFixed(1)}%"></i></div><span class="s">${esc(t)}</span></div>`;
       const xp = st.p.r <= L.MAXR ? Math.min(1, st.p.xp / L.pNeed(st.p)) : 1;
       const ic = c.opened.slice(0, 7).map(k => `<span>${sysIcon(k, 16)}</span>`).join('') + Array.from({ length: Math.min(4, c.toOpen) }, () => '<span class="q">?</span>').join('');
-      rows.push(`<div class="kpn cur">${node('now', 3)}<div class="tt"><span class="h">${chName(c.i)} ${esc(c.n)}</span> <small>${esc(c.realm)} · 你在这里</small>
+      rows.push(`<div class="kpn cur">${node('now', 3)}<div class="tt"><span class="h nm">${chName(c.i)} ${esc(c.n)}</span> <small>${esc(c.realm)} · 你在这里</small>
         <div class="krow">${artIcon('goal', 16)}<span class="v">${esc(c.goal || g.t)}</span>${bn && bn.left <= 36 ? `<span class="s" style="color:#c8323c">还有 ${bn.left} ${MO()}</span>` : ''}</div>
         ${prog.map(x => pbar(x.v / (x.max || 1), x.text ? cut(x.text.replace(/ → 目标.*$/, ''), 10) : '')).join('')}${pbar(xp, L.stageName(st.p))}
         <div class="ksys">${ic}<small>已开 ${c.opened.length} · 还有 ${c.toOpen}</small></div></div></div>`);
-    } else rows.push(`<div class="kpn">${node('next', 2)}<div class="tt">${chName(c.i)} ${esc(c.n)} <small>${esc(c.realm)} · ${esc(c.blurb || c.goal)}</small>${c.toOpen ? `<div class="ksys">${Array.from({ length: Math.min(7, c.toOpen) }, () => '<span class="q">?</span>').join('')}</div>` : ''}</div></div>`);
+    } else rows.push(`<div class="kpn">${node('next', 2)}<div class="tt"><span class="nm">${chName(c.i)} ${esc(c.n)}</span> <small>${esc(c.realm)} · ${esc(c.blurb || c.goal)}</small>${c.toOpen ? `<div class="ksys">${Array.from({ length: Math.min(7, c.toOpen) }, () => '<span class="q">?</span>').join('')}</div>` : ''}</div></div>`);
   }
   flushLock();
-  rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt">轮回 <small>带着遗泽再来一世</small></div></div>`);
+  rows.push(`<div class="kpn">${node('lock', 2)}<div class="tt nm">轮回</div></div>`);
   sheet({ title: shellTitle('path'), body: meTabs('path') + `<div class="kpath">${rows.join('')}</div>` });
 }
 
@@ -118,10 +118,10 @@ function showYearHist() {
 const MAIL_IC = { visitor: 'buddy', season: 'time', world: 'w_taiping', auction: 'paddle', rookie: 'rank', unlock: 'unlock', master: 'ok', rival: 'grudge', say: 'quest', misc: 'mail' };
 function showInbox() {
   const list = L.mailbox(st).slice(0, 20);
-  const rows = list.map((x, i) => `<div class="kmail">${artIcon(x.ic || MAIL_IC[x.k] || 'mail', 24)}<span class="grow">${esc(cut(x.t, 14))}</span>${x.left !== null && x.left !== undefined ? `<span class="s">${x.left} ${MO()}</span>` : ''}<button class="btn sm ${i ? 'alt' : 'gold'}" data-mail="${i}">看</button></div>`).join('');
+  const rows = list.map((x, i) => `<div class="kmail">${artIcon(x.ic || MAIL_IC[x.k] || 'mail', 24)}<span class="grow klog">${esc(cut(x.t, 14))}</span>${x.left !== null && x.left !== undefined ? `<span class="s">${x.left} ${MO()}</span>` : ''}<button class="btn sm ${i ? 'alt' : 'gold'}" data-mail="${i}">看</button></div>`).join('');
   const visit = st.visitor && !list.some(x => x.k === 'visitor') ? `<div class="kmail">${artIcon('buddy', 24)}<span class="grow">门口有人来访</span><span class="s">${st.visitor.left} ${MO()}</span><button class="btn sm gold" id="kVisit">看</button></div>` : '';
-  const said = sayLog.slice(0, 8).map(x => `<div class="krow" style="font-size:14px"><span class="k" style="width:40px">${x.m}${MO()}</span><span class="v">${esc(x.text)}</span></div>`).join('');
-  const elder = bubbleLog.slice(0, 3).map(b => `<div class="ksay">${elderImg(24)}<span>${b.text}</span></div>`).join('');
+  const said = sayLog.slice(0, 4).map(x => `<div class="krow klog" style="font-size:14px"><span class="k" style="width:40px">${x.m}${MO()}</span><span class="v">${esc(x.text)}</span></div>`).join('');
+  const elder = bubbleLog.slice(0, 1).map(b => `<div class="ksay klog">${elderImg(24)}<span>${b.text}</span></div>`).join('');
   const s = sheet({ title: `${artIcon('mail', 24)} 纸鹤`, body: (visit + rows || emptyNoteHTML('scroll', '没有新消息。')) + (said ? `<div class="ksec"><span>传讯</span></div>${said}` : '') + (elder ? `<div class="ksec"><span>老祖说过</span></div>${elder}` : '') });
   bubbleUnread = false;
   s.querySelectorAll('[data-mail]').forEach(b => b.onclick = () => {
