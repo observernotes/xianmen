@@ -39,7 +39,6 @@ const SUB_SAY = {
   duty: () => '宗门能领职司了',
   comp: () => '出门能带同伴了',
   forge: () => '器炉能打造法宝了',
-  tuna: () => '气满了点自己：吐纳得修为',
   crops: () => '灵田能改种了',
   yin: () => '炼丹房多了药引丹方',
   world: () => '天下大势：看右上角的牌子',
@@ -49,7 +48,7 @@ const SUB_SAY = {
 const pctS = v => L.pct(v);
 const UNLOCK_CARD = {
   home: { n: '洞府 · 聚灵阵', ic: 'array', one: () => { const u = L.upInfo(st, 'array'); return `修炼 +${L.fmt1(u.d0)} → <b>+${L.fmt1(u.d1)}</b> / ${MO()}`; }, way: '洞府 ▸ 聚灵阵 ▸ 升级', go: 'home', hl: '#modal button[data-k="array"]' },
-  retreat: { n: '闭关', ic: 'retreat', one: () => { const r = L.retInfo(st); return `${seasons(L.RET.len)} 季修炼 <b>×${r.m.toFixed(1)}</b>`; }, way: '洞府 ▸ 闭关', go: 'home', hl: '#btnRet' },
+  retreat: { n: '闭关', ic: 'retreat', one: () => { const r = L.retInfo(st); return `◆${L.AP.retreat} 修炼 <b>×${r.m.toFixed(1)}</b>，当场出关`; }, way: '洞府 ▸ 闭关', go: 'home', hl: '#btnRet' },
   gearCmp: { n: '装备栏', ic: 'gear', one: () => `新法宝 <b>▲</b> 就换上`, way: '底栏 ▸ 装备 ▸ 法宝', go: 'gear' },
   tour: { n: '天骄榜', ic: 'rank', one: () => `你现在第 <b>${st.rank}</b>`, way: '江湖 ▸ 天骄榜', go: 'rivals' },
   market: { n: '坊市', ic: 'gavel', one: () => `破境丹 <b>${fmt(L.price(st, 'pill'))}</b> 灵石`, way: '江湖 ▸ 坊市', go: 'market' },

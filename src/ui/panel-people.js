@@ -204,7 +204,7 @@ const peopleHints = [
       return `${esc(L.npcName(st, id))}到四心了，愿意跟你出门：${ta}在同伴位上，每趟历练、每回秘境都跟着——<b>${esc(L.COMP[id].d)}</b>。一次只带一位，出发页的“同伴”那一行点【换】。`;
     } },
   { id: 'ppDaolv', intro: true, when: () => pplCalm() && !!daolvReady(), target: '[data-nav="me"]', btn: '好', text: () => {
-      const id = daolvReady(), ta = pplTa(id), m = L.retMult(st), ex = L.gainCalm(st) * (m - 1) * L.RET.len, A = L.art(L.DAOLV_ARTS[id][0]);
+      const id = daolvReady(), ta = pplTa(id), m = L.retMult(st), ex = L.gainCalm(st) * (m - 1) * L.AP.retTicks, A = L.art(L.DAOLV_ARTS[id][0]);
       return `${esc(L.npcName(st, id))}好感 <b>${L.aff(st, id)}</b>，心里有你了：${ta}下回来访，就能<b>结为道侣</b>。道侣同行不占同伴位，每 <b>${seasons(L.SX.every)}</b> 季<b>双修</b>一次——等于一次不花灵石的闭关（眼下 ×${m.toFixed(2)}，多得约 <b>${fmt(ex)}</b> 修为），还教你${ta}的功法（头一门《${esc(A.n)}》）。苏、夜只能选一位。`;
     } },
   { id: 'ppSx', intro: true, when: () => pplCalm() && !!st.daolv && L.sxInfo(st).ok, target: '[data-nav="me"]', btn: '好', text: () => {

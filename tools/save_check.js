@@ -229,9 +229,11 @@ const sizes = {};
     const adv = async (n, pg) => {
       pg = pg || page; const e = (fn, x) => pg.evaluate(fn, x);
       for (let i = 0; i < n; i++) {
+        if (process.env.SVDBG) console.log('    adv', JSON.stringify(await e(() => ({ t: window.__xm.st.tick, b: window.__xm.busyUI, c: window.__xm.chainOn, m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent, tk: !!(window.__xm_talk && window.__xm_talk.on), x: !!window.__xm.st.exp, r: !!window.__xm.st.run, q: window.__xm.queueLen }))));
         if (await e(() => typeof window.__xm.nextSeason === 'function')) await e(() => window.__xm.nextSeason());
         else await e(() => { const X = window.__xm; for (let m = 0; m < 3; m++) { X.L.flow(X.st, 1); X.onTick(); } });
-        for (let g = 0; g < 30; g++) { if (!(await e(() => !document.getElementById('modal').hidden && !window.__xm.cine))) break; await e(() => window.__xm.closeModal()); await pg.waitForTimeout(120); }
+        // 结算链没出完时【下一季】点不动（__xm.busyUI）：一张一张关到链出完
+        for (let g = 0; g < 40; g++) { if (!(await e(() => window.__xm.busyUI === undefined ? !document.getElementById('modal').hidden && !window.__xm.cine : window.__xm.busyUI))) break; await e(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); else if (window.__xm_talk && window.__xm_talk.on) window.__xm_talk.close(); }); await pg.waitForTimeout(120); }
       }
     };
     // 旧档：升级前那一份（只有 xiantu_save_v2、没有索引）
@@ -291,7 +293,7 @@ const sizes = {};
     // 接着玩 10 季（30 个月）
     await adv(10);
     await page.waitForTimeout(600);
-    check(!errs.length && (await ev(() => window.__xm.st.tick)) >= t0 + 30, `读档后接着过 10 季：tick ${await ev(() => window.__xm.st.tick)}，${errs.length ? '报错 ' + errs[0] : '无报错'}`);
+    check(!errs.length && (await ev(() => window.__xm.st.tick)) >= Math.ceil(t0 / 3) * 3 + 27, `读档后接着过 10 季（这份档是逐月推出来的，第一季只补到季界）：tick ${await ev(() => window.__xm.st.tick)}，${errs.length ? '报错 ' + errs[0] : '无报错'}`);
     await ev(() => { for (let i = 0; i < 6; i++) if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450);
     // 删除手动 1
     await ev(() => window.__xm.showSlot('m', 0)); await page.waitForTimeout(200);
@@ -333,7 +335,7 @@ const sizes = {};
     // 旧档读进新界面（AP_PLAN §7、§6.4）：在外历练 / 闭关中 / tick % 3 = 1 / 第三章散修（形状见上面逻辑部分的 OLD）。每个形状一个全新的浏览器上下文（localStorage 不串）
     for (const [k, label] of [['exp', '在外历练'], ['ret', '闭关中'], ['tick1', 'tick % 3 = 1'], ['lone3', '第三章散修']]) {
       const c2 = await b.newContext(opts), p2 = await c2.newPage(), e2 = (fn, x) => p2.evaluate(fn, x), er2 = [];
-      p2.on('pageerror', e => er2.push(e.message)); p2.on('console', m => { if (m.type() === 'error') er2.push('console: ' + m.text()); });
+      p2.on('pageerror', e => er2.push(e.message + (process.env.SVDBG ? ' @ ' + String(e.stack || '').split('\n').slice(1, 4).join(' | ') : ''))); p2.on('console', m => { if (m.type() === 'error') er2.push('console: ' + m.text()); });
       await p2.goto(url); await p2.waitForTimeout(300);
       const json = JSON.stringify(Object.assign(JSON.parse(OLD[k]), { guide: { step: 99, done: true }, hintSeen: {} }));
       await e2(j => { localStorage.clear(); localStorage.setItem('xiantu_save_v2', j); }, json);

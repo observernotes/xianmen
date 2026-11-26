@@ -109,7 +109,6 @@ function confirmExp(k, d, a, still) {
   const opts = [];
   if (escortT >= 0) opts.push(`<div class="check ${expOpt.escort ? 'on' : ''}" data-opt="escort"><span class="box"></span><span class="grow">护送同门：贡献 ×3</span></div>`);
   const dist = f.first ? '' : `<div class="muted num">丁 ${L.pct(f.dist[0])} · 丙 ${L.pct(f.dist[1])} · 乙 ${L.pct(f.dist[2])} · 甲 ${L.pct(f.dist[3])} · 天 ${L.pct(f.dist[4])}</div>`;
-  const yrs = f.len * L.REALMS[Math.min(st.p.r, 8)].mpt;
   const s = sheet({
     title: rg.n, center: true, still,
     body: `${typeof btPrepHTML === 'function' && L.TRIP_ON !== false ? btPrepHTML(k, d, a) : UI.isOpen('zhanji') ? elemLine(k, d) : ''}

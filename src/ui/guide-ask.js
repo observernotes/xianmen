@@ -72,9 +72,9 @@ registerGuide([
     } },
 ]);
 // 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个月
-for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
+for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
 // 分类：DESIGN 写成气泡的，从阻塞讲解改成气泡（不暂停、不占讲解名额）
-for (const id of ['market', 'furnace', 'me', 'heal', 'depth', 'tuna']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
+for (const id of ['market', 'furnace', 'me', 'heal', 'depth']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
 { const h = HINTS.find(x => x.id === 'boss'); if (h) { h.bubble = true; h.bigBubble = true; } }
 // 每段阻塞讲解都高亮一个要点的按钮：秘境第三句指“带着收获离开”（没有就指门）
 { const h = HINTS.find(x => x.id === 'realm3'); if (h && !h.target) Object.defineProperty(h, 'target', { get: () => (document.querySelector('#realmLeave') ? '#realmLeave' : '#realmDoors'), configurable: true }); }

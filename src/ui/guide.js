@@ -372,12 +372,12 @@ function updateGuide() {
   }
 }
 function showHelp() {
-  const HELP_KEY = { '闭关与吐纳': 'retreat', '洞府': 'home', '阵法': 'zhen', '灵田': 'field', '功法与五行': 'arts', '法宝': 'gearCmp', '坊市': 'market', '历法与天下大势': 'cal', '宗门': 'sect', '天骄论道': 'tour', '奇遇与访客': 'visitor', '炼丹': 'furnace' };
+  const HELP_KEY = { '行动点、闭关与打坐': 'retreat', '洞府': 'home', '阵法': 'zhen', '灵田': 'field', '功法与五行': 'arts', '法宝': 'gearCmp', '坊市': 'market', '历法与天下大势': 'cal', '宗门': 'sect', '天骄论道': 'tour', '奇遇与访客': 'visitor', '炼丹': 'furnace' };
   const sec = (ic, t, d) => (HELP_KEY[t] && !UI.isOpen(HELP_KEY[t]) ? '' : `<div class="guide-sec">${iconHTML(ic, 24)}<div><b>${t}</b><br>${d}</div></div>`);
   const body = [
     sec('disc', '先看懂这四个数', '修为条下面一排：<b>修炼/月</b>（每个月涨多少修为）、<b>战力</b>（打架全看它）、<b>灵石/月</b>、最右边是<b>下一件大事</b>的倒计时和胜算。点任意一格都能看到它由哪些加成组成、怎么提升。'),
     sec('disc', '修炼与突破', `打坐自动涨修为，涨满自动升一层小境界（战力 ×${L.P.pwStage}）。修为条变<b>金色</b>时点它冲击大境界，金丹起要渡雷劫（元婴劫起成功率最多 ${L.pct(L.TRIB.top)}，屡败屡战每次再 +${L.pct(L.BT.fail)}）；破境丹每枚 +${L.pct(L.BT.pill)}，一次最多 ${L.BT.maxPills} 枚。失败不会死：修为退三成、伤 1 季，下次 +${L.pct(L.BT.fail)}。`),
-    sec('disc', '闭关与吐纳', `【洞府】里闭关：${seasons(L.RET.len)} 季修炼 ×${L.retBaseMult(st).toFixed(2)}，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。历练途中修炼 ×0.5，所以“出门拿资源”和“在家涨修为”要取舍。在洞府打坐时脚下的吐纳环会蓄满，点自己立得 1 月修为。`),
+    sec('disc', '行动点、闭关与打坐', `一季 3 点行动点：大事 2 点（历练、闭关、秘境），小事 1 点（打坐、扫荡、首领、下战书、差事），管家务不花点；点完（或点【下一季】，剩下的点自动打坐）才过季。【洞府】里闭关 ◆2：修炼 ×${L.retBaseMult(st).toFixed(2)}，当场出关，花灵石（头一回免费），连着闭关每次倍率 −${L.RET.fatigue}，出门历练一趟就恢复。打坐 ◆1：立得 1 月修为。`),
     sec('flag', '三年之约', `第 ${seasons(L.PACT_TICK)} 季和退婚的人比武，她战力 ${L.PACT_POWER}。最右边那格显示还剩几季和你的胜算；点开有老祖锦囊。筑基前老祖借你 ${L.PACT_ASSIST} 倍战力。`),
     sec('sword', '历练', '选地点 × 深度（外围/腹地/禁地）× 行事（斩妖/寻宝/采药）出发。确认页写着预计评价和负伤风险；回来盖印评价天甲乙丙丁，奖励按评价翻倍或打折，丁等负伤到下季末。每张图的相性（◎○△）试过才知道。某格评价乙会开下一深度；禁地评价乙后首领现身。'),
     sec('build', '洞府', L.home2On() ? `顶部是地块：洞府 0 级 3 块，每扩建一截多一块，12 级 8 块。第一块固定是聚灵阵，其余点空地就能建：灵田、丹炉、器炉、兽栏、静室、藏经阁、灵泉、聚宝阁、迎客亭、传送阵——<b>地块比建筑少</b>，得挑。点一块地看它的等级、升级值多少、功能入口（炼丹房、灵田、打造、灵宠、闭关……）；拆掉退一半本钱，重建从一半等级起。洞府本体加寿元。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。` : '聚灵阵加修炼速度，灵田种作物，丹炉开炼丹房并加突破成功率，洞府加寿元。每一行写着这次升级值多少（提前几月、几月回本）。负伤时服一枚疗伤丹（没有就用破境丹）立刻痊愈。'),
@@ -399,7 +399,7 @@ function showHelp() {
 const GO = {
   realm: () => showRealm(),
   exp: () => showExp(), home: () => showHome(), pets: () => showPets(), field: () => showField(), alch: () => (st.home.furnace ? showAlchemy() : showHome()), sect: () => showSect(), market: () => showMarket(), me: () => showMe('rank'), big: () => showBig(), arts: () => showMe('art'), gear: () => showGear(),
-  cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${seasons(L.ticksToStage(st, L.si(st.p) + 1))}</b> 季升下一层。闭关、聚灵阵、吐纳都能加快。` }; },
+  cult: () => { if (L.isReady(st)) showBreakthrough(); else tempHint = { id: 'tmp', target: '#cult', btn: '好', text: L.isFull(st) ? '修为已满，回到洞府就能冲击境界。' : `照现在的速度，还要约 <b>${seasons(L.ticksToStage(st, L.si(st.p) + 1))}</b> 季升下一层。闭关、打坐、聚灵阵都能加快。` }; },
 };
 // 刚开的系统的小目标去哪做（札记的【前往】）
 const ONB_GO = { exp: 'exp', home: 'home', retreat: 'home', bt: 'cult', sect: 'sect', market: 'market', visitor: 'cult', field: 'field', gearCmp: 'gear', furnace: 'alch', arts: 'arts', trib: 'cult', pets: 'market', plus: 'gear', zhanji: 'arts', realm: 'realm', bond: 'me', plots: 'home', zhen: 'home', disc: 'sect' };

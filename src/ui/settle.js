@@ -164,6 +164,7 @@ let yearS = null;
 function seasonLines(S) {
   const R = L.seasonReport(st, S) || { title: '', lines: [], btn: '下一季 ▸' };
   const lines = R.lines.slice();
+  if (R.acts !== undefined) return { R, lines };   // 线 A2 的完整版：“这一季：…”、收成、俸禄、下一季预告都在 lines 里了
   if (seasonLog.length) { const c = {}; for (const t of seasonLog) c[t] = (c[t] || 0) + 1; lines.splice(Math.min(2, lines.length), 0, '这一季：' + Object.keys(c).map(t => c[t] > 1 ? `${t} ×${c[t]}` : t).join(' ｜ ')); }
   const nx = S.next;
   if (nx && nx.cal && !(nx.bigSoon && nx.bigSoon.seasons <= 4)) lines.push(`下一季：入${nx.name} · ${cut(String(nx.cal.d).split('，')[0], 14)}`);
