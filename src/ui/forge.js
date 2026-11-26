@@ -96,7 +96,7 @@ function showGearDetail(sel, still, tab) {
       <div class="row"><span class="grow muted fxs">${g.lock[gearSel] ? `已锁定：低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼、不弹卡` : `锁定后，低于 ${x.t} 阶的${L.GEAR_N[gearSel]}直接熔炼`}</span><button class="btn sm alt eq" data-glock="${gearSel}">${g.lock[gearSel] ? '解锁' : '锁定'}</button></div>
       <div class="muted">强化：每级主属性的超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%，换装继承一半；+3 / +6 / +9 开锋。灵矿：历练、熔炼、坊市、首领。<br>淬灵：${L.INFUSE.n} 枚同系灵核 + 灵矿 ${L.INFUSE.ore}×阶，兵器改五行。灵核：精英、翻牌。<br>洗练：器纹石 1 枚换一条词条，二选一；熔带星的法宝按星数给器纹石，首领给 1 枚。</div></details>` : '';
   const body = meTabs('gear') + `<div class="gres pn-res">${oreImg()} 灵矿 <b class="num">${fmt(st.ore || 0)}</b>${L.runeN(st) ? ` · ${artIcon('rune', 16)} <b class="num">${L.runeN(st)}</b>` : ''}</div>
-    ${open.length > 1 ? `<div class="aslots gslots pn-gslots lt-gslots" style="grid-template-columns:repeat(${open.length},minmax(0,1fr))">${slots}</div>` : ''}${det}${pend}${lock}${forge}`;
+    <div class="aslots gslots pn-gslots lt-gslots" style="grid-template-columns:repeat(${open.length},minmax(0,1fr))">${slots}</div>${det}${pend}${lock}${forge}`;
   // 这一页唯一的主按钮放在底栏（金）：强化 / 淬成 X / 洗这条
   const foot = [{ t: '回装备', alt: true, fn: () => showGear() }];
   if (main) foot.push({ t: main.t, gold: !main.dis, disabled: main.dis, fn: () => {} });
