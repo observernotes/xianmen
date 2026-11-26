@@ -23,6 +23,14 @@ const LOG_KEEP = 8;
 // 历练的灵石、灵草、灵矿、贡献，破境丹 / 天材地宝 / 灵宠的掉率 × expRew（expedition.js 的 expCalc）；归途翻牌 × lootRew（loot.js）
 L.apExpRew = () => (L.AP_ON === false ? 1 : L.AP.expRew);
 L.apLootRew = () => (L.AP_ON === false ? 1 : L.AP.lootRew);
+// §3.5 里定义在别的模块、跟着回合制改的常量：[旧值, 回合制的值]。rivals.js 归线 B，这里加载时覆盖（ap.js 排在它后面）；
+// L.AP_ON = false 后调 L.apConst() 换回旧值（sim 的 noap）。
+//   PACT_POWER 125 → 250：回合制下只打坐的人每季也有 6 月修为，约战前都已筑基（PACT_ASSIST 只在炼气生效，管不着了），只能靠对手战力把“只打坐”压到 15%～25%
+//     （tools/sim.js 20 种子：PACT_POWER 150 时 idle 57%、250 时 17%，guided 97%、goalcard 97%、lazy 58%）；§3.5 的初值 150 过不了 idle 的门槛
+//   RIVAL_SLOPE 0.0185 → 0.022（§3.5 初值）
+L.AP_CONST = { PACT_POWER: [125, 250], RIVAL_SLOPE: [0.0185, 0.022] };
+L.apConst = function () { for (const k in L.AP_CONST) L[k] = L.AP_CONST[k][L.AP_ON === false ? 0 : 1]; };
+L.apConst();
 // 负伤月数：一回合 3 个月，负伤 = 带伤到下季末（设 4：本季末 −3 剩 1，下季末清零）；首领战败两季（7）
 L.INJ = { base: 4, boss: 7, base0: 3, boss0: 4 };
 L.injMonths = k => (L.AP_ON === false ? (k === 'boss' ? L.INJ.boss0 : L.INJ.base0) : k === 'boss' ? L.INJ.boss : L.INJ.base);
@@ -103,6 +111,8 @@ L.apSpend = function (st, n, id) {
   return used;
 };
 let acting = 0;   // L.act 进行中：里面调到的 L.tripEnd 等不再自己扣点
+// 这一季做了什么（季末卡“这一季：历练 1 趟 · 乙 ｜ 首领 ✓”）：st.ap.log[季].res
+function logNote(st, t) { const a = ap(st), s = L.seasonNo(st), lg = a.log[s] || (a.log[s] = { spent: 0, acts: [] }); (lg.res || (lg.res = [])).push(t); }
 L.act = function (st, id, args) {
   const why = L.apWhy(st, id, args);
   if (why) { L.actLastWhy = why; return null; }
@@ -114,6 +124,11 @@ L.act = function (st, id, args) {
   L.actLastWhy = '';
   L.apSpend(st, cost, id);
   ap(st).seq++;
+  if (id === 'boss') logNote(st, res.win ? '首领 ✓' : '首领 ✗');
+  else if (id === 'retreat' || id === 'train') logNote(st, res.epi ? '闭关 · 顿悟' : id === 'train' ? '特训' : '闭关');
+  else if (id === 'realm') logNote(st, '秘境');
+  else if (id === 'duel') logNote(st, res.win ? '下战帖 ✓' : res.win === false ? '下战帖 ✗' : '下战帖');
+  else if (id === 'errand') logNote(st, '差事');
   if (a.card !== false && !(st.exp && res === st.exp)) pushBlk(st, { kind: 'result', id, data: res, lv: 1 });
   return res;
 };
@@ -222,6 +237,7 @@ L.tripEnd = function (st) {
   if (!r) return null;
   if (!paid && !acting) { L.apSpend(st, L.apCost(st, id), id); ap(st).seq++; }
   r.refund = id === 'exp' && !e.old ? strideAdd(st, k, r) : 0;
+  logNote(st, (id === 'sweep' ? '扫荡 · ' : id === 'deeper' ? '深入 · ' : '历练 · ') + (L.RATINGS[r.rating] || '—'));
   if (!acting) pushBlk(st, { kind: 'result', id, data: r, lv: 1 });
   return r;
 };
@@ -241,6 +257,17 @@ L.sweep = function (st, k, d, a) {
   const r = L.tripEnd(st);
   if (r) r.sweep = true;
   return r;
+};
+// 扫荡哪一格：能扫的格子里灵石最多的（斩妖；变强建议、sim 用）→ { k, d, a, f } | null
+L.sweepBest = function (st, a) {
+  if (!st || (L.sweepOpen && !L.sweepOpen(st))) return null;
+  a = a || 0; let best = null;
+  for (let k = 0; k < L.REGIONS.length; k++) for (let d = 0; d < 3; d++) {
+    if (!L.expOpen(st, k, d, a) || (L.quickOk && !L.quickOk(st, k, d, a))) continue;
+    if (!best || L.rew(k, d) > L.rew(best.k, best.d)) best = { k, d, a };
+  }
+  if (best) best.f = L.expForecast(st, best.k, best.d, best.a);
+  return best;
 };
 L.expWhy = function (st, k, d, a) {
   const b = busyWhy(st); if (b) return b;
@@ -354,16 +381,44 @@ L.seasonEnd = function (st) {
   for (const b of S.big) pushBlk(st, { kind: 'big', id: b.k, data: b, lv: 7 });
   return S;
 };
-// 季末卡的显示数据（A2 换成完整版；冬季的季末卡由界面换成年报 L.yearReport）
+// 季末卡的显示数据（AP_PLAN §2.5；冬季的季末卡由界面换成年报 L.yearReport，这份数据照给）
+// → { title, lines: [字符串…], acts: '这一季：…' | '', xp: { all, flow, sit }, stones, crops: [[名字, 数]…], next: '下一季：…' | '', btn, year, big }
+// 行顺序：修为一行 → 灵石 / 收成 / 俸禄一行 → 这一季做了什么 → 非阻塞的消息（访客、大势、拍卖、新秀）→ 下一季（换季加成或大事预告）
+const CROP_N = { herbs: '灵草', fire: '火引', ice: '冰引', thunder: '雷引', wood: '木引', soul: '魂引' };
+const NEXT_CAL = ['采药灵草 +50%', '秘境开放', '灵稻灵石 +50%', '闭关倍率 +0.2'];
 L.seasonReport = function (st, S) {
   if (!S) return null;
-  const xp = S.xp.flow + S.xp.sit + S.xp.pre;
-  const lines = [`修为 +${L.fmt(xp)}（自然 +${L.fmt(S.xp.flow)}${S.xp.sit ? ' · 打坐 +' + L.fmt(S.xp.sit) : ''}）`];
-  if (S.stones) lines.push(`灵石 ${S.stones > 0 ? '+' : ''}${L.fmt(S.stones)}`);
+  const fmt = L.fmt, xpAll = S.xp.flow + S.xp.sit + S.xp.pre;
+  const parts = [`自然 +${fmt(S.xp.flow)}`]; if (S.xp.sit) parts.push(`打坐 +${fmt(S.xp.sit)}`); if (S.xp.pre) parts.push(`出关 +${fmt(S.xp.pre)}`);
+  const lines = [`修为 +${fmt(xpAll)}（${parts.join(' · ')}）`];
+  const crops = []; if (S.crops) for (const k in S.crops) if (S.crops[k] > 0) crops.push([CROP_N[k] || (L.YIN_N && L.YIN_N[k]) || k, S.crops[k]]);
+  const row = [];
+  if (S.stones) row.push(`灵石 ${S.stones > 0 ? '+' : ''}${fmt(S.stones)}`);
+  if (crops.length) row.push('灵田 收' + crops.map(c => c[0] + ' ' + fmt(c[1])).join('、'));
+  if (S.pay) row.push(`俸禄 ${fmt(S.pay)}`);
+  if (row.length) lines.push(row.join('   '));
+  const lg = (st && st.ap && st.ap.log[S.seasonNo]) || null, res = (lg && lg.res) || [];
+  // 同类合并：“历练 2 趟 · 甲 乙”
+  let acts = '';
+  if (res.length || S.sat) {
+    const trips = res.filter(t => /^历练 · /.test(t)).map(t => t.slice(5)), other = res.filter(t => !/^历练 · /.test(t));
+    const segs = []; if (trips.length) segs.push(`历练 ${trips.length} 趟 · ${trips.join(' ')}`);
+    segs.push(...other);
+    if (S.sat) segs.push(`打坐 ${S.sat} 点`);
+    acts = '这一季：' + segs.join(' ｜ ');
+    lines.push(acts);
+  }
+  if (S.debt) lines.push(`为事奔忙：这一季少了 ${S.debt} 点`);
   if (S.notes.length) lines.push(S.notes.join(' · '));
-  const bs = S.next && S.next.bigSoon;
-  if (bs) lines.push(bs.seasons <= 1 ? `${bs.n} 本季末` : `${bs.n} 还有 ${bs.seasons} 季`);
-  return { title: `第 ${Math.floor(S.tick / 12) + 1} 年 · ${SN[S.season]}  结束`, lines, btn: `入${S.next ? S.next.name : ''} ▸`, year: S.year };
+  let next = '';
+  const bs = S.next && S.next.bigSoon, nm = S.next ? S.next.name : '';
+  if (bs && bs.seasons <= 4) next = bs.seasons <= 1 ? `下一季：${bs.n} 本季末` : `下一季：${bs.n} 还有 ${bs.seasons} 季`;
+  else if (S.next && st && L.calOpen && L.calOpen(st)) next = `下一季：入${nm} · ${NEXT_CAL[S.next.season]}`;
+  else if (nm) next = `下一季：入${nm}`;
+  if (next) lines.push(next);
+  const bigBtn = bs && bs.seasons <= 1 ? { pact: '赴约 ▸', tour: '论道 ▸', war: '迎战 ▸', meet: '会武 ▸' }[bs.k] : '';
+  return { title: `第 ${Math.floor(S.tick / 12) + 1} 年 · ${SN[S.season]}  结束`, lines, acts, xp: { all: xpAll, flow: S.xp.flow, sit: S.xp.sit, pre: S.xp.pre }, stones: S.stones, crops, next,
+    btn: `入${nm} ▸`, nextBtn: bigBtn || '', year: S.year, big: S.big.map(b => b.k) };
 };
 
 // ---------- 结算链（缺省实现；线 B 在 storyline.js 包成完整版） ----------

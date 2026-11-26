@@ -1,7 +1,8 @@
 // 数值模拟：三种玩法各跑 200 个种子，输出汇总并对照 docs/DESIGN.md §3.12 的目标区间
 //   node tools/sim.js                 三种策略 × 200 种子的汇总表
 //   node tools/sim.js guided 50       只跑 guided，50 个种子
-//   node tools/sim.js guided 1 v 7    种子 7 跑一局，每 12 周天打印一行状态
+//   node tools/sim.js guided 1 v 7    种子 7 跑一局，每 4 季（一年）打印一行状态
+//   node tools/sim.js guided 20 x xr=0.55 pp=150 rs=0.022   临时改 AP_PLAN §3.5 的校准旋钮（expRew / PACT_POWER / RIVAL_SLOPE；另有 pa= lr=）
 //   node tools/sim.js all 200 strict  任何一行未达标都返回退出码 1（默认只看三年之约公平这道门槛）
 //   node tools/sim.js all 200 noarts  关掉功法系统的新加成（L.ARTS_ON = false：只剩心法的裸倍率），与默认对照量 SYSTEMS §18 的预算
 //   node tools/sim.js all 200 nogear  关掉法宝系统的新东西（L.GEAR_ON = false：法衣、饰品、强化、词条都没有，只剩兵器的阶倍率）
@@ -80,7 +81,11 @@ if (arg.includes('notrip')) L.TRIP_ON = false;
 // noke：guided 出发前不换克制（COMBAT_LOOT §4.4 的对照）
 const NOKE = arg.includes('noke');
 // pp=112：临时改 L.PACT_POWER（校准用）；pa=1.8：临时改 L.PACT_ASSIST
+// noap：行动点制的数值折算关掉（L.AP_ON = false：expRew / lootRew 1、负伤回到 3 / 4 月、PACT_POWER / RIVAL_SLOPE 回到旧值；L.apConst），对照量 docs/AP_PLAN.md 这一刀
+if (arg.includes('noap')) { L.AP_ON = false; if (L.apConst) L.apConst(); }
 for (const x of arg) { const m = /^(pp|pa)=([\d.]+)$/.exec(x); if (m) L[m[1] === 'pp' ? 'PACT_POWER' : 'PACT_ASSIST'] = +m[2]; }
+// xr=0.55 / lr=0.8 / rs=0.022：临时改 L.AP.expRew / L.AP.lootRew / L.RIVAL_SLOPE（AP_PLAN §3.5 的校准旋钮）
+for (const x of arg) { const m = /^(xr|lr|rs|rt)=([\d.]+)$/.exec(x); if (m) { if (m[1] === 'rs') L.RIVAL_SLOPE = +m[2]; else if (m[1] === 'rt') L.AP.retTicks = +m[2]; else L.AP[m[1] === 'xr' ? 'expRew' : 'lootRew'] = +m[2]; } }
 // 引擎耗时：历练途中每个 L.tick 的平均耗时（含节点自动打）
 const BT_TIMING = L.TRIP_ON !== false;
 let btNs = 0, btNodes = 0;
@@ -88,8 +93,6 @@ const MARKET_SIM = !arg.includes('nomarket');
 // nosect2：guided 不送礼、不收徒、不领职司，宝库照旧的四样（量人脉、徒弟这一刀对节奏的影响）；人脉的晋升条件仍在
 const SECT2 = !arg.includes('nosect2');
 const only = ['guided', 'lazy', 'idle', 'goalcard'].includes(arg[0]) ? arg[0] : null;
-// noap：行动点制的数值折算关掉（L.AP_ON = false：expRew 1、负伤 3 月；A2 接上数值后才有差别），对照量 docs/AP_PLAN.md 这一刀
-if (arg.includes('noap')) L.AP_ON = false;
 const N = Number(arg[1]) || 200;
 const verbose = arg[2] === 'v';
 const seed0 = Number(arg[3]) || 1;
@@ -468,34 +471,28 @@ function tryBreak(st, rec, strat) {
 
 // 历练（AP_PLAN §2.3）：L.act 出发（2 点）→ 一个节点一个节点打完（途中遭遇当场选）→ L.tripEnd 结算
 let curRec = null;
+// 返回结算对象（没出成门 / 没结算成 = null）
 function goTrip(st, rec, strat, k, d, a, opt) {
-  if (!L.act(st, 'exp', { k, d, a, opt })) return false;
-  for (let g = 0; g < 24 && st.exp && !L.tripDone(st); g++) {
-    const t0 = BT_TIMING ? process.hrtime.bigint() : 0n;
-    const x = L.tripStep(st);
-    if (BT_TIMING) { btNs += Number(process.hrtime.bigint() - t0); btNodes++; }
-    if (x.enc && strat !== 'idle') pickChoice(st, x.enc);
-  }
-  const r = L.tripEnd(st);
-  if (r && rec) expDone(st, rec, r);
-  return !!r;
+  if (!L.act(st, 'exp', { k, d, a, opt })) return null;
+  return walkTrip(st, rec, strat);
 }
 // 一趟历练结算完（原来 out.exp 那几行）：第一章各趟的评价
 function expDone(st, rec, r) {
   if (!st.pact) { rec.c1n = (rec.c1n || 0) + 1; if (r.rating >= 3) rec.c1jia = (rec.c1jia || 0) + 1; if (r.bt && r.bt.ke) rec.c1ke = (rec.c1ke || 0) + 1; }
 }
-function actGuided(st, rec, seed) {
+// ---------- 每季的行动（docs/AP_PLAN.md §8.2）----------
+// guided 的家务（不花点，季初做一遍、季末前再做一遍 gearGuided）：坊市、洞府、阵法、宝箱、灵宠、丹药、宗门（晋升、宝库、任务的接与交）、灵田、炼丹、人物
+function homeGuided(st, rec) {
   const p = st.p;
   if (p.r > L.MAXR) return;
   artOpt(st);
-  // 坊市：行情卖丹卖草、轮换货、拍卖（拍卖差一点钱时这几个周天先不升洞府）
+  // 坊市：行情卖丹卖草、轮换货、拍卖（拍卖差一点钱时这几季先不升洞府）
   if (MARKET_SIM) marketGuided(st, rec);
   const keep = MARKET_SIM ? aucGuided(st, rec) : 0;
   // 灵石：先留够闭关和丹药的钱（拍卖前后再留一笔），其余按折算价升级
   buildGuided(st, keep);
   for (let loop = 0; loop < 30; loop++) { const u = cheapestUp(st); if (!u || st.stones - u.c < keep || !L.upgrade(st, u.k)) break; }
   zhenGuided(st, rec);
-  const r = Math.min(p.r, 8);
   const capA = L.boxCap(st, 'a');
   if ((L.gearPity(st) || L.artPity(st, capA) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * (st.boxMiss >= 2 ? 1 : 1.5)) L.buy(st, 'box');
   petGuided(st);
@@ -503,13 +500,12 @@ function actGuided(st, rec, seed) {
   if (L.lifeLow(st) && L.marketOpen(st, 'life') && L.lifeTicks(st) < 60 && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
   if (st.sect) {
     if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
-    // 只差人脉的那几个周天（圣子、宗主）
+    // 只差人脉的那几季（圣子、宗主）
     if (st.sect.rank === 2 || st.sect.rank === 5) { const nd = L.promoteNeeds(st); if (nd.some(x => x.k === 'elders' && !x.ok) && nd.filter(x => x.k !== 'elders').every(x => x.ok)) rec.favWait[st.sect.rank + 1] = (rec.favWait[st.sect.rank + 1] || 0) + 1; }
     if (SECT2) sectGuided(st, rec);
     else for (const k of ['vart', 'vwep', 'vplan']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
     st.sect.tasks.forEach((t, i) => {
       if (!t.taken && t.ty !== 'teach' && t.ty !== 'lecture') L.taskTake(st, i);
-      else if (!t.taken && t.ty === 'lecture' && SECT2 && !L.busy(st) && !L.isFull(st) && L.ticksToNext(st) > 6) L.act(st, 'errand', { task: i });   // 讲法：1 点，当场办完
       const enough = t.ty === 'herbs' ? st.herbs >= t.n * 1.5 : t.ty === 'pill' ? st.pills >= 3 : t.ty === 'forge' ? (st.ore || 0) >= t.n * 3 : t.ty === 'tame' ? (st.feed || 0) >= t.n * 2 : false;
       if (L.taskCanDeliver(st, t) && enough) L.taskDeliver(st, i);
     });
@@ -518,20 +514,56 @@ function actGuided(st, rec, seed) {
   cropGuided(st);
   alchGuided(st, rec);
   peopleGuided(st, rec);
-  if (!L.busy(st)) for (let k = 0; k < L.REGIONS.length; k++) if (L.bossReady(st, k) && !L.apWhy(st, 'boss', { k })) { const foe = { kind: 'boss', k }; artFor(st, { foe }); const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe); if (bp > 0.7) { battlePill(st, rec, bp); L.act(st, 'boss', { k }); return; } }
-  if (L.busy(st) || L.isFull(st)) return;
-  if (p.inj > 0 && st.pills > 0) L.heal(st);
-  if (L.canTrain(st) && L.act(st, 'train')) return;
-  // 快圆满时留在家：圆满前最后一段路，在家比出门再回来快
-  const tt = L.ticksToNext(st);
-  if (p.s === 3 && tt <= 3) return;
-  // 负伤又没丹可服：在家歇着（带伤出门战力只剩六成，闭关也只有一半效果）
-  if (p.inj > 0) return;
-  if (mjGuided(st, rec)) return;
-  // 该闭关时：有道侣、双修到时候了就双修（不花灵石，另得一门对方的功法）
-  if ((st._trips || 0) >= 2 && L.PEOPLE2_ON !== false && L.sxInfo(st).ok && !L.apWhy(st, 'retreat', { sx: true })) { if (L.act(st, 'retreat', { sx: true })) { st._trips = 0; rec.sx++; return; } }
-  if ((st._trips || 0) >= 2 && !L.apWhy(st, 'retreat')) { if (L.act(st, 'retreat')) { st._trips = 0; return; } }
-  // 行事：轮着来，缺灵草多采药；宗门任务点名的优先
+  if (p.inj > 0 && st.pills > 0) L.heal(st);   // 服丹疗伤不花点
+}
+// 主线行动（下战帖，1 点）：mainline.js 的 L.mainStep 给的那一位；'duel' 登记好了（线 B）就走 L.act，否则直接打并照价扣 1 点
+let simNoChal = false;   // run 的 opt.noChal：不主动下战帖（tools/story_check.js 的“只靠论道与上门”）
+function duelNow(st, rec, minP) {
+  if (simNoChal || !L.mainStep || L.apLeft(st) < L.AP.duel) return false;
+  const ms = L.mainStep(st); if (!ms || !ms.foe) return false;
+  const I = L.challengeInfo(st, ms.foe); if (!I || I.why || I.p < minP) return false;
+  let r = null;
+  if (!L.apWhy(st, 'duel', { id: ms.foe })) r = L.act(st, 'duel', { id: ms.foe });
+  else { r = L.challengeRival(st, ms.foe); if (r) { L.apSpend(st, L.AP.duel, 'duel'); st.ap.seq++; } }
+  if (r) rec.chal = (rec.chal || 0) + 1;
+  return !!r;
+}
+// 首领（1 点）：胜算 ≥ minP 的第一只；带伤不打（战力只剩六成，输了再伤两季）
+function bossNow(st, rec, minP) {
+  if (st.p.inj > 0 || L.apLeft(st) < L.AP.boss) return false;
+  for (let k = 0; k < L.REGIONS.length; k++) {
+    if (!L.bossReady(st, k) || L.apWhy(st, 'boss', { k })) continue;
+    const foe = { kind: 'boss', k }; artFor(st, { foe });
+    const bp = L.TRIP_ON !== false ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe);
+    if (bp < minP) continue;
+    battlePill(st, rec, bp);
+    if (L.act(st, 'boss', { k })) { rec.bossN = (rec.bossN || 0) + 1; return true; }
+  }
+  return false;
+}
+// 宗门差事（1 点）：讲法 / 指点师弟（任务板）、给徒弟传授圆满功法
+function errandNow(st, rec) {
+  if (!st.sect || !SECT2 || L.apLeft(st) < L.AP.errand || L.isFull(st)) return false;
+  for (const ty of ['lecture', 'teach']) {
+    const i = st.sect.tasks.findIndex(t => !t.taken && t.ty === ty);
+    if (i >= 0 && L.act(st, 'errand', { task: i })) { rec.errand = (rec.errand || 0) + 1; return true; }
+  }
+  const D = L.discState(st);
+  for (const x of D.list) {
+    const keep = st.sect.rank >= 4 && L.discTop(st, 2).includes(x);
+    const id = L.discTeachList(st, x).find(a => L.artLv(st, a) === 3 || (keep && st.sect.rank >= 5 && x.taught.length < 2));
+    if (id && L.act(st, 'errand', { u: x.u, art: id })) { rec.errand = (rec.errand || 0) + 1; return true; }
+  }
+  return false;
+}
+// 闭关（2 点）：有道侣、能双修就双修（不花灵石，另得一门对方的功法）
+function retreatNow(st, rec) {
+  if (L.apLeft(st) < L.AP.retreat) return false;
+  if (L.PEOPLE2_ON !== false && L.sxInfo(st).ok && !L.apWhy(st, 'retreat', { sx: true }) && L.act(st, 'retreat', { sx: true })) { rec.sx++; return true; }
+  return !L.apWhy(st, 'retreat') && !!L.act(st, 'retreat');
+}
+// 这一趟去哪：行事轮着来（缺灵草多采药），宗门任务、人物委托、奇遇链点名的优先
+function cellGuided(st, rec) {
   let a = 0;
   const n = st.stats.exp;
   if (L.apprOpen(st, 2) && (n === 1 || n % 4 === 2)) a = 2;
@@ -555,15 +587,47 @@ function actGuided(st, rec, seed) {
       if (pick) { cell = pick; rec.chainTrips = (rec.chainTrips || 0) + 1; break; }
     }
   }
+  return { cell, escort };
+}
+// 历练一趟（2 点）+ 打得顺就趁势深入（1 点：这一趟甲以上、深入胜算 ≥ 60%）
+function tripGuided(st, rec) {
+  if (L.apLeft(st) < L.AP.exp || L.isFull(st)) return false;
+  const { cell, escort } = cellGuided(st, rec);
   // 出门前换上克制这一格精英的战技（COMBAT_LOOT §2.6；回合战关掉时照旧看地图五行）
   if (L.TRIP_ON !== false && !NOKE) { const ce = L.cellFoes(cell.k, cell.d), fe = L.FOES[ce.elite]; artFor(st, { k: cell.k, fel: fe ? fe.el : '' }); } else if (!NOKE) artFor(st, { k: cell.k });
-  if (goTrip(st, rec, 'guided', cell.k, cell.d, cell.a, escort !== undefined ? { escort } : undefined)) st._trips = (st._trips || 0) + 1;
+  const r = goTrip(st, rec, 'guided', cell.k, cell.d, cell.a, escort !== undefined ? { escort } : undefined);
+  if (!r) return false;
+  st._trips = (st._trips || 0) + 1;
+  if (r.rating >= 3 && L.apLeft(st) >= L.AP.deeper && !L.apWhy(st, 'deeper', { res: r }) && L.deeperP(st, r.k, r.d, r.bt && r.bt.hp) >= 0.6) {
+    if (L.act(st, 'deeper', { res: r })) { walkTrip(st, rec, 'guided'); rec.deeper = (rec.deeper || 0) + 1; }
+  }
+  return true;
 }
-function actLazy(st, rec) {
+// guided（§8.2）：负伤或离圆满 ≤ 8 月修为 → 闭关 + 打坐；每三季里一季闭关；有秘境令的夏季进秘境；
+// 否则历练（L.expBest）+ 一件小事（按序：主线行动胜算 ≥ 60% → 首领胜算 ≥ 70% → 宗门差事 → 趁势深入（在历练里）→ 打坐）
+function seasonGuided(st, rec) {
   const p = st.p;
   if (p.r > L.MAXR) return;
-  const cyc = Math.floor(st.tick / L.TOUR_EVERY);
-  if (st._cyc !== cyc) { st._cyc = cyc; st._trips = 0; }
+  homeGuided(st, rec);
+  if (L.canTrain(st) && L.act(st, 'train')) { rec.train = 1; st._sq = 0; }
+  const need = L.isFull(st) ? 0 : L.ticksToNext(st);
+  const wantRet = p.inj > 0 || (p.s === 3 && need <= 8) || (st._sq || 0) >= 2;
+  if (L.apLeft(st) >= 2 && wantRet && retreatNow(st, rec)) st._sq = 0;
+  else if (L.apLeft(st) >= 2) {
+    st._sq = (st._sq || 0) + 1;
+    if (!(L.seasonNow(st) === 1 && p.inj <= 0 && mjGuided(st, rec)) && !(p.inj > 0 && retreatNow(st, rec))) tripGuided(st, rec);
+  }
+  // 剩下的点：小事（打坐由季末自动补）
+  for (let g = 0; g < 3 && L.apLeft(st) > 0 && p.r <= L.MAXR; g++) {
+    tryBreak(st, rec, 'guided');
+    if (duelNow(st, rec, 0.6) || bossNow(st, rec, 0.7) || errandNow(st, rec)) continue;
+    break;
+  }
+}
+// lazy（§8.2）：隔一季历练一趟，其余打坐；主线行动胜算 ≥ 80% 才做；会做访客和宗门任务，不闭关、不碰新系统
+function seasonLazy(st, rec) {
+  const p = st.p;
+  if (p.r > L.MAXR) return;
   if (st.sect) {
     if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
     st.sect.tasks.forEach((t, i) => {
@@ -571,27 +635,43 @@ function actLazy(st, rec) {
       if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i);
     });
   }
-  if (L.busy(st) || L.isFull(st) || st._trips >= 2) return;
+  duelNow(st, rec, 0.8);
+  st._lz = !st._lz;
+  if (!st._lz || L.isFull(st) || p.inj > 0) return;
   // 出门前买一样：寿元告急买延寿丹 > 还没灵宠买蛋 > 寻宝 > 最便宜的洞府升级
   const r = Math.min(p.r, 8);
   if (L.desperate(st) && L.marketOpen(st, 'life') && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
   else if (L.marketOpen(st, 'egg') && !L.petCount(st) && st.stones >= L.price(st, 'egg')) L.buy(st, 'egg');
   else if ((L.gearPity(st) || L.artPity(st, Math.min(6, 1 + r)) || !st.arts.firstBox) && st.stats.exp >= 1 && st.stones >= L.price(st, 'box') * 2) L.buy(st, 'box');
   else { const u = cheapestUp(st); if (u && st.stones >= u.c) L.upgrade(st, u.k); }
-  if (p.inj > 0) return;
   let a = 0;
   if (st.sect) st.sect.tasks.forEach(t => { if (t.taken && !t.done && t.ty === 'exp' && L.expOpen(st, t.k, 0, t.a)) a = t.a; });
   const cell = L.expBest(st, a);
-  if (goTrip(st, rec, 'lazy', cell.k, cell.d, cell.a)) st._trips++;
+  goTrip(st, rec, 'lazy', cell.k, cell.d, cell.a);
+}
+// 旧名（tools/story_accept_ui.js 等还在调）：一次调用 = 这一季的全部行动
+function actGuided(st, rec) { seasonGuided(st, rec); }
+function actLazy(st, rec) { seasonLazy(st, rec); }
+// 这一趟剩下的节点（L.act('exp' / 'deeper') 出发之后）一口气打完（途中遭遇当场选）并结算
+function walkTrip(st, rec, strat) {
+  for (let g = 0; g < 24 && st.exp && !L.tripDone(st); g++) {
+    const t0 = BT_TIMING ? process.hrtime.bigint() : 0n;
+    const x = L.tripStep(st);
+    if (BT_TIMING) { btNs += Number(process.hrtime.bigint() - t0); btNodes++; }
+    if (x.enc && strat !== 'idle') pickChoice(st, x.enc);
+  }
+  const r = st.exp ? L.tripEnd(st) : null;
+  if (r && rec) expDone(st, rec, r);
+  return r;
 }
 
-// goalcard：只照目标卡“下一步”行动（一个月里最多照着做 4 步；做不了的那一步就去历练）
+// goalcard（§8.2）：只照目标卡“下一步”（L.goalNext）做：主线的下战书、变强建议那一张牌（L.adviseDo）、家务；做不了就打坐。跑到第 40 季
 function goExp(st, n) {
-  if (L.busy(st) || L.isFull(st) || st.p.r > L.MAXR) return false;
+  if (L.busy(st) || L.isFull(st) || st.p.r > L.MAXR || L.apLeft(st) < L.AP.exp) return false;
   const b = L.expBest(st);
   let a = b.a;
   if (n && /采药/.test(n.t) && L.apprOpen(st, 2) && L.expOpen(st, b.k, b.d, 2)) a = 2;
-  return goTrip(st, curRec, 'goalcard', b.k, b.d, a);
+  return !!goTrip(st, curRec, 'goalcard', b.k, b.d, a);
 }
 function goHome(st, n) {
   if (/闭关/.test(n.t) || n.k === 'retreat') return !L.busy(st) && !!L.act(st, 'retreat');
@@ -603,24 +683,31 @@ function goHome(st, n) {
 }
 function actGoal(st, rec) {
   if (st.p.r > L.MAXR) return;
-  for (let step = 0; step < 4; step++) {
+  for (let step = 0; step < 6 && L.apLeft(st) > 0; step++) {
     const n = L.goalNext(st);
-    if (!n || n.why === 'away' || n.why === 'prep' || n.why === 'ready' || (n.act && n.act.id === 'bt')) return;
+    if (!n || n.why === 'ready' || (n.act && n.act.id === 'bt')) return;
     let did = false;
-    // 变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡【去】= L.adviseDo 那一张牌；做不了（去别处的牌）就去历练
+    if (n.foe || (n.act && n.act.foe)) { did = duelNow(st, rec, 0); if (did) { rec.goalSteps = (rec.goalSteps || 0) + 1; continue; } }
+    // 变强建议（docs/KAIRO_PLAN.md §10.5）：目标卡【去】= L.adviseDo 那一张牌；去历练的牌出发后把这一趟打完；做不了就去历练
     if (n.why === 'adv' && n.act) {
-      if (n.act.id === 'retreat') { did = !!L.act(st, 'retreat'); if (!did) goExp(st, n); else rec.goalSteps = (rec.goalSteps || 0) + 1; return; }
-      const r = L.adviseDo(st, n.act.id === 'idle' ? n.act.go : n.act.id); did = !!(r && r.done); if (did && L.busy(st)) { rec.goalSteps = (rec.goalSteps || 0) + 1; return; } if (!did) { goExp(st, n); return; } rec.goalSteps = (rec.goalSteps || 0) + 1; continue; }
+      const r = L.adviseDo(st, n.act.id === 'idle' ? n.act.go : n.act.id); did = !!(r && r.done);
+      if (st.exp) walkTrip(st, rec, 'goalcard');
+      if (!did) did = goExp(st, n);
+      if (!did) return;
+      rec.goalSteps = (rec.goalSteps || 0) + 1; continue;
+    }
     if (n.go === 'gear') { if (n.art) did = !!L.equipArt(st, n.art); else did = L.gearAutoAll(st).length > 0; }
     else if (n.go === 'arts') did = n.art ? !!L.equipArt(st, n.art) : false;
     else if (n.go === 'home' || n.go === 'field') did = goHome(st, n);
     else if (n.go === 'market') did = st.stones >= L.price(st, 'pill') && !!L.buy(st, 'pill');
     else if (n.go === 'sect' && st.sect) { st.sect.tasks.forEach((t, i) => { if (!t.taken && (t.ty === 'exp' || t.ty === 'act')) L.taskTake(st, i); if (L.taskCanDeliver(st, t)) { L.taskDeliver(st, i); did = true; } }); if (L.canPromote(st)) did = !!L.promote(st) || did; }
     else if (n.go === 'pets') did = L.marketOpen(st, 'egg') && st.stones >= L.price(st, 'egg') && !!L.buy(st, 'egg');
-    if (!did) { goExp(st, n); return; }
+    if (!did) did = goExp(st, n);
+    if (!did) return;
     rec.goalSteps = (rec.goalSteps || 0) + 1;
   }
 }
+
 
 // 变强建议抽查（KAIRO_PLAN §10.9）：guided 第一章的第 3 / 9 / 15 / 21 / 27 / 33 月（季初），复制一份存档：acts 非空；目标卡同源；
 // 当场能做的第一张做完（固定随机数，不动主线的种子）后目标数确实变好，且与牌上写的“到多少”差 ≤ 1 个显示单位
@@ -660,6 +747,7 @@ function run(strat, seed, trace, opt) {
   simSect = opt.sect && L.sectJoinable && L.sectJoinable(st, opt.sect) ? opt.sect : ['jian', 'dan', 'dao'][seed % 3];
   // 主循环按季（docs/AP_PLAN.md §8.2）：季初突破 → 行动把 3 点花完（花不出去的季末自动打坐）→ 家务 → L.seasonEnd（3 个月）→ 逐月的 out 照旧处理
   curRec = rec;
+  simNoChal = !!opt.noChal;
   const maxS = Math.ceil(maxT / L.SEASON_LEN);
   for (let n = 0; n < maxS; n++) {
     const p = st.p;
@@ -667,17 +755,18 @@ function run(strat, seed, trace, opt) {
     if (p.r >= 9) { rec.ascend = st.tick; rec.gearAt[9] = gearShare(st); rec.petAt[9] = petShare(st); rec.petEvo = st.stats.petEvo || 0; rec.petAw = st.stats.petAwake || 0; rec.feedUsed = st.stats.petFeed || 0; break; }
     if (strat === 'guided' && seed <= 20 && ADV_AT.includes(st.tick)) advCheck(st, rec);
     const pactSeason = !st.pact && st.tick === L.PACT_TICK - L.SEASON_LEN;   // 这一季季末就是三年之约
-    for (let g = 0; g < 6 && L.apLeft(st) > 0 && p.r <= L.MAXR; g++) {
-      const left = L.apLeft(st), seq = st.ap.seq;
-      if (g) tryBreak(st, rec, strat);
-      if (p.r > L.MAXR) break;
-      if (strat === 'guided') actGuided(st, rec, seed);
-      else if (strat === 'lazy') actLazy(st, rec);
-      else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
-      if (st.retreat && !st.run) L.retFinish(st);   // 走了旧入口（L.adviseDo 的闭关等）留下的：当场结掉
-      if (L.apLeft(st) === left && st.ap.seq === seq) break;   // 这一点花不出去：季末自动打坐
-      rec.acts = (rec.acts || 0) + 1;
-    }
+    const ap0 = L.apLeft(st), seq0 = st.ap.seq;
+    if (strat === 'guided') seasonGuided(st, rec);
+    else if (strat === 'lazy') seasonLazy(st, rec);
+    else if (strat === 'goalcard') { actGoal(st, rec); L.gearAutoAll(st); }
+    // idle：每季 3 点打坐（季末自动），圆满就突破
+    if (st.retreat && !st.run) L.retFinish(st);   // 走了旧入口留下的：当场结掉
+    if (st.exp) walkTrip(st, rec, strat);
+    rec.acts = (rec.acts || 0) + (st.ap.seq - seq0);
+    // §8.2 的两条：每季行动点花完（剩下的季末自动打坐，所以看的是“手里的点 = 花掉的点”）；这一季做没做一件不是打坐的事
+    const lg0 = st.ap.log[L.seasonNo(st)] || { acts: [] };
+    if ((lg0.acts || []).some(id => id !== 'sit' && id !== 'sit*')) rec.realActs = (rec.realActs || 0) + 1;
+    rec.ap0 = ap0;
     if (p.r > L.MAXR) continue;
     if (strat === 'lazy') { artLazy(st); L.gearAutoAll(st); }
     if (strat === 'guided') gearGuided(st);
@@ -690,6 +779,8 @@ function run(strat, seed, trace, opt) {
     rec.seasons = (rec.seasons || 0) + 1;
     const S = L.seasonEnd(st);
     if (S.pre.exp) expDone(st, rec, S.pre.exp);
+    if (S.spent < rec.ap0) rec.apShort = (rec.apShort || 0) + 1;   // 这一季的点没花完（不该发生：季末自动打坐）
+    if (!st.pact) rec.c1Seasons = (rec.c1Seasons || 0) + 1;
     let dead = false;
     for (const out of S.outs) {
     if (out.harvest) for (const k in out.harvest) if (L.YIN_N[k]) rec.yinGot += out.harvest[k];
@@ -708,7 +799,7 @@ function run(strat, seed, trace, opt) {
     // 这一章要打的宿敌：只剩他时上门下战书（out.mainFoe，界面 runMainFoe）；guided 胜算 ≥ 45% 应战，lazy 一半一半，idle 改日
     if (out.mainFoe) { const I = L.challengeInfo(st, out.mainFoe); const go = I && !I.why && (strat === 'guided' ? I.p >= 0.45 : strat === 'lazy' ? L.rng() < 0.5 : false); if (go) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, out.mainFoe); } else L.mainFoeLater(st, out.mainFoe); }
     // 目标卡上的主线一步（mainline.js 的 L.mainStep）：胜算过半的下战书——guided 照做，lazy 三回里做一回（晋升、投帖上面已经照做）
-    if (!opt.noChal && strat !== 'idle') { const ms = L.mainStep(st); if (ms && ms.foe && (strat === 'guided' || L.rng() < 0.33)) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, ms.foe); } }
+    // （目标卡上的主线一步——胜算过半的下战书——现在是季里的 1 点行动：seasonGuided / seasonLazy / actGoal 的 duelNow）
     if (out.war) { if (strat === 'guided') artFor(st, { foe: { kind: 'war', id: 'tianjian' } }); L.sectWar(st); }
     if (out.tourney) {
       // guided：论道前按克制换战技（第一场的宿敌）；换完下个周天 artOpt 再按平时的最优搭配换回来
@@ -743,7 +834,7 @@ function run(strat, seed, trace, opt) {
     if (trace && st.tick % 12 === 0) {
       const sl = L.artSlots(st).map(id => (id ? L.art(id).n.slice(0, 2) + L.art(id).t + L.MAST.n[L.artLv(st, id)][0] : '-')).join('/');
       const gs = L.GEAR_SLOTS.map(s => (st.gear[s] ? st.gear[s].t + '+' + st.gear[s].plus : '-')).join('/');
-      console.log(`t${st.tick} 岁${Math.floor(p.age)}/${Math.floor(L.lifespan(st))} ${L.stageName(p)} 根${p.t} 器${gs}(矿${L.fmt(st.ore)}) 功${sl}(${Object.keys(st.arts.own).length}门,共鸣${Object.keys(st.meta.combo).length}) 宠${L.petOut(st) ? L.petName(L.petOut(st)) + L.petOut(st).lv : 0}/${L.petCount(st)} 战力=${L.fmt(L.power(st))} 修炼×${(L.gainBase(st) / L.g0(Math.min(L.si(p), 35))).toFixed(1)} 灵石=${L.fmt(st.stones)} 收入=${L.fmt(L.income(st))} 洞府=${st.home.array}/${st.home.field}/${st.home.furnace}/${st.home.cave} 榜=${st.rank} 宗=${st.sect ? st.sect.rank + '/' + L.fmt(st.sect.total) : '-'} 丹=${st.pills} 草=${Math.floor(st.herbs)} 历练=${st.stats.exp}(${st.lastExp ? st.lastExp.k + '.' + st.lastExp.d : '-'}) 败=${st.stats.btFails}`);
+      console.log(`第${st.tick / 3}季(t${st.tick}) 岁${Math.floor(p.age)}/${Math.floor(L.lifespan(st))} ${L.stageName(p)} 根${p.t} 器${gs}(矿${L.fmt(st.ore)}) 功${sl}(${Object.keys(st.arts.own).length}门,共鸣${Object.keys(st.meta.combo).length}) 宠${L.petOut(st) ? L.petName(L.petOut(st)) + L.petOut(st).lv : 0}/${L.petCount(st)} 战力=${L.fmt(L.power(st))} 修炼×${(L.gainBase(st) / L.g0(Math.min(L.si(p), 35))).toFixed(1)} 灵石=${L.fmt(st.stones)} 收入=${L.fmt(L.income(st))} 洞府=${st.home.array}/${st.home.field}/${st.home.furnace}/${st.home.cave} 榜=${st.rank} 宗=${st.sect ? st.sect.rank + '/' + L.fmt(st.sect.total) : '-'} 丹=${st.pills} 草=${Math.floor(st.herbs)} 历练=${st.stats.exp}(${st.lastExp ? st.lastExp.k + '.' + st.lastExp.d : '-'}) 败=${st.stats.btFails}`);
     }
   }
   rec.home = Object.assign({}, st.home); rec.homeN = L.homePlots(st).filter(Boolean).length; rec.zhentu = L.zhenOwnList(st).length;
@@ -771,6 +862,11 @@ function run(strat, seed, trace, opt) {
 const q = (arr, f) => { const a = arr.filter(x => x !== undefined && x !== null && !Number.isNaN(x)).sort((x, y) => x - y); if (!a.length) return NaN; return a[Math.min(a.length - 1, Math.floor(f * a.length))]; };
 const med = arr => q(arr, 0.5);
 const span = arr => { const m = med(arr); return Number.isNaN(m) ? '—' : `${Math.round(m)}（${Math.round(q(arr, 0.1))}～${Math.round(q(arr, 0.9))}）`; };
+// 回合制（docs/AP_PLAN.md §8.2）：输出一律写季（底层 st.tick 仍是月，季 = 月 / 3）；原来按“周天 / 月”定的门槛按 §3.5 末换算：÷ 3 再 × 0.8
+const SZ = m => (m === undefined || Number.isNaN(m) ? m : m / 3);
+const sSpan = arr => span(arr.map(SZ));
+const sMed = arr => { const m = med(arr.map(SZ)); return Number.isNaN(m) ? NaN : Math.round(m); };
+const M2S = m => Math.round(m / 3 * 0.8);
 const pct = x => (x * 100).toFixed(0) + '%';
 const frac = (arr, f) => arr.filter(f).length / arr.length;
 const rows = [];
@@ -807,7 +903,7 @@ function btRows(strat, recs) {
   row(strat, '引擎：同上，带克制 / 被克', `${pct(k1)} / ${pct(b1)}`, '≥ 97% / 30%～50%', k1 >= 0.97 && within(b1, 0.30, 0.50));
   row(strat, '引擎：破招 + 吞丹、战力 = 推荐 × 0.7', pct(s7), '70%～90%', within(s7, 0.70, 0.90));
   const acts = med(recs.map(x => x.ch1Acts));
-  row(strat, '第一章行动数（历练 + 闭关）', String(acts), '9～11（COMBAT_LOOT §8.5）', within(acts, 9, 11));
+  row(strat, '第一章大事数（历练 + 闭关）', `${acts}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, '10～13（AP_PLAN §8.2）', within(acts, 10, 13));
   const jia = recs.reduce((a, x) => a + (x.c1jia || 0), 0) / Math.max(1, recs.reduce((a, x) => a + (x.c1n || 0), 0));
   row(strat, '第一章：甲以上评价占比', pct(jia), '35%～60%', within(jia, 0.35, 0.60));
   const zn = med(recs.map(x => x.zhanN));
@@ -816,7 +912,7 @@ function btRows(strat, recs) {
   const st2 = frac(recs, x => x.wStar >= 2);
   row(strat, '（参考）第一章末：兵器 ★★ 以上', pct(st2), '35%～60%（刷宝线）');
   const ms = btNodes ? btNs / btNodes / 1e6 : 0;
-  row(strat, '（参考）历练途中每月 L.tick 平均耗时', `${ms.toFixed(3)} 毫秒`, '一趟引擎 ≤ 0.3 毫秒');
+  row(strat, '（参考）历练每个节点平均耗时', `${ms.toFixed(3)} 毫秒`, '一趟引擎 ≤ 0.3 毫秒');
 }
 function summarize(strat, recs, G) {
   const n = recs.length;
@@ -829,12 +925,16 @@ function summarize(strat, recs, G) {
   const died = frac(recs, x => x.death !== undefined);
   if (strat === 'guided') {
     // docs/ONBOARDING.md §5：系统一样一样开，筑基～元婴拿到灵宠、功法、强化等加成比 2.0.0 晚 30～60 个周天，这两段拉长；炼气只剩四样，略短
-    const T = L.ONB_ON === false ? [34, 38, 62, 75, 75, 75, 85, 82, 90] : [32, 44, 80, 92, 75, 75, 88, 84, 92];
-    row(strat, '各境界时长中位数', durs.map(Math.round).join(' / '), T.join(' / ') + '，各 ±20%', durs.every((d, i) => within(d, T[i] * 0.8, T[i] * 1.2)));
-    const AT = L.ONB_ON === false ? [580, 660] : [620, 710];   // 上手曲线放慢了前中期（docs/ONBOARDING.md §5）
-    row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `中位数 ${AT[0]}～${AT[1]}`, within(ascMed, AT[0], AT[1]));
-    // 回合战之后（COMBAT_LOOT §8.5；用户：胜算不必精确校准）：照引导玩明显能赢（≥ 70%）就算过门槛
-    row(strat, '三年之约胜率', pct(pact), '≥ 70%（原 85%～95%）', within(pact, 0.70, 1), true);
+    // AP_PLAN §3.3 的境界曲线（踏入：筑基 7、金丹 16、元婴 33、化神 60、炼虚 82、合体 100、大乘 122、渡劫 138、飞升 165 季）折成每段的季数，各 ±25%
+    const T = [7, 9, 17, 27, 22, 18, 22, 16, 27], ds = durs.map(SZ);
+    row(strat, '各境界时长中位数（季）', ds.map(Math.round).join(' / '), T.join(' / ') + '，各 ±25%', ds.every((d, i) => within(d, T[i] * 0.75, T[i] * 1.25)));
+    row(strat, '飞升（季）', sSpan(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, '中位数 150～180（AP_PLAN §3.3）', within(SZ(ascMed), 150, 180));
+    // 回合战之后（COMBAT_LOOT §8.5；用户：胜算不必精确校准）：照引导玩明显能赢（≥ 70%）就算过门槛；AP_PLAN §3.5 的校准目标 85%～95% 另列一行
+    row(strat, '三年之约胜率', pct(pact), '≥ 70%', within(pact, 0.70, 1), true);
+    row(strat, '三年之约胜率（校准）', pct(pact), '85%～95%（AP_PLAN §3.5）', within(pact, 0.85, 0.95));
+    row(strat, '第一章季数', sMed(recs.map(x => (x.c1Seasons || 0) * 3)) + '', '12（三年之约 = 第 12 季末）', med(recs.map(x => x.c1Seasons)) === 12);
+    const apBad = frac(recs, x => (x.apShort || 0) > 0), real = recs.reduce((a, x) => a + (x.realActs || 0), 0) / Math.max(1, recs.reduce((a, x) => a + (x.seasons || 0), 0));
+    row(strat, '每季行动点花完 / 做了非打坐的事', `没花完的种子 ${pct(apBad)} / ${pct(real)} 的季`, '0% / ≥ 95%（AP_PLAN §8.2）', apBad === 0 && real >= 0.95);
     // 刷宝 + 炼器（COMBAT_LOOT §5.8 / §6.6 / §7.5 的第一章末指标；线 C2）。心愿、淬灵、首领见上面 btRows 的“第一章末”一行
     const l1 = recs.map(x => x.loot1).filter(Boolean);
     if (l1.length) {
@@ -845,21 +945,20 @@ function summarize(strat, recs, G) {
     row(strat, '约战前已筑基', pct(zj), '60%～85%', within(zj, 0.60, 0.85));
     { const ad = recs.filter(x => x.adv).map(x => x.adv), sm = k => ad.reduce((t, x) => t + x[k], 0), bad = [].concat(...ad.map(x => x.bad));
       row(strat, '变强建议抽查（第一章 6 个时刻）', `acts 非空 ${sm('n') - sm('empty')}/${sm('n')}；目标卡同源 ${sm('same')}/${sm('same') + sm('diff')}；做完第一张变好 ${sm('better')}/${sm('chk')}、与牌面一致 ${sm('match')}/${sm('chk')}${bad.length ? '；' + bad.slice(0, 3).join(' ') : ''}`, 'KAIRO_PLAN §10.9：全部', sm('empty') === 0 && sm('diff') === 0 && sm('better') === sm('chk') && sm('match') === sm('chk')); }
-    row(strat, '（参考）第一章行动数（历练 + 闭关）', `${med(recs.map(x => x.ch1Acts))}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, 'KAIRO_PLAN §3.6：8～10');
     if (L.TRIP_ON !== false) btRows(strat, recs);
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
-    row(strat, '击败慕容雪', `第 60 周天前 ${pct(mu60)}，中位数 ${med(recs.map(x => x.beatAt.mu))}`, '≥95% 在第 60 周天前', mu60 >= 0.95);
-    const bz = med(recs.map(x => x.beatAt.zhao)), bc = med(recs.map(x => x.beatAt.chu)), bx = med(recs.map(x => x.beatAt.xue));
-    row(strat, '击败赵乾 / 楚天阔 / 血无涯', `${bz} / ${bc} / ${bx}`, '72～110 / 190～300 / 340～480', within(bz, 72, 110) && within(bc, 190, 300) && within(bx, 340, 480));
-    const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend)), r1m = med(recs.map(x => x.rank1));
-    const R1 = L.ONB_ON === false ? [0.5, 510, 600] : [0.45, 520, 650];
-    row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数 ${r1m}`, `${pct(R1[0])}～80%，中位数 ${R1[1]}～${R1[2]}`, within(r1, R1[0], 0.8) && within(r1m, R1[1], R1[2]));
-    const sr = [1, 2, 3, 4, 5, 6].map(k => med(recs.map(x => x.srankAt[k])));
-    const ST = L.ONB_ON === false ? [[45, 65], [80, 110], [140, 190], [240, 300], [360, 430], [480, 560]] : [[45, 70], [90, 125], [150, 210], [260, 340], [380, 470], [500, 600]];
-    row(strat, '内门/真传/圣子/长老/太上/宗主', sr.join(' / '), ST.map(x => x.join('～')).join(' / '), sr.every((v, i) => within(v, ST[i][0], ST[i][1])));
+    row(strat, '击败慕容雪', `第 20 季前 ${pct(mu60)}，中位数第 ${sMed(recs.map(x => x.beatAt.mu))} 季`, '≥95% 在第 20 季前', mu60 >= 0.95);
+    const bz = sMed(recs.map(x => x.beatAt.zhao)), bc = sMed(recs.map(x => x.beatAt.chu)), bx = sMed(recs.map(x => x.beatAt.xue));
+    const BZ = [[72, 110], [190, 300], [340, 480]].map(x => x.map(M2S));
+    row(strat, '击败赵乾 / 楚天阔 / 血无涯（季）', `${bz} / ${bc} / ${bx}`, BZ.map(x => x.join('～')).join(' / '), within(bz, ...BZ[0]) && within(bc, ...BZ[1]) && within(bx, ...BZ[2]));
+    const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend)), r1m = sMed(recs.map(x => x.rank1));
+    row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数第 ${r1m} 季`, '45%～80%，中位数第 115～140 季（AP_PLAN §3.5）', within(r1, 0.45, 0.8) && within(r1m, 115, 140));
+    const sr = [1, 2, 3, 4, 5, 6].map(k => sMed(recs.map(x => x.srankAt[k])));
+    const ST = [[45, 70], [90, 125], [150, 210], [260, 340], [380, 470], [500, 600]].map(x => x.map(M2S));
+    row(strat, '内门/真传/圣子/长老/太上/宗主（季）', sr.join(' / '), ST.map(x => x.join('～')).join(' / '), sr.every((v, i) => within(v, ST[i][0], ST[i][1])));
     row(strat, '坐化', pct(died), '0%', died === 0);
-    const rm = med(recs.map(x => x.ratioMed)), viol = frac(recs, x => x.maxStreak >= 24);
-    row(strat, '手持灵石 / 每周天收入', `中位数 ${rm.toFixed(1)}；连续 24 周天超过 40 的种子 ${pct(viol)}`, '中位数 ≤ 20，任何连续 24 周天不超过 40', rm <= 20 && viol <= 0.05);
+    const rm = med(recs.map(x => x.ratioMed)), viol = frac(recs, x => x.maxStreak >= 8);
+    row(strat, '手持灵石 / 每月收入', `中位数 ${rm.toFixed(1)}；连续 8 季超过 40 的种子 ${pct(viol)}`, '中位数 ≤ 20，任何连续 8 季不超过 40', rm <= 20 && viol <= 0.05);
     const mp = recs.map(x => x.maxPills);
     row(strat, '手持破境丹（全程最高）', `中位数 ${med(mp)}，90% 分位 ${q(mp, 0.9)}，最大 ${Math.max(...mp)}`, '全程 ≤ 12', q(mp, 0.9) <= 12);
     const bf = med(recs.map(x => x.btFails));
@@ -868,6 +967,7 @@ function summarize(strat, recs, G) {
     const er = med(recs.map(x => x.expStones / Math.max(1, x.passive)));
     row(strat, '历练收入 : 被动收入', er.toFixed(2), '0.8～1.5', within(er, 0.8, 1.5));
     row(strat, '（参考）历练趟数 / 丁等 / 宗门任务', `${med(recs.map(x => x.trips))} / ${med(recs.map(x => x.dings))} / ${med(recs.map(x => x.sectTasks))}`, '—');
+    row(strat, '（参考）一世：首领 / 下战帖 / 差事 / 趁势深入 / 双修', ['bossN', 'chal', 'errand', 'deeper', 'sx'].map(k => med(recs.map(x => x[k] || 0))).join(' / '), '—');
     // SYSTEMS §11：人脉（只差人脉卡住的周天）、宝库轮换、徒弟、三人会武
     const fw = k => med(recs.map(x => x.favWait[k] || 0));
     row(strat, '（参考）人脉 卡圣子 / 宗主的周天；一世长老支持', `${fw(3)} / ${fw(6)} 周天；${[0, 1, 2].map(i => med(recs.map(x => x.fav[i]))).join(' / ')}；送礼 ${med(recs.map(x => x.gifts))} 次`, '—');
@@ -904,14 +1004,14 @@ function summarize(strat, recs, G) {
   }
   if (strat === 'lazy') {
     const ratios = durs.map((d, i) => d / G.durs[i]);
-    row(strat, '各境界时长中位数', durs.map(Math.round).join(' / '), '约为 guided 的 1.5～1.8 倍', undefined);
+    row(strat, '各境界时长中位数（季）', durs.map(d => Math.round(SZ(d))).join(' / '), '约为 guided 的 1.5～1.8 倍', undefined);
     const rr = ratios.filter(x => !Number.isNaN(x)); const avg = rr.reduce((a, b) => a + b, 0) / rr.length;
     row(strat, '  与 guided 之比', ratios.map(x => x.toFixed(2)).join(' / ') + `（平均 ${avg.toFixed(2)}）`, '1.5～1.8', within(avg, 1.5, 1.8));
-    row(strat, '飞升周天', span(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, '850～1000', within(ascMed, 850, 1000));
+    row(strat, '飞升（季）', sSpan(asc) + `，飞升率 ${pct(frac(recs, x => x.ascend !== undefined))}`, `${M2S(850)}～${M2S(1000)}`, within(SZ(ascMed), M2S(850), M2S(1000)));
     row(strat, '三年之约胜率', pct(pact), '35%～60%', within(pact, 0.35, 0.60));
     row(strat, '约战前已筑基', pct(zj), '≤ 10%', zj <= 0.10);
-    const bz = med(recs.map(x => x.beatAt.zhao));
-    row(strat, '击败赵乾', bz, '≤ 160', bz <= 160);
+    const bz = sMed(recs.map(x => x.beatAt.zhao));
+    row(strat, '击败赵乾（季）', bz, `≤ ${M2S(160)}`, bz <= M2S(160));
     const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend));
     row(strat, '天骄榜第一', pct(r1), '0～10%', r1 <= 0.10);
     rvRows(strat, recs);
@@ -924,19 +1024,20 @@ function summarize(strat, recs, G) {
     return;
   }
   if (strat === 'goalcard') {
-    row(strat, '三年之约胜率', pct(pact), '≥ 60%（原 75%～90%，KAIRO_PLAN §3.6）', within(pact, 0.60, 1));
+    row(strat, '三年之约胜率', pct(pact), '75%～90%（AP_PLAN §8.2）', within(pact, 0.75, 0.90));
     row(strat, '约战前已筑基', pct(zj), '50%～80%', within(zj, 0.50, 0.80));
     const a1 = med(recs.map(x => x.ch1Acts));
-    row(strat, '第一章行动数（历练 + 闭关）', `${a1}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, '8～10', within(a1, 8, 10));
-    row(strat, '（参考）照目标卡做的步数（第 120 月前）', String(med(recs.map(x => x.goalSteps || 0))), '—');
+    row(strat, '第一章大事数（历练 + 闭关）', `${a1}（${q(recs.map(x => x.ch1Acts), 0.1)}～${q(recs.map(x => x.ch1Acts), 0.9)}）`, '8～13', within(a1, 8, 13));
+    row(strat, '（参考）照目标卡做的步数（前 40 季）', String(med(recs.map(x => x.goalSteps || 0))), '—');
     return;
   }
-  row(strat, '炼气时长', span(dur(0)), '45～60', within(durs[0], 45, 60));
+  row(strat, '炼气时长（季）', sSpan(dur(0)), `${M2S(45)}～${M2S(60)}`, within(SZ(durs[0]), M2S(45), M2S(60)));
   row(strat, '飞升', pct(frac(recs, x => x.ascend !== undefined)), '不飞升', frac(recs, x => x.ascend !== undefined) === 0);
-  row(strat, '三年之约胜率', pct(pact), '≤ 40%（原 15%～25%；只打坐明显赢不了）', within(pact, 0, 0.40), true);
+  row(strat, '三年之约胜率', pct(pact), '≤ 40%（只打坐明显赢不了）', within(pact, 0, 0.40), true);
+  row(strat, '三年之约胜率（校准）', pct(pact), '15%～25%（AP_PLAN §3.5）', within(pact, 0.15, 0.25));
   row(strat, '约战前已筑基', pct(zj), '0', zj === 0);
   const inJd = frac(recs, x => x.death !== undefined && x.deathR === 2), dm = med(recs.map(x => x.death));
-  row(strat, '坐化', `${pct(died)}，其中金丹期 ${pct(inJd)}，中位数第 ${dm} 周天（${q(recs.map(x => x.death), 0.1)}～${q(recs.map(x => x.death), 0.9)}）`, '100%，在金丹期，第 230～300 周天', died === 1 && inJd >= 0.95 && within(dm, 230, 300));
+  row(strat, '坐化', `${pct(died)}，其中金丹期 ${pct(inJd)}，中位数第 ${Math.round(SZ(dm))} 季（${Math.round(SZ(q(recs.map(x => x.death), 0.1)))}～${Math.round(SZ(q(recs.map(x => x.death), 0.9)))}）`, `100%，在金丹期，第 ${M2S(230)}～${M2S(300)} 季`, died === 1 && inJd >= 0.95 && within(SZ(dm), M2S(230), M2S(300)));
 }
 
 function main(onlyStrat, n) {

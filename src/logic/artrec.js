@@ -17,7 +17,10 @@
  */
 (function (install) { if (typeof module === 'object' && module.exports) module.exports = install; else install(globalThis.L || (globalThis.L = {})); })(function (L) {
 'use strict';
-L.REC = { big: 3, pEps: 0.005, mapEps: 0.01, zMin: 0.01, xMin: 0.02, ke: 0.45, bk: 0.3, mapV: 0.028 };
+// 注意：L.REC 原本是历练推荐战力的参数（expedition.js 的 { base, k, d }，L.rec 读它）。这里只往里并键，不能整个换掉——
+// 换掉以后 L.rec 全是 NaN（推荐格、预计评价、首领胜负全坏，sim 一世只出门 5 趟）。键不重名；另给一个专用名 L.ART_REC
+L.ART_REC = { big: 3, pEps: 0.005, mapEps: 0.01, zMin: 0.01, xMin: 0.02, ke: 0.45, bk: 0.3, mapV: 0.028 };
+L.REC = Object.assign(L.REC || {}, L.ART_REC);
 const pc = p => Math.round(p * 100) + '%';
 const lg = v => Math.log(Math.max(1e-9, v));
 
