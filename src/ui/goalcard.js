@@ -72,7 +72,13 @@ function goTo(k, hl) {
   if (hl) setTimeout(() => hlOnly(hl), 60);
 }
 $('#gGo').addEventListener('click', e => { e.stopPropagation(); if (!st || cine) return; ac(); SFX.tap(); const g = L.goalNow(st); if (g.next && g.next.go) goTo(g.next.go, g.next.hl); });
-$('#goal').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showPath(); });
+// 目标卡：默认收起成一行；点一下展开 / 收起（记在存档里）；展开时点第一行（第 N 章 · 目标）进路径页
+$('#goal').addEventListener('click', e => {
+  if (!st || cine) return; ac(); SFX.tap();
+  const el = $('#goal');
+  if (el.classList.contains('open') && e.target.closest('.g1, .gbar')) { showPath(); return; }
+  st.flags.goalOpen = !el.classList.contains('open'); el.classList.toggle('open', st.flags.goalOpen);
+});
 $('#time').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (UI.isOpen('cal')) showCalendar(); else showBig(); });
 $('#btnMail').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showInbox(); });
 // 暂停键：暂停 ↔ 回到上一次的速度
@@ -210,11 +216,13 @@ function renderMain() {
   if (gk !== goalKey) {
     goalKey = gk;
     $('#gCh').textContent = g.chN || chName(g.ch);
+    { const cn = g.chN || chName(g.ch), m = /第(.)章/.exec(cn); $('#gCh2').textContent = m ? m[1] : cn.slice(0, 2); }
     $('#gT').textContent = g.t;
     $('#gFill').style.width = (Math.max(0, Math.min(1, g.bar.v / (g.bar.max || 1))) * 100).toFixed(1) + '%';
     $('#gBar').textContent = g.bar.text;
     $('#gNext').innerHTML = `下一步：${esc(nx.t || '')}`;
     $('#gGo').hidden = !nx.go;
   }
+  { const ge = $('#goal'), want = !!st.flags.goalOpen; if (ge.classList.contains('open') !== want) ge.classList.toggle('open', want); }
   syncNav(); renderTick(); syncHl(); tripSnapNow();
 }
