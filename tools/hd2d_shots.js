@@ -51,19 +51,23 @@ function midGame() {
   }
   const hideTip = page => page.evaluate(() => { for (const q of ['#tip', '#guide']) { const e = document.querySelector(q); if (e) e.hidden = true; } });
   const phase = (page, p) => page.evaluate(v => { window.HD2D.debugPhase = v; }, p);
+  // 进历练打到战斗画面：路上弹出来的奇遇卡点第一个选项打发掉，等到没有弹窗、战斗条在的时候再截
+  const fight = async (page, k) => {
+    await page.evaluate(k2 => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.setSpeed(0); L.startExp(st, k2, 0, 0); }, k);
+    let calm = 0;
+    for (let i = 0; i < 60 && calm < 4; i++) {
+      await page.waitForTimeout(400);
+      const s2 = await page.evaluate(() => { const m = document.getElementById('modal'); if (!m.hidden) { const b = m.querySelector('.btn:not(:disabled)'); if (b) b.click(); else window.__xm.closeModal(); return 'modal'; } return window.__xm.st.exp && document.querySelector('#bt:not([hidden]) .bt-big') ? 'bt' : 'wait'; });
+      calm = s2 === 'bt' ? calm + 1 : 0;
+    }
+    await hideTip(page);
+  };
   const SHOTS = {
     home: async (page) => { await phase(page, 0.69); await page.waitForTimeout(1500); await hideTip(page); },
     home_day: async (page) => { await phase(page, 0.45); await page.waitForTimeout(1500); await hideTip(page); },
     home_night: async (page) => { await phase(page, 0.95); await page.waitForTimeout(1500); await hideTip(page); },
-    battle: async (page) => {
-      await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.setSpeed(0); L.startExp(st, 1, 0, 0); });
-      for (let i = 0; i < 30 && !(await page.evaluate(() => { const { st } = window.__xm; return !!(st.exp && document.querySelector('#bt:not([hidden]) .bt-big')); })); i++) await page.waitForTimeout(200);
-      await page.waitForTimeout(2600); await hideTip(page);
-    },
-    battle_forest: async (page) => {
-      await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.setSpeed(0); L.startExp(st, 0, 0, 0); });
-      await page.waitForTimeout(4200); await hideTip(page);
-    },
+    battle: async (page) => fight(page, 1),
+    battle_forest: async (page) => fight(page, 0),
     talk: async (page) => {
       await page.evaluate(() => { const s = window.__xm.st; s.storyQ.length = 0; window.__xm_talk.fast = false; window.__xm_cine.fast = true; window.__xm.setSpeed(1); window.__xm_talk.play('s1_night'); });
       await page.waitForTimeout(3200);
