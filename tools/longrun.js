@@ -355,7 +355,7 @@ const path = require('path');
     // 轮回流程（SYSTEMS §16）：飞升后从【人物】点【再入轮回】→ 结算 → 传承 → 轮回殿（买得起的点亮）→ 出身（点亮了的随机选一个）→ 命格 → 天道试炼（随机选一两条）→ 投胎 → 出身开场；再玩 30 周天第二世
     res.life2 = 'not-tried';
     if (st.p.r >= 9) {
-      const dg = st.settle ? st.settle.total : 0;
+      const dg = L.daoFruit(st).total;
       X.showMe('attr'); await sleep(60);
       const rb = document.querySelector('#btnReborn');
       if (!rb) res.life2 = '人物页没有再入轮回按钮';
