@@ -166,6 +166,7 @@ async function BOT(cfg) {
       }
       const t = title();
       R.titles[t.replace(/\d+/g, 'N').slice(0, 14)] = 1;
+      if (t === '坐化' && !cfg.afterEnd) { R.deathSeen = X.st.tick; return 'death'; }   // 这一世到头了：留给后面的轮回流程去点
       if (stopAt && new RegExp(stopAt).test(t)) return 'stop';
       const sig = t + '|' + $('#modal').textContent.length; same = sig === lastSig ? same + 1 : 0; lastSig = sig;
       if (same > 60) { stuckInfo = `弹窗点不掉：「${t}」 ${$('#modal').textContent.replace(/\s+/g, ' ').slice(0, 120)}`; return 'stuck'; }
@@ -288,6 +289,7 @@ async function BOT(cfg) {
     if (cfg.dbg) console.log(`BOT n=${n} t=${X.st.tick} r=${X.st.p.r}.${X.st.p.s} modal=${modal() ? title() : ''} cine=${JSON.stringify(X.cineState && Object.keys(X.cineState))} stop=${X.autoStop} exp=${!!X.st.exp} ${Math.round(performance.now() / 1000)}s`);
     let d = await drain(cfg.stopAt);
     if (d === 'stop') { out = 'stop'; break; }
+    if (d === 'death') { out = 'death'; break; }
     if (d === 'stuck') { fail(`界面卡死（第 ${X.st.tick} 月）：${stuckInfo}`); R.stuck++; if (TK && TK.on) TK.close(); X.closeModal(); await sleep(500); if (R.stuck > 3) { out = 'stuck'; break; } }
     let st = X.st;
     // 剧情队列：人在洞府、弹窗都点完了，排着的剧情为什么还不出
@@ -310,6 +312,7 @@ async function BOT(cfg) {
     if (cfg.goEvery && st.tick % cfg.goEvery === 7) { await tryGo(); await drain(); }
     d = await drain(cfg.stopAt);
     if (d === 'stop') { out = 'stop'; break; }
+    if (d === 'death') { out = 'death'; break; }
     if (X.autoStop) { $('#btnSpeed').click(); await sleep(30); X.setSpeed(3); }
     if (!canRun()) {
       blocked++;
@@ -320,6 +323,7 @@ async function BOT(cfg) {
     st = X.st;
     const t0 = st.tick;
     L.flow(st, 1); X.onTick();
+    if (modal() && title() === '坐化') { R.months++; out = 'death'; R.deathSeen = X.st.tick; break; }
     window.__vsec += X.tickMs / 1000 / speed; R.months++;
     if (X.st.p.age >= L.lifespan(X.st) && X.st.p.r <= L.MAXR) R.deathSeen = X.st.tick;
     if (X.st.tick !== t0 + 1 && X.st === st) fail(`onTick 之后月份没有 +1（${t0} → ${X.st.tick}）`);
@@ -433,7 +437,8 @@ async function runCase(browser, c, idx) {
       const cur = await page.evaluate(() => window.__xm.st.tick);
       let untilTick = until;
       if (c.reload) { const nx = cur + c.reload; untilTick = until ? Math.min(until, nx) : nx; }
-      const stopAt = c.reloadAt && cur - lastReloadTick >= 2 ? c.reloadAt : '';
+      const left = c.reloadAt ? c.reloadAt.split('|').filter(k => !(R.reloadAtSeen || []).some(x => new RegExp(k).test(x))) : [];
+      const stopAt = left.length && cur - lastReloadTick >= 2 ? left.join('|') : '';
       R = await page.evaluate(BOT, Object.assign({}, base, { R, untilTick, stopAt }));
       segs++;
       const doneAll = R.out === 'asc' || R.out === 'death' || R.out === 'stuck' || (until && R.tick >= until);
@@ -458,7 +463,7 @@ async function runCase(browser, c, idx) {
     if (R.out === 'asc' || R.out === 'death') {
       await inject(page);
       // 结局卡、后日谈一路点过去（天门那场戏 / 再登天门在 BOT 的 drain 里已经按用例点了）
-      R = await page.evaluate(BOT, Object.assign({}, base, { R, untilTick: 1, stopAt: '' }));
+      R = await page.evaluate(BOT, Object.assign({}, base, { R, untilTick: 1, stopAt: '', afterEnd: R.out === 'asc' }));
       R = await page.evaluate(AFTER, Object.assign({}, base, { R }));
       if (c.life2 && R.life2) {
         const r2 = freshR(); r2.ch = 0; r2.chAt = [0];
