@@ -25,7 +25,7 @@ function fitScene() {
   const short = app.clientHeight < 760;
   app.classList.toggle('short', short);
   const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
-  const others = ['#top', '#time', '#cult', '#stats', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
+  const others = ['#top', '#time', '#cult', '#stats', '#bt', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
   const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * 7;
   let n = UPX;
   const ow = outer.clientWidth || window.innerWidth;
@@ -190,6 +190,7 @@ function drawHomeScene(dt) {
 function newAdv(k) { return { k, scroll: 0, foes: [], shots: [], spawn: 600, fire: 500, kills: 0 }; }
 function foeHitY(f) { if (f.kind === 'man') return f.y - D().stand.h * 0.55; if (f.kind === 'beast') return f.y - D().wolf.h / 2; return f.y; }
 function drawAdvScene(dt) {
+  if (btv && st.exp && st.exp.nodes) { drawBtScene(dt); return; }   // 节点与回合战（battle.js）
   const rg = L.REGIONS[adv.k], p = st.p, SD = D().stand;
   adv.scroll += dt * 0.035;
   ART.drawAdventure(rg.bg, T, OY, adv.scroll);

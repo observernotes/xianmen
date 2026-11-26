@@ -62,7 +62,7 @@ const UNLOCK_CARD = {
   pets: { n: '灵宠', ic: 'egg', one: () => `出战战力 <b>×${L.PETS ? L.PETS[1].m : 1.1}</b> 起`, way: '装备 ▸ 灵宠', go: 'pets' },
   plus: { n: '强化 · 灵矿', ic: 'ore', one: () => { const i = st.gear.w ? L.gearPlusInfo(st, 'w') : null; return i && !i.max ? `战力 ${fmt(i.a.p)} → <b>${fmt(i.b.p)}</b>` : '兵器强化加战力'; }, way: '装备 ▸ 法宝 ▸ 强化', go: 'gear' },
   cal: { n: '四季 · 年历', ic: 'time', one: () => `论道还有 <b>${L.nextTour(st)}</b> ${MO()}`, way: '时间条 ▸ 年历', go: 'cal' },
-  zhanji: { n: '战技 · 五行', ic: 'atk', one: () => `战力 <b>×${L.ZHAN_M ? L.ZHAN_M[0] : 1.1}</b> 起，定五行`, way: '装备 ▸ 功法 ▸ 战技', go: 'arts' },
+  zhanji: { n: '战技 · 五行', ic: 'atk', one: () => `箭头指向谁就<b>克</b>谁：克制 ×1.3，还能破罩`, way: '装备 ▸ 功法 ▸ 战技', go: 'arts' },
   realm: { n: '秘境', ic: 'wonder', one: () => '入夏开门，一层一宝', way: '历练 ▸ 秘境', go: 'realm' },
   bond: { n: '羁绊 · 送礼', ic: 'heart', one: () => '好感 <b>60</b> 成知己', way: '江湖 ▸ 人物', go: 'people' },
   plots: { n: '洞府地块', ic: 'cave', one: () => `空地 <b>${L.homePlotFree ? L.homePlotFree(st) : 1}</b> 块可建`, way: '洞府 ▸ 空地', go: 'home' },

@@ -316,7 +316,7 @@ L.rookieInfo = function (st) {
 };
 L.rookieDuel = function (st) {
   const I = L.rookieInfo(st); if (!I) return null;
-  const win = R() < I.p;
+  const win = L.duelWin(st, I.S, I.Q, I.foe, I.p);   // 回合战（battle.js），胜率仍是 I.p
   L.revealFoe(st, I.foe);
   const res = Object.assign({ S: I.S, Q: I.Q, p: I.p }, L.rookieResolve(st, 'crush', win));
   return res;

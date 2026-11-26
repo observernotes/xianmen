@@ -111,14 +111,14 @@ function confirmExp(k, d, a, still) {
   const yrs = f.len * L.REALMS[Math.min(st.p.r, 8)].mpt;
   const s = sheet({
     title: rg.n, center: true, still,
-    body: `${UI.isOpen('zhanji') ? elemLine(k) : ''}
+    body: `${typeof btPrepHTML === 'function' && L.TRIP_ON !== false ? btPrepHTML(k, d, a) : UI.isOpen('zhanji') ? elemLine(k) : ''}
       ${nDep > 1 ? `<div class="muted">深度</div><div class="seg" id="expDepth">${dep}</div>` : ''}
       ${nAppr > 1 ? `<div class="muted">行事</div><div class="seg" id="expAppr">${appr}</div>` : ''}${typeof compExpLine === 'function' && UI.isOpen('comp') ? compExpLine(k, d, a) : ''}
       <div class="center"><div class="muted">战力 ${fmt(f.T)} / 推荐 ${fmt(f.rec)}</div><div class="big ${f.lo >= 3 ? 'jadet' : f.lo >= 2 ? 'goldt' : 'seal'}" id="expRate" style="font-size:calc(var(--fs)*3)">${f.text}</div>
       <div class="num">灵石约 <b>${fmt(f.stones)}</b>${escortT >= 0 && expOpt.escort ? '（护送：归宗门）' : ''} · ${f.len} 月${f.risk > 0 ? ` · <span class="seal">负伤风险 ${L.pct(f.risk)}</span>` : ''}</div></div>
       ${notes.join('')}${opts.join('')}
       ${dist}`,
-    foot: [{ t: '返回', alt: true, fn: showExp }].concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
+    foot: [{ t: '返回', alt: true, fn: showExp }].concat(!blk && L.quickOk && L.quickOk(st, k, d, a) ? [{ t: '速战', alt: true, fn: () => { if (L.startExp(st, k, d, a)) { st.exp.quick = 1; SFX.coin(); closeModal(); } } }] : []).concat(f.warnInj && L.canHeal(st) ? [{ t: '服丹疗伤', alt: true, fn: () => { L.heal(st); SFX.coin(); confirmExp(k, d, a, true); } }] : []).concat([{ t: blk ? blk.why : '出发', gold: !blk, disabled: !!blk, fn: () => {
       const o = { chain: expOpt.chain && L.chainOpen(st) ? 3 : 0 };
       if (escortT >= 0 && expOpt.escort) o.escort = escortT;
       if (L.startExp(st, k, d, a, o)) { SFX.coin(); expOpt.escort = false; closeModal(); }
@@ -126,7 +126,8 @@ function confirmExp(k, d, a, still) {
   });
   s.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, +b.dataset.d, a, true); });
   s.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { SFX.tap(); confirmExp(k, d, +b.dataset.a, true); });
-  s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); confirmExp(k, d, a, true); } });
+  s.querySelectorAll('[data-swapz]').forEach(b => b.onclick = () => { if (L.equipArt(st, b.dataset.swapz)) { SFX.coin(); btSwapOpen = false; confirmExp(k, d, a, true); } });
+  s.querySelectorAll('[data-btswap]').forEach(b => b.onclick = () => { SFX.tap(); btSwapOpen = !btSwapOpen; confirmExp(k, d, a, true); });
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
   if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
 }
@@ -198,6 +199,8 @@ function tripSnapNow() {
   if (st.exp.snap) Object.assign(tripSnap, { pw: st.exp.snap.pw !== undefined ? st.exp.snap.pw : tripSnap.pw, xp: st.exp.snap.xp !== undefined ? st.exp.snap.xp : tripSnap.xp });
 }
 function showExpResult(res) {
+  // 归途翻牌（刷宝线 C2 的 showLootFlip，接口见 COMBAT_LOOT.md 末尾）：先翻牌，翻完再出这张结算卡
+  if (res.cards && res.cards.length && typeof showLootFlip === 'function' && !res._flipped) { res._flipped = 1; showLootFlip(res.cards, () => showExpResult(res)); return; }
   lastExp = res;
   const rg = L.REGIONS[res.k];
   if (res.legacy) {
@@ -211,6 +214,13 @@ function showExpResult(res) {
   const lines = [];
   // 评价
   lines.push(`<div class="krow"><span class="k">${res.recall ? '中途折返' : '评价'}</span><span class="v s">推荐 ${fmt(L.rec(res.k, res.d))}</span><div class="kstamp">${L.RATINGS[res.rating]}</div></div>`);
+  // 回合战的战况（COMBAT_LOOT §5.5 第 1 条）与“带 X 系来：预计 甲”（§4.2）
+  if (res.bt && res.bt.nf) {
+    const b = res.bt, all = b.won >= b.nf;
+    lines.push(`<div class="krow"><span class="k">战况</span><span class="v s">${all ? `${b.nf === 3 ? '三' : b.nf} 场全胜` : b.dead ? `倒在第 ${b.won + 1} 场` : `过了 ${b.won} / ${b.nf} 场`} · 剩气血 ${Math.round((b.hp || 0) * 100)}%${b.brk ? ` · 破招 ${b.brk} 次` : ''}</span></div>`);
+    const tr = res.rating < 3 && !res.recall && L.btSwapTry ? L.btSwapTry(st, res.k, res.d, res.a) : null;
+    if (tr && tr.lo > res.rating) lines.push(`<div class="krow"><span class="k">换招</span><span class="v kup">带${L.elName(tr.el)}系来：预计 ${L.RATINGS[tr.lo]}</span><button class="kb alt" data-btgo="${tr.id}">去换</button></div>`);
+  }
   // 拿到的：有就画，没有不占位（最多四格，其余一行小字）
   const loot = [];
   if (res.stones) loot.push(`${artIcon('stone', 16)} +${fmt(res.stones)}`);
@@ -270,6 +280,7 @@ function showExpResult(res) {
   const s = sheet({ title: `历练归来<span class="hn">${esc(rg.n)} · 用了 ${used} ${MO()}</span>`, body: lines.join(''), foot });
   const done = (u, msg) => { const r = s.querySelector(`[data-krow="${u}"]`); if (r) r.outerHTML = `<div class="krow"><span class="v kup">${msg}</span></div>`; updateHUD(); };
   s.querySelectorAll('[data-req]').forEach(b => b.onclick = () => { const u = +b.dataset.req, r = L.gearDecide(st, u, 'equip'); if (!r) return; SFX.coin(); done(u, `已换上【${esc(L.gearBase(r.x.id).n)}】· 战力 ${fmt(L.power(st))}`); });
+  s.querySelectorAll('[data-btgo]').forEach(b => b.onclick = () => { const id = b.dataset.btgo; if (L.equipArt(st, id)) { SFX.coin(); b.outerHTML = `<span class="chip ok">已换上《${esc(L.art(id).n)}》</span>`; } });
   s.querySelectorAll('[data-rkeep]').forEach(b => b.onclick = () => { SFX.tap(); done(+b.dataset.rkeep, '收进【装备】的“新到”'); });
 }
 // 确认页里法宝带来的分数与灵矿（法衣、锋锐、克 X；灵矿约多少）：分数已算进上面的预计评价

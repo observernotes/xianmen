@@ -61,7 +61,7 @@ const watchSec = () => (window.__xm && typeof window.__xm.watch === 'function' ?
 L.onbHold = (s, e) => {
   if (s !== st || !e || !e.sys) return false;
   if (!(window.__xm && window.__xm.watch) && !SPEEDS[speedIdx]) return false;   // 暂停着手动推时间（测试）不卡
-  return watchSec() - lastCardSec < L.TIME.unlockGapSec;
+  return watchSec() - lastCardSec < (st && !st.pact && L.TIME.unlockGapSec1 ? L.TIME.unlockGapSec1 : L.TIME.unlockGapSec);
 };
 function clockHook(type, k) { if (type === 'unlock' && st && !st.rebirth) { const e = L.ONB_K[k]; if (e && e.sys && k !== 'exp' && k !== 'bt') lastCardSec = watchSec(); } }
 // 目标卡的锦囊：三年之约前胜算不够时，“下一步”取 pactTips() 的第一条
