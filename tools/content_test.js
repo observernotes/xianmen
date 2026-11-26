@@ -8,15 +8,374 @@
 // 因果（fx.karma 记当事人、寻仇事件、了结、轮回的业、界面）、迁移补字段
 // 宗门加深（任务板四类、宝库轮换、职司五堂、人脉支持与晋升门槛、送礼、40 / 80 的恩惠、徒弟成长 / 差事 / 传授 / 出师 / 候选、性情事件、三人会武、血煞魔宗、长老事件界面、老祖讲解、迁移）
 // 界面改版 A / B 线（文件末尾那一大段）：主界面布局（Pixel 7 与 360×640）、人物页 8 分页、访客 / 闭关 / 老祖精灵 / 横幅排队 / 评价印、横屏、问老祖、气泡排队与头像“！”、章末卡、registerGuide、札记新任务、十种场景内对决、阶段四美术接线（锁碎裂 / 声音三态 / 速度档 / 掉落翻牌 / 空状态 / 首领十一种 / 九宗代表 / 魔宗演武场 / 戒指爆光）
-// node tools/content_test.js <输出目录>
-const { chromium, devices } = require('playwright');
+// node tools/content_test.js [输出目录] [ap [quick]]
+//   输出目录缺省 shots/content（shots/ 已在 .gitignore）；ap：只跑行动点制那一节（逻辑层，不开浏览器），quick：长局只跑两条路线。
+//   不带 ap 时，ap 一节先跑，然后才是浏览器那一大段；ap 的失败并进最后的 errors。
 const path = require('path');
-const out = process.argv[2];
+const ARGS = process.argv.slice(2), FLAGS = ARGS.filter(a => a === 'ap' || a === 'quick');
+const out = ARGS.find(a => a !== 'ap' && a !== 'quick') || path.join(__dirname, '..', 'shots', 'content');
 require('fs').mkdirSync(out, { recursive: true });
+// ---------- ap 一节：行动点制（docs/AP_PLAN.md §7 / §8.3 / §8.4 / §8.5；只跑逻辑层，不开浏览器） ----------
+//   node tools/content_test.js <输出目录> ap          只跑这一节（逻辑层，约 2 分钟）
+//   node tools/content_test.js <输出目录> ap quick    只跑这一节，长局只跑入宗（剑）与散修两条路线
+//   不带 ap 时它先于浏览器那部分跑，失败并进最后的 errors（行首的 [A] [B] [C] 是归属：A 逻辑内核与数值 / B 剧情与主线 / C 界面 / D 本脚本自己）
+//   单元：L.seasonEnd 之后 tick % 3 === 0；各行动扣点正确；点不够拒绝；脚力返还；负伤跨季；闭关修为 = 旧公式多出来的一截；L.migrateAp 幂等与 §7 每一行
+//   长局（hard 断言，tools/sim.js 的 guided 跑一整世，每条路线一局）：
+//     Z1 关键事件（约战、入宗、宿敌对决、章末）与它对应的剧情在同一条结算链里：触发的剧情当场出（延迟 0 条链），
+//        且每条链结束后“到点却没放”的 open / climax / end 节拍为 0（约战那一刻起 c1_climax / c1_end / c2_open 的 tick 都等于 36）；
+//     Z2 任何路线主线都能推进到结局：每一季 L.mainActs 非空且有一项可做（或写明差什么）、没有“一章停滞 N 季无可做的主线动作”、单章 ≤ 60 季、走到飞升。
+//   结算链用 L.chainOpen / L.nextBlock / L.blockDone 照 AP_PLAN §4.2 走（和界面 settle() 同一个口径）。
+async function apSection(quick) {
+  const L = require('../src/logic.js');
+  const sim = require('./sim.js');
+  const fails = [], notes = [];
+  const chk = (ok, what, who) => { console.log((ok ? '  ok   ' : '  FAIL ') + (who ? `[${who}] ` : '') + what); if (!ok) fails.push((who ? `[${who}] ` : '') + 'ap: ' + what); };
+  const say = s => console.log('  ' + s);
+  const lcg = seed => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
+  const near = (a, b, eps) => Math.abs(a - b) <= (eps === undefined ? 1e-6 : eps) * Math.max(1, Math.abs(a), Math.abs(b));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const rng0 = L.rng, onb0 = L.ONB_ON;
+  // 一个中局的存档（筑基以后、三年之约已了结，各项解锁都开）
+  const mid = () => {
+    const st = L.newState({ name: '甲' });
+    st.p.r = 3; st.p.s = 1; st.p.t = 6; st.home = { cave: 6, array: 8, field: 8, furnace: 8, room: 5 };
+    st.stones = 1e6; st.stats.exp = 20; st.pact = 1; st.tick = 120; st.flags.maxR = 3; st.flags.maxI = 12;
+    for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) st.best[k + '_' + d] = 3;
+    return st;
+  };
+  const legacy = st => { delete st.ap; return st; };   // 旧存档的样子：没有 st.ap
+  try {
+    // ====================== 单元 ======================
+    console.log('ap · 单元');
+    L.ONB_ON = false; L.rng = lcg(7);
+    // 本分支（合并推荐统一 49cf52f 之后）的一个回归：artrec.js 写的是 L.REC = { big, pEps, … }，把 expedition.js 的 L.REC = { base, k, d } 整个盖掉，
+    // 于是 L.rec 全是 NaN（推荐战力、首领、扫荡、sim 的好几行都是 NaN）。应改成 Object.assign(L.REC, …)。这里先报一条，再临时垫回去，免得后面的断言被它带歪。
+    const recBug = !(L.rec(0, 0) > 0);
+    chk(!recBug, 'L.rec(0, 0) 是有限数（artrec.js 的 L.REC = {…} 盖掉了 expedition.js 的 L.REC = { base, k, d }；应改 Object.assign）', 'X');
+    if (recBug) Object.assign(L.REC, { base: 6, k: 13.4, d: 2.37 });
+    chk(L.AP.per === 3 && L.SEASON_LEN === 3, '每季 3 点、一季 3 个月', 'A');
+    // 回合之间 tick % 3 === 0
+    for (const off of [0, 1, 2]) {
+      const st = mid(); st.tick = 120 + off; L.apState(st);
+      const S = L.seasonEnd(st);
+      chk(st.tick % 3 === 0 && st.tick === 123 && S.outs.length === 3 - off, `季末结算后 tick % 3 === 0（出发时 tick = 120 + ${off} → ${st.tick}，推了 ${S.outs.length} 个月）`, 'A');
+    }
+    { const st = mid(); const a = st.tick; for (let i = 0; i < 4; i++) L.seasonEnd(st); chk(st.tick === a + 12 && st.ap.left === 3, '连过 4 季：tick +12、行动点每季回满 3', 'A'); }
+    // 价目表（AP_PLAN §2.2）
+    { const st = mid(); const want = { exp: 2, deeper: 1, sweep: 1, boss: 1, retreat: 2, train: 2, sit: 1, realm: 2, duel: 1, join: 1, errand: 1, final: 1 };
+      const bad = Object.keys(want).filter(id => L.apCost(st, id) !== want[id]);
+      chk(!bad.length, '价目表：历练 2 / 趁势深入 1 / 扫荡 1 / 首领 1 / 闭关 2 / 特训 2 / 打坐 1 / 秘境 2 / 下战帖 1 / 拜山门 1 / 差事 1 / 最后一仗 1' + (bad.length ? '（不对：' + bad.map(id => `${id}=${L.apCost(st, id)}`).join('、') + '）' : ''), 'A'); }
+    // 各行动扣点
+    const spend = (label, fn, cost, mk) => {
+      const st = (mk || mid)(); const a0 = L.apLeft(st), q0 = L.nextBlock ? 1 : 0;
+      let r = null, err = '';
+      try { r = fn(st); } catch (e) { err = e.message; }
+      if (!r) { chk(false, `${label}：做成了才能扣点（没做成：${L.actLastWhy || err || '?'}）`, 'A'); return null; }
+      chk(a0 - L.apLeft(st) === cost && st.ap.seq === 1, `${label}：扣 ${cost} 点（${a0} → ${L.apLeft(st)}），seq +1`, 'A');
+      return { st, r };
+    };
+    spend('打坐', st => L.act(st, 'sit'), 1);
+    { const x = spend('闭关', st => L.act(st, 'retreat'), 2);
+      if (x) chk(!x.st.retreat && !x.st.exp, '闭关当场结算：没有“闭关中”的状态', 'A'); }
+    { const x = spend('历练（出发）', st => L.act(st, 'exp', [0, 0, 0]), 2);
+      if (x) { const st = x.st; L.tripAuto(st); const r = L.tripEnd(st); chk(!!r && !st.exp && L.apLeft(st) === 1 + (r.refund || 0), `历练走完结算：不再多扣（剩 ${L.apLeft(st)} 点，返还 ${r && r.refund}）`, 'A'); } }
+    { const x = spend('扫荡', st => L.act(st, 'sweep', [0, 0, 0]), 1, () => { const s = mid(); s.p.r = 6; return s; }); if (x) chk(!!x.r.sweep, '扫荡的结算对象带 sweep 标记', 'A'); }
+    spend('讨伐首领', st => L.act(st, 'boss', { k: 0 }), 1);
+    spend('老祖特训', st => L.act(st, 'train'), 2, () => { const st = L.newState({ name: '乙' }); st.tick = 30; st.pact = 0; return st; });
+    { // 秘境：夏季、有秘境令
+      let st = null; for (let t = 120; t < 132 && !st; t += 3) { const s = mid(); s.tick = t; s.mj = s.mj || {}; s.mj.token = 3; if (L.mjCan(s)) st = s; }
+      if (!st) notes.push('秘境扣点：没造出开着的秘境局面（跳过）');
+      else spend('秘境', s => L.act(s, 'realm', { xf: false }), 2, () => { const s = clone(st); L.apState(s); return s; }); }
+    // 点不够：拒绝，不扣、不做
+    { const st = mid(); for (let i = 0; i < 3; i++) L.act(st, 'sit');
+      const p0 = st.p.xp, seq = st.ap.seq, r1 = L.act(st, 'sit'), w1 = L.actLastWhy, r2 = L.act(st, 'exp', [0, 0, 0]), r3 = L.act(st, 'retreat');
+      chk(L.apLeft(st) === 0 && !r1 && !r2 && !r3 && /点不够/.test(w1) && st.p.xp === p0 && st.ap.seq === seq && !st.exp, `点花完后拒绝：打坐 / 历练 / 闭关都不做成、不扣、不出发（${w1}）`, 'A');
+      const st2 = mid(); L.act(st2, 'sit'); L.act(st2, 'sit');   // 还剩 1 点：2 点的行动拒绝，1 点的可以
+      chk(!L.act(st2, 'retreat') && L.apLeft(st2) === 1 && !!L.act(st2, 'sit'), '只剩 1 点：闭关（2 点）拒绝，打坐（1 点）照做', 'A'); }
+    // 剩余的点自动打坐：S.sat 与修为
+    { const st = mid(); L.act(st, 'sit'); const x0 = st.p.xp, g = L.sitGain(st, 2), S = L.seasonEnd(st);
+      chk(S.sat === 2 && near(S.xp.sit, g, 1e-6) && S.spent === 3, `点没用完季末自动打坐：剩 2 点 → S.sat ${S.sat}、打坐 +${Math.round(S.xp.sit)}、本季花了 ${S.spent} 点`, 'A'); }
+    // 脚力：每个来源 0.25，满 1 返还 1 点（来源数由 L.strideSrcN / strideSrc 给）
+    { const st = mid(), srcN0 = L.strideSrcN; L.strideSrcN = () => 3;
+      try {
+        L.act(st, 'exp', [0, 0, 0]); L.tripAuto(st); const r1 = L.tripEnd(st);
+        chk(near(st.ap.stride, 0.75) && r1.refund === 0 && L.apLeft(st) === 1, `脚力：3 个来源 → 一趟攒 0.75（stride ${st.ap.stride}，返还 ${r1.refund}）`, 'A');
+        L.seasonEnd(st); const st1 = st.ap.stride;
+        L.act(st, 'exp', [0, 0, 0]); L.tripAuto(st); const r2 = L.tripEnd(st);
+        chk(r2.refund === 1 && L.apLeft(st) === 2 && near(st.ap.stride, 0.5) && near(st1, 0.75), `脚力攒满 1：返还 1 点（${3} − 2 + 1 = ${L.apLeft(st)} 点）、余 ${st.ap.stride}，季末不清空`, 'A');
+      } finally { if (srcN0 === undefined) delete L.strideSrcN; else L.strideSrcN = srcN0; } }
+    chk(L.AP.stride === 0.25 && L.AP.strideCap === 0.75, '脚力常量：每个来源 0.25，合计上限 0.75', 'A');
+    // 负伤跨季：带伤到下季末
+    { const st = mid(); st.p.inj = 4; L.seasonEnd(st); const a = st.p.inj; L.seasonEnd(st);
+      chk(a > 0 && st.p.inj === 0, `负伤 4 月：本季末还剩 ${a}（带伤过季）、下季末痊愈（${st.p.inj}）`, 'A');
+      const st2 = mid(); st2.p.inj = 7; L.seasonEnd(st2); L.seasonEnd(st2); const b = st2.p.inj; L.seasonEnd(st2);
+      chk(b > 0 && st2.p.inj === 0, `负伤 7 月（首领战败）：两季后还剩 ${b}、第三季末痊愈`, 'A'); }
+    // 闭关修为 = 旧公式（4 个月 × gainCalm × m）里“多出来的一截”：gainCalm × 4 × (retMult − 1)，顿悟另算（res.epi）
+    { const st = mid(), info = L.retInfo(st), x0 = st.p.xp, formula = L.gainCalm(st) * 4 * (L.retMult(st) - 1);
+      const r = L.act(st, 'retreat'), d = st.p.xp - x0, epi = (r && r.epi) || 0;
+      chk(!!r && near(info.gotNow, formula, 1e-9) && near(d, formula + epi, 1e-6) && L.AP.retTicks === 4, `闭关当场修为 = gainCalm × 4 × (retMult − 1) = ${Math.round(formula)}（实得 ${Math.round(d)}，其中顿悟 ${Math.round(epi)}）`, 'A'); }
+    // 打坐 1 月
+    { const st = mid(), x0 = st.p.xp, g = L.gainCalm(st) * L.sitMult(st), r = L.act(st, 'sit');
+      chk(!!r && near(st.p.xp - x0, g, 1e-6) && near(L.sitGain(st, 1), g, 1e-6), `打坐 +1 月修为（gainCalm × sitMult = ${Math.round(g)}）`, 'A'); }
+
+    // ====================== 旧档迁移（AP_PLAN §7，每一行） ======================
+    console.log('ap · L.migrateAp（§7）');
+    const mig = st => L.migrateAp(st);
+    { // 默认值 + 幂等
+      const st = legacy(mid()); mig(st);
+      chk(st.ap && st.ap.left === 3 && st.ap.stride === 0 && st.ap.debt === 0 && st.ap.seq === 0 && Array.isArray(st.ap.pend) && typeof st.ap.log === 'object', '行动点：st.ap = { left: 3, stride: 0, debt: 0, seq: 0, pend: [], log: {} }', 'A');
+      const a = JSON.stringify(st), b = JSON.stringify(mig(clone(st))), c = JSON.stringify(mig(mig(clone(st))));
+      chk(a === b && a === c, '迁了再迁：结果相同（幂等）', 'A');
+      const st2 = legacy(mid()); st2.exp = null; const j1 = JSON.stringify(mig(st2)); const j2 = JSON.stringify(mig(JSON.parse(j1)));
+      chk(j1 === j2, '过一遍存档 JSON 往返再迁：结果相同', 'A'); }
+    { // 历练在外：当场结掉，结算卡排在第一条链的第一张，标“旧档”
+      const st = legacy(mid()); st.expSum = { n: 2 }; L.startExp(st, 0, 0, 0); L.tripStep(st); st.exp.chain = 2;
+      const n0 = st.stats.exp; mig(st);
+      const blk = L.nextBlock ? L.nextBlock(st) : null;
+      chk(!st.exp && !st.expSum && st.stats.exp === n0 + 1, '在外历练：当场结掉（st.exp / expSum 清空，历练次数 +1）', 'A');
+      chk(!!blk && blk.kind === 'result' && blk.old === true && !!blk.data, `在外历练：第一条链的第一张是它的结算卡（kind ${blk && blk.kind}，old ${blk && blk.old}）`, 'A');
+      chk(st.tick % 3 === 0 && st.ap.left === 3 && st.ap.migrated === 1, '在外历练：tick 在季界、行动点 3、记 migrated', 'A'); }
+    { // 闭关中：已得的留着，再补剩下的；按坐满算
+      const st = legacy(mid()); L.startRetreat(st); const r = st.retreat; r.left = 2; r.got = 100;
+      const x0 = st.p.xp, half = L.retGotNow(st, r.m) * 0.5; mig(st);
+      const d = st.p.xp - x0;
+      chk(!st.retreat && d >= half * 0.99 && d <= half + 3 * L.gainCalm(st) + 1, `闭关中：当场出关，按坐满算补 left × gain × (m − 1)（补 ${Math.round(d)}，约 ${Math.round(half)} + 顿悟）`, 'A'); }
+    { // 老祖特训 / 指点 / 讲法 / 传授 / 事件占住
+      const st = legacy(L.newState({ name: '乙' })); st.tick = 30; st.pact = 0; L.startTrain(st); const x0 = st.p.xp;
+      mig(st); chk(!st.retreat && st.p.xp > x0 && st.flags.trained, `老祖特训：当场完成，奖励照给（修为 +${Math.round(st.p.xp - x0)}）`, 'A');
+      const b = legacy(mid()); b.retreat = { left: 2, total: 2, m: 1, kind: 'busy', got: 0 }; mig(b);
+      chk(!b.retreat, '事件占住（busy）：当场结掉', 'A');
+      const t = legacy(mid()); t.retreat = { left: 2, total: 2, m: 1, kind: 'teach', got: 0, u: 0 }; let err = ''; try { mig(t); } catch (e) { err = e.message; }
+      chk(!t.retreat && !err, '指点师弟 / 讲法 / 传授（teach）：当场完成' + (err ? '：' + err : ''), 'A'); }
+    { // 秘境里：不动
+      let s = null; for (let t = 120; t < 132 && !s; t += 3) { const x = legacy(mid()); x.tick = t; x.mj = x.mj || {}; x.mj.token = 3; if (L.mjCan(x) && L.mjEnter(x)) s = x; }
+      if (!s || !s.run) notes.push('迁移·秘境里：没造出秘境局面（跳过）');
+      else { const run0 = JSON.stringify(s.run); mig(s); chk(s.run && JSON.stringify(s.run) === run0, '秘境里：st.run 不动，读档后接着闯', 'A'); } }
+    for (const off of [1, 2]) { // tick % 3 = 1 / 2：静默推到季界，得修为灵石
+      const st = legacy(mid()); st.tick = 120 + off; const x0 = st.p.xp, s0 = st.stones; mig(st);
+      chk(st.tick === 123 && st.p.xp > x0 && st.stones >= s0, `tick % 3 = ${off}：静默推到季界（${120 + off} → ${st.tick}，修为 +${Math.round(st.p.xp - x0)}）`, 'A'); }
+    { // 推的这一两个月里到期的大事记进 st.ap.pend，由第一条链当场出
+      const st = legacy(mid()); st.tick = 34; st.pact = 0; mig(st);
+      chk(st.tick === 36 && st.ap.pend.some(x => x && x.k === 'pact'), `补月时到期的约战记进 st.ap.pend（${JSON.stringify(st.ap.pend.map(x => x.k))}）`, 'A');
+      const seq = []; for (let g = 0, x; g < 30 && L.nextBlock && (x = L.nextBlock(st)); g++) { seq.push(x.kind + ':' + x.id); if (x.kind === 'story' && st.storyQ[0] === x.id) st.storyQ.shift(); L.blockDone(st, x); }
+      chk(seq.includes('big:pact'), `第一条链会出约战（链：${seq.join(' → ')}）`, 'A'); }
+    { // 吐纳环折成修为
+      const st = legacy(mid()); st.tuna = 13; const x0 = st.p.xp, g = L.gainCalm(st); mig(st);
+      chk(near(st.p.xp - x0, 2 * g, 1e-6) && !('tuna' in st), `吐纳环：floor(13 / 6) = 2 月修为直接给（+${Math.round(st.p.xp - x0)}），字段删除`, 'A');
+      const s2 = legacy(mid()); s2.tuna = 5; const y0 = s2.p.xp; mig(s2); chk(s2.p.xp === y0 && !('tuna' in s2), '吐纳环不满 6：不给修为，字段删除', 'A'); }
+    { // 留着不读的、不动的
+      const st = legacy(mid()); st.clk = { last: 5, idle: 3, awayAt: 7, prepSeen: 1, lifeRed: 1 }; st.inbox = [{ id: 'x', away: true, t: '访客' }, { id: 'y', t: '纸鹤' }];
+      st.flags.war = 41; st.flags.inviteAt = 77; st.story = { beat: { c1_open: 3, c2_mid1: -1 }, last: 30, chAt: { 0: 0 }, retry: { s1_pact_lost: 50 } }; st.storyQ = ['s9_x'];
+      st.path = { ch: 2, hold: 3 }; st.p.inj = 2; st.onb = { at: { exp: 1, tuna: 5, chainExp: 9 } }; st.speedIdx = 2;
+      const keep = { clk: JSON.stringify(st.clk), beat: JSON.stringify(st.story.beat), last: st.story.last, q: JSON.stringify(st.storyQ), path: JSON.stringify(st.path), onb: JSON.stringify(st.onb), inj: st.p.inj, inv: st.flags.inviteAt };
+      mig(st);
+      chk(JSON.stringify(st.clk) === keep.clk, 'st.clk 留着不动', 'A');
+      chk(JSON.stringify(st.story.beat) === keep.beat && st.story.last === keep.last && JSON.stringify(st.storyQ) === keep.q && JSON.stringify(st.path) === keep.path, 'story.beat / story.last / storyQ / path.hold 不动', 'A');
+      chk(JSON.stringify(st.onb) === keep.onb && st.p.inj === keep.inj && st.flags.inviteAt === keep.inv, 'st.onb（含 tuna、chainExp 项）/ 负伤 / flags.inviteAt 不动', 'A');
+      chk(st.inbox[0].away === false && st.inbox[1].id === 'y' && st.inbox.length === 2, 'st.inbox 留着，away 标记清掉', 'A');
+      chk(st.flags.war === 42, `来犯的日子向上取到 3 的倍数（41 → ${st.flags.war}）`, 'A');
+      chk(st.story.retry.s1_pact_lost === 51, `story.retry 到期月份向上取到 3 的倍数（50 → ${st.story.retry.s1_pact_lost}）`, 'A'); }
+
+    // ====================== 迁移后第一条结算链（H10）与几个新接口 ======================
+    console.log('ap · 接口是否齐全');
+    const need = ['mainActs', 'challenge', 'challengeWhy', 'knock', 'knockWhy', 'finalFight', 'finalWhy', 'challengeTargets', 'strideSrcN'];
+    for (const k of need) chk(typeof L[k] === 'function', `L.${k} 已提供`, k === 'strideSrcN' ? 'A' : 'B');
+    chk(typeof L.nextBlock === 'function' && typeof L.blockDone === 'function' && typeof L.chainOpen === 'function', 'L.nextBlock / blockDone / chainOpen 已提供', 'A');
+    chk(!!L.STORY_BEATS && typeof L.storyBeat === 'function', 'L.STORY_BEATS / L.storyBeat 在（断言 Z1 用来判“到点的节拍”）', 'B');
+
+    // ====================== 长局：Z1 关键剧情零延迟 + Z2 主线可推进（hard） ======================
+    L.ONB_ON = onb0 === undefined ? true : onb0;
+    const ROUTES = quick ? [{ id: '入宗·剑', sect: 'jian' }, { id: '散修', lone: true }]
+      : [{ id: '入宗·剑', sect: 'jian' }, { id: '入宗·丹', sect: 'dan' }, { id: '入宗·道', sect: 'dao' }, { id: '散修（一律不理三宗）', lone: true }, { id: '拒邀后再入（第 3 章拜山门）', lone: true, late: 108 }];
+    // 当前章“主线行动”的一张表：AP 版的 L.mainActs（线 B）有就用它；还没有时，按 mainline.js（主线保底，已在 redesign 上）的 L.mainPending 推一张同形状的 [{ id, ok, why }]，
+    // 这样“每季都有主线动作”的断言现在就能跑（AP 版接口落地后自动改读 L.mainActs）
+    const mainActsOf = st => {
+      if (typeof L.mainActs === 'function') return L.mainActs(st) || [];
+      if (typeof L.mainPending !== 'function') return null;
+      const out = [];
+      for (const x of L.mainPending(st)) {
+        if (x.k === 'rival' && L.challengeInfo) { const I = L.challengeInfo(st, x.id); out.push({ id: 'duel:' + x.id, ok: !!I && !I.why, why: I ? I.why : '他不在榜上' }); }
+        else if (x.k === 'srank') out.push(!st.sect ? { id: 'join', ok: !(L.sectApplyWhy && L.sectApplyWhy(st, 'jian')), why: L.sectApplyWhy ? L.sectApplyWhy(st, 'jian') : '' } : { id: 'promote', ok: !!L.canPromote(st), why: L.canPromote(st) ? '' : ((L.promoteNeeds(st).find(y => !y.ok) || {}).t || '贡献 / 人脉还差') });
+        else if (x.k === 'boss') out.push({ id: 'boss', ok: L.REGIONS.some((r, k) => L.bossReady(st, k)), why: '首领没现身：历练里评价打到乙以上' });
+        else if (x.k === 'asc') out.push({ id: 'trib', ok: !!L.isReady(st), why: '修为还不够圆满：闭关 / 打坐 / 历练' });
+        else out.push({ id: x.k, ok: false, why: x.k === 'rank' ? '天骄榜：论道（固定日子）一路往上' : x.k === 'meet' ? '九宗会武（固定日子）' : x.k === 'war' ? '天剑来犯（固定日子）' : '剧情里的抉择 / 标志位：节拍到点就放' });
+      }
+      return out;
+    };
+    const H1KEY = trg => /^(beat:|boss:|trib:|demon:|srank:|war_eve:)/.test(trg) || trg === 'sect' || trg === 'rank:12' || /^sb:c\d_(open|climax|end)$/.test(trg);
+    const MIDKEY = trg => /^sb:c\d_mid\d$/.test(trg) || trg === 'sb:mid';
+    const mainDone = (st, i) => !!(st.quest && st.quest.done && st.quest.done['c' + i + '_m']);
+    console.log('ap · 长局（每条路线 guided 一整世；Z1 零延迟 / Z2 主线可推进）');
+    const rowsOut = [];
+    const playOne = (route, seed) => {
+      const W = { chainNo: 0, seen: {}, recs: [], res: {}, due: {}, dueN: {}, pact: null, ch: [], chainSeq: [], stall: 0, stallMax: 0, stallAt: '', chLen: {}, lastCh: 0, chStart: 0, noMain: 0, sects: [], err: '', joinAt: null, deaths: 0, miss: {} };
+      L.rng = lcg(seed * 7919 + 13);
+      const mk = () => { const st = L.newState({ name: '测试' }); if (route.lone) st.flags.inviteAt = 1e9; return st; };
+      let st0 = mk(); const sectPick = route.sect || 'jian';
+      // ---- 包 L 的几个入口（跑完还原）----
+      const saved = {};
+      const wrap = (name, f) => { const f0 = L[name]; if (typeof f0 !== 'function') return; saved[name] = f0; L[name] = function () { const r = f0.apply(this, arguments); try { f.call(this, r, arguments); } catch (e) { W.err = W.err || `${name} 的统计出错：${e.message}`; } return r; }; };
+      const trgOf = id => { const ev = L.eventById && L.eventById(id); return ev ? ev.trigger || '' : ''; };
+      const scan = (st, key) => {   // 队列里新出现的剧情：记下是哪条链、哪一季、哪个触发键
+        if (!st || !st.storyQ) return;
+        for (const id of st.storyQ) if (!W.seen[id]) { W.seen[id] = { id, trg: trgOf(id), key: key || '', tick: st.tick, season: L.seasonNo(st), chain: W.chainNo, seq: st.ap ? st.ap.seq : 0 }; }
+      };
+      let curSt = st0;
+      wrap('fireTrigger', (r, a) => scan(a[0], a[1]));
+      wrap('tick', (r, a) => scan(a[0]));
+      wrap('storyTick', (r, a) => scan(a[0]));
+      wrap('joinSect', (r, a) => { if (r) { W.sects.push({ tick: a[0].tick, id: a[1], chain: W.chainNo }); } scan(a[0], 'sect'); });
+      wrap('resolveChoice', (r, a) => { const ev = a[1]; if (ev && W.seen[ev.id]) { const s = W.seen[ev.id]; W.res[ev.id + '@' + s.tick] = { id: ev.id, trg: s.trg, pushTick: s.tick, pushSeason: s.season, pushChain: s.chain, tick: a[0].tick, season: L.seasonNo(a[0]), chain: W.chainNo }; delete W.seen[ev.id]; } });
+      // 结算链：和界面 settle() 同口径（AP_PLAN §4.2）。大事（约战、论道……）由 sim 自己的 out 处理打，这里只出卡、放戏
+      const pickStory = (st, ev) => {
+        if (ev.id === 's2_invite') {
+          if (route.lone) { st.evDone.s2_invite = 1; return; }
+          const i = ev.choices.findIndex(c => c.ok && c.ok.fx && c.ok.fx.join === sectPick && L.choiceShown(st, c));
+          if (i >= 0) { L.resolveChoice(st, ev, i); return; }
+        }
+        const ok = (ev.choices || []).map((c, i) => i).filter(i => L.costOk(st, ev.choices[i].cost) && L.choiceShown(st, ev.choices[i]));
+        if (ok.length) L.resolveChoice(st, ev, ok[Math.floor(L.rng() * ok.length)]);
+        else st.evDone[ev.id] = 1;
+      };
+      const unfired = st => {   // 到点却没放的 open / climax / end（Z1 的状态断言）
+        if (!L.STORY_BEATS || !st.story) return [];
+        const s = st.story, now = L.chapterNow(st), o = [];
+        for (const b of L.STORY_BEATS) {
+          if (!/^(open|climax|end)$/.test(b.slot) || b.ch > now || (s.beat || {})[b.id] !== undefined || (b.slot === 'open' && b.ch === 0)) continue;
+          let due = false; try { due = !!b.when(st, { ch: b.ch, pr: 1, inCh: st.tick - ((s.chAt || {})[b.ch] || 0) }); } catch (e) { due = false; }
+          if (due) o.push(b.id);
+        }
+        return o;
+      };
+      const chain = (st, why) => {
+        if (typeof L.nextBlock !== 'function') return;
+        scan(st);
+        if (L.chainOpen) L.chainOpen(st, why);
+        const seq = [];
+        let g = 0;
+        for (; g < 80; g++) {
+          const x = L.nextBlock(st); if (!x) break;
+          seq.push(x.kind + (x.id ? ':' + x.id : ''));
+          if (x.kind === 'story') { const ev = x.data || (L.eventById && L.eventById(x.id)); if (ev) pickStory(st, ev); }
+          L.blockDone(st, x);
+          if (x.kind === 'story') { const i = st.storyQ.indexOf(x.id); if (i >= 0) st.storyQ.splice(i, 1); }
+        }
+        if (g >= 80) W.err = W.err || `第 ${st.tick} 月：结算链 80 张还没走完（${seq.slice(-4).join(' → ')}）`;
+        const left = unfired(st);
+        for (const id of left) { W.dueN[id] = (W.dueN[id] || 0) + 1; if (W.due[id] === undefined) W.due[id] = { tick: st.tick, season: L.seasonNo(st), why }; }
+        W.chainSeq.push({ tick: st.tick, why, seq });
+        W.chainNo++;
+      };
+      wrap('act', (r, a) => { if (r && a[1] !== 'exp' && a[1] !== 'deeper') chain(a[0], 'act:' + a[1]); else scan(a[0]); });
+      wrap('tripEnd', (r, a) => { if (r) chain(a[0], 'trip'); });
+      wrap('fightBoss', (r, a) => { if (a[0].p.inj < 7 && r && r.win === false) W.miss.bossInj = (W.miss.bossInj || 0) + 1; });
+      // 约战前后的几个节拍：当场的 tick
+      const onTick = (st, out, S) => {
+        curSt = st;
+        if (S && out === S.outs[S.outs.length - 1]) {
+          // 一季收尾：按界面的口径出一条季末链
+          chain(st, 'season');
+          if (S.spent < L.AP.per - (W.prevDebt || 0)) W.miss.spent = (W.miss.spent || 0) + 1;   // 上一季事件占的点（debt）这一季才扣
+          W.prevDebt = S.debt || 0;
+        }
+        if (out.pact) {
+          if (!(S && out === S.outs[S.outs.length - 1])) chain(st, 'pact');
+          const b = st.story && st.story.beat || {};
+          W.pact = { tick: st.tick, win: st.pact > 0, climax: b.c1_climax, end: b.c1_end, open2: b.c2_open, ch: L.chapterNow(st) };
+        }
+        // Z2：每季看一眼主线行动、章的停留
+        if (S && out === S.outs[S.outs.length - 1]) {
+          const ch = L.chapterNow(st), sn = L.seasonNo(st);
+          if (ch !== W.lastCh) { W.chLen[W.lastCh] = sn - W.chStart; W.ch.push({ from: W.lastCh, to: ch, tick: st.tick }); W.lastCh = ch; W.chStart = sn; W.stall = 0; }
+          if (typeof L.mainActs === 'function' || typeof L.mainPending === 'function') {
+            let acts = []; try { acts = mainActsOf(st) || []; } catch (e) { W.err = W.err || '主线行动表抛错：' + e.message; }
+            const live = acts.length && (acts.some(a => a.ok) || acts.some(a => a.why));
+            if (!live) { W.stall++; if (W.stall > W.stallMax) { W.stallMax = W.stall; W.stallAt = `第 ${ch + 1} 章 · 第 ${st.tick} 月`; } } else W.stall = 0;
+            if (!acts.some(a => a.ok)) W.noMain++;
+          }
+        }
+        if (route.late && !st.sect && st.tick >= route.late && !W.joinAt) {
+          const id = ['jian', 'dan', 'dao'].find(i => !L.act || !L.apWhy(st, 'join', { id: i }));
+          if (id && L.act(st, 'join', { id })) W.joinAt = st.tick;
+        }
+        if (out.death) W.deaths++;
+      };
+      let rec;
+      try { rec = sim.run('guided', seed, false, { st0, keep: true, onTick, sect: sectPick, maxT: 1300 }); } catch (e) { W.err = W.err || '跑崩了：' + e.message; }
+      { const se = (rec && rec.st) || curSt; if (se && se.p && se.p.r >= 9) { try { chain(se, 'final'); } catch (e) { W.err = W.err || '收尾那条链出错：' + e.message; } } }   // 飞升那一下之后 sim 就停了，界面还会把天门前的戏放完：这里补一条链
+      for (const k in saved) L[k] = saved[k];
+      const st = (rec && rec.st) || curSt;
+      W.chLen[W.lastCh] = L.seasonNo(st) - W.chStart;
+      return { W, st, rec };
+    };
+    for (const [ri, route] of ROUTES.entries()) {
+      const lossRuns = [];
+      let r1;
+      for (let k = 0; k < 4; k++) {   // 约战赢的局才能验“章末 / 第二章开章同在第 36 月”：输了换个种子再来（输的那几局只验高潮戏）
+        r1 = playOne(route, 500 + ri * 10 + k);
+        if (!r1.W.pact || r1.W.pact.win) break;
+        lossRuns.push(r1.W.pact);
+      }
+      const { W, st, rec } = r1;
+      // ---- 断言 ----
+      const who = route.id;
+      for (const p of lossRuns) chk(p.tick === 36 && p.climax === 36, `${who}：（约战输的那一局）输了的戏 c1_climax 在第 36 月当场放（${p.climax}）`, 'B');
+      const asc = L.STORY_ASC ? L.STORY_ASC.some(f => (st.eflags || {})[f]) : L.chapterNow(st) >= 8;   // 天门前作出了选择 = 主线的结局
+      const reached = st.p.r >= 9 && L.chapterNow(st) >= 8 && asc;   // 境界与章已脱钩：境界到了不算，要主线也走到第 9 章并作出天门前的抉择
+      say(`${who}：境界 ${st.p.r} · 第 ${L.chapterNow(st) + 1} 章 · ${L.seasonNo(st)} 季 · 章 ${W.ch.map(c => `${c.to + 1}@${c.tick}`).join(' ')}${W.joinAt ? ` · 拜山门 ${W.joinAt}` : ''}${W.err ? ' · ' + W.err : ''}`);
+      chk(!W.err, `${who}：全程无报错 / 链不卡死` + (W.err ? '：' + W.err : ''), 'D');
+      // Z1-a 出现过的剧情：关键类当场放完（出现与结算在同一条链），中段 ≤ 1 季
+      const all = Object.values(W.res), keyRes = all.filter(r => H1KEY(r.trg)), midRes = all.filter(r => MIDKEY(r.trg));
+      const late = keyRes.filter(r => r.chain !== r.pushChain);
+      chk(keyRes.length > 0 && !late.length, `${who}：关键剧情（${keyRes.length} 场：节拍 open / climax / end、beat:* 对决、boss:*、sect 入宗、srank、rank:12、trib、war_eve）出现与放完在同一条链里` + (late.length ? '；拖了：' + late.slice(0, 4).map(r => `${r.id}（${r.trg}，第 ${r.pushTick} 月出现、第 ${r.tick} 月放完）`).join('、') : ''), 'B');
+      const lateMid = midRes.filter(r => r.season - r.pushSeason > 1);
+      chk(!lateMid.length, `${who}：中段戏（${midRes.length} 场）出现到放完 ≤ 1 季` + (lateMid.length ? '；拖了：' + lateMid.slice(0, 3).map(r => `${r.id}（${r.pushSeason}→${r.season} 季）`).join('、') : ''), 'B');
+      const left = Object.values(W.seen).filter(x => H1KEY(x.trg));
+      chk(!left.length, `${who}：收尾时队列里没有压着的关键剧情` + (left.length ? '：' + left.map(x => x.id).join('、') : ''), 'B');
+      // Z1-b 到点的节拍当场放：每条链结束后 0 个“到点未放”
+      const dueIds = Object.keys(W.due);
+      const dueTxt = dueIds.map(id => `${id}（第 ${W.due[id].tick} 月起到点，之后 ${W.dueN[id]} 条链都没放；${W.due[id].why}）`);
+      chk(!!L.STORY_BEATS ? !dueIds.length : false, `${who}：每条结算链结束时没有“到点却没放”的开章 / 高潮 / 章末节拍` + (!L.STORY_BEATS ? '（没有 L.STORY_BEATS，判不了）' : dueTxt.length ? '：' + dueTxt.slice(0, 5).join('；') : ''), 'B');
+      // 约战：第 36 月，约战结果 → c1_climax → c1_end → 章末 → 第二章开章，tick 全是 36
+      if (W.pact) {
+        const p = W.pact;
+        chk(p.tick === 36 && p.climax === 36, `${who}：约战（第 ${p.tick} 月，${p.win ? '赢' : '输'}）→ 高潮戏 c1_climax 在同一月放（${p.climax}）`, 'B');
+        if (p.win) chk(p.end === 36 && p.open2 === 36 && p.ch === 1, `${who}：约战赢 → 章末 c1_end（${p.end}）、第二章开章 c2_open（${p.open2}）都在第 36 月，当前章 ${p.ch + 1}`, 'B');
+      } else chk(false, `${who}：没打到约战`, 'D');
+      // 入宗当场的戏
+      if (W.sects.length) { const j = W.sects[0]; const sc = all.filter(r => r.trg === 'sect' && r.pushTick === j.tick); say(`${who}：入宗 第 ${j.tick} 月 → 入宗戏 ${sc.length} 场，${sc.every(r => r.chain === r.pushChain) ? '同链放完' : '拖了'}`); }
+      else if (!route.lone) chk(false, `${who}：没入宗`, 'D');
+      if (route.lone && !route.late) chk(!st.sect, `${who}：这条路线确实没入宗（散修）`, 'D');
+      // st.story.lag（线 B 打点，H1 `shown − due === 0`）
+      if (st.story && st.story.lag) { const bad = Object.entries(st.story.lag).filter(([id, v]) => H1KEY(trgOf(id)) && v && v.shown - v.due !== 0); chk(!bad.length, `${who}：st.story.lag（H1）关键剧情 shown − due = 0` + (bad.length ? '：' + bad.slice(0, 4).map(([id, v]) => `${id} ${v.shown - v.due}`).join('、') : ''), 'B'); }
+      else notes.push(`${who}：st.story.lag 还没有（线 B 的打点），H1 只按“同链”判`);
+      // Z2 主线可推进
+      if (typeof L.mainActs === 'function' || typeof L.mainPending === 'function') {
+        chk(W.stallMax === 0, `${who}：每一季主线行动表（${typeof L.mainActs === 'function' ? 'L.mainActs' : '按 L.mainPending 推的'}）非空且有一项可做（或写明差什么）——没有“一章停滞无可做的主线动作”` + (W.stallMax ? `（最长连续 ${W.stallMax} 季没有，${W.stallAt}）` : ''), 'B');
+        if (typeof L.mainActs !== 'function') notes.push(`${who}：L.mainActs（AP 版）还没有，主线行动表是按 mainline.js 的 L.mainPending 推的`);
+      } else chk(false, `${who}：没有 L.mainActs / L.mainPending，判不了“每季都有主线动作”`, 'B');
+      const worst = Math.max(0, ...Object.entries(W.chLen).filter(([c]) => +c < L.chapterNow(st)).map(([, v]) => v));
+      chk(worst <= 60, `${who}：单章最长 ${worst} 季（H8 ≤ 60）`, 'B');
+      chk(reached, `${who}：主线走到结局——第 9 章 + 渡劫飞升 + 天门前的抉择（境界 ${st.p.r}，第 ${L.chapterNow(st) + 1} 章，天门抉择 ${asc ? '有' : '没有'}${W.deaths ? '，坐化' : ''}，${L.seasonNo(st)} 季）`, 'B');
+      if (W.miss.spent) chk(false, `${who}：${W.miss.spent} 季“花掉的点（含自动打坐）+ 事件占的点 < 3”（点漏掉了）`, 'A');
+      if (W.miss.bossInj) chk(false, `${who}：首领战败负伤不到 7 月（${W.miss.bossInj} 次）`, 'A');
+      rowsOut.push({ who, asc: st.p.r >= 9, seasons: L.seasonNo(st), pact: W.pact, due: dueIds.length, late: late.length });
+    }
+  } catch (e) {
+    fails.push('[D] ap: 这一节崩了：' + e.message + '\n' + (e.stack || '').split('\n').slice(1, 4).join('\n'));
+    console.log('  FAIL 崩了：' + e.stack);
+  } finally { L.rng = rng0; L.ONB_ON = onb0; }
+  for (const n of notes) console.log('  （注）' + n);
+  console.log(fails.length ? `ap：${fails.length} 项未通过` : 'ap：全部通过');
+  return fails;
+}
 (async () => {
+  const apFails = await apSection(FLAGS.includes('quick'));
+  if (FLAGS.includes('ap')) { if (apFails.length) { console.log(apFails.join('\n')); process.exitCode = 1; } return; }
+  const { chromium, devices } = require('playwright');
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ ...devices['iPhone 13'] })).newPage();
-  const errors = [];
+  const errors = apFails.slice();
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   const expect = (ok, what) => { if (!ok) errors.push('check: ' + what); };
@@ -1498,7 +1857,7 @@ require('fs').mkdirSync(out, { recursive: true });
       await page.waitForTimeout(300);
       if (await page.evaluate(() => window.__xm.guideDbg.active) === id) return true;
       await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok && window.__xm.guideDbg.active !== id) ok.click(); }, id);
-      await page.evaluate(() => { window.__xm.onTick(); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
+      await page.evaluate(() => { window.__xm.st.storyQ = []; window.__xm.onTick(); window.__xm.st.storyQ = []; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });   // 排着剧情时洞府提示不讲：这里不让剧情排队
     }
     return false;
   };
@@ -1514,7 +1873,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await hLoad({ r: 1, s: 2, i: 7, cave: 2, build: ['field'], unseen: ['zhen'] });
   await page.waitForTimeout(600);
   expect(await hq(() => !window.__xm.guideDbg.cand.includes('zhen') && window.__xm.L.zhenOpen(window.__xm.st) && window.__xm.L.zhenOwnList(window.__xm.st).length === 1), '只有聚灵阵（1 张）：不讲阵法');
-  await page.evaluate(() => { window.__xm.st.gear.zhentu.f_shengcai = 1; window.__xm.st.gear.zhentu.f_dujie = 1; });
+  await page.evaluate(() => { window.__xm.st.gear.zhentu.f_shengcai = 1; window.__xm.st.gear.zhentu.f_dujie = 1; window.__xm.st.storyQ = []; });   // 排着剧情时洞府提示不讲（homeCalm）
   const got2 = await hint('zhen'); await shot('h09-hint-zhen');
   const ht2 = await hq(() => (document.querySelector('#guide .gtext') || {}).textContent || '');
   const dbg2 = await hq(() => JSON.stringify(Object.assign({ tick: window.__xm.st.tick, calm: !document.querySelector('#modal:not([hidden])'), q: window.__xm.st.storyQ.length }, window.__xm.guideDbg)));
@@ -2641,7 +3000,8 @@ require('fs').mkdirSync(out, { recursive: true });
       // 葛老：灵草 ×2；采药带回稀有药引（雷 / 木 / 魂）
       const hb = (c) => { const t = mk({ ge: 85, su: 85 }, x => { x.meta.recipe = {}; }); if (c) L.setComp(t, c); L.startExp(t, 0, 0, 2); t.exp.plan.u = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; const h0 = t.herbs; const y0 = ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0); const r = L.resolveExp(t); return { r, gain: t.herbs - h0, yin: ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0) - y0 }; };
       const h0 = hb(null), h1 = hb('ge');
-      o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain === h0.gain * 2 && h1.r.compHerbs === h0.r.herbs;
+      o.geDbg = JSON.stringify([h0.r.herbs, h1.r.herbs, h0.gain, h1.gain, h1.r.compHerbs, h0.r.rating, h1.r.rating, h0.r.cutF, L.TRIP_ON]);
+      o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain >= h1.r.herbs &&   /* 2.3.0 刷宝：灵草之外的随机零头不比 */ h1.r.compHerbs === h0.r.herbs;
       o.geYin = h0.yin === 0 && h1.yin === 1 && ['thunder', 'wood', 'soul'].includes(h1.r.compYin);
       // 白小九：遭遇必出（plan.enc = 0），把握 +0.1
       const tb = mk({ bai: 85 }); const cl0 = L.choiceLuck(tb); L.setComp(tb, 'bai'); L.startExp(tb, 0, 0, 0);
@@ -2919,7 +3279,7 @@ require('fs').mkdirSync(out, { recursive: true });
           const list = L.advise(X.st, 'goal').acts; return list.map(x => ({ t: x.n + ' ' + x.gain.text, btn: x.btn, go: typeof x.go }));
         }, ['(' + set.toString() + ')(s, L)']);
         expect(info.length >= 1 && info.length <= 3 && info.every(x => /\d/.test(x.t) && x.go === 'string' && x.btn), `变强页（${name}）：每张牌带数字和一个按钮：${JSON.stringify(info.map(x => x.t.slice(0, 24)))}`);
-        await pg.evaluate(() => window.__xm.showGrowth('goal')); await pg.waitForTimeout(350);
+        await pg.evaluate(() => window.__xm.showGrowth('goal')); await pg.waitForTimeout(800);   // 纸卷展开动画里高度会被压扁，等它完
         const ui = await pg.evaluate(() => {
           const bs = [...document.querySelectorAll('#modal [data-adv]')], small = bs.filter(b => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length;
           const body = document.querySelector('#modal .sheet .body');
