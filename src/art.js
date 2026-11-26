@@ -4919,5 +4919,87 @@ ART.bossFighter = function (k, frame, flip) {
   });
 }
 
+// ====================================================================
+// 阶段六·开罗式信息架构（接口见 docs/ART_API.md “阶段六·开罗式信息架构”，方案见 docs/KAIRO_PLAN.md）
+// ====================================================================
+{
+  // ---------- 一、底栏新入口 24×24：nav_gear 装备 / nav_world 江湖 / nav_path 仙途 ----------
+  const ROBE6 = tone('#5b6fd6', '#34408a', '#9fb0ff');
+  const NAV6 = {
+    nav_gear: b => { // 装备：一件法衣，旁边立一口剑
+      b.add(L => { L.sy(3, '3789', ROBE6, 10); L.r(1, 7, 4, 8, ROBE6); L.r(15, 7, 4, 8, ROBE6); L.sy(7, '5555555666777', ROBE6, 10); });
+      b.l(7, 3, 9, 9, '#efe3c4'); b.l(12, 3, 10, 9, '#efe3c4'); b.r(8, 3, 4, 1, '#34408a'); b.r(9, 4, 2, 2, '#34408a');
+      b.hl(5, 14, 12, '#f4c542'); b.r(9, 12, 2, 4, '#f4c542'); b.p(9, 12, '#fff2a8'); b.hl(1, 4, 14, '#efe3c4'); b.hl(15, 18, 14, '#efe3c4'); b.hl(3, 16, 19, '#efe3c4');
+      b.add(L => { L.r(20, 3, 2, 12, STEEL); L.p(20, 2, STEEL); L.r(20, 17, 2, 4, WOOD); });
+      b.r(20, 4, 1, 10, '#ffffff'); b.add(L => { L.r(18, 15, 6, 2, GOLD); L.r(20, 21, 2, 1, GOLD); });
+    },
+    nav_world: b => { // 江湖：摊开的舆图，一座山、一条路、一面小红旗
+      b.add(L => L.r(3, 5, 18, 14, '#efe3c4'));
+      b.add(L => { L.r(1, 3, 3, 18, WOOD); L.r(20, 3, 3, 18, WOOD); }); b.r(1, 2, 3, 1, '#f4c542'); b.r(20, 2, 3, 1, '#f4c542'); b.r(1, 21, 3, 1, '#f4c542'); b.r(20, 21, 3, 1, '#f4c542');
+      b.add(L => L.sy(9, '1234', '#5a82aa', 9), { flat: 1, sep: 0 }); b.p(8, 9, '#ffffff'); b.r(7, 10, 2, 1, '#ffffff');
+      for (const [x, y] of [[7, 16], [9, 15], [11, 15], [13, 14], [15, 12], [16, 10]]) b.p(x, y, '#7a5230');
+      b.r(16, 6, 1, 4, '#7a5230'); b.r(17, 6, 2, 2, '#d8404a'); b.p(19, 7, '#d8404a');
+      b.r(12, 17, 3, 1, '#4aa8ff'); b.r(14, 16, 3, 1, '#4aa8ff'); b.hl(5, 6, 7, '#c8b48c'); b.hl(14, 17, 17, '#c8b48c');
+    },
+    nav_path: b => { // 仙途：一级一级往上的石阶，尽头一座金色天门
+      for (let i = 0; i < 4; i++) { const w = 20 - i * 4, x = 12 - w / 2, y = 20 - i * 3; b.add(L => L.r(x, y, w, 3, '#928ea8')); b.hl(x, x + w - 1, y, '#c8c4d8'); }
+      b.add(L => { L.r(8, 4, 1, 7, GOLD); L.r(15, 4, 1, 7, GOLD); L.r(7, 4, 10, 1, GOLD); L.r(8, 6, 8, 1, GOLD); });
+      b.r(10, 7, 4, 4, '#fff2a8'); b.r(11, 8, 2, 3, '#ffffff'); b.p(12, 1, '#fff2a8'); b.r(11, 2, 3, 1, '#fff2a8');
+      b.add(L => { L.e(3.5, 9, 3.5, 2, '#dfe7ef'); L.e(5.5, 8, 2, 2, '#dfe7ef'); L.e(20.5, 13, 3.5, 2, '#dfe7ef'); L.e(18.5, 12, 2, 2, '#dfe7ef'); }, { sep: 0 });
+    },
+  };
+  // ---------- 二、16×16 图标：goal 目标旗 / mail 传讯纸鹤 / unlock 开了的锁 / report 年报 ----------
+  const ICON6 = {
+    goal: b => {
+      b.add(L => L.sy(12, '356', '#62d26f', 6)); b.r(5, 2, 1, 11, '#7a5230'); b.p(5, 1, '#f4c542');
+      b.add(L => { L.r(6, 2, 6, 1, RED); L.r(6, 3, 7, 1, RED); L.r(6, 4, 6, 1, RED); L.r(6, 5, 4, 1, RED); L.r(6, 6, 2, 1, RED); }, { noHi: 1, sep: 0 }); b.p(7, 3, '#ff9a8a'); b.p(8, 3, '#ff9a8a');
+    },
+    mail: b => {
+      b.m(2, 3, ['..........ww', '.........wwW', 'w.......wwW', 'ww.....wwW', 'wtw...wwwW', '.wtwwwwwwwww', '..wwwwwwwwtW', '...wwwwwwtW', '....wwwwtW', '.....WWWW'], IPAL);
+      b.p(7, 9, '#d8404a'); b.p(8, 9, '#d8404a'); b.p(1, 1, '#fff2a8'); b.p(4, 12, '#7fe0f0');
+    },
+    unlock: b => {
+      b.add(L => L.r(3, 8, 10, 7, GOLD)); b.r(7, 10, 2, 2, INK); b.r(7, 12, 2, 1, '#a8742a'); b.p(7, 12, INK);
+      b.add(L => { L.r(5, 2, 6, 1, STEEL); L.r(4, 3, 1, 2, STEEL); L.r(11, 3, 1, 5, STEEL); }, { flat: 1, sep: 0 });
+      b.p(14, 3, '#ffffff'); b.p(15, 5, '#fff2a8'); b.p(1, 5, '#ffffff'); b.p(2, 3, '#fff2a8'); b.p(14, 1, '#fff2a8');
+    },
+    report: b => {
+      b.add(L => L.r(3, 2, 10, 12, '#efe3c4')); b.add(L => { L.r(2, 1, 12, 2, WOOD); L.r(2, 13, 12, 2, WOOD); });
+      b.r(5, 9, 1, 3, '#2a8a7a'); b.r(7, 7, 1, 5, '#2a8a7a'); b.r(9, 5, 1, 7, '#4ccb9f'); b.r(11, 9, 2, 2, '#d8404a'); b.hl(5, 7, 4, '#928ea8');
+    },
+  };
+  const icon5 = ART.icon;
+  ART.icon = function (name) {
+    if (NAV6[name]) return cached('ic6|' + name, () => { const b = new Buf(24, 24); NAV6[name](b); return b.cv(); });
+    if (ICON6[name]) return cached('ic6|' + name, () => { const b = new Buf(16, 16); ICON6[name](b); return b.cv(); });
+    return icon5(name);
+  };
+  const names5 = ART.iconNames; ART.iconNames = () => names5().concat(Object.keys(ICON6));
+  const nav5 = ART.navIcons; ART.navIcons = () => nav5().concat(Object.keys(NAV6));
+
+  // ---------- 三、仙途路径节点 12×12：ART.pathNode('done' | 'now' | 'next' | 'lock') ----------
+  ART.pathNode = state => cached('pathnode|' + state, () => {
+    const b = new Buf(12, 12);
+    if (state === 'done') { b.add(L => L.e(6, 6, 4.6, 4.6, tone('#2f9e7e', '#1a5a52', '#8fe0c8')), { noHi: 1 }); b.l(3, 6, 5, 8, '#ffffff'); b.l(5, 8, 9, 4, '#ffffff'); b.l(3, 7, 5, 9, '#c8fff0'); }
+    else if (state === 'now') { b.add(L => L.sy(1, '1234554321', GOLD, 6)); b.r(5, 4, 2, 4, '#ffffff'); b.r(4, 5, 4, 2, '#ffffff'); }
+    else if (state === 'lock') { b.add(L => L.e(6, 6, 4.6, 4.6, tone('#55506e', '#2c2238', '#706c8a'))); b.r(4, 6, 4, 3, '#c8c4d8'); b.r(5, 4, 2, 1, '#c8c4d8'); b.p(4, 5, '#c8c4d8'); b.p(7, 5, '#c8c4d8'); b.p(5, 7, '#55506e'); }
+    else { b.e(6, 6, 4.6, 4.6, '#928ea8'); b.e(6, 6, 2.6, 2.6, null); b.p(4, 3, '#c8c4d8'); }
+    return b.cv();
+  });
+  ART.pathNodeStates = ['done', 'now', 'next', 'lock'];
+
+  // ---------- 四、解锁小庆祝的放射光 48×48，两帧：ART.burst(frame 0 | 1, color?) ----------
+  ART.burstFrames = 2;
+  ART.burst = (frame, color) => cached('burst|' + (frame & 1) + '|' + (color || ''), () => {
+    const b = new Buf(48, 48), c = color || '#f4c542', hi = lerpC(c, '#ffffff', 0.6), off = (frame & 1) ? Math.PI / 12 : 0;
+    for (let i = 0; i < 12; i++) {
+      const a = off + i * Math.PI / 6, long = i % 2 === 0, r0 = 11, r1 = long ? 23 : 17;
+      b.l(24 + Math.cos(a) * r0, 24 + Math.sin(a) * r0, 24 + Math.cos(a) * r1, 24 + Math.sin(a) * r1, long ? c : hi, long ? 2 : 1);
+    }
+    for (let i = 0; i < 6; i++) { const a = off + Math.PI / 12 + i * Math.PI / 3; b.p(24 + Math.cos(a) * 21, 24 + Math.sin(a) * 21, '#ffffff'); }
+    return b.cv({ noOutline: 1 });
+  });
+}
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);

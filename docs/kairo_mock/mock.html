@@ -1,0 +1,242 @@
+<!doctype html><meta charset="utf8">
+<style>
+@font-face{font-family:px;src:url(../../tools/fusion-pixel.ttf)}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0914;font-family:px,sans-serif;color:#efe9ff;display:flex;flex-wrap:wrap;gap:24px;padding:24px;width:max-content;max-width:2700px}
+canvas.px{image-rendering:pixelated;vertical-align:middle}
+.wrap{width:412px}
+.cap{font:14px sans-serif;color:#9d93b8;margin:0 0 6px}
+.phone{width:412px;height:839px;background:#140e1f;position:relative;overflow:hidden;font-size:16px}
+.hud{background:#262038;border:2px solid #3a3155;box-shadow:inset 0 0 0 1px #1b1326}
+.g{color:#8ff5d0}.y{color:#f4c542}.r{color:#ff9a8a}.dim{color:#9d93b8}.b{color:#7fe0f0}
+/* 顶栏 */
+.top{white-space:nowrap;position:absolute;left:8px;right:8px;top:6px;height:40px;display:flex;align-items:center;gap:10px;padding:0 8px;font-size:17px}
+.top .sp{flex:1}
+.top .ib{width:40px;height:32px;border:2px solid #f4c542;display:flex;align-items:center;justify-content:center;position:relative;background:#1b1326}
+.dot{position:absolute;right:-6px;top:-6px;background:#d8404a;color:#fff;font-size:12px;min-width:16px;height:16px;line-height:16px;text-align:center}
+/* 时间条 */
+.time{position:absolute;left:8px;right:8px;top:50px;height:44px;padding:4px 8px}
+.time .l1{display:flex;justify-content:space-between;font-size:14px;line-height:16px}
+.pips{display:flex;gap:1px;margin-top:4px;height:12px}
+.pips i{flex:1;background:#3a3155}.pips i.d{background:#4ccb9f}.pips i.n{background:#fff2a8;box-shadow:0 0 0 2px #f4c542}.pips i.yr{margin-right:4px}.pips i.f{background:#d8404a}
+/* 场景 */
+.scene{position:absolute;left:8px;right:8px;top:98px;height:388px;background:url(_scene_ref.png) -8px -125px/412px auto;border:2px solid #3a3155}
+.pill{position:absolute;background:#1b1326e6;border:2px solid #4ccb9f;padding:3px 8px;font-size:14px}
+.say{position:absolute;right:54px;bottom:8px;left:60px;background:#efe3c4;color:#2c2238;border:2px solid #a8742a;padding:5px 8px;font-size:14px;line-height:18px}
+/* 境界条 */
+.realm{position:absolute;left:8px;right:8px;top:490px;height:58px;padding:5px 10px}
+.realm .n{font-size:22px;color:#fff2a8}.realm .rt{float:right;font-size:14px;margin-top:6px}
+.bar{height:14px;background:#1b1326;border:1px solid #55506e;position:relative;margin-top:3px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#4ccb9f}.bar i.gd{background:#f4c542}.bar i.dl{background:#fff2a8}
+.bar em{position:absolute;left:0;right:0;top:-1px;text-align:center;font-style:normal;font-size:12px;line-height:14px;color:#fff;text-shadow:1px 1px 0 #1b1326}
+/* 三个数 */
+.stats{position:absolute;left:8px;right:8px;top:552px;display:flex;gap:6px}
+.stats div{flex:1;height:46px;padding:3px 8px;font-size:13px;color:#9d93b8}
+.stats b{display:block;font-size:19px;font-weight:normal}
+/* 目标卡 */
+.goal{position:absolute;left:8px;right:8px;top:604px;height:112px;padding:7px 10px;border-color:#f4c542}
+.goal .ch{font-size:13px;color:#1b1326;background:#f4c542;padding:1px 6px;margin-right:6px}
+.goal .t{font-size:18px}
+.goal .nx{margin-top:7px;display:flex;align-items:center;gap:8px;font-size:15px}
+.go{margin-left:auto;background:#d8404a;color:#fff;padding:5px 12px;border:2px solid #ff9a8a;font-size:15px}
+/* 一行传讯 */
+.tick{position:absolute;left:8px;right:8px;top:720px;height:24px;font-size:13px;line-height:22px;padding:0 10px;color:#9d93b8;border:0;background:#1b1326}
+/* 底栏 */
+.nav{position:absolute;left:8px;right:8px;bottom:8px;height:128px;display:flex;gap:5px}
+.nav.one{height:82px}
+.nav div{flex:1;text-align:center;padding-top:5px;font-size:15px;position:relative;height:82px;line-height:17px;align-self:flex-end}
+.nav div.on{border-color:#f4c542;background:#3a3155}
+.nav div.lk{color:#6e6a88}.nav div.lk canvas{opacity:.28;filter:grayscale(1)}
+.nav div small{display:block;font-size:11px;color:#6e6a88}
+.nav div.new{border-color:#f4c542;box-shadow:0 0 0 2px #f4c54288}
+.badge{position:absolute;right:-3px;top:-7px;background:#d8404a;color:#fff;font-size:12px;padding:1px 4px}
+.acts{position:absolute;left:8px;right:8px;bottom:90px;height:44px;display:flex;gap:6px}
+.acts div{flex:1;text-align:center;font-size:16px;line-height:38px}
+.acts .main{background:#d8404a;border-color:#ff9a8a;color:#fff;flex:1.6}
+/* 纸面板 */
+.shade{position:absolute;inset:0;background:#0d0914b8}
+.sheet{position:absolute;left:6px;right:6px;bottom:88px;background:#efe3c4;color:#2c2238;border:3px solid #a8742a;padding:10px 12px}
+.sheet h2{margin:0 0 6px;font-size:22px;font-weight:normal;display:flex;align-items:center}
+.sheet h2 .x{margin-left:auto;width:36px;height:36px;border:2px solid #2c2238;text-align:center;line-height:32px;font-size:18px}
+.tabs{display:flex;gap:4px;margin:6px 0 10px}
+.tabs div{flex:1;text-align:center;border:2px solid #2c2238;padding:6px 0;font-size:16px;background:#f6ecd2}
+.tabs div.on{background:#d8404a;color:#fff}
+.tabs div.lk{color:#b9a988;border-color:#b9a988}
+.ink{color:#2a8a7a}.red{color:#c8323c}.mut{color:#8a7a5c}
+.slot{display:flex;gap:8px;align-items:center;border:2px solid #c8b48c;background:#f6ecd2;padding:5px 6px;margin-bottom:5px;font-size:15px}
+.slot .cell{width:52px;height:52px;background:#262038;display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.slot .nm{font-size:16px}.slot small{font-size:13px;color:#8a7a5c;display:block;margin-top:3px}
+.btn{border:2px solid #2c2238;background:#f4c542;padding:6px 10px;font-size:15px;text-align:center;white-space:nowrap}
+.btn.alt{background:#f6ecd2}.btn.red{background:#d8404a;color:#fff}
+.sec{font-size:13px;color:#8a7a5c;margin:8px 0 4px;display:flex;justify-content:space-between}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.grid div{height:52px;background:#262038;display:flex;align-items:center;justify-content:center;position:relative}
+.grid div.e{background:#e2d4ae}
+.row{display:flex;align-items:center;gap:8px;font-size:16px;margin:5px 0}
+.row .k{width:74px;color:#8a7a5c;font-size:14px}.row .v{flex:1}
+.pbar{height:12px;background:#d9c9a0;border:1px solid #8a7a5c;position:relative;flex:1}
+.pbar i{position:absolute;left:0;top:0;bottom:0;background:#2a8a7a}.pbar i.dl{background:#f4c542}
+.stamp{width:56px;height:56px;border:3px solid #c8323c;color:#c8323c;font-size:34px;text-align:center;line-height:50px;transform:rotate(-8deg);margin-left:auto}
+.loot{display:flex;gap:6px;margin:6px 0}
+.loot div{flex:1;background:#f6ecd2;border:2px solid #c8b48c;text-align:center;padding:4px 0;font-size:15px}
+.foot{display:flex;gap:8px;margin-top:10px}.foot .btn{flex:1;padding:9px 0;font-size:17px}
+/* 解锁卡 */
+.unl{position:absolute;left:36px;right:36px;top:200px;background:#262038;border:3px solid #f4c542;text-align:center;padding:10px 14px 14px}
+.unl .big{font-size:26px;color:#fff2a8;margin-top:2px}.unl .nm{font-size:20px;margin:6px 0 4px}
+.unl .one{font-size:15px;color:#c8c4d8}.unl .way{font-size:14px;color:#8ff5d0;margin:10px 0}
+.unl .ic{position:relative;width:144px;height:144px;margin:0 auto}
+.unl .ic canvas{position:absolute;left:0;top:0}.unl .ic canvas.c{left:36px;top:36px}
+/* 路径 */
+.path{position:relative;margin-left:4px}
+.pn{display:flex;gap:8px;align-items:flex-start;padding:3px 0;font-size:15px;position:relative}
+.pn:before{content:"";position:absolute;left:11px;top:22px;bottom:-6px;width:2px;background:#c8b48c}
+.pn:last-child:before{display:none}
+.pn .tt{flex:1}.pn .tt small{color:#8a7a5c;font-size:13px}
+.pn.cur{background:#fff6dc;border:2px solid #a8742a;padding:6px;margin:3px 0 3px -6px}
+.pn.cur:before{left:17px;top:30px}
+.sysrow{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+.sysrow span{width:28px;height:28px;background:#262038;display:flex;align-items:center;justify-content:center}
+.sysrow span.q{background:#d9c9a0;color:#8a7a5c;font-size:14px}
+.fut{color:#8a7a5c}
+</style>
+<body>
+
+<!-- 1 主画面 -->
+<div class="wrap"><p class="cap">① 主画面（第一章，炼气后期）</p>
+<div class="phone" id="m1">
+  <div class="top hud"><canvas class="px" data-art="stone" data-z="2"></canvas><span class="b">627</span>
+    <canvas class="px" data-art="pojing" data-z="2"></canvas>1
+    <canvas class="px" data-art="life" data-z="2"></canvas><span style="font-size:14px">寿元足</span><span class="sp"></span>
+    <div class="ib"><canvas class="px" data-art="mail" data-z="2"></canvas><span class="dot">2</span></div>
+    <div class="ib"><canvas class="px" data-art="pause" data-z="2"></canvas></div></div>
+  <div class="time hud"><div class="l1"><span>第2年 · 秋 · 10月</span><span class="r">三年之约 还有 14 月</span></div>
+    <div class="pips" id="pips1"></div></div>
+  <div class="scene"><div class="pill" style="left:8px;top:8px"><span class="g">打坐中</span> 修为 +12/月</div>
+    <div class="pill" style="right:8px;top:8px;border-color:#55506e">×1</div></div>
+  <div class="realm hud"><span class="n">炼气后期</span><span class="rt dim">圆满还差 <span class="g">10 月</span></span>
+    <div class="bar"><i style="width:60%"></i><em>修为 180 / 300</em></div></div>
+  <div class="stats"><div class="hud">战力<b class="r">86 <span class="g" style="font-size:13px">▲18</span></b></div><div class="hud">修炼/月<b class="g">+12</b></div><div class="hud">灵石/月<b class="b">+10</b></div></div>
+  <div class="goal hud"><span class="ch">第一章</span><span class="t">赢下三年之约</span>
+    <div class="bar" style="margin-top:8px"><i class="gd" style="width:62%"></i><em>胜算 62% → 目标 80%</em></div>
+    <div class="nx"><canvas class="px" data-art="goal" data-z="2"></canvas><span>下一步：去<span class="y">历练</span>捡法宝</span><span class="go">去 ▸</span></div></div>
+  <div class="tick hud">10月 历练归来：乙 · 灵石+180 · 青锋剑</div>
+  <div class="nav one"><div class="hud new"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练<span class="badge">去</span></div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备<span class="badge">新1</span></div><div class="hud lk"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖<small>筑基开</small></div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 2 主菜单 · 仙途（路径图） -->
+<div class="wrap"><p class="cap">② 主菜单固定五格 + 仙途页（主线路径图）</p>
+<div class="phone" id="m2"><div class="shade"></div>
+  <div class="sheet" style="top:20px"><h2>仙途<span class="x">×</span></h2>
+    <div class="tabs"><div class="on">路径</div><div>属性</div><div>记录</div><div>设置</div></div>
+    <div class="path">
+      <div class="pn"><canvas class="px" data-pn="done" data-z="2"></canvas><div class="tt">序 · 退婚 <small>已过</small></div></div>
+      <div class="pn cur"><canvas class="px" data-pn="now" data-z="3"></canvas><div class="tt"><b style="font-weight:normal;font-size:18px">第一章 废柴</b> <small>炼气 · 你在这里</small>
+        <div class="row" style="margin:6px 0 2px"><canvas class="px" data-art="goal" data-z="1"></canvas><span>赢下三年之约</span><span class="red" style="margin-left:auto">还有 14 月</span></div>
+        <div class="row" style="margin:2px 0"><div class="pbar"><i style="width:62%"></i></div><span style="font-size:14px">胜算 62%</span></div>
+        <div class="row" style="margin:2px 0"><div class="pbar"><i style="width:60%"></i></div><span style="font-size:14px">炼气后期</span></div>
+        <div class="sysrow"><span><canvas class="px" data-art="exp" data-z="1"></canvas></span><span><canvas class="px" data-art="array" data-z="1"></canvas></span><span><canvas class="px" data-art="gear" data-z="1"></canvas></span><span><canvas class="px" data-art="retreat" data-z="1"></canvas></span><span class="q">?</span><small class="mut" style="align-self:center;margin-left:4px">已开 4 · 还有 1</small></div></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="next" data-z="2"></canvas><div class="tt">第二章 入宗 <small>筑基 · 拜入宗门，进天骄榜前 60</small><div class="sysrow"><span class="q">?</span><span class="q">?</span><span class="q">?</span><span class="q">?</span><span class="q">?</span><span class="q">?</span></div></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">第三章 金丹 <small>渡雷劫 · 晋升真传</small></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">第四章 元婴 <small>成为圣子</small></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">第五章 化神 <small>九宗会武</small></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">第六～八章 炼虚 · 合体 · 大乘</div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">第九章 渡劫 <small>白日飞升</small></div></div>
+      <div class="pn fut"><canvas class="px" data-pn="lock" data-z="2"></canvas><div class="tt">轮回 <small>带着遗泽再来一世</small></div></div>
+    </div></div>
+  <div class="nav one"><div class="hud"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备</div><div class="hud lk"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖<small>筑基开</small></div><div class="hud on"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 3 装备 · 法宝 -->
+<div class="wrap"><p class="cap">③ 装备面板 · 法宝页（金丹期示意）</p>
+<div class="phone" id="m3"><div class="shade"></div>
+  <div class="sheet" style="top:20px"><h2>装备<span style="font-size:15px;margin-left:10px" class="mut">战力 <span class="red" style="font-size:19px">278</span></span><span class="x">×</span></h2>
+    <div class="tabs"><div class="on">法宝</div><div>功法</div><div>灵宠</div><div>包裹</div></div>
+    <div class="slot"><div class="cell" data-q="3" data-it="w"></div><div style="flex:1"><div class="nm">青锋剑 <span class="red">+2</span></div><small>兵器 · 战力 <span class="ink">+96</span></small></div><div class="btn">强化<br><small style="color:#2c2238;margin:0">矿 40</small></div></div>
+    <div class="slot"><div class="cell" data-q="2" data-it="r"></div><div style="flex:1"><div class="nm">冰蚕法衣</div><small>法衣 · 历练分 <span class="ink">+3</span></small></div><div class="btn alt">强化<br><small style="margin:0">矿 25</small></div></div>
+    <div class="slot" style="border-style:dashed"><div class="cell" style="background:#d9c9a0"><canvas class="px" data-art="lock" data-z="2" style="opacity:.5"></canvas></div><div style="flex:1"><div class="nm mut">饰品</div><small>元婴开</small></div></div>
+    <div class="sec"><span class="red">新到 2 件 · 点一件看对比</span><span>灵矿 76</span></div>
+    <div class="slot" style="border-color:#c8323c"><div class="cell" data-q="4" data-it="w"></div><div style="flex:1"><div class="nm">赤霄剑</div><small>战力 <span class="ink" style="font-size:16px">▲ +41</span>　278 → 319</small></div><div class="btn red">换上</div><div class="btn alt">熔<br><small style="margin:0">矿+6</small></div></div>
+    <div class="slot"><div class="cell" data-q="1" data-it="w"></div><div style="flex:1"><div class="nm">铁剑</div><small>战力 <span class="red" style="font-size:16px">▼ −52</span></small></div><div class="btn alt">换上</div><div class="btn">熔<br><small style="color:#2c2238;margin:0">矿+2</small></div></div>
+    <div class="sec"><span>收着的 4 / 12</span><span>一键熔炼低阶 ▸</span></div>
+    <div class="grid" id="grid3"></div>
+  </div>
+  <div class="nav one"><div class="hud"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud on"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备</div><div class="hud"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖</div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 4 解锁小庆祝 -->
+<div class="wrap"><p class="cap">④ 系统解锁（只在回到洞府、没有别的弹层时出现）</p>
+<div class="phone" id="m4">
+  <div class="scene" style="top:50px;height:560px;background-position:-8px -60px"></div><div class="shade"></div>
+  <div class="unl"><div class="ic"><canvas class="px" data-burst="0" data-z="3"></canvas><canvas class="px c" data-art="field" data-z="4.5"></canvas></div>
+    <div class="big">解锁了！</div><div class="nm">灵田</div><div class="one">每月自己长灵石 <span class="b">+3</span></div>
+    <div class="way">洞府 ▸ 空地 ▸ 开田（灵石 200）</div>
+    <div class="foot"><div class="btn alt" style="color:#2c2238">知道了</div><div class="btn" style="color:#2c2238">带我去 ▸</div></div></div>
+  <div class="nav one"><div class="hud"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud new"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府<span class="badge">新</span></div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备</div><div class="hud"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖</div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 5 历练结算 -->
+<div class="wrap"><p class="cap">⑤ 历练结算（一趟只此一张）</p>
+<div class="phone" id="m5"><div class="shade"></div>
+  <div class="sheet" style="top:70px"><h2>历练归来<span class="mut" style="font-size:14px;margin-left:8px">后山野林 · 用了 4 月</span></h2>
+    <div class="row"><span class="k">评价</span><span class="v mut" style="font-size:14px">推荐战力 60 · 你 86</span><div class="stamp">乙</div></div>
+    <div class="loot"><div><canvas class="px" data-art="stone" data-z="2"></canvas> +180</div><div><canvas class="px" data-art="herb" data-z="2"></canvas> +6</div><div><canvas class="px" data-art="xp" data-z="2"></canvas> +48</div></div>
+    <div class="slot" style="border-color:#c8323c"><div class="cell" data-q="3" data-it="w"></div><div style="flex:1"><div class="nm">青锋剑 <span class="red" style="font-size:13px">新</span></div><small>战力 <span class="ink" style="font-size:16px">▲ +18</span></small></div><div class="btn red">换上</div><div class="btn alt">先收着</div></div>
+    <div class="sec"><span>你变强了</span></div>
+    <div class="row"><span class="k">战力</span><span class="v">86 → <span class="ink" style="font-size:19px">104</span></span></div>
+    <div class="row"><span class="k">修为</span><div class="pbar"><i class="dl" style="width:76%"></i><i style="width:60%"></i></div><span style="font-size:14px">228/300</span></div>
+    <div class="sec"><span>离目标</span></div>
+    <div class="row"><span class="k">三年之约</span><div class="pbar"><i class="dl" style="width:71%"></i><i style="width:62%"></i></div><span style="font-size:14px">62→<span class="ink">71%</span></span></div>
+    <div class="row"><span class="k">还有</span><span class="v red">10 月</span><span class="mut" style="font-size:14px">够再去 2 趟</span></div>
+    <div class="row" style="border-top:2px dashed #c8b48c;padding-top:7px"><canvas class="px" data-art="mail" data-z="2"></canvas><span class="mut" style="font-size:14px">你不在时：入秋了 · 有人来访（等你 6 月）</span></div>
+    <div class="foot"><div class="btn alt">回洞府</div><div class="btn">再去一趟 ▸</div></div>
+  </div>
+  <div class="nav one"><div class="hud on"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备<span class="badge">新1</span></div><div class="hud lk"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖<small>筑基开</small></div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 6 年报 -->
+<div class="wrap"><p class="cap">⑥ 年报（每 12 月一张，时间停）</p>
+<div class="phone" id="m6"><div class="shade"></div>
+  <div class="sheet" style="top:90px"><h2><canvas class="px" data-art="report" data-z="2" style="margin-right:8px"></canvas>第 2 年 · 年报</h2>
+    <div class="row"><span class="k">境界</span><span class="v">炼气中期 → <span class="ink">后期</span></span></div>
+    <div class="row"><span class="k">战力</span><span class="v">40 → <span class="ink" style="font-size:19px">104</span> <span class="ink" style="font-size:14px">▲64</span></span></div>
+    <div class="row"><span class="k">修炼/月</span><span class="v">+6 → <span class="ink">+12</span></span></div>
+    <div class="row"><span class="k">灵石</span><span class="v">赚 1,240 · 花 980</span></div>
+    <div class="row"><span class="k">历练</span><span class="v">3 趟 · 最好 乙</span></div>
+    <div class="row"><span class="k">新开</span><span class="v"><canvas class="px" data-art="retreat" data-z="2"></canvas> 闭关　<canvas class="px" data-art="gear" data-z="2"></canvas> 装备</span></div>
+    <div class="sec"><span>明年</span></div>
+    <div class="row"><span class="k">三年之约</span><div class="pbar"><i style="width:71%"></i></div><span style="font-size:14px">胜算 71%</span></div>
+    <div class="row"><span class="k">还有</span><span class="v red">12 月</span><span class="mut" style="font-size:14px">目标 80%</span></div>
+    <div class="row" style="background:#f6ecd2;border:2px solid #c8b48c;padding:6px"><canvas class="px" data-art="me" data-z="1"></canvas><span style="font-size:14px">老祖：“聚灵阵该升了，还差两级。”</span></div>
+    <div class="foot"><div class="btn">新的一年 ▸</div></div>
+  </div>
+  <div class="nav one"><div class="hud"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备</div><div class="hud lk"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖<small>筑基开</small></div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<!-- 7 历练途中 -->
+<div class="wrap"><p class="cap">⑦ 历练途中（快进，不弹任何东西）</p>
+<div class="phone" id="m7">
+  <div class="top hud"><canvas class="px" data-art="stone" data-z="2"></canvas><span class="b">627</span><span class="sp"></span><div class="ib"><canvas class="px" data-art="mail" data-z="2"></canvas><span class="dot">1</span></div><div class="ib"><canvas class="px" data-art="pause" data-z="2"></canvas></div></div>
+  <div class="time hud"><div class="l1"><span>第2年 · 秋 · 8月</span><span class="r">三年之约 还有 16 月</span></div><div class="pips" id="pips7"></div></div>
+  <div class="scene" style="height:420px;background:linear-gradient(#24365a,#3d5a4a 70%,#2a3d2c)">
+    <div class="pill" style="left:8px;top:8px;border-color:#f4c542"><span class="y">历练中</span> 后山野林 · 第 2/4 月</div>
+    <div style="position:absolute;left:0;right:0;top:150px;text-align:center;color:#c8c4d8;font-size:14px">（这里是历练场景：小人在走、在打）</div>
+    <div class="pill" style="left:8px;bottom:44px;border-color:#55506e"><canvas class="px" data-art="stone" data-z="1"></canvas> +90　<canvas class="px" data-art="herb" data-z="1"></canvas> +3　<canvas class="px" data-art="xp" data-z="1"></canvas> +24</div>
+    <div style="position:absolute;left:8px;right:8px;bottom:8px;height:26px;background:#1b1326;border:2px solid #f4c542;display:flex;gap:2px;padding:2px"><i style="flex:1;background:#f4c542"></i><i style="flex:1;background:#f4c542"></i><i style="flex:1;background:#3a3155"></i><i style="flex:1;background:#3a3155"></i></div></div>
+  <div class="realm hud" style="top:526px"><span class="n">炼气后期</span><span class="rt dim">修为 204 / 300</span><div class="bar"><i style="width:68%"></i></div></div>
+  <div class="goal hud" style="top:588px;height:84px"><span class="ch">第一章</span><span class="t">赢下三年之约</span><div class="bar" style="margin-top:8px"><i class="gd" style="width:62%"></i><em>胜算 62% → 目标 80%</em></div></div>
+  <div class="tick hud" style="top:678px">路上不打扰：消息先收进纸鹤，回来再看</div>
+  <div class="nav one"><div class="hud on"><canvas class="px" data-art="exp" data-z="2"></canvas><br>历练</div><div class="hud"><canvas class="px" data-art="home" data-z="2"></canvas><br>洞府</div><div class="hud"><canvas class="px" data-art="nav_gear" data-z="2"></canvas><br>装备</div><div class="hud lk"><canvas class="px" data-art="nav_world" data-z="2"></canvas><br>江湖<small>筑基开</small></div><div class="hud"><canvas class="px" data-art="nav_path" data-z="2"></canvas><br>仙途</div></div>
+</div></div>
+
+<script src="../../src/art.js"></script>
+<script>
+const put=(el,c,z)=>{el.width=c.width*z;el.height=c.height*z;const g=el.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(c,0,0,el.width,el.height)};
+for(const el of document.querySelectorAll('canvas[data-art]'))put(el,ART.icon(el.dataset.art),+el.dataset.z||2);
+for(const el of document.querySelectorAll('canvas[data-pn]'))put(el,ART.pathNode(el.dataset.pn),+el.dataset.z||2);
+for(const el of document.querySelectorAll('canvas[data-burst]'))put(el,ART.burst(+el.dataset.burst),+el.dataset.z||3);
+const cell=(el,q,it)=>{const c=document.createElement('canvas');c.className='px';c.width=48;c.height=48;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(ART.qualityCell(q,16),0,0,48,48);try{g.drawImage(ART.item(it,q),0,0,48,48)}catch(e){}el.appendChild(c)};
+for(const el of document.querySelectorAll('.cell[data-q]'))cell(el,+el.dataset.q,el.dataset.it);
+const G=document.getElementById('grid3');[['w',2],['r',1],['w',1],['r',3]].forEach(([it,q])=>{const d=document.createElement('div');cell(d,q,it);G.appendChild(d)});for(let i=0;i<8;i++){const d=document.createElement('div');d.className='e';G.appendChild(d)}
+const pips=(id,now)=>{const P=document.getElementById(id);for(let i=0;i<36;i++){const e=document.createElement('i');e.className=(i<now?'d':i===now?'n':i===35?'f':'')+(i%12===11?' yr':'');P.appendChild(e)}};
+pips('pips1',21);pips('pips7',19);
+</script>

@@ -198,3 +198,34 @@
 
 - `ART.frame('chkOn')` 已勾（青玉底、右上角金色小牌带勾，`ink` 为 `#fff6e0`）、`ART.frame('chkOff')` 未勾（暗紫底、右上角空槽，`ink` 为 `#a8a4b8`）。返回格式与其它 `ART.frame` 相同：`{ url, slice: 6, size: 20, fill, ink, canvas }`，CSS 写法也相同（`border-image: url(...) 6 fill / … stretch`）。
 - 勾选标记画在右上角 6×6 的角格里，九宫格拉伸时不会变形；续炼、护劫、当前差事这类开关按钮在两种 kind 之间切换即可。
+
+## 阶段六·开罗式信息架构
+
+配合 `docs/KAIRO_PLAN.md`（固定五格底栏、目标卡、纸鹤、解锁卡、路径图、年报）。预览图：`docs/kairo_mock/art_preview.png`；用在界面里的样子见 `docs/kairo_mock/01_main.png`～`07_exp_travel.png`。代码在 `src/art.js` 末尾“阶段六”一节，只追加、没动已有接口。尚未接线。
+
+### 1 底栏新入口（24×24，规格同 `exp / home / sect / market / me`）
+
+- `ART.icon('nav_gear')` 装备：一件蓝色法衣，右边立一口剑。
+- `ART.icon('nav_world')` 江湖：摊开的舆图，山、虚线小路、红旗。
+- `ART.icon('nav_path')` 仙途：四级石阶通向金色天门，两侧有云。
+- `ART.navIcons()` 现在返回 `['exp', 'home', 'sect', 'market', 'me', 'nav_gear', 'nav_world', 'nav_path']`。新底栏用 `exp / home / nav_gear / nav_world / nav_path` 五个；`sect / market / me` 留给【江湖】【仙途】里的分页小图标。
+- 没开的入口：同一张图加 CSS `opacity: .28; filter: grayscale(1)`，不需要另一套灰图。
+
+### 2 小图标（16×16）
+
+- `ART.icon('goal')` 目标旗（草丘上的红旗）：目标卡“下一步”、路径页每章目标前。
+- `ART.icon('mail')` 传讯纸鹤（白纸鹤带一点朱印）：顶栏纸鹤入口、结算卡“你不在时”一行。
+- `ART.icon('unlock')` 开了的金锁带闪光：解锁类的传讯行、记录页。对应的锁着的图是已有的 `ART.icon('lock')`。
+- `ART.icon('report')` 年报（卷轴上三根渐高的柱子和一方红印）：年报标题、记录页。
+- 四个名字都已加进 `ART.iconNames()`。
+
+### 3 路径节点（12×12）
+
+- `ART.pathNode(state)` → 画布；`state`：`'done'` 青玉圆牌白勾、`'now'` 金色菱形亮芯（当前章，建议 3 倍显示，其余 2 倍）、`'next'` 灰色空心环（下一章）、`'lock'` 暗底小锁（更远的章）。`ART.pathNodeStates` 是这四个名字。
+- 竖排路径的连线用 CSS 画（2px、`#c8b48c`），节点叠在线上。
+
+### 4 解锁放射光（48×48，两帧）
+
+- `ART.burst(frame, color?)` → 画布，透明底、不描边。`frame` 0 / 1 两帧（第二帧整体转 15°），每 250ms 换一帧就是闪动；`color` 默认金 `#f4c542`，可传别的主色（掌握时用青 `#4ccb9f`）。`ART.burstFrames = 2`。
+- 用法：解锁卡里把它放大 3 倍（144px）垫底，系统图标（16×16 放大 4.5 倍或 24×24 放大 3 倍）居中叠在上面，中心留了半径 11 像素的空。章末结算、年报里“新开”的图标也可以垫一张 1 倍的。
+
