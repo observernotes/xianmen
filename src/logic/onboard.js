@@ -24,27 +24,17 @@ const S = (st, k) => (st.stats && st.stats[k]) || 0;
 const C = (st, k) => (st.onb && st.onb.c && st.onb.c[k]) || 0;
 // 原来的开放判定（包之前先存一份；解锁条件只看原门槛，不会绕回自己）
 const O = {};
-for (const k of ['retOpen', 'apprOpen', 'tunaReady', 'homeUnlocked', 'artSlotOpen', 'gearOpen', 'calOpen', 'shelfOpen', 'sellOpen', 'mjUnlocked', 'cropsOpen', 'yinOpen', 'zhenOpen', 'sweepOpen', 'petJobsOpen', 'dutyOpen', 'discOpen', 'auctionOpen'])
+for (const k of ['retOpen', 'apprOpen', 'homeUnlocked', 'artSlotOpen', 'gearOpen', 'calOpen', 'shelfOpen', 'sellOpen', 'mjUnlocked', 'cropsOpen', 'yinOpen', 'zhenOpen', 'sweepOpen', 'petJobsOpen', 'dutyOpen', 'discOpen', 'auctionOpen'])
   O[k] = L[k];
 const hasArt = (st, kind) => !!(st.arts && Object.keys(st.arts.own || {}).some(id => L.art(id) && L.art(id).k === kind));
 const metAny = st => Object.keys(st.npc || {}).some(id => L.NPCS && L.NPCS[id]);
 const EXTRA_B = ['forge', 'pen', 'room', 'library', 'spring', 'vault', 'pavilion', 'portal'];
 
-// 间隔（月）。系统之间另有 L.TIME.unlockGapMonths 的下限（解锁卡之间 ≥ 8 月；真实时间那一半由界面登记 L.onbHold 判，见 src/ui/clock.js）
+// 间隔（月）。回合制下只在季界判（docs/AP_PLAN.md §4.6），所以都等于向上取到 3 的倍数：系统卡之间至少隔 1 季（L.TIME.unlockGapMonths）
 L.ONB_CH_WAIT = 36;   // 0 = 不按章（sim 对照）
-L.ONB_GAP = { sys: st => (st.p.r < 1 ? 4 : st.p.r < 3 ? 6 : 12), sub: 5, reborn: 3 };
-// ---------- 时钟（docs/KAIRO_PLAN.md §3.2 / §3.4 的旋钮）：×1 时一月多少秒 ----------
-// idle 在洞府打坐、trip 历练、away 闭关 / 特训 / 讲道；转世后用 reborn 那一组。unlockGapMonths / unlockGapSec：两张解锁卡之间的最短间隔；
-// interruptGapMonths：打坐时两次主动打断（解锁卡、事件、老祖一句）之间至少隔几个月（src/logic/time.js 的 L.notifyGate）
-// realmMul：第一世按境界再乘的系数（炼气～渡劫）。按 tools/onboard.js --life 手表机器人实测定：前两章决定少、一个月一眨眼就过（炼气 ×1 时三年之约只要 9 分钟），
-// 后几章论道、会武、秘境、宗门的决定多，月可以快一点；合起来第一世约 5 小时 45 分（docs/KAIRO_PLAN.md §3.4 的验收 270～360 分钟）
-L.TIME = { idle: 15, trip: 8, away: 3, realmMul: [2, 1.6, 1, 0.9, 0.7, 0.65, 0.65, 0.65, 0.65], reborn: { idle: 8, trip: 4, away: 2 }, unlockGapMonths: 8, unlockGapSec: 360, unlockGapMonths1: 6, unlockGapSec1: 240, interruptGapMonths: 3 };
-L.monthSec = function (st) {
-  const T = st && (st.rebirth || 0) > 0 ? L.TIME.reborn : L.TIME;
-  const m = T === L.TIME && st && L.TIME.realmMul ? L.TIME.realmMul[Math.min(8, st.p.r)] || 1 : 1;
-  return m * (!st ? T.idle : st.exp ? T.trip : st.retreat ? T.away : T.idle);
-};
-L.TICK_SEC = st => L.monthSec(st);   // 旧名（界面、测试脚本还在读）
+L.ONB_GAP = { sys: st => (st.p.r < 1 ? 3 : st.p.r < 3 ? 3 : 6), sub: 3, reborn: 3 };
+// 时间不再自己走（AP_PLAN §1）：×1 一月多少秒、三态时钟、真实时间的解锁卡间隔（unlockGapSec、L.onbHold）都删了，只剩解锁卡之间的月数
+L.TIME = { unlockGapMonths: 3 };
 // k：键；n：名字；sys：系统（true）/ 子项（false，par 是父系统）；base：原门槛；force：已经发生了，立刻开；
 // master：掌握信号；goal：解锁后札记顶上的小目标（掌握信号的白话）；maxWait：解锁后最多等几个月就当掌握了
 L.ONB = [
@@ -67,7 +57,6 @@ L.ONB = [
   { k: 'market', n: '坊市', sys: true, gap: 8, base: st => !!st.pact || mr(st) >= 1, master: st => S(st, 'shop') >= 1, goal: '在坊市买一样东西', maxWait: 8 },
   { k: 'sect', n: '宗门·任务板', sys: true, base: st => mr(st) >= 1 && !!st.pact, force: st => !!st.sect, master: st => S(st, 'sectTasks') >= 1, goal: '交一件宗门任务', maxWait: 10 },
   { k: 'visitor', n: '访客·奇遇', sys: true, base: st => !!st.pact, force: st => !!st.visitor || S(st, 'visits') > 0, master: st => S(st, 'visits') >= 1, goal: '见一位访客', maxWait: 14 },
-  { k: 'tuna', n: '吐纳', par: 'home', base: st => !!st.pact },
   { k: 'field', n: '灵田', sys: true, base: st => O.homeUnlocked(st, 'field'), master: st => st.home.field >= 1, goal: '开一块灵田', maxWait: 12 },
   { k: 'treasure', n: '行事·寻宝', par: 'market', base: st => O.apprOpen(st, 1) },
   { k: 'furnace', n: '丹炉·炼丹', sys: true, base: st => O.homeUnlocked(st, 'furnace'), master: st => S(st, 'crafts') >= 1, goal: '炼一炉丹', maxWait: 14 },
@@ -89,7 +78,7 @@ L.ONB = [
   { k: 'mishu', n: '秘术', par: 'arts', base: st => O.artSlotOpen(st, 2) },
   { k: 'auction', n: '拍卖会', par: 'market', base: st => mr(st) >= 2 },
   { k: 'petJobs', n: '灵宠岗位', par: 'pets', base: st => O.petJobsOpen(st) && L.petCount(st) >= 1 },
-  { k: 'chainExp', n: '连续历练', par: 'exp', base: st => O.sweepOpen(st) },
+  { k: 'chainExp', n: '扫荡', par: 'exp', base: st => O.sweepOpen(st) },   // 键名沿用旧档的 chainExp（原“连续历练”，AP_PLAN §2.3 换成扫荡）
   { k: 'duty', n: '宗门·职司', par: 'sect', base: st => O.dutyOpen(st) },
   { k: 'disc', n: '徒弟', sys: true, base: st => O.discOpen(st), force: st => S(st, 'discTaken') > 0, master: st => S(st, 'discTaken') >= 1, goal: '收一个徒弟', maxWait: 16 },
   { k: 'codex', n: '图鉴', sys: true, base: st => mr(st) >= 2, master: () => false, maxWait: 8 },
@@ -135,9 +124,8 @@ L.onbStep = function (st) {
     if (e.sys && sysWait) continue;   // 上一个系统还没掌握：别的系统等着，子项可以先开
     const gap = reborn ? L.ONB_GAP.reborn : e.gap || (e.sys ? L.ONB_GAP.sys(st) : L.ONB_GAP.sub);
     if (st.tick - o.last < gap && o.last > 0) break;   // 一样一样来：排在前面的没到时候，后面的也等着
-    // 解锁卡（系统）之间：至少 L.TIME.unlockGapMonths 月；界面另把“离上一张卡不到 6 分钟”登记成 L.onbHold
-    if (e.sys && !reborn && o.ls !== undefined && st.tick - o.ls < (st.pact ? L.TIME.unlockGapMonths : L.TIME.unlockGapMonths1 || L.TIME.unlockGapMonths)) break;
-    if (e.sys && !reborn && typeof L.onbHold === 'function' && L.onbHold(st, e)) break;
+    // 解锁卡（系统）之间：至少 L.TIME.unlockGapMonths 月（1 季）；真实时间那一半（L.onbHold）删了
+    if (e.sys && !reborn && o.ls !== undefined && st.tick - o.ls < L.TIME.unlockGapMonths) break;
     o.at[e.k] = st.tick; o.last = st.tick;
     if (e.sys) o.ls = st.tick;
     if (!e.master || reborn) o.m[e.k] = st.tick;
@@ -163,7 +151,6 @@ const U = L.unlocked;
 const wrap = (name, f) => { const f0 = L[name]; if (typeof f0 === 'function') L[name] = f(f0); };
 wrap('retOpen', f => st => f(st) && U(st, 'retreat'));
 wrap('apprOpen', f => (st, a) => f(st, a) && (a === 2 ? U(st, 'herb') : a === 1 ? U(st, 'treasure') : true));
-wrap('tunaReady', f => st => f(st) && U(st, 'tuna'));
 const HOME_K = { field: 'field', furnace: 'furnace' };
 wrap('homeUnlocked', f => (st, k) => f(st, k) && (HOME_K[k] ? U(st, HOME_K[k]) : EXTRA_B.includes(k) ? U(st, 'plots') : true));
 wrap('artSlotOpen', f => (st, i) => f(st, i) && U(st, ['arts', 'zhanji', 'mishu'][i]));
@@ -215,7 +202,7 @@ wrap('tick', f => (st, cont) => {
 const Q_KEY = [[/采药/, 'herb'], [/寻宝/, 'treasure'], [/闭关/, 'retreat'], [/灵田|改种/, 'field'], [/访客/, 'visitor'], [/吐纳/, 'tuna'], [/强化/, 'plus'], [/宗门|拜入|内门/, 'sect'],
   [/灵宠/, 'pets'], [/炼一炉|炼出|丹方|九转/, 'furnace'], [/法衣/, 'robe'], [/论道|天骄榜/, 'tour'], [/行情/, 'sell'], [/秘境/, 'realm'], [/拍卖/, 'auction'], [/知己|道侣|四心|五心/, 'bond'],
   [/同伴/, 'comp'], [/会武/, 'sect'], [/灵器|法宝/, 'gearCmp'], [/图鉴|奇遇链/, 'codex'], [/徒弟/, 'disc'], [/阵/, 'zhen'], [/建设/, 'sect'], [/饰品/, 'orn'], [/打造|器方/, 'forge']];
-for (const ch of L.CHAPTERS) for (const q of ch.tasks) { const t = typeof q.t === 'string' ? q.t : ''; const m = Q_KEY.find(([re]) => re.test(t)); if (m) q.onb = m[1]; }
+for (const ch of L.CHAPTERS) for (const q of ch.tasks) { const t = typeof q.t === 'string' ? q.t : ''; const m = Q_KEY.find(([re]) => re.test(t)); if (m) q.onb = m[1]; if (/吐纳/.test(t)) q.off = true; }   // 吐纳删了（AP_PLAN §3.1）：札记里“吐纳 3 次”这类做不成的小任务不再显示
 const qv0 = L.questView;
 L.questView = function (st) {
   const v = qv0(st);

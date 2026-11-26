@@ -64,7 +64,7 @@ const n2 = v => String(Math.round(v * 100) / 100);
 L.ARTL = [
   // 心法（修炼倍率按阶 L.ARTS[t].m）
   { id: 'x_changchun', n: '长春功', k: 'x', t: 1, el: 'mu', v: 1, d: v => `负伤每月多恢复 ${n2(v)} 月`, src: '寻宝·历练', pool: 'drop' },
-  { id: 'x_yinqi', n: '引气诀', k: 'x', t: 1, el: '', v: 1, d: v => `吐纳环蓄满快 ${n2(v)} 月（6 → ${n2(6 - v)}）`, src: '开局后首次寻宝保底', pool: 'drop' },
+  { id: 'x_yinqi', n: '引气诀', k: 'x', t: 1, el: '', v: 1, d: v => `打坐修为 +${Math.round((6 / (6 - Math.min(3, v)) - 1) * 100)}%`, src: '开局后首次寻宝保底', pool: 'drop' },
   { id: 'x_qingmu', n: '青木长生功', k: 'x', t: 2, el: 'mu', v: 0.08, d: v => `寿元流逝 −${pc(v)}`, src: '寻宝·历练', pool: 'drop' },
   { id: 'x_lieyang', n: '烈阳诀', k: 'x', t: 2, el: 'huo', v: 0.2, d: v => `闭关倍率 +${n2(v)}`, src: '丹霞谷宝库（内门）', pool: 'vault', sect: 'dan', rank: 1 },
   { id: 'x_houtu', n: '厚土载物经', k: 'x', t: 3, el: 'tu', v: 0.15, d: v => `突破失败修为只退到 ${pc(Math.min(0.95, 0.7 + v))}`, src: '寻宝·历练', pool: 'drop' },
@@ -99,7 +99,7 @@ L.ARTL = [
   { id: 'z_xuanxiao_jian', n: '玄霄剑典·剑卷', k: 'z', t: 6, el: 'jin', v: 0.02, d: v => `对决胜算上限 97% → ${pc(Math.min(0.99, 0.97 + v))}`, src: '老祖旧剑链终点（与器方《玄霄》一起传授）', pool: 'story' },
   // 秘术（无裸倍率，只有特效）
   { id: 'm_lianxi', n: '敛息术', k: 'm', t: 1, el: 'shui', v: 0.5, d: v => `负伤风险 −${pc(Math.min(0.9, v))}`, src: '寻宝·历练', pool: 'drop' },
-  { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `历练时长 −${Math.round(v)} 月（最少 3）`, src: '寻宝·历练', pool: 'drop' },
+  { id: 'm_yufeng', n: '御风诀', k: 'm', t: 2, el: 'mu', v: 1, d: v => `脚力 +${Math.max(1, Math.round(v)) * 25}%（每趟历练；攒满返还 1 点行动点）`, src: '寻宝·历练', pool: 'drop' },
   { id: 'm_xunlong', n: '寻龙诀', k: 'm', t: 2, el: 'tu', v: 0.25, d: v => `寻宝行事掉率 +${pc(v)}，天材地宝 ×${n2(1 + 2 * v)}`, src: '藏宝图链（暂也由二阶掉落）', pool: 'drop' },
   { id: 'm_baicao', n: '百草经', k: 'm', t: 2, el: 'mu', v: 0.5, d: v => `采药灵草 +${pc(v)}（带回药引待药引系统）`, src: '丹霞谷宝库（圣子）', pool: 'vault', sect: 'dan', rank: 3 },
   // 秘境独有（幽泉秘藏）：秘境每层多一扇门、“？”门直接显形（realm.js）；历练相性与地图五行也不用试就显形
@@ -181,7 +181,7 @@ L.COMBOS = [
   { id: 'c7', n: '寻龙点穴', a: ['m_xunlong', 'z_gengjin'], d: '灵矿所得 ×1.5（历练与奇遇）' },
   { id: 'c8', n: '万兽朝苍', a: ['m_yushou', 'z_qingdi'], d: '灵宠战力加成再 +50%（名册上线后改为可出战两只）' },
   { id: 'c9', n: '丹剑双绝', a: ['m_danhuo', 'z_liehuo'], d: '炼丹 25% 概率不耗灵草（药引上线后改为不耗药引）' },
-  { id: 'c10', n: '风行水上', a: ['m_yufeng', 'z_liuyun'], d: '历练时长再 −1（最少 2）' },
+  { id: 'c10', n: '风行水上', a: ['m_yufeng', 'z_liuyun'], d: '脚力再 +25%（每趟历练；攒满返还 1 点行动点）' },
   { id: 'c11', n: '太上无情', a: ['m_wangqing', 'x_taiyi'], cul: 0.12, d: '修炼 +12%；不能结道侣（已有则双修失效）' },
   { id: 'c12', n: '星河倒悬', a: ['m_xingdou', 'z_canghai'], d: '冬季闭关倍率再 +0.5' },
   { id: 'c13', n: '天河倒悬', a: ['x_xuanxiao_xin', 'z_tianjian'], d: '对天剑宗的人胜算下限 50%' },
@@ -343,8 +343,9 @@ L.artSwapLeft = st => (ON() && st.arts ? Math.max(0, st.arts.swapAt + L.SWAP.len
 // 星河倒悬（c12）的冬季 +0.5 在 calendar.js 的 L.calRetBonus
 L.artRetBonus = st => L.artV(st, 'x_lieyang');
 L.artEpi = st => L.artV(st, 'x_zifu');
-// 吐纳环每月蓄多少格（满格 6）：引气诀让它 6 → 5 月蓄满
-L.tunaStep = st => { const v = L.artV(st, 'x_yinqi'); return v > 0 ? L.TUNA_FULL / (L.TUNA_FULL - Math.min(3, v)) : 1; };
+// 打坐（1 点）多得几成（AP_PLAN §3.1：原吐纳的“引气诀让吐纳快”）：引气诀 v → 6 / (6 − min(3, v))，一级 ×1.2
+L.sitMult = st => { const v = L.artV(st, 'x_yinqi'); return v > 0 ? 6 / (6 - Math.min(3, v)) : 1; };
+L.tunaStep = L.sitMult;   // 旧名（界面还在读）
 // 寿元流逝：青木长生功 −8%、生生不息再 −10%
 L.ageRate = st => (1 - L.artV(st, 'x_qingmu')) * (L.comboOn(st, 'c1') ? 0.9 : 1);
 // 负伤时的战力折损（青帝剑减轻）
@@ -382,13 +383,13 @@ L.addExpMod('art', 16, (st, k, d, a) => {
   const wj = L.artV(st, 'z_wanjian'); if (wj && a === 0) out.push(['战技·万剑归宗', wj, 'art']);
   return out.length ? out : null;
 });
-// 历练时长：御风诀 −1（最少 3），风行水上再 −1（最少 2）
-L.artExpLen = function (st, base) {
-  if (!st || !ON()) return base;
-  let n = base;
+// 脚力来源数（AP_PLAN §2.3，原“历练时长 −1 月”）：御风诀（按熟练取整，一般 1）、风行水上再 1；每个来源每趟攒 0.25 脚力（ap.js）
+L.artExpLen = function (st) {
+  if (!st || !ON()) return 0;
+  let n = 0;
   const y = L.artV(st, 'm_yufeng');
-  if (y) n = Math.max(Math.min(3, base), n - Math.round(y));
-  if (L.comboOn(st, 'c10')) n = Math.max(2, n - 1);
+  if (y) n += Math.max(1, Math.round(y));
+  if (L.comboOn(st, 'c10')) n += 1;
   return n;
 };
 // 概率取整：1.45 → 1，45% 的概率再 +1

@@ -17,8 +17,33 @@ const { R } = L.U;
 L.SEASON_LEN = 3;
 L.AP = { per: 3, exp: 2, deeper: 1, sweep: 1, boss: 1, retreat: 2, train: 2, sit: 1, realm: 2, realmPortal: 1, duel: 1, join: 1, errand: 1, final: 1,
   sitTicks: 1, retTicks: 4, expRew: 0.65, lootRew: 1, stride: 0.25, strideCap: 0.75 };
-L.AP_ON = L.AP_ON === undefined ? true : L.AP_ON;   // sim 对照（noap）：false = expRew 1、负伤 3 月（A2 接上数值后生效）
+L.AP_ON = L.AP_ON === undefined ? true : L.AP_ON;   // sim 对照（noap）：false = expRew 1、lootRew 1、负伤回到旧的 3 / 4 月
 const LOG_KEEP = 8;
+// ---------- 数值折算（AP_PLAN §3.4、§2.4；各模块调用时才来取，所以排在它们后面也没关系） ----------
+// 历练的灵石、灵草、灵矿、贡献，破境丹 / 天材地宝 / 灵宠的掉率 × expRew（expedition.js 的 expCalc）；归途翻牌 × lootRew（loot.js）
+L.apExpRew = () => (L.AP_ON === false ? 1 : L.AP.expRew);
+L.apLootRew = () => (L.AP_ON === false ? 1 : L.AP.lootRew);
+// 负伤月数：一回合 3 个月，负伤 = 带伤到下季末（设 4：本季末 −3 剩 1，下季末清零）；首领战败两季（7）
+L.INJ = { base: 4, boss: 7, base0: 3, boss0: 4 };
+L.injMonths = k => (L.AP_ON === false ? (k === 'boss' ? L.INJ.boss0 : L.INJ.base0) : k === 'boss' ? L.INJ.boss : L.INJ.base);
+// 负伤 n 月在回合里怎么说：季末连推 3 个月，所以 ≤ 3 = 本季末痊愈，≤ 6 = 下季末，再多写几季
+L.injText = function (n) {
+  n = Math.max(0, Math.ceil(n || 0));
+  if (!n) return '';
+  if (n <= 3) return '负伤（本季末痊愈）';
+  if (n <= 6) return '负伤（下季末痊愈）';
+  return `负伤（${Math.ceil(n / 3)} 季）`;
+};
+// 时长（月）写成季：≤ 3 月“本季”，其余“N 季”（界面统一过 seasons()，逻辑层的日志与文案用它）
+L.seasonsText = m => { m = Math.max(0, Math.ceil(m || 0)); return m <= 3 ? '本季' : `${Math.ceil(m / 3)} 季`; };
+// 事件效果“占住 v 个月”：不再占时间，下一季行动点 −1（v ≥ 4 时 −2），记在 st.ap.debt → 返回这次扣了几点
+L.apDebtOf = v => (v >= 4 ? 2 : 1);
+L.apDebt = function (st, v) {
+  if (!st || !st.p || st.p.r > L.MAXR || !(v > 0)) return 0;
+  const a = ap(st), d = Math.min(L.AP.per - a.debt, L.apDebtOf(v));
+  a.debt += Math.max(0, d);
+  return Math.max(0, d);
+};
 
 // ---------- 存档 ----------
 const newAp = () => ({ left: L.AP.per, stride: 0, debt: 0, seq: 0, pend: [], log: {} });
@@ -94,7 +119,7 @@ L.act = function (st, id, args) {
 };
 
 // ---------- 修炼：打坐、闭关、特训、差事 ----------
-L.sitMult = st => (L.tunaStep ? L.tunaStep(st) : 1);   // 原吐纳的“引气诀让打坐多得”
+if (!L.sitMult) L.sitMult = () => 1;   // arts.js 定义（引气诀让打坐多得）
 L.sitGain = (st, n) => (n === undefined ? 1 : n) * L.AP.sitTicks * L.gainCalm(st) * L.sitMult(st);
 L.sit = function (st) {
   if (!st || st.p.r > L.MAXR) return 0;
@@ -137,28 +162,27 @@ L.errandNow = function (st, args) {
   return st.retreat ? finishRetreat(st) : { kind: 'errand', done: true };
 };
 // 事件效果“占住 v 个月”（sect2.js 的 fx.busy）：不再占时间，改成下一季少 1 点（v ≥ 4 少 2 点），记在 st.ap.debt
+// （sect2.js 的 fx.busy 直接调 L.apDebt；这里接住别处还在用 startBusy(…, 'event') 的旧调用）
 if (L.startBusy) { const sb0 = L.startBusy; L.startBusy = function (st, n, what) {
-  if (what === 'event' && st && st.p && st.p.r <= L.MAXR && n > 0) { const a = ap(st); a.debt = Math.min(L.AP.per, a.debt + (n >= 4 ? 2 : 1)); return true; }
+  if (what === 'event' && st && st.p && st.p.r <= L.MAXR && n > 0) { L.apDebt(st, n); return true; }
   return sb0.apply(this, arguments);
 }; }
 
 // ---------- 历练（当场） ----------
 const busyWhy = st => (st.exp ? '历练途中' : st.run ? '秘境里' : st.retreat ? '眼下有事在身' : '');
-// 脚力来源数（御风诀、风行水上、轻灵词条……）：原来缩短历练时长的效果，每个来源 0.25（A2 把 artExpLen / gearExpLen 改成直接返回来源数）
-L.strideSrc = function (st, k) {
-  if (L.strideSrcN) return L.strideSrcN(st, k);
-  const b = 10; let n = b;
-  if (L.artExpLen) n = L.artExpLen(st, n);
-  if (L.gearExpLen) n = L.gearExpLen(st, n);
-  return Math.max(0, b - n);
-};
+// 脚力（AP_PLAN §2.3）：原来“历练时长 −1 月”的效果，现在每个来源每趟攒 L.AP.stride（0.25），合计上限 strideCap，攒满 1 返还 1 点。
+// 来源：御风诀、风行水上（arts.js 的 L.artExpLen）、轻灵词条（gear.js 的 L.gearExpLen）、传送阵 3 级（buildings.js）、灵宠天赋（pets.js）
+// 这几处都包在 L.strideParts 上（expedition.js 定义，返回 [[名字, 来源数]]）；L.strideSrcN 是来源数之和
+L.strideSrcN = (st, k) => (st ? L.strideParts(st, k).reduce((v, x) => v + x[1], 0) : 0);
+L.strideSrc = (st, k) => L.strideSrcN(st, k);
 L.strideGain = (st, k) => Math.min(L.AP.strideCap, L.strideSrc(st, k) * L.AP.stride);
-// 一趟走完：攒脚力，满 1 返还 1 点
-function strideAdd(st, k) {
+// 一趟（2 点的那种）走完：攒脚力，满 1 返还 1 点。扫荡、趁势深入只花 1 点，不攒（不然扫荡几乎白送）
+function strideAdd(st, k, r) {
   const a = ap(st), g = L.strideGain(st, k);
   if (!(g > 0)) return 0;
   a.stride = Math.round((a.stride + g) * 1e6) / 1e6;
-  if (a.stride >= 1) { a.stride -= 1; a.left = Math.min(L.AP.per, a.left + 1); return 1; }
+  if (r) { r.stride = g; r.strideNow = a.stride; r.strideSrc = L.strideParts(st, k).map(x => x[0]); }
+  if (a.stride >= 1) { a.stride = Math.round((a.stride - 1) * 1e6) / 1e6; a.left = Math.min(L.AP.per, a.left + 1); if (r) r.strideNow = a.stride; return 1; }
   return 0;
 }
 const tripDone = e => !e || (e.nodes ? e.ni >= e.nodes.length || !!(e.bt && (e.bt.dead || e.bt.fled)) : e.left <= 0);
@@ -197,7 +221,7 @@ L.tripEnd = function (st) {
   const r = L.resolveExp(st);
   if (!r) return null;
   if (!paid && !acting) { L.apSpend(st, L.apCost(st, id), id); ap(st).seq++; }
-  r.refund = strideAdd(st, k);
+  r.refund = id === 'exp' && !e.old ? strideAdd(st, k, r) : 0;
   if (!acting) pushBlk(st, { kind: 'result', id, data: r, lv: 1 });
   return r;
 };
@@ -246,7 +270,7 @@ L.regAct('train', { ap: () => L.AP.train, label: '老祖特训',
 L.regAct('sit', { ap: () => L.AP.sit, label: '打坐',
   why: st => busyWhy(st),
   run: st => { const g = L.sit(st); return { got: g }; } });
-L.regAct('realm', { ap: st => ((L.mjCost ? L.mjCost(st) : 1) === 0 ? L.AP.realmPortal : L.AP.realm), label: '秘境', card: false,
+L.regAct('realm', { ap: st => (L.mjAp ? L.mjAp(st) : L.AP.realm), label: '秘境', card: false,
   why: (st, x) => (L.mjWhy ? L.mjWhy(st, arg(x, 0, 'xf')) : '秘境还没开放'),
   run: (st, x) => (L.mjEnter && L.mjEnter(st, { xf: arg(x, 0, 'xf') }) ? st.run : null) });
 L.regAct('errand', { ap: () => L.AP.errand, label: '宗门差事',
@@ -379,7 +403,8 @@ let ticking = 0;
 { const t0 = L.tick; L.tick = function (st, cont) {
   ticking++;
   let out;
-  try { out = t0.apply(this, arguments); } finally { ticking--; }
+  const mon0 = L._inMonth;   // tick.js 推过月后把 L._inMonth 设成 st（这个月的结算里 L.season 取 st.tick）；里面各层包装都跑完再复原
+  try { out = t0.apply(this, arguments); } finally { ticking--; L._inMonth = mon0; }
   const e = st.exp;
   if (e) {
     // 照旧主循环的节奏：一个月一个节点（界面已经打完这一格就跳过），走满 total 个月或倒下 / 撤就结算
@@ -403,7 +428,7 @@ L.migrateAp = function (st) {
   const a = ap(st);
   // 历练在外：没打的节点按 e.pol 自动打完，结算（旧规则下出发的，收获全给）；第一条结算链的第一张就是它
   if (st.exp) {
-    st.exp.apPaid = 1; st.exp.chain = 0; st.expSum = null;
+    st.exp.apPaid = 1; st.exp.chain = 0; st.exp.old = 1; st.expSum = null;   // e.old：旧规则下出发的，收获不乘 expRew（expedition.js）
     acting++;
     let r = null;
     try { L.tripAuto(st); r = L.resolveExp(st); } finally { acting--; }

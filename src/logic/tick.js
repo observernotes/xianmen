@@ -22,6 +22,7 @@ L.tick = function (st, cont) {
   const out = { exp: null, event: null, tourney: false, pact: false, death: false, invite: false, war: false };
   if (!cont) L.flow(st, 1);
   st.tick++;
+  L._inMonth = st;   // 这个月的结算进行中：L.monthNow / L.season 取 st.tick（calendar.js）；包在外面的 ap.js 在整条 L.tick 跑完后复原
   const p = st.p;
   if (p.inj > 0) p.inj--;
   // 功法：熟练、长春功的额外疗伤（arts.js）；法宝：过期没决定的掉落兜底结清（gear.js）

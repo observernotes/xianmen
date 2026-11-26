@@ -11,7 +11,8 @@
  *     （§8 写的是 rec(k, 1)。tools/sim.js 量过：guided 每个夏天的战力中位数只有 rec(家门口, 1) 的 0.6 倍，第一层就掉 55 气血，
  *      两间战斗房出局，守关永远打不过；改用外围 rec(k, 0)，中段的人走到 3～4 层，境界末的人能通关。）
  *   每过一层可以【继续深入】或【带着 N 件收获离开】；气血归零 = 重伤出局：本局收获丢六成，负伤 4 月。
- *   局中时间暂停（界面不走时）；整局结算后流逝 3 月（L.mjCost，传送阵 9 级免除），存档随时可续（状态在 st.run）。
+ *   进一次花 2 点行动点（L.mjAp；传送阵 9 级只花 1 点，docs/AP_PLAN.md §2.2），局中不走时间，存档随时可续（状态在 st.run）。
+ *   夏季窗口按“现在这个月”（calendar.js 的 L.monthNow）判：回合进行中看本回合这一季；送令在入夏前的那个季末（第 3 月结算时），所以夏季那一回合手里就有令。
  *   记录（跨世，st.meta.mj）：每个主题的最深层数与通关次数；首次通关给称号；任意主题合计通关 3 次后秘藏可出《混元道经》。
  *
  *   st.run = { theme, k 家门口地图, floor 当前层（1 起）, floors, hp, max, doors [{ t 类型, unk 是否“？” }], phase 'door'|'event'|'shop'|'chest',
@@ -89,7 +90,7 @@ L.mjWhy = function (st, xf) {
   if (st.retreat) return '闭关中进不了秘境';
   if (xf) return L.mjXianfu(st) ? '' : '仙府只在“仙府现世”期间开一次';
   const w = L.realmWindow(st);
-  if (!w.open) return `入夏才开（还有 ${w.in} 月）`;
+  if (!w.open) return w.in <= 3 ? '入夏才开（下一季）' : `入夏才开（还有 ${Math.ceil(w.in / 3)} 季）`;
   if (L.mjTokens(st) < 1) return '没有秘境令（每个夏季送一枚，坊市轮换货架也有）';
   return '';
 };
@@ -469,26 +470,28 @@ function wipe(st, res) {
   res.hp1 = 0; res.wipe = finish(st, 'wipe');
   return res;
 }
-// 传送阵 9 级免除（buildings.js 的 L.portalLv；nohome2 时没有传送阵，恒为 3）
+// 旧口径（月）：传送阵 9 级 0，否则 3。回合制里秘境不占时间，留着给旧调用；花几点看 L.mjAp
 L.mjCost = st => ((L.portalLv ? L.portalLv(st) : (st.home && st.home.portal) || 0) >= 9 ? 0 : L.MJ.cost);
+// 进一次秘境花几点行动点：2；传送阵 9 级 1（AP_PLAN §2.2、§2.3）
+L.mjAp = st => (L.AP ? (L.mjCost(st) === 0 ? L.AP.realmPortal : L.AP.realm) : 1);
 function finish(st, how) {
   const run = st.run, th = TH[run.theme], r = L.mjThRec(st, run.theme), R0 = rec(st), m = mj(st);
   const n = run.loot.length;
   const g = grantLoot(st, run, how === 'wipe' ? 1 - L.MJ.wipeLose : 1);
   const deep = how === 'clear' ? run.floors : run.cleared;
-  const sum = { how, theme: run.theme, floors: run.floors, deep, n, got: g, xf: run.xf, newDeep: deep > r.deep, ticks: L.mjCost(st), hpLeft: run.hp, max: run.max };
+  const sum = { how, theme: run.theme, floors: run.floors, deep, n, got: g, xf: run.xf, newDeep: deep > r.deep, ticks: 0, ap: L.mjAp(st), hpLeft: run.hp, max: run.max };
   r.deep = Math.max(r.deep, deep);
   if (how === 'clear') {
     r.clears++; R0.clears = (R0.clears || 0) + 1; m.clears = (m.clears || 0) + 1;
     st.stats.mjClears = (st.stats.mjClears || 0) + 1;
     if (r.clears === 1) { sum.first = th.title; L.grantTitle(st, th.title); L.log(st, `首次打穿${th.n}秘境，获得称号「${th.title}」`, 'gold'); }
   }
-  if (how === 'wipe') { st.p.inj = Math.max(st.p.inj, L.MJ.wipeInj); sum.inj = L.MJ.wipeInj; }
+  if (how === 'wipe') { st.p.inj = Math.max(st.p.inj, L.MJ.wipeInj); sum.inj = L.MJ.wipeInj; }   // 4 月 = 下季末痊愈
   st.stats.mjDeep = Math.max(st.stats.mjDeep || 0, deep);
   st.run = null;
   for (const f in st.eflags || {}) if (/^run_/.test(f)) delete st.eflags[f];
   const nm = run.xf ? '仙府' : th.n + '秘境';
-  if (how === 'wipe') L.log(st, `${nm}第 ${run.floor} 层重伤出局，收获丢了六成，负伤 ${L.MJ.wipeInj} 月`, 'red');
+  if (how === 'wipe') L.log(st, `${nm}第 ${run.floor} 层重伤出局，收获丢了六成，${L.injText ? L.injText(L.MJ.wipeInj) : '负伤 ' + L.MJ.wipeInj + ' 月'}`, 'red');
   else if (how === 'clear') L.log(st, `打穿${nm}（${run.floors} 层），带回 ${n} 件收获`, 'gold');
   else L.log(st, `从${nm}第 ${run.floor} 层全身而退，带回 ${n} 件收获`, 'jade');
   emit('mjEnd', sum);
@@ -497,14 +500,15 @@ function finish(st, how) {
 }
 
 // ---------- 每月：夏季送令 ----------
+// 看下一个月（st.tick + 1）：入夏前的那个季末就把令送到，夏季那一回合一开始手里就有（AP_PLAN §2.2：有秘境令的夏季进秘境）
 L.mjTick = function (st, out) {
   if (!L.mjUnlocked(st) || st.p.r > L.MAXR) return;
-  const w = L.realmWindow(st), yr = Math.floor(st.tick / 12), m = mj(st);
+  const w = L.realmWindowAt(st.tick + 1), yr = Math.floor((st.tick + 1) / 12), m = mj(st);
   if (w.open && m.giftYr !== yr) {
     m.giftYr = yr;
     const got = L.mjAddToken(st, 1);
     out.mjOpen = { theme: L.mjThemeNow(st).id, got, left: w.left };
-    L.log(st, `入夏，${L.mjThemeNow(st).n}秘境开了（${w.left} 月）${got ? '，送来一枚秘境令' : '（秘境令已满 3 枚）'}`, 'gold');
+    L.log(st, `入夏，${L.mjThemeNow(st).n}秘境开了（夏、秋两季）${got ? '，送来一枚秘境令' : '（秘境令已满 3 枚）'}`, 'gold');
   }
 };
 

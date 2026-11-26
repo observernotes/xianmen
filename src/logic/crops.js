@@ -211,7 +211,7 @@ L.supportFx('flag', { apply: (st, v, out, fx, ctx) => {
     if (!/^(field_half|mutant_seed|seed_early)$/.test(f)) continue;
     delete st.eflags[f];
     const c = L.cropsOf(st);
-    if (f === 'field_half') { c.half = st.tick + L.seasonLeft(st); out.push(`这一季灵田产量减半（${L.seasonLeft(st)} 月）`); }
+    if (f === 'field_half') { c.half = L.monthNow(st) + L.seasonLeft(st); out.push('这一季灵田产量减半'); }
     if (f === 'mutant_seed') { const id = CROP[c.mut] ? c.mut : 'fire'; c.boost[id] = 1; out.push(`${CROP[id].n}留了种：以后产量 ×${L.CROP_V.boost}`); }
     if (f === 'seed_early') { const C = L.nextLockedCrop(st); if (C) { c.seed[C.id] = 1; out.push(`得了${C.n}的种子：提前能种（产出${L.cropOutN(C)}）`); } else out.push('（作物都能种了，种子收着当个念想）'); }
   }

@@ -174,7 +174,7 @@ L.applyFx = function (st, fx, ctx) {
   if (fx.herbs) { const v = Math.round(fx.herbs * L.herbScale(st)); st.herbs = Math.max(0, st.herbs + v); out.push('灵草 ' + (v > 0 ? '+' : '') + f(v)); }
   if (fx.treasure) { st.treasure = Math.max(0, st.treasure + fx.treasure); out.push('天材地宝 ' + (fx.treasure > 0 ? '+' : '') + fx.treasure); }
   if (fx.life && p.r <= L.MAXR) { const v = Math.round(L.REALMS[p.r].life * fx.life / 100); st.lifeBonus += v; out.push('寿元 ' + (v >= 0 ? '+' : '') + f(v) + ' 年'); }
-  if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push('负伤 ' + fx.inj + ' 月'); }
+  if (fx.inj) { p.inj = Math.max(p.inj, fx.inj); out.push(L.injText ? L.injText(fx.inj) : '负伤 ' + fx.inj + ' 月'); }
   if (fx.item) {
     const kind = fx.item, up = fx.itemUp || 0;
     const base = kind === 'a' || kind === 'pet' ? 1 + Math.floor(p.r * 0.6) : 1 + Math.floor(p.r * 0.75);
