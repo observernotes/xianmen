@@ -215,7 +215,7 @@ require('fs').mkdirSync(out, { recursive: true });
     const sum = (k, a) => L.expExtraParts(st, k, 0, a).filter(x => x[2] === 'gear' && /^词条/.test(x[0])).reduce((s, x) => s + x[1], 0);
     w.aff = []; r.aff = []; o.aff = [];
     const s0 = sum(1, 0), j0 = L.expStoneMult(st, 0), c0 = L.culMult(st), d0 = L.duelPower(st, { kind: 'boss', k: 0 });
-    w.aff = ['fengrui', 'ke_mu']; r.aff = ['jucai']; o.aff = ['yangqi'];
+    w.aff = ['huixin', 'ke_mu']; r.aff = ['jucai']; o.aff = ['yangqi'];
     const out = { slay: sum(1, 0) - s0, seek: sum(1, 1) - s0, mu: sum(0, 0) - sum(1, 0), stone: L.expStoneMult(st, 0) / j0, cul: L.culMult(st) / c0, duel: L.duelPower(st, { kind: 'boss', k: 0 }) / d0 };
     // 藏锋：火系战技在水属性的九幽魔渊被克 −8，有藏锋就 0
     L.giveArt(st, 'z_liehuo'); L.equipArt(st, 'z_liehuo');
@@ -1860,7 +1860,7 @@ require('fs').mkdirSync(out, { recursive: true });
     {
       const prep = old => {
         for (const id of ['x_houtu', 'z_hanyue']) { L.giveArt(old, id); old.arts.own[id] = L.artNeed(id, 3); }
-        L.gearDrop(old, 'w', 4); old.gear.w.aff = ['ke_mu', 'fengrui'];
+        L.gearDrop(old, 'w', 4); old.gear.w.aff = ['ke_mu', 'huixin'];
         L.petGive(old, { sp: 'p_hu' }); old.pets[0].heart = 5;
       };
       const e = reb({}, {}, prep).old;
@@ -1870,12 +1870,12 @@ require('fs').mkdirSync(out, { recursive: true });
       const e2 = reb({ legacy2: 1 }, {}, prep).old; L.legacySet(e2, { arts: ['x_houtu', 'z_hanyue'] }); o.legacySet2 = e2.meta.legacy.arts.length === 2;
       // 一代走完：功法从小成起并装上，器灵落到第一件同槽法宝，血脉定第一枚蛋
       const old = reb({ legacy2: 1 }, {}, prep).old;
-      L.legacySet(old, { arts: ['x_houtu', 'z_hanyue'], gear: { slot: 'w', aff: 'fengrui' }, pet: 'p_hu' });
+      L.legacySet(old, { arts: ['x_houtu', 'z_hanyue'], gear: { slot: 'w', aff: 'huixin' }, pet: 'p_hu' });
       const ns = L.rebirthState(old, { t: C0.t, tr: C0.tr });
       o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1 && L.artSlots(ns).includes(id)) && Object.keys(ns.meta.legacy).length === 0;
       o.legacyCleared = JSON.stringify(ns.meta.legacy) === '{}' && !!ns.legacy.gear && ns.legacy.pet === 'p_hu';
       const r = L.gearDrop(ns, 'r', 2, {}), w1 = L.gearDrop(ns, 'w', 2, {}), w2 = L.gearDrop(ns, 'w', 2, {});
-      o.legacyGear = !(r.legacy) && w1.legacy === 'fengrui' && w1.gear.aff.includes('fengrui') && !w2.legacy && !ns.legacy.gear;
+      o.legacyGear = !(r.legacy) && w1.legacy === 'huixin' && w1.gear.aff.includes('huixin') && !w2.legacy && !ns.legacy.gear;
       const e1 = L.petEgg(ns), e2b = L.petEgg(ns);
       o.legacyPet = e1.sp === 'p_hu' && e1.legacy === true && !ns.legacy.pet && !e2b.legacy;
       let n = 0; for (let i = 0; i < 12; i++) { const s = L.newState({ name: 'x' }); s.legacy = { pet: 'p_hu' }; if (L.petEgg(s).sp === 'p_hu') n++; }
@@ -2129,33 +2129,33 @@ require('fs').mkdirSync(out, { recursive: true });
     };
     // ---------- 打压：赢 ----------
     {
-      const s = due('fengrui', ['ke_mu']), rk = s.rv2.rk, name = rk.n, id = rk.id, rank0 = s.rank, ore0 = s.ore || 0;
+      const s = due('huixin', ['ke_mu']), rk = s.rv2.rk, name = rk.n, id = rk.id, rank0 = s.rank, ore0 = s.ore || 0;
       const res = L.rookieResolve(s, 'crush', true), w = L.gearEq(s, 'w');
-      o.crushWin = res.win && res.aff === 'fengrui' && w.aff.join() === 'ke_mu,fengrui' && s.rv2.rk === null && s.rv2.pool.length === 1 && s.rv2.pool[0].id === id && s.rv2.pool[0].g === 60 && s.rv2.pool[0].n === name
+      o.crushWin = res.win && res.aff === 'huixin' && w.aff.join() === 'ke_mu,huixin' && s.rv2.rk === null && s.rv2.pool.length === 1 && s.rv2.pool[0].id === id && s.rv2.pool[0].g === 60 && s.rv2.pool[0].n === name
         && s.rank === rank0 && !s.ladder.some(x => x.rk) && s.ladder.some(x => x.n === name) && s.storyQ.includes('new_3') && s.rv2.crush === 1 && (s.ore || 0) === ore0 && s.rv2.rkNext >= s.tick + L.ROOKIE.after;
       o.crushPool = L.grudge(s, id) === 60 && L.rivalLeads(s).some(x => x.id === id && x.rookie) && L.addGrudge(s, id, -30) === -30 && L.grudge(s, id) === 30 && L.rivalLeads(s).every(x => x.id !== id) && s.ladder.length === 99;
       // 兵器满三条：改给灵矿；克 X 冲突：改给灵矿；已经有这条：改给灵矿
-      for (const [k, aff, mine] of [['full', 'fengrui', ['ke_mu', 'zhongji', 'fengrui2']], ['conf', 'ke_tu', ['ke_mu']], ['dup', 'fengrui', ['fengrui']]]) {
+      for (const [k, aff, mine] of [['full', 'huixin', ['ke_mu', 'zhongji', 'huixin2']], ['conf', 'ke_tu', ['ke_mu']], ['dup', 'huixin', ['huixin']]]) {
         const q = due(aff, mine.map(x => (L.AFFIX[x] ? x : 'zhongji'))), ore = q.ore || 0, before = q.gear.w.aff.slice();
         const r = L.rookieResolve(q, 'crush', true);
         o['crushOre_' + k] = r.aff === '' && r.ore > 0 && q.ore === ore + r.ore && q.gear.w.aff.join() === before.join() && /熔了得灵矿/.test(r.text);
       }
       // 没有兵器也不报错，改给灵矿
-      const n = due('fengrui', []); n.gear.w = null; const nr = (() => { try { return L.rookieResolve(n, 'crush', true); } catch (e) { return { err: e.message }; } })();
+      const n = due('huixin', []); n.gear.w = null; const nr = (() => { try { return L.rookieResolve(n, 'crush', true); } catch (e) { return { err: e.message }; } })();
       o.crushNoWeapon = !nr.err && nr.aff === '' && nr.ore > 0;
     }
     // ---------- 打压：输 ----------
     {
-      const s = due('fengrui'), rk = s.rv2.rk, name = rk.n, rank0 = s.rank; s.p.inj = 0;
+      const s = due('huixin'), rk = s.rv2.rk, name = rk.n, rank0 = s.rank; s.p.inj = 0;
       const res = L.rookieResolve(s, 'crush', false), i = s.ladder.findIndex(x => x.n === name);
       o.crushLose = !res.win && s.rank === rank0 + 1 && L.rivalAt(s, rank0) && L.rivalAt(s, rank0).n === name && i === rank0 - 1 && s.p.inj >= 2 && s.rv2.rk === null && s.rv2.lost === 1 && !s.rv2.pool.length && s.ladder.length === 99 && !s.ladder.some(x => x.rk) && !s.storyQ.includes('new_3');
       // 榜上第 100 名时输了：名次不超过 100
-      const t = due('fengrui'); t.rank = 100; t.ladder.splice(t.rank - 1, 0, t.ladder.pop()); const r2 = L.rookieResolve(t, 'crush', false);
+      const t = due('huixin'); t.rank = 100; t.ladder.splice(t.rank - 1, 0, t.ladder.pop()); const r2 = L.rookieResolve(t, 'crush', false);
       o.crushLoseCap = t.rank === 100 && r2 && t.ladder.length === 99;
     }
     // ---------- 指点 ----------
     {
-      const s = due('fengrui'), rk = s.rv2.rk, name = rk.n, t0 = s.tick;
+      const s = due('huixin'), rk = s.rv2.rk, name = rk.n, t0 = s.tick;
       const res = L.rookieResolve(s, 'teach');
       o.teach = res.how === 'teach' && s.rv2.friends.length === 1 && s.rv2.friends[0].n === name && s.rv2.friends[0].at === t0 && s.eflags.rookie_taught === 1 && s.rv2.trouble === t0 + 24 && s.rv2.rk === null && s.rv2.teach === 1 && !s.rv2.pool.length && s.rank === 10 && !s.ladder.some(x => x.rk);
       // 24 周天后闯祸（new_4）：之前没有
@@ -2163,11 +2163,11 @@ require('fs').mkdirSync(out, { recursive: true });
       s.tick++; L.rivalTick(s, {});
       o.teachTrouble = !early && s.storyQ.includes('new_4') && s.rv2.trouble === null;
       // 送礼：每 24 周天（t % 24 = 3）、满 24 周天后、15%：rng 0 就送，0.99 不送
-      const g = due('fengrui'); L.rookieResolve(g, 'teach'); g.tick = 24 * 20 + 3; g.rv2.friends[0].at = g.tick - 24;
+      const g = due('huixin'); L.rookieResolve(g, 'teach'); g.tick = 24 * 20 + 3; g.rv2.friends[0].at = g.tick - 24;
       const no = {}; g.stones = 0; withR(0.99, () => L.rivalTick(g, no));
       const yes = {}; withR(0.0, () => L.rivalTick(g, yes));
-      const fresh = due('fengrui'); L.rookieResolve(fresh, 'teach'); fresh.tick = 24 * 21 + 3; fresh.rv2.friends[0].at = fresh.tick - 5; const young = {}; withR(0.0, () => L.rivalTick(fresh, young));
-      const wrongTick = due('fengrui'); L.rookieResolve(wrongTick, 'teach'); wrongTick.tick = 24 * 22 + 4; wrongTick.rv2.friends[0].at = 0; const wt = {}; withR(0.0, () => L.rivalTick(wrongTick, wt));
+      const fresh = due('huixin'); L.rookieResolve(fresh, 'teach'); fresh.tick = 24 * 21 + 3; fresh.rv2.friends[0].at = fresh.tick - 5; const young = {}; withR(0.0, () => L.rivalTick(fresh, young));
+      const wrongTick = due('huixin'); L.rookieResolve(wrongTick, 'teach'); wrongTick.tick = 24 * 22 + 4; wrongTick.rv2.friends[0].at = 0; const wt = {}; withR(0.0, () => L.rivalTick(wrongTick, wt));
       o.teachGift = !no.rkGift && !!yes.rkGift && yes.rkGift.length === 1 && g.rv2.gifts === 1 && g.rv2.friends[0].gifts === 1 && !young.rkGift && !wt.rkGift;
       // 朋友最多记 4 位，满了挤掉最早的
       const h = mk({ rank: 10 }); for (let i = 0; i < 6; i++) { h.ladder.splice(0, 1); h.rv2.rk = null; h.rv2.rkN = i; spawn(h); L.rookieResolve(h, 'teach'); h.rv2.rkNext = 0; }
@@ -2175,18 +2175,18 @@ require('fs').mkdirSync(out, { recursive: true });
     }
     // ---------- 看一眼：五行显形 ----------
     {
-      const s = due('fengrui'), rk = s.rv2.rk;
+      const s = due('huixin'), rk = s.rv2.rk;
       const k0 = L.foeElKnown(s, L.rookieFoe(s)); const ev = L.eventById('new_1');
       L.resolveChoice(s, ev, 1);
       const k1 = L.foeElKnown(s, L.rookieFoe(s));
       o.rkSeen = !k0 && k1 && rk.known === 1 && !s.eflags.rookie_seen;
-      const t = due('fengrui'); L.revealFoe(t, L.rookieFoe(t));   // 交过手也知道
+      const t = due('huixin'); L.revealFoe(t, L.rookieFoe(t));   // 交过手也知道
       o.rkRevealFight = L.foeElKnown(t, L.rookieFoe(t)) === true;
       // 打压的对决：L.rookieDuel 一场定胜负，进池子 / 挤到前面二选一；对手战力 = L.rookiePower
-      const d = due('fengrui'), I = L.rookieInfo(d), rank0 = d.rank;
+      const d = due('huixin'), I = L.rookieInfo(d), rank0 = d.rank;
       o.rkInfo = I.q === rank0 + 1 && I.gap === 1 && I.Q === L.rookiePower(d) && I.p > 0 && I.p < 1 && I.known === false;
       const win = withR(0.0, () => L.rookieDuel(d));
-      const e = due('fengrui'); e.p.inj = 0; const lose = withR(0.999999, () => L.rookieDuel(e));
+      const e = due('huixin'); e.p.inj = 0; const lose = withR(0.999999, () => L.rookieDuel(e));
       o.rkDuel = win.win === true && d.rv2.pool.length === 1 && !!win.text && lose.win === false && e.rank === rank0 + 1 && L.rookie(e) === null && L.foeElKnown(d, { kind: 'rookie' }) === false;
     }
     // ---------- norivals2：没有新秀、不抬价、不带头 ----------

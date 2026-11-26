@@ -1114,6 +1114,23 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kmail { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 4px 6px; font-size: 15px; }
 .kmail .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kmail .s { color: #8a7a5c; font-size: 14px; white-space: nowrap; }
+/* ---------- 线 C3 高光过场（cine2.js，docs/COMBAT_LOOT.md §9） ---------- */
+.cn-wrap { position: fixed; inset: 0; z-index: 40; background: #07050c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+#intro .cn-wrap.cn-in { position: fixed; inset: 0; max-width: none; width: auto; gap: 0; z-index: 40; }
+.cn-cv { display: block; image-rendering: pixelated; box-shadow: 0 0 0 2px #1b1326, 0 0 0 4px #3a3155; }
+.cn-sub { min-height: 28px; margin-top: 16px; padding: 0 12px; font-size: 18px; line-height: 28px; color: #f6ecd0; white-space: nowrap; text-align: center; letter-spacing: 1px; text-shadow: 2px 2px 0 #1b1326; }
+.cn-pips { display: flex; gap: 6px; margin-top: 10px; }
+.cn-pips i { width: 8px; height: 8px; background: #3a3155; box-shadow: 0 0 0 1px #1b1326; }
+.cn-pips i.on { background: var(--gold); }
+.cn-hint { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #8a849c; pointer-events: none; }
+.cn-skip { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); min-width: 88px; min-height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: #f6ecd0; background: rgba(27, 19, 38, .85); border: 0; box-shadow: 0 0 0 2px #55506e; cursor: pointer; }
+.cn-skip:active { background: #3a3155; }
+.cn-rc { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-top: 6px; }
+.cn-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; padding: 6px 4px; font: inherit; color: var(--paper-ink); background: rgba(27, 19, 38, .06); border: 0; box-shadow: 0 0 0 2px #b98a4c; cursor: pointer; }
+.cn-tile .cn-th { display: flex; align-items: center; justify-content: center; background: #07050c; overflow: hidden; }
+.cn-tile .cn-th i { font-style: normal; color: #55506e; font-size: 20px; }
+.cn-tile .cn-nm { font-size: 14px; white-space: nowrap; }
+.cn-tile.off { cursor: default; opacity: .7; box-shadow: 0 0 0 2px #8a8496; }
 /* ---------- 战斗线 C1：历练的节点与回合战（src/ui/battle.js，docs/COMBAT_LOOT.md §2，示意图 02_battle.png） ---------- */
 body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body.bt-on #tick { display: none !important; }
 #bt { display: flex; flex-direction: column; gap: 4px; flex: none; }
@@ -1180,6 +1197,67 @@ body.bt-on #cult, body.bt-on #stats, body.bt-on #haul, body.bt-on #tripBar, body
 #goal:not(.open) .gbar em { display: none; }
 #goal.open { cursor: pointer; }
 #goal.open .gtog { transform: rotate(180deg); }
+/* ===== 线 C2 刷宝 + 炼器（.lt-，src/ui/loot.js、src/ui/forge.js；docs/COMBAT_LOOT.md §5 §6） ===== */
+.lt-flip { margin: 4px 0; }
+.lt-cards { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: flex-end; background: #262038; border: 2px solid #3a3155; padding: 8px 4px; position: relative; overflow: hidden; }
+.lt-c { position: relative; flex: none; cursor: pointer; touch-action: manipulation; transition: transform .125s steps(3); }
+.lt-c .lt-face { position: absolute; left: 0; bottom: 0; z-index: 1; }
+.lt-c .lt-beam { position: absolute; z-index: 0; opacity: 0; transform: scaleY(0); transform-origin: 50% 100%; transition: transform .35s steps(5), opacity .2s; pointer-events: none; }
+.lt-c.lt-beamon .lt-beam { opacity: .95; transform: scaleY(1); }
+.lt-c.lt-hot { animation: ltShiver .5s steps(2) infinite; }
+.lt-c.lt-turn { transform: scaleX(0); }
+.lt-c.lt-open { cursor: default; }
+.lt-c.lt-charge { animation: ltCharge .6s steps(6) forwards; }
+@keyframes ltShiver { 0% { transform: translateX(-1px); } 50% { transform: translateX(1px); } }
+@keyframes ltCharge { 0% { transform: scale(1); filter: brightness(1); } 100% { transform: scale(1.12); filter: brightness(1.6) drop-shadow(0 0 6px #f4c542); } }
+.lt-goldfx { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: radial-gradient(circle, #fff2a8 0%, #f4c542 45%, rgba(244,197,66,0) 80%); animation: ltGold .7s steps(6) forwards; }
+@keyframes ltGold { 0% { opacity: .95; } 100% { opacity: 0; } }
+.sheet.lt-quake { animation: ltQuake .36s steps(6); }
+@keyframes ltQuake { 0%, 100% { translate: 0 0; } 20% { translate: -4px 2px; } 40% { translate: 4px -2px; } 60% { translate: -3px 1px; } 80% { translate: 2px -1px; } }
+.lt-hint { text-align: center; color: #8a7a5c; font-size: 14px; margin: 2px 0; }
+.lt-after { display: flex; flex-direction: column; gap: 4px; }
+.lt-after .kslot { animation: ltIn .25s steps(3); }
+@keyframes ltIn { 0% { opacity: 0; transform: translateY(-6px); } 100% { opacity: 1; transform: none; } }
+.lt-wish { display: flex; align-items: center; gap: 8px; border: 2px solid #c8323c; background: #fbe6d8; padding: 2px 8px; font-size: 16px; color: #c8323c; min-height: 44px; }
+.lt-wish b { font-weight: normal; }
+.lt-wbtn { font: inherit; font-size: 14px; color: #8a7a5c; background: none; border: 0; min-height: 44px; cursor: pointer; padding: 0 4px; }
+.lt-stars { display: inline-flex; gap: 1px; vertical-align: middle; margin-left: 4px; }
+.lt-elb { vertical-align: middle; margin-left: 3px; }
+.lt-gold-t { color: #a8742a; }
+.lt-drops > .lt-dc { border: 2px solid #3a3155; }
+.lt-drops > .lt-dc.sel { box-shadow: 0 0 0 3px var(--gold); }
+.lt-dc.un img { filter: brightness(0); opacity: .6; }
+.lt-dc.wish { border-color: #c8323c !important; }
+.lt-dc i { position: absolute; right: -3px; top: -8px; background: #d8404a; color: #fff; font-style: normal; font-size: 14px; line-height: 16px; padding: 0 2px; }
+.lt-dc.sm { display: inline-flex; width: 30px; height: 30px; background: #262038; align-items: center; justify-content: center; position: relative; border: 1px solid #3a3155; }
+.lt-pop { margin-top: 4px; }
+.lt-wl { display: flex; gap: 6px; align-items: center; color: #8a7a5c; font-size: 14px; margin-top: 4px; }
+.lt-cxrow { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 15px; }
+.lt-cxrow .nm { width: 108px; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lt-cxcells { display: flex; gap: 4px; }
+.lt-gslots .aslot.lt-gslot { min-height: 52px; flex-direction: row; justify-content: center; gap: 4px; padding: 3px 4px; }
+.lt-gslots .aslot.lt-gslot .nm { font-size: 14px; }
+.lt-bench { position: relative; background: #262038; border: 2px solid #3a3155; text-align: center; padding: 4px 0; }
+.lt-bench .lt-bl { position: absolute; left: 6px; top: 4px; color: #efe9ff; font-size: 14px; }
+.lt-bench .lt-br { position: absolute; right: 6px; top: 4px; color: #f4c542; font-size: 14px; }
+.lt-ftabs button small { font-size: 14px; }
+.lt-ftabs button.lt-lk { background: #e2d4ae; color: #a8987a; border-color: #b9a988; }
+.lt-edge { display: flex; align-items: center; gap: 6px; border: 2px dashed #c8b48c; padding: 3px 6px; font-size: 15px; flex-wrap: wrap; }
+.lt-edge.on { border-color: #c8323c; border-style: solid; flex-direction: column; align-items: stretch; }
+.lt-edgeb { display: flex; gap: 4px; }
+.lt-edgeb .kb { flex: 1; min-height: 52px; display: flex; align-items: center; gap: 4px; font: inherit; font-size: 15px; border: 2px solid #2c2238; background: #f6ecd2; cursor: pointer; padding: 2px 4px; text-align: left; line-height: 1.15; }
+.lt-edgeb .kb b { font-weight: normal; color: #c8323c; }
+.lt-edgeb .kb small { font-size: 14px; color: #5a4c3a; }
+.lt-ics > .lt-ic { flex-direction: column; gap: 0; height: 56px; border: 2px solid #3a3155; color: #fff; }
+.lt-ics > .lt-ic b { position: static; font-size: 14px; }
+.lt-ics > .lt-ic.sel { box-shadow: 0 0 0 3px var(--gold); }
+.lt-ics > .lt-ic.cur, .lt-ics > .lt-ic:disabled { opacity: .45; cursor: default; }
+.lt-ars > .lt-ar { height: auto; min-height: 44px; background: #f6ecd2; color: var(--paper-ink); border: 2px solid #c8b48c; justify-content: flex-start; gap: 8px; padding: 2px 8px; font-size: 15px; text-align: left; }
+.lt-ars > .lt-ar b { font-weight: normal; width: 44px; flex: none; color: #2c2238; position: static; font-size: 15px; text-shadow: none; }
+.lt-ars > .lt-ar span { color: #5a4c3a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lt-ars > .lt-ar.sel { border-color: #c8323c; background: #fbe6d8; }
+.lt-ars > .lt-ar.gold { cursor: default; border-color: #a8742a; }
+.lt-ars > .lt-ar.gold b { color: #a8742a; }
 </style>
 
 <div id="app">

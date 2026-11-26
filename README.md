@@ -128,6 +128,7 @@ src/ui/           界面片段（共用一个作用域），按 tools/build.py �
                   panel-equip【装备】（法宝 · 功法 · 灵宠 · 包裹）、panel-me 外壳分页条（装备 / 江湖 / 仙途 / 洞府四组）与【仙途】属性 · 记录 · 设置、
                   panel-path【仙途】路径页、章末结算、年报、纸鹤列表、onboard 解锁卡（阻塞讲解只留头三步与突破金框）、panel-exp 新结算卡
                   battle 历练的节点与回合战画面（btDrive 按节点推进月份、#bt 气血 / 怒气 / 招式栏 / 大按钮、首领在场景里真打、出发页的敌人格与克制条）
+                  cine2 高光过场播放器（十段分镜、点一下快进 / 长按或【跳过】跳过、只播一次记 st.meta.cine、在外进 st.cnQ 等回洞府、排在弹窗队列 / 章末卡 / 解锁卡之前；【仙途 → 记录 → 回忆】重看；C1 战斗画面调 playCine('ult' | 'boss')）
 src/template.html 样式与页面骨架
 tools/build.py    裁剪像素字体并打包成单文件 → dist/
 tools/sim.js      数值模拟：node tools/sim.js（三种策略 × 200 种子汇总）；node tools/sim.js guided 1 v 7（单局逐 12 周天）；
@@ -150,6 +151,7 @@ tools/longrun.js  机器人通过界面完整玩一世（功法掉落卡点【�
                   每 12 周天进【洞府】有空地就点空地建“荐”的那一样，阵法页按“荐”布阵：快渡劫时布渡劫阵、渡完换回聚灵阵），检查全程无报错且飞升
 tools/guide_test.js 按真实玩家的点法走第一章（开罗式引导）：头三步手把手、在外零打断、结算卡、解锁卡【带我去】、装备 1 次点击、年报、备战卡、章末，逐步截图
 tools/kairo_check.js 面板版式断言（KAIRO_PLAN §4.2 / §7）：各面板第一屏 ≤ 60 字、≤ 6 个按钮、没有小于 14px 的字、不横向溢出；装备 / 功法 / 灵宠的点击数；node tools/kairo_check.js <目录> ["Pixel 7"|360]
+tools/cine_test.js 高光过场（src/ui/cine2.js，docs/COMBAT_LOOT.md §9）：十段过场各截三帧、时长 ±20%、【跳过】0.3 秒内、点一下快进 / 长按跳过、字幕一行、停表、只播一次、在外排队回洞府先播、破境 → 结果卡、约战前后、回忆页；node tools/cine_test.js <目录> ["Pixel 7"|360]。playwright 下过场默认快放（照常记看过、走回调，不出画面），window.__xm_cine.fast = false 才播
 tools/kairo_shots.js 开罗式重整前后对照截图（开局、出发、结算、第一章中段、装备、路径、在外、年报）
 tools/guide30.js  前 30 分钟节奏：照着老祖走的机器人玩到约第 200 周天，每段讲解截图，写出讲解 / 气泡 / 对决的时间表并核对节奏（约战前讲解段数、同一周天不连讲、句句带数）
 tools/content_test.js 奇遇、炼丹、首领、会武、功法、法宝（对比卡、强化与保底、继承、词条、熔炼、fx.ore / fx.plus、打造、v4 → v5 迁移）、人物分页、

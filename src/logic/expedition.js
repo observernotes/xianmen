@@ -262,7 +262,13 @@ L.resolveExp = function (st) {
   st.treasure += res.treasure;
   L.addOre(st, res.ore);
   if (res.huzhu) st.gear.huzhu = st.tick;
-  for (const dr of res.drops) { const it = L.giveItem(st, dr[0], dr[1], undefined, { k, d, src: 'exp', base: dr[2] }); if (it.value) st.stats.expStones += it.value; res.items.push(it); }
+  // 归途翻牌（loot.js 的 L.tripLoot：法宝、功法、灵核、灵矿堆……都在牌里，保底与心愿也在那里）；灵宠偶遇不占牌，照旧
+  // TODO（C1 合并后删）：C1 的节点流程接上后由“归途”节点调 L.tripLoot，这里的兜底用评价推“打赢精英”（斩妖、寻宝乙以上）与宝节点（寻宝）
+  if (L.tripLoot && !e.nodes) {   // 有节点表的（C1 的历练）由 trip.js 的“归途”调 L.tripLoot
+    res.cards = L.tripLoot(st, { k, d, a, rating: res.rating, won: res.rating >= 2, eliteWin: a !== 2 && res.rating >= 2, treasure: a === 1 && res.rating >= 1 && !e.recall ? 1 : 0, seq: st.stats.exp, recall: !!e.recall, hp: res.rating >= 4 ? 0.8 : res.rating >= 3 ? 0.55 : 0.3 });
+    for (const c of res.cards) if (c.item && (c.kind === 'gear' || c.kind === 'art' || c.kind === 'frag')) res.items.push(c.item);
+  }
+  for (const dr of res.drops) { if (L.tripLoot && !e.nodes && dr[0] !== 'pet') continue; const it = L.giveItem(st, dr[0], dr[1], undefined, { k, d, src: 'exp', base: dr[2] }); if (it.value) st.stats.expStones += it.value; res.items.push(it); }
   if (res.plan) res.planText = L.givePlan(st, res.plan);
   // 仙府现世（秘境上线前的折算）：评价甲以上一半机会带回一件仙府秘藏
   if (!e.recall) { const xf = L.calXianfu(st, res.rating); if (xf) { res.xianfu = xf; if (xf.it) res.items.push(xf.it); } }
@@ -326,9 +332,9 @@ L.BOSSES = [
   { n: '混沌魔神残影', line: '……天地未开时，吾已在此。', t: '开天之人', drop: '混沌残刃' },
 ];
 // 某张图禁地评价乙以上一次后，首领现身。战力 = 禁地推荐 × 1.6
-// 金丹后首领每 48 月可重打一次（CONTENT §1：只掉首领材料 ×1 和灵石；打造用）
-L.BOSS_AGAIN = 48;
-L.bossAgain = (st, k) => !!st.bosses[k] && (st.rebirth > 0 || L.mr(st) >= 2) && st.tick - ((st.bossAt || {})[k] === undefined ? -999 : st.bossAt[k]) >= L.BOSS_AGAIN;
+// 首领每 12 月可再战一次（COMBAT_LOOT §5.7：第一章起；原来金丹后每 48 月）：首领材料 ×1、灵石，掉落见 loot.js 的 L.bossLoot
+L.BOSS_AGAIN = 12;
+L.bossAgain = (st, k) => !!st.bosses[k] && st.tick - ((st.bossAt || {})[k] === undefined ? -999 : st.bossAt[k]) >= L.BOSS_AGAIN;
 L.bossReady = (st, k) => L.bestOf(st, k, 2) >= 2 && (!st.bosses[k] || L.bossAgain(st, k));
 L.bossPower = k => L.rec(k, 2) * 1.6;
 L.fightBoss = function (st, k) {
@@ -342,9 +348,10 @@ L.fightBoss = function (st, k) {
   const res = { k, S, Q, p, win, B, again };
   st.bossAt = st.bossAt || {};
   if (win && again) {
-    // 再战：首领材料 ×1、灵石
+    // 再战：首领材料 ×1、灵石；翻 1 张牌（loot.js 的 L.bossLoot：35% 专属，第 3 次必出）
     st.bossAt[k] = st.tick;
     res.mat = L.giveMat(st, k, 1);
+    if (L.bossLoot) { res.cards = L.bossLoot(st, k, false); const g = res.cards.find(c => c.kind === 'gear'); if (g) res.item = g.item; }
     res.stones = Math.floor(L.rew(k, 2)); st.stones += res.stones;
     if (st.sect) L.taskHit(st, 'boss', x => x.k === k);
     L.log(st, `再战【${B.n}】得胜，取得${L.BOSS_MAT[k]} ×1`, 'jade');
@@ -354,12 +361,18 @@ L.fightBoss = function (st, k) {
     res.stones = Math.floor(L.rew(k, 2) * 3); st.stones += res.stones;
     res.herbs = Math.round((6 + k * 2) * (1 + st.p.r * 0.5)); st.herbs += res.herbs;
     // 首领专属法宝（固定词条，走对比卡）、首领材料 ×2、器方（gear.js）
-    res.item = L.gearDrop(st, L.gearBase('b' + k).slot, 0, { base: 'b' + k, src: 'boss' });
     res.mat = L.giveMat(st, k, 2);
-    if (L.BOSS_PLAN[k]) res.planText = L.givePlan(st, L.BOSS_PLAN[k]);
-    // 首领首杀另掉一门功法（按首领五行，见 arts.js 的 L.bossArt）
-    const aid = L.bossArt(st, k);
-    if (aid) res.art = L.giveArt(st, aid, { src: 'boss' });
+    if (L.bossLoot) {
+      // 首杀 3 张固定牌（loot.js 的 L.bossLoot：专属 ★★、功法、器方）
+      res.cards = L.bossLoot(st, k, true);
+      for (const c of res.cards) { if (c.kind === 'gear') res.item = c.item; else if (c.kind === 'art' || c.kind === 'frag') res.art = c.item; else if (c.kind === 'plan') res.planText = c.item.text; }
+    } else {
+      res.item = L.gearDrop(st, L.gearBase('b' + k).slot, 0, { base: 'b' + k, src: 'boss' });
+      if (L.BOSS_PLAN[k]) res.planText = L.givePlan(st, L.BOSS_PLAN[k]);
+      // 首领首杀另掉一门功法（按首领五行，见 arts.js 的 L.bossArt）
+      const aid = L.bossArt(st, k);
+      if (aid) res.art = L.giveArt(st, aid, { src: 'boss' });
+    }
     L.grantTitle(st, B.t);
     if (st.sect) L.taskHit(st, 'boss', x => x.k === k);
     L.log(st, `斩杀【${B.n}】！获得称号「${B.t}」`, 'gold');
