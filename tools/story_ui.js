@@ -1,6 +1,7 @@
 // 剧情界面（docs/STORY_PLAN.md §6、§8；src/ui/talk.js）测试与截图：node tools/story_ui.js [输出目录=docs/story_mock] ["Pixel 7"|360]
 // 断言：对话场景——播的时候停表；点一下出完 / 下一句；【跳过】跳到选项、选项跳不过去；有条件的选项灰着并写明缺什么；版式（按钮 ≥ 44px、没有横向溢出、台词不超过两行）；
-//       选完落到结算卡，标志位置上；数据式分镜 ⑪～㉝ 每段都能画出每个镜头；飞升 → 结局卡（八个结局各出一张）。
+//       选完落到结算卡，标志位置上；数据式分镜 ⑪～㉝ 每段都能画出每个镜头；飞升 → 结局卡（八个结局各出一张，正文 120～200 字）。
+//       D 线：后日谈逐张翻、结算页、再登天门、图鉴结局页、回忆分组、转世开场（前缘、问过天）。
 // 默认（playwright）对话与过场是“快放”的：本脚本把 window.__xm_talk.fast / __xm_cine.fast 设为 false 才看得到画面。
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -144,11 +145,51 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
       Object.assign(s.eflags, fl); if (!fl.mu_shame) s.eflags.mu_spare = 1; s.p.r = 9; s.daolv = (x && x.daolv) || null; s.origin = (x && x.origin) || 'qitu'; s.bestRank = (x && x.bestRank) || 5; s.flags.endCine = 0;
       s.sect = x && x.lord ? { id: 'jian', rank: 6, best: 1, total: 0, pts: 0, joined: 0, veins: 0, order: X.L.NINE.map(q => q.id), meets: 0, tasks: [], build: { ward: 0, lib: 0, vein: 0 } } : null;
       window.__xm_talk.ascend();
-      return { id: X.L.endingOf(s).id, title: (document.querySelector('#modal .big') || {}).textContent, epi: document.querySelectorAll('#modal .quote').length };
+      const E = X.L.endingOf(s); return { id: E.id, title: (document.querySelector('#modal .big') || {}).textContent, epi: X.L.epilogue(s).length, paras: document.querySelectorAll('#modal .end-text p').length, len: E.paras.join('').length };
     }, [fl, x]);
     await page.waitForTimeout(250);
-    check(got.id === id && !!got.title, `结局 ${id}：${got.title}（后日谈 ${got.epi - 1} 张）`);
+    check(got.id === id && !!got.title && got.paras >= 5 && got.len >= 120 && got.len <= 200, `结局 ${id}：${got.title}（正文 ${got.paras} 段 ${got.len} 字，后日谈 ${got.epi} 张）`);
     if (['wentian', 'gufeng', 'hermit'].includes(id)) await shot('end_' + id);
+  }
+  // ---------- D 线：结局卡三页、再登天门、图鉴结局页、回忆分组、转世开场 ----------
+  {
+    // 后日谈一张一张翻：翻完按钮变成“这一世”，再点到结算页（有去留两个按钮）
+    await ev(() => { const X = window.__xm, s = X.st; X.closeModal(); for (const f of ['asc_go', 'asc_stay', 'asc_break', 'war_mo']) delete s.eflags[f]; Object.assign(s.eflags, { asc_break: 1, war_stop: 1, st_truth: 1, st_farewell: 1, tianheng_exposed: 1, zhao_owes: 1 }); s.sect = null; s.origin = 'qitu'; s.flags.endCine = s.rebirth + 1; window.__xm_talk.ascend(); });
+    await page.waitForTimeout(200); await shot('end_page1');
+    const n = await ev(() => window.__xm.L.epilogue(window.__xm.st).length);
+    await page.click('#modal [data-fi="0"]'); await page.waitForTimeout(150);
+    for (let i = 1; i < n; i++) { await page.click('#epiList'); await page.waitForTimeout(40); }
+    const ep = await ev(() => ({ cards: document.querySelectorAll('#modal .epi-card').length, pts: document.querySelectorAll('#modal .epi-card img').length, btn: document.querySelector('#modal [data-fi="1"]').textContent, over: [...document.querySelectorAll('#modal *')].some(x => { const q = x.getBoundingClientRect(); return q.width && (q.right > window.innerWidth + 1 || q.left < -1); }) }));
+    check(n >= 4 && ep.cards === n && ep.pts === n && /这一世/.test(ep.btn) && !ep.over, `后日谈：${ep.cards} / ${n} 张逐张翻出，每张有头像或图标，翻完按钮是“${ep.btn.trim()}”`);
+    await shot('end_page2');
+    await page.click('#modal [data-fi="1"]'); await page.waitForTimeout(150);
+    const sm = await ev(() => ({ foot: [...document.querySelectorAll('#modal [data-fi]')].map(b => b.textContent.trim()).join('|'), cnt: (document.querySelector('#modal .end-count') || {}).textContent || '' }));
+    check(/再入轮回/.test(sm.foot) && /见过的结局/.test(sm.cnt), `结算页：${sm.foot}；${sm.cnt.trim()}`);
+    // 守人间 → 【再登天门】→ 踏进去：不再算留在人间，结局换成别的
+    const g = await ev(() => { const X = window.__xm, s = X.st, L = X.L; X.closeModal(); delete s.eflags.asc_break; s.eflags.asc_stay = 1; const a = L.endingOf(s).id; X.showRecord(); const has = !!document.querySelector('#btnGate'); X.closeModal();
+      const ev = L.eventById('s9_gate_again'); L.resolveChoice(s, ev, 2); const again = !!s.eflags.asc_stay && !s.evDone.s9_gate_again; L.resolveChoice(s, ev, 0);
+      return { a, has, again, stay: !!s.eflags.asc_stay, b: L.endingOf(s).id, n: ev.choices.filter(c => c.key).length }; });
+    check(g.a === 'hermit' && g.has && g.again && !g.stay && g.b !== 'hermit' && g.n === 2, `再登天门：留在人间时记录页有按钮；“再等等”可以再来；踏进去后结局 ${g.a} → ${g.b}`);
+    // 结算进跨世记录；图鉴结局页
+    const cx = await ev(() => { const X = window.__xm, s = X.st, L = X.L; s.eflags.su_qianyuan = 1; s.settle = null; L.settle(s, 'ascend'); const m = s.meta; window.__xm_samsara.showCodex('ending');
+      return { rec: Object.keys(m.endings).join(), fate: Object.keys(m.fate).join(), prev: m.prev.end, tiles: document.querySelectorAll('#modal .endg-t').length, on: document.querySelectorAll('#modal .endg-t.on').length, all: L.ENDINGS.length, small: [...document.querySelectorAll('#modal .endg-t *')].filter(x => x.childNodes.length && [...x.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(x).fontSize) < 13.9).length }; });
+    check(cx.tiles === cx.all && cx.on >= 1 && !cx.small && cx.fate === 'su' && !!cx.prev, `图鉴结局页 ${cx.on} / ${cx.tiles} 格点亮；跨世记录 endings=${cx.rec} fate=${cx.fate} prev=${cx.prev}`);
+    await shot('codex_endings');
+    await page.click('#modal .endg-t.on'); await page.waitForTimeout(150);
+    check(await ev(() => document.querySelectorAll('#modal .end-text p').length >= 4), '图鉴里点开结局：有正文');
+    // 回忆分组
+    await ev(() => { window.__xm.closeModal(); window.__xm_cine.recall(); }); await page.waitForTimeout(200);
+    const rc0 = await ev(() => ({ grp: document.querySelectorAll('#modal [data-cng]').length, n: document.querySelectorAll('#modal [data-cn]').length }));
+    await page.click('#modal [data-cng="end"]'); await page.waitForTimeout(200);
+    const rc1 = await ev(() => ({ n: document.querySelectorAll('#modal .cn-seg').length, vers: document.querySelectorAll('#modal .cn-ver').length, minH: Math.min(...[...document.querySelectorAll('#modal [data-cn], #modal [data-cng]')].map(x => x.getBoundingClientRect().height)), over: [...document.querySelectorAll('#modal *')].some(x => { const q = x.getBoundingClientRect(); return q.width && (q.right > window.innerWidth + 1 || q.left < -1); }) }));
+    check(rc0.grp === 6 && rc0.n === 11 && rc1.n === 8 && rc1.vers === 2 && rc1.minH >= 44 && !rc1.over, `回忆按段归组：${rc0.grp} 组，修行 ${rc0.n} 格，结局 ${rc1.n} 段（道侣两版并一格），最矮 ${Math.round(rc1.minH)}px`);
+    await shot('recall_groups');
+    // 转世：前缘一心、问过天、开场卡上老祖的那一句
+    const rb = await ev(() => { const X = window.__xm, L = X.L, s = X.st; X.closeModal(); s.meta.sky = 1; const ns = L.rebirthState(s, { t: 2, tr: ['stout'] }); X.loadState(ns); window.__xm_samsara.showOpening();
+      return { aff: (ns.npc.su || {}).aff || 0, sky: L.skyBorn(ns), m: ns.meta.sky, mult: L.daoFruit(ns).mults.some(x => /问过天/.test(x.n)), line: (document.querySelector('#modal .reb-line') || {}).textContent || '', fate: document.querySelectorAll('#modal .reb-fate').length }; });
+    check(rb.aff >= 20 && rb.sky && rb.m === 2 && rb.mult && rb.line.length > 10 && rb.fate === 2, `转世开场：苏 ${rb.aff} 好感（前缘），问过天道果 ×1.10，老祖：“${rb.line.slice(0, 16)}…”`);
+    await shot('rebirth_open');
+    await ev(() => window.__xm.closeModal());
   }
   check(!errs.length, '没有脚本报错' + (errs.length ? '：' + errs.slice(0, 3).join(' | ') : ''));
   await b.close();

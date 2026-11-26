@@ -200,7 +200,7 @@ function tkPicks() {
     const res = L.resolveChoice(st, ev, ci); if (!res) return;
     const br = c[res.ok ? 'ok' : 'fail'] || c.ok || {};
     box.hidden = true; T.picking = false; T.root.classList.remove('picking', 'keypick'); T.root.querySelector('.tk-hint').textContent = '点一下继续 · 长按快进'; T.dimT = 0; T.skipping = false;
-    const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); if (br.cine && !res.duel) cnAfter(playCine(br.cine, {}), card); else if (br.cine) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(br.cine, {}); }); else card(); };
+    const fin = () => { const back = T.back; tkClose(); const card = () => choiceResult(ev, res, back || closeModal); const bc = br.cine && String(br.cine).replace('{daolv}', st.daolv || 'su');   /* 'jieqi_{daolv}'：按道侣取版本 */ if (bc && !res.duel) cnAfter(playCine(bc, {}), card); else if (bc) choiceResult(ev, res, () => { (back || closeModal)(); cineWant(bc, {}); }); else card(); };
     // 当场的回响：关键抉择闪一下，黑屏上落一句你选的话，再接结果里的台词
     const lines = tkFlat(br.talk || []);
     if (c.key) { SFX.clang(); tkFlash(); lines.unshift({ who: 'black', mood: 'n', fx: '', text: '—— ' + tkPlain(L.fill(st, c.t)).replace(/^“|”$/g, ''), o: { auto: 1100 }, echo: '' }); } else SFX.tap();
@@ -294,13 +294,17 @@ function cnCutOf(c) {
   const src = who === 'me' ? (c.fx ? ART.portraitX(ART.portraitMe(M.look, M.r, c.mood || 'n'), '', c.fx) : ART.portraitMe(M.look, M.r, c.mood || 'n')) : ART.portraitX(who, c.mood || 'n', c.fx || '', (who === 'su' || who === 'ye' || who === 'mu') && M.f);
   return { cv: ART.cutin(src, c.col || CN_COL[who] || '#d8404a', c.side === 'r'), flip: c.side === 'r', y: c.y === undefined ? 36 : c.y, at: c.at || 300 };
 }
+// 写手线可用的镜头字段（src/content/cine_data.js）：if 也可以是函数；sub / cam 可以是函数；bgm 这一镜起换曲（'' = 静下来，一直管到本段结束）；
+//   paint(g, t, u) 画在世界层（底图、罩色之后；跟镜头走）、top(g, t, u) 画在屏幕层（特写带之前；不跟镜头走）；fade 淡入毫秒。
+const cnBgmFx = k => { const n = '~bgm:' + k; if (!CSFX[n]) CSFX[n] = () => BGM.play(k, { while: () => !!cn }); return n; };
 function cnFromData(D) {
-  return D.shots.filter(S => !S.if || (st && L.storyCond(st, S.if))).map(S => {
-    const cut = cnCutOf(S.cut), cut2 = cnCutOf(S.cut2), fr = S.frames || [[0, S.bg]];
+  return D.shots.filter(S => !S.if || (typeof S.if === 'function' ? S.if() : st && L.storyCond(st, S.if))).map(S => {
+    const cut = cnCutOf(typeof S.cut === 'function' ? S.cut() : S.cut), cut2 = cnCutOf(typeof S.cut2 === 'function' ? S.cut2() : S.cut2), fr = S.frames || [[0, S.bg]];
     const sub = typeof S.sub === 'function' ? S.sub() : S.sub;
-    return { ms: S.ms || 4000, sub, sfx: S.sfx, shake: S.shake, fade: S.fade, cam: CN_CAM[S.cam || 'hold'],
-      draw: (g, t) => { let b = fr[0][1]; for (const f of fr) if (t >= f[0]) b = f[1]; cnImg(g, cnBgOf(b), 0, 0); if (S.tint) cnDim(g, S.tint[1], S.tint[0]); if (S.dim) cnDim(g, S.dim); },
-      over: (g, t) => { for (const f of S.flash || []) if (t >= f && t < f + 320) { g.globalAlpha = 1 - (t - f) / 320; g.fillStyle = '#ffffff'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; } if (S.lines && t > (S.linesAt || 0)) cnLines(g, t, S.lines, 100, 60, 0.8); if (cut) cnCut(g, cut.cv, cut.flip, cut.y, t - cut.at); if (cut2) cnCut(g, cut2.cv, cut2.flip, cut2.y, t - cut2.at); if (S.seal) cnSeal(g, S.seal, 100, 60, 28, t - (S.sealAt || 1200)); } };
+    const sfx = S.bgm !== undefined ? [[S.bgmAt || 0, cnBgmFx(S.bgm)]].concat(S.sfx || []) : S.sfx;
+    return { ms: S.ms || 4000, sub, sfx, shake: S.shake, fade: S.fade, cam: typeof S.cam === 'function' ? S.cam : CN_CAM[S.cam || 'hold'],
+      draw: (g, t, u) => { let b = fr[0][1]; for (const f of fr) if (t >= f[0]) b = f[1]; if (b) cnImg(g, cnBgOf(b), 0, 0); if (S.tint) cnDim(g, S.tint[1], S.tint[0]); if (S.dim) cnDim(g, S.dim); if (S.paint) S.paint(g, t, u); },
+      over: (g, t, u) => { for (const f of S.flash || []) if (t >= f && t < f + 320) { g.globalAlpha = 1 - (t - f) / 320; g.fillStyle = '#ffffff'; g.fillRect(0, 0, 200, 120); g.globalAlpha = 1; } if (S.lines && t > (S.linesAt || 0)) cnLines(g, t, S.lines, 100, 60, 0.8); if (S.top) S.top(g, t, u); if (cut) cnCut(g, cut.cv, cut.flip, cut.y, t - cut.at); if (cut2) cnCut(g, cut2.cv, cut2.flip, cut2.y, t - cut2.at); if (S.seal) cnSeal(g, S.seal, S.sealX || 100, S.sealY || 60, S.sealSize || 28, t - (S.sealAt || 1200), S.sealCol); } };
   });
 }
 const daolvCol = () => (st && st.daolv === 'ye' ? '#a81e3a' : '#7fd8b0');
@@ -428,9 +432,13 @@ const CINE_DATA = {
   end_zhige: { n: '止戈', no: '㉝', bgm: 'home', thumb: 'end:zhige', shots: [
     { bg: 'end:zhige', cam: 'push', ms: 6000, sub: '“那一年，没有打起来。”', sfx: [[600, 'bell']] }] },
 };
+// 写手线的分镜：src/content/cine_data.js 挂 window.XM_CINE_DATA = 画图工具 => { 段 id: 数据 }；同名的段盖掉上面的（㉖～㉝ 结局在那边）
+const CN_API = { ART, L, img: cnImg, feet: cnFeet, dim: cnDim, text: cnText, lines: cnLines, seal: cnSeal, gather: cnGather, bolt: cnBolt, ease: cnEase, k: cnK, mix: cnMix, clamp: cnClamp, cv: cnCv, bg: cnBgOf,
+  me: cnMe, meFt: cnMeFt, fd: CN_FD, disciple: cnDisciple, st: () => st, cond: c => !!st && L.storyCond(st, c) };
+if (typeof window.XM_CINE_DATA === 'function') { try { Object.assign(CINE_DATA, window.XM_CINE_DATA(CN_API)); } catch (e) { console.error('cine_data', e); } }
 for (const id in CINE_DATA) {
   const D = CINE_DATA[id];
-  CINE[id] = { n: D.n, no: D.no, s: Math.round(D.shots.reduce((a, s) => a + (s.ms || 4000), 0) / 1000), thumb: () => cnBgOf(D.thumb), shots: () => cnFromData(D) };
+  CINE[id] = { n: D.n, no: D.no, grp: D.grp, s: Math.round(D.shots.reduce((a, s) => a + (s.ms || 4000), 0) / 1000), thumb: () => cnBgOf(D.thumb), shots: () => cnFromData(D) };
   CN_BGM[id] = D.bgm || 'vow'; CN_ORDER.push(id);
 }
 // 玩家正看着的那一刻就播（不等回洞府）：天门、结局、最后一课

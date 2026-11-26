@@ -469,19 +469,36 @@ function cnRecallArgs(id) {
   return {};
 }
 const cnSeenCount = () => CN_ORDER.filter(id => cineSeen(id)).length;
-function showCineRecall() {
+// 回忆按段归组（原来四十多格挤在一页）：上面一排分组——修行（①～⑩）、少年（⑪～⑭）、师门（⑮～⑰）、真相（⑱～㉒）、天门（㉓～㉕）、结局（㉖～）；
+// 同一段的几个版本（休书·念 / 收，了断四版……）并成一格，下面一排小签各看各的。
+const CN_NUM = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚㉛㉜㉝㉞㉟';
+const CN_GROUPS = [['xiu', '修行', 1, 10], ['shao', '少年', 11, 14], ['shi', '师门', 15, 17], ['zhen', '真相', 18, 22], ['men', '天门', 23, 25], ['end', '结局', 26, 99]];
+const cnNoOf = id => { const i = CN_NUM.indexOf((CINE[id] && CINE[id].no) || ''); return i < 0 ? 1 : i + 1; };
+const cnGroupOf = id => (CINE[id] && CINE[id].grp) || (CN_GROUPS.find(g => cnNoOf(id) >= g[2] && cnNoOf(id) <= g[3]) || CN_GROUPS[0])[0];   // 段上写了 grp 的听它的（结契 ㉞ 归“师门”）
+let cnRcGroup = 'xiu';
+function showCineRecall(grp) {
   if (!st) return;
   if (!navCur) navCur = 'path';
+  if (grp && CN_GROUPS.some(g => g[0] === grp)) cnRcGroup = grp;
   const tw = pxFit(200, 132), th = tw * 0.6;
-  const tiles = CN_ORDER.map(id => {
-    const C = CINE[id], on = cineSeen(id);
+  const by = {}; for (const id of CN_ORDER) (by[cnGroupOf(id)] || (by[cnGroupOf(id)] = [])).push(id);
+  const chips = CN_GROUPS.filter(g => by[g[0]]).map(g => { const ids = by[g[0]], on = ids.filter(id => cineSeen(id)).length; return `<button class="cn-grp${g[0] === cnRcGroup ? ' on' : ''}" data-cng="${g[0]}"><b>${g[1]}</b><span class="num">${on}/${ids.length}</span></button>`; }).join('');
+  // 这一组里按段号并格：old 十段各自一格（⑩ 飞升 / 轮回是两格）；数据式分镜同号的并成一格
+  const segs = []; for (const id of by[cnRcGroup] || []) { const no = CINE[id].no, last = segs[segs.length - 1]; if (cnRcGroup !== 'xiu' && last && last.no === no) last.ids.push(id); else segs.push({ no, ids: [id] }); }
+  const verName = (id, base) => { const n = CINE[id].n; const m = /[·]\s*(.+)$/.exec(n); return m && n.replace(/[·].*$/, '').replace(/^结局$/, '') === base ? m[1] : n.replace(/^结局·/, ''); };
+  const tiles = segs.map(sg => {
+    const seen = sg.ids.filter(id => cineSeen(id)), on = seen.length > 0, id = seen[0] || sg.ids[0], C = CINE[id], multi = sg.ids.length > 1;
+    const base = multi ? C.n.replace(/^结局·/, '').replace(/[·].*$/, '') : C.n.replace(/^结局·/, '');
     let src = ''; if (on) { try { src = urlOf(C.thumb(), 'cnth|' + id); } catch (e) { src = ''; } }
-    return `<button class="cn-tile${on ? '' : ' off'}" data-cn="${id}" ${on ? '' : 'disabled'} aria-label="${on ? '重看' : '没看过'}：${C.n}">
+    const main = `<button class="cn-tile${on ? '' : ' off'}" data-cn="${id}" ${on ? '' : 'disabled'} aria-label="${on ? '重看' : '没看过'}：${C.n}">
       <span class="cn-th" style="width:${tw}px;height:${th}px">${on && src ? `<img class="px" src="${src}" style="width:${tw}px;height:${th}px" alt="">` : '<i>？</i>'}</span>
-      <span class="cn-nm">${C.no} ${on ? C.n : '？？？'}</span></button>`;
+      <span class="cn-nm">${C.no} ${on ? (multi ? base : C.n.replace(/^结局·/, '')) : '？？？'}${multi ? ` <small>${seen.length}/${sg.ids.length}</small>` : ''}</span></button>`;
+    const vers = multi ? `<div class="cn-vers">${sg.ids.map(v => { const o = cineSeen(v); return `<button class="cn-ver${o ? '' : ' off'}" data-cn="${v}" ${o ? '' : 'disabled'} aria-label="${o ? '重看' : '没看过'}：${CINE[v].n}">${o ? esc(verName(v, base)) : '？'}</button>`; }).join('')}</div>` : '';
+    return `<div class="cn-seg">${main}${vers}</div>`;
   }).join('');
-  const s = sheet({ title: shellTitle('path'), body: meTabs('rec') + `<div class="ksec"><span>回忆 ${cnSeenCount()} / ${CN_ORDER.length}</span><button id="cnBack">回记录 ▸</button></div><div class="cn-rc">${tiles}</div>` });
+  const s = sheet({ title: shellTitle('path'), still: !!grp && !!document.querySelector('#modal .cn-rc'), body: meTabs('rec') + `<div class="ksec"><span>回忆 ${cnSeenCount()} / ${CN_ORDER.length}</span><button id="cnBack">回记录 ▸</button></div><div class="cn-grps">${chips}</div><div class="cn-rc">${tiles}</div>` });
   const b = s.querySelector('#cnBack'); if (b) b.onclick = () => { SFX.tap(); showRecord(); };
+  s.querySelectorAll('[data-cng]').forEach(el => { el.onclick = () => { SFX.tab ? SFX.tab() : SFX.tap(); showCineRecall(el.dataset.cng); }; });
   s.querySelectorAll('[data-cn]').forEach(el => { if (!el.disabled) el.onclick = () => { SFX.tap(); const id = el.dataset.cn; cinePlay(id, cnRecallArgs(id), { recall: true, force: true }); }; });
 }
 

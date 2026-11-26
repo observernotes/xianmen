@@ -37,11 +37,11 @@ const FX_KEYS = ['xp', 'stones', 'pills', 'herbs', 'treasure', 'life', 'inj', 'i
   'toxin', 'plus', 'affix', 'busy', 'duty', 'disc', 'rookie', 'join', 'retry', 'unsect'];
 const COST_KEYS = ['stones', 'pills', 'herbs', 'yin', 'ore', 'feed', 'token'];
 const PLACEHOLDERS = ['su', 'ye', 'ex', 'sect', 'name', 'kwho', 'kwhat', 'rk',
-  'cradle', 'town', 'shamed', 'lowly', 'exHouse', 'zhaoDebt', 'r1open', 'body', 'tkStand', 'tkFoe', 'stele'];   // 出身换词与楚天阔的处境（story.js）   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
+  'cradle', 'town', 'shamed', 'lowly', 'exHouse', 'zhaoDebt', 'r1open', 'body', 'tkStand', 'tkFoe', 'stele', 'taoli'];   // taoli：前世出师的那个徒弟（content/endings.js 的桃李前辈）   // 出身换词与楚天阔的处境（story.js）   // rk：结了仇的新秀（rivals2.js）   // kwho / kwhat：最早那条没了的因果（dao.js）
 // 引擎会置上的 flag（不是事件 fx 置的）：首次击败宿敌、结为道侣
-const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye']);
+const ENGINE_FLAGS = RIVALS.map(r => 'beat_' + r).concat(['daolv_su', 'daolv_ye', 'taoli_prev']);   // taoli_prev：前世的徒弟来访那个月（samsara.js）
 // 剧情触发键：现有的 + 扩展包里约定的（引擎是否支持另由 L.CAPS 决定，见 report）
-const TRIGGER_RE = [/^realm:[1-8]$/, /^rank:\d+$/, /^npc:(su|ye|chu|ge|bai|mo):\d+$/, /^boss:(10|[0-9])$/, /^(sect|pet|daolv|disciple|egg|pact_eve|ascend|plot_full|field_mutant|formation_fail|forge_fail)$/,
+const TRIGGER_RE = [/^realm:[1-8]$/, /^rank:\d+$/, /^npc:(su|ye|chu|ge|bai|mo):\d+$/, /^boss:(10|[0-9])$/, /^(sect|pet|daolv|disciple|egg|pact_eve|ascend|gate_again|taoli|plot_full|field_mutant|formation_fail|forge_fail)$/,
   /^beat:(mu|zhao|chu|xue|yun)$/, /^war_eve:tianjian$/, /^rookie:(appear|near|beaten|trouble)$/, /^srank:[1-6]$/, /^sect:(heir|lord)$/, /^disc:\w+$/, /^trib:\d$/, /^demon:[1-3]$/,
   /^sb:(c[1-9]_(open|mid[1-3]|pre|climax|end)|mid)$/, /^pet_(runaway|fight|sick)$/, /^pet_evolve:p_\w+$/, /^build:\w+$/, /^(market|auction):\w+$/, /^shuangxiu:(su|ye)$/];
 const LIM = { title: [2, 8], text: 130, btn: 10, result: 80, fxTitle: [2, 6] };
