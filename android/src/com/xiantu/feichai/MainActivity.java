@@ -136,6 +136,8 @@ public class MainActivity extends Activity {
         super.onResume();
         web.onResume();
         web.resumeTimers();
+        // 回到前台：让页面把挂起的声音接上（audio.js 听 pageshow）
+        web.evaluateJavascript("window.dispatchEvent(new Event('pageshow'))", null);
         hideSystemBars();
     }
 

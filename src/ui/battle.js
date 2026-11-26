@@ -120,7 +120,7 @@ function btRound() {
   if (!charging) v.keyDone = false;
   const ev = L.battleStep(B, inp);
   btPlay(ev);
-  if (B.done) { v.ph = 'end'; v.t = 0; if (B.win) SFX.win(); else if (B.dead) { SFX.fail(); shake(); } }
+  if (B.done) { v.ph = 'end'; v.t = 0; if (B.win) { if (v.mode === 'boss') SFX.victory(); else SFX.win(); } else if (B.dead) { SFX.defeat(); shake(); } }
 }
 const BT_RAGE = '怒气满了：按大按钮';
 // 点停顿那一行（或点画面）：放过去；“怒气满了”那一次只能按大按钮
@@ -158,30 +158,31 @@ function btPlay(ev) {
       case 'hit': case 'skill': case 'ult': {
         v.meAct = now;
         const tx = btFoeX(B, x.tgt >= 0 ? x.tgt : 0);
-        if (x.t === 'ult') { v.fx.push({ ult: true, x: tx, t0: now }); flash(0.5); shake(); SFX.thunder && SFX.thunder(); }
-        else if (x.t === 'skill') { v.fx.push({ name: x.fx || (ART.skillFxOf ? ART.skillFxOf(x.el) : 'slash'), el: x.el, x: tx, t0: now }); SFX.slash(); }
+        if (x.t === 'ult') { v.fx.push({ ult: true, x: tx, t0: now }); flash(0.5); shake(); SFX.ult(); }
+        else if (x.t === 'skill') { v.fx.push({ name: x.fx || (ART.skillFxOf ? ART.skillFxOf(x.el) : 'slash'), el: x.el, x: tx, t0: now }); SFX.skill(x.el); }
         else SFX.hit();
+        if (x.crit) SFX.crit();
         v.foeHit[x.tgt] = now;
         floatRaw(tx, fy - 6, (x.crit ? '暴 ' : '') + fmt(x.dmg), x.crit ? '#ffe39a' : '#ffffff', x.t === 'ult' || x.crit, x.t === 'hit');
         if (x.t !== 'hit') { line = `${x.n} ${fmt(x.dmg)}`; floatRaw(BTS.xMe + 4, fy - 30, x.n, x.t === 'ult' ? '#ffe39a' : '#fff2a8', x.t === 'ult', x.t !== 'ult'); btFire(x.id); }
         break;
       }
-      case 'ke': floatRaw(fx + 8, fy - 22, '克', '#ffe39a', true); line += ` · 克${L.elName(B.foes[fi].el)} ×1.3`; if (btFirst('ke')) btHold('克！伤害 ×1.3', BTS.hint); break;
-      case 'beike': floatRaw(fx + 8, fy - 18, '打不动', '#9d93b8', false, true); line += ' · 打不动'; break;
+      case 'ke': SFX.ke(); floatRaw(fx + 8, fy - 22, '克', '#ffe39a', true); line += ` · 克${L.elName(B.foes[fi].el)} ×1.3`; if (btFirst('ke')) btHold('克！伤害 ×1.3', BTS.hint); break;
+      case 'beike': SFX.beike(); floatRaw(fx + 8, fy - 18, '打不动', '#9d93b8', false, true); line += ' · 打不动'; break;
       case 'chain': floatRaw(BTS.xMe + 10, fy - 26, '连携', '#8ff5d0', true); line += ' · 连携'; if (st.pact && btFirst('chain')) btHold(`相生连携：${L.elName(x.el)}招 ×1.3`, BTS.hint); break;
-      case 'shield': SFX.reveal(2); line += ` · 削罩 ${x.cut} 格（还剩 ${x.sh}）`; break;
-      case 'break': v.fx.push({ name: 'brk', el: '', x: fx, t0: now }); floatRaw(fx, fy - 28, '罩碎', '#7fe0f0', true); shake(); break;
-      case 'brk': floatRaw(fx, fy - 30, '破招', '#ffe39a', true); flash(0.7); SFX.gong(); line = '破招！重击被打断'; break;
-      case 'charge': floatRaw(fx, fy - 26, x.n || '蓄力！', '#ff6a5a', true); v.foeAct[fi] = now; if (btFirst('charge')) btHold('它在蓄力：放绝招打断它', BTS.hint); line = `${B.foes[fi].n}在蓄力`; break;
-      case 'fhit': case 'heavy': v.foeAct[fi] = now; v.meHit = now; if (x.ke) { const hb = $('#btHp'); if (hb && hb.parentNode) { hb.parentNode.classList.remove('kehit'); void hb.parentNode.offsetWidth; hb.parentNode.classList.add('kehit'); } } floatRaw(BTS.xMe, fy - 4, '−' + fmt(x.dmg), x.t === 'heavy' ? '#ff6a5a' : '#ffb0a8', x.t === 'heavy', x.t !== 'heavy'); if (x.t === 'heavy') { shake(); SFX.hit(); line = `重击 −${fmt(x.dmg)}`; } break;
+      case 'shield': SFX.shieldCut(); line += ` · 削罩 ${x.cut} 格（还剩 ${x.sh}）`; break;
+      case 'break': v.fx.push({ name: 'brk', el: '', x: fx, t0: now }); floatRaw(fx, fy - 28, '罩碎', '#7fe0f0', true); shake(); SFX.shieldBreak(); break;
+      case 'brk': floatRaw(fx, fy - 30, '破招', '#ffe39a', true); flash(0.7); SFX.brk(); line = '破招！重击被打断'; break;
+      case 'charge': SFX.charge(); floatRaw(fx, fy - 26, x.n || '蓄力！', '#ff6a5a', true); v.foeAct[fi] = now; if (btFirst('charge')) btHold('它在蓄力：放绝招打断它', BTS.hint); line = `${B.foes[fi].n}在蓄力`; break;
+      case 'fhit': case 'heavy': v.foeAct[fi] = now; v.meHit = now; if (x.ke) { const hb = $('#btHp'); if (hb && hb.parentNode) { hb.parentNode.classList.remove('kehit'); void hb.parentNode.offsetWidth; hb.parentNode.classList.add('kehit'); } } floatRaw(BTS.xMe, fy - 4, '−' + fmt(x.dmg), x.t === 'heavy' ? '#ff6a5a' : '#ffb0a8', x.t === 'heavy', x.t !== 'heavy'); if (x.t !== 'heavy') SFX.hurt(); if (x.t === 'heavy') { shake(); SFX.heavy(); line = `重击 −${fmt(x.dmg)}`; } break;
       case 'dot': floatRaw(fx, fy, fmt(x.dmg), '#ff9a4a', false, true); break;
-      case 'dead': if (x.who === 'me') { line = '你倒下了'; } else { v.deadAt[fi] = now; } break;
-      case 'pill': floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', true); line = `吞下疗伤丹 +${fmt(x.dmg)}`; break;
+      case 'dead': if (x.who === 'me') { line = '你倒下了'; } else { v.deadAt[fi] = now; SFX.kill(); } break;
+      case 'pill': SFX.heal(); floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', true); line = `吞下疗伤丹 +${fmt(x.dmg)}`; break;
       case 'heal': floatRaw(BTS.xMe, fy - 10, '+' + fmt(x.dmg), '#8ff5d0', false, true); break;
       case 'summon': line = x.n; break;
       case 'miss': case 'guard': case 'budong': case 'escape': case 'exec': case 'root': case 'stun': case 'spread': floatRaw(fi >= 0 ? fx : BTS.xMe, fy - 20, x.n || { root: '缠住', stun: '晕', exec: '斩杀' }[x.t] || '', '#fff2a8', false, true); break;
       case 'burst': floatRaw(fx, fy - 24, '引爆 ' + fmt(x.dmg), '#ffe39a', true); break;
-      case 'flee': line = '撤！带着到手的东西回去'; break;
+      case 'flee': SFX.flee(); line = '撤！带着到手的东西回去'; break;
       case 'timeout': line = '久战不下，撤了'; break;
       case 'win': line = line || '赢了'; break;
     }

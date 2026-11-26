@@ -62,7 +62,7 @@ function showChapterCard(ch) {
         ${N.toOpen ? `<div class="krow"><span class="k">会开 ${N.toOpen} 样</span><div class="ksys" style="margin:0">${Array.from({ length: Math.min(7, N.toOpen) }, () => '<span class="q">?</span>').join('')}</div></div>` : ''}
         ${N.rw ? `<div class="krow"><span class="k">奖励</span><span class="v goldt">${esc(N.rw)}</span></div>` : ''}` : '<p class="center">大道已近，再无下一章。</p>'}`,
     foot: [{ t: N ? `开始${chName(N.i)} ▸` : '好', gold: true, fn: closeModal }] });
-  SFX.goal();
+  SFX.chapter();
 }
 
 // ---------- 年报（§6.2，阻塞清单 #8）：每 12 月的月初一张；在外则归来结算之后 ----------
@@ -87,7 +87,7 @@ function showYearReport() {
       ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${big.left} ${MO()}</span></div>` : ''}
       ${R.say ? `<div class="ksay">${elderImg(24)}<span>老祖：“${esc(cut(R.say, 20))}”</span></div>` : ''}`,
     foot: [{ t: '新的一年 ▸', gold: true, fn: () => { yearClose(); closeModal(); } }] });
-  SFX.goal();
+  SFX.year();
 }
 // 【仙途】→ 记录 → 年报：历年的数字
 function showYearHist() {

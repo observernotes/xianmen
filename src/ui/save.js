@@ -8,8 +8,8 @@ const PREF_KEY = 'xianmen_pref_v1';
 function saveLocal() { if (!st) return; try { st.savedAt = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 无痕模式等 */ } }
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function clearLocal() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ } }
-function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx })); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
+function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, speedIdx, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.speedIdx >= 0 && p.speedIdx < SPEEDS.length - 1) speedIdx = p.speedIdx; } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {

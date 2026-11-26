@@ -80,12 +80,12 @@ function drawTribCine(dt) {
     c.done = true; c.doneAt = c.t; c.end = c.t + (c.ascend && c.res.ok ? 3000 : 2100);
     const y = feet - D().sit.h / 2;
     if (c.res.ok) {
-      flash(1); SFX.win();
+      flash(1); SFX.btOk();
       for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2 }); }
       if (c.ascend) { SFX.gong(); banner('白日飞升', st.p.name + ' 渡过九九天劫！', '#fff6c0'); }
       else banner('渡劫成功', `${L.REALMS[c.res.to].n}期 · 评价「${c.res.tb.grade}」${c.res.dan ? ' · ' + c.res.dan : ''}`);
     } else {
-      SFX.fail();
+      SFX.btFail();
       for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.05; parts.push({ x: x + Math.cos(a) * 20, y: feet - 12 + Math.sin(a) * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.01, g: 0.0002, life: 900, max: 900, c: k % 2 ? '#ffb23f' : '#ff6b3a', s: 1 }); }
       banner('渡劫失败', '护体碎了，来日再战', '#ff8a8a');
     }
@@ -132,12 +132,12 @@ function drawCine(dt) {
   if (c.t >= strikeEnd && !c.resolved) {
     c.resolved = true;
     if (c.res.ok) {
-      flash(1); SFX.win();
+      flash(1); SFX.btOk();
       for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2 }); }
       if (c.res.ascend) { SFX.gong(); banner('白日飞升', st.p.name + ' 渡过九九天劫！', '#fff6c0'); }
       else banner('突破成功', `${L.REALMS[c.res.to].n}期 · 寿元 ${fmt(c.res.lifeAfter)} 年`);
     } else {
-      SFX.fail();
+      SFX.btFail();
       for (let k = 0; k < 30; k++) parts.push({ x: x + (Math.random() - .5) * 14, y: y + 6, vx: (Math.random() - .5) * 0.02, vy: -0.01 - Math.random() * 0.02, life: 1400, max: 1400, c: '#8a8496', s: 2 });
       banner('突破失败', '道心受损，来日再战', '#ff8a8a');
     }

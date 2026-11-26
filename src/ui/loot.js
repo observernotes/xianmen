@@ -109,7 +109,7 @@ function lootFlipRun(root, cards, opt) {
     const el = els[i], c = cards[i], face = el.querySelector('.lt-face'), seq = nOpen++;
     el.classList.remove('lt-hot');
     const slow = c.stars >= 3 && !quick ? 600 : 0;
-    if (slow) el.classList.add('lt-charge');
+    if (slow) { el.classList.add('lt-charge'); SFX.roll(); }
     setTimeout(() => {
       el.classList.remove('lt-charge'); el.classList.add('lt-turn');
       setTimeout(() => {

@@ -28,8 +28,8 @@ function meTabs(tab) {
   const seen = st.flags.tabSeen;
   const list = SHELL_TABS[sh].filter(([k]) => k === on || meTabOpen(k));
   if (meTabOpen(on)) seen[on] = 1;
-  if (list.length < 2) return `<div class="ktabs" data-kshell="${sh}" hidden></div>`;
-  return `<div class="ktabs" data-kshell="${sh}">` + list.map(([k, n]) => `<button data-kt="${k}" class="${k === on ? 'on' : ''}">${n}${!seen[k] && k !== on && SHELL_TABS[sh][0][0] !== k && st.tick > 0 ? newBadgeHTML(12) : ''}</button>`).join('') + '</div>';
+  if (list.length < 2) return `<div class="ktabs" data-kshell="${sh}" data-kon="${on}" hidden></div>`;
+  return `<div class="ktabs" data-kshell="${sh}" data-kon="${on}">` + list.map(([k, n]) => `<button data-kt="${k}" class="${k === on ? 'on' : ''}">${n}${!seen[k] && k !== on && SHELL_TABS[sh][0][0] !== k && st.tick > 0 ? newBadgeHTML(12) : ''}</button>`).join('') + '</div>';
 }
 function openTab(k) {
   ({ gear: () => showGear(), art: () => showArts(), pets: () => showPets(), bag: () => showBag(), rank: () => showMe('rank'), sect: () => showSect(), market: () => showMarket(), bond: () => showMe('bond'),
@@ -107,11 +107,15 @@ function showRecord() {
   on('kAch', () => showMe('ach')); on('kCodex', () => showCodex()); on('kCal', () => showCalendar()); on('kRep', () => showYearHist());
   bindLifeRebirth(s);
 }
-// 【仙途】→ 设置：声音、速度说明、玩法指南、存档、重新开始
+// 音量格（0～5 档，五根由矮到高的柱子；不是按钮，一整条算一个控件）
+const volBar = (w, lv) => `<div class="kvol" data-vol="${w}" data-lv="${lv}" role="slider" aria-label="${w === 'm' ? '音乐' : '音效'}音量" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${lv}">${[1, 2, 3, 4, 5].map(i => `<i data-i="${i}" class="${i <= lv ? 'on' : ''}"><b></b></i>`).join('')}</div>`;
+// 【仙途】→ 设置：声音（三态 + 音乐 / 音效音量）、玩法指南、存档、重新开始
 function showSettings() {
   if (!navCur) navCur = 'path';
   const body = meTabs('set')
     + `<div class="kslot"><div class="cell" id="btnSound" style="cursor:pointer"></div><div class="mid"><div class="nm">声音</div><small>${['音乐与音效', '仅音效', '静音'][soundMode]}</small></div><button class="kb alt" id="kSnd">切换</button></div>
+    <div class="kslot kvrow"><div class="mid"><div class="nm">音乐</div></div>${volBar('m', soundMode === 0 ? AU.mv : 0)}</div>
+    <div class="kslot kvrow"><div class="mid"><div class="nm">音效</div></div>${volBar('s', soundMode !== 2 ? AU.sv : 0)}</div>
     <div class="kslot"><div class="cell">${artIcon('quest', 32)}</div><div class="mid"><div class="nm">玩法指南</div><small>各系统一句话</small></div><button class="kb alt" id="btnHelp">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('task', 32)}</div><div class="mid"><div class="nm">札记</div><small>本章小任务</small></div><button class="kb alt" id="btnQuests">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('ok', 32)}</div><div class="mid"><div class="nm">存档</div><small>本机自动 · 云：${esc(cloudStatus)}</small></div></div>
@@ -121,6 +125,15 @@ function showSettings() {
   setSoundIcon();
   const snd = () => { soundMode = (soundMode + 1) % 3; ac(); SFX.tap(); setSoundIcon(); savePref(); showSettings(); };
   s.querySelector('#kSnd').onclick = snd; s.querySelector('#btnSound').onclick = snd;
+  // 音量格：点第几格就是几档；点着的最高一格再点一下 = 降一档（能降到 0）。调音乐会顺手把三态拨回“有音乐”，调音效同理
+  s.querySelectorAll('.kvol').forEach(el => el.onclick = e => {
+    const i = e.target.closest('i'); if (!i) return;
+    const w = el.dataset.vol, cur = +el.dataset.lv; let lv = +i.dataset.i; if (lv === cur) lv--;
+    ac(); auSetVol(w, lv);
+    if (lv > 0) { if (w === 'm') soundMode = 0; else if (soundMode === 2) soundMode = 1; }
+    savePref(); setSoundIcon(); if (w === 's') SFX.coin(); else SFX.tap();
+    showSettings();
+  });
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };
   s.querySelector('#btnQuests').onclick = () => { SFX.tap(); showQuests(); };
   s.querySelector('#btnReset').onclick = () => sheet({

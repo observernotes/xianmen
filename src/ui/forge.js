@@ -106,11 +106,11 @@ function showGearDetail(sel, still, tab) {
   s.querySelectorAll('[data-gslot]').forEach(b => b.onclick = () => { SFX.tap(); gearMsg = ''; showGearDetail(b.dataset.gslot, true); });
   s.querySelectorAll('[data-ftab]').forEach(b => b.onclick = () => { SFX.tap(); gearMsg = ''; showGearDetail(gearSel, true, b.dataset.ftab); });
   s.querySelectorAll('[data-plus]').forEach(b => bindPlusButton(b));
-  s.querySelectorAll('[data-edge]').forEach(b => b.onclick = () => { const r = L.gearEdge(st, gearSel, b.dataset.edge); if (r) { SFX.reveal(4); gearMsg = `<span class="jadet">开锋 · ${L.EDGE[b.dataset.edge].n}：${L.EDGE[b.dataset.edge].d}</span>`; showGearDetail(gearSel, true); benchHit('ok'); } });
+  s.querySelectorAll('[data-edge]').forEach(b => b.onclick = () => { const r = L.gearEdge(st, gearSel, b.dataset.edge); if (r) { SFX.forgeOk(7); gearMsg = `<span class="jadet">开锋 · ${L.EDGE[b.dataset.edge].n}：${L.EDGE[b.dataset.edge].d}</span>`; showGearDetail(gearSel, true); benchHit('ok'); } });
   s.querySelectorAll('[data-infel]').forEach(b => b.onclick = () => { SFX.tap(); forgeEl = b.dataset.infel; showGearDetail(gearSel, true); });
-  s.querySelectorAll('[data-infuse]').forEach(b => b.onclick = () => { const r = L.gearInfuse(st, st.gear[gearSel], b.dataset.infuse); if (r) { SFX.gather(); flash(0.3); gearMsg = `<span class="jadet">淬灵成功：【${esc(L.gearBase(r.x.id).n)}】成了${L.ELEM[r.el]}系</span>`; forgeEl = ''; showGearDetail(gearSel, true); benchHit('ok'); updateHUD(); } });
+  s.querySelectorAll('[data-infuse]').forEach(b => b.onclick = () => { const r = L.gearInfuse(st, st.gear[gearSel], b.dataset.infuse); if (r) { SFX.infuse(); flash(0.3); gearMsg = `<span class="jadet">淬灵成功：【${esc(L.gearBase(r.x.id).n)}】成了${L.ELEM[r.el]}系</span>`; forgeEl = ''; showGearDetail(gearSel, true); benchHit('ok'); updateHUD(); } });
   s.querySelectorAll('[data-faff]').forEach(b => b.onclick = () => { SFX.tap(); forgeAff = +b.dataset.faff; showGearDetail(gearSel, true); });
-  s.querySelectorAll('[data-rf]').forEach(b => b.onclick = () => { const r = L.gearReforge(st, gearSel, +b.dataset.rf); if (r) { SFX.reveal(r.pity ? 5 : 3); gearMsg = ''; showGearDetail(gearSel, true); } });
+  s.querySelectorAll('[data-rf]').forEach(b => b.onclick = () => { const r = L.gearReforge(st, gearSel, +b.dataset.rf); if (r) { SFX.reforge(); if (r.pity) SFX.reveal(5); gearMsg = ''; showGearDetail(gearSel, true); } });
   s.querySelectorAll('[data-rfk]').forEach(b => b.onclick = () => { const r = L.gearReforgeKeep(st, b.dataset.rfk === '1'); if (r) { SFX.coin(); gearMsg = `洗练：保留「${L.AFFIX[r.keep].n}」`; showGearDetail(gearSel, true); } });
   const lk = s.querySelector('[data-glock]'); if (lk) lk.onclick = () => { SFX.tap(); L.gearLock(st, lk.dataset.glock, !st.gear.lock[lk.dataset.glock]); showGearDetail(gearSel, true); };
   const fb = s.querySelector('#btnForge'); if (fb) fb.onclick = () => { SFX.tap(); showForge(); };

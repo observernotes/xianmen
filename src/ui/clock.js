@@ -14,7 +14,7 @@ function notify(kind, mail, fn) {
   if (!st) return false;
   const g = L.notifyGate(st, kind);
   if (g === 'now') { if (kind === 'active') L.markInterrupt(st); if (fn) fn(); return true; }
-  if (mail) L.mailPush(st, mail);
+  if (mail) { L.mailPush(st, mail); sfxMail(); }
   return false;
 }
 const canInterrupt = () => !!st && L.canInterrupt(st);

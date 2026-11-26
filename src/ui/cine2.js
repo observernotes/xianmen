@@ -96,17 +96,10 @@ const CN_FD = () => ART.dims.fighter;
 // 宗门同门的换色小人
 const cnDisciple = (col, i) => ({ hair: ['#2a2230', '#3a2a24', '#1e1a2a'][i % 3], skin: i % 2 ? '#f2c9a0' : '#e8bc94', f: i % 2, robe: [cnMix(col, '#1b1326', 0.45), col, cnMix(col, '#ffffff', 0.35)], trim: '#f6ecd0' });
 
-// ---------- 音效（只用 audio.js 的 tone / noise / SFX） ----------
+// ---------- 音效（名字 → audio.js 的 SFX；配乐由 audio.js 的 CN_BGM 按段选） ----------
 const CSFX = {
-  drum() { tone(62, 0, 0.55, 'sine', 0.55); tone(94, 0, 0.18, 'triangle', 0.25); noise(0, 0.12, 0.25, 260); },
-  tear() { noise(0, 0.32, 0.32, 4200); noise(0.08, 0.2, 0.2, 2600); },
-  paper() { noise(0, 0.18, 0.16, 3000); },
-  clang() { noise(0, 0.22, 0.38, 6000); tone(1760, 0, 0.35, 'square', 0.06); tone(2637, 0.01, 0.5, 'triangle', 0.09); tone(3520, 0.02, 0.25, 'sine', 0.05); },
-  bell() { tone(523, 0, 2.6, 'sine', 0.24); tone(1046, 0, 1.6, 'sine', 0.08); tone(1568, 0.01, 1.0, 'triangle', 0.04); tone(262, 0, 2.6, 'sine', 0.12); },
-  luo() { tone(185, 0, 1.6, 'sawtooth', 0.08); tone(233, 0, 1.4, 'triangle', 0.16); noise(0, 0.5, 0.18, 1400); },
-  wardrum() { CSFX.drum(); },
-  wind() { noise(0, 1.6, 0.08, 500); },
-  gather: () => SFX.gather(), win: () => SFX.win(), gong: () => SFX.gong(), thunder: () => SFX.thunder(), rumble: () => SFX.rumble(), hit: () => SFX.hit(), reveal: () => SFX.reveal(4),
+  drum: () => SFX.drum(), wardrum: () => SFX.wardrum(), tear: () => SFX.tear(), paper: () => SFX.paper(), clang: () => SFX.clang(), bell: () => SFX.bell(), luo: () => SFX.luo(), wind: () => SFX.wind(),
+  gather: () => SFX.gather(), win: () => SFX.victory(), gong: () => SFX.gong(), thunder: () => SFX.thunder(), rumble: () => SFX.rumble(), hit: () => SFX.hit(), reveal: () => SFX.reveal(4),
 };
 
 // ---------- 十段分镜 ----------
