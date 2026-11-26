@@ -36,7 +36,9 @@ function rivalListHTML() {
     return `<button class="rvrow" data-rv="${id}">${rvPortrait(id, pxs(48, 0.75), g >= L.GRUDGE.hi ? 'ang' : g <= L.GRUDGE.lo ? 'joy' : 'n')}<span class="rvmain"><span class="line"><b>${esc(L.rivalName(st, id))}</b>${elChip(L.RIVAL_EL[id], !k.el)}</span>
       <span class="line">${st.beaten[id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${q || '?'}名</span>`}${grudgeTag(g) || `<span class="muted">恩怨 ${g}</span>`}</span></span><span class="rvgo">›</span></button>`;
   });
-  return `${pnHead('宿敌', '点开看底细')}${rows.join('')}${rookieListHTML()}`;
+  const mf = L.mainFoes ? L.mainFoes(st).filter(id => id !== 'mu' || st.pact) : [];
+  const top = mf.length ? `${pnHead('这一章的对手', '点开下战书')}${mf.map(id => { const I = L.challengeInfo(st, id); return `<button class="rvrow" data-rv="${id}" id="rvMain">${rvPortrait(id, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(I.n)}</b><span class="chip warn">主线</span></span><span class="line ${I.why ? 'muted' : 'goldt'}">${I.why ? esc(I.why) : `胜算 ${L.pct(I.p)} · 下战书`}</span></span><span class="rvgo">›</span></button>`; }).join('')}` : '';
+  return `${top}${pnHead('宿敌', '点开看底细')}${rows.join('')}${rookieListHTML()}`;
 }
 function rookieListHTML() {
   const R2 = st.rv2; if (!R2 || !L.RIVALS2_ON) return '';
@@ -73,7 +75,13 @@ function showRivalCard(id, back) {
       <dt>恩怨</dt><dd><b class="${g >= L.GRUDGE.hi ? 'seal' : g <= L.GRUDGE.lo ? 'jadet' : ''}">${g}</b> ${grudgeTag(g)}${grudgeBar(g)}</dd>
     </dl>
     <details class="more"><summary>克制 · 恩怨细则</summary><div class="muted">${k.el ? rvCounterText(id) + '。' : ''}${k.art ? `看家战技是${L.artTierName(A.t)}战技。` : ''}${k.gear ? `你用${L.ELEM[I.gear.ke]}系战技时，他对决战力 ×${L.RIVAL_GEAR_M}。` : ''}${pw > 1.0001 ? `奇遇与拍卖让他战力 ×${(Math.round(pw * 100) / 100)}（上限 ×${L.RIVAL_PW_CAP}）。` : ''}<br>${grudgeWhat(id, g)}<br>恩怨怎么变：论道上赢他 +${L.GRUDGE.win}、羞辱他 +${L.GRUDGE.insult}、放他一马或帮他 ${L.GRUDGE.spare}（奇遇里的选择）。</div></details>`;
-  const s = sheet({ title: '宿敌', body, foot: [{ t: '返回', alt: true, fn: () => (back ? back() : showMe('rank')) }] });
+  // 这一章要击败他：【下战书】（mainline.js；不看境界、不看名次）
+  const ci = L.challengeInfo ? L.challengeInfo(st, id) : null, chal = !!(ci && ci.main && !st.beaten[id]);
+  const body2 = chal ? `<div class="pn-line seal">这一章要击败他：${ci.why ? esc(ci.why) : '随时可以下战书，不看境界、不看名次。'}</div>` + body : body;
+  const foot = [{ t: '返回', alt: true, fn: () => (back ? back() : showMe('rank')) }];
+  if (chal) foot.push({ t: '下战书', gold: true, disabled: !!ci.why, fn: () => chalPrep(id, { back: () => showRivalCard(id, back) }) });
+  const s = sheet({ title: '宿敌', body: body2, foot });
+  const cb = chal && s.querySelector('[data-fi="1"]'); if (cb) cb.id = 'btnChal';
   return s;
 }
 function showRookieCard() {
