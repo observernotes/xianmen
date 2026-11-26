@@ -249,6 +249,11 @@ function renderApRow() {
 }
 // 突破 / 渡劫的入口：演出、对决、过场、链没出完时不开（AP_PLAN 验收：首领战里点修为条渡劫会卡死画面）
 const canBreak = () => !!st && !cine && !duelFx && !st.exp && !st.run && !(typeof btv !== 'undefined' && btv) && !(typeof tk !== 'undefined' && tk) && !(typeof cn !== 'undefined' && cn) && !chainOn;
+// 所有通往突破 / 渡劫的入口（修为条、行动点一行、点主角、目标卡【去】、变强页、老祖的讲解）都过这一道：打仗、过场、对话、历练演出中一律不开，说一句等打完
+{ const sb0 = showBreakthrough; showBreakthrough = function () {
+  if (st && (st.exp || st.run || cine || duelFx || (typeof btv !== 'undefined' && btv) || (typeof tk !== 'undefined' && tk) || (typeof cn !== 'undefined' && cn))) { sayLine('打完这一场再突破'); return; }
+  return sb0.apply(this, arguments);
+}; }
 $('#btnNext').addEventListener('click', () => { if (!st) return; ac(); nextSeason(); updateHUD(); });
 $('#btnBt').addEventListener('click', () => { if (!st || !canBreak()) return; ac(); SFX.tap(); showBreakthrough(); });
 
