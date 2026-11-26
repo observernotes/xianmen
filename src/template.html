@@ -1114,6 +1114,19 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kmail { display: flex; gap: 8px; align-items: center; border: 2px solid #c8b48c; background: #f6ecd2; padding: 4px 6px; font-size: 15px; }
 .kmail .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kmail .s { color: #8a7a5c; font-size: 14px; white-space: nowrap; }
+
+/* 目标卡默认收起成一行（章 + 下一步 + 【去】，下面一条细进度线）；点卡片展开成三行，再点收起 */
+#goal .ch2 { display: none; flex: none; font-size: 14px; line-height: 18px; color: #1b1326; background: var(--gold); padding: 0 5px; }
+#goal .gtog { flex: none; color: var(--muted); font-size: 12px; width: 14px; text-align: center; }
+#goal:not(.open) { padding: 2px 6px 3px; cursor: pointer; }
+#goal:not(.open) .g1 { display: none; }
+#goal:not(.open) .g3 { margin-top: 0; }
+#goal:not(.open) .g3 img { display: none; }
+#goal:not(.open) .ch2 { display: inline-block; }
+#goal:not(.open) .gbar { height: 4px; margin-top: 2px; box-shadow: none; }
+#goal:not(.open) .gbar em { display: none; }
+#goal.open { cursor: pointer; }
+#goal.open .gtog { transform: rotate(180deg); }
 /* ===== 线 C2 刷宝 + 炼器（.lt-，src/ui/loot.js、src/ui/forge.js；docs/COMBAT_LOOT.md §5 §6） ===== */
 .lt-flip { margin: 4px 0; }
 .lt-cards { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: flex-end; background: #262038; border: 2px solid #3a3155; padding: 8px 4px; position: relative; overflow: hidden; }
@@ -1215,7 +1228,7 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
   <div id="goal" class="hud" aria-label="目标卡">
     <div class="g1"><span class="ch" id="gCh">第一章</span><span class="t" id="gT">赢下三年之约</span></div>
     <div class="gbar"><i id="gFill"></i><em id="gBar"></em></div>
-    <div class="g3"><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><button class="go" id="gGo">去 ▸</button></div>
+    <div class="g3"><span class="ch ch2" id="gCh2">一</span><img class="px" data-art="goal" alt=""><span class="nx" id="gNext">下一步：去历练</span><span class="gtog" aria-hidden="true">▾</span><button class="go" id="gGo">去 ▸</button></div>
   </div>
   <button id="tick" aria-label="传讯：点开纸鹤看历史"></button>
   <div id="nav">

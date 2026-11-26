@@ -5331,5 +5331,24 @@ ART.bossFighter = function (k, frame, flip) {
   });
 }
 
+// ====================================================================
+// 阶段八·变强页（接口见 docs/ART_API.md “阶段八·变强页”，方案见 docs/KAIRO_PLAN.md “变强页重做”）
+// ====================================================================
+{
+  const ICON8 = {
+    // 荐：最划算的那一条左上角盖的红章（红底金边，中间一个向上的金箭头）
+    adv_rec: b => { b.add(L => { L.r(2, 1, 12, 13, RED); L.p(2, 14, RED); L.p(3, 14, RED); L.p(12, 14, RED); L.p(13, 14, RED); L.p(4, 15, RED); L.p(11, 15, RED); }); b.hl(3, 12, 2, '#f4c542'); b.sy(4, '123', '#fff2a8', 8); b.r(7, 7, 2, 5, '#fff2a8'); b.p(7, 4, '#ffffff'); },
+    // 还差：一只没装满的口袋，缺的那一块用虚线画出来
+    adv_gap: b => { b.add(L => { L.sy(5, '3455554', WOOD, 8); L.r(6, 3, 4, 2, WOOD); }); b.hl(5, 10, 4, '#f4c542'); b.r(5, 9, 6, 3, '#f4c542'); b.hl(5, 10, 9, '#fff2a8'); for (let x = 5; x <= 10; x += 2) b.p(x, 7, '#efe3c4'); b.p(12, 1, '#ff9a8a'); b.r(12, 3, 1, 1, '#ff9a8a'); b.p(13, 2, '#ff9a8a'); b.p(11, 2, '#ff9a8a'); },
+    // 换招：一口剑，两边一去一回两支箭头（换克制的战技 / 换上更好的）
+    adv_swap: b => { b.add(L => { L.l(5, 11, 11, 5, STEEL, 2); L.p(12, 4, STEEL); }); b.add(L => { L.l(3, 10, 6, 13, GOLD, 1); L.l(3, 13, 4, 12, WOOD, 2); }, { sep: 0 }); b.p(11, 5, '#ffffff'); b.p(9, 7, '#ffffff');
+      const g = '#4ccb9f', d = '#2a8a7a'; b.hl(1, 6, 2, g); b.p(5, 1, g); b.p(5, 3, g); b.p(6, 2, '#c8fff0'); b.hl(9, 14, 14, d); b.p(10, 13, d); b.p(10, 15, d); b.p(9, 14, g); },
+    // 明细：一本账（纸页上三道长短不一的条）
+    adv_ledger: b => { b.add(L => L.r(3, 2, 11, 13, '#efe3c4')); b.add(L => L.r(2, 2, 2, 13, WOOD), { sep: 0 }); b.r(6, 5, 6, 2, '#2a8a7a'); b.r(6, 8, 4, 2, '#f4c542'); b.r(6, 11, 2, 2, '#d8404a'); b.p(12, 5, '#4ccb9f'); },
+  };
+  const icon7 = ART.icon; ART.icon = function (name) { if (ICON8[name]) return cached('ic8|' + name, () => { const b = new Buf(16, 16); ICON8[name](b); return b.cv(); }); return icon7(name); };
+  const names7 = ART.iconNames; ART.iconNames = () => names7().concat(Object.keys(ICON8));
+}
+
 root.ART = ART;
 })(typeof window !== 'undefined' ? window : globalThis);
