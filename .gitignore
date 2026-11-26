@@ -10,3 +10,4 @@ dist/*.keystore
 .claude/worktrees/
 __pycache__/
 Pixel 7/
+onboard/
