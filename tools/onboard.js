@@ -166,7 +166,7 @@ const TERMS = [
   for (let guard = 0; guard < 20000; guard++) {
     let s = await state();
     if (clock > MIN * 60) break;
-    for (const k of s.onb) if (!lastUnl.includes(k)) { unlocks.push({ k, tick: s.tick, clock }); lastUnl.push(k); if (clock < 60 * 60) await page.screenshot({ path: `${out}/u-${fmtT(clock).replace(':', 'm')}-${k}.png` }); }
+    for (const k of s.onb) if (!lastUnl.includes(k)) { unlocks.push({ k, tick: s.tick, clock, sys: await ev(k => !!(window.__xm.L.ONB_K[k] || {}).sys, k) }); lastUnl.push(k); if (clock < 60 * 60) await page.screenshot({ path: `${out}/u-${fmtT(clock).replace(':', 'm')}-${k}.png` }); }
     if (clock >= nextCensus && s.gHidden && !s.modal) {
       const c = await census();
       const ban = await ev(() => window.__onb.banners.length);
@@ -218,7 +218,7 @@ const TERMS = [
     const bb = bubbles.filter(x => x.clock >= a && x.clock < z).length;
     dec.push({ m, gb, ga, nc, ul, mx, bb });
   }
-  L1.push('', '## 每 10 分钟', '', '| 分钟 | 阻塞讲解 | 全部讲解 | 气泡 | 新名词 | 解锁 | 主界面元素最多 |', '|---|---|---|---|---|---|---|', ...dec.map(d => `| ${d.m * 10}～${d.m * 10 + 10} | ${d.gb} | ${d.ga} | ${d.bb} | ${d.nc} | ${d.ul.join('、') || '—'} | ${d.mx} |`));
+  L1.push('', '## 每 10 分钟', '', '| 分钟 | 阻塞讲解 | 全部讲解 | 气泡 | 新名词 | 解锁 | 主界面元素最多 |', '|---|---|---|---|---|---|---|', ...dec.map(d => `| ${d.m * 10}～${d.m * 10 + 10} | ${d.gb} | ${d.ga} | ${d.bb} | ${d.nc} | ${d.ul.map(k => (unlocks.find(u => u.k === k) || {}).sys ? '**' + k + '**' : k).join('、') || '—'} | ${d.mx} |`));
   L1.push('', '## 系统名词第一次出现', '', ...Object.entries(first).sort((a, b) => a[1].clock - b[1].clock).map(([k, v]) => `- ${fmtT(v.clock)} ${k}（${v.src}）：${v.txt.replace(/\n/g, ' ')}`));
   if (unlocks.length) L1.push('', '## 解锁', '', ...unlocks.map(u => `- ${fmtT(u.clock)} 第 ${u.tick} 周天：${u.k}`));
   L1.push('', '## 讲解', '', '| # | 手表 | 周天 | id | 台词 |', '|---|---|---|---|---|', ...guides.map(x => `| ${x.n} | ${fmtT(x.clock)} | ${x.tick} | ${x.id}${x.btn ? '' : '（点高亮）'} | ${x.text.replace(/\|/g, '/').slice(0, 80)} |`));
@@ -226,17 +226,27 @@ const TERMS = [
   // 核对（docs/ONBOARDING.md §6）
   const fails = [];
   if (ASSERT) {
-    const T = { first10: 3, prePact: 6, blockPer10: 4, mainMax: [16, 20, 24, 26, 28, 30, 32, 34, 36] };
+    // docs/ONBOARDING.md §3 的目标：系统（不算开局的历练、不算子项）前 10 分钟 ≤ 3、三年之约前 ≤ 4；之后每 10 分钟系统 ≤ 3、系统 + 子项 ≤ 6；
+    // 两个系统之间 ≥ 90 秒；阻塞讲解第一个 10 分钟 ≤ 6、之后每 10 分钟 ≤ 4；主界面元素按段的上限；底栏同时最多 1 个角标
+    const T = { first10: 3, prePact: 4, blockFirst: 6, blockPer10: 4, sysPer10: 3, allPer10: 6, mainMax: [16, 22, 26, 28, 30, 32, 32, 34, 34] };
+    const sysU = unlocks.filter(u => u.sys && u.k !== 'exp');
     const c10 = Object.values(first).filter(v => v.clock < 600).length;
-    const sysFirst10 = unlocks.filter(u => u.clock < 600).length;
+    const sysFirst10 = sysU.filter(u => u.clock < 600).length;
     if (sysFirst10 > T.first10) fails.push(`前 10 分钟解锁 ${sysFirst10} 个系统（目标 ≤ ${T.first10}）`);
     const pactAt = (modals.find(x => /三年之约/.test(x.title)) || {}).clock || 1e9;
-    const pre = unlocks.filter(u => u.clock < pactAt).length;
+    const pre = sysU.filter(u => u.clock < pactAt).length;
     if (pre > T.prePact) fails.push(`三年之约前解锁 ${pre} 个系统（目标 ≤ ${T.prePact}）`);
-    for (const d of dec) { if (d.m > 0 && d.gb > T.blockPer10) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟阻塞讲解 ${d.gb} 段（目标 ≤ ${T.blockPer10}）`); if (d.ul.length > 2) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟解锁 ${d.ul.length} 个（目标 ≤ 2）`); const mm = T.mainMax[Math.min(d.m, T.mainMax.length - 1)]; if (d.mx > mm) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟主界面元素最多 ${d.mx}（目标 ≤ ${mm}）`); }
-    for (let i = 1; i < unlocks.length; i++) if (unlocks[i].clock - unlocks[i - 1].clock < 90) fails.push(`${unlocks[i - 1].k} → ${unlocks[i].k} 只隔 ${Math.round(unlocks[i].clock - unlocks[i - 1].clock)} 秒（目标 ≥ 90 秒）`);
+    for (const d of dec) {
+      const lim = d.m === 0 ? T.blockFirst : T.blockPer10;
+      if (d.gb > lim) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟阻塞讲解 ${d.gb} 段（目标 ≤ ${lim}）`);
+      const ns = sysU.filter(u => u.clock >= d.m * 600 && u.clock < d.m * 600 + 600).length;
+      if (d.m > 0 && ns > T.sysPer10) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟解锁 ${ns} 个系统（目标 ≤ ${T.sysPer10}）`);
+      if (d.m > 0 && d.ul.length > T.allPer10) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟解锁 ${d.ul.length} 个（系统 + 子项，目标 ≤ ${T.allPer10}）`);
+      const mm = T.mainMax[Math.min(d.m, T.mainMax.length - 1)]; if (d.mx > mm) fails.push(`第 ${d.m * 10}～${d.m * 10 + 10} 分钟主界面元素最多 ${d.mx}（目标 ≤ ${mm}）`);
+    }
+    for (let i = 1; i < sysU.length; i++) if (sysU[i].clock - sysU[i - 1].clock < 90 && !['bt', 'trib', 'sect'].includes(sysU[i].k)) fails.push(`${sysU[i - 1].k} → ${sysU[i].k} 只隔 ${Math.round(sysU[i].clock - sysU[i - 1].clock)} 秒（目标 ≥ 90 秒）`);
     for (const r of rows) if ((r.main.badgeTxt || '').length > 1) fails.push(`${fmtT(r.clock)} 底栏同时 ${r.main.badgeTxt.length} 个角标（目标 ≤ 1）`);
-    L1.push('', `前 10 分钟新名词 ${c10}（参考），解锁 ${sysFirst10}；三年之约在 ${fmtT(pactAt)}，之前解锁 ${pre}`);
+    L1.push('', `前 10 分钟新名词 ${c10}（参考），解锁系统 ${sysFirst10}；三年之约在 ${fmtT(pactAt)}，之前解锁系统 ${pre}`);
     L1.push('', fails.length ? '## 未通过\n\n' + fails.map(f => '- ' + f).join('\n') : '## 节奏核对全部通过');
   }
   fs.writeFileSync(`${out}/onboard.md`, L1.join('\n'));

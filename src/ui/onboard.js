@@ -25,8 +25,8 @@ for (const [id, pn] of [['field', 'home'], ['retreat', 'home'], ['sect', 'sect']
 }
 // 子项解锁（不是新系统，是已经会的系统里多了一样）：只冒一条老祖气泡，带数字，不暂停
 const SUB_SAY = {
-  herb: () => '行事多了一样【采药】：灵草多、灵石少。每个地方适合干什么不一样（◎○△），试过才知道。',
-  treasure: () => `行事又多一样【寻宝】：法宝、功法掉率 ×2，打斗少。坊市的寻宝 ${fmt(L.price(st, 'box'))} 灵石一次，历练寻宝不花钱。`,
+  herb: () => '',   // 采药、寻宝各有原来的气泡（guide-ask.js 的 u02 / u02b），不重复
+  treasure: () => '',
   sell: () => `坊市多了【行情】：灵草现在 ×${mult2(L.sellMult(st, 'herb'))}，你的 ${fmt(L.sellHave(st, 'herb'))} 株能换 ${fmt(L.sellValue(st, 'herb', L.sellHave(st, 'herb')))} 灵石。×1.2 以上再卖最划算。`,
   shelf: () => `坊市下面多了几格【轮换货】：每届论道换一次，${L.restockIn(st)} 个周天后换货。`,
   auction: () => `坊市每 ${L.AUCTION.every} 周天一场【拍卖会】，开 ${L.AUCTION.len} 个周天。下一场 ${L.nextAuction(st)} 个周天后。`,
@@ -34,7 +34,7 @@ const SUB_SAY = {
   orn: () => `法宝多了一格【饰品】：修炼 +${Math.round(L.ACC_KIND.cul.v * 100)}%×阶 等四种。东海龙宫掉饰品多一倍。`,
   mishu: () => `功法多了一槽【秘术】：不加倍率，只给特效。三门同属共鸣修炼、战力各 +${Math.round(L.GEN.three * 100)}%。`,
   petJobs: () => `兽栏多了【岗位】：不出战的灵宠派去护阵、觅食、守田、看炉、巡山，类型对口 ×1.5。`,
-  chainExp: () => '嫌一趟趟点麻烦：出发页勾“连续 ×3”，三趟回来一起结算（丁等、遭遇或修为圆满时中断）。',
+  chainExp: () => '',   // guide-ask.js 的 u14 说过了
   vault: () => `宗门多了【宝库】：六格，每届论道换货，用贡献换。你现在有 ${fmt((st.sect && st.sect.contrib) || 0)} 贡献。`,
   duty: () => '你是真传了，宗门多了【职司】：五堂选一个，各给一样常驻加成。',
   comp: () => '有人愿意跟你出门了：出发页多了【同伴】一行，一趟带一位。',
@@ -75,7 +75,7 @@ reText(GUIDE, 'welcome', () => `小子，别东张西望，老夫就住在你这
 reText(GUIDE, 'stakes', () => { const pi = PI(); return `三年之约还剩 ${Bn(pi.left)} 个周天，${esc(st.exName)}要当众羞辱你。${exTa()}战力 ${fmt(pi.Q)}，你 ${fmt(pi.base)}，胜算才 ${Bn(L.pct(pi.p))}。`; });
 reText(GUIDE, 'expNav', () => `光打坐来不及，出去打妖兽、捡法宝。点【历练】，一趟 ${Bn(L.expLen(0))} 个周天。`);
 reText(GUIDE, 'expPick', () => `就这儿：推荐战力 ${Bn(fmt(L.rec(0, 0)))}，你 ${fmt(L.power(st))}。点【${R0()}】。`);
-reText(GUIDE, 'expGo', () => `预计评价 ${Bn(L.expForecast(st, 0, 0, 0).text)}。点【出发】。`);
+reText(GUIDE, 'expGo', () => `预计评价 ${Bn(L.expForecast(st, 0, 0, 0).text)}，${L.expLen(0)} 个周天回来。点【出发】。`);
 reText(GUIDE, 'homeNav', () => { const e = lastExp; return `${e ? `战力 ${fmt(e.pw0)} → ${Bn(fmt(e.pw1))}，捡的法宝已经戴上了。` : ''}灵石有 ${Bn(fmt(st.stones))}，点【洞府】花掉。`; });
 reText(GUIDE, 'homeArray', () => { const u = L.upInfo(st, 'array'); return `升【聚灵阵】：修炼 +${dec(u.d0)} → ${Bn('+' + dec(u.d1))}/周天。点它，${fmt(u.cost)} 灵石。`; });
 reText(GUIDE, 'quests', () => { const q = L.questView(st).first; return `不知道干嘛，就看这张札记。${q ? `眼下这条赏 ${Bn(esc(L.rewardText(st, q.rw)))}。` : '做完都有赏。'}`; });
@@ -106,3 +106,5 @@ reText(HINTS, 'tuna', () => `气满了：点画面里的你自己，立得 ${Bn(
 reText(HINTS, 'depth', () => `【腹地】开了：推荐战力 ${Bn(fmt(L.rec(0, 1)))}，灵石 ×${L.REW.d}。`);
 reText(HINTS, 'me', () => `你现在天骄榜第 ${Bn(st.rank)}。【人物】→ 天骄榜 能看宿敌。`);
 reText(HINTS, 'gearCmp', () => { const el = document.querySelector('#modal [data-gcmp]'); el.scrollIntoView({ block: 'nearest' }); const x = L.gearPend(st, +el.dataset.gcmp), D = L.gearDelta(st, x); const gain = fmt(D.a.p) !== fmt(D.b.p) ? `战力 ${fmt(D.a.p)} → ${Bn(fmt(D.b.p))}` : `历练分数 ${sgn(D.a.s)} → ${Bn(sgn(D.b.s))}`; return `新法宝换上：${gain}。不要就【熔炼】，得灵矿 ${Bn(D.smelt)}。`; });
+// 子项的阻塞讲解改由上面那条气泡带过（一次只教一件事，子项不停下来讲）：法衣、饰品、秘术、灵宠岗位
+for (const id of ['gearRobe', 'gearOrn', 'mishu', 'pet2']) { const h = HINTS.find(x => x.id === id); if (h) h.when = () => false; }
