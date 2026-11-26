@@ -202,8 +202,9 @@ function realmEndUI(sum) {
 function showRealmShop() {
   const run = st.run; if (!run || run.phase !== 'shop') return;
   const have = L.mjPending(st).stones;
-  const rows = run.shop.map((o, i) => { const why = L.mjShopWhy(st, i); return `<div class="card flat"><div style="flex:none">${icon16(o.k === 'heal' ? 'spring' : o.k === 'pill' ? 'pojing' : o.k === 'yin' ? 'yin_' + (o.y || 'f')[0] : o.k === 'ore' ? 'ore' : o.k === 'art' ? 'frag' : 'seek', 2)}</div><div class="main"><div>${esc(o.n)}</div><div class="muted">${esc(o.d || '')}</div></div><div class="right"><button class="btn sm ${why ? 'alt' : 'gold'}" data-shop="${i}" ${why ? 'disabled' : ''}>${iconHTML('stone', 12)} ${fmt(o.price)}</button>${why ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`; }).join('');
-  const s = mjSheet({ title: '秘境 · 行商', center: true, noClose: true, sub: `一个背着大箱子的修士蹲在岔口。只收灵石——本局捡到的 ${fmt(have)} 灵石可以花在这里。`, body: rows, foot: [{ t: '不买，走', alt: true, fn: () => realmShopPick(-1) }] });
+  const rows = run.shop.map((o, i) => { const why = L.mjShopWhy(st, i); return pnRow({ ic: icon16(o.k === 'heal' ? 'spring' : o.k === 'pill' ? 'pojing' : o.k === 'yin' ? 'yin_' + (o.y || 'f')[0] : o.k === 'ore' ? 'ore' : o.k === 'art' ? 'frag' : 'seek', 2), nm: esc(o.n), k: o.d ? `<span class="muted">${esc(o.d)}</span>` : '',
+    right: `<button class="btn sm alt" data-shop="${i}" ${why ? 'disabled' : ''}><span>${iconHTML('stone', 12)} ${fmt(o.price)}</span>${why ? `<small>${esc(why)}</small>` : ''}</button>` }); }).join('');
+  const s = mjSheet({ title: '秘境 · 行商', center: true, noClose: true, sub: `本局捡到灵石 ${fmt(have)}，只收灵石`, body: `<div class="pn-list">${rows}</div>`, foot: [{ t: '不买，走', alt: true, fn: () => realmShopPick(-1) }] });
   s.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => { SFX.coin(); realmShopPick(+b.dataset.shop); });
 }
 function realmShopPick(i) {
@@ -228,7 +229,7 @@ function showRealmChest() {
   const run = st.run; if (!run || run.phase !== 'chest') return;
   const r = L.mjChestRec(st);
   const rows = run.chest.map((o, i) => `<div class="card mjcard${i === r.i ? ' rec' : ''}" data-chest="${i}"><div style="flex:none">${chestImg(o)}</div><div class="main"><div class="line"><span>${esc(o.n)}</span>${i === r.i ? '<span class="chip ok">荐</span>' : ''}</div><div class="muted">${esc(o.d || '')}</div>${i === r.i && r.why ? `<div class="jadet">${esc(r.why)}</div>` : ''}</div></div>`).join('');
-  const s = mjSheet({ title: '秘藏', center: true, noClose: true, sub: `守关倒下，石门后是一间小小的藏室。${run.chest.length === 4 ? '四' : '三'}样东西，只能带走一样。`, body: rows });
+  const s = mjSheet({ title: '秘藏', center: true, noClose: true, sub: `${run.chest.length === 4 ? '四' : '三'}样东西，只能带走一样`, body: rows });
   s.querySelectorAll('[data-chest]').forEach(c => c.onclick = () => { SFX.reveal(4); const sum = L.mjChest(st, +c.dataset.chest); closeModal(); if (sum) realmEndUI(sum); });
 }
 
@@ -255,12 +256,13 @@ function showRealm(xf) {
   const hpParts = L.mjHpParts(st).map(x => `${x[0]} ${x[1]}`).join(' + ');
   const elTxt = el.m > 1 ? `你的${L.elName(el.me)}系战技克${L.elName(el.fe)}：战力 ×${L.EL_DUEL[0]}` : el.m < 1 ? `${L.elName(el.fe)}克你的${L.elName(el.me)}系战技：战力 ×${L.EL_DUEL[1]}` : el.cang ? '藏锋：被克不受罚' : '你的战技不克它，它也不克你';
   const r = L.mjThRec(st, th.id);
-  const body = `<div class="mjroom">${doorImg('unk', pxs(32, 1.5))}<div class="grow"><div>${xf ? '仙府现世 · ' : ''}${esc(th.n)}秘境 ${elChip(th.el)}</div><div class="muted">${esc(th.d)}</div><div class="muted">${elTxt}</div></div></div>
-    <dl class="grid2"><dt>层数</dt><dd>${floors} 层，最后一层守关</dd><dt>气血</dt><dd>${max}（${hpParts}）</dd><dt>每层</dt><dd>${L.mjDoorN(st)} 扇门，“？”门 ${L.pct(L.mjUnkP(st))}</dd><dt>战力</dt><dd class="num">你 ${fmt(L.mjMe(st, th.id))} · 第一层 ${fmt(L.mjLayerPow(st, 1, fake))}，每层 ×${L.MJ.powStep}</dd></dl>
-    <div class="muted">战斗房掉的气血（精英 ×${L.MJ.elite}）：</div><div class="mjfloor">${dm.join('')}</div>
-    <p class="muted">每过一层可以带着收获离开；气血归零重伤出局：收获丢六成，负伤 ${L.MJ.wipeInj} 周天。局中时间不走，出来时流逝 ${L.mjCost(st)} 周天。${xf ? '' : `秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}。`}</p>
-    <p class="muted">${esc(th.n)}秘境：最深 ${r.deep} 层 · 通关 ${r.clears} 次${r.clears ? '' : `（首通称号「${esc(th.title)}」）`}</p>`;
-  mjSheet({ title: xf ? '仙府现世' : '秘境 · ' + th.n, body, foot: [{ t: '不去', alt: true, fn: closeModal }, { t: why ? why : xf ? '进仙府（免令）' : '进入（秘境令 −1）', gold: !why, disabled: !!why, fn: () => realmEnterUI(xf) }] });
+  // 第一屏：秘境名与克制一行、三格数（层数 / 气血 / 战力对比）、每层掉多少气血；规则、门数、战绩收进“详情”
+  const me = L.mjMe(st, th.id), f1 = L.mjLayerPow(st, 1, fake);
+  const body = `<div class="mjroom">${doorImg('unk', pxs(32, 1.5))}<div class="grow"><div>${xf ? '仙府现世 · ' : ''}${esc(th.n)}秘境 ${elChip(th.el)}</div><div class="${el.m > 1 ? 'jadet' : el.m < 1 ? 'seal' : 'muted'}">${elTxt}</div></div></div>
+    <div class="pn-stats"><div><small>层数</small><b>${floors} 层</b></div><div><small>气血</small><b class="num">${max}</b></div><div><small>你 / 第一层</small><b class="num ${me >= f1 ? 'jadet' : 'seal'}">${fmt(me)}/${fmt(f1)}</b></div></div>
+    <div class="muted">每层战斗掉的气血：</div><div class="mjfloor">${dm.join('')}</div>
+    <details class="more"><summary>规则 · 战绩</summary><div class="muted">${esc(th.d)}<br>气血 ${max} = ${hpParts}；每层 ${L.mjDoorN(st)} 扇门，“？”门 ${L.pct(L.mjUnkP(st))}；敌人每层战力 ×${L.MJ.powStep}，精英房掉血 ×${L.MJ.elite}。<br>每过一层可以带着收获离开；气血归零重伤出局：收获丢六成，负伤 ${L.MJ.wipeInj} 周天。局中时间不走，出来时流逝 ${L.mjCost(st)} 周天。${xf ? '' : `秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}。`}<br>${esc(th.n)}秘境：最深 ${r.deep} 层 · 通关 ${r.clears} 次${r.clears ? '' : `（首通称号「${esc(th.title)}」）`}</div></details>`;
+  mjSheet({ title: xf ? '仙府现世' : '秘境 · ' + th.n, body, foot: [{ t: '不去', alt: true, fn: closeModal }, { t: why ? why : xf ? '进仙府<small> 免令</small>' : `进入<small> 令 ${L.mjTokens(st)} → ${L.mjTokens(st) - 1}</small>`, gold: !why, disabled: !!why, fn: () => realmEnterUI(xf) }] });
 }
 function realmEnterUI(xf) {
   const run = L.mjEnter(st, { xf });

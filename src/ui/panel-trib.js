@@ -64,7 +64,7 @@ function aidRow(k, on, data) {
   const A = L.aidInfo(st, k), pct = '+' + L.pct(A.v);
   const desc = A.ok ? A.cost : A.why;
   return `<div class="aid ${on ? 'on' : ''} ${A.ok ? '' : 'off'}" data-aidrow="${k}">${aidIcon(k)}<div class="an"><div>${A.n} <span class="av">${pct}</span></div><div class="ad">${esc(desc)}</div></div>`
-    + (data ? `<button class="btn sm ${on ? 'gold' : 'alt'}" data-${data}="${k}" ${A.ok ? '' : 'disabled'}>${on ? '已用' : '用上'}</button>` : '') + '</div>';
+    + (data ? `<button class="btn sm alt" data-${data}="${k}" ${A.ok ? '' : 'disabled'}>${on ? '☑ 已用' : '☐ 用上'}</button>` : '') + '</div>';
 }
 
 // ---------- 准备页（金丹起）----------
@@ -83,20 +83,25 @@ function showTribPrep(still) {
   const pre = L.tribPre(st);
   const preNote = pre ? (/^demon/.test(pre.trigger) ? '<div class="seal">雷劫之前，先过心魔劫</div>' : `<div class="seal">飞升前夜，${esc(L.ascendVisitor(st).n)}来敲门</div>`) : '';
   const fail = L.has(st, 'steady') ? `失败：道心坚定，修为只退到 95%，不负伤；下次成功率 +${L.pct(L.BT.fail)}。` : `失败不会身死：修为退到 70%，负伤 3 周天，下次成功率 +${L.pct(L.BT.fail)}。`;
-  const aids = ['fa', 'pet', 'daolv', 'zhen'].map(k => aidRow(k, !!o.aids[k], sure ? '' : 'aid')).join('') + aidRow('pill', false, '');
-  const body = `<div class="row">${myAvImg(66)}<div class="grow">
-      <div>${esc(p.name)} · ${L.stageName(p)}</div>
+  // 用得上的护劫手段摆出来，用不上的（缺灵宠、没道侣……）收进折叠
+  const aidK = ['fa', 'pet', 'daolv', 'zhen', 'pill'], aidOk = aidK.filter(k => L.aidInfo(st, k).ok), aidNo = aidK.filter(k => !L.aidInfo(st, k).ok);
+  const aidH = k => aidRow(k, !!o.aids[k], sure || k === 'pill' ? '' : 'aid');
+  const aids = aidOk.map(aidH).join('') + (aidNo.length ? `<details class="more" data-pn="trib-no"${pnOpenKeys.has('trib-no') ? ' open' : ''}><summary>用不上的 · ${aidNo.length} 样</summary>${aidNo.map(aidH).join('')}</details>` : '');
+  // 第一屏：冲击什么 + 成功率（大字）+ 成了之后的变化；成功率拆解、失败后果、评档规则收进“详情”；护劫手段一行一样
+  const body = `<div class="row">${myAvImg(48)}<div class="grow">
       <div class="big seal">冲击${nxt}</div>
-      <div class="muted">需渡 ${N} 道雷劫${L.daoji(st) ? ` · 道基 +${Math.round(L.daoji(st) * 100)}%` : ''}</div>${preNote}</div></div>
-    <div class="center"><div class="muted">成功率</div><div class="big ${rate >= 0.7 ? 'jadet' : rate >= 0.4 ? 'goldt' : 'seal'}" id="btRate" style="font-size:calc(var(--fs)*3)">${L.pct(rate)}</div>
-      ${sure ? '<div class="jadet">九转金丹：必定成功（不耗丹、不用手段）</div>' : `<div class="fxlist">${parts}</div>`}</div>
-    <div class="stepper" id="btStep"><span class="grow">服破境丹 <span class="muted">每枚 +${L.pct(L.BT.pill)}，最多 ${L.BT.maxPills} 枚（剩 ${st.pills}）</span></span>
+      <div class="muted">${L.stageName(p)} · 雷劫 ${N} 道${L.daoji(st) ? ` · 道基 +${Math.round(L.daoji(st) * 100)}%` : ''}</div>${preNote}</div>
+      <div class="center" style="flex:none"><div class="muted">成功率</div><div class="big ${rate >= 0.7 ? 'jadet' : rate >= 0.4 ? 'goldt' : 'seal'}" id="btRate" style="font-size:calc(var(--fs)*3);line-height:1">${L.pct(rate)}</div></div></div>
+    ${p.r < L.MAXR ? `<div class="pn-k center">成了：战力 <b class="pn-up">×${btPowerMult().toFixed(1)}</b> · 寿元 → ${fmt(nextLife())}</div>` : ''}
+    ${sure ? '<div class="jadet center">九转金丹：必定成功（不耗丹、不用手段）</div>' : ''}
+    <div class="stepper" id="btStep"><span class="grow">破境丹 <span class="muted">+${L.pct(L.BT.pill)}/枚 · 剩 ${st.pills}</span></span>
       <button class="btn sm alt" data-st="-1" ${n <= 0 || sure ? 'disabled' : ''}>−</button><b class="num">${n}</b><button class="btn sm alt" data-st="1" ${n >= max || sure ? 'disabled' : ''}>+</button></div>
-    <div class="trhead"><span>护劫手段 <span class="muted">（每次渡劫各一次）</span></span><span class="num">全用上 ${L.pct(all)}</span></div>
+    ${pnHead('护劫手段', `全用上 ${L.pct(all)}`)}
     <div class="aids" id="tribAids">${aids}</div>
-    <div class="muted">雷劫落到倒数第二道之前会停一下：护体还剩多少、照这样能不能过，那时还能补上没用的手段。成功按余量评 完美 / 上 / 中 / 下，永久道基 +3% / +2% / +1% / +0%。</div>
-    <div class="muted">${sure ? '' : fail}${p.r < L.MAXR ? `成功后寿元 ${fmt(L.lifespan(st))} → ${fmt(nextLife())} 年，战力约 ×${btPowerMult().toFixed(1)}。` : ''}</div>`;
-  const s = sheet({ title: p.r >= L.MAXR ? '飞升天劫' : '境界突破', still, body, foot: [{ t: '再准备一下', alt: true, fn: closeModal }, { t: '引动天劫', gold: true, fn: go }] });
+    <details class="more"><summary>成功率怎么来 · 失败会怎样</summary>${sure ? '' : `<div class="fxlist">${parts}</div>`}
+    <div class="muted">每样护劫手段每次渡劫用一次；破境丹最多 ${L.BT.maxPills} 枚。雷劫落到倒数第二道之前会停一下：护体还剩多少、照这样能不能过，那时还能补上没用的手段。成功按余量评 完美 / 上 / 中 / 下，永久道基 +3% / +2% / +1% / +0%。</div>
+    <div class="muted">${sure ? '' : fail}</div></details>`;
+  const s = sheet({ title: p.r >= L.MAXR ? '飞升天劫' : '境界突破', still, body, foot: [{ t: '再等等', alt: true, fn: closeModal }, { t: '引动天劫', gold: true, fn: go }] });
   s.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { SFX.tap(); btPills = Math.max(0, Math.min(max, n + +b.dataset.st)); showTribPrep(true); });
   s.querySelectorAll('[data-aid]').forEach(b => b.onclick = () => { SFX.tap(); const k = b.dataset.aid; tribSel = Object.assign({}, tribAidsSel()); if (tribSel[k]) delete tribSel[k]; else tribSel[k] = 1; showTribPrep(true); });
   function go() {
