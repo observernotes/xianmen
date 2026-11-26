@@ -183,14 +183,8 @@ function showHome(still, sel) {
 }
 
 // ---------- 阵法（SYSTEMS §6.3）：两个阵位、八张阵图；换阵免费，3 月后生效 ----------
-// 老祖推荐布什么：要渡劫了 → 渡劫；灵草够炼很多炉 → 丹火；否则聚灵
-function zhenRec() {
-  const has = id => L.zhenOwned(st, id);
-  if (has('f_dujie') && L.tribNeeded(st) && st.p.s === 3 && (L.isFull(st) || L.ticksToNext(st) <= 6)) return { id: 'f_dujie', why: `要渡劫了：承劫 +${L.pct(L.formationVal(st, 'f_dujie'))}，${L.ZV.switch} 个月后生效` };
-  const rc = L.RECIPES[0], n = st.home.furnace ? Math.floor(st.herbs / Math.max(1, L.herbCost(st, rc))) : 0;
-  if (has('f_danhuo') && n >= 6) return { id: 'f_danhuo', why: `灵草够炼 ${n} 炉：成丹率 ${L.pct(L.alchRate(st))} → ${L.pct(Math.min(0.97, L.alchRate(st) + L.zhenNum(st, 'f_danhuo', 1).alch))}` };
-  return { id: 'f_juling', why: `平时聚灵：修炼 ×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}` };
-}
+// 老祖推荐布什么：口径在逻辑层 L.zhenRec（formation.js），变强页的“换上渡劫阵”用同一个
+const zhenRec = () => L.zhenRec(st);
 function showZhen(still) {
   if (!L.zhenOpen(st)) { showHome(still, 0); return; }
   const z = L.zhenState(st), sl = L.zhenSlots(st), rec = zhenRec();

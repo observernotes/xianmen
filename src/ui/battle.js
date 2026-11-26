@@ -350,11 +350,17 @@ function btPrepHTML(k, d, a) {
   const bits = known.map(el => (ke(el) ? `<span class="jadet">克${L.elName(el)} ✓</span>` : bk(el) || el === eliteEl ? `<span class="seal">打不动${L.elName(el)} ✗</span>` : '')).filter(Boolean);
   const red = !!eliteEl && seenEl(eliteEl) && !ke(eliteEl);
   const icons = moves.map(s => btSkillIcon(s)).join('');
-  if (!red) return foes + `<div class="bt-kebar ok">${icons}<span class="grow">${known.length && known.every(ke) ? '都克得动 ✓' : bits.join(' ') || (known.length ? '不相克' : '这里的五行：去过才知道')}</span></div>`;
+  // 推荐换哪门：L.artRecommend 按这一格（artrec.js；与功法页“荐”、变强页同一套打分），一键换上，写原因
+  const rc = L.artRecommend ? L.artRecommend(st, 1, { k, d, here: true }) : null, recId = rc && !rc.same && rc.id ? rc.id : '';
+  // 近期大节点优先：克这一格的另有一门时只提一句，不给按钮（免得回来又叫你换回去）
+  const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d, here: true, force: true }) : null, altId = alt && alt.id !== (recId || rc.cur) && alt.ke ? alt.id : '';
+  const recBtn = (recId ? `<div class="row bt-rec"><button class="btn sm alt eq grow" data-swapz="${recId}">荐 换上《${esc(L.art(recId).n)}》：${esc(rc.why)}</button></div>` : '')
+    + (altId ? `<div class="muted bt-alt">克这一格的是《${esc(L.art(altId).n)}》；${esc(rc.ctx.label)}还有 ${rc.ctx.left} 月，先按它配</div>` : '');
+  if (!red) return foes + `<div class="bt-kebar ok">${icons}<span class="grow">${known.length && known.every(ke) ? '都克得动 ✓' : bits.join(' ') || (known.length ? '不相克' : '这里的五行：去过才知道')}</span></div>` + recBtn;
   // 【换 ▸】：手里的战技（≤ 4 行，每行写克谁），点一下换好回到出发页
-  const zs = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').map(id => ({ id, A: L.art(id) })).sort((x, y) => (L.elKe(y.A.el, eliteEl) - L.elKe(x.A.el, eliteEl)) || y.A.t - x.A.t).slice(0, 4);
-  const list = btSwapOpen ? `<div class="bt-swap">${zs.map(z => `<button class="bt-swr${L.elKe(z.A.el, eliteEl) ? ' hot' : ''}" data-swapz="${z.id}">${btSkillIcon({ el: z.A.el, kind: 'z' })}<span class="grow">《${esc(z.A.n)}》${L.elName(z.A.el)}</span><span>${L.ELEM_KEYS.filter(e => L.elKe(z.A.el, e)).map(e => '克' + L.elName(e)).join('')}</span></button>`).join('') || '<div class="muted">手里还没有别的战技</div>'}</div>` : '';
-  return foes + `<div class="bt-kebar bad">${icons}<span class="grow">${bits.join(' ')}</span><button class="bt-swb" data-btswap="1">换 ▸</button></div>${list}`;
+  const zs = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').map(id => ({ id, A: L.art(id) })).sort((x, y) => ((y.id === recId) - (x.id === recId)) || (L.elKe(y.A.el, eliteEl) - L.elKe(x.A.el, eliteEl)) || y.A.t - x.A.t).slice(0, 4);
+  const list = btSwapOpen ? `<div class="bt-swap">${zs.map(z => `<button class="bt-swr${L.elKe(z.A.el, eliteEl) ? ' hot' : ''}" data-swapz="${z.id}">${btSkillIcon({ el: z.A.el, kind: 'z' })}<span class="grow">${z.id === recId ? '荐 ' : ''}《${esc(z.A.n)}》${L.elName(z.A.el)}</span><span>${L.ELEM_KEYS.filter(e => L.elKe(z.A.el, e)).map(e => '克' + L.elName(e)).join('')}</span></button>`).join('') || '<div class="muted">手里还没有别的战技</div>'}</div>` : '';
+  return foes + `<div class="bt-kebar bad">${icons}<span class="grow">${bits.join(' ')}</span><button class="bt-swb" data-btswap="1">换 ▸</button></div>${recBtn}${list}`;
 }
 // 招式格出手时亮一下
 function btFire(id) { const c = document.querySelector(`#bt [data-sk="${id}"]`); if (!c) return; c.classList.remove('fire'); void c.offsetWidth; c.classList.add('fire'); }

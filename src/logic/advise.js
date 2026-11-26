@@ -46,6 +46,7 @@ function bigP(st, b) {
   if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }; let Q = 1; try { Q = L.warPower(); } catch (e) { return null; } return { m: s => L.duelP(s, L.duelPower(s, foe) * L.wardMult(s), Q, foe), foe, Q, scale: S => S * L.wardMult(st), t: '击退天剑宗' }; }
   return null;
 }
+L.adviseBigP = bigP;   // artrec.js：近期大节点的对手（与目标头同一个）
 function cellFoe(st, k, d) {
   const C = has('cellFoes') ? L.cellFoes(k, d) : L.CELL_FOES && L.CELL_FOES[k] && L.CELL_FOES[k][d], F = C && L.FOES && L.FOES[C.elite];
   return { n: F ? F.n : '', el: F && F.el ? F.el : L.REGIONS[k].el };
@@ -108,18 +109,15 @@ function cands(st, G) {
     for (const x of st.gear.pend) { if (x.hold) continue; let D; try { D = L.gearDelta(st, x); } catch (e) { continue; } if (D.better && (!best || D.b.v - D.a.v > best.dv)) best = { x, dv: D.b.v - D.a.v }; }
     if (best) { const x = best.x; add({ id: 'equip:' + x.u, cls: 'equip', icon: 'adv_swap', n: cut('换上' + L.gearBase(x.id).n, 8), say: '换上新法宝', go: 'do:equip:' + x.u, btn: '换上', instant: 1, must: 1, cost: [], tr: fn => L.gearTry(st, x, fn) }); }
   }
-  // 4. 功法：心法 / 战技，每槽取一门（排序时按页签的数比）
-  if (st.arts && st.arts.own) {
-    const sl = L.artSlots(st);
+  // 4. 功法：心法 / 战技各至多一张，就是 L.artRecommend 平时的那一门（功法页“荐”、【人物】角标、老祖气泡说的同一门，docs/SYSTEMS.md §2.6）。
+  //    以前每门都出一张、各页签按自己的数比，“修炼早 1 月”和“胜算 +20%”两张牌会把青藤缚 / 燎原式来回推。
+  if (st.arts && st.arts.own && has('artRecommend')) {
     for (const i of [0, 1]) {
-      if (!L.artSlotOpen(st, i)) continue;
-      const k = L.ART_SLOTS[i];
-      for (const id of Object.keys(st.arts.own)) {
-        const A = L.art(id); if (!A || A.k !== k || id === sl[i] || (L.artSealed && L.artSealed(st, id))) continue;
-        let n = (i === 0 ? '换心法《' : '换上《') + A.n + '》', ke = null;
-        if (i === 1 && G.fe && G.feKnown) { const ns = sl.slice(); ns[1] = id; const me = L.atkEl(st, G.fe, ns), me0 = L.atkEl(st, G.fe, sl); if (L.elKe(me, G.fe) && !L.elKe(me0, G.fe)) { ke = { me, me0, fe: G.fe }; n = `换${L.elName(me)}克${L.elName(G.fe)}的战技`; } }
-        add({ id: (i === 1 ? 'swap:' : 'art:') + id, cls: 'art' + i, icon: 'adv_swap', n: cut(n, 8), say: cut(ke ? `换${L.elName(ke.me)}克${L.elName(ke.fe)}的战技` : '换上《' + A.n + '》', 12), go: 'do:' + (i === 1 ? 'swap:' : 'art:') + id, btn: '换上', instant: 1, cost: [], ke, tr: fn => L.artTry(st, id, fn) });
-      }
+      const rc = L.artRecommend(st, i); if (!rc || rc.same || !rc.id) continue;
+      const id = rc.id, A = L.art(id);
+      let n = (i === 0 ? '换心法《' : '换上《') + A.n + '》', ke = null;
+      if (i === 1 && rc.fe && rc.ke && !rc.ke0) { ke = { me: rc.me, me0: rc.me0, fe: rc.fe }; n = `换${L.elName(rc.me)}克${L.elName(rc.fe)}的战技`; }
+      add({ id: (i === 1 ? 'swap:' : 'art:') + id, cls: 'art' + i, icon: 'adv_swap', n: cut(n, 8), say: cut(ke ? `换${L.elName(ke.me)}克${L.elName(ke.fe)}的战技` : '换上《' + A.n + '》', 12), go: 'do:' + (i === 1 ? 'swap:' : 'art:') + id, btn: '换上', instant: 1, cost: [], ke, why: rc.why, rec: rc, tr: fn => L.artTry(st, id, fn) });
     }
   }
   // 5. 强化（每槽一条，排序时同类只留涨得最多的）
@@ -212,7 +210,7 @@ function cands(st, G) {
       tr: fn => L.petTry(st, () => { st.pets[oi].lv++; }, fn) });
   }
   // 12. 渡劫阵（要渡劫了：换上，3 个月后生效）
-  if (L.zhenOpen && L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && !L.zhenWhere(st, 'f_dujie') && p.s === 3) {
+  if (L.zhenOpen && L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && !L.zhenWhere(st, 'f_dujie') && p.s === 3 && (!L.zhenRec || L.zhenRec(st).id === 'f_dujie')) {   // 与阵法页的“荐”同一口径（L.zhenRec）
     const v = L.formationVal(st, 'f_dujie');
     if (v > 0) add({ id: 'zhen:dujie', cls: 'zhen', icon: 'array', n: '换上渡劫阵', say: '换上渡劫阵', go: 'zhen', btn: '换阵', cost: [], fixed: { bt: btShown(st) + v, rateAdd: v } });
   }
@@ -284,6 +282,11 @@ function rate(st, c, focus, G, base) {
   if ((!G.m || G.kind === 'stuck') && c.tr && !best) { const p1 = tryM(M.atk), fr = p1 / base.atk - 1; if (fr >= L.ADV.pwThr) best = { score: fr, text: '+' + fmt(p1 - base.atk), sub: '战力', d: 0, unit: 'pw' }; }
   if (!best && !G.m && c.tr && G.kind === 'chap') { const i1 = tryM(M.inc), fr = (i1 - base.inc) / Math.max(1, base.inc); if (fr >= 0.1) best = { score: fr * 0.5, text: `+${f1(i1 - base.inc)}/月`, sub: '灵石', d: 0, unit: 'inc' }; }
   if (best) Object.assign(r, best, { ok: true });
+  // 功法的推荐牌（L.artRecommend）：目标页签上总出（除非它会让头上的目标数掉 pThr 以上），数不够门槛时写原因
+  else if (c.rec) {
+    const drop = G.m && c.tr ? G.v - tryM(G.m) : 0;
+    if (!(drop >= (G.unit === 'grade' ? L.ADV.gradeThr : L.ADV.pThr))) Object.assign(r, { ok: true, score: 0.02, text: cut(c.why || '', 8), sub: '', unit: '' });
+  }
   return r;
 }
 
@@ -303,7 +306,7 @@ function order(list) {
 }
 function toAct(c) {
   const r = c.r, gap = c.short ? { icon: c.short.icon, n: c.short.n, unit: c.short.unit, fix: c.fix } : null;
-  return { id: c.id, cls: c.cls, icon: c.icon, n: c.n, gain: { unit: r.unit || '', from: r.from, to: r.to, text: r.text, sub: r.sub }, cost: c.cost || [], gap, go: gap ? c.fix.go : c.go, btn: gap ? c.fix.t : c.btn, instant: !!c.instant && !gap, out: !!c.out, away: !!c.away, must: !!c.must, score: r.score, say: c.say, hl: c.hl || null, ke: c.ke || null, d: r.d || 0, save: r.save };
+  return { id: c.id, cls: c.cls, icon: c.icon, n: c.n, gain: { unit: r.unit || '', from: r.from, to: r.to, text: r.text, sub: r.sub }, cost: c.cost || [], gap, go: gap ? c.fix.go : c.go, btn: gap ? c.fix.t : c.btn, instant: !!c.instant && !gap, out: !!c.out, away: !!c.away, must: !!c.must, score: r.score, say: c.say, hl: c.hl || null, ke: c.ke || null, d: r.d || 0, save: r.save, why: c.why || '' };
 }
 
 // ---------- 页签与头 ----------

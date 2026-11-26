@@ -355,7 +355,7 @@ L.petBestJob = function (st, p, any) {
   for (const J of L.PET_JOBS) {
     if (!J.need(st)) continue;
     const h = (st.pets || []).find(x => x !== p && x.job === J.k);
-    if (h && !any) continue;
+    if (h && (!any || L.petJobK(h, J.k) >= L.petJobK(p, J.k))) continue;   // any（界面的“荐”）：有人干、且干得不比它差的岗位不荐，免得两只灵宠互相“换下”来回推
     const v = L.JOB_W[J.k] * L.petJobK(p, J.k);
     if (v > bv) { bv = v; best = J.k; }
   }
