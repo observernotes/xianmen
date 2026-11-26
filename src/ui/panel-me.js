@@ -37,14 +37,14 @@ function showMe(tab) {
       <dt>寿元</dt><dd class="num ${L.desperate(st) ? 'seal' : ''}">${Math.floor(p.age)} / ${p.r >= 9 ? '∞' : fmt(L.lifespan(st))} 岁</dd>
     </dl>
     <button class="btn gold" id="btnGrow" style="width:100%">每项数值怎么来、怎么提升 ▸</button>
-    <details class="more"><summary>详情：天赋、法宝功法、库存</summary><dl class="grid2">
+    ${bagBtnHTML()}
+    <details class="more"><summary>详情：天赋、法宝功法</summary><dl class="grid2">
       <dt>修为</dt><dd class="num">${fmt(p.xp)} / ${fmt(L.pNeed(p))}</dd>
       <dt>天赋</dt><dd>${trs}</dd>
       ${UI.isOpen('gearCmp') ? `<dt>法宝</dt><dd>${L.GEAR_SLOTS.filter(s => L.gearOpen(st, s)).map(s => { const x = st.gear[s]; return x ? `${L.GEAR_N[s]}【${esc(L.gearBase(x.id).n)}】${x.plus ? '+' + x.plus : ''}<span class="muted">（${esc(L.gearMainText(st, x).split(' · ')[0])}）</span>` : `<span class="muted">${L.GEAR_N[s]}：空</span>`; }).join('<br>')} <button class="btn sm alt eq" id="btnGear">法宝 ▸</button></dd>` : ''}
       ${UI.isOpen('arts') ? `<dt>功法</dt><dd>${L.artSlots(st).map((id, i) => (id ? `${L.ART_CAT[L.ART_SLOTS[i]]}《${esc(L.art(id).n)}》` : '')).filter(Boolean).join('<br>') || '<span class="muted">基础吐纳</span>'} <button class="btn sm alt eq" id="btnArts">功法 ▸</button></dd>` : ''}
       ${UI.isOpen('dao') ? `<dt>道心</dt><dd>狂 ${L.daoN(st, 'k')} · 稳 ${L.daoN(st, 'w')} · 仁 ${L.daoN(st, 'r')} · 道基 +${Math.round(L.daoji(st) * 100)}%${L.karmaOpen(st).length ? ` · <span class="seal">因果 ${L.karmaOpen(st).length}</span>` : ''} <button class="btn sm alt eq" id="btnDao">道心 ▸</button></dd>` : ''}
       ${UI.isOpen('pets') ? `<dt>灵宠</dt><dd>${L.petOut(st) ? `${petImg(L.petOut(st), 26)} ${esc(L.petName(L.petOut(st)))} Lv${L.petOut(st).lv}<span class="muted">（出战 ×${L.petAtkOf(st, L.petOut(st)).toFixed(2)}）</span>` : `<span class="muted">${L.petCount(st) ? '没有出战的' : '尚无'}</span>`}${L.petCount(st) ? ` <span class="muted">名册 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}</span> <button class="btn sm alt eq" id="btnPetsMe">兽栏 ▸</button>` : ''}</dd>` : ''}
-      <dt>库存</dt><dd>${[st.herbs || UI.isOpen('herb') ? '灵草 ' + fmt(st.herbs) : '', UI.isOpen('plus') || st.ore ? '灵矿 ' + fmt(st.ore || 0) : '', st.treasure ? '天材地宝 ' + st.treasure : '', '破境丹 ' + st.pills].filter(Boolean).join(' · ')}</dd>
       ${buffs ? `<dt>增益</dt><dd class="jadet">${buffs}</dd>` : ''}
       ${st.bonus.cul || st.bonus.atk ? `<dt>机缘加成</dt><dd>修炼 +${Math.round(st.bonus.cul * 100)}% · 战力 +${Math.round(st.bonus.atk * 100)}%</dd>` : ''}
     </dl></details>
@@ -84,6 +84,7 @@ function showMe(tab) {
   const db = s.querySelector('#btnDao'); if (db) db.onclick = () => { SFX.tap(); showDao(); };
   s.querySelectorAll('.ach[data-title]').forEach(el => { if (el.dataset.title) el.onclick = () => { st.title = el.dataset.title; SFX.tap(); showMe('ach'); }; });
   const gb = s.querySelector('#btnGrow'); if (gb) gb.onclick = () => { SFX.tap(); showGrowth('all'); };
+  const bg = s.querySelector('#btnBag'); if (bg) bg.onclick = () => { SFX.tap(); showBag(); };   // 包裹（panel-gear.js）
   bindLifeRebirth(s);   // 再入轮回 / 兵解（life.js）
   const rb = s.querySelector('#btnReset');
   if (rb) rb.onclick = () => sheet({

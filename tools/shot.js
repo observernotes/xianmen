@@ -76,7 +76,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.evaluate(() => window.__xm.showGear('w')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09f-gear.png' });
   const glay = await page.evaluate(() => {
     const body = document.querySelector('#modal .body'), bad = [];
-    for (const el of document.querySelectorAll('#modal [data-gslot], #modal [data-plus], #modal [data-rf], #modal [data-glock], #modal #btnForge, #modal .tabs button')) { const r = el.getBoundingClientRect(); if (r.height < 44 || r.width < 44) bad.push(el.textContent.trim().slice(0, 8) + ' ' + Math.round(r.width) + '×' + Math.round(r.height)); }
+    for (const el of document.querySelectorAll('#modal [data-gslot], #modal [data-plus], #modal [data-rf], #modal [data-glock], #modal #btnForge, #modal .tabs button')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 44 || r.width < 44)) bad.push(el.textContent.trim().slice(0, 8) + ' ' + Math.round(r.width) + '×' + Math.round(r.height)); }
     return { over: body.scrollWidth - body.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth, bad, slots: document.querySelectorAll('#modal [data-gslot]').length };
   });
   if (glay.over > 0 || glay.page > 0) errors.push(`法宝页横向溢出 ${glay.over}/${glay.page}px`);
@@ -90,7 +90,7 @@ require('fs').mkdirSync(out, { recursive: true });
   // 对比卡：寻宝开出一件兵器（槽里有了 → 弹【换上】/【熔炼】/【锁定当前】）
   await page.evaluate(() => { const { st, L } = window.__xm; st.arts.firstBox = 1; st.boxMiss = 2; st.gear.w.t = 3; st.gear.w.id = 'w3_0'; window.__xm.showMarket(); });
   await page.waitForTimeout(300); await page.click('#modal button[data-k="box"]'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/08c-box-gear.png' });
-  const cmp = await page.evaluate(() => { const c = document.querySelector('#modal [data-gcmp]'); if (!c) return null; const bad = [...c.querySelectorAll('button')].filter(b => { const r = b.getBoundingClientRect(); return r.height < 44 || r.width < 44; }).map(b => b.textContent); return { btns: [...c.querySelectorAll('button')].map(b => b.textContent.trim()), bad, over: document.querySelector('#modal .body').scrollWidth - document.querySelector('#modal .body').clientWidth }; });
+  const cmp = await page.evaluate(() => { const c = document.querySelector('#modal [data-gcmp]'); if (!c) return null; const bad = [...c.querySelectorAll('button')].filter(b => { const r = b.getBoundingClientRect(); return r.width && (r.height < 44 || r.width < 44); }).map(b => b.textContent); return { btns: [...c.querySelectorAll('button')].map(b => b.textContent.trim()), bad, over: document.querySelector('#modal .body').scrollWidth - document.querySelector('#modal .body').clientWidth }; });
   if (!cmp || !cmp.btns.includes('换上') || !cmp.btns.some(t => t.startsWith('熔炼'))) errors.push('寻宝开出的兵器没有对比卡：' + JSON.stringify(cmp));
   else { if (cmp.bad.length) errors.push('对比卡按钮不足 44px：' + cmp.bad.join('，')); if (cmp.over > 0) errors.push('对比卡横向溢出 ' + cmp.over + 'px'); }
   await close();
@@ -99,6 +99,33 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(300); await page.click('#modal button[data-k="box"]'); await page.waitForTimeout(900); await page.screenshot({ path: out + '/08b-box-art.png' });
   const boxArt = await page.evaluate(() => document.querySelector('#modal .artline') && document.querySelector('#modal .artline').textContent);
   if (!boxArt || !boxArt.includes('引气诀')) errors.push('寻宝揭晓卡没写出具体功法：' + boxArt);
+  await close();
+  // ---------- 面板重做 A 线（pn-）：包裹、对比卡一屏一个金按钮、历练结算卡里的对比卡滚进第一屏 ----------
+  const pnLay = (what, sel) => page.evaluate(([what, sel]) => {
+    const body = document.querySelector('#modal .body'), bad = [], vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    for (const el of document.querySelectorAll(sel)) { const r = el.getBoundingClientRect(); if (vis(el) && (r.height < 44 || r.width < 44)) bad.push(el.textContent.trim().slice(0, 8) + ' ' + Math.round(r.width) + '×' + Math.round(r.height)); }
+    const gold = [...document.querySelectorAll('#modal .btn.gold')].filter(b => vis(b) && !b.disabled).length;
+    return { what, over: body ? body.scrollWidth - body.clientWidth : 0, page: document.documentElement.scrollWidth - window.innerWidth, bad, gold };
+  }, [what, sel]);
+  const pnCheck = (r, maxGold) => { if (r.over > 0 || r.page > 0) errors.push(`${r.what}横向溢出 ${r.over}/${r.page}px`); if (r.bad.length) errors.push(`${r.what}点击目标不足 44px：` + r.bad.join('，')); if (r.gold > maxGold) errors.push(`${r.what}同一屏有 ${r.gold} 个金按钮`); };
+  await page.evaluate(() => window.__xm.showMe('attr')); await page.waitForTimeout(250);
+  if (!(await page.$('#modal #btnBag'))) errors.push('人物属性页没有【包裹】入口');
+  else {
+    await page.click('#modal #btnBag'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/09h-bag.png' });
+    pnCheck(await pnLay('包裹', '#modal .pn-tile, #modal button'), 1);
+    const nt = await page.evaluate(() => document.querySelectorAll('#modal .pn-tile').length);
+    if (nt < 4) errors.push('包裹里的格子太少：' + nt);
+    await page.click('#modal .pn-tile[data-bag="ore"]'); await page.waitForTimeout(250);
+    if (!(await page.$('#modal #bagGo'))) errors.push('包裹：灵矿没有【去强化】');
+  }
+  await close();
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [L.gearDrop(st, 'w', 5, { base: 'w5_0' })]; window.__xm.showExpResult(res); });
+  await page.waitForTimeout(1300); await page.screenshot({ path: out + '/09i-exp-gcmp.png' });
+  pnCheck(await pnLay('结算卡对比卡', '#modal [data-gcmp] button, #modal .foot .btn'), 1);
+  const gin = await page.evaluate(() => { const c = document.querySelector('#modal [data-gcmp] .gbtns'); if (!c) return null; const r = c.getBoundingClientRect(), b = document.querySelector('#modal .body').getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
+  if (!gin) errors.push('结算卡里的对比卡按钮没滚进第一屏：' + gin);
+  await page.evaluate(() => document.querySelector('#modal [data-gcmp] [data-gsm]').click()); await page.waitForTimeout(200);
+  if (!(await page.evaluate(() => !!document.querySelector('#modal .foot .btn.gold')))) errors.push('对比卡决定后，结算卡的金按钮没换回来');
   await close();
   // ---------- 灵宠（SYSTEMS §4）：兽栏、派岗、进化二选一、名册满的放生替换、洞府场景里四只灵宠 ----------
   const pet44 = (sel, what) => page.evaluate(([sel, what]) => {
@@ -111,6 +138,7 @@ require('fs').mkdirSync(out, { recursive: true });
   if (!(await page.$('#modal #btnPets'))) errors.push('洞府里没有【兽栏】入口');
   await page.click('#modal #btnPets'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/25-pets.png' });
   petLay(await pet44('#modal .pcard[data-pi], #modal .pbtns .btn, #modal #petEvo', '兽栏'));
+  pnCheck(await pnLay('兽栏', '#modal summary'), 1);   // 出战 / 派岗 / 喂食 / 进化 只有一个是金的
   const pc = await page.evaluate(() => ({ n: document.querySelectorAll('#modal .pcard[data-pi]').length, glow: document.querySelectorAll('#modal .pcard.glow').length }));
   if (pc.n !== 3 || pc.glow !== 1) errors.push('兽栏应有 3 张卡、1 张发光：' + JSON.stringify(pc));
   await page.click('#modal .pcard[data-pi="1"]'); await page.waitForTimeout(250);

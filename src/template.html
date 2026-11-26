@@ -802,6 +802,55 @@ details.more > summary::-webkit-details-marker { display: none; }
 details.more > *:not(summary) { font-size: var(--fs); }
 .sheet .body { font-size: var(--fs-m); line-height: 1.5; }
 .sheet .body .muted, .sheet .body small, .sheet .body .chip, .sheet .body .sub, .sheet .body .btn.sm, .sheet .body .tabs button, .sheet .body .segb small, .sheet .body .fxlist span, .sheet .body .seal.tag { font-size: var(--fs); }
+/* ---- A 线：系统面板重做（pn-）：包裹、法宝、灵宠、功法。卡片 = 图标 + 名字（品阶色）+ 一个关键数 + 至多一个角标；明细进“详情” ---- */
+.pn-nm { font-weight: normal; }
+.pn-key { font-size: var(--fs-m); line-height: 1.4; }
+.pn-key b { font-weight: normal; color: #1d1410; }
+dl.pn-key { gap: 2px 10px; margin: 0; }
+.pn-res { color: var(--paper-mute); }
+.pn-row { min-height: 44px; }
+.pn-more { margin-top: 0; }
+.pn-more > *:not(summary) { margin-top: 4px; }
+.pn-cmp { gap: 6px; padding: 8px 10px; }
+.pn-cmp > .row { align-items: center; }
+.gbtns.pn-2 { flex-wrap: nowrap; }
+.gbtns.pn-2 .btn { flex: 1 1 0; min-width: 0; min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.pn-smb small { opacity: .85; display: inline-flex; align-items: center; gap: 2px; }
+.aslot.pn-gslot, .aslot.pn-aslot { min-height: 0; padding: 6px 4px 8px; gap: 4px; position: relative; }
+.pn-gslot .nm, .pn-aslot .nm { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.pn-gslot .pn-key, .pn-aslot .pn-key { color: #8a5a00; font-size: var(--fs); }
+.pn-gdet, .pn-pdet { gap: 8px; }
+.pn-ph { font-size: var(--fs-m); }
+.btn.gplusb.pn-plusb { min-height: 52px; font-size: var(--fs-m); }
+.btn.gplusb.pn-plusb small { white-space: normal; }
+.pcard.pn-pcard { min-height: 0; padding: 6px 2px; gap: 3px; }
+.pn-pcard .nm { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-pcard .chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; gap: 2px; }
+.pcard.pn-pcard.empty { min-height: 96px; justify-content: center; }
+.pn-pend .gbtns .btn { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.pn-rep .btn { flex: 1 1 30%; min-width: 0; }
+.pn-rep .btn small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card.pn-arow { min-height: 52px; }
+.pn-frow .gaffs { margin: 2px 0; }
+.pn-bagdet { display: flex; gap: 10px; align-items: center; padding: 8px 10px; background: #fff6dc; box-shadow: 0 0 0 2px var(--gold); }
+.pn-bagdet .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pn-bagdet .muted { line-height: 1.4; }
+.pn-bagdet .btn { min-width: 64px; }
+.pn-bagh { color: var(--paper-mute); margin-top: 4px; font-size: var(--fs); }
+.pn-bag { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.pn-tile { border: 0; font: inherit; color: var(--paper-ink); background: #f7eed6; box-shadow: 0 0 0 2px #b9a77c; min-height: 72px; min-width: 0; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; }
+.pn-tile.sel { background: #fff6dc; box-shadow: 0 0 0 3px var(--gold), 0 0 0 5px var(--ink); }
+.pn-tile b { font-weight: normal; font-size: var(--fs-m); line-height: 1.2; }
+.pn-tile span { font-size: var(--fs); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--paper-mute); }
+.btn.pn-bagbtn { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 48px; }
+.pn-bagic { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.pn-bagic .num { margin-right: 6px; }
+.pn-pdet .line, .pn-cmp .line, .pn-gdet .line, .pn-pend .line, .pn-bagdet .line, .gline .line, .artline .line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pn-aslot .nm, .pn-gslot .nm { font-size: var(--fs); }
+.card.pn-arow { padding-top: 4px; padding-bottom: 4px; }
+.pn-arow .main > .line { font-size: var(--fs-m); }
+.pn-arow .alink, .pn-arow .el, .pn-arow .chip, .pn-arow .right { font-size: var(--fs); }
+.pn-arow .right { max-width: 40%; text-align: right; overflow-wrap: anywhere; }
 </style>
 
 <div id="app">

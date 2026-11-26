@@ -79,6 +79,7 @@ const path = require('path');
     async function gearRound() {
       X.showMe('gear'); await sleep(40);
       for (const s of ['w', 'r', 'o']) for (let i = 0; i < 6; i++) {
+        if (!i) { const cell = document.querySelector(`#modal [data-gslot="${s}"]`); if (!cell) break; cell.click(); await sleep(30); }   // 【强化】只在选中的那格下（面板重做 A 线）
         const b = document.querySelector(`#modal [data-plus="${s}"]:not([disabled])`); if (!b) break;
         b.click(); gPlus++; await sleep(30);
       }

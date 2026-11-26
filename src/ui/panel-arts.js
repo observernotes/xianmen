@@ -51,23 +51,27 @@ function artRecTip() {
 // ---------- 功法页 ----------
 let artSel = 0;
 const SLOT_HEAD = ['心法 · 修炼', '战技 · 战力', '秘术 · 特效'];
+// 上：开了的几个槽（图标 + 名字品阶色 + 关键数 + 熟练）；共鸣角标一行；下：这一槽能装的功法，一行一门（名字 + 关键数 + 熟练 · 右边是换上的变化），点一下换上
+// 每门的说明、共鸣图鉴、熟练与融会收进详情
 function showArts(sel, still) {
   if (sel !== undefined && sel !== null) artSel = sel;
   const sl = L.artSlots(st);
-  const slots = [0, 1, 2].map(i => {
-    const open = L.artSlotOpen(st, i), id = sl[i], A = id && L.art(id);
-    const cls = 'aslot' + (i === artSel ? ' sel' : '') + (open ? '' : ' lock');
-    if (!open) return `<div class="${cls}" data-slot="${i}"><span class="k">${SLOT_HEAD[i]}</span>${iconHTML('bag', pxs(16, 2))}<span>未开放</span><span class="muted">${L.artSlotWhy(i)}</span></div>`;
-    if (!A) return `<div class="${cls}" data-slot="${i}"><span class="k">${SLOT_HEAD[i]}</span><span class="aempty">空</span><span class="muted">${i === 0 ? '基础吐纳 ×1' : '点这里，再点下面一门'}</span></div>`;
+  const openSlots = [0, 1, 2].filter(i => L.artSlotOpen(st, i));
+  if (!openSlots.includes(artSel)) artSel = 0;
+  const slots = openSlots.map(i => {
+    const id = sl[i], A = id && L.art(id);
+    const cls = 'aslot pn-aslot' + (i === artSel ? ' sel' : '');
+    const head = SLOT_HEAD[i].slice(0, 2);
+    if (!A) return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span><span class="aempty">空</span><span class="muted">${i === 0 ? '基础吐纳' : '点下面一门'}</span></div>`;
     const big = i === 0 ? `修炼 ×${dec2(L.artXMult(st))}` : i === 1 ? `战力 ×${dec2(L.artZMult(st))}` : '';
     const pg = L.artProg(st, id);
-    return `<div class="${cls}" data-slot="${i}"><span class="k">${SLOT_HEAD[i]}</span>${artImg(id, 2.5)}<span class="nm">《${esc(A.n)}》</span><span>${tierTag(A.t)} ${elChip(A.el)}</span>${bar(pg.f, pg.lv >= 3)}<span class="${i === 2 ? 'muted fxs' : 'num goldt'}">${L.MAST.n[pg.lv]}${big ? ' ' + big : '：' + esc(L.artDesc(st, id))}</span></div>`;
+    return `<div class="${cls}" data-slot="${i}"><span class="k">${head}</span>${artImg(id, 2)}<span class="nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</span>${big ? `<span class="num pn-key">${big}</span>` : elChip(A.el)}${bar(pg.f, pg.lv >= 3)}<span class="muted">${L.MAST.n[pg.lv]}</span></div>`;
   }).join('');
   // 当前三槽的共鸣
   const g = L.artGen(st), combos = L.artCombos(st);
   const res = [];
-  if (g.same >= 2) res.push(`<span class="chip ok">${g.same >= 3 ? '三' : '两'}门同属${g.el ? L.elName(g.el) : ''}：修炼、战力 +${Math.round((g.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%</span>`);
-  if (g.sheng) res.push(`<span class="chip ok">心法生战技：战技倍率部分 +${Math.round(L.GEN.sheng * 100)}%</span>`);
+  if (g.same >= 2) res.push(`<span class="chip ok">${g.same >= 3 ? '三' : '两'}门同属${g.el ? L.elName(g.el) : ''} +${Math.round((g.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%</span>`);
+  if (g.sheng) res.push(`<span class="chip ok">心法生战技 +${Math.round(L.GEN.sheng * 100)}%</span>`);
   for (const c of combos) res.push(`<span class="chip warn">共鸣·${L.combo(c).n}</span>`);
   const swap = L.artSwapLeft(st);
   // 下方列表：这一槽能装的已有功法
@@ -78,10 +82,11 @@ function showArts(sel, still) {
     const gen = r.gen.same >= 2 && !r.cur ? `<span class="alink gen">同属+${Math.round((r.gen.same >= 3 ? L.GEN.three : L.GEN.two) * 100)}%</span>` : '';
     const dt = r.cur ? '<span class="chip ok">装备中</span>' : open ? artDeltaText(r.id) : '';
     const why = r.rec ? `<span class="chip ok">荐</span>` : '';
-    return `<div class="card arow${r.cur ? ' cur' : ''}" data-art="${r.id}">${artImg(r.id, 2)}<div class="main"><div class="line">${why}<span>《${esc(A.n)}》</span>${tierTag(A.t)}${elChip(A.el)}${links}${gen}</div>
-      <div class="muted">${esc(artMain(r.id))}${A.k !== 'm' ? ' · ' + esc(L.artDesc(st, r.id)) : ''}</div>${masteryHTML(r.id, true)}</div>
+    return `<div class="card arow pn-arow${r.cur ? ' cur' : ''}" data-art="${r.id}">${artImg(r.id, 2)}<div class="main"><div class="line">${why}<b class="pn-nm" style="color:${pnTierInk(A.t)}">《${esc(A.n)}》</b>${elChip(A.el)}${links}${gen}</div>
+      <div class="muted">${A.k !== 'm' ? esc(artMain(r.id)) + ' · ' : ''}熟练 ${L.MAST.n[L.artLv(st, r.id)]}</div></div>
       <div class="right">${dt}</div></div>`;
-  }).join('') || `<p class="muted">还没有${L.ART_CAT[L.ART_SLOTS[artSel]]}。寻宝、历练掉落、宗门宝库、首领与奇遇都能得到。</p>`;
+  }).join('') || emptyNoteHTML('vault', `还没有${L.ART_CAT[L.ART_SLOTS[artSel]]}：寻宝、历练、宗门宝库都会给。`);
+  const descs = rows.map(r => `<div class="dexrow">${tierTag(r.A.t)} 《${esc(r.A.n)}》：${esc(r.A.k === 'm' ? L.artDesc(st, r.id) : artMain(r.id) + ' · ' + L.artDesc(st, r.id))}${masteryHTML(r.id, true)}</div>`).join('');
   // 共鸣图鉴（跨世保留）、融会、残篇
   const found = L.COMBOS.filter(c => st.meta.combo[c.id]);
   const hints = L.COMBOS.filter(c => !st.meta.combo[c.id] && (st.meta.chint || {})[c.id]);
@@ -89,13 +94,14 @@ function showArts(sel, still) {
     + hints.map(c => `<div class="dexrow muted">？ + ？　${esc(L.comboHintText(c.id))}</div>`).join('');
   const rc = L.rongSum(st, 'cul'), ra = L.rongSum(st, 'atk');
   const frags = ['x_hongmeng', 'm_xingdou'].filter(id => !L.artOwned(st, id) && (st.arts.frag[id] || 0) > 0).map(id => `《${L.art(id).n}》残篇 ${st.arts.frag[id]}/3`).join(' · ');
-  const body = meTabs('art') + `<div class="aslots">${slots}</div>
-    ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">心法转修中：还剩 ${swap} 周天（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
-    <div class="muted">${open ? `点一门即换上${L.ART_SLOTS[artSel] === 'z' ? '（即换即生效，还定你的攻击属性）' : L.ART_SLOTS[artSel] === 'm' ? '（即换即生效）' : sl[0] ? `（换心法先转修 ${L.SWAP.len} 周天，修炼 ×${L.SWAP.m}）` : ''}` : `${SLOT_HEAD[artSel].slice(0, 2)}槽${L.artSlotWhy(artSel)}`} · 已有 ${rows.length} 门${L.ART_CAT[L.ART_SLOTS[artSel]]}</div>
+  const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 周天` : '点一门即换上';
+  const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>
+    ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 周天（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
+    ${rows.length && tip ? `<div class="muted">${tip}</div>` : ''}
     ${list}
-    <div class="sep"></div>
-    <div class="grow-sec"><h3>共鸣图鉴<span>${found.length} / ${L.COMBOS.length}</span></h3>${dex || ''}<div class="muted">两门同属修炼、战力 +4%，三门 +10%；心法生战技（木→火→土→金→水→木）战技倍率部分 +10%。还有 ${L.COMBOS.length - found.length} 条有名的共鸣没发现：凑齐就揭晓，跨世保留。</div></div>
-    <div class="muted">熟练：装备着每周天 +1（心法闭关 +2，战技斩妖一趟 +2）；圆满得一份融会（卸下也保留，合计上限 +30%）。融会 ${L.rongN(st)} 门：修炼 +${(rc * 100).toFixed(1)}% · 战力 +${(ra * 100).toFixed(1)}%${frags ? '<br>' + frags : ''}</div>`;
+    ${rows.length ? `<details class="more"><summary>各门说明（${rows.length} 门）</summary>${descs}</details>` : ''}
+    <details class="more"><summary>共鸣图鉴 ${found.length} / ${L.COMBOS.length}</summary>${dex}<div class="muted">两门同属修炼、战力 +4%，三门 +10%；心法生战技（木→火→土→金→水→木）战技倍率部分 +10%。还有 ${L.COMBOS.length - found.length} 条有名的共鸣没发现：凑齐就揭晓，跨世保留。</div></details>
+    <details class="more"><summary>熟练与融会</summary><div class="muted">熟练：装备着每周天 +1（心法闭关 +2，战技斩妖一趟 +2）；圆满得一份融会（卸下也保留，合计上限 +30%）。融会 ${L.rongN(st)} 门：修炼 +${(rc * 100).toFixed(1)}% · 战力 +${(ra * 100).toFixed(1)}%${L.ART_SLOTS[artSel] === 'z' ? '<br>战技即换即生效，还定你的攻击属性。' : ''}${frags ? '<br>' + frags : ''}</div></details>`;
   const s = sheet({ title: '人物', body, still });
   bindMeTabs(s);
   s.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { SFX.tap(); showArts(+b.dataset.slot, true); });
@@ -126,13 +132,13 @@ function comboReveal(ids, back) {
 // 掉落卡 / 结算卡里的一门功法：图标、阶、五行、给什么；更强时给【换上】（一下）
 function artLine(it) {
   const A = L.art(it.art);
-  const head = `${artImg(it.art, 2)}<div class="grow"><div class="line">${tierTag(A.t)}<span>${L.ART_CAT[A.k]}《${esc(A.n)}》</span>${elChip(A.el)}</div><div class="muted">${esc(artMain(it.art))}${A.k !== 'm' ? ' · ' + esc(L.artDesc(st, it.art)) : ''}</div>`;
+  const head = `${artImg(it.art, 2)}<div class="grow"><div class="line">${pnName(`${L.ART_CAT[A.k]}《${esc(A.n)}》`, A.t)}${elChip(A.el)}</div><div class="muted">${esc(artMain(it.art))}</div>`;
   let tail;
   if (it.frag && !it.fragDone) tail = `<div>残篇 <b>${it.frag} / 3</b>，集齐自动合成</div>`;
   else if (it.dup) tail = `<div>已会：参照着练，熟练 <b>+${it.mastery}</b>（${L.MAST.n[L.artLv(st, it.art)]}）</div>`;
   else if (it.equip || L.artSlots(st).includes(it.art)) tail = `<div class="jadet">已装上${it.fragDone ? '（三片残篇合一）' : ''}</div>`;
-  else if (L.artBetter(st, it.art)) tail = `<div class="row"><span class="grow">换上更强：${artDeltaText(it.art)}</span><button class="btn sm gold eq" data-eqart="${it.art}">换上</button></div>`;
-  else tail = `<div class="muted">先收着：【人物】→ 功法里随时能换${L.artSlotOpen(st, L.artSlotOf(it.art)) ? '' : `（${L.artSlotWhy(L.artSlotOf(it.art))}）`}</div>`;
+  else if (L.artBetter(st, it.art)) tail = `<div class="row"><span class="grow pn-key">${artDeltaText(it.art)} ▲</span><button class="btn sm gold eq" data-eqart="${it.art}">换上</button></div>`;
+  else tail = `<div class="muted">先收着，【人物】→ 功法随时换</div>`;
   return `<div class="quote artline"><div class="row">${head}${tail}</div></div></div>`;
 }
 // sheet() 里所有 [data-eqart] 按钮：点一下换上
