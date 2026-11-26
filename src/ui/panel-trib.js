@@ -230,7 +230,7 @@ function showDao() {
     <div class="trhead"><span>因果 <span class="muted">未了 ${open.length} · 已了结 ${kr.done}</span></span></div>
     <div id="karmaBox" style="display:flex;flex-direction:column;gap:6px">${open.map(x => krow(x, false)).join('') + done.slice(-3).map(x => krow(x, true)).join('') || '<div class="muted">没欠过谁。杀、夺、负人的选项会记一笔，日后仇家上门、心魔劫翻旧账。</div>'}</div>
     <div class="muted">因果会回来：仇家上门、途中伏击、心魔劫的题目；能在那时或心魔劫里了结。轮回时每条未了的因果 −${Math.round(L.KARMA_REB * 100)}% 道果${kr.title ? `（狂者另得称号「${kr.title}」）` : ''}。</div>`;
-  const s = sheet({ title: '人物', body });
+  const s = sheet({ title: shellTitle('path'), body });
   bindMeTabs(s);
 }
 

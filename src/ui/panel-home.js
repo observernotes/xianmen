@@ -133,17 +133,11 @@ function showHome(still, sel) {
     tiles.push(`<button class="hplot${s ? ' sel' : ''}${over ? ' over' : ''}${canB ? ' can' : ''}" data-hp="${i}" aria-label="${nm} ${sub}">${tileImg(state, s, k)}<span class="nm">${nm}</span><span class="muted">${sub}</span></button>`);
   }
   const cu = L.upInfo(st, 'cave'), cCan = !cu.max && !cu.lock && st.stones >= cu.cost, nx = L.homeNextPlotCave(st);
-  const caveCard = `<div class="card flat"><div style="flex:none">${iconHTML('build', 30)}</div><div class="main"><div class="line"><span>洞府 · ${L.caveName(st.home.cave)}</span><span class="chip">Lv ${st.home.cave}</span></div>
-    <div class="muted">${esc(HB('cave').d(st.home.cave))}${L.homeOver(st) ? ` · <span class="seal">地块超出 ${L.homeOver(st)} 块（旧档留着，拆了就收回）</span>` : ''}</div>${cu.max ? '' : cu.lock ? `<div class="muted">${esc(cu.lock)}</div>` : `<div class="jadet">→ ${esc(cu.note)}</div>${nx && nx > st.home.cave + 1 ? `<div class="muted">升到 ${nx} 级多一块地</div>` : ''}`}</div>
-    <div class="right"><button class="btn sm alt" data-k="cave" ${cCan ? '' : 'disabled'}>${cu.max ? '已满级' : cu.lock ? '未解锁' : `${iconHTML('stone', 12)} ${fmt(cu.cost)}`}</button></div></div>`;
-  const tox = L.toxinOn(st) ? ` · 丹毒 ${Math.round(st.toxin || 0)}` : '', auto = L.danOf(st).auto.length;
-  const alch = (L.plotCount(st) ? `<button class="btn alt" id="btnField">灵田 · ${L.plotCount(st)} 块 · ${L.plots(st).map(x => L.CROP[x.c].n).filter((m, j, a) => a.indexOf(m) === j).join('、')}${L.yinTotal(st) ? ` · 药引 ${L.yinTotal(st)}` : ''}</button>` : '')
-    + (st.home.furnace ? `<button class="btn alt" id="btnAlch">炼丹房 · 灵草 ${fmt(st.herbs)} · 天材地宝 ${st.treasure}${tox}${auto ? ` · 续炼 ${auto} 种` : ''}</button>` : '')
-    + (L.petCount(st) || (st.petPend || []).length ? `<button class="btn ${L.petGlowAny(st) || (st.petPend || []).length ? 'gold' : 'alt'}" id="btnPets">兽栏 · 灵宠 ${L.petCount(st)}/${L.petCap(st)} · 兽粮 ${fmt(st.feed || 0)}${L.petGlowAny(st) ? ' · 能进化' : (st.petPend || []).length ? ' · 有新灵宠' : ''}</button>` : '')
-    + (L.gearOpen(st, 'forge') || Object.keys(st.gear.plans).length ? `<button class="btn alt" id="btnForgeH">器炉 · 打造 · 器方 ${Object.keys(st.gear.plans).length} 张 · 灵矿 ${fmt(st.ore || 0)}</button>` : '');
+  const caveCard = `<div class="kslot"><div class="cell">${iconHTML('build', 32)}</div><div class="mid"><div class="nm">洞府 · ${L.caveName(st.home.cave)} <span class="p">Lv${st.home.cave}</span></div><small>${cu.max ? '已满级' : cu.lock ? esc(pnShort(cu.lock, 12)) : nx && nx > st.home.cave + 1 ? `寿元 +5% · ${nx} 级多一块地` : '寿元 +5%'}${L.homeOver(st) ? ` · <span class="kdn">超出 ${L.homeOver(st)} 块</span>` : ''}</small></div>${cu.max ? '' : `<button class="kb ${cCan ? '' : 'alt'}" data-k="cave" ${cCan ? '' : 'disabled'}>${cu.lock ? '未开' : `升级<br><small>${fmt(cu.cost)}</small>`}</button>`}</div>`;
+  const alch = '';   // 灵田、炼丹、阵法改成分页（meTabs('home')）；兽栏在【装备】→ 灵宠，器炉在【装备】→ 法宝
   // 洞府本体扩建（寿元、多开地块）：丹炉开了以后才出现（docs/ONBOARDING.md：第一章只有聚灵阵和闭关）
-  const body = healCard() + (UI.isOpen('retreat') || st.retreat ? retreatCard() : '') + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
-  const s = sheet({ title: '洞府', still, sub: full ? `地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天` : `灵石 ${fmt(st.stones)} · 修炼 +${dec(L.gain(st))}/周天`, body });
+  const body = meTabs('home') + healCard() + (UI.isOpen('retreat') || st.retreat ? retreatCard() : '') + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
+  const s = sheet({ title: shellTitle('home'), still, sub: full ? `地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)}` : `灵石 ${fmt(st.stones)}`, body });
   homeMsg = '';
   const on = (q, f) => { const b = s.querySelector(q); if (b) b.onclick = f; };
   on('#btnAlch', () => { SFX.tap(); showAlchemy(); });
@@ -221,7 +215,7 @@ function showZhen(still) {
   const rows = mine.map(row).join(''), noneHTML = none.length ? `<details class="more" data-pn="zh-none"${pnOpenKeys.has('zh-none') ? ' open' : ''}><summary>还没有的阵图 · ${none.length} 张</summary><div class="pn-list">${none.map(row).join('')}</div></details>` : '';
   const body = `<div id="zhenSlots" class="pn-list">${slotCard(0)}${sl >= 2 ? slotCard(1) : ''}</div>${homeMsg ? `<div class="quote">${homeMsg}</div>` : ''}${pnHead('阵图', `换阵免费 · ${L.ZV.switch} 周天后生效`)}<div class="pn-list">${rows}</div>${noneHTML}
     <details class="more"><summary>阵法怎么用</summary><div class="muted">强度 = 聚灵阵等级（Lv${st.home.array}）。换阵不花钱，<b>${L.ZV.switch}</b> 个周天后生效，这期间原来的阵照常管用。${sl >= 2 ? '第二阵位（副阵）效果减半。' : '炼虚后开第二阵位（效果 ×0.5）。'}平时聚灵；大量炼丹前布丹火；渡劫前 ${L.ZV.switch} 个周天布渡劫。</div></details>`;
-  const s = sheet({ title: '阵法', still, sub: `聚灵阵 Lv${st.home.array} · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome(false, 0) }] });
+  const s = sheet({ title: shellTitle('home'), still, sub: `聚灵阵 Lv${st.home.array} · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome(false, 0) }] });
   homeMsg = '';
   s.querySelectorAll('[data-zs]').forEach(b => b.onclick = () => {
     const j = +b.dataset.zs, id = b.dataset.zid, r = L.zhenSet(st, j, id);

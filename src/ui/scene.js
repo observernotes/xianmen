@@ -25,11 +25,11 @@ function fitScene() {
   const short = app.clientHeight < 760;
   app.classList.toggle('short', short);
   const cs = getComputedStyle(app), gap = parseFloat(cs.rowGap) || 6;
-  const others = ['#top', '#cult', '#stats', '#goal', '#nav'].reduce((s, q) => s + $(q).offsetHeight, 0);
-  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * (short ? 5 : 6) - (short ? 0 : 52);
+  const others = ['#top', '#time', '#cult', '#stats', '#goal', '#tick', '#nav'].reduce((s, q) => s + ($(q) ? $(q).offsetHeight : 0), 0);
+  const avail = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - others - gap * 7;
   let n = UPX;
   const ow = outer.clientWidth || window.innerWidth;
-  while (n > 1 && 180 * n / dpr > ow + 0.5) n--;
+  while (n > 1 && (180 * n / dpr > ow + 0.5 || 160 * n / dpr > avail + 0.5)) n--;
   const h = Math.max(160, Math.min(250, Math.floor(avail * dpr / n)));
   const u = n / dpr;
   if (h !== H) { H = h; OY = H - 160; cvs.height = H; ctx.imageSmoothingEnabled = false; }
@@ -299,7 +299,9 @@ function ringBurst(x, y, c, n) {
 // 场景顶部的小横幅：一次一条、排队、每条约 1.8 秒（DESIGN §5.2）；同一句话排着的不再重复
 const bannerQ = [];
 let bannerBusy = false;
-function banner(text, sub, color, lock) {
+// 横幅只留给清单里的大事（章末、对决结果）：bigTitle；其余的 banner() 都改写成一行传讯（§5.2-3）
+function banner(text, sub, color) { sayLine(sub ? `${text} · ${sub}` : text, color === "#8ff5d0" ? "jade" : "gold"); }
+function bigTitle(text, sub, color, lock) {
   const key = text + '|' + (sub || '');
   if (bannerQ.some(b => b.key === key)) return;
   bannerQ.push({ key, text, sub, color, lock });

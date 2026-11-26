@@ -73,7 +73,7 @@ function showField(sel, still) {
     <div class="tabs fscope"><button class="${fieldAll ? '' : 'on'}" data-scope="0">改第 ${fieldSel + 1} 块</button><button class="${fieldAll ? 'on' : ''}" data-scope="1">全部 ${plots.length} 块</button></div>
     ${fieldMsg ? `<div class="quote">${fieldMsg}</div>` : ''}${list}
     <details class="more"><summary>灵田怎么长</summary><div class="muted">熟了自动收、接着种同一种；改种那块从头长。灵稻的灵石按周天结（全种灵稻就是灵田原来的收入），种别的就少那块的灵石。产量：${esc(yp)}。灵田每 ${L.CROP_V.plotEvery} 级多一块田（最多 ${L.CROP_V.plotMax} 块），每级作物产量 +${Math.round(L.CROP_V.lvYield * 100)}%。</div></details>`;
-  const s = sheet({ title: '灵田', still, sub: `灵石 +${fmt(L.income(st))}/周天 · 灵草 ${fmt(st.herbs)}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome() }] });
+  const s = sheet({ title: shellTitle('home'), still, sub: `灵石 +${fmt(L.income(st))}/${MO()} · 灵草 ${fmt(st.herbs)}`, body: meTabs('field') + body });
   fieldMsg = '';
   s.querySelectorAll('[data-fp]').forEach(b => b.onclick = () => { SFX.tap(); fieldSel = +b.dataset.fp; fieldAll = false; showField(undefined, true); });
   s.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { SFX.tap(); fieldAll = b.dataset.scope === '1'; showField(undefined, true); });

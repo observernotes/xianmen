@@ -108,7 +108,7 @@ function showMarket(o) {
   if (!secs.some(x => x[0] === mktTab)) mktTab = 'shelf';
   body = (secs.length > 1 ? `<div class="tabs" id="mktTabs">${secs.map(([k, n]) => `<button data-mtab="${k}" class="${k === mktTab ? 'on' : ''}">${n}</button>`).join('')}</div>` : '')
     + secs.map(([k, , h]) => `<div class="pn-list" data-msec="${k}"${secs.length > 1 && k !== mktTab ? ' hidden' : ''}>${h}</div>`).join('');
-  const s = sheet({ title: '坊市', sub: `灵石 ${fmt(st.stones)} · 破境丹 ${st.pills}`, body });
+  const s = sheet({ title: shellTitle('world'), sub: `灵石 ${fmt(st.stones)} · 破境丹 ${st.pills}`, body: meTabs('market') + body });
   s.querySelectorAll('[data-mtab]').forEach(b => b.onclick = () => { SFX.tap(); mktTab = b.dataset.mtab; s.querySelectorAll('[data-mtab]').forEach(x => x.classList.toggle('on', x === b)); s.querySelectorAll('[data-msec]').forEach(x => { x.hidden = x.dataset.msec !== mktTab; }); s.querySelector('.body').scrollTop = 0; });
   if (top) s.querySelector('.body').scrollTop = top;
   const back = () => showMarket({ keep: true });

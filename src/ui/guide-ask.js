@@ -172,25 +172,11 @@ function chapSnap() {
   if (!at[ch]) at[ch] = { t: st.tick, exp: st.stats.exp || 0, rank: st.rank, pw: Math.round(L.power(st)) };
 }
 // 排队等弹：超过 6 个周天还没轮上（一直在忙）、或者已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
-function chapterDone(ch) { if (ch < Math.min(8, st.p.r) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }
+function chapterDone(ch) { if (ch < L.chapterNow(st) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }
 function chapPump() {
   if (!chapPend.length || !st || !$('#guide').hidden || modalOpen() || cine || duelFx || !$('#intro').hidden) return;
   if (performance.now() - guideModalAt < 1500 || performance.now() < guideQuiet) return;
   const x = chapPend.shift();
-  if (st.tick - x.t > 6) { chapterTip(x.ch); return; }
   showChapterCard(x.ch);
 }
-function showChapterCard(ch) {
-  const C = L.CHAPTERS[ch], at = (st.flags.chapAt || {})[ch] || { t: 0, exp: 0, rank: 100, pw: 10 }, nx = L.CHAPTERS[ch + 1];
-  const best = Math.max(-1, ...Object.values(st.best || {}));
-  const met = Object.keys(st.npc || {}).filter(id => L.aff(st, id) >= 20 && L.NPCS && L.NPCS[id]);
-  const cell = (k, v) => `<div class="duel-ch-cell"><span class="muted">${k}</span><b class="num">${v}</b></div>`;
-  const bd = ART.backdrop ? ART.backdrop('chapter') : null, S = ART.stamp ? ART.stamp('完') : null;
-  sheet({ title: `第${'一二三四五六七八九'[ch]}章 · ${esc(C.n)}`, center: true, noClose: true,
-    body: `<div class="duel-ch-head">${bd ? `<img class="px" src="${urlOf(bd, 'bd|chapter')}" alt="">` : ''}${S ? `<img class="px duel-ch-stamp" src="${urlOf(S, 'stamp|完')}" alt="">` : ''}</div>
-      <div class="duel-ch-grid">${cell('用了', `${st.tick - at.t} 周天`)}${cell('历练', `${(st.stats.exp || 0) - at.exp} 趟`)}${cell('最高评价', best >= 0 ? L.RATINGS[Math.min(4, best)] : '—')}${cell('天骄榜', `${at.rank} → ${st.rank}`)}${cell('战力', `${fmt(at.pw)} → ${fmt(L.power(st))}`)}${cell('结识', met.length ? met.slice(0, 3).map(id => esc(L.npcName(st, id))).join('、') : '—')}</div>
-      <div class="quote">戒中老祖：“${esc(L.daoChapter ? L.daoChapter(st, ch) : '')}”</div>
-      ${nx ? `<p class="center">下一章 · <b>${esc(nx.n)}</b>：${esc(L.questText(st, nx.main))}</p>` : ''}`,
-    foot: [{ t: nx ? '下一章' : '好', gold: true, fn: closeModal }] });
-  SFX.goal();
-}
+// 章末结算卡 showChapterCard：panel-path.js（开罗式重整 §2.3）

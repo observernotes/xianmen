@@ -97,12 +97,8 @@ function showArts(sel, still) {
   const tip = !open ? '' : L.ART_SLOTS[artSel] === 'x' && sl[0] ? `点一门换上 · 换心法转修 ${L.SWAP.len} 周天` : '点一门即换上';
   const body = meTabs('art') + `<div class="aslots pn-aslots" style="grid-template-columns:repeat(${openSlots.length},minmax(0,1fr))">${slots}</div>
     ${res.length || swap ? `<div class="arows">${res.join('')}${swap ? `<span class="chip bad">转修中：还剩 ${swap} 周天（修炼 ×${L.SWAP.m}）</span>` : ''}</div>` : ''}
-    ${rows.length && tip ? `<div class="muted">${tip}</div>` : ''}
-    ${list}
-    ${rows.length ? `<details class="more"><summary>各门说明（${rows.length} 门）</summary>${descs}</details>` : ''}
-    <details class="more"><summary>共鸣图鉴 ${found.length} / ${L.COMBOS.length}</summary>${dex}<div class="muted">两门同属修炼、战力 +4%，三门 +10%；心法生战技（木→火→土→金→水→木）战技倍率部分 +10%。还有 ${L.COMBOS.length - found.length} 条有名的共鸣没发现：凑齐就揭晓，跨世保留。</div></details>
-    <details class="more"><summary>熟练与融会</summary><div class="muted">熟练：装备着每周天 +1（心法闭关 +2，战技斩妖一趟 +2）；圆满得一份融会（卸下也保留，合计上限 +30%）。融会 ${L.rongN(st)} 门：修炼 +${(rc * 100).toFixed(1)}% · 战力 +${(ra * 100).toFixed(1)}%${L.ART_SLOTS[artSel] === 'z' ? '<br>战技即换即生效，还定你的攻击属性。' : ''}${frags ? '<br>' + frags : ''}</div></details>`;
-  const s = sheet({ title: '人物', body, still });
+    ${list}`;   // 各门说明、共鸣图鉴、熟练与融会不再折叠在第一屏（§4.2）：点一门看它（换上前后的数），图鉴在【仙途】→ 记录
+  const s = sheet({ title: shellTitle('gear'), body, still });
   bindMeTabs(s);
   s.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { SFX.tap(); showArts(+b.dataset.slot, true); });
   s.querySelectorAll('[data-art]').forEach(b => b.onclick = () => {
@@ -157,12 +153,12 @@ function elemLine(k) {
   if (!L.artSlotOpen(st, 1)) return '';
   const rg = L.REGIONS[k], known = L.elemKnown(st, k), e = L.expElem(st, k), sl = L.artSlots(st), z = sl[1] && L.art(sl[1]);
   let main;
-  if (!rg.el) main = '此地五行：无，不论克制';
-  else if (!known) main = `此地五行未知（去过一次才知道）${z ? `；你的${L.elName(e.me)}系战技克不克它：？` : ''}`;
-  else if (!z) main = `此地属${elChip(rg.el)}。你没装战技（无属性），不论克制`;
-  else if (e.v > 0) main = `<span class="jadet">你的${L.elName(e.me)}系战技克此地（${L.elName(e.it)}）：分数 +${e.v}</span>`;
-  else if (e.v < 0) main = `<span class="seal">此地（${L.elName(e.it)}）克你的${L.elName(e.me)}系战技：分数 −${-e.v}</span>`;
-  else main = `你的${L.elName(e.me)}系战技与此地（${L.elName(e.it)}）不相克`;
+  if (!rg.el) main = '五行：无';
+  else if (!known) main = '五行：？（去过才知道）';
+  else if (!z) main = `五行 ${elChip(rg.el)} · 没装战技`;
+  else if (e.v > 0) main = `<span class="jadet">${L.elName(e.me)}克${L.elName(e.it)}：分数 +${e.v}</span>`;
+  else if (e.v < 0) main = `<span class="seal">${L.elName(e.it)}克${L.elName(e.me)}：分数 −${-e.v}</span>`;
+  else main = `${L.elName(e.me)}与${L.elName(e.it)}不相克`;
   let swap = '';
   if (known && rg.el) {
     let best = null;

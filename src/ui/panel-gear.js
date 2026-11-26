@@ -131,7 +131,7 @@ function gearLeave(oldU, keep) {
 // ---------- 法宝页 ----------
 // 上：灵矿一行；待定的对比卡；开了的几格（图标 + 名字 + 关键数 + 角标）；选中那格：一个【强化】（金）和强化后的变化；词条、重铸、锁定收进详情
 let gearSel = 'w', gearMsg = '', gearHold = null;
-function showGear(sel, still) {
+function showGearDetail(sel, still) {
   if (sel) gearSel = sel;
   const g = st.gear;
   const open = L.GEAR_SLOTS.filter(s => L.gearOpen(st, s));
@@ -183,13 +183,13 @@ function showGear(sel, still) {
   const body = meTabs('gear') + `<div class="gres pn-res">${oreImg()} 灵矿 <b class="num">${fmt(st.ore || 0)}</b>${st.treasure ? ` · 天材地宝 ${st.treasure}` : ''}</div>
     ${rfCard}${pend}<div class="aslots gslots pn-gslots" style="grid-template-columns:repeat(${open.length},minmax(0,1fr))">${slots}</div>${det}${forge}
     <details class="more"><summary>强化、灵矿怎么来</summary><div class="muted">强化：每级让主属性的超出部分 +${Math.round(L.PLUS.step * 100)}%（兵器 +9 约 ×1.3～1.5）；成功率 100%→40%，失败不掉级，下次 +10%。换装备时强化继承一半。点一下强化一次，按住连强。<br>灵矿：历练（斩妖 ×${L.ORE.slay}，黑风岭 ×2、剑冢 ×3、星墟 ×4）、熔炼（4 × 2^阶）、坊市一筐、宗门器堂、首领、奇遇。</div></details>`;
-  const s = sheet({ title: '人物', body, still });
+  const s = sheet({ title: shellTitle('gear'), body, still, foot: [{ t: '回法宝', alt: true, fn: () => showGear() }] });
   bindMeTabs(s);
-  s.querySelectorAll('[data-gslot]').forEach(b => b.onclick = () => { SFX.tap(); gearMsg = ''; showGear(b.dataset.gslot, true); });
+  s.querySelectorAll('[data-gslot]').forEach(b => b.onclick = () => { SFX.tap(); gearMsg = ''; showGearDetail(b.dataset.gslot, true); });
   s.querySelectorAll('[data-plus]').forEach(b => bindPlusButton(b));
-  s.querySelectorAll('[data-rf]').forEach(b => b.onclick = () => { if (L.gearReforge(st, gearSel, +b.dataset.rf)) { SFX.reveal(3); showGear(gearSel, true); } });
-  s.querySelectorAll('[data-rfk]').forEach(b => b.onclick = () => { const r = L.gearReforgeKeep(st, b.dataset.rfk === '1'); if (r) { SFX.coin(); gearMsg = `重铸：保留「${L.AFFIX[r.keep].n}」`; showGear(gearSel, true); } });
-  const lk = s.querySelector('[data-glock]'); if (lk) lk.onclick = () => { SFX.tap(); L.gearLock(st, lk.dataset.glock, !st.gear.lock[lk.dataset.glock]); showGear(gearSel, true); };
+  s.querySelectorAll('[data-rf]').forEach(b => b.onclick = () => { if (L.gearReforge(st, gearSel, +b.dataset.rf)) { SFX.reveal(3); showGearDetail(gearSel, true); } });
+  s.querySelectorAll('[data-rfk]').forEach(b => b.onclick = () => { const r = L.gearReforgeKeep(st, b.dataset.rfk === '1'); if (r) { SFX.coin(); gearMsg = `重铸：保留「${L.AFFIX[r.keep].n}」`; showGearDetail(gearSel, true); } });
+  const lk = s.querySelector('[data-glock]'); if (lk) lk.onclick = () => { SFX.tap(); L.gearLock(st, lk.dataset.glock, !st.gear.lock[lk.dataset.glock]); showGearDetail(gearSel, true); };
   const fb = s.querySelector('#btnForge'); if (fb) fb.onclick = () => { SFX.tap(); showForge(); };
 }
 // 强化一次：成功率、花费、前后战力都在逻辑层算；格子上放一下锤击 / 成功 / 失败的特效（ART.drawForge）
@@ -224,7 +224,7 @@ function forgeFx(slot, kind) {
 // 点一下强化一次；按住 0.45 秒后每 0.22 秒连强，松手（任何地方）或做不了就停
 function bindPlusButton(b) {
   const slot = b.dataset.plus;
-  b.onclick = e => { e.preventDefault(); if (gearHold && gearHold.fired) { gearHold = null; return; } gearHold = null; const r = doPlus(slot); if (r) { showGear(slot, true); forgeFx(slot, r.ok ? 'ok' : 'fail'); } };
+  b.onclick = e => { e.preventDefault(); if (gearHold && gearHold.fired) { gearHold = null; return; } gearHold = null; const r = doPlus(slot); if (r) { showGearDetail(slot, true); forgeFx(slot, r.ok ? 'ok' : 'fail'); } };
   b.onpointerdown = () => {
     stopHold();
     gearHold = { slot, fired: false, t: setTimeout(function rep() {
@@ -232,7 +232,7 @@ function bindPlusButton(b) {
       gearHold.fired = true;
       if (L.gearPlusWhy(st, slot)) { stopHold(true); return; }
       const r = doPlus(slot);
-      showGear(slot, true); forgeFx(slot, r && r.ok ? 'ok' : 'fail');
+      showGearDetail(slot, true); forgeFx(slot, r && r.ok ? 'ok' : 'fail');
       if (gearHold) gearHold.t = setTimeout(rep, 220);
     }, 450) };
   };
@@ -321,7 +321,7 @@ function showBag(sel) {
       <div class="muted">来源：${cur.from}</div><div class="muted">用途：${cur.use}</div></div>${cur.go ? `<button class="btn sm gold" id="bagGo">${cur.go[0]}</button>` : ''}</div>` : '';
   const grps = [...new Set(items.map(it => it.grp))];
   const grid = grps.map(gp => `<div class="pn-bagh">${gp}</div><div class="pn-bag">${items.filter(it => it.grp === gp).map(it => `<button class="pn-tile${it.k === bagSel ? ' sel' : ''}" data-bag="${it.k}"><span class="pn-tic">${bagImg(it, 24)}${bagNew.has(it.k) ? newBadgeHTML(pxFit(16, 24) * 10 / 16) : ''}</span><b class="num">${fmt(it.have)}</b><span>${esc(it.n)}</span></button>`).join('')}</div>`).join('');
-  const s = sheet({ title: '包裹', still: sel !== undefined, body: items.length ? det + grid : emptyNoteHTML('vault', '包裹是空的：去历练捡点东西。'), foot: [{ t: '回人物', alt: true, fn: () => showMe() }] });
+  const s = sheet({ title: shellTitle('gear'), still: sel !== undefined, body: meTabs('bag') + (items.length ? det + grid : emptyNoteHTML('vault', '包裹是空的：去历练捡点东西。')) });
   s.querySelectorAll('[data-bag]').forEach(b => b.onclick = () => { SFX.tap(); showBag(b.dataset.bag); });
   const gb = s.querySelector('#bagGo'); if (gb && cur && cur.go) gb.onclick = () => { SFX.tap(); cur.go[1](); };
 }

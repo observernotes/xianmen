@@ -77,4 +77,4 @@ function musicTick() {
 setInterval(musicTick, 120);
 document.addEventListener('pointerdown', () => ac(), true);
 // 声音三态：ART.icon('snd_on' 全开 | 'snd_sfx' 仅音效 | 'snd_off' 静音)，16×16 按整数倍放大；没有新美术时退回旧 10×10 图标
-function setSoundIcon() { const b = $('#btnSound'); b.innerHTML = artIcon(['snd_on', 'snd_sfx', 'snd_off'][soundMode], 20) || iconHTML(['note', 'sound', 'mute'][soundMode]); b.setAttribute('aria-label', ['声音：音乐与音效', '声音：仅音效', '声音：静音'][soundMode]); }
+function setSoundIcon() { const b = $('#btnSound'); if (!b) return; b.innerHTML = artIcon(['snd_on', 'snd_sfx', 'snd_off'][soundMode], 20) || iconHTML(['note', 'sound', 'mute'][soundMode]); b.setAttribute('aria-label', ['声音：音乐与音效', '声音：仅音效', '声音：静音'][soundMode]); }

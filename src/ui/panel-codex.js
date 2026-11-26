@@ -33,7 +33,7 @@ function showCodex(cat) {
   else if (cxCat === 'chain') body += chainRows();
   else body += C.cells(st).map(g => `${g.g ? `<div class="cxg">${esc(g.g)}</div>` : ''}<div class="cxcells">${g.list.map(x => `<span class="cxc${x.on ? ' on' : ''}" title="${esc(x.d || '')}">${esc(x.n)}${x.v ? `<i>${esc(x.v)}</i>` : ''}</span>`).join('')}</div>`).join('');
   const again = !!cat && !!document.querySelector('#modal #cxGrid');
-  const s = sheet({ title: '人物', still: again, body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid}</div><div class="cxbody" id="cxBody">${body}</div>` });
+  const s = sheet({ title: shellTitle('path'), still: again, body: meTabs('codex') + codexSummary() + `<div class="cxcats" id="cxGrid">${grid}</div><div class="cxbody" id="cxBody">${body}</div>` });
   bindMeTabs(s);
   s.querySelectorAll('[data-cx]').forEach(b => b.onclick = () => { SFX.tap(); showCodex(b.dataset.cx); });
   if (again) { const bd = s.querySelector('.body'), cb = s.querySelector('#cxBody'); if (bd && cb) bd.scrollTop = cb.offsetTop - bd.offsetTop - 8; }
