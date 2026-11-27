@@ -3150,10 +3150,11 @@ async function apSection(quick) {
         const dpr = window.devicePixelRatio, outer = document.getElementById('sceneOuter'), wrap = document.getElementById('sceneWrap'), app = document.getElementById('app'), feed = document.getElementById('feed');
         let n = Math.round(dpr * 2); const ow = outer.clientWidth || innerWidth; while (n > 1 && 180 * n / dpr > ow + 0.5) n--;
         const small = [];
-        for (const el of document.querySelectorAll('#top button, #stats button, #nav button, #goal, #cult, #btnNext')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push((el.id || el.dataset.nav || el.dataset.s || el.className) + ' ' + r.width.toFixed(1) + '×' + r.height.toFixed(1)); }
+        for (const el of document.querySelectorAll('#top button, #stats button, #nav button, #goal, #cult, #btnNext')) { const r = el.getBoundingClientRect(); if (el.matches('#top .ib') && r.width >= 43.5 && r.height >= 39.5) continue; /* 顶栏图标键 44×40（KAIRO_PLAN 顶栏 36 高，上下各探出 5px；kairo_check 管它） */ if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push((el.id || el.dataset.nav || el.dataset.s || el.className) + ' ' + r.width.toFixed(1) + '×' + r.height.toFixed(1)); }
         return { dpr, want: 200 * n / dpr, got: wrap.getBoundingClientRect().width, over: document.documentElement.scrollWidth - innerWidth, small, ah: app.clientHeight, feed: !!feed, feedOff: feed ? getComputedStyle(feed).display === 'none' : true, tick: (() => { const t = document.getElementById('tick'); return !!t && getComputedStyle(t).display !== 'none' && t.getBoundingClientRect().height > 0; })(), vh: innerHeight };
       });
-      expect(Math.abs(lay.want - lay.got) < 0.6, `主界面(${dn})：#sceneWrap 宽 = 200×round(dpr×2)/dpr（${lay.want.toFixed(2)}，实际 ${lay.got.toFixed(2)}，dpr ${lay.dpr}）`);
+      // 场景按整数倍放大（物理像素 200 × n）；开罗式重整后 fitScene 还看高度（目标卡、行动点一行占了竖向空间），所以 n 可以比只看宽度时小
+      { const k = lay.got * lay.dpr / 200; expect(Math.abs(k - Math.round(k)) < 0.01 && Math.round(k) >= 1 && lay.got <= lay.want + 0.6, `主界面(${dn})：#sceneWrap 宽是 200 物理像素的整数倍、不超过按宽度算的（${lay.want.toFixed(2)}，实际 ${lay.got.toFixed(2)}，dpr ${lay.dpr}）`); }
       expect(lay.over <= 0, `主界面(${dn})：页面无横向溢出（${lay.over}px）`);
       expect(lay.small.length === 0, `主界面(${dn})：#top/#stats/#goal/#nav 里的按钮都 ≥44：${lay.small.join('，')}`);
       // 多行的 #feed 已换成固定一行的传讯 #tick（KAIRO_PLAN 版式：矮屏也只占一行，不再藏）；旧的 #feed 还在的话照旧查“矮屏藏”
@@ -3165,12 +3166,14 @@ async function apSection(quick) {
         for (const t of ['attr', 'art', 'gear', 'dao', 'bond', 'ach', 'codex', 'rank']) {
           await pg.evaluate(t => window.__xm.showMe(t), t); await pg.waitForTimeout(350);
           const r = await pg.evaluate(() => {
-            const tabs = document.querySelector('#modal .tabs'); if (!tabs) return { none: 1 };
+            const tabs = document.querySelector('#modal .tabs'), body0 = document.querySelector('#modal .sheet .body');
+            if (!tabs) return { tabs: 0, open: !document.getElementById('modal').hidden, bodyOver: body0 ? body0.scrollWidth - body0.clientWidth : 0, pageOver: document.documentElement.scrollWidth - innerWidth };
             const bs = [...tabs.querySelectorAll('button')], tr = tabs.getBoundingClientRect(), on = tabs.querySelector('button.on'), or = on && on.getBoundingClientRect();
             const body = document.querySelector('#modal .sheet .body');
-            return { n: bs.length, oneRow: new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))).size === 1, onIn: !!or && or.left >= tr.left - 1 && or.right <= tr.right + 1, bodyOver: body.scrollWidth - body.clientWidth, pageOver: document.documentElement.scrollWidth - innerWidth };
+            return { tabs: 1, open: true, n: bs.length, oneRow: new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))).size === 1, onIn: !!or && or.left >= tr.left - 1 && or.right <= tr.right + 1, bodyOver: body.scrollWidth - body.clientWidth, pageOver: document.documentElement.scrollWidth - innerWidth };
           });
-          expect(!r.none && r.n === 8 && r.oneRow && r.onIn && r.bodyOver <= 0 && r.pageOver <= 0, `人物页分页 ${t}（360 宽）：8 个按钮一行、当前页在可见范围、不横向溢出：${JSON.stringify(r)}`);
+          // 开罗式重整（KAIRO_PLAN §4）以后没有“人物页 8 个分页”了：这几页分到【装备】【仙途】里各自开；这里只查打开了、有分页就一行、不横向溢出
+          expect(r.open && (!r.tabs || (r.oneRow && r.onIn)) && r.bodyOver <= 0 && r.pageOver <= 0, `人物页 ${t}（360 宽）：打开了、分页（有的话）一行、当前页在可见范围、不横向溢出：${JSON.stringify(r)}`);
           if (t === 'attr' || t === 'rank') await pg.screenshot({ path: U('a2-me-' + t) });
         }
         await closeAll(pg);
@@ -3545,7 +3548,10 @@ async function apSection(quick) {
       // 6 首领 k=0..10：无报错、duelFx 正常结束；7 九宗代表；8 魔宗演武场；9 戒指爆光
       const wait = async (cond, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(cond)) return true; await pg.waitForTimeout(80); } return false; };
       const finishDuel = async () => { for (let i = 0; i < 12; i++) { const s = await ev(() => ({ fx: !!window.__xm.duelFx, ended: window.__xm.duelFx && window.__xm.duelFx.ended, modal: !document.getElementById('modal').hidden })); if (!s.fx && !s.modal) return true; if (s.fx && !s.ended) await ev(() => window.__xm.duelSkip()); else await ev(() => { const b = document.querySelector('#modal .foot .btn'); if (b) b.click(); else window.__xm.closeModal(); }); await pg.waitForTimeout(600); } return false; };
-      const bossRes = (k, p, win) => ev(([k, p, win]) => { const { L } = window.__xm; window.__fb = window.__fb || L.fightBoss; L.fightBoss = (st, kk) => ({ B: L.BOSSES[kk], Q: 1000, S: 900, p, win, again: true, mat: 1, stones: 10 }); window.__xm.fightBossUI(k); L.fightBoss = window.__fb; }, [k, p, win]);
+      // 量的是对决演出（duelFx）：首领战现在默认在场景里真打一场回合战（TRIP_ON），这里临时走对决那条路；首领现身、行动点（1 点）也垫上
+      const bossRes = (k, p, win) => ev(([k, p, win]) => { const { L, st } = window.__xm; window.__fb = window.__fb || L.fightBoss; window.__br = window.__br || L.bossReady; const tr0 = L.TRIP_ON;
+        L.fightBoss = (s, kk) => ({ B: L.BOSSES[kk], Q: 1000, S: 900, p, win, again: true, mat: 1, stones: 10 }); L.bossReady = () => true; L.TRIP_ON = false; st.ap.left = 3;
+        try { window.__xm.fightBossUI(k); } finally { L.fightBoss = window.__fb; L.bossReady = window.__br; L.TRIP_ON = tr0; } }, [k, p, win]);
       const nBoss = await ev(() => window.__xm.L.BOSSES.length);
       for (let k = 0; k < Math.max(11, nBoss); k++) {
         await closeAll(pg); await bossRes(k, 0.7, true);
