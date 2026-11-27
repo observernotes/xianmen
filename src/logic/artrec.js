@@ -123,10 +123,11 @@ L.artRecommend = function (st, slot, ctx) {
   const top = Math.max(...rows.map(r => r.pri), curRow.pri);
   const band = rows.filter(r => r.pri >= top - eps - 1e-12);
   band.sort((a, b) => b.g - a.g || L.art(b.id).t - L.art(a.id).t || (a.id < b.id ? -1 : 1));
-  let pick = band[0];
+  let pick = band[0] || curRow;   // 现在装着的比哪一门都高（或分数是 NaN）时 band 为空：就是不换（旧档迁移后偶发，save_check 的“360 旧档在外历练”页面起不来的根因）
   const curIn = cur && curRow.pri >= top - eps - 1e-12;
   if (curIn && (c.kind === 'duel' && slot === 1 || curRow.g >= pick.g - gMin)) pick = curRow;   // 对决：胜算同档就不换（与论道准备页、新秀挑战的 0.5% 门槛一致）
   else if (!curIn && cur && eps === 0 && pick.pri - curRow.pri < gMin) pick = curRow;   // 通用 / 不知五行：分数差不到门槛不换
+  if (!pick || !pick.id) { cache.v[key] = null; return null; }
   const same = !cur ? false : pick.id === cur;
   const v = { id: pick.id, cur, same, slot, ctx: c, kind: c.kind, why: same ? '' : whyOf(st, slot, c, pick, curRow), p0: curRow.p, p1: pick.p, pw0: curRow.pw, pw1: pick.pw, g0: curRow.gb, g1: pick.gb, ke: pick.ke, ke0: curRow.ke, bk0: curRow.bk, me: pick.me, me0: curRow.me, fe: c.fe || '' };
   cache.v[key] = v;
