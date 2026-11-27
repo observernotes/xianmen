@@ -1489,7 +1489,10 @@ body.bt-on #nav { margin-top: auto; }
 #apRow .apbt[hidden] { display: none; }
 #apRow .apnext { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; min-width: 120px; padding: 0 12px; font: inherit; color: var(--text); background: #2a2240; border: 2px solid #55506e; cursor: pointer; }
 #apRow .apnext b { font-weight: normal; font-size: 16px; line-height: 18px; }
-#apRow .apnext small { font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
+#apRow .apnext small { font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+#apRow .apnext { max-width: 52%; min-width: 112px; flex-shrink: 1; }
+#apRow.rdy .apk { display: none; }   /* 圆满时多一个【突破】：“行动点”三个字让位，菱形不被挤掉 */
+#apRow .aps { flex-shrink: 0; }
 #apRow .apnext.done { background: var(--gold); color: #1b1326; border-color: #fff2a8; animation: apBreath 1.6s steps(4) infinite; }
 #apRow .apnext.done small { color: #4a3a20; }
 #apRow .apnext.big { border-color: #ff6a5a; box-shadow: 0 0 0 2px #d8404a; }

@@ -100,7 +100,8 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await panel('gear', () => { window.__xm.closeModal(); window.__xm.showEquip(); });
   // 功法、灵宠：从主画面 2 次点击（装备 → 分页）
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(300);
-  { const pm = await ev(() => document.getElementById("modal").hidden ? "" : (document.querySelector("#modal h2") || {}).textContent); if (pm) console.log("     （空下来时结算链出了：" + pm + "）"); await ev(() => { for (let i = 0; i < 4; i++) if (!document.getElementById("modal").hidden) window.__xm.closeModal(); }); await page.waitForTimeout(300); }
+  // 造局面后结算链里排着的东西（剧情、章末卡、解锁卡）先点完，再量 2 次点击
+  for (let i = 0; i < 16; i++) { const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? 'talk' : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?')); if (!t) { await page.waitForTimeout(300); if (!(await ev(() => window.__xm.busyUI))) break; continue; } if (process.env.DUMP) console.log('     （链：' + t + '）'); await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(450); }
   await page.click('[data-nav="gear"]'); await page.waitForTimeout(250); await page.click('#modal [data-kt="art"]'); await page.waitForTimeout(250);
   check(await ev(() => !!document.querySelector('#modal [data-kt="art"].on')), '功法：2 次点击（装备 → 功法）');
   await panel('arts', () => {});

@@ -233,7 +233,7 @@ const sizes = {};
         if (await e(() => typeof window.__xm.nextSeason === 'function')) await e(() => window.__xm.nextSeason());
         else await e(() => { const X = window.__xm; for (let m = 0; m < 3; m++) { X.L.flow(X.st, 1); X.onTick(); } });
         // 结算链没出完时【下一季】点不动（__xm.busyUI）：一张一张关到链出完
-        for (let g = 0; g < 40; g++) { if (!(await e(() => window.__xm.busyUI === undefined ? !document.getElementById('modal').hidden && !window.__xm.cine : window.__xm.busyUI))) break; await e(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); else if (window.__xm_talk && window.__xm_talk.on) window.__xm_talk.close(); }); await pg.waitForTimeout(120); }
+        for (let g = 0; g < 60; g++) { if (!(await e(() => window.__xm.busyUI === undefined ? !document.getElementById('modal').hidden && !window.__xm.cine : window.__xm.busyUI))) break; await e(() => { const X = window.__xm; if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(b => !/出发|扫荡|再去/.test(b.textContent)); if (f.length) f[f.length - 1].click(); else X.closeModal(); }); await pg.waitForTimeout(150); }
       }
     };
     // 旧档：升级前那一份（只有 xiantu_save_v2、没有索引）
@@ -346,11 +346,11 @@ const sizes = {};
       const okLoad = r.ok && !r.exp && !r.ret && r.m3 === 0 && r.ap;
       check(okLoad, `${dev} 旧档（${label}）：读进来后没有在外 / 闭关中、tick 在季界、st.ap 已迁` + (okLoad ? '' : ' ' + JSON.stringify(r)));
       if (k === 'exp') check(!r.speedBtn, `[C] ${dev}：#btnSpeed 不存在（速度键已删）`);
-      // 第一条链：一张一张关掉（至多 14 张），期间的字都收下来，看有没有那条一次性的提示
-      for (let g = 0; g < 14; g++) {
+      // 第一条链：一张一张点掉（至多 30 张：旧档迁移会把压着的戏连着补出来），期间的字都收下来，看有没有那条一次性的提示
+      for (let g = 0; g < 30; g++) {
         text += await e2(() => document.body.innerText);
-        if (!(await e2(() => !document.getElementById('modal').hidden || !!window.__xm.cine))) break;
-        await e2(() => { const X = window.__xm; if (!document.getElementById('modal').hidden) X.closeModal(); }); await p2.waitForTimeout(400);
+        if (!(await e2(() => !document.getElementById('modal').hidden || !!window.__xm.cine || !!(window.__xm_talk && window.__xm_talk.on) || !!window.__xm.busyUI))) break;
+        await e2(() => { const X = window.__xm; if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(b => !/出发|扫荡|再去/.test(b.textContent)); if (f.length) f[f.length - 1].click(); else X.closeModal(); }); await p2.waitForTimeout(400);
       }
       check(/时间不再自己走了/.test(text), `[C] ${dev} 旧档（${label}）：读档后出一次提示“时间不再自己走了。每季 3 点行动点，用完点【下一季】。”`);
       await adv(1, p2);

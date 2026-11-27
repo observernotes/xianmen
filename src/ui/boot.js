@@ -103,4 +103,6 @@ window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, 
 Object.assign(window.__xm, { showArts, showBag, showPetAwake });
 Object.assign(window.__xm, { showGearDetail, showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）
 Object.assign(window.__xm, { pushPopup, fitScene, updateHUD });   // 换窗抖动检查（tools/jitter_check.js）用
+// 旧测试脚本的钩子（tools/content_test.js 还在调）：没有速度档了，setSpeed 什么都不做；onTick = 过一季（跳过链没出完的检查，结算链照常出）
+Object.assign(window.__xm, { setSpeed: () => {}, pauseIdx: 0, onTick: () => { if (st && !st.exp && st.p.r <= L.MAXR) { chainOn = false; queue.length = 0; nextSeason(true); } } });
 Object.assign(window.__xm, { showSaves, showSlot, saveLocal, get slots() { return SLOTS; }, get queueLen() { return queue.length; } });   // 存档页（saves.js；tools/save_check.js 用）

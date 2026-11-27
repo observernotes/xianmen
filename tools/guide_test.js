@@ -70,8 +70,17 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   check(/已戴上/.test(res.body) || res.flip, '第一件法宝：已戴上（不讲解）或在归途翻牌里（刷宝线）');
   check(res.btns.length === 1 && res.btns[0] === '回洞府', `第一张结算卡只有【回洞府】（${res.btns.join('/')}）`);
   await page.click('#modal .foot .btn'); await page.waitForTimeout(900);
-  // ---------- 解锁卡：洞府 · 聚灵阵 ----------
-  for (let i = 0; i < 6 && !(await page.$('#unlGo')); i++) { await page.waitForTimeout(400); }
+  // ---------- 第四步：金框指【下一季】，一行字，只此一次（AP_PLAN §6.4） ----------
+  await page.waitForTimeout(500); t = await gtext(); await shot('g07b-next');
+  const g4 = await ev(() => window.__xm.guideCur);
+  check(!!g4 && g4.id === 'nextSeason' && g4.target === '#btnNext' && t.length <= 16, `第 4 步：${t}（${g4 && g4.target}）`);
+  await page.click('#btnNext'); await page.waitForTimeout(500);
+  check(await ev(() => window.__xm.st.tick === 3 && window.__xm.st.guide.done && window.__xm.st.ap.left === 3), '点【下一季】：过一季（第 3 月）、行动点回满、引导做完');
+  await shot('g07c-season');
+  check(/春\s*结束/.test(await modal()), `季末卡：${await modal()}`);
+  // ---------- 解锁卡：洞府 · 聚灵阵（排队类的解锁卡在季初出：第一季季末卡之后，同一条链，AP_PLAN §4.4 / §4.6） ----------
+  await page.click('#modal .foot .btn'); await page.waitForTimeout(700);
+  for (let i = 0; i < 10 && !(await page.$('#unlGo')); i++) { if (await modal()) { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const fb = await page.$$('#modal .foot .btn:not([disabled])'); if (fb.length) await fb[fb.length - 1].click(); } } await page.waitForTimeout(450); }   // 季初的闲戏排在解锁卡前面
   await shot('g06-unlock');
   const ul = await ev(() => { const u = document.querySelector('.unl'); return u ? u.textContent : ''; });
   check(/解锁了/.test(ul) && /聚灵阵/.test(ul), `解锁卡：${ul.replace(/\s+/g, ' ').slice(0, 40)}`);
@@ -84,14 +93,6 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#modal button[data-k="array"]'); await page.waitForTimeout(300);
   check(await ev(() => window.__xm.st.home.array === 1), '聚灵阵升到 1 级（金框不挡点击）');
   await closeAll();
-  // ---------- 第四步：金框指【下一季】，一行字，只此一次（AP_PLAN §6.4） ----------
-  await page.waitForTimeout(500); t = await gtext(); await shot('g07b-next');
-  const g4 = await ev(() => window.__xm.guideCur);
-  check(!!g4 && g4.id === 'nextSeason' && g4.target === '#btnNext' && t.length <= 16, `第 4 步：${t}（${g4 && g4.target}）`);
-  await page.click('#btnNext'); await page.waitForTimeout(500);
-  check(await ev(() => window.__xm.st.tick === 3 && window.__xm.st.guide.done && window.__xm.st.ap.left === 3), '点【下一季】：过一季（第 3 月）、行动点回满、引导做完');
-  await shot('g07c-season');
-  check(/春\s*结束/.test(await modal()), `季末卡：${await modal()}`);
   await closeAll();
   // ---------- 装备：1 次点击 ----------
   await page.click('[data-nav="gear"]'); await page.waitForTimeout(350); await shot('g08-gear');

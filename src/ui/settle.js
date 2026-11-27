@@ -266,6 +266,7 @@ function renderApRow() {
   b.classList.toggle('big', bigNow);
   b.disabled = busy || st.p.r > L.MAXR;
   const bt = $('#btnBt'); bt.hidden = !ready; if (ready) bt.textContent = st.p.r >= 1 ? '渡劫' : '突破';
+  row.classList.toggle('rdy', ready);
 }
 // 突破 / 渡劫的入口：演出、对决、过场、链没出完时不开（AP_PLAN 验收：首领战里点修为条渡劫会卡死画面）
 const canBreak = () => !!st && !cine && !duelFx && !st.exp && !st.run && !(typeof btv !== 'undefined' && btv) && !(typeof tk !== 'undefined' && tk) && !(typeof cn !== 'undefined' && cn) && !chainOn;

@@ -124,7 +124,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(500);
   for (let i = 0; i < 6; i++) { const t = await ev(() => { const C = window.__xm_cine; if (C.on) C.skip(); const m = document.getElementById('modal'); if (!m.hidden) window.__xm.closeModal(); return C.queue.length; }); await page.waitForTimeout(450); if (!t) break; }
   // ---------- 三年之约：开打前 → 对决 → 打脸 → 章末卡 ----------
-  await ev(() => { const X = window.__xm, s = X.st; while (!document.getElementById('modal').hidden) X.closeModal(); s.p.r = 1; s.bonus.atk = 1e6; X.runPact(); });
+  await ev(() => { const X = window.__xm, s = X.st; while (!document.getElementById('modal').hidden) X.closeModal(); s.p.r = 1; s.bonus.atk = 1e6; s.evDone.s1_night = 1; s.storyQ.length = 0; X.runPact(); });   // 开章那场（破庙第一夜）按看过了算：这里只看约战之后的那条链
   await page.waitForTimeout(400);
   const p0 = await on(); check(p0 && p0.key === 'pact0', `约战开打前：对视（${p0 && p0.key}）`);
   await page.click('.cn-skip'); await page.waitForTimeout(600);

@@ -19,6 +19,8 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#goStart');
   await page.waitForTimeout(2400);
   await page.screenshot({ path: out + '/03-start.png' });
+  // 结算链里排着的东西（造局面后补放的戏、章末卡、解锁卡）一张张点完：剧情点第一个选项（只关不选，下一条链会补放）
+  const drain = async () => { for (let i = 0; i < 24; i++) { const busy = await page.evaluate(() => !!(window.__xm && (window.__xm.busyUI || (window.__xm_talk && window.__xm_talk.on)))); if (!busy) { await page.waitForTimeout(200); if (!(await page.evaluate(() => !!window.__xm.busyUI))) return; } await page.evaluate(() => { if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (window.__xm.duelFx && !window.__xm.duelFx.ended) { window.__xm.duelSkip(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const u = document.getElementById('unlOk'); if (u) { u.click(); return; } const b = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(x => !/出发|扫荡|再去/.test(x.textContent)); if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(400); } };
   const close = async () => { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450); await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); };
   // 中期局面：元婴圆满，打通前五张图
   await page.evaluate(() => {
@@ -49,7 +51,7 @@ require('fs').mkdirSync(out, { recursive: true });
     for (const h of ['crops', 'yinGrid', 'toxin', 'plots', 'zhen']) st.hintSeen[h] = 1;
     L.checkQuests(st); st.achQ = []; st.storyQ = [];
   });
-  await close(); await page.waitForTimeout(1200);
+  await close(); await page.waitForTimeout(1200); await drain();
   await page.screenshot({ path: out + '/04-home-mid.png' });
   for (const [nav, name] of [['exp', '05-exp'], ['home', '06-home'], ['gear', '07-gear'], ['world', '08-world'], ['path', '09-path']]) {
     await page.click(`[data-nav="${nav}"]`); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${name}.png` }); await page.click('.sheet .close'); await page.waitForTimeout(450);

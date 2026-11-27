@@ -213,7 +213,17 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     await ev(() => { const s = window.__xm.st; s.evDone.story_r2 = 1; s.storyQ.length = 0; });
     await ev(() => { window.__xm_talk.fast = false; const L = window.__xm.L; window.__dw0 = L.duelWin; L.duelWin = () => true; window.__xm.doAct('duel', { id: 'zhao' }); L.duelWin = window.__dw0; });
     await page.waitForTimeout(600);
-    for (let i = 0; i < 8 && await ev(() => !!window.__xm.duelFx); i++) { await ev(() => window.__xm.duelSkip()); await page.waitForTimeout(300); }
+    // 【下战书】→ 这一章的 pre（一赔九，没播过才播）→ 对决 → 结果卡（AP_PLAN §4.3）：先把 pre 点完，再跳过对决
+    const pre2 = [];
+    for (let i = 0; i < 80; i++) {
+      const w = await ev(() => ({ tk: window.__xm_talk.on ? window.__xm_talk.on.id : '', pk: !!(window.__xm_talk.on && window.__xm_talk.on.picking), d: !!window.__xm.duelFx, ended: !!(window.__xm.duelFx && window.__xm.duelFx.ended), m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '' }));
+      if (w.tk) { if (!pre2.includes(w.tk)) pre2.push(w.tk); await ev(() => { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.tap(); }); await page.waitForTimeout(60); continue; }
+      if (w.d && !w.ended) { await ev(() => window.__xm.duelSkip()); await page.waitForTimeout(300); continue; }
+      if (/下战书/.test(w.m)) break;
+      if (w.m) { await ev(() => { const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); }); await page.waitForTimeout(300); continue; }
+      await page.waitForTimeout(150);
+    }
+    check(pre2.includes('s3_zhao_eve'), `【下战书 · 赵乾】先放这一章的 pre（${pre2.join(' → ') || '没放'}），再打`);
     await page.waitForTimeout(300);
     const card = await ev(() => (document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '');
     await page.click('#modal .foot .btn'); const t0 = Date.now();
