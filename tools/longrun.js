@@ -32,10 +32,12 @@ const path = require('path');
   await page.click('#goStart');
   await page.waitForTimeout(300);
   const T0 = Date.now();
-  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => { const X = window.__xm, st = X && X.st; return Object.assign({}, window.__lr || {}, st ? { busy: X.busyUI, chain: X.chainOn, exp: !!st.exp, run: !!st.run, ap: X.L.apLeft(st), q: X.queueLen, talk: !!(window.__xm_talk && window.__xm_talk.on), bt: !!(window.__xm_bt && window.__xm_bt.on), nb: (X.L.nextBlock(st) || {}).kind } : {}); }))); } catch (e) { /* 页面忙时跳过 */ } }, +(process.env.LR_EVERY || 120000));
+  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', 'err=' + errors.length + (errors.length ? ' ' + errors[errors.length - 1].slice(0, 300).replace(/\n/g, ' | ') : ''), JSON.stringify(await page.evaluate(() => { const X = window.__xm, st = X && X.st; return Object.assign({}, window.__lr || {}, st ? { busy: X.busyUI, chain: X.chainOn, exp: !!st.exp, run: !!st.run, ap: X.L.apLeft(st), q: X.queueLen, talk: !!(window.__xm_talk && window.__xm_talk.on), bt: !!(window.__xm_bt && window.__xm_bt.on), duel: X.duelFx ? (X.duelFx.ended ? 'ended' : 'on') : '', mh: document.getElementById('modal').hidden, intro: !document.getElementById('intro').hidden, cn: !!(window.__xm_cine && window.__xm_cine.on), nb: (X.L.nextBlock(st) || {}).kind } : {}); }))); } catch (e) { /* 页面忙时跳过 */ } }, +(process.env.LR_EVERY || 120000));
   const beat = setInterval(() => { page.evaluate(() => { const s = window.__xm.st; return `月 ${s.tick} 境界 ${s.p.r}`; }).then(s => console.error('[进度]', s), () => {}); }, 120000);   // 机器忙时心跳，看得出没卡死
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
+    // 首领战在场景里真打一场回合战，中途有“停一下等玩家点”的那一拍（battle.js 的 hold）；机器人不点画面，所以首领战一开打就直接打完（结果卡照常从结算链出）
+    setInterval(() => { try { if (window.__xm_bt && window.__xm_bt.on && window.__xm.st && !window.__xm.st.exp) window.__xm_bt.finish(); } catch (e) { /* 页面在切换 */ } }, 400);
     if (X.setSpeed) X.setSpeed(3);   // 旧界面：暂停，时间由下面的循环推进
     const NEW_UI = typeof X.nextSeason === 'function';   // 新界面（界面线 C）：时间只在【下一季】里推进
     window.__lrNew = NEW_UI;

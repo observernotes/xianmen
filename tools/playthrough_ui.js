@@ -32,6 +32,8 @@ async function play(route, seed) {
   try {
     res = await page.evaluate(async cfg => {
       const X = window.__xm, L = X.L, R = cfg.route;
+      // 首领战在场景里真打一场回合战，中途有“停一下等玩家点”的那一拍（battle.js 的 hold）；机器人不点画面，所以首领战一开打就直接打完（结果卡照常从结算链出）
+      setInterval(() => { try { if (window.__xm_bt && window.__xm_bt.on && window.__xm.st && !window.__xm.st.exp) window.__xm_bt.finish(); } catch (e) { /* 页面在切换 */ } }, 400);
       let s = cfg.seed * 9301 + 49297; const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
       const sleep = ms => new Promise(r => setTimeout(r, ms));
       const modal = () => !document.getElementById('modal').hidden;
