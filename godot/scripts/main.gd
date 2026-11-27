@@ -1,6 +1,8 @@
 extends Control
 
 const SAVE_PATH := "user://xiantu.json"
+const AUTO_SLOTS := [SAVE_PATH, "user://xiantu-a2.json", "user://xiantu-a3.json"]
+const MANUAL_SLOTS := ["user://xiantu-m1.json", "user://xiantu-m2.json", "user://xiantu-m3.json"]
 const RULES_PATH := "res://data/rules.js"
 const FONT := preload("res://art/fusion-pixel.ttf")
 const COLORS := {
@@ -17,9 +19,11 @@ const HOME_ART := [
 	preload("res://art/home-3.png"),
 ]
 const PANELS := {"equipment": "法宝", "arts": "功法", "market": "坊市", "sect": "宗门"}
+const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": "灵田", "alchemy": "炼丹", "pets": "灵宠"}
 
 var runtime: Object
 var view: Dictionary = {}
+var current_save: Dictionary = {}
 var page: VBoxContainer
 var error_text := ""
 var show_maps := false
@@ -63,24 +67,61 @@ func request(message: Dictionary) -> void:
 		error_text = ""
 		view = result.get("view", {})
 		if result.get("save") != null and message["op"] != "export":
-			store_save(result["save"])
+			var replacing: bool = message["op"] in ["load", "import", "new"] and not current_save.is_empty()
+			update_auto_save(result["save"], replacing)
 		if message["op"] == "export":
 			share_code = result.get("result", "")
+		elif message["op"] in ["import", "load"]:
+			show_saves = false
+			share_code = ""
 	schedule_draw()
 
 
-func store_save(save: Dictionary) -> void:
-	var temporary := SAVE_PATH + ".tmp"
+func read_save(path: String) -> Dictionary:
+	if FileAccess.file_exists(path):
+		var decoded = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if decoded is Dictionary and decoded.get("state") is Dictionary and decoded["state"].get("p") is Dictionary:
+			if not decoded.get("summary") is Dictionary:
+				decoded.erase("summary")
+			return decoded
+	return {}
+
+
+func store_save(save: Dictionary, path: String) -> bool:
+	var temporary := path + ".tmp"
 	var out := FileAccess.open(temporary, FileAccess.WRITE)
 	if out == null:
-		error_text = "本地存档写入失败。"
-		return
+		return false
 	out.store_string(JSON.stringify(save, "", false, true))
 	out.flush()
+	var write_error := out.get_error()
 	out.close()
+	if write_error != OK:
+		return false
 	var absolute_source := ProjectSettings.globalize_path(temporary)
-	var absolute_target := ProjectSettings.globalize_path(SAVE_PATH)
-	if DirAccess.rename_absolute(absolute_source, absolute_target) != OK:
+	var absolute_target := ProjectSettings.globalize_path(path)
+	return DirAccess.rename_absolute(absolute_source, absolute_target) == OK
+
+
+func update_auto_save(save: Dictionary, replacing: bool) -> void:
+	var previous := read_save(SAVE_PATH)
+	var last_summary: Dictionary = previous.get("summary", {})
+	var next_summary: Dictionary = save.get("summary", {})
+	var overwriting_checkpoint: bool = last_summary.get("key", false) and (
+		not next_summary.get("key", false) or next_summary.get("tick") != last_summary.get("tick")
+	)
+	var backup_ok := true
+	if not previous.is_empty() and (replacing or overwriting_checkpoint):
+		var second := read_save(AUTO_SLOTS[1])
+		if not second.is_empty():
+			backup_ok = store_save(second, AUTO_SLOTS[2])
+		if backup_ok:
+			if replacing:
+				previous["summary"] = last_summary.duplicate()
+				previous["summary"]["why"] = "读档前"
+			backup_ok = store_save(previous, AUTO_SLOTS[1])
+	current_save = save
+	if not backup_ok or not store_save(save, SAVE_PATH):
 		error_text = "本地存档更新失败。"
 
 
@@ -98,6 +139,8 @@ func draw_view() -> void:
 		next_page_key = String(notice.get("key", notice["kind"]))
 	elif view.get("panel") is Dictionary:
 		next_page_key = "panel:" + String(view["panel"]["id"])
+	elif show_saves:
+		next_page_key = "saves"
 	var scroll_position := 0
 	if is_instance_valid(scroll) and not next_page_key.is_empty() and next_page_key == page_key:
 		scroll_position = scroll.scroll_vertical
@@ -112,6 +155,7 @@ func draw_view() -> void:
 	add_child(margins)
 	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.scroll_deadzone = 8
 	margins.add_child(scroll)
 	page = VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -161,7 +205,7 @@ func draw_title() -> void:
 	if show_saves:
 		draw_saves()
 	else:
-		add_button("导入存档", toggle_saves)
+		add_button("存档", toggle_saves)
 
 
 func draw_cave() -> void:
@@ -198,6 +242,7 @@ func draw_cave() -> void:
 	page.add_child(systems)
 	for id in PANELS:
 		add_button(PANELS[id], func(): request({"op": "panel", "panel": id}), false, false, systems)
+	add_button("经营洞府", func(): request({"op": "panel", "panel": "home"}))
 	if view["canReturnToGate"]:
 		add_button("再登天门", func(): request({"op": "life", "move": "gate"}))
 	if view["canRebirth"]:
@@ -272,33 +317,101 @@ func draw_journey() -> void:
 
 
 func draw_management(panel: Dictionary) -> void:
-	add_label(PANELS[panel["id"]], 24, COLORS.gold)
+	var active_id: String = panel["id"]
+	add_label(PANELS.get(active_id, HOME_PANELS.get(active_id, "")), 24, COLORS.gold)
 	add_button("返回洞府", func(): request({"op": "panel"}))
+	if HOME_PANELS.has(active_id):
+		var tabs := HBoxContainer.new()
+		page.add_child(tabs)
+		for id in HOME_PANELS:
+			var label := "建筑" if id == "home" else String(HOME_PANELS[id])
+			add_button(label, func(): request({"op": "panel", "panel": id}), id == active_id, id == active_id, tabs)
 	for entry in panel["entries"]:
 		add_label(entry["title"], 19, COLORS.jade)
 		if entry["text"]:
 			add_label(entry["text"], 15)
 		for option in entry["buttons"]:
 			var message := {"op": "panel-action", "action": option["name"], "args": option["args"]}
-			add_button(option["label"], func(): request(message), not option["why"], not String(option["why"]).is_empty())
+			var warning := String(option.get("confirm", ""))
+			add_button(option["label"], func():
+				if warning.is_empty():
+					request(message)
+				else:
+					confirm_action(entry["title"], warning, option["label"], message)
+			, not option["why"], not String(option["why"]).is_empty())
 			if option["why"]:
 				add_label(option["why"], 14, COLORS.muted)
 
 
 func draw_saves() -> void:
 	add_label("存档", 22, COLORS.gold)
+	add_button("返回", toggle_saves)
+	for index in AUTO_SLOTS.size():
+		draw_save_slot(AUTO_SLOTS[index], "自动 %d" % (index + 1), false)
+	for index in MANUAL_SLOTS.size():
+		draw_save_slot(MANUAL_SLOTS[index], "手动 %d" % (index + 1), true)
 	if view.get("started", false):
 		add_button("生成导出码", func(): request({"op": "export"}))
+		if share_code.begins_with("XT1."):
+			add_button("复制存档码", func(): DisplayServer.clipboard_set(share_code))
 	var field := TextEdit.new()
 	field.placeholder_text = "粘贴由游戏导出的存档"
 	field.text = share_code
 	field.custom_minimum_size.y = 112
 	page.add_child(field)
 	add_button("导入", func():
-		show_saves = false
-		request({"op": "import", "code": field.text})
+		share_code = field.text
+		var message := {"op": "import", "code": share_code}
+		if current_save.is_empty():
+			request(message)
+		else:
+			confirm_action("导入存档", "当前进度会备份到自动 2。", "导入", message)
 	, true)
-	add_button("返回", toggle_saves)
+
+
+func draw_save_slot(path: String, title: String, manual: bool) -> void:
+	var saved := read_save(path)
+	var exists := FileAccess.file_exists(path)
+	var summary: Dictionary = saved.get("summary", {})
+	var player: Dictionary = saved.get("state", {}).get("p", {})
+	add_label(title, 18, COLORS.jade)
+	if saved.is_empty():
+		add_label("存档无法读取" if exists else "空", 15, COLORS.muted)
+	else:
+		var name := String(summary.get("name", player.get("name", "")))
+		var detail := [name, String(summary.get("realm", ""))]
+		if summary.has("y"):
+			detail.append("第 %d 年" % int(summary["y"]))
+		if summary.get("why", ""):
+			detail.append(String(summary["why"]))
+		add_label(" · ".join(detail.filter(func(part): return not String(part).is_empty())), 15)
+	var buttons := HBoxContainer.new()
+	page.add_child(buttons)
+	if manual and not current_save.is_empty():
+		add_button("保存", func():
+			if exists:
+				confirm_action(title, "覆盖这份手动存档？", "覆盖", {"op": "write-slot", "path": path})
+			else:
+				write_manual_slot(path)
+		, true, false, buttons)
+	if not saved.is_empty() and (manual or path != SAVE_PATH or current_save.is_empty()):
+		add_button("读取", func():
+			var message := {"op": "load", "save": JSON.stringify(saved, "", false, true)}
+			if current_save.is_empty():
+				request(message)
+			else:
+				confirm_action(title, "当前进度会备份到自动 2。", "读取", message)
+		, false, false, buttons)
+	if manual and exists:
+		add_button("删除", func():
+			confirm_action(title, "删除这份手动存档？", "删除", {"op": "delete-slot", "path": path})
+		, false, false, buttons)
+
+
+func write_manual_slot(path: String) -> void:
+	if MANUAL_SLOTS.has(path) and not current_save.is_empty():
+		error_text = "" if store_save(current_save, path) else "手动存档写入失败。"
+		schedule_draw()
 
 
 func draw_notice(notice: Dictionary) -> void:
@@ -383,13 +496,28 @@ func draw_breakthrough(form: Dictionary) -> void:
 
 
 func confirm_rebirth() -> void:
+	confirm_action("轮回", "结算这一世的道果，准备转世？", "进入轮回殿", {"op": "life", "move": "settle"})
+
+
+func confirm_action(title: String, prompt: String, label: String, message: Dictionary) -> void:
 	var dialog := ConfirmationDialog.new()
-	dialog.title = "轮回"
-	dialog.dialog_text = "结算这一世的道果，准备转世？"
-	dialog.ok_button_text = "进入轮回殿"
-	dialog.cancel_button_text = "继续修行"
+	dialog.title = title
+	dialog.dialog_text = prompt
+	dialog.ok_button_text = label
+	dialog.cancel_button_text = "取消"
 	add_child(dialog)
-	dialog.confirmed.connect(func(): request({"op": "life", "move": "settle"}))
+	dialog.confirmed.connect(func():
+		dialog.queue_free()
+		if message["op"] == "write-slot":
+			write_manual_slot(message["path"])
+		elif message["op"] == "delete-slot":
+			if MANUAL_SLOTS.has(message["path"]):
+				var removed := DirAccess.remove_absolute(ProjectSettings.globalize_path(message["path"]))
+				error_text = "" if removed == OK else "手动存档删除失败。"
+				schedule_draw()
+		else:
+			request(message)
+	)
 	dialog.canceled.connect(dialog.queue_free)
 	dialog.popup_centered()
 
@@ -527,6 +655,7 @@ func add_label(text: String, font_size: int, tint: Color = COLORS.text) -> void:
 
 func add_button(text: String, callback: Callable, primary := false, disabled := false, parent: Container = null) -> void:
 	var button := Button.new()
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
 	button.text = text
 	button.custom_minimum_size.y = 48
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

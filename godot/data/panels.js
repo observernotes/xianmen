@@ -88,7 +88,109 @@ globalThis.XianmenPanels = (() => {
     return rows;
   }
 
-  const views = { equipment, arts, market, sect };
+  function home(st) {
+    const rows = [row('洞府地块', '空闲 ' + L.homePlotFree(st) + ' / ' + L.homePlotMax(st))];
+    for (const building of L.HOME) {
+      const { k, n, d } = building;
+      const info = L.upInfo(st, k);
+      const buttons = [];
+      if (!info.max) {
+        const why = info.lock || (st.stones < info.cost ? '还差 ' + fmt(info.cost - st.stones) + ' 灵石' : '');
+        const action = k === 'cave' ? '扩建' : info.built ? '升级' : '建造';
+        buttons.push(button(action + ' · ' + fmt(info.cost) + ' 灵石', 'home-upgrade', [k], why));
+      }
+      if (!L.demolishWhy(st, k)) buttons.push({
+        ...button('拆除 · 返还 ' + fmt(L.homeRefund(st, k)) + ' 灵石', 'home-demolish', [k]),
+        confirm: '拆除' + n + '？这块地可以用来建造其他设施。',
+      });
+      rows.push(row(n + (info.lv ? ' Lv' + info.lv : ''), [d(info.lv), info.note].filter(Boolean).join('\n'), buttons));
+    }
+    return rows;
+  }
+
+  function formations(st) {
+    if (!L.zhenOpen(st)) return [row('阵法', '筑基后期开放阵法。')];
+    const slots = L.zhenSlots(st);
+    const rows = L.zhenState(st).slice(0, slots).map((slot, index) => row(
+      index === 0 ? '主阵位' : '第二阵位',
+      (L.zhenName(slot.id) || '空') + (slot.nx ? ' → ' + L.zhenName(slot.nx) + '（' + L.seasonsText(slot.at - st.tick) + '后生效）' : ''),
+      index > 0 && (slot.id || slot.nx) ? [button('撤下', 'formation-set', [index, ''])] : [],
+    ));
+    for (const formation of L.ZHEN) {
+      const options = Array.from({ length: slots }, (_, index) => button(
+        index === 0 ? '布于主阵位' : '布于第二阵位', 'formation-set', [index, formation.id], L.zhenSetWhy(st, index, formation.id),
+      ));
+      rows.push(row(L.zhenName(formation.id), L.zhenEffect(st, formation.id, 1), options));
+    }
+    return rows;
+  }
+
+  function fields(st) {
+    if (!L.plotCount(st)) return [row('灵田', '先在洞府开垦灵田。')];
+    return L.plots(st).map((plot, index) => row(
+      '第 ' + (index + 1) + ' 块 · ' + L.CROP[plot.c].n,
+      '成熟后自动收获 · 预计 ' + L.seasonsText(L.plotLeft(plot)),
+      L.CROPS.filter(crop => L.cropsOpen(st) && crop.id !== plot.c && L.cropOpen(st, crop.id)).map(crop =>
+        button('改种' + crop.n, 'field-plant', [index, crop.id], L.plantWhy(st, index, crop.id))),
+    ));
+  }
+
+  function alchemy(st) {
+    const rows = [row('药材', '灵草 ' + fmt(st.herbs) + ' · 天材地宝 ' + fmt(st.treasure) + ' · 丹毒 ' + fmt(st.toxin || 0))];
+    for (const recipe of L.recipeList(st)) {
+      const { k, n } = recipe;
+      const cost = L.cellCost(st, recipe);
+      const auto = L.autoOn(st, k);
+      const stock = recipe.bag ? L.bagN(st, k) : 0;
+      const text = ['灵草 ×' + fmt(cost.herbs), cost.treasure ? '天材地宝 ×' + fmt(cost.treasure) : '', L.yinText(cost.yin), stock ? '丹囊 ' + stock + ' 枚' : ''].filter(Boolean).join(' · ');
+      const buttons = [button('炼制', 'alchemy-craft', [k], L.canCraft(st, k))];
+      if (st.home.furnace > 0) buttons.push(button(auto ? '停止续炼' : '自动续炼', 'alchemy-auto', [k, !auto],
+        !auto && L.danOf(st).auto.length >= L.AUTO.max ? '已续炼 ' + L.AUTO.max + ' 种' : ''));
+      if (recipe.bag && stock > 0) buttons.push(button('服用', 'alchemy-take', [k], L.takeWhy(st, k)));
+      rows.push(row(n, text, buttons));
+    }
+    if (L.yinOpen(st) && st.home.furnace > 0) for (const [first, second, id] of L.YIN_GRID) {
+      const recipe = L.RECIPE[id];
+      if (recipe.secret || L.recipeKnown(st, id)) continue;
+      const cost = L.cellCost(st, recipe);
+      rows.push(row('试炼 · ' + L.yinText(cost.yin), '灵草 ×' + fmt(cost.herbs), [
+        button('试炼', 'alchemy-trial', [first, second], L.trialWhy(st, first, second)),
+      ]));
+    }
+    return rows;
+  }
+
+  function pets(st) {
+    const rows = [row('灵宠名册', L.petCount(st) + ' / ' + L.petCap(st) + ' · 兽粮 ' + fmt(st.feed || 0))];
+    (st.pets || []).forEach((pet, index) => {
+      const out = st.petOut === index;
+      const role = out ? '出战' : L.PET_JOB[pet.job]?.n || '休息';
+      const status = L.petResting(st, pet) ? ' · 护劫后休养' : '';
+      const options = [button('喂养', 'pet-feed', [index], L.petFeedWhy(st, index))];
+      if (!out) options.push(button('设为出战', 'pet-out', [index]));
+      if (L.petJobsOpen(st)) for (const job of L.PET_JOBS) {
+        if (job.k !== pet.job) options.push(button(job.n, 'pet-job', [index, job.k], L.petJobWhy(st, index, job.k)));
+      }
+      if (pet.job) options.push(button('休息', 'pet-job', [index, '']));
+      if (L.petCanEvo(pet)) for (const branch of [1, 2]) {
+        options.push(button('进化为' + L.petFormName(pet.sp, branch), 'pet-evolve', [index, branch], L.petEvolveWhy(st, index, branch)));
+      }
+      if (L.petCanAwake(pet)) options.push(button('觉醒', 'pet-awake', [index]));
+      options.push({ ...button('放生', 'pet-release', [index]), confirm: '放生' + L.petName(pet) + '？' });
+      rows.push(row(L.petName(pet) + ' Lv' + pet.lv, role + status + ' · ' + pet.heart + ' 心\n' + L.petTalText(pet), options));
+    });
+    (st.petPend || []).forEach((pet, index) => {
+      const options = st.pets.map((old, i) => ({
+        ...button('替换' + L.petName(old), 'pet-pending', [index, i]),
+        confirm: '收下' + L.petName(pet) + '并放生' + L.petName(old) + '？',
+      }));
+      options.push({ ...button('放生', 'pet-pending', [index, -1]), confirm: '放生' + L.petName(pet) + '？' });
+      rows.push(row('新到 · ' + L.petName(pet), '名册已满，可以替换已有灵宠。', options));
+    });
+    return rows;
+  }
+
+  const views = { equipment, arts, market, sect, home, formations, fields, alchemy, pets };
   const mutations = {
     'gear-plus': (st, slot) => L.gearPlus(st, slot),
     'gear-decision': (st, uid, decision) => L.gearDecide(st, uid, decision),
@@ -100,6 +202,21 @@ globalThis.XianmenPanels = (() => {
     'sect-errand': (st, index) => L.act(st, 'errand', { task: index }),
     'task-take': (st, index) => L.taskTake(st, index),
     'task-deliver': (st, index) => L.taskDeliver(st, index),
+    'home-upgrade': (st, k) => L.upgrade(st, k),
+    'home-demolish': (st, k) => L.demolish(st, k),
+    'formation-set': (st, slot, id) => L.zhenSet(st, slot, id),
+    'field-plant': (st, i, id) => L.plant(st, i, id),
+    'alchemy-craft': (st, k) => L.craft(st, k),
+    'alchemy-auto': (st, k, on) => L.setAuto(st, k, on),
+    'alchemy-trial': (st, a, b) => L.trial(st, a, b),
+    'alchemy-take': (st, k) => L.takePill(st, k),
+    'pet-feed': (st, i) => L.petFeed(st, i),
+    'pet-out': (st, i) => L.petSetOut(st, i),
+    'pet-job': (st, i, k) => L.petSetJob(st, i, k),
+    'pet-evolve': (st, i, b) => L.petEvolve(st, i, b),
+    'pet-awake': (st, i) => L.petAwake(st, i),
+    'pet-release': (st, i) => L.petRelease(st, i),
+    'pet-pending': (st, j, i) => L.petPendDecide(st, j, i),
   };
   return {
     read(st, name) {
@@ -110,7 +227,9 @@ globalThis.XianmenPanels = (() => {
       if (!Object.hasOwn(mutations, name)) throw new Error('找不到这项操作');
       const signature = JSON.stringify(args);
       const enabled = this.read(st, panel).some(entry => entry.buttons.some(item => item.name === name && !item.why && JSON.stringify(item.args) === signature));
-      if (!enabled || !mutations[name](st, ...args)) throw new Error('此刻无法完成这项操作');
+      const result = enabled && mutations[name](st, ...args);
+      if (!result) throw new Error('此刻无法完成这项操作');
+      return result;
     },
   };
 })();

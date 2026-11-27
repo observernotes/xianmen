@@ -51,6 +51,11 @@ func _initialize() -> void:
 	var restored := send({"op": "import", "code": code})
 	assert(restored["view"]["name"] == "原生测试")
 	assert(restored["view"]["date"] == "第 1 年 · 夏")
+	var broken_save: Dictionary = restored["save"].duplicate(true)
+	broken_save["state"]["p"]["r"] = -1
+	var rejected = JSON.parse_string(runtime.request(JSON.stringify({"op": "load", "save": broken_save})))
+	assert(rejected["ok"] == false)
+	assert(send({"op": "view"})["view"] == restored["view"])
 	for panel in ["equipment", "arts", "market", "sect"]:
 		var opened := send({"op": "panel", "panel": panel})
 		assert(opened["view"]["panel"]["id"] == panel)
@@ -122,6 +127,35 @@ func _initialize() -> void:
 	assert(second_ending["view"]["notice"]["mode"] == "ascend")
 	assert(second_ending["save"]["state"]["eflags"]["asc_go"])
 	assert(not second_ending["save"]["state"]["eflags"].has("asc_stay"))
+
+	var home_save: Dictionary = realm_save.duplicate(true)
+	home_save["rebirth"] = 1
+	home_save["stones"] = 1000000
+	home_save["herbs"] = 100000
+	home_save["feed"] = 30
+	home_save["pets"] = [{"sp": "p_tu", "lv": 1, "heart": 2, "u": 1}]
+	home_save["petOut"] = 0
+	home_save["onb"]["at"].merge({"field": 0, "furnace": 0, "zhen": 0, "crops": 0}, true)
+	home_save["gear"]["zhentu"]["f_dujie"] = 1
+	settle_cards(send({"op": "load", "save": home_save}))
+	send({"op": "panel", "panel": "home"})
+	var farm := send({"op": "panel-action", "action": "home-upgrade", "args": ["field"]})
+	assert(farm["save"]["state"]["home"]["field"] == 1)
+	send({"op": "panel-action", "action": "home-upgrade", "args": ["furnace"]})
+	var fields := send({"op": "panel", "panel": "fields"})
+	var crop: Dictionary = fields["view"]["panel"]["entries"][0]["buttons"][0]
+	var planted := send({"op": "panel-action", "action": crop["name"], "args": crop["args"]})
+	assert(planted["save"]["state"]["crops"]["plots"][0]["c"] == crop["args"][1])
+	send({"op": "panel", "panel": "formations"})
+	var pending_formation := send({"op": "panel-action", "action": "formation-set", "args": [0, "f_dujie"]})
+	assert(pending_formation["save"]["state"]["home"]["zhen"][0]["nx"] == "f_dujie")
+	send({"op": "panel", "panel": "pets"})
+	var fed := send({"op": "panel-action", "action": "pet-feed", "args": [0]})
+	assert(fed["save"]["state"]["feed"] < 30)
+	send({"op": "panel", "panel": "alchemy"})
+	var crafted := send({"op": "panel-action", "action": "alchemy-craft", "args": ["peiyuan"]})
+	assert(crafted["save"]["state"]["stats"]["crafts"] == 1)
+	assert(crafted["view"]["notice"]["title"].begins_with("炼丹"))
 	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth and save roundtrips passed")
 	quit()
 

@@ -327,23 +327,30 @@
 
   function snapshot() {
     if (!state) return null;
+    const pending = (state._apBlk || []).filter(block => ['result', 'season', 'year'].includes(block.kind));
+    const checkpoint = note?.title === '突破成功' ? '突破' :
+      pending[0]?.kind === 'year' ? '年报' : pending[0]?.id === 'exp' ? '历练归来' : '';
     return {
       native: 1, state, note,
-      pending: (state._apBlk || []).filter(block => ['result', 'season', 'year'].includes(block.kind)),
+      pending,
       chain: { ...L.chainOpenNow(state) },
       battle: battle ? battleInputs : null,
       boss,
       breakthrough,
       rebirth,
       returnToGate,
+      summary: L.slotHead(state, checkpoint),
     };
   }
 
   function load(raw) {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    let parsed;
+    try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+    catch (_) { throw new Error('读不出这份存档'); }
     const native = parsed?.native === 1;
     const candidate = L.migrate(native ? parsed.state : parsed);
-    if (!candidate) throw new Error('读不出这份存档');
+    if (!candidate || !Number.isInteger(candidate.p.r) || candidate.p.r < 0 || candidate.p.r > L.MAXR + 1 ||
+        !Number.isInteger(candidate.p.s) || !L.STAGES[candidate.p.s]) throw new Error('读不出这份存档');
     state = candidate;
     state.guide = { step: 99, done: true };
     encounter = state.exp?.encEv && !state.exp.encDone ? state.exp.encEv : null;
@@ -386,6 +393,7 @@
     }
     if (ev.id === 's9_gate' || ev.id === 's9_gate_again') {
       returnToGate = false;
+      if (ev.id === 's9_gate' && !block) L.storyState(state).beat.c9_climax = state.tick;
       L.checkQuests(state);
       if (ev.id === 's9_gate' || !state.eflags.asc_stay) state.flags.endRead = 0;
     }
@@ -571,7 +579,15 @@
     }
     if (op === 'panel-action') {
       if (!panel) throw new Error('没有打开的面板');
-      XianmenPanels.perform(state, panel, message.action, message.args);
+      const result = XianmenPanels.perform(state, panel, message.action, message.args);
+      if (message.action === 'alchemy-craft' || message.action === 'alchemy-trial') {
+        note = {
+          kind: 'card', title: result.ok ? '炼丹成功' : '炼丹失败',
+          text: result.ok ? [L.QUAL[result.q].n + result.n, result.fx].filter(Boolean).join(' · ') : '炸炉了，药材化为飞灰。',
+        };
+      } else if (message.action === 'alchemy-take') {
+        note = { kind: 'card', title: '服用' + result.n, text: result.fx };
+      }
       return;
     }
     if (op === 'season') {
@@ -605,12 +621,17 @@
   }
 
   globalThis.xianmenRequest = request => {
+    let previous;
     try {
       const message = JSON.parse(request);
+      if (message.op === 'load' || message.op === 'import') {
+        previous = { state, encounter, note, panel, battle, boss, battleInputs, battleLog, breakthrough, rebirth, returnToGate };
+      }
       const result = dispatch(message);
       return JSON.stringify({ ok: true, result, view: view(), save: snapshot() });
     } catch (error) {
-      return JSON.stringify({ ok: false, error: error.message });
+      if (previous) ({ state, encounter, note, panel, battle, boss, battleInputs, battleLog, breakthrough, rebirth, returnToGate } = previous);
+      return JSON.stringify({ ok: false, error: previous ? '读不出这份存档' : error.message });
     }
   };
 })();
