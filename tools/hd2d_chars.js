@@ -1,4 +1,4 @@
-// 角色精灵前后对比：node tools/hd2d_chars.js [输出目录=docs/hd2d_mock/chars] [only=sit,stand,...] [dsf=1|2] [z=8] [dump=组名:第几张]
+// 角色精灵前后对比：node tools/hd2d_chars.js [输出目录=docs/hd2d_mock/chars] [only=sit,stand,...] [dsf=1|2] [z=8] [dump=组名:第几张] [x="A.mob('teng',0);…"]
 //   dsf：截图的 deviceScaleFactor；z：原画放大倍数（2 倍密度稿放大 z/2）；dump：把某张 2 倍密度稿按字符网格打印出来（写补丁时对坐标用）
 // 每个精灵一张图：左 = 原画（1 倍密度，放大 8 倍），右 = 场景里实际用的 2 倍密度版（放大 4 倍；有手工重画的用重画稿，否则是自动升密度 + 重新打光）。
 const { chromium } = require('playwright');
@@ -15,7 +15,7 @@ fs.mkdirSync(out, { recursive: true });
   const page = await (await b.newContext({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: dsf })).newPage();
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   await page.goto('file://' + path.join(__dirname, '..', 'dist', 'index.html') + '?hd=2'); await page.waitForTimeout(600);
-  const list = await page.evaluate(() => {
+  const list = await page.evaluate(xs => {
     const A = window.ART, M = { hair: '#2a2230', skin: '#f2c9a0', f: 0, hero: 1 }, F = { hair: '#2a2230', skin: '#f6d2b0', f: 1 };
     const S = {
       sit_m: () => [A.sit(M, 0), A.sit(M, 3), A.sit(M, 8)], sit_f: () => [A.sit(F, 0), A.sit(F, 3), A.sit(F, 8)],
@@ -44,8 +44,9 @@ fs.mkdirSync(out, { recursive: true });
       pets: () => [A.petSprite('p_he', 0, 0), A.petSprite('p_hu2', 0, 0), A.petSprite('p_gui', 0, 0), A.petSprite('p_tu', 0, 0)],
       foes: () => [A.wolf(['#8a7a66', '#5f5244']), A.foeMan(['#4a4a52', '#2c2c34'], 'hill'), A.foeMan(['#cfc8b0', '#8f876c'], 'tomb')].concat(A.mobIds.slice(0, 4).map(id => A.mob(id, 0))),
     };
+    if (xs) S.x = () => xs.split(';').map(e => (0, eval)('(A => ' + e + ')')(A));   // x=表达式;表达式… 临时看几张（A = window.ART）
     window.__S = S; return Object.keys(S);
-  });
+  }, opt('x'));
   for (const name of list.filter(n => !only.length || only.includes(n))) {
     const ok = await page.evaluate(([n, Z]) => {
       let cs; try { cs = window.__S[n]().filter(Boolean); } catch (e) { return 'ERR ' + e.message; }

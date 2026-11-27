@@ -3494,7 +3494,8 @@ const T3 = c => tone(c, hs(c, 0.66), lerpC(c, '#ffffff', 0.5)), EARIN = '#f7a3bd
 // 四足：兔、狐、熊、虎、白泽、谛听、麒麟
 function petQuad(b, P, f) {
   const c = T3(P.c), leg = P.leg || 2, bry = P.bry || 4.5, brx = P.brx || 7, bx = P.bx || 18, by = 27 - leg - bry, hr = P.hr || 5.5, hx = P.hx || 8, hy = Math.round(by - bry * 0.55) + f, tc = T3(P.tc || P.c), tx = bx + brx - 1, tips = [], el = P.el || 6;
-  if (P.pre) P.pre(b, f);
+  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
+  b.hd = b2 => quadHd(b2, P, f, X);
   b.add(L => {
     const n = P.tails || 1;
     if (P.tail === 'puff') L.e(tx + 1.5, by - 1, 2.3, 2.3, tc);
@@ -3526,13 +3527,123 @@ function petQuad(b, P, f) {
   if (P.horn) b.add(L => { L.l(hx - 2, et + 1, hx - 3, et - 4, T3(P.horn), 2); if (P.horn2) { L.l(hx + 2, et + 1, hx + 4, et - 4, P.horn, 2); L.p(hx - 5, et - 2, P.horn); L.p(hx + 6, et - 2, P.horn); L.p(hx + 1, et - 3, P.horn); } });
   if (P.mark) b.r(hx - 2, et + 1, 2, 1, P.mark);
   if (P.aura) for (const x of [bx - brx, bx + brx - 3]) { b.r(x, 25, 4, 2, P.aura); b.r(x + 1 + f, 23, 2, 2, P.aura); b.p(x + 1, 25, '#fff2a8'); }
-  if (P.post) P.post(b, f, hx, hy, bx, by);
+  if (P.post) X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by));
   return [hx, et - (P.ear === 'long' ? el - 1 : P.horn ? 5 : 3)];
 }
 // 禽：雀、隼、鹤、金乌
+// ---- 灵宠的 2 倍密度重画（HD-2D）----
+// 冷暗部 / 亮部：白羽白毛的暗部往蓝紫里走，不用灰
+const cs = (c, k) => (lum(c) > 190 ? lerpC(c, '#8aa2da', k === 2 ? 0.58 : 0.3) : lerpC(hs(c, k === 2 ? 0.58 : 0.78), '#3a3470', k === 2 ? 0.16 : 0.06));
+const ch = (c, k) => lerpC(c, '#ffffff', k || 0.55);
+// 只取 fn 画上去的那些像素（各形态自带的 pre / post 小件），返回一张单独的 1 倍缓冲
+function petExtra(b, fn) { const s = b.d.slice(); fn(); const e = new Buf(b.w, b.h); for (let i = 0; i < s.length; i++) if (b.d[i] !== s[i] && b.d[i]) e.d[i] = b.d[i]; return e; }
+function stamp2(b2, e) { if (!e) return; const x = e.x2(); for (let i = 0; i < x.d.length; i++) if (x.d[i]) b2.d[i] = x.d[i]; }
+// 鹤（带长颈的禽）：整张按 64×56 重画——红顶、长喙、S 形的颈、三层覆羽、垂下来的尾羽、带膝节的细腿
+function craneHd(b2, P, f, X) {
+  const c = P.c, c1 = cs(c, 1), c2 = cs(c, 2), w = P.w || hs(c, 0.8), w1 = cs(w, 1), w2 = cs(w, 2), wh = ch(w, 0.6), t = P.t || w, t1 = cs(t, 1), th = ch(t, 0.4), lc = P.lc || '#e8a040', l1 = cs(lc, 1), lh = ch(lc, 0.35), bk = P.bk || '#f4c542', cr = P.crest;
+  b2.clear(); stamp2(b2, X.pre);
+  // 远侧的腿
+  b2.r(36, 38, 2, 15, l1); b2.r(34, 52, 4, 2, l1); b2.p(37, 45, lc);
+  // 尾羽：三缕垂下来的长羽
+  for (const [pts, col] of [[[[42, 30], [50, 32], [56, 38]], t], [[[42, 33], [49, 36], [54, 43]], t1], [[[40, 35], [46, 39], [50, 44]], t]]) taper(b2, pts, 4, 1, col);
+  b2.tl(43, 30, 50, 31, th, [t]); b2.tl(51, 32, 55, 36, th, [t]); b2.tl(42, 35, 46, 38, th, [t]);
+  if (P.tip) for (const [x, y] of [[56, 38], [54, 43], [50, 44]]) { b2.p(x, y, P.tip); b2.p(x - 1, y - 1, P.tip); }
+  // 身：蛋形，腹下一层暗
+  b2.e(34, 33, 11, 7.4, c); b2.e(29, 31, 6, 6, c);
+  b2.ball([c], 33, 32, 12, 8, [ch(c, 0.8), null, null, c1, c2], { th: [0.9, 0.62, 0.02, -0.34] });
+  // 颈：S 形
+  taper(b2, [[28, 29], [25, 25], [25, 19], [23, 14]], 5, 4, c);
+  for (let y = 15; y <= 28; y++) for (let x = 20; x <= 31; x++) if (b2.at(x, y) === c && !b2.at(x + 1, y)) { b2.p(x, y, c2); if (b2.at(x - 1, y) === c) b2.p(x - 1, y, c1); }
+  for (let y = 15; y <= 26; y++) for (let x = 20; x <= 31; x++) if (b2.at(x, y) === c && !b2.at(x - 1, y)) b2.p(x, y, ch(c, 0.8));
+  // 头、喙、顶
+  b2.e(21.5, 12.5, 4.6, 4.2, c); b2.ball([c], 21.5, 12.5, 4.6, 4.2, [null, null, null, c1, c1]);
+  const bl = (P.bl || 0) * 2, bx0 = 13 - bl;
+  b2.hl(bx0 + 3, 17, 12, bk); b2.hl(bx0, 17, 13, bk); b2.hl(bx0 + 4, 17, 14, hs(bk, 0.66)); b2.hl(15, 17, 11, ch(bk, 0.5)); b2.p(bx0, 13, hs(bk, 0.8));
+  if (P.hook) { b2.p(bx0, 14, bk); b2.p(bx0 + 1, 14, bk); }
+  b2.r(20, 11, 2, 2, INK); b2.p(20, 11, '#ffffff'); if (P.eye) b2.p(21, 12, P.eye);
+  if (cr) { b2.hl(20, 23, 8, cr); b2.hl(19, 24, 9, cr); b2.hl(20, 22, 7, ch(cr, 0.45)); b2.p(24, 10, hs(cr, 0.7)); b2.p(25, 10, hs(cr, 0.7)); if (P.crest2) { taper(b2, [[24, 8], [27, 5], [30, 3]], 2, 1, cr); b2.p(30, 2, ch(cr, 0.6)); } }
+  // 翅
+  if (!f) {
+    b2.e(37, 34, 8.5, 4.6, w); taper(b2, [[40, 34], [45, 36], [49, 38]], 4, 1, w);
+    for (let y = 28; y <= 40; y++) for (let x = 27; x <= 50; x++) { const k = b2.at(x, y); if (k !== w) continue; if (b2.at(x, y - 1) !== w && b2.at(x, y - 1) !== wh) b2.p(x, y, wh); else if (b2.at(x, y + 1) !== w && b2.at(x, y + 1) !== w2) b2.p(x, y, w2); }
+    // 三层覆羽：一排排扇贝形的暗边
+    for (const [y0, x0, x1] of [[33, 31, 43], [35, 33, 46], [37, 36, 48]]) for (let x = x0; x <= x1; x++) { const k = (x - x0) % 4; b2.tint([[x, y0 + (k === 0 ? -1 : k === 2 ? 1 : 0)]], w1, [w]); }
+    if (P.edge) for (const [x, y] of [[44, 37], [47, 38], [49, 38], [41, 38]]) b2.p(x, y, P.edge);
+  } else {   // 第二帧：翅扬起来，五根飞羽扇开
+    for (let i = 4; i >= 0; i--) { const tx = 40 + i * 4.4, ty = 17 + i * 4.2, col = i % 2 ? w1 : w; taper(b2, [[35, 31], [(35 + tx) / 2 + 1, (31 + ty) / 2 - 2], [tx, ty]], 4, 2, col); b2.tl(36, 30, Math.round(tx), Math.round(ty) - 1, wh, [col]); if (P.edge) b2.p(Math.round(tx), Math.round(ty), P.edge); }
+    b2.e(35, 32, 4.5, 3.5, w); b2.tl(32, 30, 37, 29, wh, [w]); b2.tl(33, 35, 38, 35, w2, [w]);
+  }
+  // 近侧的腿：膝节、三趾
+  b2.r(30, 39, 2, 14, lc); b2.r(30, 39, 1, 14, lh); b2.p(32, 45, lc); b2.p(32, 46, l1); b2.hl(27, 31, 53, lc); b2.hl(28, 30, 52, lc); b2.p(27, 53, lh); b2.p(32, 53, l1);
+  stamp2(b2, X.post);
+}
+// 四足（兔、狐、熊、虎、白泽、谛听、麒麟）：整张按 64×56 重画——骨架与 petQuad 相同（坐标翻倍），圆润的头身、三级毛色、收尖的虎纹、分趾的爪、带虹膜和高光的眼
+function quadHd(b2, P, f, X) {
+  const c = P.c, c1 = cs(c, 1), c2 = cs(c, 2), chh = ch(c, 0.6), leg = (P.leg || 2) * 2, bry1 = P.bry || 4.5, brx1 = P.brx || 7, bx1 = P.bx || 18, by1 = 27 - (P.leg || 2) - bry1, hr1 = P.hr || 5.5, hx1 = P.hx || 8, hy1 = Math.round(by1 - bry1 * 0.55) + f;
+  const bry = bry1 * 2, brx = brx1 * 2, bx = bx1 * 2, by = by1 * 2, hr = hr1 * 2, hx = hx1 * 2, hy = hy1 * 2, tc = P.tc || P.c, t1 = cs(tc, 1), th = ch(tc, 0.55), tx = bx + brx - 2, el = (P.el || (P.ear === 'long' ? 6 : 4)) * 2, et = Math.round(hy1 - hr1) * 2;
+  b2.clear(); stamp2(b2, X.pre);
+  const fill = (fn) => { const L = new Buf(b2.w, b2.h); fn(L); return L; }, put = L => { for (let i = 0; i < L.d.length; i++) if (L.d[i]) b2.d[i] = L.d[i]; };
+  // 尾
+  { const n = P.tails || 1;
+    if (P.tail === 'puff') { b2.e(tx + 5, by - 2, 4.8, 4.8, tc); b2.e(tx + 7, by - 5, 2.4, 2.4, tc); b2.ball([tc], tx + 5, by - 3, 6, 6, [th, th, null, t1, t1]); }
+    else if (P.tail === 'bushy') for (let i = 0; i < n; i++) {
+      const a = -1.15 + (n > 1 ? (i / (n - 1) - 0.5) * (n > 3 ? 2.6 : 1.5) : 0) - f * 0.07, ll = (n > 3 ? 9.5 : n > 1 ? 8 : 6.5) * 2, ex = tx + Math.cos(a) * ll * 0.8, ey = by - 2 + Math.sin(a) * ll, cc = i % 2 ? lerpC(tc, '#ffffff', 0.45) : tc, r = (n > 1 ? 1.8 : 2.4) * 2 + 0.4;
+      const L = fill(T => { taper(T, [[tx - 2, by - 2], [(tx + ex) / 2 + 2, (by + ey) / 2 + 1], [ex, ey]], n > 3 ? 4 : 6, n > 3 ? 4 : 7, cc); T.e(ex + 0.5, ey + 0.5, r, r, cc); });
+      L.edge([cc], -1, 0, ch(cc, 0.6)).edge([cc], 1, 0, cs(cc, 1)); put(L);
+      if (P.tip) { const tp = P.tip, L2 = fill(T => T.e(ex + 0.5 + Math.cos(a) * 3.4, ey + 0.5 + Math.sin(a) * 3.4, r - 1.2, r - 1.2, tp)); for (let k = 0; k < L2.d.length; k++) if (L2.d[k] && b2.d[k] && [cc, ch(cc, 0.6), cs(cc, 1)].includes(b2.d[k])) b2.d[k] = tp; }
+    } else if (P.tail === 'thin') {
+      const pts = [[tx, by + 1], [tx + 6, by - 1], [tx + 8 - f * 2, by - 8], [tx + 8 - f * 2, by - 15]], L = fill(T => taper(T, pts, 4, 3, tc));
+      L.edge([tc], -1, 0, th).edge([tc], 1, 0, t1);
+      if (P.stripe) for (let k = 0; k < 4; k++) { const y = by - 4 - k * 3; for (let x = tx + 3; x < tx + 13; x++) if (L.at(x, y)) L.p(x, y, P.stripe); }
+      if (P.tip) { const ty = by - 15, x0 = tx + 8 - f * 2; for (let y = ty - 2; y <= ty + 2; y++) for (let x = x0 - 2; x <= x0 + 3; x++) if (L.at(x, y)) L.p(x, y, P.tip); L.e(x0 + 1, ty - 1, 2.3, 2.6, P.tip); L.p(x0, ty - 2, ch(P.tip, 0.6)); }
+      put(L);
+    } else if (P.tail === 'stub') { b2.e(tx + 3, by - 4, 3.4, 3.4, tc); b2.ball([tc], tx + 3, by - 4, 3.4, 3.4, [th, null, null, t1, t1]); }
+  }
+  // 远侧的腿
+  for (const x of [bx - brx + 8, bx + brx - 10]) { b2.r(Math.round(x), Math.round(by + bry - 4), 4, leg + 3, c2); if (P.hoof) b2.r(Math.round(x), 52, 4, 2, cs(P.hoof, 1)); }
+  if (P.wing) { const wc = P.wing, w1 = cs(wc, 1), L = fill(T => { for (let i = 3; i >= 0; i--) taper(T, [[bx - 3 + i * 2, by - bry + 4], [bx + 2 + i * 6, by - bry - 14 + i * 4 - f * 2]], 4, 2, i % 2 ? w1 : wc); }); L.edge([wc], -1, 0, ch(wc, 0.6)); put(L); }
+  // 身、胸、近侧的腿
+  const body = fill(T => { T.e(bx, by, brx, bry, c); T.e(bx - brx + 5, by - 1, 7, bry, c); for (const x of [bx - brx + 2, bx + brx - 5]) { T.r(x, Math.round(by + bry - 6), 4, leg + 6, c); T.r(x - 1, 51, 5, 2, c); } });
+  body.ball([c], bx - 1, by - 1, brx + 2, bry + 1.5, [chh, null, null, c1, c2], { th: [0.95, 0.7, 0.12, -0.3] });
+  for (const x of [bx - brx + 2, bx + brx - 5]) { for (let y = Math.round(by + bry - 1); y <= 52; y++) { body.p(x, y, y > by + bry + 1 ? chh : c); body.p(x + 1, y, c); body.p(x + 2, y, c); body.p(x + 3, y, c1); } body.p(x - 1, 51, c); body.p(x - 1, 52, c); body.p(x + 1, 52, c1); body.p(x + 3, 52, c2);
+    if (P.hoof) { body.r(x - 1, 51, 5, 2, P.hoof); body.p(x - 1, 51, ch(P.hoof, 0.5)); } }
+  if (P.b) { const bc = P.b; body.map((x, y, k) => { if (![c, c1, c2].includes(k)) return; const u = (x + 0.5 - bx) / (brx - 2), v = (y + 0.5 - (by + bry)) / (bry * 0.62); if (u * u + v * v < 1 && y <= by + bry) return v > -0.35 ? cs(bc, 1) : bc; }); }
+  if (P.stripe) { const sc = P.stripe; for (let x1 = bx1 - brx1 + 5; x1 < bx1 + brx1 - 1; x1 += 3) { const x = x1 * 2; for (let k = 0; k <= bry + 3; k++) { const w = k < 3 ? 2 : k < bry ? 3 : k < bry + 2 ? 2 : 1, xx = Math.round(x - k * 0.22); for (let i = 0; i < w; i++) if ([c, c1, chh].includes(body.at(xx + i, Math.round(by - bry) + k))) body.p(xx + i, Math.round(by - bry) + k, sc); } }
+    for (const x of [bx - brx + 2, bx + brx - 5]) for (const y of [46, 49]) if (y > by + bry) { body.tint([[x + 1, y], [x + 2, y], [x + 3, y]], sc); } }
+  put(body);
+  if (P.plate) { const pc = P.plate, L = fill(T => { T.e(bx + 1, by - 2, brx - 1, bry - 1, pc); T.r(0, Math.round(by), 64, 30, null); }); L.ball([pc], bx + 1, by, brx - 1, bry + 1, [ch(pc, 0.7), ch(pc, 0.35), null, cs(pc, 1), cs(pc, 2)], { th: [0.95, 0.8, 0.4, 0.1] }); for (let y = 0; y < 56; y++) for (let x = 0; x < 64; x++) if (L.at(x, y) && !L.at(x, y + 1)) L.p(x, y, cs(pc, 2)); for (let x = bx - brx + 6; x < bx + brx - 3; x += 6) { L.tint([[x, Math.round(by) - 3]], ch(pc, 0.8)); L.tint([[x + 1, Math.round(by) - 3]], cs(pc, 2)); } for (const x of [bx - 5, bx + 6]) for (let y = Math.round(by - bry); y < by - 1; y++) L.tint([[x, y]], cs(pc, 1), [pc, ch(pc, 0.35)]); put(L); }
+  if (P.spike) for (let x1 = Math.round(bx1 - brx1 + 4); x1 <= bx1 + brx1 - 2; x1 += 3) { const x = x1 * 2, y = Math.round(by1 - bry1 - 2) * 2; for (let k = 0; k < 7; k++) { const w = k < 2 ? 1 : k < 4 ? 2 : k < 6 ? 3 : 4; for (let i = 0; i < w; i++) b2.p(x + 1 - (w >> 1) + i, y - 2 + k, i === 0 ? ch(P.spike, 0.6) : i === w - 1 && w > 2 ? cs(P.spike, 1) : P.spike); } }
+  // 鬃
+  if (P.mane) { const mc = P.mane, m1 = cs(mc, 1), L = fill(T => { T.e(hx + 5, hy + 1, hr + 2, hr + 2, mc); for (let i = 0; i < 9; i++) { const a = 0.45 + f * 0.15 + i * Math.PI * 2 / 9; taper(T, [[hx + 5 + Math.cos(a) * hr, hy + 1 + Math.sin(a) * hr], [hx + 5 + Math.cos(a) * (hr + 7), hy + 1 + Math.sin(a) * (hr + 7)]], 5, 1, mc); } });
+    L.ball([mc], hx + 5, hy + 1, hr + 8, hr + 8, [ch(mc, 0.5), null, null, m1, m1], { th: [0.92, 0.6, 0.1, -0.3] }); for (let i = 0; i < 9; i++) { const a = 0.75 + f * 0.15 + i * Math.PI * 2 / 9; L.tl(Math.round(hx + 5 + Math.cos(a) * (hr - 3)), Math.round(hy + 1 + Math.sin(a) * (hr - 3)), Math.round(hx + 5 + Math.cos(a) * (hr + 3)), Math.round(hy + 1 + Math.sin(a) * (hr + 3)), m1, [mc]); } put(L); }
+  // 耳、头
+  const ei = P.ei || EARIN, head = fill(T => {
+    if (P.ear === 'long') { for (const [x0, y0, hgt] of [[hx - 6, Math.round(hy1 - hr1 - el / 2 + 2) * 2, el + 3], [hx + 2, Math.round(hy1 - hr1 - el / 2 + 3) * 2, el + 1]]) for (let k = 0; k < hgt; k++) { const w = k < 1 ? 2 : k < 3 ? 3 : 4; T.hl(x0 + (4 - w >> 1), x0 + (4 - w >> 1) + w - 1, y0 + k, c); } }
+    else if (P.ear === 'round') { T.e(hx - 7, hy - hr + 2.4, 4, 4, c); T.e(hx + 7, hy - hr + 2.4, 4, 4, c); }
+    else for (let k = 0; k < el; k++) { const y = Math.round(hy1 - hr1 - el / 2 + 2) * 2 + k, w = Math.min(7, k + 1); T.hl(hx - 8, hx - 8 + w - 1, y, c); T.hl(hx + 7 - w + 1, hx + 7, y, c); }
+    T.e(hx, hy, hr, hr - 1.2, c);
+  });
+  head.ball([c], hx, hy, hr + 1, hr, [chh, null, null, c1, c2], { th: [0.95, 0.68, 0.1, -0.32] });
+  if (P.ear === 'long') { for (const [x0, y0, hgt] of [[hx - 6, Math.round(hy1 - hr1 - el / 2 + 2) * 2, el + 3], [hx + 2, Math.round(hy1 - hr1 - el / 2 + 3) * 2, el + 1]]) { for (let k = 3; k < hgt - 4; k++) { head.p(x0 + 1, y0 + k, ei); head.p(x0 + 2, y0 + k, cs(ei, 1)); } for (let k = 0; k < hgt - 3; k++) head.tint([[x0 + 3, y0 + k]], c1, [c]); } }
+  else if (P.ear === 'round') { head.e(hx - 7, hy - hr + 2.6, 2, 2, cs(c, 2)); head.e(hx + 7, hy - hr + 2.6, 2, 2, cs(c, 2)); }
+  else { const y0 = Math.round(hy1 - hr1 - el / 2 + 2) * 2; for (let k = 2; k < el; k++) { const w = Math.min(4, k - 1); head.hl(hx - 7, hx - 7 + w - 1, y0 + k, ei); head.hl(hx + 6 - w + 1, hx + 6, y0 + k, k % 2 ? ei : cs(ei, 1)); } }
+  if (P.stripe) { const sc = P.stripe; for (const dx of [-3, 0, 3]) head.tl(hx + dx, et + 1, hx + dx, et + (dx ? 3 : 4), sc, [c, chh, c1]); head.tl(hx + 6, hy + 1, hx + hr - 1, hy, sc, [c, c1, c2]); head.tl(hx + 6, hy + 4, hx + hr - 2, hy + 4, sc, [c, c1, c2]); }
+  put(head);
+  // 吻、鼻、口、眼
+  const mz = P.mz || lerpC(P.c, '#ffffff', 0.7), mzL = fill(T => T.e(hx - 6, hy + 4.4, 5.4, 3.9, mz)); mzL.edge([mz], 0, 1, cs(mz, 1)); for (let i = 0; i < mzL.d.length; i++) if (mzL.d[i] && b2.d[i]) b2.d[i] = mzL.d[i];
+  const nose = P.nose || '#3a2230'; b2.r(hx - 11, hy + 2, 3, 2, nose); b2.p(hx - 11, hy + 2, lerpC(nose, '#ffffff', 0.4)); b2.p(hx - 10, hy + 4, nose); b2.tint([[hx - 11, hy + 5], [hx - 9, hy + 5], [hx - 8, hy + 5], [hx - 7, hy + 4]], cs(mz, 2), [mz, cs(mz, 1)]);
+  const eye = P.eye, ex = hx - 3, ey = hy - 4;
+  b2.r(ex, ey, 4, 4, INK); b2.p(ex, ey + 3, eye || '#4a3a5a'); b2.p(ex + 3, ey + 3, eye || '#4a3a5a'); if (eye) { b2.r(ex + 1, ey + 2, 3, 2, eye); b2.p(ex + 2, ey + 2, INK); } b2.p(ex, ey, '#ffffff'); b2.p(ex + 1, ey, '#ffffff'); b2.p(ex, ey + 1, '#ffffff');
+  b2.r(hx - 9, ey, 2, 4, INK); b2.p(hx - 9, ey, '#ffffff'); if (eye) b2.p(hx - 8, ey + 3, eye);
+  if (P.horn) { const hc = P.horn, L = fill(T => { taper(T, [[hx - 4, et + 3], [hx - 5, et - 3], [hx - 7, et - 8]], 4, 1, hc); if (P.horn2) { taper(T, [[hx + 4, et + 3], [hx + 6, et - 3], [hx + 9, et - 8]], 4, 1, hc); taper(T, [[hx - 6, et - 3], [hx - 10, et - 5]], 2, 1, hc); taper(T, [[hx + 7, et - 3], [hx + 12, et - 4]], 2, 1, hc); taper(T, [[hx + 6, et - 4], [hx + 3, et - 7]], 2, 1, hc); } }); L.edge([hc], -1, 0, ch(hc, 0.7)).edge([hc], 1, 0, cs(hc, 1)); put(L); }
+  if (P.mark) { b2.r(hx - 4, et + 2, 4, 2, P.mark); b2.r(hx - 3, et + 1, 2, 4, P.mark); b2.p(hx - 3, et + 2, ch(P.mark, 0.6)); }
+  if (P.aura) for (const x1 of [bx1 - brx1, bx1 + brx1 - 3]) { const x = Math.round(x1) * 2, A = P.aura; for (const [dx, y0, y1] of [[0, 50, 53], [1, 48, 53], [2, 46 - f, 53], [3, 44 - f * 2, 53], [4, 46, 53], [5, 47 + f, 53], [6, 49, 53], [7, 51, 53]]) for (let y = y0; y <= y1; y++) b2.p(x + dx, y, A); for (const [dx, y0] of [[2, 50], [3, 48], [4, 50], [5, 51]]) for (let y = y0; y <= 53; y++) b2.p(x + dx, y, '#fff2a8'); b2.p(x + 3, 52, '#ffffff'); }
+  stamp2(b2, X.post);
+}
 function petBird(b, P, f) {
   const c = T3(P.c), wc = T3(P.w || hs(P.c, 0.8)), leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), nk = P.neck || 0, hr = P.hr || 3.4, hx = bx - brx + 1 - (nk ? 2 : 0), hy = by - bry + 0.5 - nk + (nk || P.fly ? 0 : f), tcol = T3(P.t || P.w || P.c), tl = P.tl || 4, lc = P.lc || '#e8a040';
-  if (P.pre) P.pre(b, f);
+  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
+  if (nk) b.hd = b2 => craneHd(b2, P, f, X);
   if (P.fly || P.span) b.add(L => { for (let i = 0; i < 5; i++) L.l(bx - 1, by - 1, bx - 6 + i * 2, by - bry - 7 + i + f * 3, dn(wc), 2); }, { flat: 1 });
   b.add(L => { for (let i = 0; i < (P.tn || 2); i++) { if (P.curl) { const y1 = by - 4 - i * 4 + f; L.l(bx + brx - 2, by, bx + brx + 3, y1 + 3, tcol, 2); L.l(bx + brx + 3, y1 + 3, bx + brx + 7, y1, tcol, 2); L.e(bx + brx + 8, y1, 1.6, 1.6, tcol); } else L.l(bx + brx - 2, by + 1, bx + brx - 2 + tl, by + 3 - i * 2, tcol, 2); } });
   if (P.tip) for (let i = 0; i < (P.tn || 2); i++) P.curl ? b.r(Math.round(bx + brx + 8), Math.round(by - 4 - i * 4 + f), 1, 1, P.tip) : b.p(Math.round(bx + brx - 2 + tl), Math.round(by + 3 - i * 2), P.tip);
@@ -3548,19 +3659,49 @@ function petBird(b, P, f) {
   b.hl(ix - 1 - (P.bl || 0), ix, iy, bk); b.p(ix, iy + 1, hs(bk, 0.7)); if (P.hook) b.p(ix - 1 - (P.bl || 0), iy + 1, bk);
   b.p(ix + 2, iy - 1, P.eye || INK); if (P.eye) b.p(ix + 2, iy - 2, INK);
   if (P.crest) { b.r(Math.round(hx) - 1, Math.round(hy - hr) - 1, 3, 1, P.crest); if (P.crest2) { b.p(Math.round(hx) + 1, Math.round(hy - hr) - 2, P.crest); b.p(Math.round(hx) + 2, Math.round(hy - hr) - 3, P.crest); } }
-  if (P.post) P.post(b, f, hx, hy, bx, by);
+  if (P.post) X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by));
   return [Math.round(hx), Math.round(hy - hr) - 2];
+}
+// 龟：整张按 64×56 重画——拱起来的壳分三级明暗、六角甲片一暗一亮两条刻线、壳缘一圈裙边、皱皮的颈、带爪的短腿
+function turtleHd(b2, P, f, X) {
+  const sc = P.c, s1 = cs(sc, 1), s2 = cs(sc, 2), sh = ch(sc, 0.16), shh = ch(sc, 0.36), sk = P.sk || '#9ab078', k1 = cs(sk, 1), k2 = cs(sk, 2), kh = ch(sk, 0.4), rim = P.rim || lerpC(P.c, '#f4e08a', 0.5), r1 = cs(rim, 1), rh = ch(rim, 0.5), hy = 40 + f * 2;
+  b2.clear(); stamp2(b2, X.pre);
+  // 远侧的两条腿、尾
+  b2.r(24, 46, 6, 7, k2); b2.r(45, 46, 6, 7, k2);
+  taper(b2, [[50, 44], [54, 46], [58, 49]], 4, 1, sk); b2.tl(51, 46, 57, 49, k1, [sk]);
+  // 颈与头
+  b2.r(14, hy - 1, 12, 7, sk); for (const x of [17, 20, 23]) { b2.r(x, hy, 1, 5, k1); b2.p(x - 1, hy, kh); }
+  b2.hl(14, 25, hy + 5, k1);
+  b2.e(11.5, hy + 0.5, 6.6, 5.6, sk); b2.ball([sk], 11.5, hy + 0.5, 6.6, 5.6, [kh, kh, null, k1, k2]);
+  b2.r(8, hy - 3, 2, 3, INK); b2.p(8, hy - 3, '#ffffff'); if (P.eye) b2.p(9, hy - 1, P.eye);
+  b2.hl(5, 10, hy + 3, k2); b2.p(11, hy + 2, k2); b2.p(5, hy, k2);
+  // 近侧的腿：三只爪
+  for (const x0 of [17, 39]) { b2.r(x0, 45, 8, 8, sk); b2.r(x0, 45, 2, 8, kh); b2.r(x0 + 6, 45, 2, 8, k1); b2.hl(x0, x0 + 7, 53, k1); for (const dx of [0, 3, 6]) b2.p(x0 + dx, 53, '#efe8d0'); b2.p(x0 + 3, 48, k1); b2.p(x0 + 4, 50, k1); }
+  // 壳
+  for (let y = 27; y <= 45; y++) for (let x = 14; x <= 54; x++) { const u = (x + 0.5 - 34) / 19.6, v = (y + 0.5 - 46) / 18.6; if (u * u + v * v <= 1) b2.p(x, y, sc); }
+  b2.ball([sc], 34, 46, 19.6, 18.6, [shh, sh, null, s1, s2], { th: [0.97, 0.88, 0.42, 0.14] });
+  // 甲片：中间一列三片六角、两侧各两片；每条刻线左上再提一线亮
+  const cut = [[26, 30, 23, 44], [42, 30, 45, 44], [26, 30, 42, 30], [20, 36, 24, 36], [44, 36, 50, 36], [30, 30, 28, 37], [38, 30, 40, 37], [28, 37, 31, 44], [40, 37, 37, 44], [28, 37, 40, 37], [34, 27, 34, 30]];
+  const shell = [sc, s1, s2, sh, shh];
+  for (const q of cut) { b2.tl(q[0], q[1], q[2], q[3], '#00000000', shell); }
+  b2.map((x, y, c) => (c === '#00000000' ? s2 : undefined));
+  for (const q of cut) for (const pt of seg(q[0], q[1], q[2], q[3])) { const c = b2.at(pt[0] - 1, pt[1] - 1); if (c && c !== s2 && shell.includes(c) && pt[0] < 40) b2.p(pt[0] - 1, pt[1] - 1, c === sc ? sh : c === sh ? shh : c === s1 ? sc : c); }
+  if (P.moss) for (const [x, y] of [[22, 34], [30, 28], [46, 34], [38, 36], [32, 39]]) { b2.r(x, y, 3, 2, P.moss); b2.p(x + 1, y - 1, P.moss); b2.p(x, y, ch(P.moss, 0.5)); b2.p(x + 2, y + 1, cs(P.moss, 1)); }
+  // 裙边
+  b2.r(16, 44, 38, 4, rim); b2.hl(16, 53, 44, rh); b2.hl(16, 53, 47, r1); for (let x = 20; x < 53; x += 5) { b2.r(x, 45, 1, 2, r1); } b2.r(50, 44, 4, 4, r1);
+  stamp2(b2, X.post);
 }
 function petTurtle(b, P, f) {
   const sc = T3(P.c), sk = T3(P.sk || '#9ab078'), hy = 20 + f;
-  if (P.pre) P.pre(b, f);
+  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
+  b.hd = b2 => turtleHd(b2, P, f, X);
   b.add(L => { L.e(6, hy, 3.4, 3, sk); L.r(7, hy, 5, 3, sk); for (const x of [9, 20]) L.r(x, 23, 4, 4, sk); L.l(25, 22, 28, 24, sk, 2); });
   b.add(L => { L.e(17, 22, 9.5, 9, sc); L.r(0, 23, 32, 6, null); });
   b.add(L => L.r(8, 22, 19, 2, T3(P.rim || lerpC(P.c, '#f4e08a', 0.5))), { sep: 1 });
   const D = dn(sc); for (const [x0, y0, x1, y1] of [[13, 15, 12, 21], [21, 15, 22, 21], [13, 15, 21, 15], [10, 18, 12, 18], [22, 18, 25, 18], [17, 14, 17, 15]]) b.l(x0, y0, x1, y1, D);
   if (P.moss) for (const [x, y] of [[11, 17], [15, 14], [23, 17], [19, 18], [16, 19]]) b.p(x, y, P.moss);
   b.p(4, hy - 1, INK); b.p(4, hy, P.eye || INK);
-  if (P.post) P.post(b, f, 6, hy);
+  if (P.post) X.post = petExtra(b, () => P.post(b, f, 6, hy));
   return [6, hy - 5];
 }
 function petBat(b, P, f) {
@@ -3667,6 +3808,7 @@ ART.petSprite = function (sp, form, frame, aw) {
     const b = new Buf(32, 28), top = PLAN[S[2]](b, S[3], frame);
     const c = b.cv({ max: 15 });
     if (aw) on(c, () => { const x = top[0], y = Math.max(1, top[1]); for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; R(x + Math.round(Math.cos(a) * 4), y + Math.round(Math.sin(a) * 1.4), 1, 1, Math.sin(a) > 0.3 ? '#a8742a' : i % 3 ? '#f4c542' : '#fff2a8'); } });
+    if (aw && c._hdNative) { const n0 = c._hdNative; c._hdNative = () => { const c2 = n0(), g2 = c2.getContext('2d'), x = top[0] * 2 + 1, y = Math.max(1, top[1]) * 2 + 1; for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; g2.fillStyle = Math.sin(a) > 0.3 ? '#a8742a' : i % 3 ? '#f4c542' : '#fff2a8'; g2.fillRect(x + Math.round(Math.cos(a) * 8), y + Math.round(Math.sin(a) * 2.8), 1, 1); } return c2; }; }   // 觉醒光环：2 倍密度稿上也要有（细一半的一圈）
     return c;
   });
 };
