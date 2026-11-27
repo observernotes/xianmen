@@ -12,8 +12,8 @@
 //   输出目录缺省 shots/content（shots/ 已在 .gitignore）；ap：只跑行动点制那一节（逻辑层，不开浏览器），quick：长局只跑两条路线。
 //   不带 ap 时，ap 一节先跑，然后才是浏览器那一大段；ap 的失败并进最后的 errors。
 const path = require('path');
-const ARGS = process.argv.slice(2), FLAGS = ARGS.filter(a => a === 'ap' || a === 'quick');
-const out = ARGS.find(a => a !== 'ap' && a !== 'quick') || path.join(__dirname, '..', 'shots', 'content');
+const ARGS = process.argv.slice(2), FLAGS = ARGS.filter(a => a === 'ap' || a === 'quick' || a === 'noap');
+const out = ARGS.find(a => a !== 'ap' && a !== 'quick' && a !== 'noap') || path.join(__dirname, '..', 'shots', 'content');
 require('fs').mkdirSync(out, { recursive: true });
 // ---------- ap 一节：行动点制（docs/AP_PLAN.md §7 / §8.3 / §8.4 / §8.5；只跑逻辑层，不开浏览器） ----------
 //   node tools/content_test.js <输出目录> ap          只跑这一节（逻辑层，约 2 分钟）
@@ -371,7 +371,7 @@ async function apSection(quick) {
   return fails;
 }
 (async () => {
-  const apFails = await apSection(FLAGS.includes('quick'));
+  const apFails = FLAGS.includes('noap') ? [] : await apSection(FLAGS.includes('quick'));   // noap：调试浏览器部分时跳过 ap 一节
   if (FLAGS.includes('ap')) { if (apFails.length) { console.log(apFails.join('\n')); process.exitCode = 1; } return; }
   const { chromium, devices } = require('playwright');
   const browser = await chromium.launch();
@@ -379,7 +379,7 @@ async function apSection(quick) {
   const errors = apFails.slice();
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  const expect = (ok, what) => { if (!ok) errors.push('check: ' + what); };
+  const expect = (ok, what) => { if (!ok) { errors.push('check: ' + what); console.log('  FAIL check: ' + what); } };
   const L_pct = p => Math.round(p * 100) + '%';
   await page.goto('file://' + path.join(__dirname, '..', 'dist', 'index.html'));
   await page.waitForTimeout(400);
@@ -387,6 +387,9 @@ async function apSection(quick) {
   await page.click('#goStart'); await page.waitForTimeout(400);
   // 这里造的都是中后期局面：关掉上手曲线（docs/ONBOARDING.md），界面回到 2.0.0 的全开 + 灰锁；上手曲线自己的检查见 tools/onboard.js / guide_test.js
   await page.evaluate(() => { window.__xm.L.ONB_ON = false; });
+  // 开罗式底栏只剩 历练 / 洞府 / 装备 / 江湖 / 仙途 五格：老祖讲解里写着 [data-nav="me"] / "sect" / "market" 的高亮目标已经不存在，讲解会因找不到目标而不显示（正式局里它们本来就由上手曲线关着）。
+  // 这里把这些讲解的目标改指到还在的“仙途”格，其余（触发条件、文案数字、暂停）照旧验
+  await page.evaluate(() => { for (const h of window.__xm.hints) if (typeof h.target === 'string' && /^\[data-nav="(me|sect|market)"\]$/.test(h.target)) h.target = '[data-nav="path"]'; });
   // 关弹窗；结算链里补放的主线戏（造局面后线 B 的链会把没播过的开章戏补出来）点第一个选项——只关不选的话下一条链会再补放，界面一直被挡着
   const close = async () => { for (let i = 0; i < 8; i++) { const more = await page.evaluate(i => { const X = window.__xm, m = document.getElementById('modal');
     if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return true; }
@@ -510,7 +513,7 @@ async function apSection(quick) {
   expect(rows.length >= 1 && rows.length <= 4 && rows.some(t => /烈火刀/.test(t) && /克金/.test(t)), `【换】小列表 ≤ 4 行、每行写克谁：${rows.join(' / ')}`);
   await page.click('#modal .bt-swr[data-swapz="z_liehuo"]'); await page.waitForTimeout(250);
   const el2 = await page.evaluate(() => { const bar = document.querySelector('#modal .bt-kebar'); return { txt: bar ? bar.textContent : '', ok: !!(bar && bar.classList.contains('ok')), z: window.__xm.L.artSlots(window.__xm.st)[1] }; });
-  expect(el2.ok && el2.z === 'z_liehuo' && /克金/.test(el2.txt), `换上烈火刀后克制条变绿：${el2.txt}`);
+  expect(el2.ok && el2.z === 'z_liehuo' && /都克得动/.test(el2.txt), `换上烈火刀后克制条变绿（写“都克得动 ✓”，克金在小列表那行已验过）：${el2.txt}`);
   await shot('c19-elem-counter');
   await close();
   // 对决：土系战技克慕容（水）×1.15；锦囊列出“换成克制对手的战技”
@@ -520,11 +523,11 @@ async function apSection(quick) {
     return { m0, m1 };
   });
   expect(du.m0 === 0.87 && du.m1 === 1.15, `对决：火被水克 ×${du.m0}，土克水 ×${du.m1}`);
-  await page.evaluate(() => { const { st, L } = window.__xm; const s2 = JSON.parse(JSON.stringify(st)); s2.pact = 0; s2.tick = 28; s2.p.r = 0; s2.p.s = 2; s2.flags.maxR = 0; s2.flags.maxI = 2; delete s2.arts.own.z_gengjin; delete s2.arts.own.z_huichun; window.__xm.loadState(s2); window.__xm.showPact(); });
+  await page.evaluate(() => { const { st, L } = window.__xm; const s2 = JSON.parse(JSON.stringify(st)); s2.pact = 0; s2.tick = 33; s2.p.r = 0; s2.p.s = 3; s2.flags.maxR = 0; s2.flags.maxI = 3; s2.gear.w = { u: 1, id: 'w3_0', slot: 'w', t: 3, plus: 5, aff: [], fail: 0 }; for (const id of Object.keys(s2.arts.own)) if (L.art(id).k === 'x' && id !== s2.arts.slot[0]) delete s2.arts.own[id]; delete s2.arts.own.z_gengjin; delete s2.arts.own.z_huichun; window.__xm.loadState(s2); window.__xm.showPact(); });
   await page.waitForTimeout(300); await shot('c20-pact-swap');
-  // 锦囊是变强页的动作卡（advCards，KAIRO_PLAN §10.7）：按钮是 [data-adv]，不再是 [data-go="eqz:…"]；找写着五行拳经的那一张
-  const tip = await page.evaluate(() => { const cards = [...document.querySelectorAll('#modal .gw-act')]; const c = cards.find(x => /五行拳经/.test(x.textContent)); return { txt: document.querySelector('#modal').textContent, i: c ? c.dataset.act : null, n: cards.length, t: c ? c.textContent.replace(/\s+/g, ' ').trim().slice(0, 40) : '' }; });
-  expect(/备战|三年之约/.test(tip.txt) && tip.i !== null, `锦囊：换上克制对手的战技《五行拳经》（${tip.t || tip.n + ' 张牌，没有五行拳经'}）`);
+  // 锦囊是变强页的动作卡（advCards，KAIRO_PLAN §10.7）：按钮是 [data-adv]，不再是 [data-go="eqz:…"]；知道五行时卡上写“换土克水的战技”（找五行拳经那一张）；推荐只在大事前 3 个月内出（ART_REC.big），所以 tick 33；炼气圆满 + 三阶兵器 +5，胜算（约 79%）不被夹在 3% 的下限上
+  const tip = await page.evaluate(() => { const cards = [...document.querySelectorAll('#modal .gw-act')]; const c = cards.find(x => /五行拳经|克水的战技/.test(x.textContent)); return { txt: document.querySelector('#modal').textContent, i: c ? c.dataset.act : null, n: cards.length, t: c ? c.textContent.replace(/\s+/g, ' ').trim().slice(0, 40) : '', all: cards.map(x => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 24)).join(' / '), p: window.__xm.L.pactInfo(window.__xm.st).p, rc: (() => { const r = window.__xm.L.artRecommend(window.__xm.st, 1); return r ? [r.id, r.same, r.ctx.kind] : null; })() }; });
+  expect(/备战|三年之约/.test(tip.txt) && tip.i !== null, `锦囊：换上克制对手的战技《五行拳经》（${tip.t || tip.n + ' 张牌，没有五行拳经'}：${tip.all}；胜算 ${tip.p}；荐 ${JSON.stringify(tip.rc)}）`);
   if (tip.i !== null) await page.click(`#modal [data-adv="${tip.i}"]`); await page.waitForTimeout(250);
   expect(await page.evaluate(() => window.__xm.L.artSlots(window.__xm.st)[1] === 'z_wuxing'), '锦囊一下换上五行拳经');
   await close();
@@ -563,7 +566,7 @@ async function apSection(quick) {
   expect(lk.auto && lk.smelt === 16 && lk.pend2, `锁定当前：二阶直接熔炼 +${lk.smelt}，同阶照样弹卡`);
   // 强化：法宝页【强化】按钮，预览写的“战力 a → b”与实际一致；+0→+1 必成
   await page.evaluate(() => window.__xm.showGearDetail('w')); await page.waitForTimeout(300); await shot('c23-gear-page');
-  const pv = await page.evaluate(() => { const d = [...document.querySelectorAll('#modal .gplusinfo dl.delta dt')].find(x => x.textContent === '战力'); return d ? d.nextElementSibling.querySelector('b').textContent : null; });
+  const pv = await page.evaluate(() => { const b = document.querySelector('#modal .krow .v b.kup'); return b ? b.textContent : null; });   // 铁匠铺强化页：“战力 a → b”（forgePagePlus）
   await page.click('#modal [data-plus="w"]'); await page.waitForTimeout(400); await shot('c24-gear-plus');
   const pv1 = await page.evaluate(() => { const { st, L } = window.__xm; return { p: L.fmt(L.power(st)), plus: st.gear.w.plus, msg: (document.querySelector('#modal .gdet .quote') || {}).textContent || '' }; });
   expect(pv === pv1.p && pv1.plus === 3 && pv1.msg.includes('强化成功'), `强化预览写战力 → ${pv}，强化后 ${pv1.p}（+${pv1.plus}）：${pv1.msg.slice(0, 30)}`);
@@ -702,11 +705,13 @@ async function apSection(quick) {
   expect(wd.gone, '大势到期：L.world 清空、记入 prev、tick 报 worldEnd');
   // 通缉令：论道里击败被通缉的路人，赏 20×收入
   const tj = await page.evaluate(() => {
-    const { st, L } = window.__xm; st.tick = 132; st.rank = 40; st.cal.w = null; st.cal.prev = null;
-    const rng = L.rng; let w = null; for (let i = 0; i < 400 && !(w && w.id === 'w_tongji'); i++) { st.cal.w = null; w = L.rollWorld(st); }
+    const { st, L } = window.__xm; st.tick = 132; st.cal.w = null; st.cal.prev = null;
+    // 天骄的战力随年份涨（3.0 校准后），这个中局的号追不上前排：排到末尾（第 99 名），被通缉的路人钉在 85～98 名里的一个“无名”路人（第一场只打得过 1.6 倍战力以内的，通缉令才会改打他）
+    st.rank = 99; const rng = L.rng; let w = null; for (let i = 0; i < 400 && !(w && w.id === 'w_tongji'); i++) { st.cal.w = null; w = L.rollWorld(st); }
+    { const j = st.ladder.findIndex((x, i) => i >= 85 && i <= 96 && !x.id && !x.rk); st.cal.w.who = st.ladder[j].n; }
     const q = L.wantedRank(st), who = st.cal.w.who, inc = L.income(st), s0 = st.stones;
     L.rng = () => 0; const res = L.tournament(st); L.rng = rng;
-    const r0 = res.rounds[0];
+    const r0 = res.rounds[0]; st.rank = 40;   // 还原名次：后面的因果 / 对决段落按这个名次的天骄来打
     return { q, who, met: r0 && r0.rv && r0.rv.n === who, bounty: r0 && r0.bounty, want: Math.floor(Math.max(inc, 20) * 20), paid: !L.wanted(st), w: w && w.id };
   });
   expect(tj.met && tj.bounty === tj.want && tj.paid, `通缉令：论道第一场打第 ${tj.q} 名「${tj.who}」，赏金 ${tj.bounty}（应为 ${tj.want}）`);
@@ -780,8 +785,9 @@ async function apSection(quick) {
   await page.click('#modal button[data-c="1"]'); await page.waitForTimeout(300);
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400);
   const me3 = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, extra: window.__xm.st.market.extra, q: window.__xm.st.market.evQ.length }));
-  expect(me3.t === '坊市' && me3.extra === 1 && me3.q === 0, `“原价成交”→ 下一届多一格；事件处理完回到坊市（${me3.t}）`);
-  const mys = await page.evaluate(() => { const { st, L } = window.__xm; const rng = L.rng; L.rng = () => 0.01; L.rollAuction(st); L.rng = rng; return st.market.evQ.map(x => x.id); });
+  expect(!!(await page.$('#modal [data-mtab="auc"]')) && me3.extra === 1 && me3.q === 0, `“原价成交”→ 下一届多一格；事件处理完回到坊市（带页签的坊市页，标题 ${me3.t}）`);
+  // 事件的境界窗口按章走（story.js 的 storyR = min(境界, 章)）：这一局还在第 1 章，无名之物（minR 2）不出，先把前三章的主线标成做完，量完再还原
+  const mys = await page.evaluate(() => { const { st, L } = window.__xm; const had = ['c0_m', 'c1_m', 'c2_m'].map(k => !!st.quest.done[k]); for (const k of ['c0_m', 'c1_m', 'c2_m']) st.quest.done[k] = 1; const rng = L.rng; L.rng = () => 0.01; L.rollAuction(st); L.rng = rng; ['c0_m', 'c1_m', 'c2_m'].forEach((k, i) => { if (!had[i]) delete st.quest.done[k]; }); return st.market.evQ.map(x => x.id); });
   expect(mys.includes('auc_mystery'), `开拍时 auction:open → 无名之物（${mys.join()}）`);
   await close();
   // 年历：筑基且约战打完后，“大事”牌点开是年历（24 格时间轴 + 论道 / 拍卖 / 会武 / 秘境 / 大势各一行）；大势小牌在场景右上角
@@ -890,14 +896,14 @@ async function apSection(quick) {
   });
   expect(dj.ok && dj.g === '完美' && dj.dan === '一品金丹' && dj.resDan === '一品金丹' && Math.abs(dj.add - 0.03) < 1e-9 && Math.abs(dj.c1 - 1.03) < 1e-9 && Math.abs(dj.a1 - 1.03) < 1e-9, `完美 → 道基 +3%（修炼 ×${dj.c1}、战力 ×${dj.a1}），结成「${dj.dan}」`);
   expect(Math.abs(dj.cap - 0.24) < 1e-9 && Math.abs(dj.add2 - 0.01) < 1e-9 && dj.capped, `道基上限 24%：0.23 + 完美只加到 ${dj.cap}`);
-  // 失败的代价：祭过的兵器强化 −1、道侣好感 −5；修为退到 70%、负伤 3；道侣这一境界不再护法
+  // 失败的代价：祭过的兵器强化 −1、道侣好感 −5；修为退到 70%、负伤 4（行动点制：到下季末，L.injMonths('base')）；道侣这一境界不再护法
   const fl = await page.evaluate(() => {
     const { st, L } = window.__xm;
     st.p.r = 4; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.pills = 0; st.flags.sureBt = 0; st.p.fails = 0; st.trib.cur = null; st.gear.w.plus = 3; st.daolv = 'su'; st.npc.su = { aff: 70, f60: 1 }; st.trib.daolv = {}; st.p.inj = 0;
     const rng = L.rng; L.rng = () => 0.999; const r = L.breakthrough(st, 0, { aids: { fa: 1, daolv: 1 } }); L.rng = rng;
     return { ok: r.ok, plus: st.gear.w.plus, aff: st.npc.su.aff, inj: st.p.inj, costs: r.tb.costs.join('，'), xp: st.p.xp / L.pNeed(st.p), again: L.aidInfo(st, 'daolv').ok };
   });
-  expect(!fl.ok && fl.plus === 2 && fl.aff === 65 && fl.inj === 3 && Math.abs(fl.xp - 0.7) < 0.02 && !fl.again, `失败：${fl.costs}；修为 ${L_pct(fl.xp)}、负伤 ${fl.inj}；道侣这一境界不再护法`);
+  expect(!fl.ok && fl.plus === 2 && fl.aff === 65 && fl.inj === 4 && Math.abs(fl.xp - 0.7) < 0.02 && !fl.again, `失败：${fl.costs}；修为 ${L_pct(fl.xp)}、负伤 ${fl.inj}；道侣这一境界不再护法`);
   // 心魔劫（元婴前）：题目取自本世第一条没了的因果；还这么选 +5%；换一种 −5% 且了结那一条
   const dm = await page.evaluate(() => {
     const { st, L } = window.__xm;
@@ -952,35 +958,39 @@ async function apSection(quick) {
     const { st, L } = window.__xm;
     st.karma = L.newKarma(); st.tick = 300; st.p.r = 3; st.dao = { k: 0, w: 0, r: 0 }; st.exp = null;
     const ev = L.eventById('world_tongji'), i = ev.choices.findIndex(c => c.ok.fx && c.ok.fx.karma);
-    const rng = L.rng; L.rng = () => 0.001; const r = L.resolveChoice(st, ev, i); L.rng = rng;
+    // 这一选项是“对决 0.8”：L.duelWin 默认真打一场固定种子的回合战，胜负随这局的数值而变（这局里恰好输）；这里量的是 fx.karma 记当事人，不量对决，
+    // 临时走“按胜算 p 直接掷”（L.DUEL_ON = false，rng 钉 0.001 必胜）
+    const rng = L.rng, d0 = L.DUEL_ON; L.rng = () => 0.001; L.DUEL_ON = false; const r = L.resolveChoice(st, ev, i); L.rng = rng; L.DUEL_ON = d0;
     const rec = L.karmaOpen(st)[0];
     const door = L.eventById('karma_door'); delete st.evLast.karma_door; const e0 = L.eligible(st, door, 'home', { visit: true });
     st.tick = 330; const e1 = L.eligible(st, door, 'home', { visit: true }), txt = L.fill(st, door.text);
     const kr0 = L.karmaRebirth(st);
     st.stones = 1e7; L.resolveChoice(st, door, 0);
-    return { fx: r.fx.join('、'), who: rec && rec.who, t: rec && rec.t, e0, e1, txt, mult: kr0.mult, open: L.karmaOpen(st).length, done: st.karma.done,
+    return { fx: r.fx.join('、'), duel: r.duel && { p: +r.duel.p.toFixed(3), win: r.duel.win, S: Math.round(r.duel.S), Q: Math.round(r.duel.Q) }, inj: st.p.inj, who: rec && rec.who, t: rec && rec.t, e0, e1, txt, mult: kr0.mult, open: L.karmaOpen(st).length, done: st.karma.done,
       live: ['story_demon1', 'story_demon2', 'story_demon3', 'story_ascend', 'tianheng_2', 'world_tongji', 'karma_door', 'karma_ambush'].filter(id => L.evLive(L.eventById(id))).length };
   });
-  expect(km.fx.includes('因果 +1') && km.who === '被冤枉的通缉犯' && km.t === '拿下他领赏', `fx.karma：${km.fx}，当事人 ${km.who}`);
+  expect(km.fx.includes('因果 +1') && km.who === '被冤枉的通缉犯' && km.t === '拿下他领赏', `fx.karma：${km.fx}，当事人 ${km.who}（duel ${JSON.stringify(km.duel)}，负伤 ${km.inj}）`);
   expect(!km.e0 && km.e1 && km.txt.includes('被冤枉的通缉犯') && Math.abs(km.mult - 0.98) < 1e-9 && km.open === 0 && km.done === 1, `寻仇事件 24 周天后才上门（${km.e0} → ${km.e1}）：${km.txt.slice(0, 26)}…；赔礼了结（未了 ${km.open}，轮回业 ×${km.mult}）`);
   expect(km.live === 8, `心魔劫、飞升前夜、了断、寻仇等事件上线：${km.live}/8`);
   // 界面：一件带 fx.karma 的事件，选了之后结果页写“因果 +1”，人物 → 道心里列着
-  await page.evaluate(() => { const { st, L } = window.__xm; st.karma = L.newKarma(); delete st.evLast.world_tongji; L.rng = () => 0.001; window.__xm.showChoice(L.eventById('world_tongji')); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.karma = L.newKarma(); delete st.evLast.world_tongji; L.rng = () => 0.001; window.__duel0 = L.DUEL_ON; L.DUEL_ON = false; window.__xm.showChoice(L.eventById('world_tongji')); });   // 同上：不量对决，量 fx.karma
   await page.waitForTimeout(300);
   const kIdx = await page.evaluate(() => window.__xm.L.eventById('world_tongji').choices.findIndex(c => c.ok.fx && c.ok.fx.karma));
   await page.click(`#modal button[data-c="${kIdx}"]`); await page.waitForTimeout(400);
   for (let i = 0; i < 12; i++) { const t = await page.evaluate(() => (document.querySelector('#modal .body') || {}).textContent || ''); if (t.includes('因果 +1')) break; await page.waitForTimeout(400); }
   const kUi = await page.evaluate(() => ({ body: (document.querySelector('#modal .body') || {}).textContent || '', n: window.__xm.L.karmaOpen(window.__xm.st).length }));
-  await page.evaluate(() => { window.__xm.L.rng = Math.random; });
+  await page.evaluate(() => { window.__xm.L.rng = Math.random; window.__xm.L.DUEL_ON = window.__duel0; });
   expect(kUi.body.includes('因果 +1') && kUi.n === 1, `界面：选了“拿下他领赏”→ 结果页${kUi.body.includes('因果 +1') ? '写了' : '没写'}“因果 +1”，记下 ${kUi.n} 条`);
   await close();
   await page.evaluate(() => { const { st } = window.__xm; st.dao = { k: 6, w: 13, r: 2 }; document.querySelector('#tip').hidden = true; window.__xm.showMe('dao'); });
   await page.waitForTimeout(300); await shot('c30-dao');
-  const daoUi = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, karma: document.querySelectorAll('#modal .krow').length, txt: document.querySelector('#modal .body').textContent, tab: !!document.querySelector('#modal .tabs button.on[data-t="dao"]') }));
+  const daoUi = await page.evaluate(() => ({ rows: document.querySelectorAll('#modal .daorow').length, karma: document.querySelectorAll('#modal .krow').length, txt: document.querySelector('#modal .body').textContent, tab: !!document.querySelector('#modal .ktabs button.on[data-kt="attr"]') }));   // 道心在“仙途 → 属性”页（开罗式重整后）
   expect(daoUi.rows === 3 && daoUi.karma >= 1 && daoUi.tab && daoUi.txt.includes('被冤枉的通缉犯') && daoUi.txt.includes('道基') && daoUi.txt.includes('一级'), `人物 → 道心：三条道心、因果 ${daoUi.karma} 条、道基`);
   await close();
   // 老祖：道心头一回到一级、头一笔因果，各一次阻塞讲解（时间暂停，数字与逻辑一致）
   const gHint = async (id, setup) => {
+    // 上一段讲解（地块、丹毒……）还摆在那儿没点掉的话，activeHint 一直粘着，新的讲解排不上：先点掉
+    for (let k = 0; k < 5; k++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(300); }
     await page.evaluate(([id, setup]) => { const { st } = window.__xm; st.exp = null; st.retreat = null; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.hintSeen[id] = 0; st.tick = Math.max(st.tick, window.__xm.guideDbg.hintCool) + 3; /* 老祖讲解有冷却：往后挪过它 */ st.storyQ = []; new Function('st', setup)(st); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }, [id, setup]);
     for (let w = 0; w < 24 && await page.evaluate(() => document.getElementById('guide').hidden); w++) await page.waitForTimeout(250);   // 讲解要等安静 1.2 秒以上、两条之间隔 2.5 秒：最多等 6 秒
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold, dbg: JSON.stringify(window.__xm.guideDbg) }));
@@ -1337,6 +1347,7 @@ async function apSection(quick) {
   await close();
   // 老祖讲职司、人脉、第一个徒弟（各一次阻塞讲解：时间暂停，数字与逻辑一致）
   const sHint = async (id, setup) => {
+    for (let k = 0; k < 5; k++) { const o = await page.$('#guide:not([hidden]) [data-g="ok"]'); if (!o) break; await o.click(); await page.waitForTimeout(300); }   // 同 gHint：先点掉还摆着的上一段
     await page.evaluate(([id, setup]) => { const { st } = window.__xm; for (const h of window.__xm.hints) st.hintSeen[h.id] = 1; st.exp = null; st.retreat = null; st.visitor = null; st.hintSeen[id] = 0; st.tick += 300; st.storyQ = []; new Function('st', 'L', setup)(st, window.__xm.L); if (!document.getElementById('modal').hidden) window.__xm.closeModal(); document.querySelector('#tip').hidden = true; }, [id, setup]);
     await page.waitForTimeout(2200);   // 上一段讲解点完后静 1.2 秒才轮到下一段（guideQuiet）
     const r = await page.evaluate(() => ({ g: document.getElementById('guide').hidden ? '' : document.querySelector('#guide .gtext').textContent, hold: window.__xm.guideHold }));
@@ -1400,12 +1411,12 @@ async function apSection(quick) {
     run.floor = 2; run.phase = 'event'; run.ev = 'realm_ferryman'; L.resolveChoice(s, L.eventById('realm_ferryman'), 0); const fl0 = run.floor; L.mjAfterEvent(s); o.skip = [fl0, run.floor, run.floors - 1, !s.eflags.run_skip];
     // 恩怨 grudge 随“宿敌与新秀”接入：秘境的 realm_rival 与宿敌那边的 zhao_2 都上线（不再闸着）
     const z2 = L.eventById('zhao_2'), zs = (() => { const r0 = L.rng; L.rng = Math.random; try { return L.newState({ name: '顶罪' }); } finally { L.rng = r0; } })();   // 这里 L.rng 被钉成常数，newState 取名会死循环：临时换回真随机
-    zs.p.r = 2; zs.flags.maxR = 2; zs.stats.exp = 5; zs.stats.tour = 1; zs.pact = 1;
+    zs.p.r = 2; zs.flags.maxR = 2; zs.stats.exp = 5; zs.stats.tour = 1; zs.pact = 1; zs.quest.done.c0_m = 1; zs.quest.done.c1_m = 1;   // 事件的境界窗口按章走（story.js 的 storyR）：zhao_2 minR 2，得先做完前两章主线
     const z2no = L.eligible(zs, z2, 'exp', { bg: 'swords' }); zs.eflags.beat_zhao = 1; const z2yes = L.eligible(zs, z2, 'exp', { bg: 'swords' });
     o.gate = { zhao: L.evLive(z2) && !z2no && z2yes, rival: L.evLive(L.eventById('realm_rival')) };
     // 离开：收获全部到手
     o.leave2 = L.mjCanLeave(s); const pend = L.mjPending(s).stones, sb = s.stones, n = run.loot.length; const sum = L.mjLeave(s);
-    o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks };
+    o.leave = { how: sum.how, got: s.stones - sb, pend, n: sum.n, n0: n, run: s.run, deep: L.mjThRec(s, 'jianqi').deep, ticks: sum.ticks, ap: sum.ap };
     // 出局：收获丢六成（灵石按数量留四成），负伤 4 周天
     s.mj.token = 1; s.p.inj = 0; const run2 = L.mjEnter(s); run2.doors = [{ t: 'fight', unk: false }]; L.mjPick(s, 0);
     run2.loot.push({ stones: 1000, t: '灵石 1000' }); const pend2 = L.mjPending(s).stones, sb2 = s.stones;
@@ -1446,7 +1457,7 @@ async function apSection(quick) {
   expect(mj.altarHp === 60, `fx.hp：续一炷香气血 50 → ${mj.altarHp}`);
   expect(mj.skip[1] === mj.skip[2] && mj.skip[3], `run_skip：第 ${mj.skip[0]} 层 → 第 ${mj.skip[1]} 层（终层前一层 ${mj.skip[2]}），标记不留在 eflags`);
   expect(mj.gate.zhao && mj.gate.rival, `恩怨接入后 zhao_2 上线且只在击败赵乾（beat_zhao）后才出、realm_rival 上线：zhao_2 ${mj.gate.zhao}、realm_rival ${mj.gate.rival}`);
-  expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 3, `带着收获离开：${JSON.stringify(mj.leave)}`);
+  expect(mj.leave.how === 'leave' && mj.leave.got === mj.leave.pend && mj.leave.n === mj.leave.n0 && !mj.leave.run && mj.leave.deep >= 3 && mj.leave.ticks === 0 && mj.leave.ap === 2, `带着收获离开（秘境不占月份、花 2 点行动点）：${JSON.stringify(mj.leave)}`);
   expect(mj.wipe.how === 'wipe' && mj.wipe.got === mj.wipe.want && mj.wipe.inj >= 4 && !mj.wipe.run, `重伤出局：灵石留四成 ${mj.wipe.got}/${mj.wipe.want}，负伤 ${mj.wipe.inj}`);
   expect(mj.th3 === 'youquan' && mj.chest.ph === 'chest' && mj.chest.ks.includes('art:x_hunyuan') && mj.chest.ks.length === 3, `秘藏三选一（第三次通关出混元道经）：${JSON.stringify(mj.chest)}`);
   expect(mj.clear.how === 'clear' && mj.clear.own && mj.clear.title === '幽泉渡者' && mj.clear.titles && mj.clear.clears === 1 && mj.clear.total === 3 && mj.clear.loot, `通关：${JSON.stringify(mj.clear)}`);
@@ -1576,7 +1587,7 @@ async function apSection(quick) {
   // 锦囊：约战前丹囊里有爆气丹 → “服一枚爆气丹：胜算 p → p'”，点【服】生效
   const jn = await page.evaluate(() => {
     const { L } = window.__xm; const s = L.newState({ name: '锦囊' }); s.tick = 30; s.home.furnace = 3; s.dan.bag.baoqi = [1]; s.guide = { step: 99, done: true }; s.hintSeen = { pactSoon: 1, toxin: 1 }; s.stats.exp = 3;
-    s.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s.p.s = 3;   // 兵器已到上限（锦囊里不再有“换一件”）；炼气圆满，胜算不贴着下限
+    s.gear.w = { u: 1, id: 'w3_0', slot: 'w', t: 3, plus: 5, aff: [], fail: 0 }; s.p.s = 3;   // 兵器到上限（锦囊里不再有“换一件”）；3.0 校准后炼气圆满 + 一阶兵器还在 3% 的下限上（▲0%），换三阶兵器 +5：胜算约 34% → 54%
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
     const st = window.__xm.st, p0 = L.pactInfo(st).p;
     st.dan.next.baoqi = 1.3; const p1 = L.pactInfo(st).p; delete st.dan.next.baoqi;
@@ -1755,6 +1766,7 @@ async function apSection(quick) {
     await page.evaluate(() => { const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok) ok.click(); });
     await page.evaluate(cfg => {
       const { L } = window.__xm, s = L.newState({ name: '洞府' });
+      L.STORYLINE = false;   // 主线节拍（开章戏）关掉：新档一读进来结算链先放“破庙第一夜”，洞府老祖讲解在剧情排队时（homeCalm）不讲；洞府这一大段末尾还原
       s.stats.exp = 8; s.stones = 1e10; s.p.r = cfg.r; s.p.s = cfg.s === undefined ? 1 : cfg.s; s.flags.maxR = Math.max(cfg.r, cfg.maxR || 0); s.flags.maxI = cfg.i; s.tick = 300 + 300 * (window.__hn = (window.__hn || 0) + 1); s.pact = 1;   // 每局的周天往后挪，老祖讲解的冷却不串局
       s.herbs = cfg.herbs || 0;
       s.home.cave = cfg.cave; L.migrateHome(s);
@@ -1810,8 +1822,8 @@ async function apSection(quick) {
   // 地块满：洞府面板上空地没了、满了的提示在洞府卡里；超额的旧档卡上写“地块超出”
   await hLoad({ r: 3, i: 13, cave: 0, build: ['field', 'furnace'] });
   await page.evaluate(() => { const { st, L } = window.__xm; st.home.room = 1; st.home.spent.room = 300; L.homePlots(st); window.__xm.showHome(false, 0); }); await page.waitForTimeout(350); await shot('h04-home-over');
-  const ho = await hq(() => ({ txt: (document.querySelector('#modal .card:has(button[data-k="cave"])') || document.body).textContent, over: document.querySelectorAll('#modal #homeGrid .hplot.over').length, n: document.querySelectorAll('#modal #homeGrid .hplot').length }));
-  expect(/地块超出 1 块/.test(ho.txt) && ho.over === 1 && ho.n === 8, '旧档地块超额：洞府卡写“地块超出 1 块”、超额那格标出来：' + JSON.stringify(ho));
+  const ho = await hq(() => ({ txt: (document.querySelector('#modal .kslot:has(button[data-k="cave"])') || document.body).textContent, over: document.querySelectorAll('#modal #homeGrid .hplot.over').length, n: document.querySelectorAll('#modal #homeGrid .hplot').length }));
+  expect(/超出\s*1\s*块/.test(ho.txt) && ho.over === 1 && ho.n === 8, '旧档地块超额：洞府卡（洞府 · 荒山破庙那一栏）写“超出 1 块”、超额那格标出来：' + JSON.stringify(ho));
   await close();
   // 阵法面板：布阵中、旧阵照常；第二阵位（炼虚）；同一阵法不能占两位
   await hLoad({ r: 5, i: 22, cave: 12, build: ['field', 'furnace', 'room'], zhen: ['f_dujie', 'f_danhuo'] });
@@ -1820,14 +1832,14 @@ async function apSection(quick) {
   expect(z0.slots === 2 && z0.rows === 8 && z0.own === 3, '阵法面板：两个阵位、八张阵图、手里 3 张：' + JSON.stringify(z0));
   await page.click('#modal [data-zs="0"][data-zid="f_dujie"]'); await page.waitForTimeout(350); await shot('h05-zhen-pending');
   const z1 = await hq(() => { const { st, L } = window.__xm, s0 = document.querySelectorAll('#modal #zhenSlots .zslot')[0]; return { pend: s0.classList.contains('zpend'), txt: s0.textContent, id: st.home.zhen[0].id, nx: st.home.zhen[0].nx, at: st.home.zhen[0].at - st.tick, chip: [...document.querySelectorAll('#modal .crow')].filter(r => /布阵中/.test(r.textContent)).length, msg: (document.querySelector('#modal .quote') || {}).textContent || '', k: L.zhenK(st, 'f_juling'), dis: !!document.querySelector('#modal [data-zs="1"][data-zid="f_dujie"]').disabled }; });
-  expect(z1.pend && /布阵中/.test(z1.txt) && z1.id === 'f_juling' && z1.nx === 'f_dujie' && z1.at === 3 && z1.k === 1 && /3<\/b> 个周天后生效|3 个周天后生效/.test(z1.msg.replace(/<[^>]+>/g, '')) && z1.dis, '换阵：布阵中 3 周天、旧阵（聚灵）照常、这张阵法不能再放第二阵位：' + JSON.stringify(z1));
+  expect(z1.pend && /布阵中/.test(z1.txt) && z1.id === 'f_juling' && z1.nx === 'f_dujie' && z1.at === 3 && z1.k === 1 && /1 季后生效/.test(z1.msg.replace(/<[^>]+>/g, '')) && z1.dis, '换阵：布阵中 3 周天、旧阵（聚灵）照常、这张阵法不能再放第二阵位：' + JSON.stringify(z1));
   await page.click('#modal [data-zs="1"][data-zid="f_danhuo"]'); await page.waitForTimeout(350); await shot('h06-zhen-second');
   const z2 = await hq(() => { const { st } = window.__xm, c = document.querySelectorAll('#modal #zhenSlots .zslot'); return { nx1: st.home.zhen[1].nx, txt: c[1].textContent, pend: c[1].classList.contains('zpend') }; });
   expect(z2.nx1 === 'f_danhuo' && z2.pend && /第二阵位/.test(z2.txt) && /×0.5/.test(z2.txt), '第二阵位布丹火阵（效果 ×0.5）：' + JSON.stringify(z2));
   expect(await hq(() => { const b = document.querySelector('#modal [data-zs="0"][data-zid="f_dujie"]'); return b.disabled && window.__xm.st.home.zhen[0].nx === 'f_dujie'; }), '正在布的阵法按钮灰着、点不动');
-  await page.evaluate(() => { const { st } = window.__xm; st.tick += 3; window.__xm.onTick(); }); await page.waitForTimeout(300);
+  await page.evaluate(() => { const { st, L } = window.__xm; L.seasonEnd(st); window.__xm.onTick(); }); await page.waitForTimeout(300);   // 行动点制：布阵到点按季末结算（3 个月 = 1 季）
   const z3 = await hq(() => { const { st, L } = window.__xm; return { a: st.home.zhen[0].id, b: st.home.zhen[1].id, trib: L.formationVal(st, 'f_dujie'), cul: L.culParts(st).find(x => x[2] === 'array')[1] }; });
-  expect(z3.a === 'f_dujie' && z3.b === 'f_danhuo' && Math.abs(z3.trib - 0.12) < 1e-9 && z3.cul === 1, '3 周天后换阵生效、聚灵阵那项 ×1、渡劫阵护劫 +12%（阵法强度 12）：' + JSON.stringify(z3));
+  expect(z3.a === 'f_dujie' && z3.b === 'f_danhuo' && Math.abs(z3.trib - 0.12) < 1e-9 && z3.cul === 1, '1 季后换阵生效、聚灵阵那项 ×1、渡劫阵护劫 +12%（阵法强度 12）：' + JSON.stringify(z3));
   await close();
   // 筑基前阵法没开：showZhen 退回洞府；炼虚前只有一个阵位
   await hLoad({ r: 1, i: 4, cave: 2, build: ['field'] });
@@ -1866,11 +1878,11 @@ async function apSection(quick) {
   await hLoad({ r: 0, s: 3, i: 3, cave: 0, build: [], unseen: ['plots'] });
   const hint = async id => {
     await page.evaluate(() => { const { st } = window.__xm; st.tick = Math.max(st.tick, window.__xm.guideDbg.hintCool) + 1; });
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(300);
       if (await page.evaluate(() => window.__xm.guideDbg.active) === id) return true;
       await page.evaluate(id => { const { st } = window.__xm; for (const h of window.__xm.guideDbg.cand) if (h !== id) st.hintSeen[h] = 1; const ok = document.querySelector('#guide:not([hidden]) [data-g="ok"]'); if (ok && window.__xm.guideDbg.active !== id) ok.click(); }, id);
-      await page.evaluate(() => { window.__xm.st.storyQ = []; window.__xm.onTick(); window.__xm.st.storyQ = []; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });   // 排着剧情时洞府提示不讲：这里不让剧情排队
+      await page.evaluate(() => { window.__xm.st.storyQ = []; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });   // 排着剧情时洞府提示不讲：这里不让剧情排队（不再调 onTick：它现在是“过一季”，每圈开一张季末卡，讲解要弹窗关了静 1.2 秒才开口，永远等不到）
     }
     return false;
   };
@@ -1890,7 +1902,7 @@ async function apSection(quick) {
   const got2 = await hint('zhen'); await shot('h09-hint-zhen');
   const ht2 = await hq(() => (document.querySelector('#guide .gtext') || {}).textContent || '');
   const dbg2 = await hq(() => JSON.stringify(Object.assign({ tick: window.__xm.st.tick, calm: !document.querySelector('#modal:not([hidden])'), q: window.__xm.st.storyQ.length }, window.__xm.guideDbg)));
-  expect(got2 && /换阵法/.test(ht2) && /渡劫阵/.test(ht2) && /3 个周天/.test(ht2), '筑基后期、手里 2 张阵图：老祖讲“换阵法”：' + (got2 ? ht2 : dbg2));
+  expect(got2 && /换阵法/.test(ht2) && /渡劫阵/.test(ht2) && /1 季后生效/.test(ht2), '筑基后期、手里 2 张阵图：老祖讲“换阵法”：' + (got2 ? ht2 : dbg2));
   await page.evaluate(() => { const ok = document.querySelector('#guide [data-g="ok"]'); if (ok) ok.click(); }); await page.waitForTimeout(300);
   await close();
   // 要渡劫了：渡劫阵提醒气泡（每境界一次）；大量炼丹前：丹火阵气泡；新建筑能建：气泡
@@ -1898,6 +1910,7 @@ async function apSection(quick) {
   const tipTick = pre => page.evaluate(async pre => {
     const { st, L } = window.__xm, el = document.querySelector('#tip'), seen = []; el.hidden = true;
     const mo = new MutationObserver(() => seen.push(el.textContent)); mo.observe(el, { childList: true, subtree: true, characterData: true });
+    if (!document.getElementById('modal').hidden) window.__xm.closeModal();   // onTick 现在 = 过一季（nextSeason）：上一季的季末卡还开着时它不动
     new Function('st', 'L', pre)(st, L); window.__xm.onTick(); await new Promise(f => setTimeout(f, 80)); mo.disconnect();
     return { keys: Object.keys(st.seenTips).filter(k => /^zhen|^bld_/.test(k) && !/^bld_/.test(k)), txt: seen.join(' | '), hid: el.hidden };
   }, pre);
@@ -1930,7 +1943,7 @@ async function apSection(quick) {
   await close();
   await page.evaluate(() => { window.__xm.showZhen(); }); await page.waitForTimeout(300);
   expect(await hq(() => !document.querySelector('#modal #zhenSlots')), 'nohome2：阵法面板不开');
-  await page.evaluate(() => { window.__xm.L.HOME2_ON = true; }); await close();
+  await page.evaluate(() => { window.__xm.L.HOME2_ON = true; window.__xm.L.STORYLINE = true; }); await close();
   }
   // ---------- 奇遇链 / 图鉴 / 轮回 / 出身 / 天道试炼（SYSTEMS §15 / §16）：逻辑检查，全部用 L 造存档、不碰当前这一局 ----------
   const sam = await page.evaluate(() => {
@@ -1939,7 +1952,8 @@ async function apSection(quick) {
     // 这一组量的是奇遇链、出身、轮回自己的境界窗口规则（minR / maxR、放宽一档）：按境界判（L.CH_GATE = false，sim 的 nochgate 对照）；
     // 3.0 的章闸（事件按 min(境界, 章) 判、境界超前时按章出）另由 tools/story_check.js、story_accept3.js 查
     const chg0 = L.CH_GATE; L.CH_GATE = false;
-    const fresh = x => L.newState(Object.assign({ name: '链' }, x || {}));
+    // 剧情用的境界 storyR = min(境界, 当前章)（chainCatchUp、story.js 都看它，不受 L.CH_GATE 开关管）：这组量的是按境界判，所以把八章主线都标成做完（章 = 8），storyR 就等于境界
+    const fresh = x => { const s = L.newState(Object.assign({ name: '链' }, x || {})); for (let i = 0; i < 8; i++) s.quest.done['c' + i + '_m'] = 1; return s; };
     const clone = s => JSON.parse(JSON.stringify(s));
     const dumb = (st, ev) => { const i = ev.choices.findIndex(c => L.choiceShown(st, c) && L.costOk(st, c.cost)); return i < 0 ? null : L.resolveChoice(st, ev, i); };
     const C0 = L.rebirthCards(fresh(), 3)[0];
@@ -2026,7 +2040,7 @@ async function apSection(quick) {
       o.teaDone = r.st.meta.chain.ch_tea.done === 1 && r.st.meta.trialHint === 1 && !r.hint0;
       // 没走完不发终点奖励
       r = finish('ch_tea', ['tea_1', 'tea_2', 'tea_3']);
-      o.teaNo = !r.st.meta.trialHint && !(r.st.meta.chain.ch_tea.done);
+      o.teaNo = !(r.res.fx || []).some(t => /链成/.test(t)) && !(r.st.meta.chain.ch_tea.done) && r.st.meta.chain.ch_tea.best === 4;   // 终点奖励看“链成”这一行与 done 计数（ch_tea_5 这一步自己的 fx 也置 trial_hint，不再拿 meta.trialHint 判）
       // 同一条链再走一遍不重复发（flag 已置）
       const again = dumb(r.st, L.eventById('ch_tea_5'));
     }
@@ -2153,7 +2167,7 @@ async function apSection(quick) {
     {
       const f = fresh(); Object.assign(f.meta.perk, { relic: 2, slots: 1, roster: 1, memory: 1, o_moyi: 1 });
       const f2 = L.newState({ name: 'x', meta: f.meta, origin: 'moyi' });
-      o.firstLife = !f2.gear.w && L.artSlots(f2).filter(Boolean).length === 0;
+      o.firstLife = !f2.gear.w && JSON.stringify(L.artSlots(f2)) === JSON.stringify(L.artSlots(L.newState({ name: 'x' }))) && Object.keys(f2.arts.own).join() === 'x_yinqi';   // 开局自带心法《引气诀》（3.0）：和没读轮回殿的新档一模一样，没有传家宝兵器、没有多出来的功法
     }
 
     // 出身（6 个）
@@ -2189,11 +2203,13 @@ async function apSection(quick) {
       o.sanxiuShelf = sxn === qn + 2 && sxsn === qn;
       const ys = O('yushou');
       o.yushou = ys.pets.some(p => p.sp === 'p_tu') && !q.pets.length && L.petCap(ys) === L.petCap(q) + 1 && ys.arts.own.m_yushou !== undefined && L.atkParts(ys).some(x => /出身·御兽遗脉/.test(x[0]) && Math.abs(x[1] - 0.9) < 1e-9) && !L.atkParts(q).some(x => /出身/.test(x[0])) && L.chainDone(ys, 'ch_fox') === 1 && ys.exName === '驭天风';
-      // 非弃徒出身不出退婚 / 婚约 / 慕容的事件
+      // 非弃徒出身不出退婚 / 婚约 / 慕容的事件。3.0 起不再按正则扫文本（L.originSkip 成了空壳），这几件事件自己写了资格字段 origin: 'qitu'（samsara.js 的 elig.origin）：
+      // 文字里带这些词的事件一件不漏都写着 origin: 'qitu'，弃徒过得了资格、别的出身过不了
       const ex = L.events().filter(e => /退婚|婚约|婚书|慕容/.test(JSON.stringify([e.title, e.text, e.choices])));
-      o.exEvents = ex.length > 0 && ex.every(e => L.originSkip(dt, e) && L.originSkip(sx, e) && !L.originSkip(q, e)) && L.events().filter(e => !ex.includes(e)).every(e => !L.originSkip(dt, e));
+      const oriOk = (st, e) => L.CAPS.elig.origin.test(st, e.origin);
+      o.exEvents = ex.length > 0 && ex.every(e => e.origin === 'qitu' && !oriOk(dt, e) && !oriOk(sx, e) && oriOk(q, e));
       const exOne = ex.find(e => e.where === 'story' || e.where === 'home' || e.where === 'exp');
-      o.exEligible = !!exOne && (() => { const a = clone(q), b = clone(dt); for (const s of [a, b]) { s.p.r = 9; s.eflags = {}; } const ctx = exOne.trigger ? { trigger: exOne.trigger } : {}; /* 同一事件：弃徒的资格不被出身挡掉，其它出身被挡 */ return L.originSkip(b, exOne) && !L.originSkip(a, exOne); })();
+      o.exEligible = !!exOne && (() => { const a = clone(q), b = clone(dt); for (const s of [a, b]) { s.p.r = 9; s.eflags = {}; } const ctx = exOne.trigger ? { trigger: exOne.trigger } : {}; /* 同一事件：弃徒的资格不被出身挡掉，其它出身被挡 */ return !oriOk(b, exOne) && oriOk(a, exOne) && !L.eligible(b, exOne, exOne.where, ctx); })();
       // 约战文案：六种出身各有标题，弃徒没有
       o.pactTitles = L.ORIGIN_IDS.filter(id => id !== 'qitu').every(id => L.ORIGINS[id].pact && L.ORIGINS[id].pact.title && L.ORIGINS[id].open.length === 3) && L.ORIGIN_IDS.length === 6;
       const pd = clone(dt); pd.p.r = 0; o.nextBig = (L.nextBig(pd) || {}).n === '丹会之约';
@@ -2248,7 +2264,9 @@ async function apSection(quick) {
       const old = reb({ legacy2: 1 }, {}, prep).old;
       L.legacySet(old, { arts: ['x_houtu', 'z_hanyue'], gear: { slot: 'w', aff: 'huixin' }, pet: 'p_hu' });
       const ns = L.rebirthState(old, { t: C0.t, tr: C0.tr });
-      o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1 && L.artSlots(ns).includes(id)) && Object.keys(ns.meta.legacy).length === 0;
+      // 功法从小成起（own = artNeed(id, 1)、Lv 1）；装上只在那一槽空着时（samsara.js：if (!L.artSlots(st)[槽])）：战技槽是空的 → 装上；
+      // 心法槽开局就有《引气诀》（3.0 开局自带），不空，所以传承的心法《厚土》留在手里、不顶掉在用的心法（见报告：这一条是 3.0 之后的行为变化，是否有意待确认）
+      o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1) && L.artSlots(ns)[1] === 'z_hanyue' && L.artSlots(ns)[0] === 'x_yinqi' && Object.keys(ns.meta.legacy).length === 0;
       o.legacyCleared = JSON.stringify(ns.meta.legacy) === '{}' && !!ns.legacy.gear && ns.legacy.pet === 'p_hu';
       const r = L.gearDrop(ns, 'r', 2, {}), w1 = L.gearDrop(ns, 'w', 2, {}), w2 = L.gearDrop(ns, 'w', 2, {});
       o.legacyGear = !(r.legacy) && w1.legacy === 'huixin' && w1.gear.aff.includes('huixin') && !w2.legacy && !ns.legacy.gear;
@@ -2670,6 +2688,7 @@ async function apSection(quick) {
   // 造一个局面载入：kind = prep 慕容（约战输了）/ prepZhao 赵乾 / none 没有宿敌可打 / rookie 新秀追到身后 / list 榜上有新秀 / ambush 赵乾恩怨 80
   const rvBuild = kind => page.evaluate(kind => {
     const { L } = window.__xm;
+    L.STORYLINE = false;   // 主线节拍关掉：读进新档后结算链先放开章戏，剧情弹窗开着（rvCalm / modalOpen）老祖就不讲；宿敌这一大段末尾还原
     const m0 = document.getElementById('modal'); m0.hidden = true; m0.innerHTML = '';   // 上一页关掉后弹窗里的旧节点还在（#rvSwap 会让 rvKezhi 的 when 继续为真）：清干净
     const s = L.newState({ name: '论道客' });
     s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.stats.exp = 20; s.storyQ = []; s.guide = { step: 99, done: true };
@@ -2688,7 +2707,7 @@ async function apSection(quick) {
       for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); }
       if (kind === 'rookie') { for (let i = 0; i < 3; i++) L.rookieTour(s, L.power(s)); s.rv2.rk.el = 'shui'; s.rv2.rk.known = 1; }
       s.storyQ = [];
-    } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
+    } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); s.quest.done.c0_m = 1; s.quest.done.c1_m = 1; }   // 伏击 minR 2，事件的境界窗口按章走（storyR）：先做完前两章主线
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
     window.__xm.setSpeed(3);
     return { kind };
@@ -2776,9 +2795,10 @@ async function apSection(quick) {
   expect(await page.evaluate(() => document.getElementById('modal').hidden), '新秀还没追到身后：runRookie 不弹');
   // —— 天骄榜：宿敌一行一张，有新秀时也列出；宿敌卡未知 / 已知
   await page.evaluate(() => window.__xm.showMe('rank')); await page.waitForTimeout(400); await shot('rv08-rank');
-  const lst = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, txt: document.querySelector('#modal .sheet').textContent, n: window.__xm.L.rookie(window.__xm.st).n }));
-  expect(lst.rv === 5 && lst.rk === 1 && lst.txt.includes(lst.n) && lst.txt.includes('新秀'), '天骄榜：宿敌一行一张（5 张），新秀也列出：' + JSON.stringify([lst.rv, lst.rk]));
-  await page.click('#modal .rvrow[data-rv="zhao"]'); await page.waitForTimeout(350); await shot('rv09-card-unknown');
+  const lst = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]:not(#rvMain)').length,   // 页首“这一章的对手”（#rvMain，主线对手）是另加的一行，不算在五位宿敌里
+    main: document.querySelectorAll('#modal .rvrow#rvMain').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, txt: document.querySelector('#modal .sheet').textContent, n: window.__xm.L.rookie(window.__xm.st).n }));
+  expect(lst.rv === 5 && lst.rk === 1 && lst.txt.includes(lst.n) && lst.txt.includes('新秀'), '天骄榜：宿敌一行一张（5 张，页首“这一章的对手”另算），新秀也列出：' + JSON.stringify([lst.rv, lst.main, lst.rk]));
+  await page.click('#modal .rvrow[data-rv="zhao"]:not(#rvMain)'); await page.waitForTimeout(350); await shot('rv09-card-unknown');
   const cu = await mtext();
   expect((await mtitle()) === '宿敌' && cu.includes('赵乾') && cu.includes('？') && !cu.includes('镇岳剑') && !cu.includes('庚金指'), '宿敌卡（没交过手）：战技与法宝写“？”：' + cu.slice(0, 120));
   await clickFoot(0); await page.waitForTimeout(300);
@@ -2794,7 +2814,7 @@ async function apSection(quick) {
   await close();
   // norivals2：天骄榜还是五行宿敌，没有新秀行；不报错
   await page.evaluate(() => { window.__xm.L.RIVALS2_ON = false; window.__xm.showMe('rank'); }); await page.waitForTimeout(300);
-  expect(await page.evaluate(() => document.querySelectorAll('#modal .rvrow[data-rv]').length === 5 && document.querySelectorAll('#modal .rvrow[data-rk]').length === 0), 'norivals2：天骄榜没有新秀行');
+  expect(await page.evaluate(() => document.querySelectorAll('#modal .rvrow[data-rv]:not(#rvMain)').length === 5 && document.querySelectorAll('#modal .rvrow[data-rk]').length === 0), 'norivals2：天骄榜没有新秀行');
   await page.evaluate(() => { window.__xm.L.RIVALS2_ON = true; }); await close();
   // —— 伏击：事件对决用宿敌半身像，胜算含五行与他的法宝
   await rvBuild('ambush');
@@ -2823,7 +2843,7 @@ async function apSection(quick) {
   await guideOff(); await close();
   await rvBuild('list'); await page.evaluate(() => { const { st, L } = window.__xm; st.rv2.rk = null; st.ladder.forEach(x => { delete x.rk; }); st.hintSeen.rvRookie = 1; delete st.hintSeen.rvGrudge; L.addGrudge(st, 'zhao', 75); });
   await guideCool();
-  expect(await guideAt('rvGrudge'), '老祖：恩怨过 60 讲伏击、抬价、带头（rvGrudge）');
+  expect(await guideAt('rvGrudge'), '老祖：恩怨过 60 讲伏击、抬价、带头（rvGrudge）：' + JSON.stringify(await page.evaluate(() => { const X = window.__xm, st = X.st; return { dbg: X.guideDbg, tick: st.tick, busy: X.L.busy(st), q: (st.storyQ || []).length, modal: document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent, g60: st.rv2 && st.rv2.g60, gr: X.L.grudge(st, 'zhao') }; })));
   await page.waitForTimeout(300); await shot('rv15-guide-grudge');
   const gg = await page.evaluate(() => ({ txt: document.querySelector('#guide .gtext').textContent, g: window.__xm.L.grudge(window.__xm.st, 'zhao'), hold: window.__xm.guideHold }));
   expect(gg.hold && gg.txt.includes('赵乾') && gg.txt.includes('恩怨 ' + gg.g) && gg.txt.includes('×1.2') && gg.txt.includes('−10%'), '老祖的恩怨讲解数字对：' + gg.txt);
@@ -2835,6 +2855,7 @@ async function apSection(quick) {
   const gr = await page.evaluate(() => { const { st, L } = window.__xm; const I = L.rookieInfo(st); return { txt: document.querySelector('#guide .gtext').textContent, n: I.rk.n, q: I.q, Q: L.fmt(I.Q), S: L.fmt(L.power(st)), hold: window.__xm.guideHold }; });
   expect(gr.hold && gr.txt.includes(gr.n) && gr.txt.includes(String(gr.q)) && gr.txt.includes(gr.Q) && gr.txt.includes(gr.S) && gr.txt.includes('8'), '老祖的新秀讲解数字对（名次、他的战力、你的战力）：' + gr.txt);
   await guideOff(); await page.waitForTimeout(200); await close();
+  await page.evaluate(() => { window.__xm.L.STORYLINE = true; });
   }
   // 人物分页
   for (const t of ['attr', 'bond', 'ach', 'rank']) { await page.evaluate(t => window.__xm.showMe(t), t); await page.waitForTimeout(250); await shot('c07-me-' + t); }
@@ -3029,7 +3050,6 @@ async function apSection(quick) {
       // 葛老：灵草 ×2；采药带回稀有药引（雷 / 木 / 魂）
       const hb = (c) => { const t = mk({ ge: 85, su: 85 }, x => { x.meta.recipe = {}; }); if (c) L.setComp(t, c); L.startExp(t, 0, 0, 2); t.exp.plan.u = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; const h0 = t.herbs; const y0 = ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0); const r = L.resolveExp(t); return { r, gain: t.herbs - h0, yin: ['thunder', 'wood', 'soul'].reduce((s_, y) => s_ + L.yinHave(t, y), 0) - y0 }; };
       const h0 = hb(null), h1 = hb('ge');
-      o.geDbg = JSON.stringify([h0.r.herbs, h1.r.herbs, h0.gain, h1.gain, h1.r.compHerbs, h0.r.rating, h1.r.rating, h0.r.cutF, L.TRIP_ON]);
       o.geHerbs = h0.r.herbs > 0 && h1.r.herbs === h0.r.herbs * 2 && h1.gain >= h1.r.herbs &&   /* 2.3.0 刷宝：灵草之外的随机零头不比 */ h1.r.compHerbs === h0.r.herbs;
       o.geYin = h0.yin === 0 && h1.yin === 1 && ['thunder', 'wood', 'soul'].includes(h1.r.compYin);
       // 白小九：遭遇必出（plan.enc = 0），把握 +0.1
@@ -3136,7 +3156,8 @@ async function apSection(quick) {
       for (let i = 0; i < 12; i++) { if (await pg.$('#goStart')) break; await pg.click('#intro .story'); await pg.waitForTimeout(120); }
       await pg.click('#goStart'); await pg.waitForTimeout(500);
       await pg.evaluate(() => { window.__xm.L.ONB_ON = false; });   // 同上：中后期局面，上手曲线关掉
-      await pg.evaluate(() => { const X = window.__xm, { st } = X; X.setSpeed(3); st.guide = { step: 99, done: true }; for (const h of X.hints) st.hintSeen[h.id] = 1; st.storyQ = []; });
+      // 主线节拍（开章戏、高潮、收尾）关掉（L.STORYLINE = false）：新档一开结算链先放“破庙第一夜”，剧情弹窗挡着、行动点 / 气泡 / 章末卡都被它顶住；要量剧情的用例自己打开
+      await pg.evaluate(() => { const X = window.__xm, { st } = X; X.L.STORYLINE = false; X.setSpeed(3); st.guide = { step: 99, done: true }; for (const h of X.hints) st.hintSeen[h.id] = 1; st.storyQ = []; });
       return { ctx, pg };
     };
     const closeAll = async pg => { for (let i = 0; i < 3; i++) { await pg.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await pg.waitForTimeout(450); } };
@@ -3240,7 +3261,7 @@ async function apSection(quick) {
       // A5 提示气泡出现时有老祖精灵；老祖告别后不再出现
       await pg.evaluate(() => { const X = window.__xm; X.registerGuide([{ id: 'ui_t_b1', bubble: true, when: () => true, text: '试验气泡一，数字 5。' }]); });
       await reset();
-      for (let i = 0; i < 10; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }
+      for (let i = 0; i < 10; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); await pg.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }   // onTick = 过一季，季末卡会开着挡气泡：关掉再等
       const tipOn = await pg.evaluate(() => !document.getElementById('tip').hidden);
       await pg.waitForTimeout(500);
       const c5 = await cnt();
@@ -3250,7 +3271,7 @@ async function apSection(quick) {
       await pg.waitForTimeout(900);
       await pg.evaluate(() => { const X = window.__xm; X.st.eflags = X.st.eflags || {}; X.st.eflags.st_farewell = 1; X.registerGuide([{ id: 'ui_t_b2', bubble: true, when: () => true, text: '告别后的气泡，数字 7。' }]); });
       await reset();
-      for (let i = 0; i < 12; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }
+      for (let i = 0; i < 12; i++) { await pg.evaluate(() => { const X = window.__xm; X.L.flow(X.st, 1); X.onTick(); }); await pg.waitForTimeout(450); await pg.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await pg.waitForTimeout(450); if (await pg.evaluate(() => !document.getElementById('tip').hidden)) break; }   // onTick = 过一季，季末卡会开着挡气泡：关掉再等
       const tip2 = await pg.evaluate(() => ({ on: !document.getElementById('tip').hidden, who: (document.querySelector('#tip .who') || {}).textContent }));
       await reset(); await pg.waitForTimeout(600);
       const c5b = await cnt();
@@ -3277,16 +3298,20 @@ async function apSection(quick) {
       expect(seq.seen.length >= 2 && new Set(seq.seen).size === seq.seen.length && seq.maxVisible <= 1, `A6 横幅排队：同周天连发的几条依次出现、不叠：${JSON.stringify(seq)}`);
       await ctx.close();
     }
-    // ---- A7 历练结算卡：#modal .stamp 的文字是评价字、里面是 ART.stamp 图片 ----
+    // ---- A7 历练结算卡：评价印。3.0 的结算卡（开罗式 krow）里评价印是 .kstamp 的一个评价字，不再是带 ART.stamp 图片的 .stamp；
+    //      ART.stamp 的图片印只留在首领失败卡 / 旧档补发卡（stampHTML），这里改量：卡上评价字 ∈ 天甲乙丙丁、ART.stamp(0..4) 仍画得出 24×24 的印 ----
     {
       const { ctx, pg } = await fresh(devices['Pixel 7']);
       const st7 = null;
       if (!st7) {
-        await pg.evaluate(() => { const X = window.__xm, { st, L } = X; st.stones = 99999; X.closeModal(); const b = L.expBest(st); L.startExp(st, b.k, b.d, b.a); for (let i = 0; i < 12 && st.exp; i++) { L.flow(st, 1); X.onTick(); } });
+        // 3.0：历练要在出发页点【出发】、打完回合战才有结算卡（__xm_bt.all() = 剩下的节点全部自动打完并结算）
+        await pg.evaluate(() => { const X = window.__xm, { st, L } = X; st.stones = 99999; X.closeModal(); const b = L.expBest(st); X.confirmExp(b.k, b.d, b.a); });
+        await pg.waitForTimeout(500); await pg.click('#modal .foot .btn.gold');
+        await pg.waitForTimeout(500); await pg.evaluate(() => { if (window.__xm.st.exp) window.__xm_bt.all(); });
         await pg.waitForTimeout(900);
       }
-      const s7 = st7 || await pg.evaluate(() => { const s = document.querySelector('#modal .stamp'); return s ? { txt: s.textContent.trim(), img: !!s.querySelector('img.px'), src: s.querySelector('img') ? s.querySelector('img').src.slice(0, 11) : '', w: s.querySelector('img') ? s.querySelector('img').getBoundingClientRect().width : 0 } : null; });
-      expect(!!s7 && /^[天甲乙丙丁]$/.test(s7.txt) && s7.img && s7.src === 'data:image/' && s7.w >= 24, 'A7 历练结算卡：#modal .stamp 文字是评价字、里面是 ART.stamp 图片：' + JSON.stringify(s7));
+      const s7 = st7 || await pg.evaluate(() => { const s = document.querySelector('#modal .kstamp'); const A = window.__xm.ART, cv = [0, 1, 2, 3, 4].map(i => A.stamp(i)); return s ? { txt: s.textContent.trim(), stamps: cv.map(c => c ? c.width + 'x' + c.height : null) } : null; });
+      expect(!!s7 && /^[天甲乙丙丁]$/.test(s7.txt) && s7.stamps.every(x => x === '24x24'), 'A7 历练结算卡：#modal .kstamp 文字是评价字、ART.stamp(0..4) 是 24×24 的印：' + JSON.stringify(s7));
       await pg.screenshot({ path: U('a7-exp-result') });
       await ctx.close();
     }
@@ -3329,11 +3354,15 @@ async function apSection(quick) {
       await pg.evaluate(() => { const X = window.__xm, { L } = X; const s = L.newState({ name: '泡' }); s.pact = 1; s.beaten.mu = 1; s.tick = 100; s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3);
         X.registerGuide([1, 2, 3].map(i => ({ id: 'ui_q' + i, bubble: true, when: () => true, text: `排队气泡第 ${i} 条，数字 ${i}。` }))); });
       const log = [];
-      const t0 = Date.now(); let lastTxt = '';
+      const t0 = Date.now(); let lastTxt = '', lastOn = false;
       let nt = 0;
-      while (Date.now() - t0 < 30000) {
-        const doTick = Date.now() - nt >= 2000; if (doTick) nt = Date.now();
-        const s = await pg.evaluate(doTick => { const X = window.__xm; if (!document.getElementById('modal').hidden) X.closeModal(); if (doTick) { X.L.flow(X.st, 1); X.st.visitor = null; X.onTick(); } const tip = document.getElementById('tip'); return { on: !tip.hidden, txt: tip.hidden ? '' : tip.textContent, tick: X.st.tick, bq: X.guideDbg.bubbleQ.length }; }, doTick);
+      // 行动点制：onTick = 过一季（+3 月），每过一季先开一张季末卡（下面的循环每圈先关掉）；排队的气泡 15 个月没出就作废（进 bubbleLog），
+      // 所以不能再按每 2 秒一季硬推：只在没有气泡冒着的时候过一季（每条气泡冒 6 秒，3 条 ≈ 20 秒）
+      while (Date.now() - t0 < 45000 && log.filter(x => /排队气泡第/.test(x.txt)).length < 3) {
+        const doTick = !lastOn && Date.now() - nt >= 1500; if (doTick) nt = Date.now();
+        // 先读（气泡是哪个周天冒出来的）、再推：同一圈里先推后读的话，读到的周天比气泡真正冒出来时晚一季
+        const s = await pg.evaluate(doTick => { const X = window.__xm; if (!document.getElementById('modal').hidden) X.closeModal(); const tip = document.getElementById('tip'); const r = { on: !tip.hidden, txt: tip.hidden ? '' : tip.textContent, tick: X.st.tick, bq: X.guideDbg.bubbleQ.length }; if (doTick) { X.L.flow(X.st, 1); X.st.visitor = null; X.onTick(); } return r; }, doTick);
+        lastOn = s.on;
         if (s.on && s.txt !== lastTxt) { lastTxt = s.txt; log.push({ t: Date.now() - t0, tick: s.tick, txt: s.txt.replace(/\s+/g, '').slice(0, 24) }); }
         if (!s.on) lastTxt = '';
         await pg.waitForTimeout(350);
@@ -3361,14 +3390,23 @@ async function apSection(quick) {
       const rg = await pg.evaluate(() => { const X = window.__xm; const first = X.hints[0].id; X.registerGuide([{ id: 'ui_ins', when: () => false, text: 'x' }], { before: first }); X.registerGuide({ id: 'ui_tail', when: () => false, text: 'y' }); const ids = X.hints.map(h => h.id); const i = ids.indexOf('ui_ins'); return { i, nextIsWelcome: ids[i + 1] === first, tail: ids[ids.length - 1] }; });
       expect(rg.i >= 0 && rg.nextIsWelcome && rg.tail === 'ui_tail', 'registerGuide：before 插到指定讲解之前，不带 before 追加到末尾：' + JSON.stringify(rg));
       // 章末卡：只在本章主线刚完成时弹
+      // onTick 现在就是“过一季”：每季末先弹一张季末卡（“第 N 年 · 春  结束”，按钮【入夏 ▸】），章末卡（“第一章 … · 完”，带 ART.stamp('完') 的印）排在它后面。
+      // 这里一张张点掉季末卡，直到碰到章末卡（停在它上面，让后面的断言接着量）或没有弹窗；title 只写章末卡的标题（没碰到章末卡 = ''），seen 是路上见过的所有弹窗标题
       const chap = async (setup, wait) => {
         await closeAll(pg);
         await pg.evaluate(setup); await pg.waitForTimeout(wait);
-        return pg.evaluate(() => ({ title: document.getElementById('modal').hidden ? '' : document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#modal .duel-ch-stamp'), tip: window.__xm.bubbleLog.length }));
+        const seen = []; let card = null;
+        for (let i = 0; i < 5; i++) {
+          const m = await pg.evaluate(() => { const d = document.getElementById('modal'); return d.hidden ? null : { title: d.querySelector('h2').textContent, stamp: !!d.querySelector('.kcard img.px') }; });
+          if (!m) break; seen.push(m.title);
+          if (/ · 完$/.test(m.title)) { card = m; break; }
+          await pg.evaluate(() => { const b = document.querySelector('#modal .foot .btn'); if (b) b.click(); else window.__xm.closeModal(); }); await pg.waitForTimeout(900);
+        }
+        return { title: card ? card.title : '', stamp: !!(card && card.stamp), seen, tip: await pg.evaluate(() => window.__xm.bubbleLog.length) };
       };
       // 只量章末卡本身：主线节拍（开章、高潮、收尾的戏）关掉（L.STORYLINE = false），不然新档一读进来结算链先放“破庙第一夜”
       const ch0 = await chap(() => { const X = window.__xm, { L } = X; L.STORYLINE = false; const s = L.newState({ name: '章' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); X.st.stats.exp = 1; L.checkQuests(X.st); X.onTick(); }, 3000);
-      expect(ch0.title === '', '章末卡：做完的只是小任务（历练一次），不弹章末卡：' + JSON.stringify(ch0));
+      expect(ch0.title === '', '章末卡：做完的只是小任务（历练一次），不弹章末卡（路上只见到季末卡）：' + JSON.stringify(ch0));
       const ch1 = await chap(() => { const X = window.__xm; X.st.beaten.mu = 1; X.L.checkQuests(X.st); X.onTick(); }, 3500);
       expect(/^第一章/.test(ch1.title) && ch1.stamp, '章末卡：本章主线（赢下三年之约）刚完成时弹出，带“完”印：' + JSON.stringify(ch1));
       await pg.screenshot({ path: U('b-chapter-card') });
@@ -3431,7 +3469,9 @@ async function apSection(quick) {
         X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); return kind;
       }, kind);
       const startFn = {
-        pact: () => window.__xm.runPact(), origin: () => window.__xm.runPact(), tour: () => window.__xm.runTournament(), rookie: () => window.__xm.runRookie(), boss: () => window.__xm.fightBossUI(0),
+        pact: () => window.__xm.runPact(), origin: () => window.__xm.runPact(), tour: () => window.__xm.runTournament(), rookie: () => window.__xm.runRookie(),
+        // 首领战默认在场景里真打一场回合战（TRIP_ON，battle.js）：这里量的是对决演出（duelFx），临时走对决那条路（同阶段四 6）；首领现身、行动点也垫上
+        boss: () => { const X = window.__xm, { L, st } = X, tr0 = L.TRIP_ON, br0 = L.bossReady; L.TRIP_ON = false; L.bossReady = () => true; st.ap.left = 3; try { X.fightBossUI(0); } finally { L.TRIP_ON = tr0; L.bossReady = br0; } },
         meet: () => window.__xm.runSectMeet(), trio: () => window.__xm.runSectMeet(), war: () => window.__xm.runWar(), promo: () => { const X = window.__xm, { L } = X; const o = L.promote; L.promote = () => ({ duel: { S: 900, Q: 1000, p: 0.5, win: true } }); X.doPromote(); L.promote = o; },
         event: () => { const X = window.__xm; X.showChoice({ id: 'ui_duel', where: 'home', title: '路遇拦路人', text: '有人拦住了去路。', choices: [{ t: '与之交手', duel: 0.9, ok: { text: '你赢了。', fx: { xp: 5 } }, fail: { text: '你输了。', fx: { inj: 2 } } }] }); setTimeout(() => { const b = document.querySelector('#modal button[data-c="0"]'); if (b) b.click(); }, 300); },
       };
@@ -3501,9 +3541,10 @@ async function apSection(quick) {
       const nv = await ev(async () => {
         const X = window.__xm, { st, L } = X, keep = { onb: JSON.stringify(st.onb), pact: st.pact, on: L.ONB_ON };
         L.ONB_ON = true; st.onb = { at: { exp: 0 }, m: {}, last: 0, c: {} }; st.pact = 0;
+        keep.sect = st.sect; st.sect = null;   // 江湖那一格由 天骄榜 / 坊市 / 宗门 / 羁绊 任一解锁就开：这局入了宗（宗门上线会自己写回 onb.at.sect），先把宗门摘下来
         await new Promise(r => setTimeout(r, 400));
         const b = document.querySelector('#nav [data-nav="world"]'), lk1 = !!b && b.classList.contains('lk'), why = b ? ((b.querySelector('.lkw') || {}).textContent || '') : '';
-        st.onb = JSON.parse(keep.onb); st.pact = keep.pact; L.ONB_ON = keep.on;
+        st.onb = JSON.parse(keep.onb); st.pact = keep.pact; st.sect = keep.sect; L.ONB_ON = keep.on;
         await new Promise(r => setTimeout(r, 400));
         return { lk1, why, lk2: !!b && b.classList.contains('lk') };
       });
@@ -3521,22 +3562,30 @@ async function apSection(quick) {
       const spd = await ev(async () => { const X = window.__xm, t0 = X.st.tick; await new Promise(r => setTimeout(r, 1000)); const b = document.getElementById('btnNext'), r = b ? b.getBoundingClientRect() : { width: 0, height: 0 };
         return { speed: !!document.getElementById('btnSpeed'), next: !!b, w: Math.round(r.width), h: Math.round(r.height), txt: b ? b.textContent : '', t0, t1: X.st.tick }; });
       expect(!spd.speed && spd.next && spd.w >= 44 && spd.h >= 44 && /下一季|赴约|论道|迎战|会武/.test(spd.txt) && spd.t0 === spd.t1, '阶段四 3 速度键已删：#btnSpeed 不存在、【下一季】≥44px、放置 1 秒时间不动：' + JSON.stringify(spd));
-      // 4 掉落翻牌
-      const drop = async (drops, legacy) => {
-        await ev(([drops, legacy]) => {
+      // 4 掉落翻牌。开罗式重整 + 战斗流程以后，结算卡上的“掉落光柱”（旧的 #modal .dflip，按本趟最高品阶立一道光柱）换成了归途翻牌（src/ui/loot.js 的 .lt-flip）：
+      //   一张牌一格 .lt-c，点开翻面（.lt-open），★★ 以上的牌翻开时立光柱（.lt-beamon、ART.dropBeam(tier) 按这张牌的品阶画）。旧的 dropFlipHTML 已经没人调了。
+      //   这里量的就是替代物：首领首杀的牌（3 张固定，含 ★★ 专属）翻满、光柱数 = ★★ 以上的牌数、画光柱用的品阶 = 这些牌的品阶；再战的牌（35% 才有）同样对账；没有牌不出现 .lt-flip
+      const drop = async (kk, first) => {
+        const cs = await ev(([kk, first]) => {
           const { st, L } = window.__xm; st.exp = null; window.__xm.closeModal();
           L.startExp(st, 0, 0, 0); const res = L.resolveExp(st); res.items = [];
-          for (const [k, t] of drops) res.items.push(L.giveItem(st, k, t, undefined, { k: 0, d: 0, src: 'exp' }));
-          window.__want = Math.max(0, ...res.items.map(it => it.kind === 'a' ? (L.art(it.art) || {}).t : it.gear ? it.gear.t : it.kind === 'pet' ? it.tier : 0).map(t => t ? Math.max(1, Math.min(7, t | 0)) : 0));
+          res.cards = kk < 0 ? [] : L.bossLoot(st, kk, first); res.sum = null;
+          window.__beams = []; const A = window.__xm.ART; window.__dropBeam0 = window.__dropBeam0 || A.dropBeam; A.dropBeam = function (t, fr) { window.__beams.push(t); return window.__dropBeam0.apply(this, arguments); };
           window.__xm.showExpResult(res);
-        }, [drops, legacy]);
-        await pg.waitForTimeout(700);
-        const r = await ev(() => { const d = document.querySelector('#modal .dflip'), c = document.querySelector('#modal canvas.dflip-beam'); return { has: !!d, tier: c ? c.dataset.tier : null, want: String(window.__want) }; });
-        await closeAll(pg); return r;
+          return res.cards.map(c => ({ kind: c.kind, tier: c.tier, stars: c.stars || 0 }));
+        }, [kk, first]);
+        await pg.waitForTimeout(500);
+        const n0 = await ev(() => document.querySelectorAll('#modal .lt-flip .lt-c').length);
+        for (let i = 0; i < n0; i++) { await ev(i => { const c = document.querySelector(`#modal .lt-c[data-li="${i}"]`); if (c) c.click(); }, i); await pg.waitForTimeout(1500); }
+        const r = await ev(() => ({ n: document.querySelectorAll('#modal .lt-flip .lt-c').length, open: document.querySelectorAll('#modal .lt-c.lt-open').length, beamOn: document.querySelectorAll('#modal .lt-c.lt-beamon').length, beams: [...new Set(window.__beams)].sort() }));
+        await ev(() => { window.__xm.ART.dropBeam = window.__dropBeam0; });
+        await closeAll(pg); return Object.assign({ cs }, r);
       };
-      const d1 = await drop([['w', 6], ['a', 2]]), d2 = await drop([['a', 2]]), d3 = await drop([['r', 7]]), d4 = await drop([]);
-      expect([d1, d2, d3].every(d => d.has && d.tier === d.want && +d.want >= 2), '阶段四 4 有掉落：#modal .dflip，光柱 data-tier = 掉落里最高品阶（法宝 6 + 功法 2 → 6；功法 2 → 2；法衣 7 → 7 封顶）：' + JSON.stringify([d1, d2, d3]));
-      expect(!d4.has, '阶段四 4 没有掉落：不出现 .dflip：' + JSON.stringify(d4));
+      const hotOf = d => d.cs.filter(c => c.stars >= 2), tiersOf = d => [...new Set(hotOf(d).map(c => Math.max(1, Math.min(7, c.tier || 1))))].sort();
+      const d1 = await drop(0, true), d2 = await drop(0, false), d4 = await drop(-1, false);
+      expect(d1.n === d1.cs.length && d1.n >= 3 && d1.open === d1.n && hotOf(d1).length >= 1 && d1.beamOn === hotOf(d1).length && JSON.stringify(d1.beams) === JSON.stringify(tiersOf(d1)), '阶段四 4 有掉落：#modal .lt-flip 的牌全翻开、★★ 以上的每张立一道光柱、光柱品阶 = 这几张牌的品阶（首杀三张含专属）：' + JSON.stringify(d1));
+      expect(d2.n === d2.cs.length && d2.open === d2.n && d2.beamOn === hotOf(d2).length && JSON.stringify(d2.beams) === JSON.stringify(tiersOf(d2)), '阶段四 4 再战（35% 一张，可能没有）：有牌就全翻开，光柱数与品阶照样对得上；没有 ★ 的牌不立光柱：' + JSON.stringify(d2));
+      expect(d4.n === 0, '阶段四 4 没有掉落：不出现 .lt-flip：' + JSON.stringify(d4));
       // 5 空状态
       const en = async fn => { await ev(fn); await pg.waitForTimeout(400); const r = await ev(() => !!document.querySelector('#modal .empty-note')); await closeAll(pg); return r; };
       const e1 = await en(() => { const { st } = window.__xm; st.pets = []; st.petOut = -1; st.petPend = []; window.__xm.showPets(); });
@@ -3580,7 +3629,7 @@ async function apSection(quick) {
       expect(war === 'sect_mo', `阶段四 8 runWar：duelFx.stage === 'sect_mo'（${war}）`);
       const promoStage = async sect => {
         await closeAll(pg);
-        await ev(sect => { const X = window.__xm, { L } = X; const s = L.newState({ name: '晋', origin: sect === 'xuesha' ? 'moyi' : undefined }); s.guide = { step: 99, done: true }; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; s.storyQ = []; if (sect === 'xuesha') s.origin = 'moyi'; s.p.r = 3; s.p.s = 2; s.flags.maxR = 3; s.tick = 130; s.pact = 1; s.beaten.mu = 1; s.stats.exp = 20; s.stones = 1e5; s.rank = 50; s.home = { cave: 6, array: 8, field: 8, furnace: 8 }; for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3; L.joinSect(s, sect); s.sect.rank = 2; s.sect.total = 20000; s.sect.pts = 900; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); const o = L.promote; L.promote = () => ({ duel: { S: 900, Q: 1000, p: 0.5, win: true } }); X.doPromote(); L.promote = o; }, sect);   // 晋升要的人脉等条件不好凑：直接给一场晋升之争
+        await ev(sect => { const X = window.__xm, { L } = X; const s = L.newState({ name: '晋', origin: sect === 'xuesha' ? 'moyi' : undefined }); s.guide = { step: 99, done: true }; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; s.storyQ = []; if (sect === 'xuesha') s.origin = 'moyi'; s.p.r = 3; s.p.s = 2; s.flags.maxR = 3; s.tick = 130; s.pact = 1; s.beaten.mu = 1; s.stats.exp = 20; s.stones = 1e5; s.rank = 50; s.home = { cave: 6, array: 8, field: 8, furnace: 8 }; for (let k = 0; k <= 3; k++) for (let d = 0; d < 3; d++) s.best[k + '_' + d] = 3; L.joinSect(s, sect); s.storyQ = []; for (const k in s.sect.fav) s.sect.fav[k] = 60; /* 晋升走行动 L.act('promote')，要累计贡献够、至少两位长老支持 ≥ 50：条件凑齐（L.promote 照旧换成一场对决） */ s.flags.chEnd = { 0: 1, 1: 1, 2: 1 }; /* 章末卡记作已弹：不然读进来（约战赢了 = 第一章完）先弹章末卡 */ s.sect.rank = 2; s.sect.total = 99999; s.sect.pts = 900; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); const o = L.promote; L.promote = () => ({ duel: { S: 900, Q: 1000, p: 0.5, win: true } }); X.doPromote(); L.promote = o; }, sect);   // 晋升要的人脉等条件不好凑：直接给一场晋升之争
         await wait(() => !!window.__xm.duelFx, 2500);
         const r = await ev(() => ({ stage: window.__xm.duelFx && window.__xm.duelFx.stage, sect: window.__xm.st.sect && window.__xm.st.sect.id, title: (document.querySelector('#modal h2') || {}).textContent }));
         await finishDuel(); return r;
