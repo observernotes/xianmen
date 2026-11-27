@@ -69,7 +69,7 @@ function tkMount() {
     <div class="tk-top"><button class="tk-log" aria-label="回看">回看</button><span class="tk-title"></span><button class="tk-skip" aria-label="跳过">跳过 ▸▸</button></div>
     <div class="tk-ui"><div class="tk-echo" hidden></div><div class="tk-box"><div class="tk-name" hidden></div><div class="tk-text"></div><canvas class="tk-next" width="9" height="8"></canvas><div class="tk-picks" hidden></div></div><div class="tk-hint">点一下继续 · 长按快进</div></div>
     <div class="tk-black" hidden><p></p></div><div class="tk-hist" hidden></div>`;
-  for (const k of ['talk', 'talkName', 'talkNameMe', 'talkPick']) root.style.setProperty('--fr-' + k, `url(${ART.frame(k).url})`);
+  applyFrames(root, ['talk', 'talkName', 'talkNameMe', 'talkPick']);   // 跟着当前画质取九宫格（core.js）
   document.body.appendChild(root);
   return root;
 }

@@ -109,13 +109,25 @@ function showRecord() {
 }
 // 音量格（0～5 档，五根由矮到高的柱子；不是按钮，一整条算一个控件）
 const volBar = (w, lv) => `<div class="kvol" data-vol="${w}" data-lv="${lv}" role="slider" aria-label="${w === 'm' ? '音乐' : '音效'}音量" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${lv}">${[1, 2, 3, 4, 5].map(i => `<i data-i="${i}" class="${i <= lv ? 'on' : ''}"><b></b></i>`).join('')}</div>`;
-// 【仙途】→ 设置：声音（三态 + 音乐 / 音效音量）、玩法指南、存档（自动 / 手动档位，saves.js）、重新开始
+// 画质一行（docs/ART_HD2D.md §5.3 / §6-1）：六个格，点了即时换档；“自动”掉帧时自己往下降（只降不升）
+const HD_NAMES = { 0: '关', 1: '省', 1.5: '标准', 2: '高', 3: '极致', auto: '自动' };
+const HD_SAYS = { 0: '原来的像素画面', 1: '分层、灯火、夜色、轮廓光', 1.5: '再加景深、辉光、光束、投影', 2: '再加移轴（远处更虚）', 3: '按屏幕像素合成，最费电' };
+function hdRowHTML() {
+  if (!HDX) return '';
+  const cur = hdNow(), q = HDX.q === 2 && HDX.lite ? 1.5 : HDX.q;
+  const say = cur === 'auto' ? `自动 · 现在：${HD_NAMES[q]}` : `${HD_NAMES[cur]} · ${HD_SAYS[cur]}`;
+  return `<div class="kslot kq"><div class="kqh"><div class="cell">${artIcon('rune', 32)}</div><div class="mid"><div class="nm">画质</div><small id="kHdSay">${say}</small></div></div>
+    <div class="kseg" role="radiogroup" aria-label="画质">${HD_VALS.map(v => `<button data-hd="${v}" role="radio" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${HD_NAMES[v]}</button>`).join('')}</div></div>`;
+}
+function hdPick(v) { hdPref = v; hdApply(v); savePref(); }
+// 【仙途】→ 设置：声音（三态 + 音乐 / 音效音量）、画质、玩法指南、存档（自动 / 手动档位，saves.js）、重新开始
 function showSettings() {
   if (!navCur) navCur = 'path';
   const body = meTabs('set')
     + `<div class="kslot"><div class="cell" id="btnSound" style="cursor:pointer"></div><div class="mid"><div class="nm">声音</div><small>${['音乐与音效', '仅音效', '静音'][soundMode]}</small></div><button class="kb alt" id="kSnd">切换</button></div>
     <div class="kslot kvrow"><div class="mid"><div class="nm">音乐</div></div>${volBar('m', soundMode === 0 ? AU.mv : 0)}</div>
     <div class="kslot kvrow"><div class="mid"><div class="nm">音效</div></div>${volBar('s', soundMode !== 2 ? AU.sv : 0)}</div>
+    ${hdRowHTML()}
     <div class="kslot"><div class="cell">${artIcon('atk', 32)}</div><div class="mid"><div class="nm">战斗速度</div><small>只影响战斗演出 · 现在 ×${btSpeed}</small></div><button class="kb alt" id="kBtSpd">×${btSpeed > 1 ? 1 : 2}</button></div>
     <div class="kslot"><div class="cell">${artIcon('time', 32)}</div><div class="mid"><div class="nm">【下一季】剩点时确认</div><small>${sitAsk ? '先问一句' : '不问，剩下的点自动打坐'}</small></div><button class="kb alt" id="kSitAsk">${sitAsk ? '不问了' : '要问'}</button></div>
     <div class="kslot"><div class="cell">${artIcon('quest', 32)}</div><div class="mid"><div class="nm">玩法指南</div><small>各系统一句话</small></div><button class="kb alt" id="btnHelp">看</button></div>
@@ -136,6 +148,7 @@ function showSettings() {
     savePref(); setSoundIcon(); if (w === 's') SFX.coin(); else SFX.tap();
     showSettings();
   });
+  s.querySelectorAll('[data-hd]').forEach(b => b.onclick = () => { const v = b.dataset.hd === 'auto' ? 'auto' : +b.dataset.hd; SFX.tap(); hdPick(v); showSettings(); });
   s.querySelector('#kBtSpd').onclick = () => { SFX.tap(); btSpeed = btSpeed > 1 ? 1 : 2; savePref(); showSettings(); };
   s.querySelector('#kSitAsk').onclick = () => { SFX.tap(); sitAsk = !sitAsk; savePref(); showSettings(); };
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };
