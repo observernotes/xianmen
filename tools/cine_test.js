@@ -136,9 +136,18 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const p1 = await on(); check(p1 && p1.key === 'pact1' && p1.n === 2, `赢了：打脸 + 休书（${p1 && p1.key} · ${p1 && p1.n} 镜）`);
   await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${tag}-flow-pact1.png` });
   await page.click('.cn-skip'); await page.waitForTimeout(1600);
-  const ch = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
-  console.log('       约战之后：' + (ch || '（无弹窗）'));
-  check(/章.*完/.test(ch), `约战打脸之后才是章末卡（${ch}）`);
+  // 约战之后同一条结算链：这一章的高潮 / 收尾戏（休书……）→ 章末卡（AP_PLAN §4.2：戏在章末卡之前，中间不回主界面）
+  const after = []; let ch = '';
+  for (let i = 0; i < 12; i++) {
+    const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? '对话:' + window.__xm_talk.on.id : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?'));
+    if (!t) break;
+    if (/章.*完/.test(t)) { ch = t; break; }
+    if (after[after.length - 1] !== t) after.push(t);
+    await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); });
+    await page.waitForTimeout(500);
+  }
+  console.log('       约战之后：' + after.concat([ch || '（链断了）']).join(' → '));
+  check(/章.*完/.test(ch) && after.every(t => !/第二章|混沌初醒|三张帖子/.test(t)), `约战打脸之后：这一章的戏 → 章末卡（${after.join(' → ')} → ${ch || '没出'}）`);
   await ev(() => { while (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
   for (let i = 0; i < 6; i++) { const t = await ev(() => { const C = window.__xm_cine; if (C.on) C.skip(); const m = document.getElementById('modal'); if (!m.hidden) window.__xm.closeModal(); return C.queue.length + (m.hidden ? 0 : 1); }); await page.waitForTimeout(450); if (!t) break; }
   // ---------- 首领首杀（洞府里的首领对决）：对决 → 斩首领过场 → 翻牌 / 结果 ----------

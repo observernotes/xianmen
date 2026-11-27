@@ -29,7 +29,7 @@ const chainFull = () => !!L.blockRun || !!L.CHAIN_FULL;
 let seasonLog = [];   // 这一季做过的事（季末卡上那一行“这一季：历练 1 趟 · 乙 ｜ 首领 ✓”）
 // 有阻塞层开着（弹窗、过场、对话场景、对决、开场、历练演出、首领战）：链等它关掉
 const chainBusy = () => !$('#modal').hidden || !!cine || !!duelFx || !$('#intro').hidden || (typeof tk !== 'undefined' && !!tk) || (typeof cn !== 'undefined' && !!cn)
-  || !!(st && st.exp) || !!(typeof btv !== 'undefined' && btv && btv.mode === 'boss');
+  || !!(st && (st.exp || st.run)) || !!(typeof btv !== 'undefined' && btv && btv.mode === 'boss');   // 秘境里也算“行动之中”：链等出了秘境再出（AP_PLAN §4.4）
 // 【下一季】、底栏、【去】此刻点不点得动：链没出完、演出中、秘境里、弹窗队列里还有东西
 const busyUI = () => !st || chainOn || chainBusy() || !!st.run || queue.length > 0;
 function settle(why) {

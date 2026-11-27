@@ -387,7 +387,13 @@ async function apSection(quick) {
   await page.click('#goStart'); await page.waitForTimeout(400);
   // 这里造的都是中后期局面：关掉上手曲线（docs/ONBOARDING.md），界面回到 2.0.0 的全开 + 灰锁；上手曲线自己的检查见 tools/onboard.js / guide_test.js
   await page.evaluate(() => { window.__xm.L.ONB_ON = false; });
-  const close = async () => { for (let i = 0; i < 3; i++) { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450); } };
+  // 关弹窗；结算链里补放的主线戏（造局面后线 B 的链会把没播过的开章戏补出来）点第一个选项——只关不选的话下一条链会再补放，界面一直被挡着
+  const close = async () => { for (let i = 0; i < 8; i++) { const more = await page.evaluate(i => { const X = window.__xm, m = document.getElementById('modal');
+    if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return true; }
+    if (m.hidden) return i < 3 || !!X.busyUI;
+    const c = document.querySelector('#modal .choices[data-ev]'), ev = c && X.L.eventById(c.dataset.ev);
+    if (ev && ev.where === 'story') { const b = c.querySelector('.btn:not([disabled])'); if (b) { b.click(); return true; } }
+    X.closeModal(); return true; }, i); await page.waitForTimeout(450); if (!more) break; } };
   await page.evaluate(() => {
     const { st, L } = window.__xm;
     window.__xm.setSpeed(3);
@@ -788,7 +794,7 @@ async function apSection(quick) {
   const cal = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, strip: !!document.querySelector('#calStrip'), rows: [...document.querySelectorAll('#modal [data-cal]')].map(x => x.dataset.cal).join(), txt: document.querySelector('#modal .body').textContent }));
   expect(cal.t === '年历' && cal.strip && cal.rows.includes('dao') && cal.rows.includes('auc') && cal.rows.includes('war') && cal.rows.includes('realm') && cal.rows.includes('world') && cal.txt.includes('兽潮'), `年历：${cal.rows}`);
   await close();
-  await page.click('#time'); await page.waitForTimeout(300);
+  await close(); await page.evaluate(() => document.getElementById('time').click()); await page.waitForTimeout(300);
   expect(await page.evaluate(() => document.querySelector('#modal h2').textContent === '年历'), '筑基后“大事”牌点开是年历');
   await close();
   // 老祖在每件大势开始时的一句“该干什么”：12 种都带数字，没有 undefined / NaN
@@ -918,7 +924,7 @@ async function apSection(quick) {
     out.leap = L.leapMult(st) / (2 * L.gearExp(st).leap); out.lo = L.duelP(st, 1, 1e9, {});
     // 狂三级：丁等以伤换命再战一次（翻到丙以上算数，换一周天轻伤）
     st.exp = null; st.retreat = null; st.p.inj = 0; st.p.r = 3; st.p.s = 0; st.p.xp = 0;
-    const mk = () => { L.startExp(st, 0, 0, 0); const pl = st.exp.plan; Object.assign(pl, { fix: undefined, gift: undefined, aff: 0, guts: 0, adj: 0, rnd: -12, pow: L.RATE_TH[0] - 3 + 12 }); pl.u[0] = 0.1; pl.u[5] = 0; pl.u[7] = 0.99; pl.u[8] = 0.99; };
+    const mk = () => { st.exp = null; st.run = null; st.retreat = null; L.startExp(st, 0, 0, 0); const pl = st.exp.plan; Object.assign(pl, { fix: undefined, gift: undefined, aff: 0, guts: 0, adj: 0, rnd: -12, pow: L.RATE_TH[0] - 3 + 12 }); pl.u[0] = 0.1; pl.u[5] = 0; pl.u[7] = 0.99; pl.u[8] = 0.99; };
     // 以伤换命按旧的分数制量（回合战里倒下就是倒下，不再重掷；COMBAT_LOOT §2.3）：这一段临时关掉回合战
     const trip0 = L.TRIP_ON; L.TRIP_ON = false;
     mk(); const re = L.resolveExp(st); out.refight = re.refight; out.rating = re.rating; out.inj = st.p.inj;
@@ -1100,7 +1106,7 @@ async function apSection(quick) {
     L.MJ_ON = false; t = T('explore'); L.MJ_ON = true; o.exploreFallback = !t.realm && L.expOpen(st, t.k, 2, 1) && /禁地寻宝/.test(L.taskText(st, t));
     t = T('lecture'); o.lectureBusy = !!st.retreat && st.retreat.kind === 'busy' && st.retreat.left === 2 && L.gain(st) === 0;
     L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = [];
-    const tot0 = st.sect.total; for (let i = 0; i < 2; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); }
+    const tot0 = st.sect.total; for (let i = 0; i < 2 && st.retreat; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); }   /* 差事改成当场办完（AP_PLAN §2.2）后 st.retreat 可能已经没了 */
     o.lectureDone = t.done === 1 && st.sect.total >= tot0 + 100 && st.disc.list[0].lp === 1 && !st.retreat;
     // 宝库轮换：6 格，每届论道换；按身份开放；贡献是唯一的货币；vault_tip 法宝高一阶
     st = mk('jian', 0);
@@ -1157,8 +1163,8 @@ async function apSection(quick) {
     L.discSetJob(st, d.u, 'home'); o.discHome = Math.abs(L.modProd(L.modParts('incMul', st).filter(x => x[2] === 'disc')) - 1.08) < 1e-9;
     L.discSetJob(st, d.u, 'exp'); const sto = st.stones; for (let i = 0; i < 6; i++) L.discTick(st, {}); o.discExp = st.stones - sto === L.discJobVal(st, d, 'exp').stones;
     const pw0 = L.discPow(st, d); st.retreat = null; st.exp = null;
-    o.teachStart = L.discTeach(st, d.u, 'x_houtu') && st.retreat.kind === 'busy' && st.retreat.left === L.TEACH_LEN;
-    st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true);
+    o.teachStart = L.discTeach(st, d.u, 'x_houtu') && !!st.retreat && st.retreat.kind === 'busy' && st.retreat.left === L.TEACH_LEN;
+    if (st.retreat) { st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true); }
     o.teachDone = d.taught.includes('x_houtu') && Math.abs(L.discPow(st, d) / pw0 - 1.2) < 1e-9 && L.artLv(st, 'x_houtu') === 4;
     d.di = 8; const tot1 = st.sect.total, tl0 = st.meta.taoli.n, gc = L.discGradContrib(st, d);
     const gr = L.discGraduate(st, d.u, 'grad_word'); o.grad = !!gr && st.sect.total === tot1 + gc && st.disc.taoli === 1 && st.meta.taoli.n === tl0 + 1 && !st.disc.list.length && L.discGraduated(st) === 1;
@@ -1201,7 +1207,7 @@ async function apSection(quick) {
     o.favTask = L.FAV.task === 3;
     t = T(st, 'lecture'); o.lectureX2 = t.rw === 100 && L.taskElder(st, t) === 'lingxu';
     L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = [];
-    { const fl = L.favor(st, 'lingxu'); for (let i = 0; i < 2; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); } o.lectureFav = L.favor(st, 'lingxu') === fl + 3 && !!t.fav && t.fav.d === 3; }
+    { const fl = L.favor(st, 'lingxu'); for (let i = 0; i < 2 && st.retreat; i++) { st.retreat.left--; if (st.retreat.left <= 0) L.endRetreat(st, true); }   /* 差事改成当场办完（AP_PLAN §2.2）后 st.retreat 可能已经没了 */ o.lectureFav = L.favor(st, 'lingxu') === fl + 3 && !!t.fav && t.fav.d === 3; }
     t = T(st, 'tame');
     { const el = t.el;
       const run = ok => { st.exp = null; st.petOut = 0; t.el = ok ? el : (el === 'huo' ? 'shui' : 'huo'); t.prog = 0; t.done = 0; L.rng = () => 0.5; st.bonus.atk = 1e4; L.startExp(st, 0, 0, 0); st.exp.left = 0; const r = L.resolveExp(st); L.rng = Math.random; return t.done === 1; };
@@ -1292,7 +1298,7 @@ async function apSection(quick) {
       const s2 = mk('dao', 4, 4); L.discTake(s2, null, { cat: 'quiet' }); const x = s2.disc.list[0]; delete x.ev; delete x.taught; delete x.lp; delete x.jt; x.tp = 'zzz'; x.job = 'zzz';
       const c = L.migrate(clone(s2)).disc.list[0]; o.migrateDiscFields = Array.isArray(c.taught) && typeof c.ev === 'object' && c.lp === 0 && c.tp === 'qin' && c.job === ''; }
     { st = mk('jian', 2, 4); L.giveArt(st, 'x_houtu'); st.arts.own.x_houtu = L.artNeed('x_houtu', 3) + 1; L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = [];
-      t = T(st, 'lecture'); st.retreat.left = 1; const s = L.migrate(clone(st)); const tot = s.sect.total, lp = s.disc.list[0].lp;
+      t = T(st, 'lecture'); if (st.retreat) st.retreat.left = 1; const s = L.migrate(clone(st)); const tot = s.sect.total, lp = s.disc.list[0].lp;
       o.busyLectureSave = s.retreat && s.retreat.kind === 'busy' && s.retreat.what === 'lecture' && (s.retreat.left--, L.endRetreat(s, true), s.sect.tasks[0].done === 1 && s.disc.list[0].lp === lp + 1 && !s.retreat && s.sect.total > tot);
       st = mk('dao', 4, 4); L.giveArt(st, 'x_houtu'); st.arts.own.x_houtu = L.artNeed('x_houtu', 3) + 1; const dd = L.discTake(st, null, { cat: 'quiet' }); st.storyQ = []; st.disc.q = []; L.discTeach(st, dd.u, 'x_houtu');
       const s2 = L.migrate(clone(st)); L.endRetreat(s2, true); o.busyTeachSave = s2.retreat === null && s2.disc.list[0].taught.includes('x_houtu');
@@ -1306,7 +1312,7 @@ async function apSection(quick) {
     { const s0 = mk('dao', 4, 4); s0.disc = null; const out = L.applyFx(s0, { disc: { grow: 0.1 } }); o.emptyRoster = out.join('').includes('不在门下') && noThrow(() => { L.applyFx(s0, { disc: { out: 1 } }); L.applyFx(s0, { disc: { lv: 1, heart: 1, inj: 1, job: 0.1 } }); L.discTick(s0, {}); L.discTop(s0, 2); L.sectMeet(s0); L.discLectured(s0); L.discSetJob(s0, 99, 'exp'); L.discTeach(s0, 99, 'x_houtu'); L.discGraduate(s0, 99); }) === true && L.discSetJob(s0, 99, 'exp') === false; }
     { const s0 = mk('dao', 4, 4); s0.exp = { k: 0, d: 0, a: 0, left: 3, total: 3, plan: {}, chain: 0 }; const out = L.applyFx(s0, { busy: 3 }); o.busyExp = !s0.retreat && !out.join('').includes('占住');
       const s1 = mk('dao', 4, 4); const o1 = L.applyFx(s1, { busy: 3 }); o.busyOk = !!s1.retreat && s1.retreat.kind === 'busy' && s1.retreat.left === 3 && L.gain(s1) === 0 && o1.join('').includes('占住 3 个周天');
-      const o2 = L.applyFx(s1, { busy: 2 }); o.busyTwice = s1.retreat.left === 3 && !o2.join('').includes('占住'); }
+      const o2 = L.applyFx(s1, { busy: 2 }); o.busyTwice = !!s1.retreat && s1.retreat.left === 3 && !o2.join('').includes('占住'); }
     return o;
   });
   for (const k in sx2) expect(sx2[k], '宗门补测：' + k);

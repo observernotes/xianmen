@@ -201,9 +201,9 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
       // 读进来之前把赵乾改回“没打过”：第三章的高潮、收尾和章末都还没出（其余照存档）
       delete s.beaten.zhao; if (s.eflags) delete s.eflags.beat_zhao; s.storyQ = []; if (s.path) s.path.hold = [];
       for (const id of ['s3_zhao_fall', 's3_end', 's3_zhao_eve']) if (s.evDone) delete s.evDone[id];
-      if (s.story && s.story.beat) for (const k of Object.keys(s.story.beat)) if (/^c3_(climax|end)$|^c[4-9]_/.test(k)) delete s.story.beat[k];
+      if (s.story && s.story.beat) for (const k of Object.keys(s.story.beat)) if (/^c3_(pre|climax|end)$|^c[4-9]_/.test(k)) delete s.story.beat[k];
       if (s.flags && s.flags.chEnd) for (const k of Object.keys(s.flags.chEnd)) if (+k >= 2) delete s.flags.chEnd[k];
-      s.ap = { left: 3, stride: 0, debt: 0, seq: 0, pend: [], log: {}, migrated: 1 }; s.flags.apHint = 1;
+      s.ap = { left: 3, stride: 0, debt: 0, seq: 0, pend: [], log: {}, migrated: 1 }; s.flags.apHint = 1; s.evDone.s1_night = 1;
       X.loadState(s); }, fx);
     // 读档的那条链先出完（压着的戏、迁移提示）
     await ev(() => { window.__xm_talk.fast = true; });
