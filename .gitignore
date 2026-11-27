@@ -12,3 +12,12 @@ __pycache__/
 Pixel 7/
 onboard/
 docs/story_mock/people/
+
+# Godot editor data, generated rules and platform binaries
+godot/.godot/
+godot/native/.deps/
+godot/native/.sconsign.dblite
+godot/native/obj/
+godot/addons/xianmen_runtime/bin/
+godot/data/rules.js
+dist/xiantu-godot*.apk

@@ -1,0 +1,21 @@
+from pathlib import Path
+
+native = Path(Dir(".").abspath)
+if "build_profile" not in ARGUMENTS:
+    ARGUMENTS["build_profile"] = str(native / "profile.json")
+env = SConscript(".deps/godot-cpp/SConstruct")
+env.Append(CPPPATH=[".deps/quickjs"])
+
+qjs = env.Clone()
+qjs.Append(CPPDEFINES=["_GNU_SOURCE"])
+sources = ["quickjs", "dtoa", "cutils", "libregexp", "libunicode"]
+objects = [
+    qjs.SharedObject("obj/%s/%s" % (env["suffix"], name), ".deps/quickjs/%s.c" % name)
+    for name in sources
+]
+objects.append(env.SharedObject("obj/%s/runtime" % env["suffix"], "runtime.cpp"))
+library = env.SharedLibrary(
+    "../addons/xianmen_runtime/bin/libxianmen%s%s" % (env["suffix"], env["SHLIBSUFFIX"]),
+    objects,
+)
+Default(library)
