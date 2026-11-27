@@ -12,8 +12,9 @@ function saveLocal(why) { if (!st) return; try { st.savedAt = Date.now(); SLOTS.
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function clearLocal() { try { SLOTS.retire(st); } catch (e) { /* ignore */ } }   // 重新开始：当前进度挤进自动 2，自动 1 空出来（手动档不动）
 // 偏好：音量、战斗演出速度、【下一季】剩点要不要确认。旧的速度档 speedIdx 不再读（AP_PLAN §7）
-function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ soundMode, btSpeed, sitAsk, mv: AU.mv, sv: AU.sv })); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.btSpeed === 2) btSpeed = 2; sitAsk = !!p.sitAsk; } catch (e) { /* ignore */ } }
+// 画质（hd）：只有玩家在设置里点过才记（panel-me.js 的 hdPick）；读回来时网址带 ?hd=N 的优先（测试、样张用）
+function savePref() { try { const o = { soundMode, btSpeed, sitAsk, mv: AU.mv, sv: AU.sv }; if (hdPref !== null) o.hd = hdPref; localStorage.setItem(PREF_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.btSpeed === 2) btSpeed = 2; sitAsk = !!p.sitAsk; if (HD_VALS.includes(p.hd)) { hdPref = p.hd; if (!/[?&]hd=/.test(location.search) && hdNow() !== p.hd) hdApply(p.hd); } } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {

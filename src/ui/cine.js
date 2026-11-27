@@ -57,7 +57,7 @@ function drawTribCine(dt) {
       b.hit = true; c.lag = Math.max(c.lag, c.shield); c.shield = c.curve[b.i]; c.hitT = 180;
       shake(); SFX.thunder(); if (b.last) flash(0.5);
       floatText(x, -OY + 40, `第 ${b.i} / ${c.N} 道`, b.last ? '#ff9a8a' : '#e9e3ff', b.last, !b.last);
-      for (let j = 0; j < 10; j++) { const a = Math.random() * Math.PI, v = 0.03 + Math.random() * 0.05; parts.push({ x: x + (Math.random() - 0.5) * 20, y: feet - 28, vx: Math.cos(a) * v * (Math.random() < 0.5 ? -1 : 1), vy: -Math.sin(a) * v, g: 0.0002, life: 500, max: 500, c: j % 2 ? '#ffffff' : '#fff6a8', s: 1 }); }
+      for (let j = 0; j < 10; j++) { const a = Math.random() * Math.PI, v = 0.03 + Math.random() * 0.05; parts.push({ x: x + (Math.random() - 0.5) * 20, y: feet - 28, vx: Math.cos(a) * v * (Math.random() < 0.5 ? -1 : 1), vy: -Math.sin(a) * v, g: 0.0002, life: 500, max: 500, c: j % 2 ? '#ffffff' : '#fff6a8', s: 1, glow: 1 }); }
       if (b.last) c.resolveAt = c.t + 520;
     }
     const broke = b.last && b.hit && c.out && !c.out.ok;
@@ -81,12 +81,12 @@ function drawTribCine(dt) {
     const y = feet - D().sit.h / 2;
     if (c.res.ok) {
       flash(1); SFX.btOk();
-      for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2 }); }
+      for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2, glow: 1 }); }
       if (c.ascend) { SFX.gong(); banner('白日飞升', st.p.name + ' 渡过九九天劫！', '#fff6c0'); }
       else banner('渡劫成功', `${L.REALMS[c.res.to].n}期 · 评价「${c.res.tb.grade}」${c.res.dan ? ' · ' + c.res.dan : ''}`);
     } else {
       SFX.btFail();
-      for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.05; parts.push({ x: x + Math.cos(a) * 20, y: feet - 12 + Math.sin(a) * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.01, g: 0.0002, life: 900, max: 900, c: k % 2 ? '#ffb23f' : '#ff6b3a', s: 1 }); }
+      for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.05; parts.push({ x: x + Math.cos(a) * 20, y: feet - 12 + Math.sin(a) * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.01, g: 0.0002, life: 900, max: 900, c: k % 2 ? '#ffb23f' : '#ff6b3a', s: 1, glow: 1 }); }
       banner('渡劫失败', '护体碎了，来日再战', '#ff8a8a');
     }
   }
@@ -127,13 +127,13 @@ function drawCine(dt) {
       for (let k = 0; k < 6; k++) parts.push({ x: x + (Math.random() - .5) * 14, y: y + 8, vx: (Math.random() - .5) * 0.08, vy: -Math.random() * 0.08, g: 0.0002, life: 500, max: 500, c: col, s: 1 });
     }
   } else if (c.t < strikeEnd) {
-    for (let k = 0; k < 3; k++) { const a = Math.random() * Math.PI * 2, r = 34 + Math.random() * 20; parts.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * r / 600, vy: -Math.sin(a) * r * 0.5 / 600, life: 600, max: 600, c: '#9ff5d8', s: 1 }); }
+    for (let k = 0; k < 3; k++) { const a = Math.random() * Math.PI * 2, r = 34 + Math.random() * 20; parts.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * r / 600, vy: -Math.sin(a) * r * 0.5 / 600, life: 600, max: 600, c: '#9ff5d8', s: 1, glow: 1 }); }
   }
   if (c.t >= strikeEnd && !c.resolved) {
     c.resolved = true;
     if (c.res.ok) {
       flash(1); SFX.btOk();
-      for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2 }); }
+      for (let k = 0; k < 70; k++) { const a = Math.random() * Math.PI * 2, v = 0.02 + Math.random() * 0.06; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, g: 0.00005, life: 1300, max: 1300, c: k % 3 ? '#ffe39a' : '#ffffff', s: k % 4 ? 1 : 2, glow: 1 }); }
       if (c.res.ascend) { SFX.gong(); banner('白日飞升', st.p.name + ' 渡过九九天劫！', '#fff6c0'); }
       else banner('突破成功', `${L.REALMS[c.res.to].n}期 · 寿元 ${fmt(c.res.lifeAfter)} 年`);
     } else {

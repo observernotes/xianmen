@@ -1059,6 +1059,13 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kslot .kb.red { background: #d8404a; color: #fff; }
 .kslot .kb:disabled { background: #e2d4ae; color: #a8987a; border-color: #b9a988; cursor: default; }
 .kslot .kb:disabled small { color: #a8987a; }
+/* 设置 → 画质：标题一行 + 六格（关 / 省 / 标准 / 高 / 极致 / 自动） */
+.kslot.kq { flex-direction: column; align-items: stretch; gap: 4px; }
+.kslot.kq .kqh { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.kseg { display: flex; gap: 3px; }
+.kseg span { flex: 1; min-width: 0; min-height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; border: 2px solid #2c2238; background: #f6ecd2; color: #2c2238; white-space: nowrap; user-select: none; }
+.kseg span.on { background: #f4c542; }
+.kseg span:active { transform: translateY(1px); }
 .ksec { font-size: 14px; color: #8a7a5c; margin: 4px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
 .ksec .red { color: #c8323c; }
 .ksec button { font: inherit; font-size: 14px; color: #8a7a5c; background: none; border: 0; cursor: pointer; min-height: 44px; padding: 0 4px; margin: -11px 0; }
@@ -1504,6 +1511,51 @@ body.bt-on #apRow { display: none !important; }
 .apc { display: inline-block; margin-left: 4px; font-size: max(14px, .85em); color: var(--gold); white-space: nowrap; }
 .btn .apc, .kb .apc { color: inherit; opacity: .9; }
 #goal .go .apc { color: #ffe39a; }
+</style>
+<!-- HD-2D 界面皮肤（docs/ART_HD2D.md §4 / §6-8）：只改观感、不改尺寸，全部挂在 body.hd2d 下（画质 ≥ 1 时由 HD2D.skin() 打开）。
+     原来是 src/fx/hd2d.js 运行时注入的 SKIN_CSS；这里带上 id="hd2d-skin"，模块见它已在就不再注入。
+     加投影的规则前缀写成 :where(.hd2d)（不加权重）：界面自己用 box-shadow 画的选中框、提示框照样盖得过它 -->
+<style id="hd2d-skin">
+body.hd2d { background: radial-gradient(130% 70% at 50% 0%, #241d3c 0%, #120f1c 52%, #08060e 100%) fixed; }
+:where(.hd2d) .hud { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 10px 22px rgba(4,3,10,.5); }
+.hd2d #sceneWrap { box-shadow: 0 0 0 2px #0b0912, 0 0 0 3px #4a3f6e, 0 14px 30px rgba(0,0,0,.6); }
+/* 修为条：五段渐变 + 同色外发光；条头一粒呼吸的光点（§4 第二期） */
+.hd2d #cult .xbar { box-shadow: 0 0 0 2px #0b0912, inset 0 2px 0 0 #120e1c, 0 0 10px rgba(76,203,159,.25); }
+.hd2d #cult .xbar i { background: linear-gradient(#d8fff0 0 2px, #8ff5d0 2px 5px, #4ccb9f 5px 11px, #2f9a76 11px 14px, #1f7a5c 14px); box-shadow: 0 0 8px rgba(143,245,208,.55); }
+.hd2d #cult.ready .xbar i { background: linear-gradient(#fffbe0 0 2px, #fff2a8 2px 5px, #f4c542 5px 11px, #c08a1a 11px 14px, #96680e 14px); box-shadow: 0 0 10px rgba(255,226,120,.7); }
+.hd2d #cult .xbar i::after, .hd2d #goal.open .gbar i::after { content: ""; position: absolute; right: 0; top: 2px; bottom: 2px; width: 2px; background: #ffffff; box-shadow: 0 0 6px 2px rgba(220,255,240,.75); animation: hdHead 1.4s steps(4) infinite; pointer-events: none; }
+.hd2d #goal.open .gbar i::after { box-shadow: 0 0 6px 2px rgba(255,236,160,.8); }
+@keyframes hdHead { 50% { opacity: .35; } }
+.hd2d #cult #realm { text-shadow: 2px 2px 0 #0b0912, 0 0 12px rgba(255,220,150,.35); }
+/* 3.0 主界面：时间条的季格、目标卡进度条、行动点一行 */
+.hd2d #time .pips i.d { box-shadow: 0 0 4px rgba(76,203,159,.55); }
+.hd2d #time .pips i.n { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(255,226,120,.75); }
+.hd2d #goal .gbar i { background: linear-gradient(#fff2a8 0 2px, #f4c542 2px 60%, #c08a1a 60%); box-shadow: 0 0 8px rgba(255,205,90,.45); }
+.hd2d #apRow .aps i:not(.off):not(.debt) { text-shadow: 0 0 6px rgba(255,214,110,.7); }
+:where(.hd2d) #apRow .apnext { box-shadow: 0 3px 0 rgba(4,3,10,.55), inset 0 2px 0 rgba(170,190,255,.18); }
+:where(.hd2d) #apRow .apnext:active, :where(.hd2d) #apRow .apbt:active { box-shadow: 0 1px 0 rgba(4,3,10,.55); }
+:where(.hd2d) #apRow .apbt { box-shadow: 0 3px 0 rgba(60,30,0,.5), 0 0 14px rgba(255,205,90,.45); }
+.hd2d #nav button img { filter: drop-shadow(0 2px 0 rgba(0,0,0,.5)) drop-shadow(0 0 5px rgba(140,160,255,.22)); }
+:where(.hd2d) #nav button { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 8px 16px rgba(4,3,10,.45); }
+:where(.hd2d) #nav button:active { box-shadow: 0 1px 0 rgba(4,3,10,.55), 0 3px 8px rgba(4,3,10,.4); }
+:where(.hd2d) .sheet { box-shadow: 0 0 0 1px rgba(20,10,4,.6), 0 -10px 40px rgba(0,0,0,.55), 0 0 90px rgba(255,214,140,.1); }
+.hd2d .sheet header h2 { text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+:where(.hd2d) .btn { text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+:where(.hd2d) .btn.gold, :where(.hd2d) #cult.ready { box-shadow: 0 3px 0 rgba(60,30,0,.5), 0 0 16px rgba(255,205,90,.38); }
+/* 按下：外投影跟着收进去（压陷 2 帧，位移是界面原来的 translateY） */
+:where(.hd2d) .btn.gold:active:not(:disabled) { box-shadow: 0 1px 0 rgba(60,30,0,.5), 0 0 10px rgba(255,205,90,.3); }
+.hd2d .res b, .hd2d #stats button b { text-shadow: 0 0 8px currentColor; }
+.hd2d #modal { background-image: radial-gradient(120% 80% at 50% 40%, rgba(8,6,16,.5), rgba(4,3,10,.86)); }
+.hd2d .float { text-shadow: 2px 2px 0 #0b0912, 0 0 10px currentColor; }
+.hd2d .sheet .rod { display: block; position: absolute; z-index: -1; pointer-events: none; inset: calc(-4 * var(--u2));
+  background: linear-gradient(#3a2010, #8a5428 22%, #e8bc7a 42%, #a8703a 62%, #4a2a12) top / 100% calc(4 * var(--u2)) no-repeat,
+    linear-gradient(#4a2a12, #a8703a 38%, #e8bc7a 58%, #8a5428 78%, #3a2010) bottom / 100% calc(4 * var(--u2)) no-repeat,
+    radial-gradient(120% 90% at 50% 18%, rgba(255,250,230,.34) 0%, rgba(255,250,230,0) 46%, rgba(132,88,36,.2) 100%), var(--hd-paper, none); }
+.hd2d .tk-cv { transition: filter .35s; }
+.hd2d .tk-stage.hd-cast .tk-cv { filter: blur(2.4px) saturate(1.08) brightness(.9); }
+:where(.hd2d) .card { box-shadow: 0 2px 0 rgba(90,60,30,.28), 0 4px 10px rgba(90,60,30,.16); }
+:where(.hd2d) .kslot, :where(.hd2d) .kseg span { box-shadow: 0 2px 0 rgba(90,60,30,.22); }
+:where(.hd2d) .tk-box { box-shadow: 0 6px 0 rgba(4,3,10,.5), 0 0 34px rgba(110,120,255,.2); }
 </style>
 
 <div id="app">
