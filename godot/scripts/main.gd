@@ -10,6 +10,7 @@ const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
 const REALM_SCENE := preload("res://scripts/realm_scene.gd")
 const STORY_STAGE := preload("res://scripts/story_stage.gd")
 const CINEMATIC_PLAYER := preload("res://scripts/cinematic_player.gd")
+const ITEM_ICONS := preload("res://art/item-icons.png")
 const COLORS := {
 	"gold": Color("#ffd990"),
 	"text": Color("#efe4cf"),
@@ -27,8 +28,13 @@ const PANELS := {"equipment": "法宝", "arts": "功法", "market": "坊市", "s
 const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": "灵田", "alchemy": "炼丹", "pets": "灵宠"}
 const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "长老与职司", "disciples": "门下"}
 const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
-const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器"}
+const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器", "bag": "包裹"}
 const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴", "memories": "回忆"}
+const GROWTH_PANELS := {"growth:goal": "目标", "growth:atk": "战力", "growth:cul": "修炼", "growth:inc": "灵石", "growth:bt": "突破"}
+const PLAYER_PANELS := {
+	"attributes": "属性", "dao": "道心与因果", "achievements": "成就与称号", "reports": "历年年报",
+	"prep": "备战", "path": "仙途路径", "inbox": "纸鹤", "train": "老祖特训",
+}
 const INTRO_TEXT := [
 	"天剑宗外门。\n“杂灵根也配修仙？滚出山门！”\n你被大师兄赵乾一脚踢下了山。",
 	"同一天，婚约也被当众撕毁。\n“废物，你配不上慕容家。三年后落霞城论剑，你若敢来，我便让你输得心服口服。”\n“莫欺少年穷！三年之后，我必登台！”",
@@ -60,6 +66,7 @@ var rebirth_tab := 0
 var scroll: ScrollContainer
 var page_key := ""
 var realm_transition: Dictionary = {}
+var item_icons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -71,6 +78,9 @@ func _ready() -> void:
 	theme = Theme.new()
 	theme.default_font = FONT
 	theme.default_font_size = 16
+	var icon_map = JSON.parse_string(FileAccess.get_file_as_string("res://art/item-icons.json"))
+	if icon_map is Dictionary:
+		item_icons = icon_map
 	if ClassDB.class_exists("XianmenRuntime"):
 		runtime = ClassDB.instantiate("XianmenRuntime")
 	if runtime == null or not FileAccess.file_exists(RULES_PATH):
@@ -97,6 +107,11 @@ func request(message: Dictionary) -> void:
 		var action_result = result.get("result")
 		if action_result is Dictionary and action_result.has("realmFx"):
 			realm_transition = {"view": view["notice"], "effect": action_result["realmFx"]}
+		if action_result is Dictionary and action_result.has("navigation"):
+			show_maps = action_result["navigation"] in ["maps", "drops"]
+			show_drops = action_result["navigation"] == "drops"
+			show_journey = action_result["navigation"] == "journey"
+			selected_map = int(action_result.get("region", -1))
 		view = result.get("view", {})
 		play_feedback(message)
 		if result.get("save") != null and message["op"] != "export":
@@ -413,7 +428,20 @@ func draw_cave() -> void:
 	add_picture(HOME_ART[maxi(season, 0)], 238)
 	add_label(view["goal"], 23, COLORS.gold)
 	add_label(view["progress"], 16)
-	add_label("下一步 · " + view["advice"], 15, COLORS.muted)
+	if view["advice"]:
+		add_label("下一步 · " + view["advice"], 15, COLORS.muted)
+	var guidance := HBoxContainer.new()
+	page.add_child(guidance)
+	if view["advice"] and not view["ascended"]:
+		var cost := int(view.get("adviceAp", 0))
+		add_button("按建议行动" + (" ◆%d" % cost if cost else ""), func(): request({"op": "goal-next"}), true, false, guidance)
+	add_button("变强", func(): request({"op": "panel", "panel": "growth:goal"}), false, false, guidance)
+	var upcoming = view.get("upcoming")
+	if upcoming is Dictionary:
+		var due := "本季末" if int(upcoming["seasons"]) <= 1 else "还有 %d 季" % int(upcoming["seasons"])
+		add_button(upcoming["n"] + " · " + due + "  ▸", func(): request({"op": "panel", "panel": "prep"}))
+	var unread := int(view.get("mail", 0))
+	add_button("纸鹤" + (" · %d 封" % unread if unread else ""), func(): request({"op": "panel", "panel": "inbox"}))
 	if view["visitor"] is Dictionary:
 		var visitor: Dictionary = view["visitor"]
 		add_button("洞府来访 · " + visitor["title"], func(): request({"op": "visitor"}), true)
@@ -504,7 +532,8 @@ func draw_map(location: Dictionary) -> void:
 		add_label("约 " + cell["stones"] + " 灵石 · 负伤 " + cell["risk"], 15, COLORS.muted)
 		var actions := HBoxContainer.new()
 		page.add_child(actions)
-		add_button("出发 ◆2", func(): start_trip("exp", args), true, not cell["available"], actions)
+		var trip_panel := "trip:%d:%d:%d" % args
+		add_button("出发准备  ▸", func(): request({"op": "panel", "panel": trip_panel}), true, false, actions)
 		if cell["sweep"]:
 			add_button("扫荡 ◆1", func(): start_trip("sweep", args), false, false, actions)
 	add_button("返回地点", func():
@@ -543,6 +572,8 @@ func draw_journey() -> void:
 			label += " ◆%d" % int(entry["ap"])
 		var command := "duel-prepare" if entry.get("id") in ["duel", "final"] else "act"
 		var message := {"op": command, "action": entry.get("id"), "args": entry.get("args")}
+		if entry.get("tripPanel"):
+			message = {"op": "panel", "panel": entry["tripPanel"]}
 		add_button(label, func():
 			show_journey = false
 			request(message)
@@ -554,7 +585,7 @@ func draw_journey() -> void:
 
 func draw_management(panel: Dictionary) -> void:
 	var active_id: String = panel["id"]
-	var tabs: Dictionary = {}
+	var tabs: Dictionary = GROWTH_PANELS if active_id.begins_with("growth:") else {}
 	for group in [HOME_PANELS, SECT_PANELS, MARKET_PANELS, EQUIPMENT_PANELS, RECORD_PANELS]:
 		if group.has(active_id):
 			tabs = group
@@ -562,8 +593,13 @@ func draw_management(panel: Dictionary) -> void:
 	if active_id.begins_with("codex:"):
 		add_button("返回图鉴", func(): request({"op": "panel", "panel": "codex"}))
 	else:
-		add_label(tabs.get(active_id, PANELS.get(active_id, "人物羁绊")), 24, COLORS.gold)
-		add_button("返回洞府", func(): request({"op": "panel"}))
+		var title := String(tabs.get(active_id, PLAYER_PANELS.get(active_id, PANELS.get(active_id, "人物羁绊"))))
+		if active_id.begins_with("growth:"):
+			title = "变强"
+		elif active_id.begins_with("trip:"):
+			title = "出发准备"
+		add_label(title, 24, COLORS.gold)
+		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): request({"op": "panel"}))
 	if not tabs.is_empty():
 		var tab_row := HBoxContainer.new()
 		page.add_child(tab_row)
@@ -573,9 +609,11 @@ func draw_management(panel: Dictionary) -> void:
 	if active_id == "people" and view["visitor"] is Dictionary:
 		add_button("接见访客 · " + view["visitor"]["title"], func(): request({"op": "visitor"}))
 	for entry in panel["entries"]:
-		add_label(entry["title"], 19, COLORS.jade)
+		draw_entry_title(entry)
 		if entry["text"]:
 			add_label(entry["text"], 15)
+		if entry.get("meter") is Dictionary:
+			add_forecast_meter(entry["meter"])
 		for option in entry["buttons"]:
 			if option.has("cine"):
 				var clip: Dictionary = option["cine"]
@@ -601,9 +639,54 @@ func draw_management(panel: Dictionary) -> void:
 					request(message)
 				else:
 					confirm_action(entry["title"], warning, option["label"], message)
-			, not option["why"], not String(option["why"]).is_empty())
+			, option.get("primary", not option["why"]), not String(option["why"]).is_empty())
 			if option["why"]:
 				add_label(option["why"], 14, COLORS.muted)
+
+
+func draw_entry_title(entry: Dictionary) -> void:
+	var art = item_icons.get(entry.get("icon", ""))
+	if not art is Array:
+		add_label(entry["title"], 19, COLORS.gold if entry.get("section", false) else COLORS.jade)
+		return
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 7)
+	page.add_child(heading)
+	var icon := TextureRect.new()
+	var texture := AtlasTexture.new()
+	texture.atlas = ITEM_ICONS
+	texture.region = Rect2(float(art[0]), float(art[1]), 24, 24)
+	texture.filter_clip = true
+	icon.texture = texture
+	heading.add_child(icon)
+	add_label(entry["title"], 19, COLORS.jade, heading)
+
+
+func add_forecast_meter(meter: Dictionary) -> void:
+	var maximum := maxf(0.001, float(meter.get("max", 1)))
+	var current := clampf(float(meter.get("value", 0)) / maximum, 0.0, 1.0)
+	var projection := clampf(float(meter.get("after", 0)) / maximum, current, 1.0)
+	var target := clampf(float(meter.get("target", 0)) / maximum, 0.0, 1.0)
+	var track := ColorRect.new()
+	track.color = Color("#332a42")
+	track.custom_minimum_size.y = 10
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(track)
+	meter_range(track, 0.0, current, COLORS.jade)
+	if projection > current:
+		meter_range(track, current, projection, COLORS.gold)
+	if target > 0.0:
+		meter_range(track, maxf(0.0, target - 0.004), target, Color.WHITE)
+
+
+func meter_range(track: Control, start: float, end: float, tint: Color) -> void:
+	var fill := ColorRect.new()
+	fill.color = tint
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(fill)
+	fill.set_anchor_and_offset(SIDE_RIGHT, end, 0.0)
+	fill.set_anchor_and_offset(SIDE_LEFT, start, 0.0)
+	fill.set_anchor_and_offset(SIDE_BOTTOM, 1.0, 0.0)
 
 
 func draw_saves() -> void:
@@ -709,6 +792,13 @@ func draw_notice(notice: Dictionary) -> void:
 		add_label(("保底词条 · " if notice["pity"] else "新词条 · ") + notice["replacement"], 17)
 		add_button("保留原词条", func(): request({"op": "reforge-keep", "replace": false}))
 		add_button("换成新词条", func(): request({"op": "reforge-keep", "replace": true}), true)
+		return
+	if notice.get("unlockLink"):
+		draw_entry_title(notice)
+		if notice.get("text"):
+			add_label(notice["text"], 17)
+		add_button("带我去  ▸", func(): request({"op": "unlock-go"}), true)
+		add_button(notice["button"], func(): request({"op": "advance"}))
 		return
 	add_label(notice.get("title", ""), 25, COLORS.gold)
 	if notice.get("kind") == "travel":
@@ -1028,13 +1118,14 @@ func add_picture(texture: Texture2D, height: int) -> void:
 	page.add_child(picture)
 
 
-func add_label(text: String, font_size: int, tint: Color = COLORS.text) -> void:
+func add_label(text: String, font_size: int, tint: Color = COLORS.text, parent: Container = null) -> void:
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", tint)
 	label.add_theme_font_size_override("font_size", font_size)
-	page.add_child(label)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	(parent if parent else page).add_child(label)
 
 
 func add_button(text: String, callback: Callable, primary := false, disabled := false, parent: Container = null) -> void:

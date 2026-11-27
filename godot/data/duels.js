@@ -6,7 +6,7 @@ globalThis.XianmenDuels = (() => {
     rookie: '新秀挑战', foe: '宿敌上门', duel: '下战帖', final: '主线一战',
   };
   function describe(st, id, args) {
-    if (id === 'pact') return { ...L.pactInfo(st), n: st.exName, foe: L.PACT_FOE, scale: L.pactAssist(st) };
+    if (id === 'pact') return { ...L.pactInfo(st), n: st.exName, foe: L.PACT_FOE, scale: L.pactAssist(st), story: L.pactText(st) };
     if (id === 'duel' || id === 'foe') return L.duelInfo(st, args);
     if (id === 'tour') {
       const target = L.tourFoe(st);
@@ -37,7 +37,7 @@ globalThis.XianmenDuels = (() => {
     const info = describe(st, id, args);
     const voluntary = id === 'duel' || id === 'final';
     const why = voluntary ? L.apWhy(st, id, args) : id === 'foe' ? info?.why || '' : '';
-    let title = titles[id];
+    let title = info?.story?.title || titles[id];
     if (id === 'final') title = L.finalKind(st) === 'war' ? '讨回山门' : '圣子之战';
     const button = id === 'duel' ? '下战帖' : id === 'tour' || id === 'meet' ? '登台' : '应战';
     const options = [];
@@ -64,6 +64,7 @@ globalThis.XianmenDuels = (() => {
       if (info.scale > 1) stats.push('助力 ×' + info.scale.toFixed(2));
       if (info.news) stats.push('对手曾拍得【' + info.news + '】');
       if (info.quote) stats.push('「' + info.quote + '」');
+      if (info.story) stats.push(info.story.intro, info.story.quote);
       if (L.artSlotOpen(st, 1)) {
         const current = L.artSlots(st)[1];
         const recommendation = L.duelArtBest(st, info.foe, info.Q, scale)?.id;
@@ -83,7 +84,8 @@ globalThis.XianmenDuels = (() => {
 
   function result(st, id, out) {
     if (!out) return null;
-    const title = (id === 'final' ? { war: '讨回山门', heir: '圣子之战' }[out.final] : '') || titles[id];
+    const pact = id === 'pact' ? L.pactText(st) : null;
+    const title = pact?.title || (id === 'final' ? { war: '讨回山门', heir: '圣子之战' }[out.final] : '') || titles[id];
     const lines = [];
     if (out.rounds) {
       for (const [i, round] of out.rounds.entries()) {
@@ -100,6 +102,7 @@ globalThis.XianmenDuels = (() => {
       if (out.rank1 && out.rank0 !== out.rank1) lines.push('天骄榜第 ' + out.rank0 + ' 名 → 第 ' + out.rank1 + ' 名');
       if (out.stones) lines.push('灵石 +' + L.fmt(out.stones));
       if (out.contrib) lines.push('宗门贡献 +' + L.fmt(out.contrib));
+      if (pact) lines.push(out.win ? pact.win : pact.lose);
       if (out.text) lines.push(out.text);
       if (st.p.inj) lines.push(L.injText(st.p.inj));
     }

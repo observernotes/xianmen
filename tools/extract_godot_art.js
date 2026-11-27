@@ -9,11 +9,12 @@ async function run() {
   const homeOnly = process.argv.includes('--home');
   const realmOnly = process.argv.includes('--realm');
   const storyOnly = process.argv.includes('--story');
+  const itemsOnly = process.argv.includes('--items');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.join(__dirname, '../dist/index.html')).href + '?hd=0');
-    const images = await page.evaluate(({ combat, home, realm, story }) => {
+    const images = await page.evaluate(({ combat, home, realm, story, items }) => {
       const { L, ART } = window.__xm;
       const make = (width, height) => Object.assign(document.createElement('canvas'), { width, height });
       const canvas = document.createElement('canvas');
@@ -23,6 +24,29 @@ async function run() {
       const state = L.newState({ name: '无名' });
       const results = {};
       const png = image => image.toDataURL('image/png').split(',')[1];
+      if (items) {
+        const ids = [
+          'stone', 'herb', 'ore', 'treasure', 'pojing', 'feed', 'danbag', 'token', 'yin_f', 'yin_i', 'yin_t', 'yin_w', 'yin_s',
+          'rune', 'gscroll', 'frag', 'gear', 'hurt', 'adv_swap', 'f_plus', 'cult', 'retreat', 'slay', 'seek', 'egg', 'baoqi',
+          'array', 'cave', 'field', 'furnace', 'up', 'buff', 'sight', 'unlock', 'wish', 'zhen', 'home',
+          ...L.CORE_EL.map(el => 'core:' + el), ...L.BOSSES.map((_, k) => 'boss:' + k),
+        ];
+        const sheet = make(24 * 8, 24 * Math.ceil(ids.length / 8));
+        const drawing = sheet.getContext('2d');
+        drawing.imageSmoothingEnabled = false;
+        const itemMap = {};
+        ids.forEach((id, index) => {
+          const [kind, key] = id.split(':');
+          const icon = kind === 'core' ? ART.core(key) : kind === 'boss' ? ART.bossMat(Number(key)) : ART.icon(id);
+          if (!icon) return;
+          const x = (index % 8) * 24, y = Math.floor(index / 8) * 24;
+          const scale = Math.min(1, 24 / icon.width, 24 / icon.height);
+          const w = Math.floor(icon.width * scale), h = Math.floor(icon.height * scale);
+          drawing.drawImage(icon, x + ((24 - w) >> 1), y + ((24 - h) >> 1), w, h);
+          itemMap[id] = [x, y];
+        });
+        return { images: { 'item-icons': png(sheet) }, itemMap };
+      }
       if (story) {
         for (let index = 0; index < 3; index++) results['intro-' + index] = png(ART.introPanel(index, state.p.look));
         for (const id of ART.storyCgIds) {
@@ -196,12 +220,13 @@ async function run() {
         results['story-' + scene] = ART.storyBg(scene).toDataURL('image/png').split(',')[1];
       }
       return { images: results };
-    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly });
+    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly, items: itemsOnly });
     for (const [name, png] of Object.entries(images.images)) {
       fs.writeFileSync(path.join(__dirname, '../godot/art', name + '.png'), Buffer.from(png, 'base64'));
     }
     if (images.map) fs.writeFileSync(path.join(__dirname, '../godot/art/combat-index.json'), JSON.stringify(images.map) + '\n');
     if (images.portraitMap) fs.writeFileSync(path.join(__dirname, '../godot/art/story-cast-index.json'), JSON.stringify(images.portraitMap) + '\n');
+    if (images.itemMap) fs.writeFileSync(path.join(__dirname, '../godot/art/item-icons.json'), JSON.stringify(images.itemMap) + '\n');
   } finally {
     await browser.close();
   }

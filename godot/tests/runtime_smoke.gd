@@ -28,7 +28,14 @@ func _initialize() -> void:
 	assert(story_stage.scene_texture("cg:jade:1"))
 	send({"op": "pick", "index": start["view"]["notice"]["options"][0]["index"]})
 	send({"op": "advance"})
-	var trip := send({"op": "act", "action": "exp", "args": [0, 0, 0]})
+	var trip_plan := send({"op": "panel", "panel": "trip:0:0:0"})
+	assert(trip_plan["view"]["ap"] == 3)
+	assert(trip_plan["view"]["panel"]["entries"][0]["title"].contains("后山野林"))
+	assert(trip_plan["view"]["panel"]["entries"][0]["text"].contains("保底得到一把剑"))
+	assert(not trip_plan["view"]["panel"]["entries"][1]["text"].contains("老藤王"))
+	assert(not request({"op": "panel-action", "action": "trip-go", "args": ["exp", 0, 2, 0]})["ok"])
+	assert(send({"op": "load", "save": trip_plan["save"]})["view"]["panel"] == trip_plan["view"]["panel"])
+	var trip := send({"op": "panel-action", "action": "trip-go", "args": ["exp", 0, 0, 0]})
 	assert(trip["view"]["ap"] == 1)
 	assert(trip["view"]["notice"]["kind"] == "travel")
 	var saved_trip := send({"op": "load", "save": JSON.stringify(trip["save"])})
@@ -260,9 +267,74 @@ func _initialize() -> void:
 		return entry["buttons"].any(func(button): return button["cine"]["asset"] == "ring")
 	))
 	assert(send({"op": "panel", "panel": "codex:gear"})["view"]["panel"]["entries"].size() > 1)
+	check_player_panels(sect_save, restored["save"]["state"])
 	check_duels(restored["save"]["state"])
-	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels and save roundtrips passed")
+	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels, player panels and save roundtrips passed")
 	quit()
+
+
+func check_player_panels(sect_base: Dictionary, base: Dictionary) -> void:
+	var inventory: Dictionary = base.duplicate(true)
+	inventory["p"]["inj"] = 4
+	inventory["pills"] = 6
+	inventory["mats"]["rune"] = 4
+	inventory["mats"]["yin"] = {"fire": 3}
+	inventory["titles"].append("验收称号")
+	inventory["flags"]["bagSeen"] = {"rune": 2, "yin_fire": 3}
+	settle_cards(send({"op": "load", "save": inventory}))
+	var bag := send({"op": "panel", "panel": "bag"})
+	assert(bag["view"]["panel"]["entries"].any(func(entry):
+		return entry["title"] == "器纹石 ×4 · 新入手" and entry["icon"] == "rune"
+	))
+	assert(send({"op": "load", "save": bag["save"]})["view"]["panel"] == bag["view"]["panel"])
+	var prep := send({"op": "panel", "panel": "prep"})
+	assert(prep["view"]["panel"]["entries"][0]["text"].contains("剩余行动点"))
+	assert(prep["save"]["state"]["clk"]["prepSeen"] == inventory["tick"])
+	var growth := send({"op": "panel", "panel": "growth:goal"})
+	assert(growth["view"]["panel"]["entries"].any(func(entry):
+		return entry["buttons"].any(func(button): return button["args"] == ["do:heal"])
+	))
+	var healed := send({"op": "panel-action", "action": "advice-choose", "args": ["do:heal"]})
+	assert(healed["save"]["state"]["p"]["inj"] == 0)
+	assert(healed["save"]["state"]["pills"] == 5)
+	assert(healed["view"]["ap"] == growth["view"]["ap"])
+	assert(not request({"op": "panel-action", "action": "advice-choose", "args": ["do:heal"]})["ok"])
+	for panel in ["growth:atk", "growth:cul", "growth:inc", "growth:bt", "attributes", "dao", "reports", "path"]:
+		assert(send({"op": "panel", "panel": panel})["view"]["panel"]["entries"].size() > 0)
+	send({"op": "panel", "panel": "achievements"})
+	assert(send({"op": "panel-action", "action": "choose-title", "args": ["验收称号"]})["save"]["state"]["title"] == "验收称号")
+	assert(not request({"op": "panel-action", "action": "choose-title", "args": ["未获得的称号"]})["ok"])
+
+	var escort: Dictionary = sect_base.duplicate(true)
+	escort["sect"]["tasks"] = [{"ty": "escort", "k": 0, "rw": 0, "taken": true, "done": false}]
+	escort["ap"]["left"] = 3
+	settle_cards(send({"op": "load", "save": escort}))
+	send({"op": "panel", "panel": "trip:0:0:0"})
+	var selected := send({"op": "panel-action", "action": "trip-escort", "args": [0, true]})
+	assert(selected["view"]["ap"] == 3)
+	var resumed := send({"op": "load", "save": selected["save"]})
+	assert(resumed["view"]["panel"] == selected["view"]["panel"])
+	var departed := send({"op": "panel-action", "action": "trip-go", "args": ["exp", 0, 0, 0]})
+	assert(departed["view"]["ap"] == 1)
+	assert(departed["save"]["state"]["exp"]["escort"] == 0)
+
+	var trainee := settle_cards(send({"op": "new", "name": "特训验收"}))
+	var season_start: Dictionary = trainee["save"]["state"]
+	season_start["tick"] = 24
+	season_start["p"].merge({"r": 0, "s": 0, "xp": 0}, true)
+	settle_cards(send({"op": "load", "save": season_start}))
+	var announced := settle_cards(send({"op": "season"}))
+	assert(announced["save"]["state"]["flags"]["trainOffered"])
+	var inbox := send({"op": "panel", "panel": "inbox"})
+	var messages: Array = inbox["view"]["panel"]["entries"].filter(func(entry): return entry["title"] == "老祖要给你特训")
+	assert(messages.size() == 1)
+	var read := send({"op": "panel-action", "action": "read-mail", "args": messages[0]["buttons"][0]["args"]})
+	assert(read["view"]["panel"]["id"] == "train")
+	assert(read["view"]["mail"] == inbox["view"]["mail"] - 1)
+	var trained := send({"op": "panel-action", "action": "train-now", "args": []})
+	assert(trained["save"]["state"]["flags"]["trained"])
+	assert(trained["view"]["ap"] == read["view"]["ap"] - 2)
+	assert(trained["view"]["notice"]["title"] == "老祖特训")
 
 
 func check_realm_settlement(entered: Dictionary) -> void:

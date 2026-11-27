@@ -364,7 +364,7 @@ function sayOf(st, H, acts, G) {
 // ---------- 主入口（带缓存） ----------
 L.adviseKey = function (st) {
   const g = st.gear, A = st.arts, d = st.dan;
-  return [st.tick, st.exp ? 'e' + st.exp.left : '', st.retreat ? 'r' + st.retreat.left : '', st.run ? 'R' : '', Math.floor(st.stones), st.ore || 0, st.pills, Math.floor(st.feed || 0), Math.floor(st.herbs || 0), st.p.r, st.p.s, Math.floor(st.p.xp), st.p.inj, st.toxin | 0,
+  return [st.tick, L.apLeft ? L.apLeft(st) : null, st.exp ? 'e' + st.exp.left : '', st.retreat ? 'r' + st.retreat.left : '', st.run ? 'R' : '', Math.floor(st.stones), st.ore || 0, st.pills, Math.floor(st.feed || 0), Math.floor(st.herbs || 0), st.p.r, st.p.s, Math.floor(st.p.xp), st.p.inj, st.toxin | 0,
     g ? g.pend.length + ':' + L.GEAR_SLOTS.map(s => (g[s] ? g[s].id + '+' + g[s].plus + (g[s].el || '') : '-')).join(',') : '', A ? Object.keys(A.own).length + L.artSlots(st).join() : '',
     JSON.stringify(st.home), st.pets ? st.pets.map(p => p.lv + (p.form || '') + (p.aw ? 'a' : '')).join() + '/' + st.petOut : '', d ? JSON.stringify(d.next) + Object.keys(d.bag || {}).map(k => d.bag[k].length).join() : '',
     st.mats ? JSON.stringify(st.mats) : '', st.wish ? JSON.stringify(st.wish) : '', st.lastExp ? JSON.stringify(st.lastExp) : '', st.pact, st.rank, st.onb ? Object.keys(st.onb.at).length : 0, st.flags.retFree, st.stats.retreat || 0, st.visitor ? 1 : 0, st.sect ? st.sect.rank : -1, st.flags && st.flags.recMap ? st.flags.recMap.k + '/' + st.flags.recMap.d : ''].join('|');   // recMap：功法推荐看的那一格（artrec.js），选了别的格换战技牌要重算

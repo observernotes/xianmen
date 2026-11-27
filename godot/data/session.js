@@ -207,7 +207,7 @@
       return { kind: 'card', title: report.title, text: report.lines.join('\n'), button: report.btn };
     }
     if (block.kind === 'result') {
-      const name = { exp: '历练归来', sweep: '扫荡归来', retreat: '闭关出关', sit: '打坐', boss: '首领战', duel: '天骄对决', final: '主线一战', deeper: '趁势深入' };
+      const name = { exp: '历练归来', sweep: '扫荡归来', retreat: '闭关出关', train: '老祖特训', sit: '打坐', boss: '首领战', duel: '天骄对决', final: '主线一战', deeper: '趁势深入' };
       if (block.id === 'duel' || block.id === 'final') {
         const result = XianmenDuels.result(state, block.id, data);
         if (result) return result;
@@ -251,7 +251,12 @@
         data.next?.rw ? '主线奖励 · ' + data.next.rw : '',
       ].filter(Boolean).join('\n'),
     };
-    if (block.kind === 'unlock') return { kind: 'card', title: L.ONB_K[block.id]?.n || '新功能已开' };
+    if (block.kind === 'unlock') {
+      const guide = XianmenPlayerPanels.unlock(block.id);
+      return { kind: 'card', title: '解锁 · ' + (L.ONB_K[block.id]?.n || '新功能'),
+        text: [guide?.[1], L.ONB_K[block.id]?.goal].filter(Boolean).join('\n'),
+        unlockLink: !!guide, icon: guide?.[2], button: '知道了' };
+    }
     return { kind: 'card', title: '仙途' };
   }
 
@@ -324,7 +329,8 @@
   }
 
   const currentLocalEvent = () => openEvent === 'visitor' ? L.visitorEvent(state)
-    : openEvent === 'market' ? L.marketEvent(state) : null;
+    : openEvent === 'market' ? L.marketEvent(state)
+      : typeof openEvent === 'string' && openEvent.startsWith('mail:') ? L.eventById(openEvent.slice(5)) : null;
 
   function realmView() {
     const run = state.run;
@@ -400,6 +406,8 @@
       ascended: state.p.r > L.MAXR,
       visitor: !notice && L.visitorEvent(state) ? { title: fill(L.visitorEvent(state).title), leave: L.seasonsText(state.visitor.left) } : null,
       goal: goal.t, progress: goal.bar.text, advice: goal.next?.t || '',
+      adviceAp: goal.next?.ap || 0, upcoming: !notice ? L.timeBar(state).big : null,
+      mail: !notice ? L.mailCount(state) : 0,
       maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{
         k, name: map.n, cells: expeditionCells(k),
         boss: L.bossReady(state, k) ? { name: L.BOSSES[k].n, why: L.apWhy(state, 'boss', { k }) } : null,
@@ -417,6 +425,7 @@
       mainActions: notice ? [] : L.mainActs(state).map(action => ({
         label: action.t, why: action.why || '', available: action.ok && !!action.do, ap: action.ap || 0,
         id: action.do?.id, args: action.do?.args, chance: action.p,
+        tripPanel: action.do?.id === 'exp' ? expeditionPanel(action.do.args) : '',
       })),
       panel: panel && !notice ? { id: panel, entries: XianmenPanels.read(state, panel) } : null,
       cinema: XianmenCinematics.earlier(state, notice),
@@ -531,7 +540,7 @@
     const realmLines = realmResult?.wipe ? realmSummary(realmResult.wipe).lines :
       (realmResult?.loot || []).map(item => item.t);
     if (event) encounter = null;
-    if (localEvent && openEvent === 'visitor') openEvent = null;
+    if (localEvent && openEvent !== 'market') openEvent = null;
     const response = choice[result.ok ? 'ok' : 'fail'] || choice.ok;
     note = {
       kind: 'card', key: ev.id + ':result', scene: ev.scene || '',
@@ -790,6 +799,14 @@
       if (block.kind === 'year') L.yearClose(state);
       return;
     }
+    if (op === 'unlock-go') {
+      if (!nextView()?.unlockLink) throw new Error('当前没有解锁指引');
+      const block = L.nextBlock(state);
+      const guide = block?.kind === 'unlock' && XianmenPlayerPanels.unlock(block.id);
+      if (!guide) throw new Error('当前没有解锁指引');
+      L.blockDone(state, block);
+      return navigate(guide[0]);
+    }
     if (nextView()) throw new Error('请先完成当前结算');
     if (op === 'duel-prepare') {
       if (!['duel', 'final'].includes(message.action)) throw new Error('没有这场比试');
@@ -809,14 +826,16 @@
       return;
     }
     if (op === 'panel') {
-      if (message.panel && !XianmenPanels.has(message.panel)) throw new Error('找不到这个面板');
-      panel = message.panel || null;
-      if (['auction', 'market'].includes(panel) && L.marketEvent(state)) openEvent = 'market';
-      return;
+      return openPanel(message.panel);
     }
+    if (op === 'goal-next') return followGoal();
     if (op === 'panel-action') {
       if (!panel) throw new Error('没有打开的面板');
       const result = XianmenPanels.perform(state, panel, message.action, message.args);
+      if (result.mail) return readMail(result.mail);
+      if (result.destination) return navigate(result.destination);
+      if (result.advice) return useAdvice(result.advice);
+      if (result.trip) return startPreparedTrip(result.trip);
       if (message.action === 'alchemy-craft' || message.action === 'alchemy-trial') {
         note = {
           kind: 'card', title: result.ok ? '炼丹成功' : '炼丹失败',
@@ -845,7 +864,9 @@
       return;
     }
     if (op === 'season') {
-      if (!L.seasonEnd(state)) throw new Error('此刻无法过季');
+      const season = L.seasonEnd(state);
+      if (!season) throw new Error('此刻无法过季');
+      deliverSeasonMail(season);
       return;
     }
     if (op === 'act') {
@@ -872,6 +893,110 @@
       return;
     }
     throw new Error('未知操作');
+  }
+
+  function openPanel(id) {
+    if (id && !XianmenPanels.has(id)) throw new Error('找不到这个面板');
+    if (id && panel !== id) XianmenPlayerPanels.opened(state, id);
+    panel = id || null;
+    if (['auction', 'market'].includes(panel) && L.marketEvent(state)) openEvent = 'market';
+  }
+
+  function navigate(go) {
+    const trip = /^exp:(\d+):(\d+):(\d+)$/.exec(go);
+    if (trip && L.expOpen(state, ...trip.slice(1).map(Number))) {
+      return openPanel(XianmenPlayerPanels.tripId(...trip.slice(1)));
+    }
+    const map = /^(exp|drops):(\d+)/.exec(go);
+    if (go === 'exp' || go === 'realm' || map) {
+      panel = null;
+      return { navigation: map?.[1] === 'drops' ? 'drops' : 'maps', region: map ? Number(map[2]) : -1 };
+    }
+    if (go === 'bt' || go === 'cult' || go === 'trib') {
+      return L.isReady(state) ? dispatch({ op: 'break' }) : openPanel('growth:cul');
+    }
+    if (go === 'journey') { panel = null; return { navigation: 'journey' }; }
+    if (go === 'visitor') return dispatch({ op: 'visitor' });
+    const targets = {
+      gear: 'equipment', field: 'fields', furnace: state.home.furnace ? 'alchemy' : 'home',
+      zhen: L.zhenOpen(state) ? 'formations' : 'home', big: 'prep', cal: 'calendar',
+      rivals: 'rankings', world: 'rankings', mainfoe: 'rankings', sectid: 'sect',
+      record: 'journal', attr: 'attributes', me: 'attributes', disc: 'disciples',
+    };
+    const target = targets[go] || go;
+    return openPanel(XianmenPanels.has(target) ? target : 'growth:goal');
+  }
+
+  function useAdvice(go) {
+    if (!go.startsWith('do:')) return navigate(go);
+    const command = go.slice(3);
+    const [id, ...args] = command.split(':');
+    if (id === 'exp' || id === 'wish') return navigate('exp:' + args.join(':'));
+    if (['boss', 'sweep', 'sit', 'retreat'].includes(id)) {
+      dispatch({ op: 'act', action: id, args: args.map(Number) });
+      panel = null;
+      return { navigation: 'cave' };
+    }
+    const result = L.adviseDo(state, command);
+    if (!result.done) throw new Error(result.why);
+    L.checkQuests(state);
+    if (!result.ok) note = { kind: 'card', title: '尝试未成', text: result.why };
+  }
+
+  function followGoal() {
+    const next = L.goalNow(state).next;
+    if (!next) return;
+    const action = next.do;
+    if (!action) return next.act ? useAdvice(next.act.go) : navigate(next.go);
+    if (['duel', 'final'].includes(action.id)) return dispatch({ op: 'duel-prepare', action: action.id, args: action.args });
+    if (action.id === 'exp') {
+      const trip = expeditionPanel(action.args);
+      return trip ? openPanel(trip) : navigate('exp');
+    }
+    if (action.id === 'realm') return navigate('realm');
+    return dispatch({ op: 'act', action: action.id, args: action.args });
+  }
+
+  function expeditionPanel(args) {
+    const k = L.actArg(args, 0, 'k'), d = L.actArg(args, 1, 'd') || 0, a = L.actArg(args, 2, 'a') || 0;
+    return k !== undefined && L.expOpen(state, k, d, a) ? XianmenPlayerPanels.tripId(k, d, a) : '';
+  }
+
+  function startPreparedTrip(trip) {
+    const args = trip.args.slice();
+    const k = args[0];
+    if (trip.id === 'exp' && state.flags.mobileEscort === k) {
+      const escort = XianmenPlayerPanels.escortFor(state, k);
+      if (escort >= 0) args.push({ escort });
+    }
+    dispatch({ op: 'act', action: trip.id, args });
+    delete state.flags.mobileEscort;
+    panel = null;
+    return { navigation: 'cave' };
+  }
+
+  function deliverSeasonMail(season) {
+    const out = season.out;
+    const send = (k, t, extra) => L.mailPush(state, { k, t, ...extra });
+    if (season.visitor && state.visitor) {
+      send('visitor', '有人来访', { left: state.visitor.left, data: { id: state.visitor.id } });
+    }
+    if (out.world && L.WORLD[out.world]) {
+      const world = L.WORLD[out.world];
+      send('world', '天下大势 · ' + world.n, { left: world.len });
+    }
+    if (out.auction) send('auction', '拍卖会开槌', { left: L.AUCTION.len });
+    if (out.rookieNew) send('rookie', '新秀出世 · ' + out.rookieNew.n);
+    if (out.train) send('say', '老祖要给你特训', { left: 9, go: 'train' });
+  }
+
+  function readMail(item) {
+    if (item.k === 'event' && L.eventById(item.data?.id)) {
+      openEvent = 'mail:' + item.data.id;
+      return;
+    }
+    const go = item.go || { visitor: 'visitor', auction: 'auction', world: 'calendar', season: 'calendar', rookie: 'rankings' }[item.k];
+    if (go) return navigate(go);
   }
 
   function finishBig(block, move) {

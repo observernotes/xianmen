@@ -255,6 +255,7 @@ globalThis.XianmenPanels = (() => {
       const when = event.seasons <= 1 ? '本季末' : event.seasons + ' 季后';
       rows.push(row(event.n, [when, event.foe?.n, event.p === undefined ? '' : '胜算 ' + L.pct(event.p)].filter(Boolean).join(' · ')));
     }
+    if (L.bigNext(st)) rows.push(row('近期大事', '', [{ label: '看备战', panel: 'prep' }]));
     if (L.calOpen(st)) {
       const world = L.world(st);
       if (world) rows.push(row(L.WORLD[world.id].n, L.worldDesc(st, world) + '\n还剩 ' + Math.ceil(L.worldLeft(st) / 3) + ' 季'));
@@ -302,6 +303,10 @@ globalThis.XianmenPanels = (() => {
     const rows = [row('本世',
       [L.stageName(st.p), '享年 ' + fmt(st.p.age) + ' 岁', '寿元剩余 ' + fmt(Math.max(0, L.lifeLeft(st))) + ' 年',
         '最高天骄榜第 ' + st.bestRank, '道基 +' + L.pct(L.daoji(st))].join(' · '))];
+    rows.push(row('人物与记录', '', [
+      { label: '仙途路径', panel: 'path' }, { label: '属性', panel: 'attributes' },
+      { label: '成就与称号', panel: 'achievements' }, { label: '历年年报', panel: 'reports' },
+    ]));
     const karma = L.karmaOpen(st);
     if (karma.length) rows.push(row('未了因果', karma.map(entry => [entry.who, entry.title || entry.n].filter(Boolean).join(' · ')).join('\n')));
     for (const entry of st.log) rows.push(row(entry.t, entry.text));
@@ -437,7 +442,7 @@ globalThis.XianmenPanels = (() => {
   const views = { equipment, forge, arts, market, auction, sect, sectVault, sectElders, disciples, people,
     home, formations, fields, alchemy, pets, calendar, journal, rankings, codex, memories: XianmenCinematics.memories };
   const codexId = name => typeof name === 'string' && name.startsWith('codex:') ? name.slice(6) : '';
-  const has = name => Object.hasOwn(views, name) || Object.hasOwn(L.CODEX_CAT, codexId(name));
+  const has = name => Object.hasOwn(views, name) || Object.hasOwn(L.CODEX_CAT, codexId(name)) || XianmenPlayerPanels.has(name);
   const mutations = {
     'gear-plus': (st, slot) => L.gearPlus(st, slot),
     'gear-decision': (st, uid, decision) => L.gearDecide(st, uid, decision),
@@ -482,12 +487,21 @@ globalThis.XianmenPanels = (() => {
     'pet-awake': (st, i) => L.petAwake(st, i),
     'pet-release': (st, i) => L.petRelease(st, i),
     'pet-pending': (st, j, i) => L.petPendDecide(st, j, i),
+    'advice-choose': (st, go) => ({ advice: go }),
+    'navigate': (st, go) => ({ destination: go }),
+    'heal': st => L.heal(st),
+    'trip-escort': (st, k, on) => { st.flags.mobileEscort = on ? k : null; return true; },
+    'trip-go': (st, id, k, d, a) => ({ trip: { id, args: [k, d, a] } }),
+    'choose-title': (st, title) => { st.title = title; return true; },
+    'read-mail': (st, id) => ({ mail: L.mailTake(st, id) }),
+    'train-now': st => L.act(st, 'train'),
   };
   return {
     has,
     read(st, name) {
       if (!has(name)) throw new Error('找不到这个面板');
-      return Object.hasOwn(views, name) ? views[name](st) : codexDetail(st, codexId(name));
+      if (Object.hasOwn(views, name)) return views[name](st);
+      return XianmenPlayerPanels.has(name) ? XianmenPlayerPanels.read(st, name) : codexDetail(st, codexId(name));
     },
     perform(st, panel, name, args) {
       if (!Object.hasOwn(mutations, name)) throw new Error('找不到这项操作');

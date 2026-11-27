@@ -35,7 +35,7 @@ const warOn = st => !st.flags.warWon && L.warChapter(st) && ((!!st.sect && st.se
 L.bigList = function (st) {
   if (!st || !st.p || st.p.r > L.MAXR) return [];
   const a = [];
-  if (!st.pact) { const pi = L.pactInfo(st); a.push({ k: 'pact', n: '三年之约', left: pi.left, foe: { n: st.exName, pw: pi.Q }, p: pi.p, S: pi.S, Q: pi.Q }); }
+  if (!st.pact) { const pi = L.pactInfo(st); a.push({ k: 'pact', n: L.pactText?.(st)?.title || '三年之约', left: pi.left, foe: { n: st.exName, pw: pi.Q }, p: pi.p, S: pi.S, Q: pi.Q }); }
   else a.push({ k: 'tour', n: '天骄论道', left: L.nextTour(st) });
   if (st.sect && st.sect.order) { const m = L.nextMeet(st); if (m > 0) a.push({ k: 'meet', n: '九宗会武', left: m }); }
   if (warOn(st) && st.flags.war > st.tick && st.flags.war - st.tick < 999) a.push({ k: 'war', n: '天剑来犯', left: st.flags.war - st.tick });
@@ -61,7 +61,12 @@ L.bigInfo = function (st, b) {
   try {
     if (b.k === 'pact') { const pi = L.pactInfo(st); Object.assign(o, { S: pi.S, Q: pi.Q, p: pi.p, foe: { n: st.exName, pw: pi.Q } }); }
     else if (b.k === 'tour') { const f = L.tourFoe && L.tourFoe(st); if (f) { const S = L.duelPower(st, f.foe); Object.assign(o, { S, Q: f.Q, p: L.duelP(st, S, f.Q, f.foe), foe: { n: L.rivalName ? L.rivalName(st, f.id) : f.id, pw: f.Q, id: f.id } }); } else o.S = L.power(st); }
-    else if (b.k === 'war') { const foe = { kind: 'war', id: 'tianjian' }, S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower(st); Object.assign(o, { S, Q, p: L.duelP(st, S, Q, foe), foe: { n: '天剑宗长老团', pw: Q } }); }
+    else if (b.k === 'war') { const { S, Q, p, lead } = L.sectWarInfo(st); Object.assign(o, { S, Q, p, foe: { n: lead ? lead.n : '天剑宗长老团', pw: Q } }); }
+    else if (b.k === 'meet' && st.sect) {
+      const pos = L.sectPos(st), q = pos === 1 ? 2 : pos - 1, target = L.nineAt(st, q);
+      const foe = { kind: 'sect', id: target.id }, S = L.duelPower(st, foe), Q = L.ninePower(st, q);
+      Object.assign(o, { S, Q, p: L.duelP(st, S, Q, foe), foe: { n: target.n, pw: Q } });
+    }
     else o.S = L.power(st);
   } catch (e) { /* 缺模块时只给名字与月数 */ }
   return o;

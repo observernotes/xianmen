@@ -15,6 +15,7 @@ def main():
         (data.parent / "cinematics" / "catalog.json").read_text(encoding="utf-8").strip() + ";",
         (data / "cinematics.js").read_text(encoding="utf-8"),
         (data / "duels.js").read_text(encoding="utf-8"),
+        (data / "player_panels.js").read_text(encoding="utf-8"),
         (data / "panels.js").read_text(encoding="utf-8"),
         (data / "session.js").read_text(encoding="utf-8"),
     ))
