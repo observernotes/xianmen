@@ -77,7 +77,7 @@ function svResetUI() {
   if (cn) cnEnd(true);
   cine = null; duelFx = null; adv = null; crane = null; mjFx = null; mjWait = 0;
   btStop();
-  chainOn = false; chainCur = null; chainAfter = null; seasonLog = []; blkStash = {}; tripSnap = null; RB = null; hallSel = null; btPills = null; tribSel = null; tribEx = null; lastUp = null;
+  chainOn = false; chainCur = null; chainAfter = null; seasonLog = []; blkStash = {}; blkLate = null; yearS = null; rankShown = 0; tripSnap = null; RB = null; hallSel = null; btPills = null; tribSel = null; tribEx = null; lastUp = null;
   bubbleCur = null; activeHint = null; tempHint = null; guideHold = false; guideShownId = '';
 
   const tp = $('#tip'); if (tp) tp.hidden = true;

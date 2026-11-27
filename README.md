@@ -6,7 +6,7 @@
 
 单文件网页，打开 `dist/index.html` 即可游玩（手机、电脑都行），进度自动保存在本机。
 
-当前版本 3.0.0。各版本改了什么见 [CHANGELOG.md](CHANGELOG.md)。
+当前测试版 3.0.1。各版本改了什么见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 怎么玩
 
@@ -97,16 +97,16 @@
 
 ## 安卓
 
-`dist/xiantu.apk` 是离线单机安卓安装包（Android 5.0 及以上），游戏全部内置，不需要联网，存档保存在手机本地。
+`dist/xiantu-test.apk` 是 3.0.1 测试包，桌面应用名为「废柴仙途·测试」。它可与正式版并存，各自保存进度。需要带入进度时，可在正式版的【仙途 → 设置 → 存档】导出，再粘贴到测试版导入。`dist/xiantu.apk` 是已有的正式版。游戏全部内置，存档保存在手机本地。
 
-重新打包：
+重新打包需要 JDK 17+、Android SDK Platform 35、Build-Tools 35.0.0，以及与网页构建相同的 Python 环境。在 macOS 上默认使用 `~/Library/Android/sdk`，其他安装路径可通过 `ANDROID_SDK_ROOT` 指定。
 
+```sh
+bash tools/build_apk.sh --test
+bash tools/build_apk.sh --release
 ```
-sudo apt install android-sdk-build-tools android-sdk-platform-23 apksigner zipalign default-jdk
-bash tools/build_apk.sh
-```
 
-签名文件默认是 `android/release.keystore`（不进仓库）。以后更新版本要用同一个签名文件，才能覆盖安装、保留存档。
+正式构建使用原签名文件，默认路径为 `android/release.keystore`，也可用 `KEYSTORE` 指定。使用原签名才能覆盖安装正式版并保留存档。
 
 ## 开发
 

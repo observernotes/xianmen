@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
 
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
-            // API 24+ 才有的重载：编译库是 API 23，所以不加 @Override，运行时照样生效
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 return openExternal(req.getUrl());
             }
@@ -111,6 +111,7 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
         String js = "(function(){var m=document.getElementById('modal');"
+                + "if((window.__xm_talk&&window.__xm_talk.on)||(window.__xm&&window.__xm.cine))return 'blocked';"
                 + "if(m&&!m.hidden){var c=m.querySelector('.close');if(c){c.click();return 'closed';}return 'blocked';}"
                 + "var t=document.getElementById('tip');if(t&&!t.hidden){t.click();return 'closed';}"
                 + "return 'none';})()";

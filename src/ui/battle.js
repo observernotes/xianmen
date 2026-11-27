@@ -8,6 +8,7 @@
  *   画面下方 #bt（样式前缀 .bt-，追加在 template.html 末尾）在战斗时顶替修为条与数值格（body.bt-on）。 */
 const BTS = { round: 1000, first: 1400, walk: 1500, gather: 2400, end: 650, slow: 2500, hint: 2600, xMe: 56, foot: 128, xFoe: 134, gapFoe: 32 };
 let btv = null;
+const battleRunning = () => !!(st && (st.exp || (btv && btv.mode === 'boss')));
 const btOn = () => !!(st && ((st.exp && st.exp.nodes && L.TRIP_ON !== false && !st.run) || (btv && btv.mode === 'boss')));
 // 首领战（§8.4 P0）：花 1 点（AP_PLAN §2.2）；打完把结果交给 L.act(st, 'boss', { k, res })（settle.js 让 'boss' 透传 res 给 L.fightBoss）
 function btBossStart(k) {
@@ -19,6 +20,7 @@ function btBossStart(k) {
   SFX.gong(); shake();
   if (btv.B.foes[0].sh > 0 && btFirst('shield')) btHold('克制的招才能削罩', BTS.hint);
   btShow(true);
+  updateHUD();
   return true;
 }
 function btBossEnd() {
@@ -77,9 +79,22 @@ function btDrive(ms) {
 function btNode(res) {
   if (btv) { btv.ph = 'walk'; btv.t = 0; btv.B = null; }
   const x = L.tripStep(st, res);
-  if (x.enc && !(st.guide && !st.guide.done)) { const ce = x.enc; showChoice(ce); }
+  if (x.enc) {
+    if (st.guide && !st.guide.done) st.exp.encDone = 1;
+    else { saveLocal(); showTripEncounter(x.enc); }
+  }
   if (x.done || !st.exp || L.tripDone(st)) { tripFinish(); return; }
   if (!btOn()) btStop(); else btShow();
+}
+function showTripEncounter(ev) {
+  showChoice(ev, () => {
+    // “作罢”也已经处理完。选过的奇遇由 L.resolveChoice 记 encDone。
+    if (st.exp && st.exp.encEv === ev.id && !st.exp.encDone) {
+      st.exp.encDone = 1;
+      saveLocal();
+    }
+    closeModal();
+  });
 }
 // 这一趟走完：结算（L.tripEnd：结算对象排进结算链）→ 结算链（结算卡 + 翻牌 → 它引出的戏 → 解锁卡）
 function tripFinish() {

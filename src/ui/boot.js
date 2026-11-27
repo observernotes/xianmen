@@ -82,7 +82,7 @@ cvs.addEventListener('click', sceneClick);
 $('#cult').addEventListener('click', () => { if (!st || !canBreak()) return; ac(); SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showGrowth('cul'); });
 // 底栏固定五格（docs/KAIRO_PLAN.md §4.1）：历练 / 洞府 / 装备 / 江湖 / 仙途；没开的那一格只在传讯行说一句条件（goalcard.js 的 navClick）
 $('#nav').addEventListener('click', e => {
-  const b = e.target.closest('button[data-nav]'); if (!b || !st || cine || chainOn) return;   // 结算链没出完：底栏不让点（AP_PLAN §4.2）
+  const b = e.target.closest('button[data-nav]'); if (!b || !st || cine || chainOn || battleRunning()) return;
   ac(); SFX.nav();
   navClick(b.dataset.nav);
 });

@@ -63,7 +63,6 @@ const GUIDE = [
   { id: 'nextSeason', show: () => !modalOpen() && !st.exp && !chainOn && !cine && (st.stats.exp || 0) > 0, target: '#btnNext', text: () => (L.apLeft(st) > 0 ? `剩 ${L.apLeft(st)} 点自动打坐。点这里过一季` : '行动点用完了。点这里，过一季。'), until: () => st.tick > 0 },
 ];
 const nextName = () => (st.p.r >= L.MAXR ? '飞升' : L.REALMS[st.p.r + 1].n);
-const muNext = () => { const n = L.nextTour(st), q = L.rivalRank(st, 'mu'); const Q = Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * (st.tick + n)); return { n, Q, p: L.duelChance(L.duelPower(st, L.PACT_FOE), Q) }; };
 // 讲解与提示（E10 起）。urgent 的不受“两条之间隔 2 月”的限制；intro: true 的是功能介绍，从旧版本迁来的老玩家直接算看过
 const HINTS = [
   // 头一回金丹雷劫前（SYSTEMS §9 / §17）：护劫手段 → 那一停（panel-trib.js 的 tribPause）→ 点它
@@ -74,9 +73,8 @@ const HINTS = [
   { id: 'ready', urgent: true, intro: true, when: () => L.isReady(st) && !modalOpen(), target: '#cult', text: () => `修为圆满！点金色修为条突破`, until: () => /突破|天劫/.test(modalTitle()) || !!cine || !L.isReady(st) },
   { id: 'btGo', urgent: true, intro: true, when: () => /境界突破|飞升天劫/.test(modalTitle()), target: '#modal .foot .btn.gold', text: () => `点它。成了之后战力约 <b>×${btPowerMult().toFixed(1)}</b>，寿元 <b>${fmt(L.lifespan(st))} → ${fmt(nextLife())}</b>。`, until: () => !!cine || !modalOpen() },
   { id: 'afterPact', urgent: true, intro: true, when: () => !!st.pact && !modalOpen(), target: BIG, btn: '好', text: () => {
-      if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${seasons(L.TOUR_EVERY)} 季</b>一届<b>天骄论道</b>（下一届还剩 <b>${seasons(L.nextTour(st))}</b> 季），这一格换成它的倒计时。嫌慢可以开 ×2 了。`;
-      const m = muNext();
-      return `输了不丢人，认输才丢人。第 1 届论道第一场就是${exTa()}，还剩 <b>${seasons(m.n)} 季</b>，到时${exTa()}战力约 <b>${fmt(m.Q)}</b>，你现在的胜算已经 <b>${L.pct(m.p)}</b>。`;
+      if (st.pact > 0) return `痛快！满城都知道你不是废物了。往后每 <b>${seasons(L.TOUR_EVERY)} 季</b>一届<b>天骄论道</b>（下一届还剩 <b>${seasons(L.nextTour(st))}</b> 季），这一格换成它的倒计时。`;
+      return `输了不丢人，认输才丢人。去【江湖】→【天骄榜】找${exTa()}下战帖。备战页会告诉你现在有几成胜算。`;
     } },
   { id: 'pactSoon', urgent: true, intro: true, when: () => !st.pact && st.guide.done && !modalOpen() && PI().left <= 12 && PI().left > 0, target: BIG, btn: '知道了', text: () => {
       const pi = PI(), tips = L.advise(st, 'goal').acts.filter(a => a.id !== 'idle' && !a.gap);   // 锦囊 = 变强页目标页签的动作卡（docs/KAIRO_PLAN.md §10.5）
@@ -86,7 +84,7 @@ const HINTS = [
   { id: 'field', intro: true, when: () => st.guide.done && st.stats.exp >= 2 && L.homeOpen(st, 'field') && st.home.field === 0 && !modalOpen() && !st.exp, target: '[data-nav="home"]', btn: '好', text: () => { const u = L.upInfo(st, 'field'); return `带回来的灵草能种。开一块<b>【灵田】</b>（${fmt(u.cost)} 灵石）：每月自己长 <b>${L.fmt1(u.d1)}</b> 灵石，<b>${seasons(u.payback)} 季</b>回本。`; } },
   { id: 'retreat', intro: true, when: () => st.guide.done && L.retOpen(st) && !st.stats.retreat && !L.busy(st) && !modalOpen() && !L.isFull(st), target: '[data-nav="home"]', btn: '好', text: () => {
       const ri = L.retInfo(st);
-      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：${seasons(ri.len)} 季，修炼 <b>×${ri.m.toFixed(2)}</b>，多得 <b>${fmt(ri.extra)}</b> 修为。${ri.free ? '头一回本座护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
+      return `${lastUp ? `升了一层，战力 <b>${fmt(lastUp.pw0)} → ${fmt(lastUp.pw1)}</b>。` : ''}想更快就<b>【闭关】</b>：花 ${L.AP.retreat} 点行动点，当场获得 <b>${fmt(ri.gotNow)}</b> 修为。${ri.free ? '头一回本座护法，不收灵石。' : `花 ${fmt(ri.cost)} 灵石。`}`;
     } },
   { id: 'retBtn', intro: true, when: () => modalTitle() === '洞府' && L.canRetreat(st) && !st.stats.retreat && !!document.querySelector('#btnRet'), target: '#btnRet', text: () => `点这里闭关（◆${L.AP.retreat}）：修炼 <b>×${L.retInfo(st).m.toFixed(2)}</b>，当场出关。`, until: () => !!st.retreat || st.stats.retreat > 0 },
   { id: 'visitor', intro: true, when: () => !!st.visitor && !modalOpen() && !L.busy(st), target: '#sceneWrap', btn: '好', text: () => `门口有人。点画面里门口的<b>【！】</b>看看。这种事不急，<b>${seasons(st.visitor.left)} 季</b>内理他就行。` },
@@ -308,6 +306,7 @@ function currentGuide() {
     if (g.step >= GUIDE.length) g.done = true;
     else { const s0 = GUIDE[g.step]; return !s0.silent && (!s0.show || s0.show()) ? s0 : null; }
   }
+  if (battleRunning()) return null;
   if (activeHint && activeHint.until && activeHint.until()) { st.hintSeen[activeHint.id] = 1; activeHint = null; guideQuiet = performance.now() + 1200; }
   if (activeHint && !activeHint.until && !hintWhen(activeHint)) activeHint = null;
   if (activeHint && st.run && !/^realm/.test(activeHint.id)) activeHint = null;   // 秘境里只讲秘境的
@@ -387,12 +386,12 @@ function showHelp() {
     sec('sword', '法宝', `【人物】→ 法宝：兵器（战力，开局）、法衣（历练分数、少负伤，筑基中期）、饰品（修炼 / 财运 / 气运 / 寿元，元婴）三格。新掉落弹对比卡：【换上】（强化继承一半）或【熔炼】成灵矿（4 × 2^阶），不选就熔炼；【锁定当前】以后更低阶的直接熔炼。每格下【强化】花灵矿和灵石，+0～+9，每级超出部分 +${Math.round(L.PLUS.step * 100)}%，成功率 100%→40%，失败不掉级、下次 +10%。词条 16 种，天材地宝能重铸一条。化神后器炉用器方打造专属法宝。`),
     sec('bag', '坊市', `货架六格：破境丹、寻宝（连续两次没提升，第三次必出更高一阶）、灵兽蛋常驻；另三格每届论道换货（灵矿、延寿丹、法衣、残篇、器方、打折的常驻货），各限购几件。筑基后能在<b>行情</b>里卖灵草、灵矿、破境丹：指数 ×0.6～×1.6，每 ${seasons(L.IDX.every)} 季变一次，秋季、大势另有涨落。金丹后每 ${seasons(L.AUCTION.every)} 季一场<b>拍卖会</b>：三档出价（35% / 70% / 97%，有人竞拍各 −15%），没拿下不花钱，一场出手两次；宿敌拍走的东西让他战力 ×${L.AUCTION.boost}。`),
     sec('flag', '历法与天下大势', `一年四季，一季一回合：春（灵草、访客多）、夏（秘境开放、兽类地图斩妖灵石 +15%）、秋（灵田灵石 +50%、行情 +0.2）、冬（闭关 +0.2，冬末论道）。每年春季看天象，六成起一件<b>天下大势</b>（兽潮、灵气潮汐、魔劫……），持续两到三季，场景右上角挂一块牌子。筑基后最右那格“大事”点开是<b>年历</b>。`),
-    sec('flag', '宗门', '筑基后三大宗门来招揽。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 8 季九宗会武，你代表本宗往上打。'),
+    sec('flag', '宗门', '三年之约后可拜入宗门，也可以继续做散修。历练、论道、任务板挣贡献，在【宗门】晋升身份、用宝库换东西。每 8 季九宗会武，你代表本宗往上打。'),
     sec('flag', '天骄论道', `三年之约之后每 ${seasons(L.TOUR_EVERY)} 季一届：三场，按战力挑战天骄榜上的对手，每场最多上升 ${L.TOUR_STEP} 名，宿敌都在榜上。`),
     sec('disc', '奇遇与访客', '历练途中可能遇到抉择；洞府门口有时会来访客（画面里的“！”），点它就能见，几季不理会自己走。好感 60 成为知己有永久加成，医修和魔门圣女可结为道侣。'),
     sec('pill', '炼丹', `【洞府】→ 炼丹房。基础丹：培元（立得修为）、破境（突破）、疗伤（收进丹囊，负伤时服）。筑基中期起两味药引配一炉：5×5 共 ${L.YIN_GRID.length} 格，没试过的点【试炼】，丹成就揭晓、记进图鉴（跨世保留）。丹分修炼、战斗、根基三类：战斗类（爆气丹、雷火丹）收进丹囊，服下管下一场对决或下一趟历练；根基类不计丹毒但每境界有次数。勾“续炼”的丹每 ${seasons(L.AUTO.every)} 季自动炼一炉（最多 ${L.AUTO.max} 种）。丹毒（状态栏的葫芦）：修炼、战斗类每枚 +${L.TOX.pill}，每月退 ${L.TOX.decay}，过 ${L.TOX.half} 药力减半，过 ${L.TOX.max} 不能再服；清毒丹 −${L.TOX.cure}。九转金丹是秘方，要有人传授。`),
     sec('life', '寿元与转世', '右上角沙漏是年龄/寿元。突破能大幅延寿；寿元耗尽会坐化，转世后天赋三选一。'),
-    sec('sound', '其他', '右上角【×1】切换速度（×2、×4、暂停），音符按钮切换声音。底部札记栏可以点，告诉你下一步做什么、做完给什么。'),
+    sec('sound', '其他', '点【下一季】推进时间。【仙途】→【设置】可调整声音和战斗演出速度。点目标卡查看本章进度和下一步。'),
   ].join('');
   sheet({ title: '玩法指南', body, foot: [{ t: '重看新手教程', alt: true, fn: () => { st.guide = { step: 0, done: false }; st.hintSeen = {}; activeHint = null; closeModal(); } }, { t: '知道了', gold: true, fn: closeModal }] });
 }
@@ -419,7 +418,7 @@ function showQuests() {
     SFX.tap();
     const q = all[+b.dataset.q];
     closeModal();
-    if (q.go === 'sect' && !st.sect) { tempHint = { id: 'tmp', target: '#cult', btn: '好', text: `你还没有宗门。突破到筑基、三年之约之后，三大宗门会来招揽你。` }; return; }
+    if (q.go === 'sect' && !st.pact) { tempHint = { id: 'tmp', target: '#time', btn: '好', text: '三年之约后就可以拜山门。' }; return; }
     if (q.go === 'market' && navLock('market')) { tempHint = { id: 'tmp', target: '[data-nav="market"]', btn: '好', text: navLock('market') }; return; }
     (GO[q.go] || GO.exp)();
   });

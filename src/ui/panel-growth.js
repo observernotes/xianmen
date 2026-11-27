@@ -143,7 +143,7 @@ function gwPop(s, r, A, again) {
   setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
 }
 // 主画面三个数：对应页签，明细合着
-$('#stats').addEventListener('click', e => { const b = e.target.closest('button[data-s]'); if (!b || !st || cine) return; ac(); SFX.tap(); if (b.dataset.s === 'big') showBig(); else showGrowth(b.dataset.s); });
+$('#stats').addEventListener('click', e => { const b = e.target.closest('button[data-s]'); if (!b || busyUI()) return; ac(); SFX.tap(); if (b.dataset.s === 'big') showBig(); else showGrowth(b.dataset.s); });
 // “大事”牌：筑基（历法开放）之后点开是年历；之前照旧是三年之约
 function showBig() {
   if (L.calOpen(st)) { showCalendar(); return; }

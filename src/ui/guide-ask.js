@@ -9,10 +9,10 @@ function syncElderAv() {
   if (!b) {
     b = document.createElement('button'); b.id = 'guideAv'; b.className = 'guide-av'; b.setAttribute('aria-label', '变强');
     b.innerHTML = `<img class="px" src="${ELDER}" alt=""><span class="guide-dot">！</span>`;
-    b.onclick = e => { e.stopPropagation(); if (!st || cine) return; ac(); SFX.tap(); showGrowth('goal'); };
+    b.onclick = e => { e.stopPropagation(); if (busyUI()) return; ac(); SFX.tap(); showGrowth('goal'); };
     wrap.appendChild(b);
   }
-  const hide = !!st.run || !!duelFx || !!cine || !st.guide || !st.guide.done;
+  const hide = battleRunning() || !!st.run || !!duelFx || !!cine || !st.guide || !st.guide.done;
   if (b.hidden !== hide) b.hidden = hide;
   const dot = !bubbleCur && !modalOpen() && L.adviseNew(st);
   if (b.classList.contains('new') !== dot) b.classList.toggle('new', dot);

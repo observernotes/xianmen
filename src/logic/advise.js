@@ -58,11 +58,12 @@ function goalOf(st) {
     return { kind: 'bt', icon: 'cult', t: '冲击' + nextN(st), due: '', big: '成功率 ' + pc(r), num: pc(r), target: '目标 80%', v: r, max: 1, line: L.ADV.line, m: btShown, unit: 'rate' };
   }
   const b = L.bigNext ? L.bigNext(st) : null;
+  const deadline = b => b.seasons <= 1 ? '本季末' : `还有 ${b.seasons} 季`;
   if (b && b.left <= 12) {
     const P = bigP(st, b);
     if (P) {
       const v = P.m(st);
-      return { kind: 'big', k: b.k, icon: 'goal', t: P.t, due: `还有 ${b.left} 月`, hz: b.left, big: '胜算 ' + pc(v), num: pc(v), target: '目标 80%', v, max: 1, line: L.ADV.line, m: P.m, unit: 'p', foe: P.foe, Q: P.Q, fe: L.foeEl(P.foe), feKnown: !L.foeElKnown || L.foeElKnown(st, P.foe) };
+      return { kind: 'big', k: b.k, icon: 'goal', t: P.t, due: deadline(b), hz: b.left, big: '胜算 ' + pc(v), num: pc(v), target: '目标 80%', v, max: 1, line: L.ADV.line, m: P.m, unit: 'p', foe: P.foe, Q: P.Q, fe: L.foeEl(P.foe), feKnown: !L.foeElKnown || L.foeElKnown(st, P.foe) };
     }
   }
   const le = st.lastExp;
@@ -80,7 +81,7 @@ function goalOf(st) {
   const t = L.chapterGoal(st, ch), hz = b ? b.left : 24;
   if (!pr) return { kind: 'chap', icon: 'goal', t, due: '', big: t, num: '', target: '', v: 0, max: 1, m: null, unit: '', hz };
   const parts = String(pr.text).split(' → ');
-  const g = { kind: 'chap', icon: 'goal', t: cut(t, 10), due: b ? `${cut(b.n, 4)} 还有 ${b.left} 月` : '', big: parts[0], num: (parts[0].match(/[\d.]+[%万亿]?/) || ['—'])[0], target: parts[1] ? (/^目标/.test(parts[1]) ? parts[1] : '目标 ' + parts[1]) : '', v: pr.v, max: pr.max || 1, line: pr.max || 1, m: null, unit: '', hz };
+  const g = { kind: 'chap', icon: 'goal', t: cut(t, 10), due: b ? `${cut(b.n, 4)} ${deadline(b)}` : '', big: parts[0], num: (parts[0].match(/[\d.]+[%万亿]?/) || ['—'])[0], target: parts[1] ? (/^目标/.test(parts[1]) ? parts[1] : '目标 ' + parts[1]) : '', v: pr.v, max: pr.max || 1, line: pr.max || 1, m: null, unit: '', hz };
   if (pr.k === 'pact' && !st.pact) { g.m = s => L.pactInfo(s).p; g.unit = 'p'; g.max = 1; g.line = L.ADV.line; g.foe = L.PACT_FOE; g.Q = L.PACT_POWER; g.fe = L.foeEl(L.PACT_FOE); g.feKnown = !L.foeElKnown || L.foeElKnown(st, L.PACT_FOE); g.v = g.m(st); }
   else if (L.RIVAL_EL && L.RIVAL_EL[pr.k] && has('rivalP')) { const id = pr.k, P0 = L.rivalP(st, id); if (P0 !== null && P0 < 1) { g.m = s => { const v = L.rivalP(s, id); return v === null ? 0 : v; }; g.unit = 'p'; g.max = 1; g.line = L.ADV.line; g.v = P0; const q = L.rivalRank(st, id); g.foe = { kind: 'rival', q, id, streak: 0 }; try { g.Q = L.rivalPower(st, q); } catch (e) { /* */ } g.fe = L.RIVAL_EL[id]; g.feKnown = !L.foeElKnown || L.foeElKnown(st, g.foe); } }
   else if (pr.k === 'trib') { g.m = btShown; g.unit = 'rate'; g.max = 1; g.line = L.ADV.line; g.v = btShown(st); }
@@ -152,7 +153,7 @@ function cands(st, G) {
     const W = L.wishInfo(st);
     if (W && L.REGIONS[W.k] && L.expOpen(st, W.k, W.d || 0, 0)) {
       const left = Math.max(1, W.max - (W.n || 0)), useful = W.c && (W.c.boss || (G.fe && G.feKnown && W.c.el && L.elKe(W.c.el, G.fe)));
-      if (useful || G.kind === 'stuck') add({ id: `wish:${W.k}:${W.d || 0}`, cls: 'wish', icon: 'wish', n: cut(`刷心愿《${W.c ? W.c.n : ''}》`, 8), say: '刷心愿', go: `exp:${W.k}:${W.d || 0}:0`, btn: '去', out: 1, cost: [{ icon: 'time', n: `每趟 ${L.expLen(W.k, st)} 月` }], fixed: { goal: useful ? 0.3 : 0.12, text: `再 ${left} 趟`, sub: '必出' } });
+      if (useful || G.kind === 'stuck') add({ id: `wish:${W.k}:${W.d || 0}`, cls: 'wish', icon: 'wish', n: cut(`刷心愿《${W.c ? W.c.n : ''}》`, 8), say: '刷心愿', go: `exp:${W.k}:${W.d || 0}:0`, btn: '去', out: 1, ap: L.AP.exp, cost: [{ icon: 'time', n: `每趟 ${L.AP.exp} 点行动点` }], fixed: { goal: useful ? 0.3 : 0.12, text: `再 ${left} 趟`, sub: '必出' } });
     }
   } else if (has('setWish') && has('dropTable') && G.kind === 'stuck' && G.fe && G.feKnown && (!has('wishOpen') || L.wishOpen(st))) {
     // 钉一个心愿：这一格的招牌克它

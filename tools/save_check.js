@@ -359,6 +359,32 @@ const sizes = {};
       check(!er2.length, `${dev} 旧档（${label}）：第一条链关完、再过一季：无报错${er2.length ? '：' + er2.slice(0, 2).join(' | ') : ''}`);
       await c2.close();
     }
+    // 3.0 档：刷新打断途中奇遇时，回到同一个选项。选完再次刷新不重出。
+    const encContext = await b.newContext(opts);
+    const encPage = await encContext.newPage();
+    encPage.on('pageerror', e => errs.push(e.message));
+    const trip = L.newState({ name: '奇遇档' });
+    trip.guide = { step: 99, done: true };
+    trip.stats.exp = 3;
+    L.act(trip, 'exp', [0, 0, 0]);
+    L.tripStep(trip);
+    const encounter = L.events().find(e => e.where === 'exp' && L.eligible(trip, e, 'exp', { bg: L.REGIONS[0].bg }) && e.choices.some(c => L.choiceShown(trip, c) && L.costOk(trip, c.cost)));
+    trip.exp.encEv = encounter.id;
+    await encPage.addInitScript(raw => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('xiantu_save_v2', raw);
+    }, JSON.stringify(trip));
+    await encPage.goto(url);
+    const choices = encPage.locator(`#modal:not([hidden]) [data-ev="${encounter.id}"]`);
+    const ap = await encPage.evaluate(() => window.__xm.L.apLeft(window.__xm.st));
+    check(await choices.count() === 1 && ap === 1, `${dev} 途中奇遇未选择：刷新后继续选，行动点 ${ap}`);
+    if (await choices.count()) {
+      await choices.locator('[data-c]:not([disabled])').first().click();
+      await encPage.reload();
+      check(!(await choices.count()) && await encPage.evaluate(() => window.__xm.st.exp.encDone && window.__xm.L.apLeft(window.__xm.st) === 1), `${dev} 途中奇遇已选择：刷新后继续历练，不重复选择或扣点`);
+    }
+    await encContext.close();
     check(!errs.length, dev + '：页面无报错' + (errs.length ? '：' + errs.slice(0, 3).join(' | ') : ''));
     await ctx.close();
   }

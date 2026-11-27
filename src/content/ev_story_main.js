@@ -84,7 +84,7 @@ LIST.push(
       text: '你什么也没做，只是把那张脸记下了。', fx: { xp: 3 } } },
   ] },
 // mid2 头一回见血
-{ id: 's1_firstblood', where: 'story', trigger: 'sb:c1_mid2', chMax: 0, speaker: 'elder', title: '头一回见血', scene: 'cave', bgm: 'home', gist: '头一回历练回来，老祖念错了一味药。',
+{ id: 's1_firstblood', where: 'story', trigger: 'sb:c1_mid2', chMax: 0, cond: 'exp>=1', speaker: 'elder', title: '头一回见血', scene: 'cave', bgm: 'home', gist: '头一回历练回来，老祖念错了一味药。',
   text: '头一回历练，你是爬回来的。老祖骂完“像狗刨”，把止血的方子念了一遍——念错了一味，被你指了出来。',
   talk: [
     { sfx: 'wind' }, ['nar', '头一回历练回来。你是爬进门的。'],

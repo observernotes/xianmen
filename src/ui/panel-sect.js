@@ -225,7 +225,7 @@ function showInvite() {
       <div class="cands${SC.length > 3 ? ' four' : ''}">${SC.map((sc, i) => `<div class="cand ${i === sel ? 'sel' : ''}" data-i="${i}" style="padding:10px 6px"><div class="beam" style="background:${sc.color}"></div><div class="nm" style="color:${sc.color}">${sc.n}</div><div class="tr">${sc.fit}</div><div class="tr">${sc.perk}</div></div>`).join('')}</div>
       <div id="inv" class="center"></div>
       <div class="quote">戒中老祖：“${(st.origin || 'qitu') === 'qitu' ? '当年天剑宗把你踢下山' : '当年人家当你是个' + esc(L.originWord(st, 'lowly'))}，如今人家抢着要你。痛快不痛快？”</div>`,
-    foot: [{ t: '再想想', alt: true, fn: () => { L.inviteDecline(st); L.log(st, `婉拒了宗门的招揽，${seasons(L.inviteNext(st))} 季后他们还会再来；想入宗也可以去【江湖·宗门】投帖`); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
+    foot: [{ t: '再想想', alt: true, fn: () => { L.inviteDecline(st); L.log(st, '婉拒了宗门的招揽；想入宗时可去【江湖·宗门】投帖'); closeModal(); } }, { t: '拜入', gold: true, fn: () => { const sc = SC[sel]; if (!L.joinSect(st, sc.id)) return; SFX.win(); closeModal(); banner('拜入' + sc.n, `外门弟子 · 俸禄每月 ${fmt(L.pay(st))}`); } }],
   });
   const ok = s.querySelector('[data-fi="1"]');
   const show = () => {

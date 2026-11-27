@@ -67,6 +67,8 @@ function loadState(s) {
   // 从旧版本迁来的老玩家：新手引导和功能讲解直接算看过
   if (st.flags.fromV2 && !st.guide) { st.guide = { step: 999, done: true }; st.hintSeen = Object.assign({}, st.hintSeen || {}); for (const h of HINTS) if (h.intro) st.hintSeen[h.id] = 1; }
   lastExp = null;
+  const encounter = st.exp && !st.exp.encDone && L.eventById(st.exp.encEv);
+  if (encounter && encounter.where === 'exp' && !(st.guide && !st.guide.done)) showTripEncounter(encounter);
   if (st.migratedExp) { const r = st.migratedExp; delete st.migratedExp; pushPopup(() => showExpResult(r)); }
   L.hook = onHook;
   ART.clearCache(); avCache.clear();

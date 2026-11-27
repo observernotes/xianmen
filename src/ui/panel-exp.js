@@ -26,12 +26,15 @@ function showExp() {
   if (st.exp) { showExpAway(); return; }
   const left = L.apLeft(st);
   const best = L.expBest(st);
+  const sweep = L.sweepBest(st);
+  const sweepArgs = sweep && [sweep.k, sweep.d, sweep.a];
+  const sweepBtn = sweep && apBtn('sweep', sweepArgs);
+  const sweepRow = sweep ? `<div class="card flat"><div class="main"><div>${esc(cellName(sweep.k, sweep.d))}</div><div class="muted">约得灵石 ${fmt(sweep.f.stones)}</div></div><button class="btn sm alt exp-sweep" id="expSweep" ${sweepBtn.attr} ${sweepBtn.why ? 'disabled' : ''}>扫荡${sweepBtn.tag}</button></div>` : '';
   const rows = [];
-  let lockedShown = false;
   for (let k = 0; k < L.REGIONS.length; k++) {
     const rg = L.REGIONS[k];
     const open = L.regionOpen(st, k) && L.expOpen(st, k, 0, 0);
-    if (!open) { void lockedShown; continue; }   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
+    if (!open) continue;   // 没开的地方直接不画（docs/ONBOARDING.md §2.3）
     if (L.bossReady(st, k)) {
       const B = L.BOSSES[k], foe = { kind: 'boss', k }, bp = L.TRIP_ON !== false && L.bossP ? L.bossP(st, k) : L.duelP(st, L.duelPower(st, foe), L.bossPower(k), foe), again = !!st.bosses[k];
       rows.push(`<div class="card" data-boss="${k}" style="box-shadow:0 0 0 2px var(--seal)">${bossImg(k, 36)}<div class="main"><div class="seal">${again ? '首领再现' : '首领现身'}：${B.n} ${L.artSlotOpen(st, 1) ? elChip(L.foeEl(foe), !L.foeElKnown(st, foe)) : ''}</div><div class="muted">“${B.line}” · 战力 ${fmt(L.bossPower(k))}</div><div class="muted">${again ? `再战：首领材料 ×1、灵石，35% 掉专属（第 3 次必出）；每 ${seasons(L.BOSS_AGAIN)} 季一次` : `击败可得天材地宝、首领专属【${B.drop}】、首领材料${L.BOSS_MAT[k]} ×2${L.BOSS_PLAN[k] ? '、器方' : ''}与称号「${B.t}」`}</div></div><div class="right">${chipFor(bp)}<span class="muted">胜算</span><span class="apc" data-ap="${L.apCost(st, 'boss', { k })}">◆${L.apCost(st, 'boss', { k })}</span></div></div>`);
@@ -43,8 +46,10 @@ function showExp() {
       <div class="muted num">推荐战力 ${fmt(L.rec(k, c.d))}${bb ? ` · 最高 ${L.RATINGS[bb]}` : ''}</div></div>
       <div class="right">${rateChip(f)}<span class="muted">${L.DEPTHS[c.d]}·${L.APPR[c.a].n}</span></div></div>`);
   }
-  const s = sheet({ title: '外出历练', sub: `你的战力 ${fmt(L.power(st))} · 行动点 ${'◆'.repeat(left)}${'◇'.repeat(Math.max(0, L.AP.per - left))}`, body: (UI.isOpen('realm') ? realmExpCard() : '') + rows.reverse().join('') });
+  const s = sheet({ title: '外出历练', sub: `你的战力 ${fmt(L.power(st))} · 行动点 ${'◆'.repeat(left)}${'◇'.repeat(Math.max(0, L.AP.per - left))}`, body: sweepRow + (UI.isOpen('realm') ? realmExpCard() : '') + rows.reverse().join('') });
   bindRealmCard(s);   // 秘境一格（panel-realm.js）
+  const btn = s.querySelector('#expSweep');
+  if (btn) btn.onclick = () => doAct('sweep', sweepArgs);
   s.querySelectorAll('.card[data-k]').forEach(c => c.onclick = () => { SFX.tap(); const k = +c.dataset.k, dc = defaultCell(st, k); confirmExp(k, dc.d, dc.a); });
   s.querySelectorAll('.card[data-boss]').forEach(c => c.onclick = () => { SFX.tap(); fightBossUI(+c.dataset.boss); });
 }

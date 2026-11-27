@@ -47,6 +47,7 @@ function cond1(st, c) {
   if ((m = /^met:(\w+)$/.exec(c))) return L.met(st, m[1]);
   if ((m = /^grudge:(\w+)<=(-?\d+)$/.exec(c))) return (L.grudge ? L.grudge(st, m[1]) : 0) <= +m[2];
   if ((m = /^ch>=(\d)$/.exec(c))) return L.chapterNow(st) >= +m[1];
+  if ((m = /^exp>=(\d+)$/.exec(c))) return (st.stats.exp || 0) >= +m[1];
   if ((m = /^gate:(\w+)$/.exec(c))) return L.storyGate(st, m[1]).ok;
   if ((m = /^pact:(win|lost)$/.exec(c))) return m[1] === 'win' ? st.pact > 0 : st.pact < 0;
   if ((m = /^trial:(\w+)$/.exec(c))) return !!(L.trialOn && L.trialOn(st, m[1]));
@@ -171,11 +172,23 @@ L.storyKeyDue = function (st, key) {
   return false;
 };
 const fired = (st, id) => S(st).beat[id] !== undefined;
+const firstChapterMid = /^c1_mid[123]$/;
+const firstChapterMidTrigger = /^sb:c1_mid[123]$/;
+const pactDeadline = st => !!st.pact || st.tick >= L.PACT_TICK;
+function expiredStory(st, ev) {
+  const t = ev && ev.trigger;
+  return (t === 'pact_eve' && !!st.pact) || (firstChapterMidTrigger.test(t || '') && pactDeadline(st));
+}
 // 节拍放过了、挂在它上面的场景却没结算也不在队列里：补进队列（结算链每条链开头、每出一张之前补一次：blocks.js）
 function repush(st) {
   const s = S(st); let n = 0;
+  if (pactDeadline(st)) {
+    for (let i = st.storyQ.length - 1; i >= 0; i--) {
+      if (expiredStory(st, L.eventById(st.storyQ[i]))) st.storyQ.splice(i, 1);
+    }
+  }
   for (const ev of L.events()) {
-    if (ev.where !== 'story' || !ev.trigger || ev.trigger.slice(0, 3) !== 'sb:' || st.evDone[ev.id] || st.storyQ.includes(ev.id)) continue;
+    if (ev.where !== 'story' || !ev.trigger || ev.trigger.slice(0, 3) !== 'sb:' || st.evDone[ev.id] || st.storyQ.includes(ev.id) || expiredStory(st, ev)) continue;
     const id = ev.trigger.slice(3); if (id === 'mid' || !(s.beat[id] >= 0)) continue;
     if (s.retry[ev.id] && st.tick < s.retry[ev.id]) continue;
     if (L.eligible(st, ev, 'story', { trigger: ev.trigger })) { st.storyQ.push(ev.id); n++; }
@@ -204,6 +217,7 @@ L.storyTick = function (st, force) {
   for (const b of L.STORY_BEATS) {
     if (fired(st, b.id)) continue;
     if (b.ch > now) break;
+    if (pactDeadline(st) && firstChapterMid.test(b.id)) { s.beat[b.id] = -1; continue; }
     const stale = b.ch < now && b.slot !== 'climax' && b.slot !== 'end';
     if (stale && !b.must) { s.beat[b.id] = -1; continue; }   // 过了章的中段戏：错过（回忆里补看）
     if (reactiveSlot(b) || (stale && b.must)) continue;   // 关键戏：L.storyKick 当场放

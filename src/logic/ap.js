@@ -345,7 +345,11 @@ L.seasonEnd = function (st) {
   if (st.exp) return null;
   // 挂着的 st.retreat（闭关、差事在 3.0 都当场结掉，不该挂着；绕过 L.act 直接 L.taskTake / L.startRetreat 才会留下它）：季末顺手结掉、不另扣点。
   // 原来这里也返回 null，而界面的【下一季】并不因它变灰——点了没反应，这一局从此过不了季
-  if (st.retreat) S.pre.retreat = finishRetreat(st);
+  if (st.retreat) {
+    const got = st.retreat.got || 0;
+    const r = S.pre.retreat = finishRetreat(st);
+    S.xp.pre = Math.max(0, (r.got || 0) - got) + (r.epi || 0);
+  }
   // 1. 剩余行动点自动打坐
   if (a.left > 0 && p.r <= L.MAXR) { S.sat = a.left; S.xp.sit = L.sitGain(st, a.left); L.addXp(st, S.xp.sit); st.stats.sit = (st.stats.sit || 0) + a.left; }
   if (a.left > 0) L.apSpend(st, a.left, 'sit*');
@@ -392,7 +396,11 @@ const NEXT_CAL = ['采药灵草 +50%', '秘境开放', '灵稻灵石 +50%', '闭
 L.seasonReport = function (st, S) {
   if (!S) return null;
   const fmt = L.fmt, xpAll = S.xp.flow + S.xp.sit + S.xp.pre;
-  const parts = [`自然 +${fmt(S.xp.flow)}`]; if (S.xp.sit) parts.push(`打坐 +${fmt(S.xp.sit)}`); if (S.xp.pre) parts.push(`出关 +${fmt(S.xp.pre)}`);
+  // 按累计修为取整，保留不足 1 点的进位，让显示的分项和合计一致。
+  const flow = Math.floor(S.xp.flow), flowSit = Math.floor(S.xp.flow + S.xp.sit);
+  const parts = [`自然 +${fmt(flow)}`];
+  if (S.xp.sit) parts.push(`打坐 +${fmt(flowSit - flow)}`);
+  if (S.xp.pre) parts.push(`出关 +${fmt(Math.floor(xpAll) - flowSit)}`);
   const lines = [`修为 +${fmt(xpAll)}（${parts.join(' · ')}）`];
   const crops = []; if (S.crops) for (const k in S.crops) if (S.crops[k] > 0) crops.push([CROP_N[k] || (L.YIN_N && L.YIN_N[k]) || k, S.crops[k]]);
   const row = [];
@@ -415,13 +423,14 @@ L.seasonReport = function (st, S) {
   if (S.notes.length) lines.push(S.notes.join(' · '));
   let next = '';
   const bs = S.next && S.next.bigSoon, nm = S.next ? S.next.name : '';
-  if (bs && bs.seasons <= 4) next = bs.seasons <= 1 ? `下一季：${bs.n} 本季末` : `下一季：${bs.n} 还有 ${bs.seasons} 季`;
+  if (bs && bs.seasons > 0 && bs.seasons <= 4) next = bs.seasons === 1 ? `下一季末：${bs.n}` : `下一季：${bs.n} 还有 ${bs.seasons} 季`;
   else if (S.next && st && L.calOpen && L.calOpen(st)) next = `下一季：入${nm} · ${NEXT_CAL[S.next.season]}`;
   else if (nm) next = `下一季：入${nm}`;
   if (next) lines.push(next);
-  const bigBtn = bs && bs.seasons <= 1 ? { pact: '赴约 ▸', tour: '论道 ▸', war: '迎战 ▸', meet: '会武 ▸' }[bs.k] : '';
+  const bigBtns = { pact: '赴约 ▸', tour: '论道 ▸', war: '迎战 ▸', meet: '会武 ▸' };
+  const bigBtn = S.big.map(b => bigBtns[b.k]).find(Boolean);
   return { title: `第 ${Math.floor(S.tick / 12) + 1} 年 · ${SN[S.season]}  结束`, lines, acts, xp: { all: xpAll, flow: S.xp.flow, sit: S.xp.sit, pre: S.xp.pre }, stones: S.stones, crops, next,
-    btn: `入${nm} ▸`, nextBtn: bigBtn || '', year: S.year, big: S.big.map(b => b.k) };
+    btn: bigBtn || `入${nm} ▸`, nextBtn: bs && bs.seasons === 1 ? bigBtns[bs.k] || '' : '', year: S.year, big: S.big.map(b => b.k) };
 };
 
 // ---------- 结算链（缺省实现；线 B 在 storyline.js 包成完整版） ----------

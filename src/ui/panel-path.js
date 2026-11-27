@@ -72,12 +72,13 @@ function yearClose() { L.yearClose(st); }
 function showYearReport() {
   if (!st) return;
   saveLocal('年报');   // 关键节点存一份
+  const top = yearTop();
   const R = L.yearReport(st), nx = R.next || {}, big = nx.big;
   const up = (a, b, f) => `${f(a)} → <span class="big">${f(b)}</span>${b > a ? ` <span class="kup" style="font-size:14px">▲${f(b - a)}</span>` : ''}`;
   const opened = (R.opened || []).filter(k => L.ONB_K[k] && L.ONB_K[k].sys).slice(0, 4);
   const nch = nx.ch && typeof nx.ch === 'object' ? nx.ch : null, chL = nch ? nch.chN : chName(typeof nx.ch === 'number' ? nx.ch : L.chapterNow(st)), bar = nx.bar || (nch && nch.bar) || L.goalNow(st).bar;
   sheet({ title: `${artIcon('report', 24)} 第 ${R.y} 年 · 年报`, center: true, noClose: true,
-    body: `<div class="krow"><span class="k">境界</span><span class="v">${esc(R.realm[0])} → <span class="kup">${esc(R.realm[1])}</span></span></div>
+    body: `${top.body}<div class="krow"><span class="k">境界</span><span class="v">${esc(R.realm[0])} → <span class="kup">${esc(R.realm[1])}</span></span></div>
       <div class="krow"><span class="k">战力</span><span class="v">${up(R.pw[0], R.pw[1], fmt)}</span></div>
       <div class="krow"><span class="k">修炼/${MO()}</span><span class="v">+${L.fmt1(R.gain[0])} → <span class="kup">+${L.fmt1(R.gain[1])}</span></span></div>
       <div class="krow"><span class="k">灵石</span><span class="v">赚 ${fmt(R.earn || 0)} · 花 ${fmt(R.spend || 0)}</span></div>
@@ -86,9 +87,9 @@ function showYearReport() {
       ${opened.length ? `<div class="krow"><span class="k">新开</span><span class="v">${opened.map(k => `${sysIcon(k, 16)} ${esc(L.ONB_K[k].n.split('·')[0])}`).join('　')}</span></div>` : ''}
       <div class="ksec"><span>明年 · ${chL}</span></div>
       <div class="krow"><div class="kpbar"><i style="width:${(Math.max(0, Math.min(1, bar.v / (bar.max || 1))) * 100).toFixed(1)}%"></i></div><span class="s">${esc(cut(bar.text, 16))}</span></div>
-      ${big ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${seasons(big.left)} 季</span></div>` : ''}
+      ${big && big.left > 0 ? `<div class="krow"><span class="k">${esc(big.n)}</span><span class="v seal">还有 ${seasons(big.left)} 季</span></div>` : ''}
       ${R.say ? `<div class="ksay">${elderImg(24)}<span>老祖：“${esc(cut(R.say, 20))}”</span></div>` : ''}`,
-    foot: [{ t: '新的一年 ▸', gold: true, fn: () => { yearClose(); closeModal(); } }] });
+    foot: [{ t: top.btn, gold: true, fn: () => { yearClose(); closeModal(); } }] });
   SFX.year();
 }
 // 【仙途】→ 记录 → 年报：历年的数字

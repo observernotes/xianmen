@@ -58,7 +58,14 @@ function showBlock0(x) {
 const runBlk = x => (x && L.blockRun ? L.blockRun(st, x) : null);
 function showBig1(k, x) {
   if (k === 'pact') { if (!st.pact) { const r = runBlk(x); runPact(r || undefined); } }
-  else if (k === 'tour' || k === 'tourney') runTournament(x && L.blockRun ? () => runBlk(x) : null);   // 准备页在前，点【登台】才打
+  else if (k === 'tour' || k === 'tourney') runTournament(x && L.blockRun ? () => {
+    const result = runBlk(x);
+    // 奖励与待办同一笔存档：演出中退出后，本届论道不能再打一次。
+    L.blockDone(st, x);
+    if (blkLate === x) blkLate = null;
+    saveLocal();
+    return result;
+  } : null);
   else if (k === 'meet') { const r = runBlk(x); if (r || !x) runSectMeet(r || undefined); }
   else if (k === 'war') { const r = runBlk(x); if (r || !x) runWar(r || undefined); }
   else if (k === 'rookie') { if (L.rookie(st) && L.rookie(st).due) runRookie(); }   // 打压还是指点由玩家选（runRookie 自己结算），不让 L.blockRun 替你“指点”
@@ -90,7 +97,7 @@ function chainPump() {
       // 大事：结果由 L.blockRun 打（论道要等准备页的【登台】）；玩家自己选怎么结的（新秀、宿敌上门）不让 blockDone 代打
       if (x.kind === 'big' && (x.id === 'rookie' || x.id === 'foe')) x.ran = true;
       if (x.kind === 'act') { L.blockRun(st, x); L.blockDone(st, x); continue; }   // 推迟的那一仗：打完，结果卡排进链（下一张）
-      if (x.kind === 'big' && x.id === 'tour' && L.blockRun) { showBlock(x); if (x.ran) L.blockDone(st, x); else blkLate = x; continue; }   // 准备页开着：关掉以后再 blockDone
+      if (x.kind === 'big' && (x.id === 'tour' || x.id === 'tourney') && L.blockRun) { showBlock(x); if (!x.ran) blkLate = x; continue; }
       if (x.kind === 'big') { showBlock(x); L.blockDone(st, x); continue; }
       L.blockDone(st, x); showBlock(x); continue;
     }
@@ -198,8 +205,17 @@ function showSeasonCard(S) {
     foot: [{ t: esc(R.btn || '下一季 ▸'), gold: true, fn: closeModal }] });
   SFX.year && SFX.year();
 }
-// 年报顶替冬季季末卡时，季末那几行放在年报最上面（panel-path.js 的 showYearReport 读 yearTop()）
-function yearTop() { const S = yearS; yearS = null; if (!S) return ''; const { lines } = seasonLines(S); seasonLog = []; return lines.slice(0, 2).map(t => `<div class="krow"><span class="v">${esc(t)}</span></div>`).join(''); }
+// 年报顶替冬季季末卡时，把这一季的收益和到期的大事也带过去。
+function yearTop() {
+  const S = yearS; yearS = null;
+  if (!S) return { body: '', btn: '新的一年 ▸' };
+  const { R, lines } = seasonLines(S);
+  seasonLog = [];
+  return {
+    body: lines.slice(0, 2).map(t => `<div class="krow"><span class="v">${esc(t)}</span></div>`).join(''),
+    btn: R.big.some(k => BIG_BTN[k]) ? R.btn : '新的一年 ▸',
+  };
+}
 
 // ---------- 过季 ----------
 function nextSeason(force) {
@@ -280,9 +296,10 @@ $('#btnBt').addEventListener('click', () => { if (!st || !canBreak()) return; ac
 // 年报（线 2 的 UI.showYear 没接上时的最小版）
 function showYearBasic() {
   const r = L.yearReport(st); if (!r) return;
+  const top = yearTop();
   const row = (k, a, b) => `<dt>${k}</dt><dd class="num">${a} → <b>${b}</b></dd>`;
   sheet({ title: `第 ${r.y} 年`, center: true, noClose: true,
-    body: `${yearTop()}<dl class="grid2">${row('境界', esc(r.realm[0]), esc(r.realm[1]))}${row('战力', fmt(r.pw[0]), fmt(r.pw[1]))}${row('修炼/月', fmt(r.gain[0]), fmt(r.gain[1]))}${r.rank ? row('天骄榜', r.rank[0], r.rank[1]) : ''}<dt>灵石</dt><dd class="num">赚 ${fmt(r.earn)} · 花 ${fmt(r.spend)}</dd><dt>历练</dt><dd class="num">${r.exp} 趟${r.bestT ? ' · 最好 ' + r.bestT : ''}</dd></dl>
+    body: `${top.body}<dl class="grid2">${row('境界', esc(r.realm[0]), esc(r.realm[1]))}${row('战力', fmt(r.pw[0]), fmt(r.pw[1]))}${row('修炼/月', fmt(r.gain[0]), fmt(r.gain[1]))}${r.rank ? row('天骄榜', r.rank[0], r.rank[1]) : ''}<dt>灵石</dt><dd class="num">赚 ${fmt(r.earn)} · 花 ${fmt(r.spend)}</dd><dt>历练</dt><dd class="num">${r.exp} 趟${r.bestT ? ' · 最好 ' + r.bestT : ''}</dd></dl>
       ${r.next.big ? `<div class="muted">明年：${esc(r.next.big.n)} 还有 ${seasons(r.next.big.left)} 季</div>` : ''}<div class="quote">${esc(r.say)}</div>`,
-    foot: [{ t: '新的一年 ▸', gold: true, fn: () => { L.yearClose(st); closeModal(); } }] });
+    foot: [{ t: top.btn, gold: true, fn: () => { L.yearClose(st); closeModal(); } }] });
 }

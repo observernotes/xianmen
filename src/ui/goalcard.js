@@ -34,7 +34,7 @@ function renderTick() {
   if (el._h !== h) { el._h = h; el.innerHTML = h; }
   el.classList.toggle('new', performance.now() - tickNewAt < 6000);
 }
-$('#tick').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showInbox(); });
+$('#tick').addEventListener('click', () => { if (busyUI()) return; ac(); SFX.tap(); showInbox(); });
 
 // ===================== hlOnly：只画金框，不出老祖、不停表、点别处就消失（§2.4） =====================
 let hlSel = null, hlUntil = 0;
@@ -65,7 +65,7 @@ const GO_K = {
 // 跳转键 → 底栏哪一格（底栏的“去”角标）
 const GO_NAV = { bt: '', exp: 'exp', realm: 'exp', home: 'home', field: 'home', furnace: 'home', zhen: 'home', gear: 'gear', arts: 'gear', pets: 'gear', bag: 'gear', world: 'world', rivals: 'world', sect: 'world', market: 'world', people: 'world', disc: 'world', path: 'path', attr: 'path', record: 'path', codex: 'path', cal: '', big: '', prep: '', inbox: '' };
 // 变强建议的 go（docs/KAIRO_PLAN.md §10.5）：'do:<id>'（当场做 / 闭关）、'exp:k:d:a'（那一格的出发页）落到哪一格
-const goNavOf = k => { k = String(k || ''); if (k.startsWith('exp:')) return 'exp'; if (k.startsWith('do:')) { const id = k.slice(3); return /^(up|retreat|heal|pill)/.test(id) ? 'home' : /^exp/.test(id) ? 'exp' : 'gear'; } return GO_NAV[k] || ''; };
+const goNavOf = k => { k = String(k || ''); if (k.startsWith('exp:')) return 'exp'; if (k.startsWith('do:')) { const id = k.slice(3); return /^(up|retreat|sit|heal|pill)/.test(id) ? 'home' : /^(exp|sweep|boss)/.test(id) ? 'exp' : 'gear'; } return GO_NAV[k] || ''; };
 function goTo(k, hl) {
   if (!k || !st) return;
   if (/^(do|exp):/.test(k)) { if (modalOpen()) closeModal(); if (k.startsWith('exp:')) goKey(k); return; }
@@ -109,15 +109,15 @@ function goAp(nx) {
 }
 // 目标卡：默认收起成一行；点一下展开 / 收起（记在存档里）；展开时点第一行（第 N 章 · 目标）进路径页
 $('#goal').addEventListener('click', e => {
-  if (!st || cine) return; ac(); SFX.tap();
+  if (busyUI()) return; ac(); SFX.tap();
   const el = $('#goal');
   if (e.target.closest('.gbar')) { showGrowth('goal'); return; }   // 进度条 = 变强页（目标页签）
   if (el.classList.contains('open') && e.target.closest('.g1')) { showPath(); return; }
   st.flags.goalOpen = !el.classList.contains('open'); el.classList.toggle('open', st.flags.goalOpen);
   fitScene();   // 当场重排（不等 ResizeObserver 的下一拍）：目标卡高了 / 矮了，场景让出 / 收回这一截，底栏不被挤出屏幕
 });
-$('#time').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (UI.isOpen('cal')) showCalendar(); else showBig(); });
-$('#btnMail').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); showInbox(); });
+$('#time').addEventListener('click', () => { if (busyUI()) return; ac(); SFX.tap(); if (UI.isOpen('cal')) showCalendar(); else showBig(); });
+$('#btnMail').addEventListener('click', () => { if (busyUI()) return; ac(); SFX.tap(); showInbox(); });
 
 // ===================== 底栏固定五格（§4.1）：位置永远不变；没开的那一格灰剪影 + 一行条件 =====================
 const NAV_N = { exp: '历练', home: '洞府', gear: '装备', world: '江湖', path: '仙途' };
@@ -213,11 +213,12 @@ function renderMain() {
     pipsKey = pk;
     $('#pips').innerHTML = tb.cells.map((c, i) => `<i class="${c.s === 'past' ? 'd' : c.s === 'now' ? 'n' : c.s === 'big' ? 'f' : ''}${tb.n > 4 && i % 4 === 3 && i < tb.n - 1 ? ' yr' : ''}"></i>`).join('');
   }
-  // 场景状态牌：打坐中 / 历练中（第几个节点）
+// 场景状态牌：打坐中 / 历练中（第几个节点） / 首领战
   const sp = $('#scenePill');
   let ph = '', pc = '';
   if (st.run || cine || duelFx) ph = '';
   else if (st.exp) { const e = st.exp, nn = e.nodes ? e.nodes.length : e.total, i = Math.min(nn, (e.nodes ? e.ni : e.total - e.left) + 1); ph = `<b>${e.quick ? '扫荡' : '历练中'}</b>${esc(L.REGIONS[e.k].n)} · 第 ${i}/${nn} 处`; pc = 'trip'; }
+  else if (battleRunning()) { ph = `<b>首领战</b>${esc(L.BOSSES[btv.k].n)}`; pc = 'trip'; }
   else if (p.r > L.MAXR) ph = '<b>大道已成</b>';
   else ph = `<b>打坐中</b>修为 +${fmt(L.gain(st))}/${MO()}`;
   if (sp._h !== ph) { sp._h = ph; sp.innerHTML = ph; }
@@ -242,6 +243,7 @@ function renderMain() {
   // 目标卡三行：第 N 章 + 目标 / 现值 → 目标值 / 下一步 + 【去】
   const g = L.goalNow(st), nx = g.next || {};
   const nap = goAp(nx), nwhy = nap > L.apLeft(st) ? '点不够（下一季）' : '';
+  $('#gGo').disabled = busyUI() || !!nwhy;
   const gk = [g.ch, g.t, g.bar.text, g.bar.v, nx.t, nx.go, nx.do && (nx.do.id || nx.do), nap, nwhy].join('|');
   if (gk !== goalKey) {
     goalKey = gk;

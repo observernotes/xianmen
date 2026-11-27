@@ -45,6 +45,7 @@ function showChoice(ev, back) {
 }
 // 选完之后的结算：对决演出或结果卡（对话场景播放器 talk.js 选完也走这里）
 function choiceResult(ev, res, done) {
+  if (st.exp && st.exp.encEv === ev.id && st.exp.encDone) saveLocal();
   {
     // 得到的功法、法宝单列一行（功法更强时带【换上】；法宝走对比卡）
     const items = res.fx.items || (res.fx.item ? [res.fx.item] : []);
