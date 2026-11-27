@@ -142,7 +142,8 @@ const MID_T = { mid1: 9, mid2: 18, mid3: 27 }, GAP = { open: 0, mid1: 3, mid2: 3
 L.STORY_GAP = GAP; L.STORY_MID_T = MID_T;
 // 高潮：这一章最后一仗打完的那一刻（不是主线完成——第七、八、九章的主线要等高潮那场戏里的抉择）
 const CLIMAX = [
-  st => !!st.pact, st => L.mainRankOk(st, 60, 1), st => !!st.beaten.zhao, st => mainDone(st, 3), st => !!st.beaten.chu, st => !!st.flags.warWon,
+  // 第二章：名次按降过级的算；降级把这一章做完了（章一过 easeOf 就归零）也算到了，不然高潮戏要等名次真到 60 才放（D2：story_accept3 E-cap-0）
+  st => !!st.pact, st => L.mainRankOk(st, 60, 1) || !!(st.quest && st.quest.done.c1_m), st => !!st.beaten.zhao, st => mainDone(st, 3), st => !!st.beaten.chu, st => !!st.flags.warWon,
   st => !!E(st).st_truth && !!st.beaten.xue, st => !!E(st).st_justice && L.mainRankOk(st, 2, 7), st => st.p.r >= 9,   // 名次按 mainline.js 降过级的算
 ];
 // 固定日子的最后一仗（守山）：那一季的季初放 pre（AP_PLAN §4.3）

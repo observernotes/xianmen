@@ -32,13 +32,16 @@ const path = require('path');
   await page.click('#goStart');
   await page.waitForTimeout(300);
   const T0 = Date.now();
-  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => window.__lr || null))); } catch (e) { /* 页面忙时跳过 */ } }, 120000);
+  const prog = setInterval(async () => { try { console.log('progress', Math.round((Date.now() - T0) / 1000) + 's', JSON.stringify(await page.evaluate(() => { const X = window.__xm, st = X && X.st; return Object.assign({}, window.__lr || {}, st ? { busy: X.busyUI, chain: X.chainOn, exp: !!st.exp, run: !!st.run, ap: X.L.apLeft(st), q: X.queueLen, talk: !!(window.__xm_talk && window.__xm_talk.on), bt: !!(window.__xm_bt && window.__xm_bt.on), nb: (X.L.nextBlock(st) || {}).kind } : {}); }))); } catch (e) { /* 页面忙时跳过 */ } }, +(process.env.LR_EVERY || 120000));
   const beat = setInterval(() => { page.evaluate(() => { const s = window.__xm.st; return `月 ${s.tick} 境界 ${s.p.r}`; }).then(s => console.error('[进度]', s), () => {}); }, 120000);   // 机器忙时心跳，看得出没卡死
   const result = await page.evaluate(async () => {
     const X = window.__xm, L = X.L;
     if (X.setSpeed) X.setSpeed(3);   // 旧界面：暂停，时间由下面的循环推进
     const NEW_UI = typeof X.nextSeason === 'function';   // 新界面（界面线 C）：时间只在【下一季】里推进
     window.__lrNew = NEW_UI;
+    // 真人在对决演出 / 结算链没出完时点不到别的面板（纸卷压着、底栏不让点）；机器人的杂事直接调 X.showXxx，会把对决的纸卷顶掉、对决再也收不了尾（busyUI 一直为真）。
+    // 所以对决演出中、结算链里不开别的面板（这一轮杂事跳过，下一轮再做）
+    for (const k of Object.keys(X)) if (/^show[A-Z]/.test(k) && typeof X[k] === 'function' && !/^show(Choice|Breakthrough|Event)$/.test(k)) { const f = X[k]; X[k] = function () { if (X.duelFx || X.chainOn) return; return f.apply(this, arguments); }; }
     // 本分支（合并推荐统一 49cf52f 之后）：artrec.js 的 L.REC = {…} 盖掉 expedition.js 的 L.REC，L.rec 全是 NaN。垫回去，别让整局都带歪（报告里单列）
     window.__lrRecBug = !(L.rec(0, 0) > 0);
     if (window.__lrRecBug) Object.assign(L.REC, { base: 6, k: 13.4, d: 2.37 });
@@ -307,6 +310,7 @@ const path = require('path');
         if (X.cine) { if (++cineWait > 8) { const sk = document.querySelector('.cn-skip'); if (sk) { sk.click(); cineWait = 0; } } await sleep(120); continue; }   // 过场（cine2）等 1 秒还没完就点右上角“跳过”
         cineWait = 0;
         if (X.duelFx && !X.duelFx.ended) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
+        if (window.__xm_bt && window.__xm_bt.on && window.__xm_bt.ph === 'fight') { window.__xm_bt.finish(); await sleep(60); continue; }   // 场景里的回合战（首领、历练节点）：一场一场直接打完（停顿等玩家点的那一下机器人不会点，原来首领战会一直挂着）
         if (!modal()) { await sleep(450); if (!modal() && !X.cine) { chainEnds.push({ tick: X.st.tick, q: X.st.storyQ.length, ids: X.st.storyQ.slice(0, 3) }); return; } continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
         const cand = document.querySelector('#modal .cand:not(.hide):not(.sel)');
