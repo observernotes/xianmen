@@ -2637,6 +2637,58 @@ function fighterGrid(base, frame) {
   put(Gd, S[0], S[1] + 1, 's'); put(Gd, S[0] - 1, S[1] + 1, 's');
   return Gd;
 }
+// ---- 对决 / 回合战小人的 2 倍密度重画稿（96×80）----
+// 剑：刃三个高清像素宽（刃口亮 X、刃面 x、刃背暗 z），尖上收两级；护手一横带亮点，缠绳的柄，圆首
+function swordOn2(G, x0, y0, x1, y1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), ux = (x1 - x0) / n, uy = (y1 - y0) / n, len = Math.hypot(x1 - x0, y1 - y0), vx = ux * n / len, vy = uy * n / len, px = -vy, py = vx;   // (px,py)：刃口那一侧
+  const dot = (x, y, ch) => put(G, Math.round(x), Math.round(y), ch);
+  for (let i = 3; i <= len + 3; i += 0.5) { const tip = len + 3 - i, w = tip < 2 ? 0 : tip < 5 ? 1 : 2; for (let k = -w; k <= w; k += 0.5) dot(x0 + vx * i + px * k * 0.75, y0 + vy * i + py * k * 0.75, k < -w + 0.9 && w ? 'X' : k > w - 0.9 && w ? 'z' : 'x'); }
+  for (let i = 5; i < len - 2; i += 0.5) if ((i | 0) % 9 < 6) dot(x0 + vx * i - px * 0.2, y0 + vy * i - py * 0.2, 'X');
+  for (let k = -5; k <= 5; k += 0.5) { dot(x0 + vx * 2 + px * k, y0 + vy * 2 + py * k, Math.abs(k) > 4 ? 'y' : 'g'); dot(x0 + vx * 3 + px * k, y0 + vy * 3 + py * k, 'G'); }
+  dot(x0 + vx * 2.5, y0 + vy * 2.5, 'y');
+  for (let i = -5; i <= 1; i += 0.5) for (const k of [-0.5, 0.5]) dot(x0 + vx * i + px * k, y0 + vy * i + py * k, (Math.round(i) & 1) ? 'n' : 'N');
+  for (const [a2, b3] of [[-6, -1], [-6, 0], [-6, 1], [-7, 0], [-7, -1]]) dot(x0 + vx * a2 + px * b3 * 0.6, y0 + vy * a2 + py * b3 * 0.6, 'g');
+}
+// base2：60×70 的 2 倍密度站姿（脸、发丝、衣褶已经重画）；按帧摆姿势——倾身按行渐变（1 个高清像素一级，比原画细一倍）
+function fighterGrid2(base2, frame) {
+  const Gd = blank(92, 76), ox = 10, oy = 6;
+  if (frame === 'down') {
+    for (let y = 0; y < base2.length; y++) for (let x = 0; x < 60; x++) { const ch = base2[y][x]; if (ch !== '.') put(Gd, y + 2, 83 - x, ch); }
+    swordOn2(Gd, 70, 73, 88, 74);
+    return Gd;
+  }
+  const lean = ({ windup: -2, strike: 3, hit: -3 }[frame] || 0) * 2, bob = frame === 'idle1' || frame === 'stand1' ? 2 : 0;
+  for (let y = 0; y < base2.length; y++) {
+    const dx = y < 36 ? lean : Math.round(lean * (68 - y) / 34), dy = y < 60 ? bob : 0;
+    for (let x = 0; x < 60; x++) { const ch = base2[y][x]; if (ch !== '.') put(Gd, ox + x + dx, oy + y + dy, ch); }
+  }
+  if (frame === 'stand0' || frame === 'stand1') return Gd;
+  const S = { idle0: [56, 56, 68, 26], idle1: [56, 58, 68, 28], windup: [60, 42, 54, 2], strike: [66, 52, 90, 52], hit: [48, 62, 64, 74] }[frame];
+  if (frame === 'windup' || frame === 'strike') {   // 抬起的手臂：袖子上亮下暗，袖口一圈
+    const sx = ox + 40 + lean, sy = oy + 42, n = Math.max(Math.abs(S[0] - sx), Math.abs(S[1] - sy), 1);
+    for (let i = 0; i <= n; i++) { const x = Math.round(sx + (S[0] - sx) * i / n), y = Math.round(sy + (S[1] - sy) * i / n), cuff = i > n - 3; for (const [d, ch] of [[-2, 'q'], [-1, 'r'], [0, 'r'], [1, 'r'], [2, 'R'], [3, 'D']]) put(Gd, x, y + d, cuff ? (d < 0 ? 'u' : 't') : ch); }
+  }
+  swordOn2(Gd, S[0], S[1], S[2], S[3]);
+  for (const [dx, dy, ch] of [[-1, 1, 's'], [0, 1, 's'], [1, 1, 's'], [-2, 2, 's'], [-1, 2, 's'], [0, 2, 's'], [1, 2, 'S'], [-1, 3, 's'], [0, 3, 'S'], [-2, 1, 's']]) put(Gd, S[0] + dx, S[1] + dy, ch);
+  return Gd;
+}
+function fighterBase2(g, look, frame, plain) {
+  const G = grid2x(g);
+  if (!plain) {
+    if (frame === 'hit' || frame === 'down') {   // 挨打：> < 眼；倒地：闭成一线
+      for (let y = 23; y <= 30; y++) for (let x = 19; x <= 40; x++) if ('Ewi'.includes(G[y][x])) G[y][x] = 's';
+      if (frame === 'hit') { patch(G, 20, 24, ['EE', '..EE', '....EE', '..EE', 'EE']); patch(G, 34, 24, ['....EE', '..EE', 'EE', '..EE', '....EE']); patch(G, 28, 33, ['MMMM', 'MwwM', 'MMMM']); }
+      else { patch(G, 20, 26, ['EEEEEE', 'S....S']); patch(G, 34, 26, ['EEEEEE', 'S....S']); patch(G, 28, 33, ['.MM.', 'MmmM']); }
+    } else { face2(G, 20, 24, look.f); patch(G, 28, 32, look.f ? ['sMMs', 'ssss'] : ['MMMM', 'smms']); }
+    folds(G, [[22, 10, 18, 19], [39, 10, 42, 19], [30, 8, 30, 15]], 'h', 'H'); folds(G, [[27, 9, 24, 15], [34, 9, 36, 14]], 'h', 'j');
+  }
+  // 衣褶同站姿（standFolds 的坐标是切掉左边 4 列之后的，这里整体右移 8）
+  folds(G, [[19, 41, 15, 49], [25, 43, 28, 46], [34, 43, 31, 46], [23, 53, 18, 65], [26, 54, 24, 65], [34, 53, 36, 65]], 'r', 'R');
+  folds(G, [[40, 41, 44, 49], [38, 54, 41, 65]], 'rR', 'D');
+  folds(G, [[32, 55, 33, 64], [17, 42, 14, 48]], 'r', 'q');
+  for (let y = 40; y < G.length; y++) for (let x = 38; x < G[y].length; x++) if (G[y][x] === 'q') G[y][x] = 'r';
+  return G;
+}
 // 对决小人。who：人物 id（同 ART.portrait）| { look, realm }（主角）| { hair, skin, f, robe, trim }（路人换色）
 // frame：'idle0' 'idle1' 'windup' 'strike' 'hit' 'down' 或 0～5（另有不持剑的 'stand0' 'stand1'，访客用）；flip 为真时面朝左（锚点 x 变为 26）
 ART.fighter = function (who, frame, flip, alt) {
@@ -2656,9 +2708,16 @@ ART.fighter = function (who, frame, flip, alt) {
     const g = charGrid(STAND_BODY, look.f, look.hero);
     for (const m of mods) FMOD[m](g);
     if (frame === 'hit' || frame === 'down') { for (const x of [11, 12, 17, 18]) for (const y of [12, 13, 14]) put(g, x, y, 's'); for (const [x, y] of frame === 'hit' ? [[11, 12], [12, 13], [11, 14], [18, 12], [17, 13], [18, 14]] : [[11, 13], [12, 13], [17, 13], [18, 13]]) put(g, x, y, 'E'); }
-    const c = render(fighterGrid(g, frame), palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, pal)));
+    const P0 = palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, pal));
+    const c = render(fighterGrid(g, frame), P0);
+    // HD-2D：2 倍密度重画稿。主角和没改头脸的人物重画五官；戴帽 / 闭眼 / 蒙面这些改过头的只重画衣褶和剑
+    const plain = mods.some(m => ['shut', 'hat', 'cap', 'horns', 'ears'].includes(m));
+    const hd = () => { const c2 = render(pad2(fighterGrid2(fighterBase2(g, look, frame, plain), frame)), Object.assign({ W: '#ffffff', I: lerpC(look.hair, '#5a3a2a', 0.5), z: '#77829c', N: '#3a2a22' }, P0)); c2._hd = 2; return c2; };
+    c._hdNative = hd;
     if (!flip) return c;
-    const f = mk(c.width, c.height), fg = f.getContext('2d'); fg.translate(c.width, 0); fg.scale(-1, 1); fg.drawImage(c, 0, 0); return f;
+    const f = mk(c.width, c.height), fg = f.getContext('2d'); fg.translate(c.width, 0); fg.scale(-1, 1); fg.drawImage(c, 0, 0);
+    f._hdNative = () => { const n = hd(), f2 = mk(n.width, n.height), g2 = f2.getContext('2d'); g2.translate(n.width, 0); g2.scale(-1, 1); g2.drawImage(n, 0, 0); f2._hd = 2; return f2; };
+    return f;
   });
 };
 
