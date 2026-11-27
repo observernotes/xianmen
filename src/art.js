@@ -456,8 +456,46 @@ const WOLF = [
   '....bbb..ddd...bbb..ddd...',
   '....ww..dd.....ww..dd.....',
 ];
+// 狼的 2 倍密度重画稿（52×30）：尖耳带耳蜗、压低的眉与红眼、长吻一颗獠牙、颈后和背脊炸起的毛、身上斜向的毛流、蓬尾、带爪的腿（远侧两条压暗）
+// 多出来的字母：h 毛尖亮 D 最暗 k 墨线 i 耳蜗 e 眼的亮点
+const WOLF2 = [
+  '...........b.....b',
+  '..........ab....ab',
+  '..........aib...aib',
+  '.........aaibd.aaibd',
+  '.........aabbdaaabbdd.....................ahab',
+  '........aabbbbbabbbbbd..................aahabbbb',
+  '.......aahbbbbbbbbbbbbd................aaabbbbbbb',
+  '......aahbbbbbbbbbbbbbbd.h.h..h........aabbbbbbbbb',
+  '.....aabbkkEbbbbbbbbbbbbahaahaahabbb....abbbbbbbbbd',
+  '....aabbbbEebbbbbbbbbbbbbaaaaaaabbbbbbb..bbbdbbbbbdd',
+  '...aabbbbbbbbbbbbdbbbbbbbbbbbbbbbbbbbbbbbbabbbbdbbdd',
+  '..aabbbbbbbbbbbbbbdbbbbbbbbbdbbbbbbbdbbbbbaabbbbbddd',
+  'bbaabbbbbbbbbwwbbbdbbbbbbbbbbdbbbbbbbdbbbbbbbbbbbdd',
+  'Nbaabbbbbbbbwwwwbbbdbbbbdbbbbbdbbbbbbbdbbbbbbbbdd',
+  'NNwwwwwwwwwwwwwwwbbbbbbbbdbbbbbbbbbdbbbbbbbbbdddd',
+  '.kkkkkkWkwwwwwwwwbbdbbbbbbbbbbbdbbbbbbbbbbbbddd',
+  '..ddwwwWwwwwwwwwwbbbdbbbbbbbbbbbbbbbbbbbbbbbddd',
+  '...ddddddwwwwwwwwwbbbbbbbbbbbbbbbbbbbdbbbbbdd',
+  '.......ddwdwwwwwwwwbbbbbbbbbbbbbbbbbbbbbbbbdd',
+  '.........dwwdwwwwwwwwbbbbbbbbbbbbbbbbbbbbdd',
+  '..........abbbdwwwwwwwwwwwwwwwwwddbbbbbbbd',
+  '..........abbbddwwwwwwwwwwwwwwwwddabbbbbdd',
+  '..........abbb....dddddD........abbbbd..dddddD',
+  '..........abbb....dddddD........abbbd...ddddddD',
+  '..........abbd....ddddD..........bbbd....dddddD',
+  '.........aabbd....ddddD.........abbbd....ddddD',
+  '.........abbbd....ddddD........abbbd.....ddddD',
+  '........abbbd....dddddD.......abbbd.....ddddD',
+  '........wwwwd....ddddD........wwwwd....ddddD',
+  '........wkwk.....dDdD.........wkwk.....dDdD',
+];
 ART.wolf = function (fc) {
-  return cached('wolf' + fc.join(), () => render(grid(WOLF, 26), { b: fc[0], a: lerpC(fc[0], '#fff0d0', 0.3), d: hs(fc[1], 0.9), w: lerpC(fc[0], '#ffffff', 0.5), E: '#ff3a2a', N: '#2a1a26', W: '#ffffff' }));
+  return cached('wolf' + fc.join(), () => {
+    const pal = { b: fc[0], a: lerpC(fc[0], '#fff0d0', 0.3), d: hs(fc[1], 0.9), w: lerpC(fc[0], '#ffffff', 0.5), E: '#ff3a2a', N: '#2a1a26', W: '#ffffff' }, c = render(grid(WOLF, 26), pal);
+    c._hdNative = () => { const c2 = render(pad2(WOLF2.map(r => r.padEnd(52, '.').split(''))), Object.assign({ h: lerpC(fc[0], '#fff0d0', 0.6), D: hs(fc[1], 0.66), k: '#2a1a26', i: lerpC(fc[1], '#d07a7a', 0.5), e: '#ffb060' }, pal)); c2._hd = 2; c2._relit = 0.3; return c2; };
+    return c;
+  });
 };
 
 // ---------- 戒中老祖头像（22×22，半透明的蓝白残魂） ----------
@@ -1830,7 +1868,7 @@ Buf.prototype = {
   ball(cols, cx, cy, rx, ry, ramp, o) {
     o = o || {}; const lx = o.lx === undefined ? -0.52 : o.lx, ly = o.ly === undefined ? -0.62 : o.ly, lz = Math.sqrt(Math.max(0.05, 1 - lx * lx - ly * ly)), th = o.th || [0.9, 0.62, 0.16, -0.22];
     return this.map((x, y, c) => {
-      if (!cols.includes(c)) return;
+      if (!cols.includes(c) || (o.box && (x < o.box[0] || y < o.box[1] || x > o.box[2] || y > o.box[3]))) return;
       const u = (x + 0.5 - cx) / rx, v = (y + 0.5 - cy) / ry, r2 = u * u + v * v, z = Math.sqrt(Math.max(0, 1 - Math.min(1, r2))), k = (u * lx + v * ly) / Math.max(1, Math.sqrt(r2)) + z * lz;
       const i = k > th[0] ? 0 : k > th[1] ? 1 : k > th[2] ? 2 : k > th[3] ? 3 : 4, n = ramp[i];
       if (n) return n;
@@ -1839,6 +1877,24 @@ Buf.prototype = {
   // 贴着轮廓外缘（朝 dx,dy 方向的邻居是空的）的 cols 像素换成 to：轮廓高光 / 背光压边
   edge(cols, dx, dy, to, o) { const self = this; return this.map((x, y, c) => { if (cols && !cols.includes(c)) return; const n = self._at0(x + dx, y + dy); if (!n || (o && o.vs && o.vs.includes(n))) return to; }); },
   _at0(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h ? (this._s || this.d)[y * this.w + x] : null; },
+  // 按 1 倍坐标写的画法直接在 2 倍缓冲上重新落笔：椭圆、斜线按 2 倍密度光栅化（不是把台阶放大），lit() 的亮边暗边只有 1 个高清像素
+  k2() {
+    const B = this, S = {
+      w: B.w / 2, h: B.h / 2, big: B,
+      at(x, y) { return B.at(Math.round(x) * 2, Math.round(y) * 2); },
+      p(x, y, c) { x = Math.round(x); y = Math.round(y); if (c !== undefined) B.r(x * 2, y * 2, 2, 2, c); return S; },
+      r(x, y, w, h, c) { B.r(Math.round(x * 2), Math.round(y * 2), Math.round(w * 2), Math.round(h * 2), c); return S; },
+      hl(x0, x1, y, c) { B.r(x0 * 2, y * 2, (x1 - x0 + 1) * 2, 2, c); return S; },
+      e(cx, cy, rx, ry, c) { B.e(cx * 2, cy * 2, rx * 2, ry * 2, c); return S; },
+      l(x0, y0, x1, y1, c, th) { th = (th || 1) * 2; const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 0.5) * 2, X0 = Math.round(x0) * 2, Y0 = Math.round(y0) * 2, X1 = Math.round(x1) * 2, Y1 = Math.round(y1) * 2; for (let i = 0; i <= n; i++) B.r(Math.round(X0 + (X1 - X0) * i / n), Math.round(Y0 + (Y1 - Y0) * i / n), th, th, c); return S; },
+      m(x, y, rows, pal, flip) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const c = pal[rows[j][i]]; if (c) S.p(flip ? S.w - 1 - (x + i) : x + i, y + j, c); } return S; },
+      sy(y0, s, c, cx) { cx = cx || S.w / 2; for (let k = 0; k < s.length; k++) { const hw = parseInt(s[k], 36), pv = k ? parseInt(s[k - 1], 36) : hw, h0 = Math.round(pv * 0.5 + hw * 1.5); if (h0) B.r(cx * 2 - h0, (y0 + k) * 2, h0 * 2, 1, c); if (hw) B.r(cx * 2 - hw * 2, (y0 + k) * 2 + 1, hw * 4, 1, c); } return S; },
+      mir(fn) { const t = new Buf(B.w, B.h); fn(t.k2()); for (let y = 0; y < B.h; y++) for (let x = 0; x < B.w; x++) { const c = t.d[y * B.w + x]; if (c) { B.p(x, y, c); B.p(B.w - 1 - x, y, c); } } return S; },
+      add(fn, o) { B.add(L => fn(L.k2()), o); return S; },
+      lit(n) { B.lit(n); return S; },
+    };
+    return S;
+  },
   // 一撇短笔触（毛、羽）：从 (x,y) 沿 (dx,dy) 画 n 个像素，只落在 from 上
   st(x, y, dx, dy, n, to, from) { for (let i = 0; i < n; i++) { const X = Math.round(x + dx * i), Y = Math.round(y + dy * i), c = this.at(X, Y); if (c && (!from || from.includes(c))) this.d[Y * this.w + X] = to; } return this; },
 };
@@ -3640,10 +3696,20 @@ function quadHd(b2, P, f, X) {
   if (P.aura) for (const x1 of [bx1 - brx1, bx1 + brx1 - 3]) { const x = Math.round(x1) * 2, A = P.aura; for (const [dx, y0, y1] of [[0, 50, 53], [1, 48, 53], [2, 46 - f, 53], [3, 44 - f * 2, 53], [4, 46, 53], [5, 47 + f, 53], [6, 49, 53], [7, 51, 53]]) for (let y = y0; y <= y1; y++) b2.p(x + dx, y, A); for (const [dx, y0] of [[2, 50], [3, 48], [4, 50], [5, 51]]) for (let y = y0; y <= 53; y++) b2.p(x + dx, y, '#fff2a8'); b2.p(x + 3, 52, '#ffffff'); }
   stamp2(b2, X.post);
 }
+// 雀、隼、金乌：同一套画法在 64×56 上重新落笔之后，补眼（带高光）、喙的明暗、身上的体积
+function birdHd(b2, P, f) {
+  const c = P.c, leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), hr = P.hr || 3.4, hx = bx - brx + 1, hy = by - bry + 0.5 + (P.fly ? 0 : f);
+  b2.ball([c], bx * 2, by * 2, brx * 2 + 1, bry * 2 + 1, [ch(c, 0.6), null, null, cs(c, 1), cs(c, 2)], { th: [0.94, 0.7, 0.05, -0.35], box: [bx * 2 - brx * 2 - 1, by * 2 - bry * 2 - 1, bx * 2 + brx * 2, by * 2 + bry * 2] });
+  b2.ball([c], hx * 2, hy * 2, hr * 2 + 0.5, hr * 2 + 0.5, [ch(c, 0.6), null, null, null, cs(c, 1)], { th: [0.9, 0.7, 0.05, -0.3], box: [hx * 2 - hr * 2 - 1, hy * 2 - hr * 2 - 1, hx * 2 + hr * 2, hy * 2 - 1] });
+  const ix = Math.round(hx - hr), iy = Math.round(hy), ex = (ix + 2) * 2, ey = (iy - 1) * 2, bk = P.bk || '#f4c542';
+  b2.r(ex, ey - (P.eye ? 2 : 0), 2, P.eye ? 4 : 2, INK); if (P.eye) { b2.r(ex, ey, 2, 2, P.eye); b2.p(ex + 1, ey + 1, INK); } b2.p(ex, ey - (P.eye ? 2 : 0), '#ffffff');
+  b2.map((x, y, k) => { if (k === bk && x < ix * 2 + 2 && !b2._at0(x, y - 1)) return ch(bk, 0.5); });
+}
 function petBird(b, P, f) {
   const c = T3(P.c), wc = T3(P.w || hs(P.c, 0.8)), leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), nk = P.neck || 0, hr = P.hr || 3.4, hx = bx - brx + 1 - (nk ? 2 : 0), hy = by - bry + 0.5 - nk + (nk || P.fly ? 0 : f), tcol = T3(P.t || P.w || P.c), tl = P.tl || 4, lc = P.lc || '#e8a040';
-  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
-  if (nk) b.hd = b2 => craneHd(b2, P, f, X);
+  const X = {}, K = !!b.big;   // K：正在 2 倍缓冲上重新落笔（b 是 k2() 的代理）
+  if (P.pre) { if (K) P.pre(b, f); else X.pre = petExtra(b, () => P.pre(b, f)); }
+  if (!K) { b.hd = nk ? b2 => craneHd(b2, P, f, X) : b2 => { b2.clear(); petBird(b2.k2(), P, f); birdHd(b2, P, f); }; if (!nk) b.relit = 0.2; }
   if (P.fly || P.span) b.add(L => { for (let i = 0; i < 5; i++) L.l(bx - 1, by - 1, bx - 6 + i * 2, by - bry - 7 + i + f * 3, dn(wc), 2); }, { flat: 1 });
   b.add(L => { for (let i = 0; i < (P.tn || 2); i++) { if (P.curl) { const y1 = by - 4 - i * 4 + f; L.l(bx + brx - 2, by, bx + brx + 3, y1 + 3, tcol, 2); L.l(bx + brx + 3, y1 + 3, bx + brx + 7, y1, tcol, 2); L.e(bx + brx + 8, y1, 1.6, 1.6, tcol); } else L.l(bx + brx - 2, by + 1, bx + brx - 2 + tl, by + 3 - i * 2, tcol, 2); } });
   if (P.tip) for (let i = 0; i < (P.tn || 2); i++) P.curl ? b.r(Math.round(bx + brx + 8), Math.round(by - 4 - i * 4 + f), 1, 1, P.tip) : b.p(Math.round(bx + brx - 2 + tl), Math.round(by + 3 - i * 2), P.tip);
@@ -3659,7 +3725,7 @@ function petBird(b, P, f) {
   b.hl(ix - 1 - (P.bl || 0), ix, iy, bk); b.p(ix, iy + 1, hs(bk, 0.7)); if (P.hook) b.p(ix - 1 - (P.bl || 0), iy + 1, bk);
   b.p(ix + 2, iy - 1, P.eye || INK); if (P.eye) b.p(ix + 2, iy - 2, INK);
   if (P.crest) { b.r(Math.round(hx) - 1, Math.round(hy - hr) - 1, 3, 1, P.crest); if (P.crest2) { b.p(Math.round(hx) + 1, Math.round(hy - hr) - 2, P.crest); b.p(Math.round(hx) + 2, Math.round(hy - hr) - 3, P.crest); } }
-  if (P.post) X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by));
+  if (P.post) { if (K) P.post(b, f, hx, hy, bx, by); else X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by)); }
   return [Math.round(hx), Math.round(hy - hr) - 2];
 }
 // 龟：整张按 64×56 重画——拱起来的壳分三级明暗、六角甲片一暗一亮两条刻线、壳缘一圈裙边、皱皮的颈、带爪的短腿
@@ -3706,6 +3772,7 @@ function petTurtle(b, P, f) {
 }
 function petBat(b, P, f) {
   const c = T3(P.c), m = T3(P.w || hs(P.c, 0.8)), big = P.big ? 2 : 0, cy = 13 - f;
+  if (!b.big) { b.hd = b2 => { b2.clear(); petBat(b2.k2(), P, f); b2.eyes(); }; b.relit = 0.2; }
   b.add(L => L.mir(T => { for (let x = 3 - big; x <= 13; x++) { const u = (13 - x) / (10 + big), top = cy - 1 - Math.sin(u * 2.2) * (f ? 2 : 6 + big), hh = 4 + Math.abs(Math.sin(u * 3.14 * 1.5)) * 3 + (1 - u) * 2; for (let y = top; y < top + hh; y++) T.p(x, y, m); } }));
   b.mir(T => { const tx = 3 - big, ty = Math.round(cy - 1 - Math.sin(2.2) * (f ? 2 : 6 + big)); T.l(13, cy, tx, ty, dn(c)); T.l(13, cy, 8, ty + 7, dn(m)); T.l(13, cy, 5, ty + 5, dn(m)); });
   b.add(L => { L.e(16, cy + 3, 3.2, 4.2, c); L.e(16, cy - 2, 3.6, 3.2, c); L.mir(T => { for (let k = 0; k < 4 + big; k++) T.hl(12, 12 + Math.min(2, k), cy - 6 - big + k, c); }); });
@@ -3716,6 +3783,7 @@ function petBat(b, P, f) {
 }
 // 蛟：盘身 + 龙首
 function petJiao(b, P, f) {
+  if (!b.big) { b.hd = b2 => { b2.clear(); petJiao(b2.k2(), P, f); b2.eyes(); }; b.relit = 0.2; }
   const c = T3(P.c), bel = P.b || lerpC(P.c, '#ffffff', 0.6), pts = [[10, 14], [13, 18], [10, 23], [17, 25], [24, 23], [25, 17], [21, 13], [24, 8], [27, 6 + f]], hy = 11 + f;
   if (P.wing) b.add(L => { for (let i = 0; i < 5; i++) L.l(17, 14, 14 + i * 3, 3 + i * 1.5 - f, T3(P.wing), 2); });
   const seg = (L2, r0, col, oy) => { for (let k = 0; k < pts.length - 1; k++) for (let i = 0; i <= 8; i++) { const u = (k + i / 8) / (pts.length - 1), x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * i / 8, y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * i / 8, r = r0 * (1 - u * 0.7); L2.e(x, y + oy, r, r, col); } };
@@ -5435,6 +5503,26 @@ ART.bossFighter = function (k, frame, flip) {
       const ex = 11 + lx / 2, ey = 17 + bob; b.r(ex, ey, 3, 3, '#fff2a8'); b.r(ex + 5, ey, 3, 3, '#fff2a8'); b.r(ex, ey + 1, 2, 2, '#2c2238'); b.r(ex + 5, ey + 1, 2, 2, '#2c2238'); b.hl(ex, ex + 2, ey - 1, '#1c5a34'); b.hl(ex + 5, ex + 7, ey - 1, '#1c5a34');
       b.hl(ex + 1, ex + 6, ey + 5, '#1c5a34'); b.p(ex + 2, ey + 6, '#ffffff'); b.p(ex + 5, ey + 6, '#ffffff');
       b.p(5 + lx * 2, 11 - bob, '#9be08a'); b.p(27, 12 + bob, '#9be08a'); b.p(21, 15 + bob, '#9be08a'); b.p(22, 21 + bob, '#2a6e3e');
+    }, hd(b2, f) {   // 2 倍细节：藤球分四级、斜压的怒眉、竖瞳、锯齿口两颗獠牙、花瓣的脉与卷边、藤上的小叶
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, G = '#4fae5a', Gd = '#2a6e3e', Gh = '#9be08a', Gm = '#3f9650', V = '#2f8e4b', Vd = '#1c5a34', Vh = '#62d26f', P = '#e0507a', Pd = '#8a2648', Ph = '#ff9ab8', Pm = '#bc3c64';
+      const cx = 32 + lx / 2, cy = 38 + bob, ex = 22 + lx / 2, ey = 34 + bob;
+      b2.ball([G], cx, cy, 16.5, 14.5, ['#c8f4b0', Gh, null, Gm, Gd], { th: [0.95, 0.82, 0.3, -0.02], box: [cx - 17, cy - 15, cx + 17, cy + 15] });
+      for (const [dx, dy] of [[8, 6], [11, 2], [5, 10], [-9, 9], [9, -6]]) b2.tint([[cx + dx, cy + dy], [cx + dx + 1, cy + dy]], Gd, [G, Gm]);
+      for (const x0 of [ex, ex + 10]) {
+        b2.r(x0 - 1, ey - 4, 8, 4, null); for (let y = ey - 4; y < ey; y++) for (let x = x0 - 1; x < x0 + 7; x++) b2.p(x, y, y < cy - 9 ? Gh : G);
+        b2.r(x0, ey, 6, 6, '#fff2a8'); b2.hl(x0, x0 + 5, ey, '#e8cf6a'); b2.hl(x0, x0 + 5, ey + 5, '#d9b85a');
+        b2.r(x0 + 1, ey + 1, 3, 4, '#2c2238'); b2.p(x0 + 1, ey + 1, '#ffffff'); b2.p(x0 + 3, ey + 4, '#6a5a8a');
+      }
+      b2.l(ex - 2, ey - 4, ex + 6, ey - 1, Vd, 2); b2.l(ex + 17, ey - 4, ex + 9, ey - 1, Vd, 2);
+      b2.r(ex + 1, ey + 9, 14, 6, G); b2.hl(ex + 1, ex + 14, ey + 10, Vd); b2.p(ex, ey + 9, Vd); b2.p(ex + 15, ey + 9, Vd);
+      for (const x0 of [ex + 3, ex + 10]) { b2.hl(x0, x0 + 2, ey + 11, '#ffffff'); b2.p(x0 + 1, ey + 12, '#ffffff'); }
+      b2.hl(ex + 5, ex + 10, ey + 13, Gm);
+      // 花
+      b2.ball([P], 32 + lx, 11 + bob, 16, 12, [Ph, Ph, null, Pm, Pd], { th: [0.93, 0.8, 0.22, -0.1], box: [10 + lx, 0, 54 + lx, 22 + bob] });
+      for (const [x1, y1] of [[20, 10], [44, 10], [32, 1], [26, 4], [38, 4], [24, 16], [40, 16]]) b2.tl(32 + lx, 12 + bob, x1 + lx, y1 + bob, Pm, [P, Ph]);
+      if (f !== 2) { b2.p(31 + lx, 10 + bob, '#fff2a8'); b2.p(30 + lx, 11 + bob, '#fff2a8'); b2.tint([[34 + lx, 14 + bob], [35 + lx, 13 + bob], [33 + lx, 15 + bob]], '#c8962a'); }
+      // 藤上的小叶
+      for (const [x, y, d] of [[8 + lx * 2, 30 - bob, -1], [56, 34 + bob, 1], [4 + lx, 42, -1], [58, 46, 1]]) if (b2.at(x, y) || b2.at(x + d, y) || b2.at(x - d, y)) { b2.p(x + d * 2, y - 1, Vh); b2.p(x + d * 3, y - 2, Vh); b2.p(x + d * 3, y - 1, V); b2.p(x + d * 4, y - 2, V); }
     } },
     xiong: { n: '铁背熊', el: 'tu', draw(b, f) { // 四足着地的大熊，背上一层铁甲
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, F = tone('#8a5c36', '#5a3a26', '#b98a4c'), S = tone('#8e96a8', '#4e566c', '#d4dcec'), M = tone('#c8a070', '#8a6a48', '#e8cc94');
@@ -5446,6 +5534,31 @@ ART.bossFighter = function (k, frame, flip) {
       b.r(2 + lx, 15 + bob, 2, 2, '#2c2238'); b.r(6 + lx, 11 + bob, 2, 2, f === 2 ? '#ff6b3a' : '#2c2238'); b.p(6 + lx, 11 + bob, '#ffffff'); b.hl(5 + lx, 8 + lx, 9 + bob, '#5a3a26');
       if (f === 2) { b.r(3 + lx, 18 + bob, 4, 2, '#8a1e2e'); b.p(3 + lx, 18 + bob, '#ffffff'); b.p(6 + lx, 18 + bob, '#ffffff'); b.add(L => { L.l(5, 22, 1, 19, F, 3); }); for (const y of [18, 20, 22]) b.p(0, y, '#ffffff'); }
       for (const x of [8, 10, 21, 23]) b.p(x, 27, '#efe3c4');
+    }, hd(b2, f) {   // 2 倍细节：毛色三级 + 短毛笔触、远侧两腿压暗、圆耳、亮眼、铁甲的受光带与铆钉、三趾爪
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, F = '#8a5c36', Fd = '#5a3a26', Fh = '#b98a4c', Fm = '#74492c', S = '#8e96a8', Sd = '#4e566c', Sh = '#d4dcec', Sm = '#6e768c', M = '#c8a070';
+      // 远侧的腿
+      b2.map((x, y, c) => { if (y >= 42 && ((x >= 26 && x <= 31) || (x >= 50 && x <= 55)) && (c === F || c === Fh)) return Fm; });
+      b2.ball([F], 38, 30 + bob, 24, 15, [Fh, Fh, null, Fm, Fd], { th: [0.96, 0.84, -0.08, -0.42], box: [26, 14, 63, 41 + bob] });
+      b2.ball([F], 16 + lx, 26 + bob, 12.5, 12.5, [Fh, Fh, null, Fm, Fd], { th: [0.95, 0.8, -0.05, -0.4], box: [0, 8, 27 + lx, 40 + bob] });
+      // 短毛：一撇暗一撇亮
+      for (let y = 26 + bob; y < 44; y += 3) for (let x = 24 + ((y * 5) % 7); x < 60; x += 7) { b2.st(x, y, 1, 1, 2, Fd, [F, Fm]); b2.st(x - 3, y - 1, 1, 1, 2, Fh, [F]); }
+      for (const [x, y] of [[20 + lx, 34 + bob], [22 + lx, 30 + bob], [18 + lx, 37 + bob], [24 + lx, 24 + bob]]) b2.st(x, y, 0.5, 1, 3, Fd, [F, Fm]);
+      // 耳
+      for (const [x0, y0] of [[8 + lx, 12 + bob], [20 + lx, 10 + bob]]) { b2.p(x0, y0, null); b2.p(x0 + 5, y0, null); b2.r(x0 + 2, y0 + 2, 2, 3, Fd); b2.p(x0 + 3, y0 + 2, '#a8605a'); }
+      // 眼、眉、鼻、口
+      const ex = 12 + lx, ey = 22 + bob, hot = f === 2;
+      b2.r(ex - 2, ey - 5, 9, 4, F); b2.l(ex - 2, ey - 2, ex + 5, ey - 4, Fd, 1); b2.l(ex - 2, ey - 3, ex + 5, ey - 5, Fh, 1);
+      b2.r(ex, ey, 4, 4, hot ? '#ff6b3a' : '#2c2238'); if (hot) { b2.r(ex + 1, ey + 1, 2, 2, '#fff2a8'); } b2.p(ex, ey, '#ffffff'); b2.p(ex + 1, ey, hot ? '#fff2a8' : '#6a5a8a'); b2.hl(ex, ex + 3, ey + 4, Fm);
+      b2.r(4 + lx, 30 + bob, 4, 4, M); b2.r(4 + lx, 30 + bob, 4, 3, '#2c2238'); b2.p(5 + lx, 30 + bob, '#8a84a0'); b2.p(5 + lx, 33 + bob, '#2c2238');
+      if (!hot) b2.tl(5 + lx, 35 + bob, 11 + lx, 37 + bob, '#8a6a48', [M, '#e8cc94', '#8a6a48']);
+      // 铁甲：上沿一带亮、下沿一带暗，三道接缝，一排铆钉
+      const y0 = 14 + bob;
+      b2.map((x, y, c) => { if (c !== S && c !== Sh && c !== Sd && c !== '#eef4ff') return; if (c === '#eef4ff' || (y >= y0 + 8 && y <= y0 + 9 && c === Sd)) return y < y0 + 8 ? Sh : Sm; if (c !== S) return; if (y < y0 + 4) return '#b4bccc'; if (y >= y0 + 12) return Sm; if (x > 52) return Sm; });
+      b2.hl(22, 53, y0 + 9, Sd); b2.hl(22, 52, y0 + 10, '#b4bccc');
+      for (const x of [26, 34, 42, 50]) { b2.r(x, y0 + 4, 2, 2, Sd); b2.p(x, y0 + 4, '#ffffff'); for (let y = y0 + 11; y < y0 + 15; y++) b2.tint([[x + 4, y]], Sd, [S, Sm]); }
+      b2.tl(24, y0 + 2, 40, y0 + 1, '#ffffff', ['#b4bccc', Sh]);
+      // 爪
+      for (const x0 of [16, 42]) for (const dx of [0, 3, 6]) { b2.p(x0 + dx, 54, '#efe3c4'); b2.p(x0 + dx, 55, '#efe3c4'); b2.tint([[x0 + dx + 1, 54], [x0 + dx + 1, 55]], Fd); }
     } },
     ya: { n: '火鸦', el: 'huo', draw(b, f) { // 展翅的黑红乌鸦，尾羽是火
       const up2 = f === 1 ? 3 : f === 2 ? -2 : 0, lx = f === 2 ? -4 : 0, K = tone('#4a2a34', '#2a1820', '#7a4a52'), Rr = tone('#d8502a', '#8a241e', '#ffb23f');
@@ -5456,6 +5569,26 @@ ART.bossFighter = function (k, frame, flip) {
       b.p(30, 20 + (f & 1), '#fff2a8'); b.p(25, 26, '#ffd86a'); b.p(28, 24, '#ffd86a'); b.p(27, 18, '#fff2a8');
       b.add(L => { L.r(6 + lx, 11, 4, 2, GOLD); L.p(5 + lx, 12, GOLD); }, { sep: 0 }); b.r(11 + lx, 9, 2, 2, '#ffd86a'); b.p(11 + lx, 10, '#ffffff');
       b.r(14 + lx, 20, 1, 4, '#f4c542'); b.r(18 + lx, 20, 1, 4, '#f4c542'); b.hl(13 + lx, 15 + lx, 24, '#f4c542'); b.hl(17 + lx, 19 + lx, 24, '#f4c542');
+    }, hd(b2, f) {   // 2 倍细节：翼下一排收尖的飞羽、胸口的羽片、带瞳的金眼、钩喙、火尾的亮芯
+      const up2 = (f === 1 ? 3 : f === 2 ? -2 : 0) * 2, lx = f === 2 ? -8 : 0, K = '#4a2a34', Kd = '#2a1820', Kh = '#7a4a52', Km = '#5e3a44', Rr = '#d8502a', Rh = '#ffb23f';
+      // 飞羽：沿两翼的下缘各垂五根
+      const FL = new Buf(b2.w, b2.h), wing = (x0, y0, x1, y1, dir) => { for (let i = 1; i <= 5; i++) { const t = 0.25 + i * 0.15, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, len = 3 + i * 1.3; taper(FL, [[x, y + 2], [x + dir * 1.5, y + 2 + len * 0.6], [x + dir * 3.5, y + 2 + len]], 3, 1, i % 2 ? K : Km); } };
+      wing(36 + lx, 28, 56 + lx, 12 + up2, 1); wing(28 + lx, 28, 10 + lx, 10 + up2, -1);
+      for (let i = 0; i < FL.d.length; i++) if (FL.d[i] && !b2.d[i]) b2.d[i] = FL.d[i];   // 垫在身后：只画在空处
+      b2.ball([K], 32 + lx, 30, 10.5, 10.5, [Kh, Km, null, Kd, Kd], { th: [0.92, 0.7, 0.05, -0.3], box: [20 + lx, 19, 43 + lx, 41] });
+      for (const [x, y] of [[28, 30], [33, 31], [30, 34], [35, 35], [27, 36]]) { b2.tint([[x + lx, y], [x + lx + 1, y + 1], [x + lx + 2, y]], Km, [K]); }
+      b2.ball([K], 24 + lx, 22, 8.5, 8.5, [Kh, Km, null, null, Kd], { th: [0.9, 0.7, 0.05, -0.4], box: [15 + lx, 13, 30 + lx, 25] });
+      // 眼
+      const ex = 22 + lx, ey = 18; b2.r(ex, ey, 4, 4, '#ffd86a'); b2.r(ex + 1, ey + 1, 2, 2, '#2a1820'); b2.p(ex, ey, '#ffffff'); b2.p(ex + 3, ey + 3, '#ffb23f'); b2.l(ex - 1, ey - 2, ex + 4, ey - 1, Kd, 1);
+      // 喙
+      const bx = 12 + lx, by = 22; b2.r(bx - 2, by, 10, 4, null); b2.hl(bx, bx + 7, by, '#fff2a8'); b2.hl(bx - 2, bx + 7, by + 1, '#f4c542'); b2.hl(bx - 3, bx + 7, by + 2, '#f4c542'); b2.hl(bx - 3, bx - 2, by + 3, '#a8742a'); b2.hl(bx + 1, bx + 7, by + 3, '#a8742a'); b2.p(bx + 5, by + 1, '#a8742a');
+      // 火尾：外红、中橙、芯黄
+      const fl = (f & 1) * 2;
+      for (const [x0, y0, x1, y1] of [[42 + lx, 38, 52, 45], [52, 45, 59, 44 + fl], [42 + lx, 42, 48, 50]]) { b2.tl(x0 + 1, y0 + 2, x1, y1 + 1, Rh, [Rr]); b2.tl(x0 + 2, y0 + 2, x1, y1, Rh, [Rr]); }
+      b2.tl(46 + lx, 42, 52, 46, '#fff2a8', [Rh]);
+      for (const [x, y] of [[61, 41 + fl], [56, 49], [50, 53], [62, 47]]) { b2.p(x, y, '#ffd86a'); b2.p(x, y - 1, '#fff2a8'); }
+      // 翼上的红纹提一线亮
+      b2.map((x, y, c) => { if (c === Rr && y < 30 && !b2._at0(x, y - 1)) return Rh; });
     } },
     wa: { n: '寒潭蛙', el: 'shui', draw(b, f) { // 蹲着的蓝蛙，背上三根冰棱
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, jy = f === 2 ? -4 : 0, B = tone('#3f8fd0', '#24579a', '#9fd4ff'), I = tone('#bfe8ff', '#6fb0e0', '#ffffff'), W2 = tone('#e8f4ff', '#a8c8e8', '#ffffff');
@@ -5467,6 +5600,23 @@ ART.bossFighter = function (k, frame, flip) {
       b.r(7 + lx, 11 + bob + jy, 2, 3, '#fff2a8'); b.r(14 + lx, 10 + bob + jy, 2, 3, '#fff2a8'); b.p(7 + lx, 12 + bob + jy, '#2c2238'); b.p(14 + lx, 11 + bob + jy, '#2c2238');
       b.hl(6 + lx, 13 + lx, 19 + bob + jy, '#24579a'); if (f === 2) { b.add(L => L.l(5 + lx, 19 + jy, 0, 17 + jy, RED, 2), { sep: 0 }); b.p(0, 17 + jy, '#ff9a8a'); }
       b.p(21, 17 + bob + jy, '#9fd4ff'); b.p(23, 20 + bob + jy, '#9fd4ff'); b.p(18, 5 + bob + jy, '#ffffff');
+    }, hd(b2, f) {   // 2 倍细节：湿亮的背、深色的圆斑、横瞳的鼓眼、上翘的嘴角、冰棱的切面、带蹼的趾
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, jy = f === 2 ? -8 : 0, B = '#3f8fd0', Bd = '#24579a', Bh = '#9fd4ff', Bm = '#3276b8', I = '#bfe8ff', Id = '#6fb0e0', W2 = '#e8f4ff', oy = bob + jy;
+      const cx = 32 + lx / 2, cy = 38 + oy;
+      b2.ball([B], cx, cy, 20.5, 14.5, ['#d4ecff', Bh, null, Bm, Bd], { th: [0.96, 0.86, 0.2, -0.15], box: [cx - 21, cy - 15, cx + 21, cy + 15] });
+      for (const [dx, dy, r] of [[6, -6, 2.2], [12, -1, 1.8], [1, -9, 1.4], [14, 6, 1.6], [-4, -4, 1.2]]) { const L = new Buf(64, 56); L.e(cx + dx, cy + dy, r, r, Bd); for (let i = 0; i < L.d.length; i++) if (L.d[i] && [B, Bm, Bh].includes(b2.d[i])) b2.d[i] = b2.d[i] === Bh ? B : Bd; }
+      b2.tl(cx - 10, cy - 10, cx - 3, cy - 12, '#ffffff', [Bh, '#d4ecff', B]);
+      // 冰棱：左亮右暗，芯上一线白
+      b2.map((x, y, c) => { if (y > 28 + jy || c !== I) return; if (b2._at0(x + 1, y) !== I && b2._at0(x + 1, y) !== '#ffffff') return Id; if (b2._at0(x + 2, y) !== I && b2._at0(x + 2, y) !== '#ffffff' && b2._at0(x + 2, y) !== Id) return Id; });
+      for (const [x, y0, y1] of [[36, 12, 24], [45, 16, 26], [27, 16, 26]]) for (let y = y0 + oy; y < y1 + jy; y += 1) b2.tint([[x + (y & 1 ? 0 : 0), y]], '#ffffff', [I]);
+      // 眼：两只鼓眼各一枚金眼、横瞳
+      for (const [ex, ey] of [[14 + lx, 22 + oy], [28 + lx, 20 + oy]]) { b2.r(ex - 1, ey, 6, 6, B); b2.r(ex, ey, 5, 5, '#fff2a8'); b2.hl(ex, ex + 4, ey, '#f4c542'); b2.hl(ex, ex + 4, ey + 2, '#2c2238'); b2.r(ex + 1, ey + 1, 2, 3, '#2c2238'); b2.p(ex + 1, ey + 1, '#ffffff'); b2.hl(ex, ex + 4, ey + 5, Bd); }
+      // 嘴：一条长线，嘴角上翘；鼻孔
+      const my = 38 + oy; b2.r(12 + lx, my, 16, 2, B); for (let x = 12 + lx; x <= 27 + lx; x++) b2.tint([[x, my + 1]], Bd); b2.tint([[28 + lx, my], [29 + lx, my - 1], [12 + lx, my - 3]], Bd);
+      // 肚皮下缘压一线、蹼
+      b2.map((x, y, c) => { if (c === W2 && !b2._at0(x, y + 1)) return '#a8c8e8'; });
+      for (const x of [9 + lx, 12 + lx, 15 + lx]) { b2.tint([[x, 53 + jy], [x, 52 + jy]], Bd); }
+      for (const x of [52, 56]) b2.tint([[x, 52 + jy / 2], [x, 53 + jy / 2]], Bd);
     } },
     tang: { n: '铁螳螂', el: 'jin', draw(b, f) { // 举着两把镰刀的金螳螂
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, Y = tone('#c8a23a', '#7a5c1e', '#fff2a8'), S = tone('#dfe7ef', '#8e96a8', '#ffffff');
@@ -5478,6 +5628,25 @@ ART.bossFighter = function (k, frame, flip) {
       b.add(L => { L.l(14, 13 + bob, 8 + lx, 13 + bob - (a ? 0 : 3), Y, 2); L.l(16, 12 + bob, 20, 6 + bob, Y, 2); });
       b.add(L => { if (a) { L.l(8 + lx, 13 + bob, 1, 20, S, 2); L.l(1, 20, 4, 23, S, 1); } else { L.l(8, 10 + bob, 3, 3 + bob, S, 2); L.l(3, 3 + bob, 1, 7 + bob, S, 1); } L.l(20, 6 + bob, 25, 1 + bob, S, 2); L.l(25, 1 + bob, 28, 5 + bob, S, 1); });
       for (const x of [20, 23, 26]) b.p(x, 19 + bob + (x - 20) / 3, '#7a5c1e');
+    }, hd(b2, f) {   // 2 倍细节：腹节一环环、背上一片薄翅、红色的复眼、镰刃的白口与锯齿、腿节
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, Y = '#c8a23a', Yd = '#7a5c1e', Yh = '#fff2a8', Ym = '#a8842c', S = '#dfe7ef', Sd = '#8e96a8';
+      // 腹：下半压暗、五道节线、背上的薄翅
+      b2.map((x, y, c) => { if (c !== Y || x < 34 || y < 30 + bob) return; const yy = 34 + bob + (x - 34) * 0.45; if (y > yy + 6) return Ym; });
+      for (let k = 0; k < 5; k++) { const x = 38 + k * 4, y = 36 + bob + k * 1.8; b2.tl(x, Math.round(y) - 2, x - 2, Math.round(y) + 8, Yd, [Y, Ym]); }
+      b2.tl(34, 33 + bob, 56, 43 + bob, '#e8f0c0', [Y, Yh]); b2.tl(36, 33 + bob, 57, 42 + bob, '#f6fadc', [Y, Yh]); b2.tl(38, 36 + bob, 54, 43 + bob, '#b8c890', [Y]);
+      // 胸：一线亮
+      b2.tl(27, 20 + bob, 31, 30 + bob, Yh, [Y]); b2.tl(30, 20 + bob, 34, 30 + bob, Ym, [Y]);
+      // 头：三角脸的亮面、复眼、口器
+      const hx = 22 + lx, hy = 8 + bob;
+      for (const ex of [14 + lx, 24 + lx]) { b2.r(ex, hy + 4, 4, 4, '#d8404a'); b2.r(ex + 1, hy + 5, 2, 2, '#8a1e2e'); b2.p(ex, hy + 4, '#ffffff'); b2.p(ex + 3, hy + 7, '#ff8a8a'); }
+      b2.tint([[hx - 1, hy + 10], [hx, hy + 10], [hx - 1, hy + 12], [hx, hy + 12]], Yd); b2.tint([[hx - 2, hy + 2], [hx - 1, hy + 2], [hx, hy + 2], [hx - 3, hy + 3]], Yh, [Y]);
+      // 镰：刃口一线白、刃背压暗、内侧一排锯齿
+      b2.map((x, y, c) => { if (c !== S) return; if (!b2._at0(x - 1, y) || !b2._at0(x, y - 1)) return '#ffffff'; if (!b2._at0(x + 1, y) || !b2._at0(x, y + 1)) return Sd; });
+      const teeth = (x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 2; i < n; i += 3) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); if (!b2.at(x + 3, y + 1)) b2.p(x + 3, y + 1, Sd); } };
+      if (f === 2) teeth(16 + lx, 26 + bob, 2, 40); else teeth(16, 20 + bob, 6, 6 + bob); teeth(40, 12 + bob, 50, 2 + bob);
+      // 腿节
+      for (const [x, y] of [[36, 40], [42, 40], [48, 38]]) b2.tint([[x, y + bob], [x + 1, y + bob]], Yh, [Y]);
+      b2.edge([Y], 0, 1, Ym);
     } },
   };
   ART.mobIds = Object.keys(MOBS);
@@ -5486,8 +5655,12 @@ ART.bossFighter = function (k, frame, flip) {
   ART.mob = function (id, frame, flip) {
     const m = MOBS[id] || MOBS.teng; frame = Math.max(0, Math.min(2, frame | 0));
     return cached(['mob', id, frame, flip ? 1 : 0].join('|'), () => {
-      const b = new Buf(32, 28); m.draw(b, frame); const c = b.cv();
-      if (!flip) return c; const f = mk(32, 28), g = f.getContext('2d'); g.translate(32, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); return f;
+      const b = new Buf(32, 28); m.draw(b, frame);
+      b.hd = b2 => { b2.clear(); m.draw(b2.k2(), frame); if (m.hd) m.hd(b2, frame); }; b.relit = 0;   // HD-2D：同一套画法在 64×56 上重新落笔，再加各自的 2 倍细节
+      const c = b.cv();
+      if (!flip) return c; const f = mk(32, 28), g = f.getContext('2d'); g.translate(32, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
+      f._hdNative = () => { const n = c._hdNative(), f2 = mk(64, 56), g2 = f2.getContext('2d'); g2.translate(64, 0); g2.scale(-1, 1); g2.drawImage(n, 0, 0); f2._hd = 2; f2._relit = n._relit; return f2; };
+      return f;
     });
   };
   // 精英脚下的光环 40×12，两帧；el 决定颜色
