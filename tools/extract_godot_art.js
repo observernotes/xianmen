@@ -217,13 +217,16 @@ async function run() {
         return { images: { 'duel-stages': png(backgrounds), 'duel-actors': png(actors) }, duelMap: index };
       }
       if (combat) {
-        const backgrounds = make(200, 144 * L.REGIONS.length);
+        const height = 224;
+        const backgrounds = make(200, height * L.REGIONS.length);
         const bg = backgrounds.getContext('2d');
-        canvas.height = 160;
+        canvas.height = height;
         for (let k = 0; k < L.REGIONS.length; k++) {
-          context.clearRect(0, 0, 200, 160);
-          ART.drawAdventure(L.REGIONS[k].bg, 1000, 0, 0);
-          bg.drawImage(canvas, 0, 0, 200, 144, 0, k * 144, 200, 144);
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.clearRect(0, 0, 200, height);
+          context.setTransform(1, 0, 0, 1, 0, height - 160);
+          ART.drawAdventure(L.REGIONS[k].bg, 1000, height - 160, 0);
+          bg.drawImage(canvas, 0, k * height);
         }
         const palette = {};
         for (let k = 0; k < L.REGIONS.length; k++) {
@@ -240,7 +243,7 @@ async function run() {
         const columns = 8;
         const actors = make(columns * frame.width, Math.ceil((foes.length * 2 + 10 * 2 * 3) / columns) * frame.height);
         const actor = actors.getContext('2d');
-        const index = { foes: {}, heroes: [] };
+        const index = { foes: {}, heroes: [], effects: {} };
         let cellIndex = 0;
         function addFrame(render) {
           fx.clearRect(0, 0, frame.width, frame.height);
@@ -270,8 +273,39 @@ async function run() {
             fx.drawImage(ART.fighter({ look, realm }, pose), 48 - ART.dims.fighter.ax, 46 - ART.dims.fighter.ay);
           })));
         }
+        const elements = ['', ...L.ELEM_KEYS];
+        const frames = (count, draw) => Array.from({ length: count }, (_, i) => draw(i));
+        const clips = [['ult', frames(ART.ultFrames, ART.ultFx)]];
+        for (const name of ART.skillFxNames) {
+          for (const el of name === 'brk' ? [''] : elements) {
+            clips.push(['effect:' + name + ':' + el, frames(ART.skillFxFrames, frame => ART.skillFx(name, frame, el))]);
+          }
+        }
+        for (const el of L.ELEM_KEYS) {
+          clips.push(['aura:' + el, frames(2, frame => ART.eliteAura(el, frame))]);
+          clips.push(['badge:' + el, [ART.elemBadge(el)]]);
+        }
+        clips.push(['shield', [ART.shieldPip(false), ART.shieldPip(true)]]);
+        for (const [kind, art] of [['z', 'zhan'], ['w', 'qi'], ['mi', 'mi'], ['ult', 'ult']]) {
+          for (const el of elements) clips.push(['skill:' + kind + ':' + el, [ART.skillIcon(el, art)]]);
+        }
+        const width = 768;
+        let x = 0, y = 0, rowHeight = 0;
+        for (const [key, images] of clips) {
+          const { width: w, height: h } = images[0];
+          if (x + w * images.length > width) { y += rowHeight; x = 0; rowHeight = 0; }
+          index.effects[key] = [x, y, w, h, images.length];
+          x += w * images.length;
+          rowHeight = Math.max(h, rowHeight);
+        }
+        const effects = make(width, y + rowHeight);
+        const paint = effects.getContext('2d');
+        for (const [key, images] of clips) {
+          const [x, y, w] = index.effects[key];
+          images.forEach((image, frame) => paint.drawImage(image, x + frame * w, y));
+        }
         return {
-          images: { 'combat-landscapes': png(backgrounds), 'combat-actors': png(actors) },
+          images: { 'combat-landscapes': png(backgrounds), 'combat-actors': png(actors), 'combat-effects': png(effects) },
           map: index,
         };
       }

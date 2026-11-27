@@ -59,6 +59,7 @@
     const loot = L.expPreview(state);
     return {
       done: trip.nodes ? trip.ni : trip.total - trip.left, total: trip.total,
+      nodes: (trip.nodes || []).map(node => ({ label: L.NODE_N[node.t] || '', elite: ['elite', 'boss'].includes(node.t) })),
       text: ['灵石 +' + fmt(loot.stones), '灵草 +' + fmt(loot.herbs), loot.ore ? '灵矿 +' + fmt(loot.ore) : '', loot.finds ? '宝物 ' + loot.finds + ' 件' : ''].filter(Boolean).join(' · '),
     };
   }
@@ -414,18 +415,23 @@
     }
     if (state.run) return realmView();
     if (battle) {
+      const region = boss ? boss.k : state.exp.k;
       return {
         kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: Math.max(1, battle.round + Number(!battle.done)),
-        region: boss ? boss.k : state.exp.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
+        region, location: L.REGIONS[region].n + (boss ? '' : ' · ' + L.DEPTHS[state.exp.d]), hero: heroArt(),
         boss: !!boss, done: !!battle.done, effects: battleEffects, trip: tripProgress(),
         outcome: battle.done ? battle.win ? '取胜' : battle.fled ? '撤退' : '落败' : '',
         hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.ceil(battle.max), rage: Math.floor(battle.rage),
-        foes: battle.foes.flatMap((foe, index) => foe.hp > 0 || battleEffects.some(effect => effect.target === index) ? [{
+        foeCount: battle.foes.length,
+        foes: battle.foes.flatMap((foe, index) => foe.hp > 0 || battleEffects.some(effect => effect.target === index || effect.source === index) ? [{
           id: foe.id, index, element: foe.el, name: foe.n, hp: Math.max(0, Math.ceil(foe.hp)),
-          maxHp: Math.ceil(foe.max), shield: foe.sh, charge: !!foe.charge,
+          maxHp: Math.ceil(foe.max), shield: foe.sh, shieldMax: foe.shMax, aura: !!foe.aura, elite: foe.kind !== 'mob', charge: !!foe.charge,
         }] : []),
-        ultimate: battle.me.ult.n, canUlt: battle.rage >= 100, pills: battle.pillUsed ? 0 : battle.pills,
-        skills: battle.me.skills.map(skill => ({ name: skill.n, cooldown: Math.max(0, battle.cds[skill.id] || 0) })),
+        ultimate: battle.me.ult.n, ultElement: battle.me.ult.el, canUlt: battle.rage >= 100, pills: battle.pillUsed ? 0 : battle.pills,
+        skills: battle.me.skills.map(skill => ({
+          id: skill.id, kind: skill.kind, element: skill.el || '', name: skill.n, plus: !!skill.plus,
+          cooldown: Math.max(0, battle.cds[skill.id] || 0),
+        })),
         settingsOpen: battleOptionsOpen(), autoUlt: autoUltimate(), ...battlePacing(),
         text: battleLog || battle.momText,
       };
@@ -434,7 +440,7 @@
       const trip = state.exp;
       const node = trip.nodes?.[trip.ni];
       const delay = !node ? 0 : L.nodeIsFight(node) || node.t === 'home' ? 1500 : 2400;
-      return { kind: 'travel', title: L.REGIONS[trip.k].n, region: trip.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
+      return { kind: 'travel', title: L.REGIONS[trip.k].n, region: trip.k, location: L.REGIONS[trip.k].n + ' · ' + L.DEPTHS[trip.d], hero: heroArt(),
         delay, settingsOpen: battleOptionsOpen(), trip: tripProgress(), button: '继续历练 ▸' };
     }
     if (state.gear.rf) {
@@ -537,6 +543,7 @@
     const goal = L.goalNow(state);
     const ap = L.apLeft(state);
     const sweep = notice ? null : L.sweepBest(state);
+    const timeline = L.timeBar(state);
     return {
       started: true, name: state.p.name, date: L.dateText(state), realm: L.stageName(state.p),
       stones: fmt(state.stones), power: fmt(L.power(state)), xp: fmt(state.p.xp), xpNeed: fmt(L.pNeed(state.p)),
@@ -546,7 +553,8 @@
       ascended: state.p.r > L.MAXR,
       visitor: !notice && L.visitorEvent(state) ? { title: fill(L.visitorEvent(state).title), leave: L.seasonsText(state.visitor.left) } : null,
       goal: goal.t, progress: goal.bar.text, advice: goal.next?.t || '',
-      adviceAp: goal.next?.ap || 0, upcoming: !notice ? L.timeBar(state).big : null,
+      adviceAp: goal.next?.ap || 0, upcoming: !notice ? timeline.big : null,
+      homeHud: !notice ? homeHud(goal, timeline) : null,
       mail: !notice ? L.mailCount(state) : 0,
       maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{
         k, name: map.n, cells: expeditionCells(k),
@@ -579,6 +587,40 @@
       cinemaAfter: arena ? null : XianmenCinematics.later(state, notice),
       arena,
       notice,
+    };
+  }
+
+  function homeHud(goal, timeline) {
+    const p = state.p, life = L.lifeMonths(state);
+    const needed = L.pNeed(p), ready = L.isReady(state);
+    const remaining = p.r <= L.MAXR && !ready ? L.ticksToStage(state, p.r * 4 + 4) : 0;
+    const world = L.world(state);
+    const buildings = L.homePlots(state).slice(1).filter(id => id && id !== 'field');
+    if (buildings.includes('furnace')) {
+      buildings.splice(buildings.indexOf('furnace'), 1);
+      buildings.unshift('furnace');
+    }
+    const artSlots = [2, 3, 4, 5, 6, 7, ...(state.home.field ? [] : [1])];
+    return {
+      season: L.season(state), hero: heroArt(), caveLevel: state.home.cave, arrayLevel: state.home.array,
+      injured: p.inj > 0, elderPortrait: face('elder'),
+      blocks: buildings.map((id, i) => ({ id, slot: artSlots[i] })),
+      crops: state.home.field ? L.plots(state).map(plot => plot.c) : [],
+      xpProgress: p.r > L.MAXR ? 1 : p.xp / Math.max(1, needed),
+      cultivationHint: ready ? '可以突破了 ▸' : remaining > 0 && Number.isFinite(remaining) ?
+        '圆满约 ' + Math.ceil(remaining / 3) + ' 季' : '',
+      goalProgress: goal.bar.v / (goal.bar.max || 1), chapter: goal.ch + 1, chapterName: goal.chN,
+      pills: L.onbShown(state, 'market') || state.pills > 0 ? state.pills : null,
+      life: Number.isFinite(life.m) && life.m < 120 ? '寿元 ' + Math.max(1, Math.floor(life.m / 12)) + ' 年' : life.text,
+      lifeLow: life.red, gain: fmt(L.gain(state)), income: fmt(L.income(state)),
+      world: world ? L.WORLD[world.id]?.n || '' : '',
+      log: state.log[0]?.text || '',
+      timeText: timeline.label, timeSlots: timeline.cells.map(cell => cell.s), timeIndex: timeline.cur,
+      homeLocked: !L.onbShown(state, 'home'),
+      gearLocked: !state.gear.w && !state.gear.pend.length && !L.onbShown(state, 'gearCmp') &&
+        !L.onbShown(state, 'arts') && state.stats.exp < 1,
+      worldLocked: !state.pact && !['tour', 'market', 'sect', 'bond'].some(id => L.onbShown(state, id)),
+      marketFirst: !state.pact && L.onbShown(state, 'market'),
     };
   }
 
@@ -715,10 +757,17 @@
     const events = L.battleStep(battle, input);
     const attack = events.find(event => event.t === 'ult') || events.find(event => event.t === 'skill') || events.find(event => event.t === 'hit');
     const wound = events.find(event => event.t === 'heavy') || events.find(event => event.t === 'fhit');
-    battleEffects = [attack, wound].filter(Boolean).map(event => ({
-      kind: event.t, target: event.t === 'heavy' || event.t === 'fhit' ? -1 : event.tgt ?? 0,
-      amount: fmt(event.dmg || 0), el: event.el || '',
-    }));
+    const visible = new Set(['hit', 'skill', 'ult', 'fhit', 'heavy', 'break', 'brk', 'ke', 'beike', 'chain', 'charge', 'dot', 'pill', 'heal', 'dead']);
+    battleEffects = Array.from(new Set([attack, wound, ...events])).filter(event => event && visible.has(event.t)).map(event => {
+      const fromFoe = event.t === 'heavy' || event.t === 'fhit';
+      const actor = Number.isInteger(event.who) ? event.who : -1;
+      return {
+        kind: event.t, target: fromFoe ? -1 : (event.tgt ?? (event.t === 'hit' ? attack?.tgt ?? 0 : actor)),
+        source: fromFoe ? actor : -1,
+        amount: event.dmg > 0 ? fmt(event.dmg) : '', el: event.el || '',
+        fx: event.fx || '', name: event.n || '', skill: event.id || '', critical: !!event.crit,
+      };
+    });
     battleLog = events.flatMap(event => {
       if (['hit', 'skill', 'ult', 'heavy'].includes(event.t)) return [(event.n || '重击') + ' ' + fmt(event.dmg || 0)];
       if (event.t === 'break' || event.t === 'brk') return [event.t === 'brk' ? '破招' : '护罩碎裂'];
@@ -1014,6 +1063,7 @@
       return navigate(guide[0]);
     }
     if (nextView()) throw new Error('请先完成当前结算');
+    if (op === 'open-expedition') return navigate('exp');
     if (op === 'guide-nav') {
       if (state.guide.done || state.guide.step >= 3 || ![null, -1, 0].includes(message.region)) {
         throw new Error('当前没有这一步历练引导');
@@ -1116,6 +1166,9 @@
 
   function openPanel(id) {
     if (id && !XianmenPanels.has(id)) throw new Error('找不到这个面板');
+    if (id && !id.startsWith('trip:') && !state.guide.done && state.guide.step < 3) {
+      state.guide.step = 0;
+    }
     if (id && panel !== id) XianmenPlayerPanels.opened(state, id);
     panel = id || null;
     if (['auction', 'market'].includes(panel) && L.marketEvent(state)) openEvent = 'market';

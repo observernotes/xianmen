@@ -21,6 +21,7 @@ PYTHON="$PWD/.venv/bin/python" SCONS="$PWD/.venv/bin/scons" tools/build_godot.sh
 - 独立过场使用从原版分镜生成的 Theora 视频，由 Godot 播放。字幕、音乐和音效在原生界面按时间触发，播放或跳过后会记入跨世回忆。前台中断后，从当前过场重新开始。
 - 包裹、变强建议、备战和历练准备使用共享规则。出发前可看风险、换战技、邀请同伴或选择护送任务。属性、道心、称号、历年年报和纸鹤也有原生入口。
 - 开局引导从洞府带玩家完成首趟历练和首次过季，首次修为圆满时提示突破。引导步骤随游戏存档保存。设置中的玩法指南按系统解锁进度显示，可随时重看开局步骤。
+- 洞府使用原版五格底栏和状态栏，行动点、下一季、修为、目标与倒计时在同一屏内。背景使用按季节和洞府规模导出的原版 HD-2D 美术，主角、灵田、建筑和天气动效在 Godot 独立绘制。历练准备使用宣纸界面，战斗有独立的气血、怒气、技能与敌方状态。
 - 归途翻牌使用原版牌面和掉落图标，支持逐张翻开和长按全翻。结算页可比较、换上、收下或熔炼法宝，翻牌和处理进度可续档。
 - Android 返回键可逐层关闭设置、存档和普通面板，回到洞府后再次按下可退到后台。设置支持独立调整音乐、音效和战斗演出速度，也可开启剩余行动点的过季确认。
 - 完整迁移需要核对各系统入口、关键剧情与老档的行为，并在 Android 安装包上跑通主线及存读档。当前工程是迁移中的预览版本。
@@ -28,5 +29,7 @@ PYTHON="$PWD/.venv/bin/python" SCONS="$PWD/.venv/bin/scons" tools/build_godot.sh
 ## 素材更新
 
 先用 `tools/build.py` 生成网页版的离线素材渲染入口。用 `node tools/extract_godot_art.js` 传入 `--combat`、`--duel`、`--realm`、`--story`、`--items` 或 `--loot`，生成相应素材。音频可用 `tools/audio_render.js` 的 `--loop` 选项渲染完整乐段，将所需 WAV 编码为 Ogg Vorbis 后放入 `godot/audio`。素材工具在开发机使用 Playwright，手机端直接加载导出的图片与音频。
+
+用 `node tools/extract_godot_cave_art.js` 和 `node tools/extract_godot_nav_art.js` 更新洞府景色、界面皮肤和五格底栏图标。
 
 用 `node tools/render_godot_cinematics.js` 更新过场与播放时间表。它需要 Playwright、生成后的网页版和启用 `libtheora` 的 FFmpeg。可用 `FFMPEG_BIN` 指定编码器，通过第一个参数传入正则表达式来重渲染指定过场。

@@ -12,6 +12,7 @@ const LOOT_CARD := preload("res://scripts/loot_card.gd")
 const REALM_SCENE := preload("res://scripts/realm_scene.gd")
 const STORY_STAGE := preload("res://scripts/story_stage.gd")
 const CINEMATIC_PLAYER := preload("res://scripts/cinematic_player.gd")
+const CAVE_HUD := preload("res://scripts/cave_hud.gd")
 const ITEM_ICONS := preload("res://art/item-icons.png")
 const COLORS := {
 	"gold": Color("#ffd990"),
@@ -20,18 +21,13 @@ const COLORS := {
 	"jade": Color("#a3e7c7"),
 	"red": Color("#ff9c91"),
 }
-const HOME_ART := [
-	preload("res://art/home-0.png"),
-	preload("res://art/home-1.png"),
-	preload("res://art/home-2.png"),
-	preload("res://art/home-3.png"),
-]
 const PANELS := {"equipment": "法宝", "arts": "功法", "market": "坊市", "sect": "宗门"}
 const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": "灵田", "alchemy": "炼丹", "pets": "灵宠"}
 const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "长老与职司", "disciples": "门下"}
 const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
-const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器", "bag": "包裹"}
-const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴", "memories": "回忆"}
+const EQUIPMENT_PANELS := {"equipment": "法宝", "arts": "功法", "pets": "灵宠", "forge": "炼器", "bag": "包裹"}
+const WORLD_PANELS := {"rankings": "天骄榜", "sect": "宗门", "market": "坊市", "people": "人物"}
+const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "codex": "图鉴", "memories": "回忆"}
 const GROWTH_PANELS := {"growth:goal": "目标", "growth:atk": "战力", "growth:cul": "修炼", "growth:inc": "灵石", "growth:bt": "突破"}
 const PLAYER_PANELS := {
 	"attributes": "属性", "dao": "道心与因果", "achievements": "成就与称号", "reports": "历年年报",
@@ -73,6 +69,7 @@ var replay_cinema: Dictionary = {}
 var rebirth_tab := 0
 var scroll: ScrollContainer
 var page_key := ""
+var paper_page := false
 var realm_transition: Dictionary = {}
 var item_icons: Dictionary = {}
 var battle_speed := 1
@@ -374,38 +371,63 @@ func draw_view() -> void:
 			continue
 		remove_child(child)
 		child.queue_free()
+	paper_page = false
 	var margins := MarginContainer.new()
 	margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margins.add_theme_constant_override("margin_" + side, 16)
+		margins.add_theme_constant_override("margin_" + side, 10)
 	add_child(margins)
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 6)
+	margins.add_child(layout)
+	var started: bool = view.get("started", false)
+	var combat_page: bool = notice is Dictionary and notice["kind"] in ["battle", "travel"]
+	if started and cinema.is_empty() and notice == null and arena == null and realm_transition.is_empty() and view["panel"] == null and (
+		not show_maps and not show_journey and not show_saves and not show_settings
+	):
+		layout.add_child(CAVE_HUD.new(view, cave_handlers(), guide_hint(), error_text))
+		scroll = null
+		return
+	var active_tab := "" if not started or not cinema.is_empty() or notice != null or arena != null else cave_tab()
+	paper_page = active_tab == "exp"
+	var document := CAVE_HUD.framed_row("sheet") if paper_page else PanelContainer.new()
+	document.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(document)
+	if paper_page:
+		var grain := TextureRect.new()
+		grain.texture = preload("res://art/cave-paper.png")
+		grain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		grain.stretch_mode = TextureRect.STRETCH_TILE
+		grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		document.add_child(grain)
 	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.scroll_deadzone = 8
-	margins.add_child(scroll)
+	document.add_child(scroll)
 	page = VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.add_theme_constant_override("separation", 12)
+	page.add_theme_constant_override("separation", 6 if combat_page else 10)
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(page)
+	if not active_tab.is_empty():
+		var highlight := "exp" if guide_hint().get("target", "") in ["trip", "region", "prepare", "depart"] else ""
+		layout.add_child(CAVE_HUD.make_navigation(view, cave_handlers(), active_tab, highlight))
 	if scroll_position > 0:
 		scroll.set_deferred("scroll_vertical", scroll_position)
 
-	add_label("废柴仙途", 31, COLORS.gold)
+	if not started and cinema.is_empty():
+		add_label("废柴仙途", 31, COLORS.gold)
 	if error_text:
 		add_label(error_text, 16, COLORS.red)
 	if not cinema.is_empty():
 		draw_cinematic(cinema)
 		return
-	if not view.get("started", false):
+	if not started:
 		draw_title()
 		return
 	if arena is Dictionary:
 		draw_duel_arena(arena)
 		return
-
-	add_label(view["date"] + " · " + view["name"], 15, COLORS.muted)
-	add_label(view["realm"] + "   修为 " + view["xp"] + " / " + view["xpNeed"], 17)
-	add_label("战力 " + view["power"] + "    灵石 " + view["stones"], 17, COLORS.jade)
 
 	if not realm_transition.is_empty():
 		draw_realm(realm_transition["view"], realm_transition["effect"])
@@ -431,7 +453,6 @@ func draw_view() -> void:
 	if show_settings:
 		draw_settings()
 		return
-	draw_cave()
 
 
 func current_cinematic(notice: Variant) -> Dictionary:
@@ -674,76 +695,67 @@ func return_to_title() -> void:
 	schedule_draw()
 
 
-func draw_cave() -> void:
-	var season := ["春", "夏", "秋", "冬"].find(String(view["date"]).right(1))
-	add_picture(HOME_ART[maxi(season, 0)], 238)
-	var target := String(guide_hint().get("target", ""))
-	match target:
-		"trip":
-			add_guide_button("历练", open_maps)
-		"season":
-			add_guide_button("下一季  ▸", next_season)
-		"breakthrough":
-			add_guide_button("突破", func(): request({"op": "break"}))
-	add_label(view["goal"], 23, COLORS.gold)
-	add_label(view["progress"], 16)
-	if view["advice"]:
-		add_label("下一步 · " + view["advice"], 15, COLORS.muted)
-	var guidance := HBoxContainer.new()
-	page.add_child(guidance)
-	if view["advice"] and not view["ascended"]:
-		var cost := int(view.get("adviceAp", 0))
-		add_button("按建议行动" + (" ◆%d" % cost if cost else ""), func(): request({"op": "goal-next"}), true, false, guidance)
-	add_button("变强", func(): request({"op": "panel", "panel": "growth:goal"}), false, false, guidance)
-	var upcoming = view.get("upcoming")
-	if upcoming is Dictionary:
-		var due := "本季末" if int(upcoming["seasons"]) <= 1 else "还有 %d 季" % int(upcoming["seasons"])
-		add_button(upcoming["n"] + " · " + due + "  ▸", func(): request({"op": "panel", "panel": "prep"}))
-	var unread := int(view.get("mail", 0))
-	add_button("纸鹤" + (" · %d 封" % unread if unread else ""), func(): request({"op": "panel", "panel": "inbox"}))
-	if view["visitor"] is Dictionary:
-		var visitor: Dictionary = view["visitor"]
-		add_button("洞府来访 · " + visitor["title"], func(): request({"op": "visitor"}), true)
-		add_label("访客将在" + visitor["leave"] + "后离开", 14, COLORS.muted)
-	if not view["ascended"]:
-		add_label("行动点  %d / %d" % [int(view["ap"]), int(view["apTotal"])], 16, COLORS.gold)
-		if target != "trip":
-			add_button("历练", open_maps, true)
-		var actions := HBoxContainer.new()
-		actions.add_theme_constant_override("separation", 8)
-		page.add_child(actions)
-		add_button("打坐 ◆1", func(): action("sit"), false, view["ap"] < 1, actions)
-		if view["canRetreat"]:
-			add_button("闭关 ◆2", func(): action("retreat"), false, view["ap"] < 2, actions)
-	if view["array"] is Dictionary:
-		var formation: Dictionary = view["array"]
-		var upgrade := "聚灵阵 Lv%d" % int(formation["level"])
-		if formation["max"]:
-			upgrade += " · 已满级"
-		else:
-			upgrade += " · 升级 " + formation["cost"] + " 灵石"
-		add_button(upgrade, func(): request({"op": "upgrade-array"}), false, not formation["available"])
-	if not view["ascended"] and not view["mainActions"].is_empty():
-		add_button("主线行动", toggle_journey)
-	if view["canBreak"] and target != "breakthrough":
-		add_button("突破", func(): request({"op": "break"}), true)
-	if not view["ascended"] and target != "season":
-		add_button("下一季  ▸", next_season, true)
-	var systems := HBoxContainer.new()
-	systems.add_theme_constant_override("separation", 6)
-	page.add_child(systems)
-	for id in PANELS:
-		add_button(PANELS[id], func(): request({"op": "panel", "panel": id}), false, false, systems)
-	add_button("经营洞府", func(): request({"op": "panel", "panel": "home"}))
-	add_button("人物羁绊", func(): request({"op": "panel", "panel": "people"}))
-	add_button("仙途札记", func(): request({"op": "panel", "panel": "journal"}))
-	if view["canReturnToGate"]:
-		add_button("再登天门", func(): request({"op": "life", "move": "gate"}))
-	if view["canRebirth"]:
-		var label := "再入轮回" if view["ascended"] else "兵解转世"
-		add_button(label, confirm_rebirth)
-	add_button("存档", toggle_saves)
-	add_button("设置  ▸", toggle_settings)
+func cave_handlers() -> Dictionary:
+	return {
+		"exp": func(): open_cave_tab("exp"),
+		"home": func(): open_cave_tab("home"),
+		"gear": func(): open_cave_tab("gear"),
+		"world": func(): open_cave_tab("world"),
+		"path": func(): open_cave_tab("path"),
+		"inbox": func(): inspect("inbox"),
+		"timeline": func(): inspect("prep" if view["upcoming"] is Dictionary else "calendar"),
+		"visitor": func(): request({"op": "visitor"}),
+		"advice": func(): inspect("growth:goal"),
+		"power": func(): inspect("growth:atk"),
+		"cultivation": func(): inspect("growth:cul"),
+		"income": func(): inspect("growth:inc"),
+		"breakthrough": func(): request({"op": "break"}),
+		"goal": func(): request({"op": "goal-next"}),
+		"season": next_season,
+	}
+
+
+func inspect(id: String) -> void:
+	request({"op": "panel", "panel": id})
+
+
+func cave_tab() -> String:
+	if show_saves or show_settings or show_journey:
+		return "path"
+	var panel = view.get("panel")
+	if panel is Dictionary:
+		var id: String = panel["id"]
+		if id.begins_with("trip:"):
+			return "exp"
+		if id in ["home", "formations", "fields", "alchemy"]:
+			return "home"
+		if EQUIPMENT_PANELS.has(id):
+			return "gear"
+		if WORLD_PANELS.has(id) or SECT_PANELS.has(id) or MARKET_PANELS.has(id):
+			return "world"
+		return "path"
+	return "exp" if show_maps else ""
+
+
+func open_cave_tab(id: String) -> void:
+	game_audio.effect("tap")
+	var active := cave_tab()
+	if id == active:
+		go_back()
+		return
+	show_settings = false
+	help_page = ""
+	show_saves = false
+	show_journey = false
+	show_maps = false
+	show_drops = false
+	selected_map = -1
+	if id == "exp":
+		request({"op": "open-expedition"})
+		return
+	var destinations := {"home": "home", "gear": "equipment", "path": "path",
+		"world": "market" if view["homeHud"]["marketFirst"] else "rankings"}
+	inspect(destinations[id])
 
 
 func draw_maps() -> void:
@@ -752,7 +764,8 @@ func draw_maps() -> void:
 			if int(location["k"]) == selected_map:
 				draw_map(location)
 				return
-	add_label("外出历练", 24, COLORS.gold)
+	draw_sheet_heading("外出历练", open_maps)
+	add_label("你的战力 %s · 行动点 %s" % [view["power"], "◆".repeat(int(view["ap"]))], 15, COLORS.muted)
 	var sweep = view.get("sweep")
 	if sweep is Dictionary:
 		add_label(sweep["title"] + " · 约 " + sweep["stones"] + " 灵石", 16, COLORS.jade)
@@ -768,15 +781,17 @@ func draw_maps() -> void:
 	for location in view["maps"]:
 		var index: int = location["k"]
 		var label := String(location["name"]) + "  ▸"
+		var activity: Array = location["cells"]
+		if not activity.is_empty():
+			label += "\n" + activity[0]["label"] + " · " + activity[0]["estimate"]
 		if index == 0 and guide_hint().get("target") == "region":
 			add_guide_button(label, func(): select_map(index))
 		else:
-			add_button(label, func(): select_map(index), true)
-	add_button("返回洞府", open_maps)
+			add_button(label, func(): select_map(index))
 
 
 func draw_map(location: Dictionary) -> void:
-	add_label(location["name"], 24, COLORS.gold)
+	draw_sheet_heading(location["name"], close_drops if show_drops else func(): select_map(-1))
 	if show_drops:
 		draw_drops(location)
 		return
@@ -808,11 +823,10 @@ func draw_map(location: Dictionary) -> void:
 		add_button("出发准备  ▸", prepare, true, false, actions)
 		if cell["sweep"]:
 			add_button("扫荡 ◆1", func(): start_trip("sweep", args), false, false, actions)
-	add_button("返回地点", func(): select_map(-1))
 
 
 func draw_drops(location: Dictionary) -> void:
-	add_button("返回历练", close_drops)
+	add_label("掉落一览", 20, COLORS.gold)
 	var wish = view.get("wish")
 	if wish is Dictionary:
 		add_label("当前心愿 · %s · %d / %d" % [wish["c"]["n"], int(wish["n"]), int(wish["max"])], 16, COLORS.gold)
@@ -856,6 +870,8 @@ func draw_management(panel: Dictionary) -> void:
 		if group.has(active_id):
 			tabs = group
 			break
+	if active_id in ["arts", "pets"]:
+		tabs = EQUIPMENT_PANELS
 	if active_id.begins_with("codex:"):
 		add_button("返回图鉴", func(): close_management(active_id))
 	else:
@@ -864,14 +880,19 @@ func draw_management(panel: Dictionary) -> void:
 			title = "变强"
 		elif active_id.begins_with("trip:"):
 			title = "出发准备"
-		add_label(title, 24, COLORS.gold)
-		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): close_management(active_id))
+		draw_sheet_heading(title, func(): close_management(active_id))
+	if cave_tab() == "world":
+		add_panel_tabs(WORLD_PANELS, active_id)
+	if active_id == "path":
+		add_path_shortcuts()
+	if active_id == "home":
+		var actions := HBoxContainer.new()
+		page.add_child(actions)
+		add_button("打坐 ◆1", func(): action("sit"), false, view["ap"] < 1, actions)
+		if view["canRetreat"]:
+			add_button("闭关 ◆2", func(): action("retreat"), false, view["ap"] < 2, actions)
 	if not tabs.is_empty():
-		var tab_row := HBoxContainer.new()
-		page.add_child(tab_row)
-		for id in tabs:
-			var label := "建筑" if id == "home" else String(tabs[id])
-			add_button(label, func(): request({"op": "panel", "panel": id}), id == active_id, id == active_id, tab_row)
+		add_panel_tabs(tabs, active_id)
 	if active_id == "people" and view["visitor"] is Dictionary:
 		add_button("接见访客 · " + view["visitor"]["title"], func(): request({"op": "visitor"}))
 	for entry in panel["entries"]:
@@ -912,6 +933,44 @@ func draw_management(panel: Dictionary) -> void:
 				add_button(option["label"], perform, option.get("primary", not disabled), disabled)
 			if option["why"]:
 				add_label(option["why"], 14, COLORS.muted)
+
+
+func draw_sheet_heading(title: String, close: Callable) -> void:
+	var heading := HBoxContainer.new()
+	page.add_child(heading)
+	add_label(title, 26, COLORS.gold, heading)
+	var close_button := CAVE_HUD.tap_button("×", close, "btnAlt" if paper_page else "hud", 44, 22)
+	close_button.accessibility_name = "返回"
+	close_button.custom_minimum_size.x = 46
+	heading.add_child(close_button)
+
+
+func add_panel_tabs(tabs: Dictionary, active_id: String) -> void:
+	var tab_row := HBoxContainer.new()
+	page.add_child(tab_row)
+	for id in tabs:
+		var label := "建筑" if id == "home" else String(tabs[id])
+		add_button(label, func(): inspect(id), id == active_id, id == active_id, tab_row)
+
+
+func add_path_shortcuts() -> void:
+	var line := HBoxContainer.new()
+	page.add_child(line)
+	add_button("属性", func(): inspect("attributes"), false, false, line)
+	add_button("记录", func(): inspect("journal"), false, false, line)
+	add_button("设置", func():
+		show_settings = true
+		request({"op": "panel"})
+	, false, false, line)
+	if not view["ascended"] and not view["mainActions"].is_empty():
+		add_button("主线行动", func():
+			show_journey = true
+			request({"op": "panel"})
+		)
+	if view["canReturnToGate"]:
+		add_button("再登天门", func(): request({"op": "life", "move": "gate"}))
+	if view["canRebirth"]:
+		add_button("再入轮回" if view["ascended"] else "兵解转世", confirm_rebirth)
 
 
 func close_management(panel_id: String) -> void:
@@ -1131,12 +1190,14 @@ func draw_notice(notice: Dictionary) -> void:
 		add_button("带我去  ▸", func(): request({"op": "unlock-go"}), true)
 		add_button(notice["button"], func(): request({"op": "advance"}))
 		return
-	add_label(notice.get("title", ""), 25, COLORS.gold)
 	if notice.get("kind") == "travel":
+		draw_combat_header()
 		add_battle_scene(notice)
 		draw_trip_progress(notice["trip"])
 		if notice["settingsOpen"]:
 			add_speed_button()
+	else:
+		add_label(notice.get("title", ""), 25, COLORS.gold)
 	var next_key := String(notice.get("key", ""))
 	if next_key != dialogue_key:
 		dialogue_key = next_key
@@ -1399,52 +1460,85 @@ func draw_rebirth(form: Dictionary) -> void:
 
 
 func draw_battle(battle: Dictionary) -> void:
-	add_label(battle["title"] + " · 第 %d 轮" % int(battle["round"]), 24, COLORS.gold)
+	draw_combat_header()
 	add_battle_scene(battle)
+	page.add_child(CAVE_HUD.meter(float(battle["hp"]) / maxf(1.0, battle["maxHp"]), Color("#ff5666"),
+		"气血  %d / %d" % [int(battle["hp"]), int(battle["maxHp"])], 21))
+	page.add_child(CAVE_HUD.meter(float(battle["rage"]) / 100.0, Color("#ffc04e"),
+		"怒气  %s" % ("满" if battle["canUlt"] else "%d / 100" % int(battle["rage"])), 21))
 	if battle["done"]:
 		add_label(battle["outcome"], 18, COLORS.gold)
 		add_button("结算战斗", func(): request({"op": "advance"}), true)
 	else:
+		add_combat_skills(battle["skills"])
 		var actions := HBoxContainer.new()
 		page.add_child(actions)
-		add_button(battle["ultimate"], func(): request({"op": "combat", "move": "ult"}), battle["canUlt"], not battle["canUlt"], actions)
-		add_button("服丹 ×%d" % int(battle["pills"]), func(): request({"op": "combat", "move": "pill"}), false, int(battle["pills"]) == 0, actions)
+		var ultimate := CAVE_HUD.tap_button(battle["ultimate"] + ("  ▸" if battle["canUlt"] else ""), func():
+			request({"op": "combat", "move": "ult"}), "btnSeal", 54, 20)
+		ultimate.icon = BATTLE_SCENE.skill_texture("ult", battle.get("ultElement", ""))
+		ultimate.add_theme_constant_override("icon_max_width", 28)
+		ultimate.disabled = not battle["canUlt"]
+		ultimate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(ultimate)
+		if int(battle["pills"]) > 0:
+			add_button("服丹 ×%d" % int(battle["pills"]), func(): request({"op": "combat", "move": "pill"}), false, false, actions)
 		add_button("撤退", func(): request({"op": "combat", "move": "flee"}), false, false, actions)
+		if battle["delay"] < 0 or not error_text.is_empty():
+			add_button("继续交手", func(): request({"op": "combat", "move": "next"}))
 		if battle["settingsOpen"]:
 			var settings := HBoxContainer.new()
 			page.add_child(settings)
 			var auto_label := "自动绝招 · " + ("开" if battle["autoUlt"] else "关")
 			add_button(auto_label, func(): request({"op": "battle-auto-ult"}), battle["autoUlt"], false, settings)
 			add_speed_button(settings)
-		if battle.get("hint"):
-			add_label(battle["hint"], 16, COLORS.gold)
-		if battle["delay"] < 0 or not error_text.is_empty():
-			add_button("继续交手", func(): request({"op": "combat", "move": "next"}))
-	add_gauge("气血", battle["hp"], battle["maxHp"], COLORS.jade)
-	add_gauge("怒气", battle["rage"], 100, COLORS.gold)
-	for foe in battle["foes"]:
-		if foe["hp"] <= 0:
-			continue
-		var target := String(foe["name"])
-		if foe["charge"]:
-			target += " · 蓄力"
-		if int(foe["shield"]) > 0:
-			target += " · 护罩 %d" % int(foe["shield"])
-		add_gauge(target, foe["hp"], foe["maxHp"], COLORS.red)
-	var skills := PackedStringArray()
-	for skill in battle["skills"]:
-		var cooldown := int(skill["cooldown"])
-		skills.append(skill["name"] + (" · %d 轮" % cooldown if cooldown > 0 else " · 可用"))
-	if not skills.is_empty():
-		add_label(" / ".join(skills), 14, COLORS.muted)
 	if battle["text"]:
-		add_label(battle["text"], 15, COLORS.muted)
+		add_label(battle["text"], 14, COLORS.muted)
 	if battle["trip"] is Dictionary:
 		draw_trip_progress(battle["trip"])
 
 
+func draw_combat_header() -> void:
+	var header := CAVE_HUD.framed_row()
+	var line := HBoxContainer.new()
+	header.add_child(line)
+	add_label(view["date"], 16, COLORS.gold, line)
+	add_label("灵石 " + view["stones"], 16, COLORS.jade, line)
+	page.add_child(header)
+
+
+func add_combat_skills(skills: Array) -> void:
+	var row := HBoxContainer.new()
+	page.add_child(row)
+	for category in [["z", "战技"], ["w", "器技"], ["mi", "秘术"]]:
+		var card := CAVE_HUD.framed_row()
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(card)
+		var text := VBoxContainer.new()
+		text.add_theme_constant_override("separation", 1)
+		card.add_child(text)
+		var match_skill := {}
+		for skill in skills:
+			if skill["kind"] == category[0]:
+				match_skill = skill
+				break
+		add_label(category[1], 13, COLORS.muted, text)
+		if match_skill.is_empty():
+			add_label("未装备", 14, COLORS.muted, text)
+			continue
+		var line := HBoxContainer.new()
+		text.add_child(line)
+		var sprite := TextureRect.new()
+		sprite.texture = BATTLE_SCENE.skill_texture(category[0], match_skill["element"])
+		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		sprite.custom_minimum_size = Vector2(18, 18)
+		line.add_child(sprite)
+		add_label(match_skill["name"], 14, COLORS.text, line)
+		var cooldown := int(match_skill["cooldown"])
+		add_label("%d 轮" % cooldown if cooldown > 0 else "可用", 12, COLORS.muted if cooldown > 0 else COLORS.jade, text)
+
+
 func draw_trip_progress(trip: Dictionary) -> void:
-	add_gauge("已走过", trip["done"], trip["total"], COLORS.gold)
 	add_label(trip["text"], 15, COLORS.muted)
 
 
@@ -1473,6 +1567,7 @@ func add_battle_scene(data: Dictionary) -> void:
 	var backdrop := BATTLE_SCENE.new()
 	backdrop.combat = data
 	backdrop.playback_speed = playback_speed_for(data)
+	backdrop.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(backdrop)
 
 
@@ -1613,6 +1708,8 @@ func add_label(text: String, font_size: int, tint: Color = COLORS.text, parent: 
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if paper_page:
+		tint = Color("#a52836") if tint == COLORS.red else Color("#6d5235") if tint == COLORS.muted else CAVE_HUD.INK
 	label.add_theme_color_override("font_color", tint)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1620,20 +1717,12 @@ func add_label(text: String, font_size: int, tint: Color = COLORS.text, parent: 
 
 
 func add_button(text: String, callback: Callable, primary := false, disabled := false, parent: Container = null) -> void:
-	var button := Button.new()
-	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	button.text = text
-	button.custom_minimum_size.y = 48
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.disabled = disabled
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#80552d") if primary else Color("#27213a")
-	style.border_color = Color("#d2a369") if primary else Color("#524461")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
-	button.add_theme_stylebox_override("normal", style)
-	button.pressed.connect(func():
+	var skin := ("btnGold" if primary else "card") if paper_page else ("btnGold" if primary else "hud")
+	var button := CAVE_HUD.tap_button(text, func():
 		game_audio.effect("tap")
 		callback.call()
-	)
+	, skin, 48)
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.disabled = disabled
 	(parent if parent != null else page).add_child(button)
