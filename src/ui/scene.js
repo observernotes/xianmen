@@ -8,7 +8,47 @@ const W = 200; let H = 160, OY = 0;
 ART.setCtx(ctx, W);
 const R = ART.R, disc = ART.disc;
 let T = 0;
-const parts = [];
+const parts = [];   // 粒子 { x, y, vx, vy, life, max, c, s, g?, fly?, glow? }：glow = 发光的（灵气、火星、剑气尾迹），高清合成时补一盏灯
+// ---------- 高清合成时的小东西（docs/ART_HD2D.md §6-3 / §6-4） ----------
+// 关高清（HD2D.on = false）时下面这些什么都不加，画面与原来逐像素相同。开高清时：发光的补一盏灯（HD2D.light，画布逻辑坐标、含 OY），
+// 条和点按高清像素（半个逻辑像素）补高光与暗线、收细，不再是 1 倍密度的方块“贴纸”
+const hdOn = () => !!(HDX && HDX.on);
+const hdLQ = [];   // 这一帧攒下的灯：场景自己的灯（洞府夜色、建筑）先进，这些在 drawScene 末尾补（HD2D 一帧最多 64 盏）
+function hdLit(x, y, r, c, a) { if (!hdOn()) return; const m = ctx.getTransform(), k = HDX.S || 2; hdLQ.push([(m.a * x + m.c * y + m.e) / k, (m.b * x + m.d * y + m.f) / k, r, c, a]); }
+function hdLitFlush() {
+  if (!hdLQ.length) return;
+  if (hdOn()) { const room = Math.max(0, 60 - ((HDX.F && HDX.F.lights) ? HDX.F.lights.length : 40)); for (let i = 0; i < hdLQ.length && i < room; i++) { const l = hdLQ[i]; HDX.light(l[0], l[1], l[2], l[3], l[4]); } }
+  hdLQ.length = 0;
+}
+// 条（原来的 R 方块画完之后调）：上沿半像素一线高光、下沿半像素一线暗
+function hdBarFx(x, y, w, h, hi, lo) {
+  if (!hdOn() || w < 1) return;
+  const a0 = ctx.globalAlpha, X = Math.round(x), Y = Math.round(y), Wd = Math.round(w), Hd = Math.round(h);
+  ctx.globalAlpha = a0 * 0.75; ctx.fillStyle = hi; ctx.fillRect(X, Y, Wd, 0.5);
+  ctx.globalAlpha = a0 * 0.45; ctx.fillStyle = lo || '#0b0912'; ctx.fillRect(X, Y + Hd - 0.5, Wd, 0.5);
+  ctx.globalAlpha = a0;
+}
+// 小记号的精灵：关高清时是 1 倍画布（与原来的 R 方块一样），开高清时是标了 _hd = 2 的 2 倍画布（HD2D 按逻辑尺寸落笔），draw(g, k, hd) 按 k 倍画
+const hdSprC = new Map();
+function hdSpr(key, w, h, draw) {
+  const hd = hdOn(), id = key + (hd ? '|2' : '|1');
+  let c = hdSprC.get(id);
+  if (!c) { const k = hd ? 2 : 1; c = document.createElement('canvas'); c.width = w * k; c.height = h * k; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; draw(g, k, hd); if (hd) c._hd = 2; hdSprC.set(id, c); }
+  return c;
+}
+// 主角头顶“可以突破了”的小牌子（8×9）：纸面、朱红“！”、左下的小尾巴；2 倍版纸面圆角、左上一线受光、“！”右侧压暗一列
+function readySpr() {
+  return hdSpr('ready', 8, 9, (g, k, hd) => {
+    const r = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * k, y * k, w * k, h * k); };
+    r(1, 0, 7, 9, '#3a1a14'); r(2, 1, 5, 7, '#fff6dc'); r(4, 2, 1, 4, '#c8323c'); r(4, 7, 1, 1, '#c8323c'); r(0, 7, 2, 2, '#3a1a14');
+    if (!hd) return;
+    g.fillStyle = '#3a1a14'; for (const [x, y] of [[4, 2], [13, 2], [4, 15], [13, 15]]) g.fillRect(x, y, 1, 1);   // 圆角
+    g.fillStyle = '#ffffff'; g.fillRect(5, 2, 7, 1); g.fillRect(4, 3, 1, 5);                                       // 受光
+    g.fillStyle = '#e8d8b0'; g.fillRect(13, 4, 1, 10); g.fillRect(5, 15, 8, 1);                                    // 背光
+    g.fillStyle = '#8a1a26'; g.fillRect(9, 4, 1, 8); g.fillRect(9, 14, 1, 2);                                     // “！”的暗面
+    g.fillStyle = '#ff7a6a'; g.fillRect(8, 4, 1, 1);
+  });
+}
 let crane = null, craneTimer = 50000;
 const HOMEPOS = { x: 100, y: 136 };   // 主角打坐脚底中心
 const VISIT_POS = { x: 36, y: 138 };  // 访客站的位置（洞府门口，脚底中心）
@@ -57,12 +97,13 @@ function drawArray(x, y) {
   const col = lv >= 20 ? '#ffd76a' : lv >= 10 ? '#8ff5d0' : '#4ccb9f';
   const pulse = 0.55 + 0.3 * Math.sin(T / 500);
   ctx.globalAlpha = Math.min(1, 0.4 + lv * 0.03) * pulse + 0.15;
-  for (let a = 0; a < 360; a += 3) { const t = a * Math.PI / 180; R(x + Math.cos(t) * rx, y + Math.sin(t) * ry, 1, 1, col); }
-  if (lv >= 8) for (let a = 0; a < 360; a += 5) { const t = a * Math.PI / 180; R(x + Math.cos(t) * rx * 0.65, y + Math.sin(t) * ry * 0.65, 1, 1, col); }
+  const hd = hdOn(), dot = (px, py, s, c) => { if (hd) { ctx.fillStyle = c; ctx.fillRect(Math.round(px * 2) / 2, Math.round(py * 2) / 2, s, s); } else R(px, py, s, s, c); };
+  for (let a = 0; a < 360; a += hd ? 1.5 : 3) { const t = a * Math.PI / 180; dot(x + Math.cos(t) * rx, y + Math.sin(t) * ry, hd ? 0.5 : 1, col); }
+  if (lv >= 8) for (let a = 0; a < 360; a += hd ? 2.5 : 5) { const t = a * Math.PI / 180; dot(x + Math.cos(t) * rx * 0.65, y + Math.sin(t) * ry * 0.65, hd ? 0.5 : 1, col); }
   const nr = 6 + Math.min(6, Math.floor(lv / 4));
-  for (let i = 0; i < nr; i++) { const t = T / 2400 + i * Math.PI * 2 / nr; R(x + Math.cos(t) * rx - 1, y + Math.sin(t) * ry - 1, 2, 2, '#ffffff'); }
+  for (let i = 0; i < nr; i++) { const t = T / 2400 + i * Math.PI * 2 / nr, ox = x + Math.cos(t) * rx, oy = y + Math.sin(t) * ry; if (hd) { dot(ox - 0.75, oy - 0.75, 1.5, '#ffffff'); hdLit(ox, oy, 2.2, col, 0.4 * pulse); } else R(ox - 1, oy - 1, 2, 2, '#ffffff'); }
   ctx.globalAlpha = 1;
-  if (Math.random() < 0.08 + lv * 0.008) { const t = Math.random() * Math.PI * 2; parts.push({ x: x + Math.cos(t) * rx, y: y + Math.sin(t) * ry, vx: -Math.cos(t) * 0.004, vy: -0.012, life: 1700, max: 1700, c: col, s: 1 }); }
+  if (Math.random() < 0.08 + lv * 0.008) { const t = Math.random() * Math.PI * 2; parts.push({ x: x + Math.cos(t) * rx, y: y + Math.sin(t) * ry, vx: -Math.cos(t) * 0.004, vy: -0.012, life: 1700, max: 1700, c: col, s: 1, glow: 1 }); }
   return col;
 }
 function drawMeHome(x, y, realm) {
@@ -75,13 +116,15 @@ function drawMeHome(x, y, realm) {
   const sx = Math.round(x - S.w / 2), sy = Math.round(y - S.h);
   ctx.drawImage(spr, sx, sy);
   if ((T / 1400 | 0) % 2) ctx.drawImage(spr, 0, 0, S.w, S.split, sx, sy - 1, S.w, S.split); // 呼吸
-  if (r >= 3) { const yx = x - S.w / 2 - 5, yy = sy + 4 + Math.round(Math.sin(T / 500) * 1.5); R(yx - 1, yy, 3, 2, '#ffe39a'); R(yx - 2, yy + 2, 5, 2, trim); R(yx - 1, yy + 4, 3, 1, L.REALMS[Math.min(r, 9)].robe[1]); }
-  if (r >= 4) for (let i = 0; i < 3; i++) { const t = T / 700 + i * 2.09; R(x + Math.cos(t) * (S.w * 0.65) - 1, y - S.h / 2 + Math.sin(t) * 4, 2, 2, trim); }
-  if (r >= 8 && Math.random() < 0.04) parts.push({ x: x + (Math.random() - 0.5) * S.w, y: y - Math.random() * S.h, vx: 0, vy: 0, life: 120, max: 120, c: '#ffe766', s: 1 });
+  const hd = hdOn();
+  if (r >= 3) { const yx = x - S.w / 2 - 5, yy = sy + 4 + Math.round(Math.sin(T / 500) * 1.5); R(yx - 1, yy, 3, 2, '#ffe39a'); R(yx - 2, yy + 2, 5, 2, trim); R(yx - 1, yy + 4, 3, 1, L.REALMS[Math.min(r, 9)].robe[1]); if (hd) { ctx.fillStyle = '#ffffff'; ctx.fillRect(yx - 1, yy, 1, 0.5); hdBarFx(yx - 2, yy + 2, 5, 2, '#ffffff', '#0b0912'); hdLit(yx, yy + 2, 4, trim, 0.3); } }
+  if (r >= 4) for (let i = 0; i < 3; i++) { const t = T / 700 + i * 2.09, ox = x + Math.cos(t) * (S.w * 0.65), oy = y - S.h / 2 + Math.sin(t) * 4; if (hd) { ctx.fillStyle = trim; ctx.fillRect(Math.round(ox * 2) / 2 - 0.75, Math.round(oy * 2) / 2 - 0.75, 1.5, 1.5); ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(ox * 2) / 2 - 0.25, Math.round(oy * 2) / 2 - 0.25, 0.5, 0.5); hdLit(ox, oy, 2.6, trim, 0.45); } else R(ox - 1, oy - 1, 2, 2, trim); }
+  if (r >= 8 && Math.random() < 0.04) parts.push({ x: x + (Math.random() - 0.5) * S.w, y: y - Math.random() * S.h, vx: 0, vy: 0, life: 120, max: 120, c: '#ffe766', s: 1, glow: 1 });
   if (p.inj > 0) { R(sx + S.w - 4, sy + 2, 3, 1, '#ff4d4d'); R(sx + S.w - 3, sy + 1, 1, 3, '#ff4d4d'); }
   if (L.isReady(st) && !cine) {
     const bx = x + S.w / 2 + 3, by = sy + 2 + Math.round(Math.abs(Math.sin(T / 250)) * -3);
-    R(bx - 3, by, 7, 9, '#3a1a14'); R(bx - 2, by + 1, 5, 7, '#fff6dc'); R(bx, by + 2, 1, 4, '#c8323c'); R(bx, by + 7, 1, 1, '#c8323c'); R(bx - 4, by + 7, 2, 2, '#3a1a14');
+    ctx.drawImage(readySpr(), bx - 4, by);   // 与原来的五块 R 方块同形（高清时是 2 倍稿）
+    hdLit(bx, by + 4, 6, '#ffe39a', 0.35);
   }
 }
 // 吐纳环删了（docs/AP_PLAN.md §3.1：由“打坐 1 点”接替）
@@ -90,7 +133,7 @@ function drawRetreatFx(x, y) {
   if (!st.retreat) return;
   const S = D().sit, col = st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0';
   ART.glow(x, y - S.h / 2, Math.round(S.w * 0.75), col, 0.25 + 0.08 * Math.sin(T / 300));
-  if (Math.random() < 0.2) { const a = Math.random() * 6.28, r = 22; parts.push({ x: x + Math.cos(a) * r, y: y - S.h / 2 + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * 0.02, vy: -Math.sin(a) * 0.01, life: 900, max: 900, c: col, s: 1 }); }
+  if (Math.random() < 0.2) { const a = Math.random() * 6.28, r = 22; parts.push({ x: x + Math.cos(a) * r, y: y - S.h / 2 + Math.sin(a) * r * 0.5, vx: -Math.cos(a) * 0.02, vy: -Math.sin(a) * 0.01, life: 900, max: 900, c: col, s: 1, glow: 1 }); }
 }
 // 访客：门口一个人（ART.drawVisitor：有半身像的人物画成本人，否则按事件挑凡人 / 修士 / 女修 / 黑衣），头上一个跳动的“！”（点它见访客）
 const VISIT_KINDS = ['mortal', 'cult', 'fem', 'dark'];
@@ -120,7 +163,7 @@ function drawElder(dt) {
   ART.glow(x + 12, y + 12, 14, '#a6cdee', 0.25 * elderA);
   ctx.drawImage(ART.elderSprite((T / 600 | 0) % 2), Math.round(x), Math.round(y));
   ctx.globalAlpha = 1;
-  if (on && Math.random() < 0.05) parts.push({ x: x + 4 + Math.random() * 16, y: y + 24, vx: 0, vy: -0.01, life: 800, max: 800, c: '#c0dcff', s: 1 });
+  if (on && Math.random() < 0.05) parts.push({ x: x + 4 + Math.random() * 16, y: y + 24, vx: 0, vy: -0.01, life: 800, max: 800, c: '#c0dcff', s: 1, glow: 1 });
 }
 // 灵宠：出战的在主角身边、干活的在岗位上（panel-pets.js 的 drawPets）
 function drawCrane() {
@@ -133,13 +176,18 @@ function drawCrane() {
   if (wing) { R(x - 3, y - 4, 5, 4, '#f3efff'); R(x - 3, y - 4, 2, 1, '#2a2030'); } else { R(x - 3, y + 2, 5, 3, '#f3efff'); R(x - 3, y + 4, 2, 1, '#2a2030'); }
 }
 function drawParts(dt) {
+  const hd = hdOn(); let nl = 0;
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
     p.life -= dt; if (p.life <= 0) { parts.splice(i, 1); continue; }
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.g) p.vy += p.g * dt;
-    ctx.globalAlpha = Math.min(1, p.life / p.max * 1.5);
-    R(p.x, p.y, p.s, p.s, p.c);
+    const al = Math.min(1, p.life / p.max * 1.5);
+    ctx.globalAlpha = al;
+    if (p.glow && hd) {   // 高清：核收成高清像素（半个逻辑像素起），外面那圈光交给 HD2D.light（最新的 18 粒）
+      const s = Math.max(0.5, p.s - 0.5); ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x * 2) / 2, Math.round(p.y * 2) / 2, s, s);
+      if (nl++ < 18) hdLit(p.x + s / 2, p.y + s / 2, 1.2 + p.s * 0.7, p.c, 0.5 * al);
+    } else R(p.x, p.y, p.s, p.s, p.c);
   }
   ctx.globalAlpha = 1;
   if (parts.length > 500) parts.splice(0, parts.length - 500);
@@ -162,7 +210,7 @@ function drawHomeScene(dt) {
   const retArt = !!(st.retreat && ART.drawRetreat && !cine && st.retreat.kind !== 'busy' && st.retreat.kind !== 'teach');
   if (retArt) ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'back');   // 闭关：身后封印石门
   if (cine) drawCineTarget(); else { if (!retArt) drawRetreatFx(HOMEPOS.x, HOMEPOS.y); drawMeHome(HOMEPOS.x, HOMEPOS.y); }
-  if (retArt) { ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'front'); if (Math.random() < 0.12) { const a = Math.random() * 6.28; parts.push({ x: HOMEPOS.x + Math.cos(a) * 26, y: HOMEPOS.y - 12 + Math.sin(a) * 12, vx: -Math.cos(a) * 0.01, vy: -0.01, life: 900, max: 900, c: st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0', s: 1 }); } }
+  if (retArt) { ART.drawRetreat(T, HOMEPOS.x, HOMEPOS.y, 'front'); if (Math.random() < 0.12) { const a = Math.random() * 6.28; parts.push({ x: HOMEPOS.x + Math.cos(a) * 26, y: HOMEPOS.y - 12 + Math.sin(a) * 12, vx: -Math.cos(a) * 0.01, vy: -0.01, life: 900, max: 900, c: st.retreat.kind === 'train' ? '#ffe39a' : '#8ff5d0', s: 1, glow: 1 }); } }
   if (ART.drawFormation) drawZhen('front');
   bl.push(...drawBuildings('front'));
   drawVisitor();
@@ -191,7 +239,7 @@ function drawAdvScene(dt) {
   const trim = L.REALMS[Math.min(p.r, 9)].trim;
   if (ART.drawFlyingSword) ART.drawFlyingSword(px, py, T, trim);
   else { R(px - 13, py + 1, 26, 2, '#dfe8f2'); R(px - 13, py + 1, 26, 1, '#ffffff'); R(px - 16, py, 3, 4, '#c8a050'); }
-  for (let k = 0; k < 2; k++) parts.push({ x: px - 15, y: py + 1 + k, vx: -0.03, vy: 0, life: 260, max: 260, c: trim, s: 1 });
+  for (let k = 0; k < 2; k++) parts.push({ x: px - 15, y: py + 1 + k, vx: -0.03, vy: 0, life: 260, max: 260, c: trim, s: 1, glow: k });   // 剑尾两道，一道发光就够
   ctx.drawImage(ART.standRealm(p.look, p.r, frame), Math.round(px - SD.w / 2), Math.round(py - SD.h + 1));
   const op = L.petOut(st); if (op) ctx.drawImage(ART.petSprite(op.sp, op.form || 0, (T / 400 | 0) % 2, op.aw), px - 16 - 32, py - 26 - 8 + Math.round(Math.sin(T / 300) * 3));
   adv.spawn -= dt;
@@ -213,13 +261,13 @@ function drawAdvScene(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt;
     if (ART.drawSwordQi) ART.drawSwordQi(s.x, s.y, trim);
     else { R(s.x - 3, s.y - 3, 2, 1, trim); R(s.x - 1, s.y - 2, 2, 1, trim); R(s.x, s.y - 1, 2, 3, '#ffffff'); R(s.x - 1, s.y + 2, 2, 1, trim); R(s.x - 3, s.y + 3, 2, 1, trim); }
-    if (Math.random() < 0.5) parts.push({ x: s.x - 4, y: s.y, vx: 0, vy: 0, life: 160, max: 160, c: trim, s: 1 });
+    if (Math.random() < 0.5) parts.push({ x: s.x - 4, y: s.y, vx: 0, vy: 0, life: 160, max: 160, c: trim, s: 1, glow: 1 });
     const f = s.tx;
     if (f && f.hp > 0 && s.x >= f.x - 6) {
       f.hp--; f.hit = 120;
       const dmg = L.power(st) * (0.6 + Math.random() * 0.8);
       floatText(f.x, foeHitY(f) - 10, fmt(dmg), Math.random() < 0.2 ? '#ffe39a' : '#ffffff', false, true);
-      for (let k = 0; k < 6; k++) parts.push({ x: s.x, y: s.y, vx: (Math.random() - 0.5) * 0.08, vy: (Math.random() - 0.5) * 0.08, life: 300, max: 300, c: '#ffffff', s: 1 });
+      for (let k = 0; k < 6; k++) parts.push({ x: s.x, y: s.y, vx: (Math.random() - 0.5) * 0.08, vy: (Math.random() - 0.5) * 0.08, life: 300, max: 300, c: '#ffffff', s: 1, glow: 1 });
       SFX.hit();
       adv.shots.splice(i, 1);
       if (f.hp <= 0) {
@@ -246,7 +294,7 @@ function drawAdvScene(dt) {
   }
   drawParts(dt);
   const e = st.exp;
-  if (e) { const k = Math.min(1, (e.total - e.left) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); }
+  if (e) { const k = Math.min(1, (e.total - e.left) / e.total); R(50, 151, 100, 6, '#1b1326'); R(51, 152, 98 * k, 4, '#f4c542'); R(51, 152, 98 * k, 1, '#fff2a8'); hdBarFx(51, 152, 98 * k, 4, '#ffffff', '#96680e'); for (let i = 1; i < e.total; i++) R(50 + Math.round(100 * i / e.total), 152, 1, 4, '#1b1326'); if (k > 0) hdLit(51 + 98 * k, 154, 4, '#ffe39a', 0.45); }
 }
 
 // ---------- 主绘制 ----------
@@ -261,6 +309,7 @@ function drawScene(dt) {
   if (mode !== lastMode) { wipe = mode === 'duel' ? 240 : 700; lastMode = mode; parts.length = 0; adv = mode === 'adv' ? newAdv(btRegion()) : null; }
   if (mode === 'adv' && !adv) adv = newAdv(btRegion());
   if (mode === 'duel') drawDuelScene(dt); else if (mode === 'realm') drawRealmScene(dt); else if (mode === 'adv') drawAdvScene(dt); else drawHomeScene(dt);
+  hdLitFlush();
   if (wipe > 0) {
     wipe -= dt;
     const cols = Math.ceil(10 * wipe / 700);
@@ -289,7 +338,7 @@ function floatRaw(x, y, text, color, big, small) {
 }
 function ringBurst(x, y, c, n) {
   n = n || 28;
-  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; parts.push({ x: x + Math.cos(a) * 6, y: y - 2 + Math.sin(a) * 2, vx: Math.cos(a) * 0.045, vy: Math.sin(a) * 0.012 - 0.004, life: 650, max: 650, c: i % 3 ? c : '#ffffff', s: 1 }); }
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; parts.push({ x: x + Math.cos(a) * 6, y: y - 2 + Math.sin(a) * 2, vx: Math.cos(a) * 0.045, vy: Math.sin(a) * 0.012 - 0.004, life: 650, max: 650, c: i % 3 ? c : '#ffffff', s: 1, glow: 1 }); }
 }
 // 场景顶部的小横幅：一次一条、排队、每条约 1.8 秒（DESIGN §5.2）；同一句话排着的不再重复
 const bannerQ = [];

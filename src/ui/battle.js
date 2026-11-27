@@ -244,6 +244,7 @@ function drawBtScene(dt) {
     // 血条、罩格、五行徽、蓄力
     const top = foot - (S.ay || 24) - 10, bw = B.foes.length > 1 ? 20 : 26, bx = Math.round(x - bw / 2);
     R(bx - 1, top - 1, bw + 2, 5, '#1b1326'); R(bx, top, bw, 3, '#3a3155'); R(bx, top, Math.max(0, Math.round(bw * f.hp / f.max)), 3, f.kind === 'mob' ? '#e06a5a' : '#ff4a4a');
+    hdBarFx(bx, top, Math.round(bw * f.hp / f.max), 3, '#ffc8b8', '#5a1020');   // 高清：上沿受光、下沿压暗（scene.js）
     if (ART.elemBadge && f.el) ctx.drawImage(ART.elemBadge(f.el), bx - 11, top - 4);
     if (ART.shieldPip && f.shMax) for (let j = 0; j < f.shMax; j++) ctx.drawImage(ART.shieldPip(j < f.sh), bx + j * 8, top - 10);
     if (f.charge) { R(x + 12, top - 12, 3, 7, '#ff4a4a'); R(x + 12, top - 4, 3, 2, '#ff4a4a'); }
@@ -264,7 +265,7 @@ function btPathOnScene() {
   const n = e.nodes.length;
   const x0 = 50, w = 100;
   R(x0, 151, w, 6, '#1b1326');
-  for (let i = 0; i < n; i++) { const x = x0 + Math.round(w * i / n) + 1, ww = Math.round(w / n) - 2; R(x, 152, ww, 4, i < e.ni ? '#4ccb9f' : i === e.ni ? '#f4c542' : '#3a3155'); }
+  for (let i = 0; i < n; i++) { const x = x0 + Math.round(w * i / n) + 1, ww = Math.round(w / n) - 2; R(x, 152, ww, 4, i < e.ni ? '#4ccb9f' : i === e.ni ? '#f4c542' : '#3a3155'); hdBarFx(x, 152, ww, 4, i < e.ni ? '#d8fff0' : i === e.ni ? '#fffbe0' : '#55506e', '#0b0912'); if (i === e.ni) hdLit(x + ww / 2, 154, 5, '#ffe39a', 0.4 + 0.15 * Math.sin(T / 300)); }   // 高清：每格补受光 / 暗线，走到的那一格亮一盏灯
 }
 // ---------- 画面下方的 #bt ----------
 function btEl() {

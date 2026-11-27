@@ -28,6 +28,12 @@ const seasons = m => Math.max(0, Math.ceil((+m || 0) / 3));
 const seasonsT = m => { const n = seasons(m); return n <= 1 ? '本季末' : n === 2 ? '下季末' : `${n} 季`; };
 let btSpeed = 1;      // 战斗演出速度 ×1 / ×2（仙途 · 设置；只影响演出，存在偏好里）
 let sitAsk = false;   // 【下一季】剩点时要不要确认（默认不确认）
+// HD-2D 渲染模块（src/fx/hd2d.js，docs/ART_HD2D.md）：没有它（老构建、模块没加载）时为 null，界面各处照原样画
+const HDX = window.HD2D && typeof window.HD2D.setQuality === 'function' ? window.HD2D : null;
+// 画质（仙途 · 设置）：0 关 / 1 省 / 1.5 标准（默认）/ 2 高 / 3 极致 / 'auto' 自动（docs/ART_HD2D.md §5.3）。hdPref：玩家点过的那一档，没点过是 null
+const HD_VALS = [0, 1, 1.5, 2, 3, 'auto'];
+let hdPref = null;
+const hdNow = () => (!HDX ? 0 : HDX.auto ? 'auto' : HDX.q === 2 && HDX.lite ? 1.5 : HDX.q);
 let st = null;
 let cine = null;
 const queue = [];
@@ -60,14 +66,31 @@ function setFontSize() {
   if (q > 1) root.style.zoom = q;
 }
 setFontSize();
+// 九宫格皮肤的图：高清皮肤开着时取 3 倍密度的 SVG 版（HD2D.frame），关着时取原图；换画质时（仙途 → 设置 → 画质）重新取，不用重开
+const frameURLs = new Map();
+function frameURL(k) {
+  const f = ART.frame && ART.frame(k); if (!f) return '';
+  const on = !!(HDX && HDX.skinOn && HDX.skinOn() && HDX.frame), key = k + (on ? '|hd' : '');
+  if (!frameURLs.has(key)) frameURLs.set(key, on ? HDX.frame(f.canvas, k, f.fill) : f.canvas.toDataURL());
+  return frameURLs.get(key);
+}
 // 界面皮肤：ART.frame 的九宫格（border-image），做成 CSS 变量 --fr-<kind>
+function applyFrames(el, kinds) { for (const k of kinds) { const u = frameURL(k); if (u) el.style.setProperty('--fr-' + k, `url(${u})`); } }
+const UI_FRAMES = ['hud', 'sheet', 'card', 'btnGold', 'btnAlt', 'btnSeal', 'btnOff', 'chkOn', 'chkOff'];
+// 换画质：即时生效——场景合成换档（HD2D.setQuality 自己记进 localStorage.xm_hd）、界面皮肤（body.hd2d）开关、九宫格换成对应的那一版
+function hdApply(v) {
+  if (!HDX) return;
+  HDX.setQuality(v);
+  if (HDX.skin) HDX.skin();
+  applyFrames(document.documentElement, UI_FRAMES);
+}
 (function () {
   if (!ART.frame) return;
   const root = document.documentElement;
-  for (const k of ['hud', 'sheet', 'card', 'btnGold', 'btnAlt', 'btnSeal', 'btnOff']) { const f = ART.frame(k); if (f) root.style.setProperty('--fr-' + k, `url(${f.url})`); }
+  applyFrames(root, UI_FRAMES);
   const lk = ART.icon && ART.icon('lock'); if (lk) root.style.setProperty('--ic-lock', `url(${lk.toDataURL()})`);
   // 阶段五：勾选按钮框 chkOn / chkOff（字色跟着 ink），卡片展开箭头 fold_closed / fold_open（10×10，整数倍）
-  for (const k of ['chkOn', 'chkOff']) { const f = ART.frame(k); if (f) { root.style.setProperty('--fr-' + k, `url(${f.url})`); root.style.setProperty('--ink-' + k, f.ink); } }
+  for (const k of ['chkOn', 'chkOff']) { const f = ART.frame(k); if (f) root.style.setProperty('--ink-' + k, f.ink); }
   for (const k of ['fold_closed', 'fold_open']) { const c = ART.icon && ART.icon(k); if (c) root.style.setProperty('--ic-' + k, `url(${c.toDataURL()})`); }
   const d = window.devicePixelRatio || 1; root.style.setProperty('--fold-sz', (10 * Math.max(1, Math.round(12 * d / 10)) / d) + 'px');
 })();

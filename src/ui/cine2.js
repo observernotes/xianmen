@@ -72,9 +72,13 @@ function cnSeal(g, s, cx, cy, size, t, col) {
 function cnArt(g, fn) { ART.setCtx(g, 200); try { fn(); } finally { ART.setCtx(ctx, W); } }
 // 洞府截图：开播那一刻场景画布上主角附近 200×120 一块（主角脚底在 (100, 108)）
 let cnSnap = null;
+// 高清合成开着时直接从 HD2D 取合成好的画面（HD2D.snap，docs/ART_HD2D.md §6-7），不靠它垫在 drawImage 上的那层兜底
 function cnTakeSnap() {
   const c = cnCv(200, 120), g = c.getContext('2d');
-  try { if (st && !st.exp && cvs.height >= 150) g.drawImage(cvs, 0, OY + 28, 200, 120, 0, 0, 200, 120); else g.drawImage(ART.cineBg('dusk'), 0, 0); } catch (e) { g.drawImage(ART.cineBg('dusk'), 0, 0); }
+  try {
+    if (st && !st.exp && cvs.height >= 150) { if (HDX && HDX.on && HDX.snap) HDX.snap(g, 0, OY + 28, 200, 120, 0, 0, 200, 120); else g.drawImage(cvs, 0, OY + 28, 200, 120, 0, 0, 200, 120); }
+    else g.drawImage(ART.cineBg('dusk'), 0, 0);
+  } catch (e) { g.drawImage(ART.cineBg('dusk'), 0, 0); }
   cnSnap = c;
 }
 const cnHome = () => cnSnap || ART.cineBg('dusk');
@@ -345,11 +349,12 @@ function cnSize() {
   cn.root.style.setProperty('--cn-sub', subY + 'px');
 }
 // 画面以外的底色：这一帧上沿 12 行拉到屏幕顶、下沿 12 行拉到屏幕底、左右两条拉到屏幕边，缩小再放大糊开，压暗
+// 取样按世界层画布的实际尺寸换算（bx / by：每个逻辑像素几个画布像素），世界层换成 400×240 时取的还是同一块
 function cnAmbient(c) {
-  const G = c.G, a = c.am, t = c.at, g = a.getContext('2d'), tg = t.getContext('2d'), q = 1 / 12, x0 = G.x0 * q, w = 200 * q, y0 = G.py * q, y1 = (G.py + 120) * q, H = t.height, W = t.width;
+  const G = c.G, a = c.am, t = c.at, g = a.getContext('2d'), tg = t.getContext('2d'), q = 1 / 12, x0 = G.x0 * q, w = 200 * q, y0 = G.py * q, y1 = (G.py + 120) * q, H = t.height, W = t.width, bx = c.wc.width / 200, by = c.wc.height / 120;
   tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high'; tg.globalAlpha = 1;
-  tg.drawImage(c.wc, 0, 0, 200, 12, 0, 0, W, y0 + 0.5); tg.drawImage(c.wc, 0, 108, 200, 12, 0, y1 - 0.5, W, H - y1 + 0.5);
-  if (x0 > 0.5) { tg.drawImage(c.wc, 0, 0, 8, 120, 0, y0, x0 + 0.5, y1 - y0); tg.drawImage(c.wc, 192, 0, 8, 120, x0 + w - 0.5, y0, W - x0 - w + 0.5, y1 - y0); }
+  tg.drawImage(c.wc, 0, 0, 200 * bx, 12 * by, 0, 0, W, y0 + 0.5); tg.drawImage(c.wc, 0, 108 * by, 200 * bx, 12 * by, 0, y1 - 0.5, W, H - y1 + 0.5);
+  if (x0 > 0.5) { tg.drawImage(c.wc, 0, 0, 8 * bx, 120 * by, 0, y0, x0 + 0.5, y1 - y0); tg.drawImage(c.wc, 192 * bx, 0, 8 * bx, 120 * by, x0 + w - 0.5, y0, W - x0 - w + 0.5, y1 - y0); }
   tg.drawImage(c.wc, x0, y0, w, y1 - y0);
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.globalAlpha = 1; g.drawImage(t, 0, 0, a.width, a.height);
   g.fillStyle = 'rgba(7,5,12,.5)'; g.fillRect(0, 0, a.width, a.height);
@@ -432,13 +437,14 @@ function cnFrame(now) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.imageSmoothingEnabled = true; g.drawImage(c.am, 0, 0, Wd, Hd);
   const strip = (yL, hL, al) => { const q = c.am.height / Hl; g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; g.globalAlpha = Math.min(1, al); g.drawImage(c.am, 0, yL * q, c.am.width, hL * q, 0, Math.round(yL * k), Wd, Math.round(hL * k)); g.globalAlpha = 1; g.imageSmoothingEnabled = false; g.setTransform(k, 0, 0, k, ox, oy); };
   g.imageSmoothingEnabled = false; g.setTransform(k, 0, 0, k, ox, oy);
-  g.drawImage(c.wc, sx, sy, sw, sh, G.x0, dy, 200, dh);
+  const wx = c.wc.width / 200, wy = c.wc.height / 120, scx = c.sc.width / 200, scy = c.sc.height / 120;   // 世界层 / 屏幕层画布按比例取（现在都是 200×120，= 1）
+  g.drawImage(c.wc, sx * wx, sy * wy, sw * wx, sh * wy, G.x0, dy, 200, dh);
   if (G.tall) {
     const rh = Math.min(40, Hl - yb);
-    if (rh > 4) { g.save(); g.beginPath(); g.rect(Math.max(0, G.x0), yb, Math.min(Wl, 200), rh); g.clip(); g.translate(0, 2 * yb); g.scale(1, -1); g.globalAlpha = 0.5; g.drawImage(c.wc, sx, sy, sw, sh, G.x0, dy, 200, dh); g.restore(); g.globalAlpha = 1; const n = 8; for (let i = 0; i < n; i++) strip(yb + rh * i / n, rh / n, 0.3 + 0.7 * (i + 1) / n); }
+    if (rh > 4) { g.save(); g.beginPath(); g.rect(Math.max(0, G.x0), yb, Math.min(Wl, 200), rh); g.clip(); g.translate(0, 2 * yb); g.scale(1, -1); g.globalAlpha = 0.5; g.drawImage(c.wc, sx * wx, sy * wy, sw * wx, sh * wy, G.x0, dy, 200, dh); g.restore(); g.globalAlpha = 1; const n = 8; for (let i = 0; i < n; i++) strip(yb + rh * i / n, rh / n, 0.3 + 0.7 * (i + 1) / n); }
     for (let i = 0; i < 3; i++) strip(dy + i, 1, 0.75 - i * 0.25);
   }
-  g.drawImage(c.sc, 0, 0, 200, 120, G.x0, G.py, 200, 120);
+  g.drawImage(c.sc, 0, 0, 200 * scx, 120 * scy, G.x0, G.py, 200, 120);
   const fd = S.fade || 180; if (t < fd) { const v = 1 - t / fd; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = v * v; g.fillStyle = '#000'; g.fillRect(0, 0, Wd, Hd); g.globalAlpha = 1; }
   requestAnimationFrame(cnFrame);
 }
