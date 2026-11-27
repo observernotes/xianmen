@@ -536,6 +536,7 @@
     if (!state) return { started: false, introClip: XianmenCinematics.intro() };
     const goal = L.goalNow(state);
     const ap = L.apLeft(state);
+    const sweep = notice ? null : L.sweepBest(state);
     return {
       started: true, name: state.p.name, date: L.dateText(state), realm: L.stageName(state.p),
       stones: fmt(state.stones), power: fmt(L.power(state)), xp: fmt(state.p.xp), xpNeed: fmt(L.pNeed(state.p)),
@@ -557,6 +558,12 @@
         }] : []),
       }] : []),
       wishOpen: !notice && L.wishOpen(state),
+      sweep: sweep ? {
+        title: L.REGIONS[sweep.k].n + ' · ' + L.DEPTHS[sweep.d],
+        stones: fmt(sweep.f.stones), args: [sweep.k, sweep.d, sweep.a],
+        ap: L.apCost(state, 'sweep', [sweep.k, sweep.d, sweep.a]),
+        why: L.apWhy(state, 'sweep', [sweep.k, sweep.d, sweep.a]),
+      } : null,
       wish: !notice && L.wishInfo(state) ? L.wishInfo(state) : null,
       guide: guideView(),
       canRetreat: L.retOpen(state),
@@ -1234,6 +1241,9 @@
     let previous;
     try {
       const message = JSON.parse(request);
+      if (message.op === 'help') {
+        return JSON.stringify({ ok: true, opening: XianmenHelp.opening(), sections: XianmenHelp.sections(state) });
+      }
       if (message.op === 'load' || message.op === 'import') {
         previous = { state, encounter, openEvent, preparedDuel, arena, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
       }

@@ -29,6 +29,12 @@ func _initialize() -> void:
 	send({"op": "pick", "index": start["view"]["notice"]["options"][0]["index"]})
 	var cave := send({"op": "advance"})
 	assert(cave["view"]["guide"]["target"] == "trip")
+	var help := send({"op": "help"})
+	assert(help["opening"].size() == 4)
+	assert(help["opening"][1]["title"] == "后山野林")
+	assert(help["sections"].any(func(row): return row["title"] == "历练"))
+	assert(not help["sections"].any(func(row): return row["title"] == "炼丹"))
+	assert(JSON.stringify(send({"op": "view"})["save"]["state"]) == JSON.stringify(cave["save"]["state"]))
 	var legacy_opening: Dictionary = cave["save"]["state"].duplicate(true)
 	legacy_opening.erase("guide")
 	assert(send({"op": "load", "save": legacy_opening})["view"]["guide"]["target"] == "trip")
@@ -108,6 +114,7 @@ func _initialize() -> void:
 	assert(not request({"op": "import", "code": code.left(-5)})["ok"])
 	assert(send({"op": "view"})["view"] == restored["view"])
 	var title := send({"op": "title"})
+	assert(send({"op": "help"})["sections"].any(func(row): return row["title"] == "炼丹"))
 	assert(not title["view"]["started"])
 	assert(title["save"] == null)
 	var unicode_name := "林逸尘青云𠮷"
@@ -132,6 +139,15 @@ func _initialize() -> void:
 	realm_save["evDone"]["s1_pact_after"] = 1
 	realm_save["mj"]["token"] = 1
 	realm_save["onb"]["at"]["realm"] = 0
+	var sweep_save := realm_save.duplicate(true)
+	sweep_save["best"] = {"0_0": 3}
+	sweep_save["onb"]["at"]["chainExp"] = 0
+	var sweep_ready := settle_cards(send({"op": "load", "save": sweep_save}))
+	var sweep: Dictionary = sweep_ready["view"]["sweep"]
+	assert(sweep["title"] == "后山野林 · 外围" and sweep["why"].is_empty())
+	var swept := send({"op": "act", "action": "sweep", "args": sweep["args"]})
+	assert(swept["view"]["notice"]["title"] == "扫荡归来")
+	assert(swept["view"]["ap"] == sweep_ready["view"]["ap"] - sweep["ap"])
 	send({"op": "load", "save": JSON.stringify(realm_save)})
 	var entered := send({"op": "act", "action": "realm", "args": [false]})
 	assert(entered["view"]["notice"]["kind"] == "realm")

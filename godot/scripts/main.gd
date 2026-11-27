@@ -56,6 +56,8 @@ var show_drops := false
 var show_journey := false
 var show_saves := false
 var show_settings := false
+var help_page := ""
+var help_content: Dictionary = {}
 var save_page := ""
 var import_draft := ""
 var export_code := ""
@@ -104,7 +106,7 @@ func _ready() -> void:
 	elif not runtime.load_program(FileAccess.get_file_as_string(RULES_PATH)):
 		error_text = runtime.get_last_error()
 	elif FileAccess.file_exists(SAVE_PATH):
-		request({"op": "load", "save": FileAccess.get_file_as_string(SAVE_PATH)})
+		request({"op": "load", "save": FileAccess.get_file_as_string(SAVE_PATH)}, true)
 		if current_save.is_empty() and not error_text.is_empty():
 			var fallback = JSON.parse_string(runtime.request('{"op":"view"}'))
 			if fallback is Dictionary and fallback.get("ok"):
@@ -157,6 +159,8 @@ func go_back() -> void:
 			toggle_saves()
 		else:
 			close_save_transfer()
+	elif not help_page.is_empty():
+		close_help()
 	elif show_settings:
 		toggle_settings()
 	elif view.get("panel") is Dictionary:
@@ -189,7 +193,7 @@ func _process(delta: float) -> void:
 		request(playback_action)
 
 
-func request(message: Dictionary) -> void:
+func request(message: Dictionary, resuming := false) -> void:
 	if runtime == null or redraw_queued:
 		return
 	playback_action = {}
@@ -204,17 +208,11 @@ func request(message: Dictionary) -> void:
 		var save = result.get("save")
 		if save is Dictionary and message["op"] != "export":
 			var replacing: bool = message["op"] in ["load", "import", "new"] and not current_save.is_empty()
-			if not update_auto_save(save, replacing):
-				error_text = "本地存档更新失败。"
-				if replacing:
-					var restored = JSON.parse_string(runtime.request(JSON.stringify({"op": "load", "save": current_save}, "", false, true)))
-					if restored is Dictionary and restored.get("ok"):
-						error_text = "进度备份或写入失败，已保留当前进度。"
-					else:
-						runtime = null
-						error_text = "进度写入失败。重新打开游戏可从磁盘存档恢复。"
-					schedule_draw()
-					return
+			if not resuming and not update_auto_save(save, replacing):
+				restore_after_write_failure()
+				schedule_draw()
+				return
+			current_save = save
 		var action_result = result.get("result")
 		if action_result is Dictionary:
 			loot_flips = action_result.get("lootFlips", [])
@@ -233,6 +231,7 @@ func request(message: Dictionary) -> void:
 		if message["op"] in ["new", "import", "load", "title"]:
 			show_saves = false
 			show_settings = false
+			help_page = ""
 			save_page = ""
 			import_draft = ""
 			export_code = ""
@@ -304,10 +303,18 @@ func update_auto_save(save: Dictionary, replacing: bool) -> bool:
 	var backup_ok := true
 	if not previous.is_empty() and (replacing or overwriting_checkpoint):
 		backup_ok = archive_auto_save(previous, "读档前" if replacing else "")
-	var written := backup_ok and store_save(save, SAVE_PATH)
-	if written or not replacing:
-		current_save = save
-	return written
+	return backup_ok and store_save(save, SAVE_PATH)
+
+
+func restore_after_write_failure() -> void:
+	var rollback := {"op": "title"} if current_save.is_empty() else {"op": "load", "save": current_save}
+	var restored = JSON.parse_string(runtime.request(JSON.stringify(rollback, "", false, true)))
+	if restored is Dictionary and restored.get("ok"):
+		view = restored["view"]
+		error_text = "进度备份或写入失败，已保留当前进度。"
+	else:
+		runtime = null
+		error_text = "进度写入失败。重新打开游戏可从磁盘存档恢复。"
 
 
 func restart_game() -> void:
@@ -355,7 +362,7 @@ func draw_view() -> void:
 	elif show_saves:
 		next_page_key = "saves/" + save_page
 	elif show_settings:
-		next_page_key = "settings"
+		next_page_key = "settings/" + help_page
 	elif show_maps and selected_map >= 0:
 		next_page_key = "drops" if show_drops else "map"
 	var scroll_position := 0
@@ -535,6 +542,9 @@ func play_feedback(message: Dictionary) -> void:
 
 
 func draw_settings() -> void:
+	if not help_page.is_empty():
+		draw_help()
+		return
 	add_label("设置", 24, COLORS.gold)
 	add_button("返回", toggle_settings)
 	add_button("声音 · " + AUDIO.MODES[game_audio.mode], func():
@@ -550,6 +560,44 @@ func draw_settings() -> void:
 		save_presentation_setting("confirm_idle_ap", confirm_idle_ap)
 	)
 	add_button("存档", toggle_saves)
+	add_button("玩法指南  ▸", open_help)
+
+
+func open_help() -> void:
+	if runtime == null:
+		error_text = "玩法指南暂不可用。"
+	else:
+		var content = JSON.parse_string(runtime.request('{"op":"help"}'))
+		if content is Dictionary and content.get("ok"):
+			help_content = content
+			help_page = "sections"
+			error_text = ""
+		else:
+			error_text = "无法读取玩法指南。"
+	schedule_draw()
+
+
+func draw_help() -> void:
+	var opening := help_page == "opening"
+	add_label("新手教程" if opening else "玩法指南", 24, COLORS.gold)
+	add_button("返回", close_help)
+	if not opening:
+		add_button("重看新手教程  ▸", func():
+			help_page = "opening"
+			schedule_draw()
+		)
+	for entry in help_content[help_page]:
+		add_label(entry["title"], 19, COLORS.jade)
+		add_label(entry["text"], 16)
+
+
+func close_help() -> void:
+	if help_page == "opening":
+		help_page = "sections"
+	else:
+		help_page = ""
+		help_content.clear()
+	schedule_draw()
 
 
 func draw_volume_controls(title: String, for_music: bool) -> void:
@@ -705,6 +753,13 @@ func draw_maps() -> void:
 				draw_map(location)
 				return
 	add_label("外出历练", 24, COLORS.gold)
+	var sweep = view.get("sweep")
+	if sweep is Dictionary:
+		add_label(sweep["title"] + " · 约 " + sweep["stones"] + " 灵石", 16, COLORS.jade)
+		add_button("扫荡 ◆%d" % int(sweep["ap"]), func(): start_trip("sweep", sweep["args"]),
+			false, not String(sweep["why"]).is_empty())
+		if sweep["why"]:
+			add_label(sweep["why"], 14, COLORS.muted)
 	for entry in view["realms"]:
 		var realm_args := [entry["xf"]]
 		add_button(entry["label"] + "  ◆%d" % int(entry["ap"]), func(): start_trip("realm", realm_args), true, not String(entry["why"]).is_empty())

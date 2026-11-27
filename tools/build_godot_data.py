@@ -17,6 +17,7 @@ def main():
         (data / "duels.js").read_text(encoding="utf-8"),
         (data / "player_panels.js").read_text(encoding="utf-8"),
         (data / "panels.js").read_text(encoding="utf-8"),
+        (data / "help.js").read_text(encoding="utf-8"),
         (data / "session.js").read_text(encoding="utf-8"),
     ))
     (data / "rules.js").write_text(program, encoding="utf-8")
