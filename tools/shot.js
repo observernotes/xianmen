@@ -1,5 +1,6 @@
 // 冒烟测试 + 截图：node tools/shot.js <输出目录>
-// 速度档：SPEEDS = [1, 2, 0]，setSpeed(3) 夹到最后一档 = 暂停（开罗式重整：底栏五格 历练 / 洞府 / 装备 / 江湖 / 仙途）
+// 时间不再自己走（docs/AP_PLAN.md）：没有速度档；过季点【下一季】（__xm.nextSeason），历练当场打完（__xm_bt.all() 把剩下的节点自动打完）。底栏五格 历练 / 洞府 / 装备 / 江湖 / 仙途
+// 行动点（§8.4）：主界面 3 / 1 / 0 点 / 本季末有大事、季末卡、年报、出发页（◆2 与扫荡）、洞府（闭关 / 打坐）、天骄榜（下战书）、宗门（投帖）、旧档迁移提示；扫 [data-ap] 与 L.AP 一致
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const out = process.argv[2] || path.join(__dirname, '..', 'shots');
@@ -18,12 +19,13 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#goStart');
   await page.waitForTimeout(2400);
   await page.screenshot({ path: out + '/03-start.png' });
+  // 结算链里排着的东西（造局面后补放的戏、章末卡、解锁卡）一张张点完：剧情点第一个选项（只关不选，下一条链会补放）
+  const drain = async () => { for (let i = 0; i < 24; i++) { const busy = await page.evaluate(() => !!(window.__xm && (window.__xm.busyUI || (window.__xm_talk && window.__xm_talk.on)))); if (!busy) { await page.waitForTimeout(200); if (!(await page.evaluate(() => !!window.__xm.busyUI))) return; } await page.evaluate(() => { if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (window.__xm.duelFx && !window.__xm.duelFx.ended) { window.__xm.duelSkip(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const u = document.getElementById('unlOk'); if (u) { u.click(); return; } const b = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(x => !/出发|扫荡|再去/.test(x.textContent)); if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(400); } };
   const close = async () => { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450); await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); };
   // 中期局面：元婴圆满，打通前五张图
   await page.evaluate(() => {
     const { st, L } = window.__xm;
-    window.__xm.setSpeed(3);
-    L.onbAll(st);   // 造的是中期局面：上手曲线全算开了（docs/ONBOARDING.md）
+        L.onbAll(st);   // 造的是中期局面：上手曲线全算开了（docs/ONBOARDING.md）
     st.stones = 5e4; st.p.r = 3; st.p.s = 3; st.p.xp = L.pNeed(st.p); st.p.t = 4; st.flags.awoke = 2;
     for (const id of ['x_houtu', 'x_qingmu', 'x_changchun', 'z_hanyue', 'z_huichun', 'z_liuyun', 'm_lianxi', 'm_yufeng']) L.giveArt(st, id);
     st.arts.own.x_houtu = L.artNeed('x_houtu', 2) + 5; st.arts.own.z_hanyue = L.artNeed('z_hanyue', 1) + 3; st.arts.own.x_qingmu = L.artNeed('x_qingmu', 3);
@@ -49,7 +51,7 @@ require('fs').mkdirSync(out, { recursive: true });
     for (const h of ['crops', 'yinGrid', 'toxin', 'plots', 'zhen']) st.hintSeen[h] = 1;
     L.checkQuests(st); st.achQ = []; st.storyQ = [];
   });
-  await close(); await page.waitForTimeout(1200);
+  await close(); await page.waitForTimeout(1200); await drain();
   await page.screenshot({ path: out + '/04-home-mid.png' });
   for (const [nav, name] of [['exp', '05-exp'], ['home', '06-home'], ['gear', '07-gear'], ['world', '08-world'], ['path', '09-path']]) {
     await page.click(`[data-nav="${nav}"]`); await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${name}.png` }); await page.click('.sheet .close'); await page.waitForTimeout(450);
@@ -132,7 +134,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.waitForTimeout(400); await page.screenshot({ path: out + '/09k-exp-prep.png' });
   if (await page.evaluate(() => !!window.__xm.confirmExp && !document.querySelector('#modal .bt-foes'))) errors.push('出发页没有“会遇到”的敌人格');
   await close();
-  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; window.__xm.setSpeed(0); L.startExp(st, 1, 0, 0); });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; st.ap.left = 3; L.act(st, 'exp', [1, 0, 0]); });
   for (let i = 0; i < 30 && !(await page.evaluate(() => { const { st } = window.__xm; return !!(st.exp && document.querySelector('#bt:not([hidden]) .bt-big')); })); i++) await page.waitForTimeout(200);
   await page.waitForTimeout(2600); await page.screenshot({ path: out + '/09l-battle.png' });
   const btl = await page.evaluate(() => {
@@ -142,7 +144,7 @@ require('fs').mkdirSync(out, { recursive: true });
   });
   if (!btl) errors.push('历练途中没有出战斗画面（#bt）');
   else { if (btl.bad.length) errors.push('战斗画面按钮不足 44px：' + btl.bad.join('，')); if (btl.page > 0) errors.push('战斗画面横向溢出 ' + btl.page + 'px'); if (!btl.hp || !btl.rage || btl.sk !== 3) errors.push('战斗画面缺气血 / 怒气 / 三个招式格'); }
-  await page.evaluate(() => { const { st, L } = window.__xm; window.__xm.setSpeed(3); if (st.exp) { st.exp.recall = 1; st.exp = null; } });
+  await page.evaluate(() => { window.__xm_bt.all(); });
   await page.waitForTimeout(300); await close();
   // ---------- 灵宠（SYSTEMS §4）：兽栏、派岗、进化二选一、名册满的放生替换、洞府场景里四只灵宠 ----------
   const pet44 = (sel, what) => page.evaluate(([sel, what]) => {
@@ -215,11 +217,12 @@ require('fs').mkdirSync(out, { recursive: true });
   await page.click('#modal #discTeach'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/33c-disc-teach.png' }); await sectLay('传授');
   const tc = await page.evaluate(() => document.querySelectorAll('#modal [data-dt]').length);
   if (tc !== 2) errors.push('传授：厚土、青木两门可教（寒月已教过）：' + tc);
-  await page.click('#modal [data-dt]'); await page.waitForTimeout(300);
-  const tb = await page.evaluate(() => ({ r: window.__xm.st.retreat && window.__xm.st.retreat.what, l: window.__xm.st.retreat && window.__xm.st.retreat.label }));
-  if (tb.r !== 'teachart') errors.push('点了传授没开始：' + JSON.stringify(tb));
-  await page.waitForTimeout(500); await page.screenshot({ path: out + '/33d-teaching.png' });
-  await page.evaluate(() => { const { st, L } = window.__xm; st.retreat.left = 1; st.retreat.left--; L.endRetreat(st, true); });
+  // 传授是 1 点的差事（AP_PLAN §2.2）：当场办完，不再“传授中”
+  const ap0 = await page.evaluate(() => { window.__xm.st.ap.left = 3; return 3; });
+  await page.click('#modal [data-dt]'); await page.waitForTimeout(500);
+  const tb = await page.evaluate(() => ({ ret: !!window.__xm.st.retreat, ap: window.__xm.st.ap.left }));
+  if (tb.ret || tb.ap !== ap0 - 1) errors.push('传授应当场办完、花 1 点：' + JSON.stringify(tb));
+  await page.screenshot({ path: out + '/33d-teaching.png' }); await drain();
   // 收徒候选：三个拜师的孩子
   await page.evaluate(() => { const { st, L } = window.__xm; st.sect.rank = 6; st.p.r = 7; L.rollCands(st); window.__xm.showSect('disc'); });
   await page.waitForTimeout(300); await page.evaluate(() => document.querySelector('#modal .dcands').scrollIntoView()); await page.waitForTimeout(150); await page.screenshot({ path: out + '/33e-disc-cands.png' }); await sectLay('收徒候选');
@@ -452,7 +455,7 @@ require('fs').mkdirSync(out, { recursive: true });
   lay44(await big44('#modal [data-chest]', '秘藏'));
   await page.click('#modal [data-chest] .chip.ok'); await page.waitForTimeout(600); await page.screenshot({ path: out + '/34-realm-end.png' });
   const end = await page.evaluate(() => ({ run: window.__xm.st.run, t: (document.querySelector('#modal h2') || {}).textContent, clears: window.__xm.L.mjRec(window.__xm.st).clears, tick: window.__xm.st.tick, title: window.__xm.st.title }));
-  if (end.run || !/打穿/.test(end.t || '') || end.clears < 1 || end.tick !== 163) errors.push('秘境通关结算不对：' + JSON.stringify(end));
+  if (end.run || !/打穿/.test(end.t || '') || end.clears < 1 || end.tick !== 160) errors.push('秘境通关结算不对：' + JSON.stringify(end));
   await close();
   // 历练确认页（血煞秘境·外围·寻宝）与札记
   await page.evaluate(() => window.__xm.confirmExp(4, 0, 1)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/05b-confirm.png' });
@@ -527,8 +530,7 @@ require('fs').mkdirSync(out, { recursive: true });
       s.storyQ = [];
     } else if (kind === 'ambush') { s.rank = 30; s.grudge.zhao = 80; arts(['z_liehuo', 'z_hanyue'], ['z_hanyue']); }
     window.__xm.loadState(JSON.parse(JSON.stringify(s)));
-    window.__xm.setSpeed(3);
-  }, kind);
+      }, kind);
   const rvLay = what => big44('#modal .foot .btn, #modal [data-zswap], #modal .rvrow, #modal .close, #modal .tabs button', what).then(lay44);
   const rvForce = v => page.evaluate(v => { const L = window.__xm.L; L.rng0 = L.rng0 || L.rng; L.rng = () => v; }, v);
   const rvUnforce = () => page.evaluate(() => { const L = window.__xm.L; if (L.rng0) { L.rng = L.rng0; L.rng0 = null; } });
@@ -557,7 +559,7 @@ require('fs').mkdirSync(out, { recursive: true });
   await rvBuild('list'); await page.evaluate(() => window.__xm.showMe('rank')); await page.waitForTimeout(400);
   await page.screenshot({ path: out + '/66-rv-rank.png' }); await rvLay('人物 · 天骄榜');
   await page.evaluate(() => document.querySelector('#modal .body').scrollTo(0, 99999)); await page.waitForTimeout(150); await page.screenshot({ path: out + '/66b-rv-rank-bottom.png' });
-  const rvRows = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, line: document.querySelectorAll('#modal .rvline').length }));
+  const rvRows = await page.evaluate(() => ({ rv: document.querySelectorAll('#modal .rvrow[data-rv]:not(#rvMain)').length, rk: document.querySelectorAll('#modal .rvrow[data-rk]').length, line: document.querySelectorAll('#modal .rvline').length }));
   if (rvRows.rv !== 5 || rvRows.rk !== 1 || rvRows.line !== 2) errors.push('天骄榜宿敌 / 新秀行数不对：' + JSON.stringify(rvRows));
   await page.evaluate(() => document.querySelector('#modal .rvrow[data-rv="mu"]').click()); await page.waitForTimeout(350);
   await page.screenshot({ path: out + '/67-rv-card-unknown.png' }); await rvLay('宿敌卡（未知）');
@@ -586,17 +588,17 @@ require('fs').mkdirSync(out, { recursive: true });
     await page.evaluate(fn => new Function('return window.__xm.' + fn)(), fn); await page.waitForTimeout(350);
     lay44(await big44('#modal .foot .btn', what)); await close();
   }
-  await page.evaluate(snap => { window.__xm.loadState(JSON.parse(snap)); window.__xm.setSpeed(3); }, rvSnap); await page.waitForTimeout(300); await close();
+  await page.evaluate(snap => { window.__xm.loadState(JSON.parse(snap)); }, rvSnap); await page.waitForTimeout(300); await close();
   // 历练途中（本趟收获条）与结算卡
-  await page.evaluate(() => { const { st, L } = window.__xm; st.p.inj = 0; L.startExp(st, 3, 1, 0); });
-  await page.evaluate(() => window.__xm.setSpeed(0)); await page.waitForTimeout(3500); await page.screenshot({ path: out + '/15-adv.png' });
-  await page.evaluate(() => window.__xm.setSpeed(3));
-  await page.evaluate(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); }); await page.waitForTimeout(700); await page.screenshot({ path: out + '/15b-result.png' });
+  await page.evaluate(() => { const { st, L } = window.__xm; st.p.inj = 0; st.ap.left = 3; L.act(st, 'exp', [3, 1, 0]); });
+  await page.waitForTimeout(3500); await page.screenshot({ path: out + '/15-adv.png' });
+  await page.evaluate(() => window.__xm_bt.all()); await page.waitForTimeout(700); await page.screenshot({ path: out + '/15b-result.png' });
   await close();
-  await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.retreat = null; L.startExp(st, 4, 0, 1); }); await page.evaluate(() => window.__xm.setSpeed(0)); await page.waitForTimeout(3000); await page.screenshot({ path: out + '/16-adv2.png' });
-  await page.evaluate(() => { window.__xm.setSpeed(3); window.__xm.st.exp = null; const s = window.__xm.st; s.p.inj = 2; s.stones = 5e4; }); await page.waitForTimeout(300);
-  await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/16b-home-heal.png' }); await close();
-  await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 0; window.__xm.L.startRetreat(s); }); await page.waitForTimeout(800); await page.screenshot({ path: out + '/16c-retreat.png' });
+  await close(); await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.retreat = null; st.ap.left = 3; L.act(st, 'exp', [4, 0, 1]); }); await page.waitForTimeout(3000); await page.screenshot({ path: out + '/16-adv2.png' });
+  await page.evaluate(() => { window.__xm_bt.all(); }); await page.waitForTimeout(300); await close(); await close();
+  await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 2; s.stones = 5e4; }); await page.waitForTimeout(300);
+  await drain(); await page.click('[data-nav="home"]'); await page.waitForTimeout(300); await page.screenshot({ path: out + '/16b-home-heal.png' }); await close();
+  await page.evaluate(() => { const s = window.__xm.st; s.p.inj = 0; s.ap.left = 3; window.__xm.closeModal(); window.__xm.doAct('retreat'); }); await page.waitForTimeout(800); await page.screenshot({ path: out + '/16c-retreat.png' }); await close();
   await page.evaluate(() => { const s = window.__xm.st; s.retreat = null; s.sect = null; window.__xm.showInvite(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/17-invite.png' });
   await close();
   // 洞府：地块网格、已建地块、空地建造列表、未开地块、拆除确认；阵法面板的布阵中与第二阵位；场景里的建筑与光圈；每页手机宽度不溢出、点击目标 ≥ 44px
@@ -630,7 +632,7 @@ require('fs').mkdirSync(out, { recursive: true });
   const zbtn = await page.evaluate(() => { const b = document.querySelector('#modal .foot .btn'); return b ? Math.round(b.getBoundingClientRect().height) : 0; });
   if (zbtn < 44) errors.push('阵法页底部【回洞府】按钮不到 44px：' + zbtn);
   await close();
-  await page.evaluate(() => { const { st } = window.__xm; st.tick += 3; window.__xm.onTick(); }); await page.waitForTimeout(500); await close(); await close();   // 这一跳可能弹出剧情，先收掉
+  await page.evaluate(() => { window.__xm.closeModal(); window.__xm.nextSeason(true); }); await page.waitForTimeout(500); await close(); await close(); await close();   // 这一跳可能弹出剧情，先收掉
   await page.screenshot({ path: out + '/22a-scene-zhen.png' });
   await page.evaluate(() => { window.__skyAt0 = window.__xm.ART.skyAt; window.__xm.ART.skyAt = () => window.__skyAt0(0.0); }); await page.waitForTimeout(700);
   await page.screenshot({ path: out + '/22b-scene-night.png' });
@@ -758,8 +760,7 @@ require('fs').mkdirSync(out, { recursive: true });
     for (const id of ['x_houtu', 'z_hanyue', 'm_lianxi']) { L.giveArt(s, id); s.arts.own[id] = L.artNeed(id, 3); }
     L.gearDrop(s, 'w', 4); s.gear.w.aff = ['ke_mu', 'huixin']; L.petGive(s, { sp: 'p_hu' }); s.pets[0].heart = 5;
     s.eflags.map_1 = 1; s.eflags.map_2 = 1; s.eflags.tea_1 = 1; L.codexCheck(s);
-    window.__xm.loadState(s); window.__xm.setSpeed(3);
-  });
+    window.__xm.loadState(s);   });
   await page.waitForTimeout(500); await close();
   await page.evaluate(() => window.__xm.showMe('codex')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/40-codex.png' });
   await sLay('图鉴');
@@ -778,7 +779,6 @@ require('fs').mkdirSync(out, { recursive: true });
   if (!(await page.$('#btnBingjie')) || (await page.$('#btnReborn'))) errors.push('金丹期人物页应只有【兵解转世】');
   await page.screenshot({ path: out + '/40d-me-bingjie.png' }); lay44(await big44('#btnBingjie, #btnReborn', '人物·兵解按钮'));
   await page.evaluate(() => { const { st } = window.__xm; st.p.r = 9; window.__xm.showRecord(); }); await page.waitForTimeout(300);
-  await page.evaluate(() => window.__xm.setSpeed(0));
   await page.click('#btnReborn'); await page.waitForTimeout(500); await page.screenshot({ path: out + '/41-settle.png' }); await sLay('结算');
   const se = await page.evaluate(() => ({ t: document.querySelector('#modal h2').textContent, tot: !!document.querySelector('#dgTotal'), dg: window.__xm.st.settle && window.__xm.st.settle.total, rows: document.querySelectorAll('#modal .dgrow').length }));
   if (se.t !== '轮回结算' || !se.tot || !(se.dg > 0) || se.rows < 5) errors.push('结算页不对：' + JSON.stringify(se));
@@ -837,11 +837,53 @@ require('fs').mkdirSync(out, { recursive: true });
   // 限时试炼：第 480 周天坐化页的文案；没有可传承的东西时传承页直接跳过
   await page.evaluate(() => { const { st } = window.__xm; st.tick = 480; window.__xm.showDeath(); }); await page.waitForTimeout(400); await page.screenshot({ path: out + '/49-death-limit.png' }); await sLay('限时坐化');
   const dl = await page.evaluate(() => document.querySelector('#modal').textContent);
-  if (!/天道试炼·限时：第 480 (个周天|个月)到了/.test(dl)) errors.push('限时坐化页文案不对：' + dl.slice(0, 80));
+  if (!/天道试炼·限时：第 160 季到了/.test(dl)) errors.push('限时坐化页文案不对：' + dl.slice(0, 80));
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(400); await sAck();
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(500);
   const sk = await sTitle(); if (sk !== '轮回殿') errors.push('没有可传承的东西时应跳过传承页直接进轮回殿：' + sk);
   await page.evaluate(() => { window.__xm.closeModal(); }); await page.waitForTimeout(400);
+  // ---------- 行动点制（docs/AP_PLAN.md §6、§8.4） ----------
+  {
+    await page.evaluate(() => { const { st, L } = window.__xm; window.__xm.closeModal(); st.p.r = 3; st.p.s = 1; st.p.xp = 0; st.tick = 120; st.ap.left = 3; st.ap.debt = 0; st.storyQ = []; st.visitor = null; window.__xm.unlockQ.length = 0; window.__xm.updateHUD(); });
+    await page.waitForTimeout(400); await close();
+    const apMain = async (n, tag) => { await page.evaluate(n => { const { st } = window.__xm; st.ap.left = n; window.__xm.updateHUD(); }, n); await page.waitForTimeout(350); await page.screenshot({ path: out + `/60-ap-${tag}.png` });
+      return page.evaluate(() => { const r = document.getElementById('apRow'), b = document.getElementById('btnNext'), q = b.getBoundingClientRect(); return { pips: document.getElementById('apPips').textContent, t: b.textContent, h: q.height, w: q.width, spd: !!document.getElementById('btnSpeed'), done: b.classList.contains('done'), big: b.classList.contains('big'), date: document.getElementById('date').textContent, over: document.documentElement.scrollWidth - window.innerWidth, row: r.getBoundingClientRect().height, g3: document.querySelector('#goal .g3').getBoundingClientRect().height }; }); };
+    const a3 = await apMain(3, '3'), a1 = await apMain(1, '1'), a0 = await apMain(0, '0');
+    if (a3.pips !== '◆◆◆' || a1.pips !== '◆◇◇' || a0.pips !== '◇◇◇') errors.push('行动点菱形不对：' + [a3.pips, a1.pips, a0.pips].join(' / '));
+    if (!/剩 3 点 → 打坐/.test(a3.t) || !a0.done) errors.push('【下一季】的小字 / 点花完变金不对：' + a3.t + ' / ' + a0.done);
+    if (a3.spd) errors.push('#btnSpeed 还在');
+    if (!/^第 \d+ 年 · [春夏秋冬]$/.test(a3.date)) errors.push('时间条日期应是“第 N 年 · 季”：' + a3.date);
+    if (a3.h < 44 || a3.over > 0 || a3.g3 <= 0) errors.push('行动点一行：按钮 ' + Math.round(a3.h) + 'px、溢出 ' + a3.over + 'px、目标卡第三行 ' + a3.g3);
+    await page.evaluate(() => { const { st } = window.__xm; st.pact = 0; st.tick = 33; st.ap.left = 3; window.__xm.updateHUD(); }); await page.waitForTimeout(350); await page.screenshot({ path: out + '/60-ap-big.png' });
+    const ab = await page.evaluate(() => ({ t: document.getElementById('btnNext').textContent, big: document.getElementById('btnNext').classList.contains('big') }));
+    if (!/赴约/.test(ab.t) || !ab.big) errors.push('本季末有大事：按钮应是【赴约 ▸】红边：' + ab.t);
+    await page.evaluate(() => { const { st } = window.__xm; st.pact = 1; st.tick = 120; window.__xm.updateHUD(); });
+    // 季末卡 / 年报
+    await page.evaluate(() => { const { st } = window.__xm; st.tick = 120; window.__xm.nextSeason(true); }); await page.waitForTimeout(500); await page.screenshot({ path: out + '/61-season.png' });
+    const sc = await page.evaluate(() => ({ t: (document.querySelector('#modal h2') || {}).textContent || '', b: [...document.querySelectorAll('#modal .foot .btn')].map(x => x.textContent) }));
+    if (!/结束/.test(sc.t) || sc.b.length !== 1) errors.push('季末卡：' + JSON.stringify(sc));
+    await close(); await close(); await close();
+    await page.evaluate(() => { const { st } = window.__xm; st.tick = 129; window.__xm.nextSeason(true); }); await page.waitForTimeout(600); await page.screenshot({ path: out + '/61b-year.png' });
+    if (!/年报/.test(await page.evaluate(() => (document.querySelector('#modal h2') || {}).textContent || ''))) errors.push('冬季的季末卡应是年报');
+    for (let i = 0; i < 6; i++) await close();
+    // 出发页（◆2 与扫荡）、洞府（闭关 / 打坐）、天骄榜（下战书）、宗门（投帖）
+    await page.evaluate(() => { const { st } = window.__xm; st.ap.left = 3; window.__xm.showExp(); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/62-exp.png' });
+    await page.evaluate(() => window.__xm.confirmExp(0, 0, 0)); await page.waitForTimeout(300); await page.screenshot({ path: out + '/62b-exp-confirm.png' });
+    await page.evaluate(() => window.__xm.showHome()); await page.waitForTimeout(300); await page.screenshot({ path: out + '/63-home-ap.png' });
+    await page.evaluate(() => window.__xm.showWorld('rank')); await page.waitForTimeout(300); await page.screenshot({ path: out + '/64-rank-ap.png' });
+    const sectSnap = await page.evaluate(() => JSON.stringify(window.__xm.st.sect));
+    await page.evaluate(() => { const { st } = window.__xm; st.sect = null; window.__xm.showWorld('sect'); }); await page.waitForTimeout(300); await page.screenshot({ path: out + '/65-sect-join.png' });
+    const scan = await page.evaluate(() => { const AP = window.__xm.L.AP, bad = []; let n = 0; for (const b of document.querySelectorAll('#modal [data-ap]')) { n++; const m = /◆(\d)/.exec(b.textContent); if (!m || +m[1] !== +b.dataset.ap) bad.push(b.textContent.trim().slice(0, 8)); } const j = document.querySelector('#modal [data-join]'); return { n, bad, join: j ? +j.dataset.ap === AP.join : false }; });
+    if (scan.bad.length || !scan.join) errors.push('宗门页【投帖】的 ◆ 角标不对：' + JSON.stringify(scan));
+    await page.evaluate(s => { window.__xm.st.sect = JSON.parse(s); window.__xm.closeModal(); }, sectSnap);
+    // 旧档迁移提示
+    await page.evaluate(() => { const { st } = window.__xm; const s = JSON.parse(JSON.stringify(st)); delete s.ap; s.tick = 121; s.flags.apHint = 0; window.__xm.loadState(s); }); await page.waitForTimeout(1200);
+    for (let i = 0; i < 8 && !/时间不再自己走/.test(await page.evaluate(() => (document.querySelector('#modal h2') || {}).textContent || '')); i++) { await page.evaluate(() => { const b = [...document.querySelectorAll('#modal .choices .btn:not([disabled]), #modal .foot .btn:not([disabled])')]; if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(450); }
+    await page.screenshot({ path: out + '/66-migrate-hint.png' });
+    if (!/时间不再自己走/.test(await page.evaluate(() => (document.querySelector('#modal h2') || {}).textContent || ''))) errors.push('旧档读进来没有迁移提示');
+    if (await page.evaluate(() => window.__xm.st.tick % 3 !== 0)) errors.push('旧档迁移后不在季界');
+    await close();
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   console.log(errors.length ? errors.join('\n') : 'no errors');
   await browser.close();

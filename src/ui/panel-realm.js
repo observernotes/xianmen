@@ -176,11 +176,10 @@ function realmLeaveUI() {
   const sum = L.mjLeave(st);
   if (sum) realmEndUI(sum);
 }
-// 结算：先把 3 个月走完（期间的论道、会武、拍卖照常排进弹窗队列），再弹收获
+// 结算：秘境不占时间（进门时已经花了行动点，AP_PLAN §2.2），直接弹收获；收获卡关掉后接着出它引出的戏（结算链）
 function realmEndUI(sum) {
   mjFx = null;
   syncRealmUI(true);
-  for (let k = 0; k < sum.ticks; k++) { L.flow(st, 1); onTick(); }
   saveLocal();
   const th = L.mjTheme(sum.theme), g = sum.got;
   const head = sum.how === 'clear' ? `打穿${sum.xf ? '仙府' : th.n + '秘境'}！` : sum.how === 'wipe' ? '重伤出局' : '全身而退';
@@ -189,13 +188,13 @@ function realmEndUI(sum) {
   const ci = sum.chest ? (sum.chest.items || []).filter(it => it.kind === 'a' || it.gear) : [];
   const chest = sum.chest ? `<div class="quote center">秘藏：<b>${esc(sum.chest.o.n)}</b>${ci.length ? '' : `<div class="fxlist">${sum.chest.texts.map(t => `<span>${esc(t)}</span>`).join('')}</div>`}</div>` + ci.map(it => (it.kind === 'a' ? artLine(it) : gearLine(it))).join('') : '';
   const rec = L.mjThRec(st, sum.theme);
-  const body = `<div class="center">${sum.how === 'clear' ? `${sum.floors} 层全过` : `走到第 ${sum.deep + (sum.how === 'wipe' ? 1 : 0)} 层${sum.how === 'wipe' ? '，气血打空' : ''}`} · 带回 <b>${sum.n}</b> 件${sum.how === 'wipe' ? `，丢了六成${g.lost ? `（${g.lost} 件没了）` : ''}；负伤 ${sum.inj} 月` : ''}</div>
+  const body = `<div class="center">${sum.how === 'clear' ? `${sum.floors} 层全过` : `走到第 ${sum.deep + (sum.how === 'wipe' ? 1 : 0)} 层${sum.how === 'wipe' ? '，气血打空' : ''}`} · 带回 <b>${sum.n}</b> 件${sum.how === 'wipe' ? `，丢了六成${g.lost ? `（${g.lost} 件没了）` : ''}；负伤（${seasonsT(st.p.inj)}痊愈）` : ''}</div>
     ${sum.first ? `<div class="big goldt center">首通 · 称号「${esc(sum.first)}」</div>` : ''}
     ${plain.length ? `<div class="fxlist">${plain.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : '<p class="muted center">两手空空。</p>'}
     ${items.map(it => (it.kind === 'a' ? artLine(it) : it.gear ? gearLine(it) : '')).join('')}${chest}
-    <p class="muted center">${th.n}秘境：最深 ${rec.deep} 层${sum.newDeep ? '（新纪录）' : ''} · 通关 ${rec.clears} 次 · 合计通关 ${L.mjRec(st).clears || 0} 次${sum.ticks ? ` · 出来时 ${sum.ticks} 个月过去了` : ''}</p>`;
+    <p class="muted center">${th.n}秘境：最深 ${rec.deep} 层${sum.newDeep ? '（新纪录）' : ''} · 通关 ${rec.clears} 次 · 合计通关 ${L.mjRec(st).clears || 0} 次</p>`;
   if (sum.how === 'clear') SFX.goal(); else if (sum.how === 'wipe') SFX.fail(); else SFX.coin();
-  mjSheet({ title: head, center: true, noClose: true, body, foot: [{ t: '回洞府', gold: true, fn: closeModal }] });
+  mjSheet({ title: head, center: true, noClose: true, body, foot: [{ t: '回洞府', gold: true, fn: () => { closeModal(); settle('act'); } }] });
 }
 
 // ---------- 商 ----------
@@ -236,15 +235,15 @@ function showRealmChest() {
 // ---------- 入口 ----------
 function realmStatus(xf) {
   const why = L.mjWhy(st, xf), w = L.realmWindow(st);
-  if (!why) return xf ? '免令' : `开着 · 剩 ${w.left} 月`;
+  if (!why) return xf ? '免令' : `开着 · 剩 ${seasons(w.left)} 季`;
   return why;
 }
 // 历练页最上面那一格（秘境解锁后才有；仙府现世时另有一格）
 function realmExpCard() {
   if (!L.mjUnlocked(st)) return '';
   const th = L.mjThemeNow(st), why = L.mjWhy(st), w = L.realmWindow(st), tk = L.mjTokens(st);
-  let h = `<div class="card" data-mj="0" id="mjCard">${icon16('token', 2)}<div class="main"><div class="line"><span>秘境 · ${th.n}</span>${elChip(th.el)}<span class="muted">秘境令 ${tk}/${L.MJ.tokenMax}</span></div><div class="muted">${esc(th.d)}</div><div class="muted">${w.open ? `今夏还开 ${w.left} 月` : `入夏开放（${w.in} 月后）`} · ${L.mjFloors(st)} 层 · 局中时间不走</div></div><div class="right"><span class="chip ${why ? '' : 'ok'}">${why ? (w.open ? '无令' : '未开') : '可进'}</span></div></div>`;
-  if (L.mjXianfu(st)) h = `<div class="card" data-mj="1" style="box-shadow:0 0 0 2px var(--gold)">${icon16('w_xianfu', 2)}<div class="main"><div class="goldt">仙府现世 · 免令进一次</div><div class="muted">${L.MJ.xianfu.floors} 层，秘藏四选一，还剩 ${L.worldLeft(st)} 月</div></div><div class="right"><span class="chip ok">可进</span></div></div>` + h;
+  let h = `<div class="card" data-mj="0" id="mjCard">${icon16('token', 2)}<div class="main"><div class="line"><span>秘境 · ${th.n}</span>${elChip(th.el)}<span class="muted">秘境令 ${tk}/${L.MJ.tokenMax}</span></div><div class="muted">${esc(th.d)}</div><div class="muted">${w.open ? `今夏还开 ${seasons(w.left)} 季` : `入夏开放（${seasons(w.in)} 季后）`} · ${L.mjFloors(st)} 层 · 局中时间不走</div></div><div class="right"><span class="chip ${why ? '' : 'ok'}">${why ? (w.open ? '无令' : '未开') : '可进'}</span></div></div>`;
+  if (L.mjXianfu(st)) h = `<div class="card" data-mj="1" style="box-shadow:0 0 0 2px var(--gold)">${icon16('w_xianfu', 2)}<div class="main"><div class="goldt">仙府现世 · 免令进一次</div><div class="muted">${L.MJ.xianfu.floors} 层，秘藏四选一，还剩 ${seasons(L.worldLeft(st))} 季</div></div><div class="right"><span class="chip ok">可进</span></div></div>` + h;
   return h;
 }
 function bindRealmCard(root) { root.querySelectorAll('[data-mj]').forEach(c => c.onclick = () => { SFX.tap(); showRealm(c.dataset.mj === '1'); }); }
@@ -261,12 +260,15 @@ function showRealm(xf) {
   const body = `<div class="mjroom">${doorImg('unk', pxs(32, 1.5))}<div class="grow"><div>${xf ? '仙府现世 · ' : ''}${esc(th.n)}秘境 ${elChip(th.el)}</div><div class="${el.m > 1 ? 'jadet' : el.m < 1 ? 'seal' : 'muted'}">${elTxt}</div></div></div>
     <div class="pn-stats"><div><small>层数</small><b>${floors} 层</b></div><div><small>气血</small><b class="num">${max}</b></div><div><small>你 / 第一层</small><b class="num ${me >= f1 ? 'jadet' : 'seal'}">${fmt(me)}/${fmt(f1)}</b></div></div>
     <div class="muted">每层战斗掉的气血：</div><div class="mjfloor">${dm.join('')}</div>
-    <details class="more"><summary>规则 · 战绩</summary><div class="muted">${esc(th.d)}<br>气血 ${max} = ${hpParts}；每层 ${L.mjDoorN(st)} 扇门，“？”门 ${L.pct(L.mjUnkP(st))}；敌人每层战力 ×${L.MJ.powStep}，精英房掉血 ×${L.MJ.elite}。<br>每过一层可以带着收获离开；气血归零重伤出局：收获丢六成，负伤 ${L.MJ.wipeInj} 月。局中时间不走，出来时流逝 ${L.mjCost(st)} 月。${xf ? '' : `秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}。`}<br>${esc(th.n)}秘境：最深 ${r.deep} 层 · 通关 ${r.clears} 次${r.clears ? '' : `（首通称号「${esc(th.title)}」）`}</div></details>`;
-  mjSheet({ title: xf ? '仙府现世' : '秘境 · ' + th.n, body, foot: [{ t: '不去', alt: true, fn: closeModal }, { t: why ? why : xf ? '进仙府<small> 免令</small>' : `进入<small> 令 ${L.mjTokens(st)} → ${L.mjTokens(st) - 1}</small>`, gold: !why, disabled: !!why, fn: () => realmEnterUI(xf) }] });
+    <details class="more"><summary>规则 · 战绩</summary><div class="muted">${esc(th.d)}<br>气血 ${max} = ${hpParts}；每层 ${L.mjDoorN(st)} 扇门，“？”门 ${L.pct(L.mjUnkP(st))}；敌人每层战力 ×${L.MJ.powStep}，精英房掉血 ×${L.MJ.elite}。<br>每过一层可以带着收获离开；气血归零重伤出局：收获丢六成，负伤 ${seasons(L.MJ.wipeInj)} 季。局中时间不走，进门花 ${L.apCost(st, 'realm')} 点行动点。${xf ? '' : `秘境令 ${L.mjTokens(st)}/${L.MJ.tokenMax}。`}<br>${esc(th.n)}秘境：最深 ${r.deep} 层 · 通关 ${r.clears} 次${r.clears ? '' : `（首通称号「${esc(th.title)}」）`}</div></details>`;
+  const ab = apBtn('realm', { xf }), w2 = why || ab.why;
+  const ms = mjSheet({ title: xf ? '仙府现世' : '秘境 · ' + th.n, body, foot: [{ t: '不去', alt: true, fn: closeModal }, { t: w2 ? w2 : xf ? `进仙府${ab.tag}<small> 免令</small>` : `进入${ab.tag}<small> 令 ${L.mjTokens(st)} → ${L.mjTokens(st) - 1}</small>`, gold: !w2, disabled: !!w2, fn: () => realmEnterUI(xf) }] });
+  if (ms) apMark(ms);
 }
+// 进门 = 'realm' 行动（2 点；传送阵 9 级 1 点）
 function realmEnterUI(xf) {
-  const run = L.mjEnter(st, { xf });
-  if (!run) return;
+  const run = L.act(st, 'realm', { xf });
+  if (!run) { SFX.fail(); sayLine(L.actLastWhy || '进不去'); return; }
   closeModal();
   SFX.reveal(4);
   banner(mjName(run), `${run.floors} 层 · 气血 ${run.max}`);
@@ -286,7 +288,7 @@ const inRealm = () => !!st.run && st.run.phase === 'door' && !mjFx && !modalOpen
 const realmHints = [
   { id: 'realmOpen', intro: true, when: () => st.guide.done && L.mjCan(st) && !modalOpen() && !L.busy(st), target: '[data-nav="exp"]', btn: '好', text: () => {
       const th = L.mjThemeNow(st), w = L.realmWindow(st);
-      return `入夏了，<b>秘境</b>开着（还剩 <b>${w.left}</b> 月）：今年是<b>${th.n}秘境</b>（${L.elName(th.el)}），你手里有 <b>${L.mjTokens(st)}</b> 枚秘境令，进一次用一枚。【历练】最上面那一格。里面时间不走，出来只算 ${L.mjCost(st)} 个月。`;
+      return `入夏了，<b>秘境</b>开着（还剩 <b>${seasons(w.left)}</b> 季）：今年是<b>${th.n}秘境</b>（${L.elName(th.el)}），你手里有 <b>${L.mjTokens(st)}</b> 枚秘境令，进一次用一枚。【历练】最上面那一格。里面时间不走，出来只算 ${seasons(L.mjCost(st))} 季。`;
     } },
   { id: 'realm1', urgent: true, intro: true, when: inRealm, target: '#realmDoors', btn: '然后呢', text: () => {
       const run = st.run, d = L.mjDmg(st, 'fight', run.floor, run), last = L.mjDmg(st, 'boss', run.floors, run);
@@ -294,7 +296,7 @@ const realmHints = [
     } },
   { id: 'realm2', urgent: true, intro: true, when: () => inRealm() && !!st.hintSeen.realm1, target: '#realmHp', btn: '嗯', text: () => {
       const run = st.run;
-      return `左上角是<b>气血 ${run.hp}/${run.max}</b>：只掉不回，除非碰上泉（<b>+${L.MJ.spring}</b>）。打空了就是重伤出局——这趟的收获丢<b>六成</b>，还要负伤 <b>${L.MJ.wipeInj}</b> 个月。`;
+      return `左上角是<b>气血 ${run.hp}/${run.max}</b>：只掉不回，除非碰上泉（<b>+${L.MJ.spring}</b>）。打空了就是重伤出局——这趟的收获丢<b>六成</b>，还要负伤 <b>${seasons(L.MJ.wipeInj)}</b> 季。`;
     } },
   { id: 'realm3', urgent: true, intro: true, when: () => inRealm() && !!st.hintSeen.realm2, btn: '明白', text: () => {
       const run = st.run;

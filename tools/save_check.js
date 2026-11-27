@@ -229,9 +229,11 @@ const sizes = {};
     const adv = async (n, pg) => {
       pg = pg || page; const e = (fn, x) => pg.evaluate(fn, x);
       for (let i = 0; i < n; i++) {
+        if (process.env.SVDBG) console.log('    adv', JSON.stringify(await e(() => ({ t: window.__xm.st.tick, b: window.__xm.busyUI, c: window.__xm.chainOn, m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent, tk: !!(window.__xm_talk && window.__xm_talk.on), x: !!window.__xm.st.exp, r: !!window.__xm.st.run, q: window.__xm.queueLen }))));
         if (await e(() => typeof window.__xm.nextSeason === 'function')) await e(() => window.__xm.nextSeason());
         else await e(() => { const X = window.__xm; for (let m = 0; m < 3; m++) { X.L.flow(X.st, 1); X.onTick(); } });
-        for (let g = 0; g < 30; g++) { if (!(await e(() => !document.getElementById('modal').hidden && !window.__xm.cine))) break; await e(() => window.__xm.closeModal()); await pg.waitForTimeout(120); }
+        // 结算链没出完时【下一季】点不动（__xm.busyUI）：一张一张关到链出完
+        for (let g = 0; g < 60; g++) { if (!(await e(() => window.__xm.busyUI === undefined ? !document.getElementById('modal').hidden && !window.__xm.cine : window.__xm.busyUI))) break; await e(() => { const X = window.__xm; if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(b => !/出发|扫荡|再去/.test(b.textContent)); if (f.length) f[f.length - 1].click(); else X.closeModal(); }); await pg.waitForTimeout(150); }
       }
     };
     // 旧档：升级前那一份（只有 xiantu_save_v2、没有索引）
@@ -291,7 +293,7 @@ const sizes = {};
     // 接着玩 10 季（30 个月）
     await adv(10);
     await page.waitForTimeout(600);
-    check(!errs.length && (await ev(() => window.__xm.st.tick)) >= t0 + 30, `读档后接着过 10 季：tick ${await ev(() => window.__xm.st.tick)}，${errs.length ? '报错 ' + errs[0] : '无报错'}`);
+    check(!errs.length && (await ev(() => window.__xm.st.tick)) >= Math.ceil(t0 / 3) * 3 + 27, `读档后接着过 10 季（这份档是逐月推出来的，第一季只补到季界）：tick ${await ev(() => window.__xm.st.tick)}，${errs.length ? '报错 ' + errs[0] : '无报错'}`);
     await ev(() => { for (let i = 0; i < 6; i++) if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(450);
     // 删除手动 1
     await ev(() => window.__xm.showSlot('m', 0)); await page.waitForTimeout(200);
@@ -333,7 +335,7 @@ const sizes = {};
     // 旧档读进新界面（AP_PLAN §7、§6.4）：在外历练 / 闭关中 / tick % 3 = 1 / 第三章散修（形状见上面逻辑部分的 OLD）。每个形状一个全新的浏览器上下文（localStorage 不串）
     for (const [k, label] of [['exp', '在外历练'], ['ret', '闭关中'], ['tick1', 'tick % 3 = 1'], ['lone3', '第三章散修']]) {
       const c2 = await b.newContext(opts), p2 = await c2.newPage(), e2 = (fn, x) => p2.evaluate(fn, x), er2 = [];
-      p2.on('pageerror', e => er2.push(e.message)); p2.on('console', m => { if (m.type() === 'error') er2.push('console: ' + m.text()); });
+      p2.on('pageerror', e => er2.push(e.message + (process.env.SVDBG ? ' @ ' + String(e.stack || '').split('\n').slice(1, 4).join(' | ') : ''))); p2.on('console', m => { if (m.type() === 'error') er2.push('console: ' + m.text()); });
       await p2.goto(url); await p2.waitForTimeout(300);
       const json = JSON.stringify(Object.assign(JSON.parse(OLD[k]), { guide: { step: 99, done: true }, hintSeen: {} }));
       await e2(j => { localStorage.clear(); localStorage.setItem('xiantu_save_v2', j); }, json);
@@ -344,11 +346,11 @@ const sizes = {};
       const okLoad = r.ok && !r.exp && !r.ret && r.m3 === 0 && r.ap;
       check(okLoad, `${dev} 旧档（${label}）：读进来后没有在外 / 闭关中、tick 在季界、st.ap 已迁` + (okLoad ? '' : ' ' + JSON.stringify(r)));
       if (k === 'exp') check(!r.speedBtn, `[C] ${dev}：#btnSpeed 不存在（速度键已删）`);
-      // 第一条链：一张一张关掉（至多 14 张），期间的字都收下来，看有没有那条一次性的提示
-      for (let g = 0; g < 14; g++) {
+      // 第一条链：一张一张点掉（至多 30 张：旧档迁移会把压着的戏连着补出来），期间的字都收下来，看有没有那条一次性的提示
+      for (let g = 0; g < 30; g++) {
         text += await e2(() => document.body.innerText);
-        if (!(await e2(() => !document.getElementById('modal').hidden || !!window.__xm.cine))) break;
-        await e2(() => { const X = window.__xm; if (!document.getElementById('modal').hidden) X.closeModal(); }); await p2.waitForTimeout(400);
+        if (!(await e2(() => !document.getElementById('modal').hidden || !!window.__xm.cine || !!(window.__xm_talk && window.__xm_talk.on) || !!window.__xm.busyUI))) break;
+        await e2(() => { const X = window.__xm; if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } if (document.getElementById('modal').hidden) return; const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')].filter(b => !/出发|扫荡|再去/.test(b.textContent)); if (f.length) f[f.length - 1].click(); else X.closeModal(); }); await p2.waitForTimeout(400);
       }
       check(/时间不再自己走了/.test(text), `[C] ${dev} 旧档（${label}）：读档后出一次提示“时间不再自己走了。每季 3 点行动点，用完点【下一季】。”`);
       await adv(1, p2);

@@ -57,7 +57,7 @@ function guideTick() {
   // U04：筑基后灵兽蛋上架
   if (p.r >= 1 && L.marketOpen(st, 'egg') && !L.petCount(st)) tip('u04', `灵兽蛋上架了，${fmt(L.price(st, 'egg'))} 灵石一枚。灵宠最低也让战力 ×${L.PETS[1].m}。【坊市】。`);
   // U14：金丹后能连续历练
-  if (L.chainOpen(st) && !st.rebirth) tip('u14', '嫌一趟趟点麻烦：出发页勾“连续 ×3”，回来一起结算（丁等、遭遇或修为圆满时中断）。');
+  if (L.sweepOpen && L.sweepOpen(st) && !st.rebirth) tip('u14s', '扫荡开了：拿过甲、战力到推荐 ×1.8 的格子，出发页点【扫荡 ◆1】，不播战斗直接结算。');
   // U17：成为宗主
   if (st.sect && st.sect.rank >= 6) tip('u17', `现在这座山是你的了。【宗门】里多了建设，灵石有去处了；九宗会武改成三人战，带两个徒弟上。`, { big: true });
   // S11：第一次拿到丁等（历练结算之后）
@@ -68,13 +68,13 @@ function guideTick() {
 registerGuide([
   { id: 'meetSoon', intro: true, urgent: true, target: BIG, btn: '好', when: () => !!st.sect && L.sectOf(st) && !st.sect.meets && !modalOpen() && !L.busy(st) && L.nextMeet(st) <= 6 && L.nextMeet(st) > 0, text: () => {
       const pos = L.sectPos(st), q = pos === 1 ? 2 : pos - 1, N = L.nineAt(st, q) || {}, Q = L.ninePower(st, q), fo = { kind: 'sect', id: N.id }, S = L.duelPower(st, fo);
-      return `<b>九宗会武</b>还有 <b>${L.nextMeet(st)}</b> 个月。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
+      return `<b>九宗会武</b>还有 <b>${seasons(L.nextMeet(st))}</b> 季。你代表${esc(L.sectOf(st).n)}出战，本宗天下第 <b>${pos}</b>，上一位${esc(N.n || '')}的代表${esc(N.champ || '')}战力约 <b>${fmt(Q)}</b>，你 <b>${fmt(S)}</b>，胜算 <b>${L.pct(L.duelP(st, S, Q, fo))}</b>。赢一场宗门升一位，俸禄跟着涨。`;
     } },
 ]);
 // 分类：新手头一章的固定讲解（DESIGN §4.2 E10～E14、U03、U05、U07）只隔 1 个月
-for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
+for (const id of ['field', 'retreat', 'retBtn', 'visitor', 'depth', 'sect', 'tourSoon', 'alch']) { const h = HINTS.find(x => x.id === id); if (h) h.core = true; }
 // 分类：DESIGN 写成气泡的，从阻塞讲解改成气泡（不暂停、不占讲解名额）
-for (const id of ['market', 'furnace', 'me', 'heal', 'depth', 'tuna']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
+for (const id of ['market', 'furnace', 'me', 'heal', 'depth']) { const h = HINTS.find(x => x.id === id); if (h) h.bubble = true; }
 { const h = HINTS.find(x => x.id === 'boss'); if (h) { h.bubble = true; h.bigBubble = true; } }
 // 每段阻塞讲解都高亮一个要点的按钮：秘境第三句指“带着收获离开”（没有就指门）
 { const h = HINTS.find(x => x.id === 'realm3'); if (h && !h.target) Object.defineProperty(h, 'target', { get: () => (document.querySelector('#realmLeave') ? '#realmLeave' : '#realmDoors'), configurable: true }); }
@@ -89,12 +89,8 @@ function chapSnap() {
   const at = st.flags.chapAt || (st.flags.chapAt = {}), ch = Math.min(8, st.p.r);
   if (!at[ch]) at[ch] = { t: st.tick, exp: st.stats.exp || 0, rank: st.rank, pw: Math.round(L.power(st)) };
 }
-// 排队等弹：超过 6 个月还没轮上（一直在忙）、或者已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
-function chapterDone(ch) { if (ch < L.chapterNow(st) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }
-function chapPump() {
-  if (!chapPend.length || !st || !$('#guide').hidden || modalOpen() || cine || duelFx || !$('#intro').hidden) return;
-  if (performance.now() - guideModalAt < 1500 || performance.now() < guideQuiet) return;
-  const x = chapPend.shift();
-  showChapterCard(x.ch);
-}
+// 排队等结算链出：已经是更早章节的“未了之事”就不弹了，只留老祖一句气泡
+function chapterDone(ch) { if (L.blockRun) return; if (ch < L.chapterNow(st) - 1) { chapterTip(ch); return; } if (!chapPend.some(x => x.ch === ch)) chapPend.push({ ch, t: st.tick }); }   // 线 B：章末卡是结算链的 'chapter' 块
+// 章末卡由结算链出（settle.js 的 chainPump：这一章的高潮 / 收尾戏之后、下一章的戏之前），不看真实时间；这里只留个名字给旧的包装
+function chapPump() { /* 结算链接管 */ }
 // 章末结算卡 showChapterCard：panel-path.js（开罗式重整 §2.3）

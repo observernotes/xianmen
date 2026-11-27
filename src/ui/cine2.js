@@ -319,7 +319,7 @@ let cn = null;   // 正在播：{ id, key, shots, i, t, root, cv, g, wg, sg, k, 
 const cnFast = () => { const x = window.__xm_cine; if (x && typeof x.fast === 'boolean') return x.fast; return !!navigator.webdriver; };
 const cnOn = () => !!cn;
 // 有排着的过场且人在洞府：章末卡、解锁卡让一让
-const cnHold = () => !!cn || !!(st && st.cnQ && st.cnQ.length && !awayUI());
+const cnHold = () => !!cn || !!(st && st.cnQ && st.cnQ.length && !tripUI());
 function cnMount(intro) {
   const root = document.createElement('div');
   root.className = 'cn-wrap' + (intro ? ' story cn-in' : '');
@@ -456,7 +456,7 @@ function playCine(id, o) {
   if (!CINE[id0]) return Promise.resolve(false);
   const key = cnKeyOf(id0, o0);
   if (cineSeen(key) || (st && st.cnQ && st.cnQ.some(x => x.key === key))) return Promise.resolve(false);
-  if (st && (cn || (awayUI() && !CN_NOW[id0]))) { cineWant(id, o); return Promise.resolve(false); }
+  if (st && (cn || (tripUI() && !CN_NOW[id0]))) { cineWant(id, o); return Promise.resolve(false); }
   return cinePlay(id, o);
 }
 // cineWant(id, o)：排队，等回洞府、弹窗空下来再播（processQueue 先放它）
@@ -473,7 +473,7 @@ function cineWant(id, o) {
 }
 // 排着的放一段：人在洞府、没有弹窗 / 对决 / 开场 / 别的过场
 function cnFlush() {
-  if (!st || !st.cnQ || !st.cnQ.length || cn || cine || duelFx || awayUI() || !$('#modal').hidden || !$('#intro').hidden) return false;
+  if (!st || !st.cnQ || !st.cnQ.length || cn || cine || duelFx || tripUI() || !$('#modal').hidden || !$('#intro').hidden) return false;
   const x = st.cnQ.shift();
   if (cineSeen(x.key)) return cnFlush();
   cinePlay(x.id, x.o);
@@ -566,7 +566,7 @@ const cnPactOrig = () => !(L.pactText && L.pactText(st));
 { const fb0 = L.fightBoss; L.fightBoss = function (s, k) { const r = fb0.apply(this, arguments); if (s === st && r && r.win && !r.again) cineWant('boss', { k }); return r; }; }
 // 首领首杀之后的结果卡（C1 的回合战首领 bossResultUI，牌翻在卡上）与单独一张翻牌（showLootFlip）：排着的首领过场插在它们之前播
 const cnBossFirst = fn => function () {
-  const a = arguments, i = st && st.cnQ && !cn && !awayUI() ? st.cnQ.findIndex(x => x.id === 'boss') : -1;
+  const a = arguments, i = st && st.cnQ && !cn && !tripUI() ? st.cnQ.findIndex(x => x.id === 'boss') : -1;
   if (i < 0) return fn.apply(this, a);
   const x = st.cnQ.splice(i, 1)[0];
   cnAfter(cinePlay(x.id, x.o), () => fn.apply(this, a));
@@ -579,7 +579,7 @@ if (typeof showLootFlip === 'function') showLootFlip = cnBossFirst(showLootFlip)
 { const du0 = duel; duel = function (o) {
   const a = arguments, nm = o && o.right && o.right.name;
   const id = st && nm ? ['zhao', 'chu', 'xue'].find(r => L.rivalName(st, r) === nm) : null;
-  if (!id || cineSeen('rival:' + id) || awayUI()) return du0.apply(this, a);
+  if (!id || cineSeen('rival:' + id) || tripUI()) return du0.apply(this, a);
   cnAfter(cinePlay('rival', { id }), () => du0.apply(this, a));
 }; }
 // 【仙途 → 记录】加一行“回忆”

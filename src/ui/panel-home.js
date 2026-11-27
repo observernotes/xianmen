@@ -4,28 +4,29 @@
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
  * 闭关的花费、倍率、疲劳、多得多少修为都取自 L.retInfo；建筑的“值不值”取自 L.upInfo / L.homeDelta；阵法的数取自 L.zhenEffect。 */
 // ---------- 洞府 ----------
+// 闭关 ◆2：当场得修为（AP_PLAN §3.2），写“修为 +N（约 4.3 月）”；打坐 ◆1：+N（剩下的点季末也会自动打坐）
 function retreatCard() {
-  if (st.retreat) {
-    const r = st.retreat, nm = L.retName(r);
-    return pnRow({ ic: iconHTML('disc', 30), nm: `${nm}中`, badge: `<span class="chip ok">修炼 ×${r.m.toFixed(2)}</span>`, k: `还剩 ${r.left} 月 · 修为 +${fmt(r.got)}`,
-      right: '<button class="btn sm alt" id="btnRetEnd">提前出关</button>' });
-  }
   if (!L.retOpen(st)) return '';   // 没开的不出现（docs/ONBOARDING.md §2.3）
-  // 闭关：一行 = 倍率角标 + 多得的修为 + 价钱按钮；顿悟、疲劳、静室收进卡片里
-  const ri = L.retInfo(st), ok = !ri.why;
+  const ri = L.retInfo(st), ab = apBtn('retreat'), why = ri.why || ab.why, ok = !why, got = ri.gotNow !== undefined ? ri.gotNow : ri.extra, mo = got / Math.max(1e-9, L.gainCalm(st));
   const tired = ri.tired ? `<div class="pn-line seal">连着第 ${ri.streak + 1} 次闭关：倍率 ×${ri.m0.toFixed(2)} → ×${ri.m.toFixed(2)}（出门历练一趟就恢复）</div>` : '';
-  return pnFold('ret', { ic: iconHTML('disc', 30), nm: `闭关 · ${ri.len} 月`, badge: `<span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span>`,
-    k: ok ? `修为 <b class="pn-up">+${fmt(ri.extra)}</b>` : `<span class="seal">${esc(ri.why)}</span>`,
-    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}</button>`,
-    body: `<div class="pn-line">比打坐多得修为 +${fmt(ri.extra)}${ri.save ? `，本层提前 ${ri.save} 月` : ''}</div>${tired}
-      <div class="pn-line">出关 ${L.pct(ri.epi)} 顿悟，再得 ${L.RET.epiTicks} 月修为 · 期间不能历练${L.home2On() ? (st.home.room ? ` · 静室 Lv${st.home.room}` : L.homeUnlocked(st, 'room') ? ' · 建静室能加倍率' : '') : ''}</div>` });
+  return pnFold('ret', { ic: iconHTML('disc', 30), nm: '闭关', badge: `<span class="chip ${ri.tired ? 'warn' : 'ok'}">修炼 ×${ri.m.toFixed(2)}</span>`,
+    k: ok ? `修为 <b class="pn-up">+${fmt(got)}</b>（约 ${L.fmt1(mo)} 月）` : `<span class="seal">${esc(why)}</span>`,
+    right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnRet" data-ap="${ab.n}" ${ok ? '' : 'disabled'}>${ri.free ? '免费' : `${iconHTML('stone', 12)} ${fmt(ri.cost)}`}${ab.tag}</button>`,
+    body: `<div class="pn-line">当场出关：比打坐多得修为 +${fmt(got)}${ri.save ? '，本层提前一截' : ''}</div>${tired}
+      <div class="pn-line">出关 ${L.pct(ri.epi)} 顿悟，再得 ${L.RET.epiTicks} 月修为${L.home2On() ? (st.home.room ? ` · 静室 Lv${st.home.room}` : L.homeUnlocked(st, 'room') ? ' · 建静室能加倍率' : '') : ''}</div>` });
+}
+function sitCard() {
+  if (st.p.r > L.MAXR) return '';
+  const ab = apBtn('sit'), g = L.sitGain(st, 1);
+  return pnRow({ ic: iconHTML('disc', 30), nm: '打坐', k: `修为 <b class="pn-up">+${fmt(g)}</b>${L.sitMult(st) > 1 ? `（引气诀 ×${L.fmt1(L.sitMult(st))}）` : ''}`,
+    right: `<button class="btn sm ${ab.why ? 'alt' : 'gold'}" id="btnSit" data-ap="${ab.n}" ${ab.why ? 'disabled' : ''}>打坐${ab.tag}</button>` });
 }
 function healCard() {
   if (!(st.p.inj > 0)) return '';
   // 先用丹囊里的疗伤丹，没有再用破境丹（alchemy.js 的 L.heal）
   const ok = L.canHeal(st), w = L.healWith(st), nl = L.bagN(st, 'liaoshang');
   const how = w === 'liaoshang' ? `服一枚疗伤丹立刻痊愈（丹囊里 ${nl} 枚）` : `服一枚破境丹立刻痊愈（你有 ${st.pills} 枚${st.home.furnace ? `；疗伤丹 ${fmt(L.herbCost(st, L.RECIPE.liaoshang))} 灵草一炉，省下破境丹` : ''}）`;
-  return pnFold('heal', { cls: 'pn-sel', ic: pillImg(w === 'liaoshang' ? 'liaoshang' : 'pojing', 2), nm: `<span class="seal">负伤 · 还剩 ${st.p.inj} 月</span>`, k: '<span class="pn-dn">战力 ×0.6 · 修炼 ×0.5</span>',
+  return pnFold('heal', { cls: 'pn-sel', ic: pillImg(w === 'liaoshang' ? 'liaoshang' : 'pojing', 2), nm: `<span class="seal">负伤 · ${seasonsT(st.p.inj)}痊愈</span>`, k: '<span class="pn-dn">战力 ×0.6 · 修炼 ×0.5</span>',
     right: `<button class="btn sm ${ok ? 'gold' : 'alt'}" id="btnHeal" ${ok ? '' : 'disabled'}>服丹疗伤</button>`,
     body: `<div class="pn-line">${how}${ok ? '' : `；坊市 ${fmt(L.price(st, 'pill'))} 灵石一枚`}</div>` });
 }
@@ -69,14 +70,14 @@ function homeFnRow(k) {
   if (k === 'array') {
     if (!L.zhenOpen(st)) return `<div class="muted">布着聚灵阵：${esc(L.zhenEffect(st, 'f_juling'))}。${L.home2On() ? '筑基后期能换别的阵法。' : ''}</div>`;
     const z = L.zhenState(st), sl = L.zhenSlots(st);
-    const one = (s, j) => (!s.id && !s.nx ? (j ? '<div class="muted">第二阵位空着</div>' : '') : `<div class="zline">${sigilImg(s.id || s.nx, 1.5)}<span>${s.id ? `${esc(L.zhenName(s.id))}：${esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1))}` : ''}${s.nx ? ` <span class="chip warn">布阵中 ${Math.max(1, s.at - st.tick)} 月 → ${esc(L.zhenName(s.nx))}</span>` : ''}</span></div>`);
+    const one = (s, j) => (!s.id && !s.nx ? (j ? '<div class="muted">第二阵位空着</div>' : '') : `<div class="zline">${sigilImg(s.id || s.nx, 1.5)}<span>${s.id ? `${esc(L.zhenName(s.id))}：${esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1))}` : ''}${s.nx ? ` <span class="chip warn">布阵中 · ${seasonsT(Math.max(1, s.at - st.tick))} → ${esc(L.zhenName(s.nx))}</span>` : ''}</span></div>`);
     return `${one(z[0], 0)}${sl >= 2 ? one(z[1], 1) : ''}<button class="btn sm alt" data-go="zhen">换阵 · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}</button>`;
   }
   if (k === 'field') return L.plotCount(st) ? `<button class="btn sm alt" data-go="field">进灵田 · ${L.plotCount(st)} 块</button>` : '';
   if (k === 'furnace') return `<button class="btn sm alt" data-go="alch">炼丹房 · 灵草 ${fmt(st.herbs)}</button>`;
   if (k === 'forge') return L.gearOpen(st, 'forge') ? `<button class="btn sm alt" data-go="forge">打造 · 器方 ${Object.keys(st.gear.plans).length} 张</button>` : `<div class="muted">${esc(L.gearOpenWhy(st, 'forge'))}；强化在【人物】→ 法宝</div>`;
   if (k === 'pen') return L.petCount(st) || (st.petPend || []).length ? `<button class="btn sm alt" data-go="pets">灵宠 · ${L.petCount(st)}/${L.petCap(st)}</button>` : '<div class="muted">还没有灵宠：坊市灵兽蛋、采药偶遇</div>';
-  if (k === 'room') { const ri = L.retInfo(st); return `<div class="muted">闭关 ×${ri.m0.toFixed(2)}（静室 +${(L.HV.roomRet * st.home.room).toFixed(2)}）· 出关顿悟 ${L.pct(ri.epi)}</div>${L.canRetreat(st) ? `<button class="btn sm alt" data-go="ret">闭关 · ${ri.free ? '免费' : fmt(ri.cost) + ' 灵石'}</button>` : ''}`; }
+  if (k === 'room') { const ri = L.retInfo(st); return `<div class="muted">闭关 ×${ri.m0.toFixed(2)}（静室 +${(L.HV.roomRet * st.home.room).toFixed(2)}）· 出关顿悟 ${L.pct(ri.epi)}</div>${L.canRetreat(st) ? `<button class="btn sm alt" data-go="ret" data-ap="${L.AP.retreat}">闭关${apTag(L.AP.retreat)} · ${ri.free ? '免费' : fmt(ri.cost) + ' 灵石'}</button>` : ''}`; }
   if (k === 'library') { const n = L.COMBOS.filter(c => !st.meta.combo[c.id] && (st.meta.chint || {})[c.id]).length; return `<button class="btn sm alt" data-go="arts">功法 · 共鸣提示 ${n} 条</button>`; }
   if (k === 'vault' && L.sellOpen(st)) return '<button class="btn sm alt" data-go="market">坊市行情</button>';
   return '';
@@ -136,7 +137,7 @@ function showHome(still, sel) {
   const caveCard = `<div class="kslot"><div class="cell">${iconHTML('build', 32)}</div><div class="mid"><div class="nm">洞府 · ${L.caveName(st.home.cave)} <span class="p">Lv${st.home.cave}</span></div><small>${cu.max ? '已满级' : cu.lock ? esc(pnShort(cu.lock, 12)) : nx && nx > st.home.cave + 1 ? `寿元 +5% · ${nx} 级多一块地` : '寿元 +5%'}${L.homeOver(st) ? ` · <span class="kdn">超出 ${L.homeOver(st)} 块</span>` : ''}</small></div>${cu.max ? '' : `<button class="kb ${cCan ? '' : 'alt'}" data-k="cave" ${cCan ? '' : 'disabled'}>${cu.lock ? '未开' : `升级<br><small>${fmt(cu.cost)}</small>`}</button>`}</div>`;
   const alch = '';   // 灵田、炼丹、阵法改成分页（meTabs('home')）；兽栏在【装备】→ 灵宠，器炉在【装备】→ 法宝
   // 洞府本体扩建（寿元、多开地块）：丹炉开了以后才出现（docs/ONBOARDING.md：第一章只有聚灵阵和闭关）
-  const body = meTabs('home') + healCard() + (UI.isOpen('retreat') || st.retreat ? retreatCard() : '') + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
+  const body = meTabs('home') + healCard() + (UI.isOpen('retreat') ? retreatCard() : '') + sitCard() + `<div class="hgrid${full ? '' : ' few'}" id="homeGrid">${tiles.join('')}</div>` + (homeMsg ? `<div class="quote">${homeMsg}</div>` : '') + plotDetail(homeSel) + (UI.isOpen('furnace') || UI.isOpen('plots') ? caveCard : '') + (alch ? '<div class="sep"></div>' + alch : '');
   const s = sheet({ title: shellTitle('home'), still, sub: full ? `地块 ${pl.filter(Boolean).length}/${max} · 灵石 ${fmt(st.stones)}` : `灵石 ${fmt(st.stones)}`, body });
   homeMsg = '';
   const on = (q, f) => { const b = s.querySelector(q); if (b) b.onclick = f; };
@@ -144,9 +145,9 @@ function showHome(still, sel) {
   on('#btnField', () => { SFX.tap(); showField(); });
   on('#btnPets', () => { SFX.tap(); showPets(); });
   on('#btnForgeH', () => { SFX.tap(); showForge(); });
-  const doRet = () => { if (L.startRetreat(st)) { SFX.gather(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, `闭关 ×${st.retreat.m.toFixed(2)}`, '#8ff5d0'); closeModal(); } };
+  const doRet = () => { if (doAct('retreat')) SFX.gather(); };
   on('#btnRet', doRet);
-  on('#btnRetEnd', () => { const r = L.endRetreat(st, false); if (r) { SFX.tap(); showHome(true); } });
+  on('#btnSit', () => { if (L.act(st, 'sit')) { const r = L.nextBlock(st); if (r && r.kind === 'result' && r.id === 'sit') { L.blockDone(st, r); showActResult('sit', r.data); } showHome(true); } else { SFX.fail(); sayLine(L.actLastWhy || '做不了'); } });   // 打坐留在洞府页上（只飘一个字，不出结算卡）
   on('#btnHeal', () => { const w = L.healWith(st); if (L.heal(st)) { SFX.coin(); floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, (w === 'liaoshang' ? '疗伤丹 ' : '') + '伤势痊愈', '#8ff5d0'); showHome(true); } });
   s.querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { SFX.tap(); homeSel = +b.dataset.hp; homeDemo = ''; showHome(true); });
   s.querySelectorAll('button[data-k]').forEach(btn => btn.onclick = () => {
@@ -192,7 +193,7 @@ function showZhen(still) {
   const slotCard = j => {
     const s = z[j], id = s.id || s.nx;
     return pnRow({ cls: 'zslot' + (s.nx ? ' zpend' : ''), ic: id ? sigilImg(id, 2) : tileImg('empty'), nm: `${j ? '第二阵位 ×0.5' : '主阵位'} · ${s.id ? esc(L.zhenName(s.id)) : '空着'}`,
-      k: s.nx ? `<span class="seal">布阵中 → ${esc(L.zhenName(s.nx))}，还要 ${Math.max(1, s.at - st.tick)} 月</span>` : s.id ? esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1)) : '',
+      k: s.nx ? `<span class="seal">布阵中 → ${esc(L.zhenName(s.nx))}，还要 ${seasons(Math.max(1, s.at - st.tick))} 季</span>` : s.id ? esc(L.zhenEffect(st, s.id, j ? L.ZV.second : 1)) : '',
       right: j && (s.id || s.nx) ? '<button class="btn sm alt" data-zclear="1">撤下</button>' : '' });
   };
   // 阵图：一行 = 阵符 + 名字（荐 / 布着）+ 效果 +【布阵】（第二阵位开了再多一个）；只有“荐”的那一行是金色
@@ -207,15 +208,15 @@ function showZhen(still) {
   // 手里有的在前（荐的第一）；还没有的收进折叠，点开看效果和来源
   const sorted = L.ZHEN.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id)), mine = sorted.filter(Z => L.zhenOwned(st, Z.id)), none = sorted.filter(Z => !L.zhenOwned(st, Z.id));
   const rows = mine.map(row).join(''), noneHTML = none.length ? `<details class="more" data-pn="zh-none"${pnOpenKeys.has('zh-none') ? ' open' : ''}><summary>还没有的阵图 · ${none.length} 张</summary><div class="pn-list">${none.map(row).join('')}</div></details>` : '';
-  const body = `<div id="zhenSlots" class="pn-list">${slotCard(0)}${sl >= 2 ? slotCard(1) : ''}</div>${homeMsg ? `<div class="quote">${homeMsg}</div>` : ''}${pnHead('阵图', `换阵免费 · ${L.ZV.switch} 月后生效`)}<div class="pn-list">${rows}</div>${noneHTML}
-    <details class="more"><summary>阵法怎么用</summary><div class="muted">强度 = 聚灵阵等级（Lv${st.home.array}）。换阵不花钱，<b>${L.ZV.switch}</b> 个月后生效，这期间原来的阵照常管用。${sl >= 2 ? '第二阵位（副阵）效果减半。' : '炼虚后开第二阵位（效果 ×0.5）。'}平时聚灵；大量炼丹前布丹火；渡劫前 ${L.ZV.switch} 个月布渡劫。</div></details>`;
+  const body = `<div id="zhenSlots" class="pn-list">${slotCard(0)}${sl >= 2 ? slotCard(1) : ''}</div>${homeMsg ? `<div class="quote">${homeMsg}</div>` : ''}${pnHead('阵图', `换阵免费 · ${seasons(L.ZV.switch)} 季后生效`)}<div class="pn-list">${rows}</div>${noneHTML}
+    <details class="more"><summary>阵法怎么用</summary><div class="muted">强度 = 聚灵阵等级（Lv${st.home.array}）。换阵不花钱，<b>${seasons(L.ZV.switch)}</b> 季后生效，这期间原来的阵照常管用。${sl >= 2 ? '第二阵位（副阵）效果减半。' : '炼虚后开第二阵位（效果 ×0.5）。'}平时聚灵；大量炼丹前布丹火；渡劫前 ${seasons(L.ZV.switch)} 季布渡劫。</div></details>`;
   const s = sheet({ title: shellTitle('home'), still, sub: `聚灵阵 Lv${st.home.array} · 阵图 ${L.zhenOwnList(st).length}/${L.ZHEN.length}`, body, foot: [{ t: '回洞府', alt: true, fn: () => showHome(false, 0) }] });
   homeMsg = '';
   s.querySelectorAll('[data-zs]').forEach(b => b.onclick = () => {
     const j = +b.dataset.zs, id = b.dataset.zid, r = L.zhenSet(st, j, id);
     if (!r) return;
     SFX.gather();
-    homeMsg = r.cancel ? `不换了，接着用${esc(L.zhenName(id))}。` : `改布<b>${esc(L.zhenName(id))}</b>：${esc(L.zhenEffect(st, id, j ? L.ZV.second : 1))}，<b>${L.ZV.switch}</b> 个月后生效${r.from ? `；在那之前${esc(L.zhenName(r.from))}照常` : ''}。`;
+    homeMsg = r.cancel ? `不换了，接着用${esc(L.zhenName(id))}。` : `改布<b>${esc(L.zhenName(id))}</b>：${esc(L.zhenEffect(st, id, j ? L.ZV.second : 1))}，<b>${seasons(L.ZV.switch)}</b> 季后生效${r.from ? `；在那之前${esc(L.zhenName(r.from))}照常` : ''}。`;
     showZhen(true);
   });
   const c = s.querySelector('[data-zclear]'); if (c) c.onclick = () => { if (L.zhenSet(st, 1, '')) { SFX.tap(); showZhen(true); } };
@@ -272,14 +273,14 @@ const homeHints = [
     } },
   { id: 'zhen', intro: true, when: () => homeCalm() && L.zhenOpen(st) && L.zhenOwnList(st).length >= 2, target: '[data-nav="home"]', btn: '好', text: () => {
       const other = L.zhenOwnList(st).filter(id => id !== 'f_juling'), d = other.includes('f_dujie') ? 'f_dujie' : other[0];
-      return `聚灵阵上能<b>换阵法</b>了：现在布着聚灵阵，修炼 <b>×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}</b>。你手里还有${other.map(id => `《${esc(L.zhenName(id))}》`).join('')}，比如${esc(L.zhenName(d))}：${esc(L.zhenEffect(st, d))}。换阵不花钱，<b>${L.ZV.switch} 个月</b>后生效，这期间原来的阵照常管用；换走聚灵阵就没了那份修炼。平时聚灵，要渡劫了提前布渡劫阵。【洞府】→ 点聚灵阵那块地 →【换阵】。`;
+      return `聚灵阵上能<b>换阵法</b>了：现在布着聚灵阵，修炼 <b>×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}</b>。你手里还有${other.map(id => `《${esc(L.zhenName(id))}》`).join('')}，比如${esc(L.zhenName(d))}：${esc(L.zhenEffect(st, d))}。换阵不花钱，<b>${seasons(L.ZV.switch)} 季</b>后生效，这期间原来的阵照常管用；换走聚灵阵就没了那份修炼。平时聚灵，要渡劫了提前布渡劫阵。【洞府】→ 点聚灵阵那块地 →【换阵】。`;
     } },
 ];
 // 每月（boot.js 的 onTick 调）：阵法布成、灵泉养伤的飘字；拆建教学（tut_rebuild）；气泡一次最多一条
 function homeTickFx(out) {
   if (!st || !L.home2On()) return;
   if (out.zhen && !st.exp) for (const z of out.zhen) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 18, `${L.zhenName(z.id)}布成`, '#ffe39a');
-  if (out.springHeal && !st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, `灵泉养伤 −${out.springHeal} 月`, '#8ff5d0', false, true);
+  if (out.springHeal && !st.exp) floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, `灵泉养伤 −${seasons(out.springHeal)} 季`, '#8ff5d0', false, true);
   if (st.home.tut && $('#modal').hidden && !cine) {
     delete st.home.tut;
     const cand = L.homePlots(st).map((k, i) => ({ k, i })).filter(x => x.i > 0 && x.k).sort((a, b) => st.home[a.k] - st.home[b.k])[0];
@@ -302,13 +303,13 @@ function homeTickFx(out) {
   }
   // 要渡劫了：换渡劫阵（每个境界提醒一次）
   if (L.zhenOpen(st) && L.zhenOwned(st, 'f_dujie') && L.tribNeeded(st) && !L.zhenWhere(st, 'f_dujie') && st.p.s === 3 && (L.isFull(st) || L.ticksToNext(st) <= L.ZV.switch + 2)) {
-    tip('zhenDujie' + st.p.r, `要渡劫了，把阵换成渡劫阵：承劫 +${L.pct(L.formationVal(st, 'f_dujie'))}，${L.ZV.switch} 个月后生效。这期间聚灵阵照常；渡完记得换回来（修炼 ×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}）。`);
+    tip('zhenDujie' + st.p.r, `要渡劫了，把阵换成渡劫阵：承劫 +${L.pct(L.formationVal(st, 'f_dujie'))}，${seasons(L.ZV.switch)} 季后生效。这期间聚灵阵照常；渡完记得换回来（修炼 ×${L.zhenNum(st, 'f_juling', 1).cul.toFixed(2)}）。`);
     return;
   }
   // 大量炼丹前：换丹火阵（每个境界提醒一次）
   const rc = L.RECIPES[0], n = st.home.furnace ? Math.floor(st.herbs / Math.max(1, L.herbCost(st, rc))) : 0;
   if (L.zhenOpen(st) && L.zhenOwned(st, 'f_danhuo') && !L.zhenWhere(st, 'f_danhuo') && n >= 6) {
     const a = L.alchRate(st), b = Math.min(0.97, a + L.zhenNum(st, 'f_danhuo', 1).alch);
-    tip('zhenDanhuo' + st.p.r, `灵草 ${fmt(st.herbs)} 株，够炼 ${n} 炉${rc.n}。大量炼丹前把阵换成丹火阵：成丹率 ${L.pct(a)} → ${L.pct(b)}，上品以上 +${L.pct(L.zhenNum(st, 'f_danhuo', 1).q)}，${L.ZV.switch} 个月后生效。`);
+    tip('zhenDanhuo' + st.p.r, `灵草 ${fmt(st.herbs)} 株，够炼 ${n} 炉${rc.n}。大量炼丹前把阵换成丹火阵：成丹率 ${L.pct(a)} → ${L.pct(b)}，上品以上 +${L.pct(L.zhenNum(st, 'f_danhuo', 1).q)}，${seasons(L.ZV.switch)} 季后生效。`);
   }
 }

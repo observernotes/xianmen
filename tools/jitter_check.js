@@ -123,17 +123,14 @@ function analyze(rec, allow) {
       if (!ok || process.env.JV) { for (const e of r.ev) console.log('         · ' + e); for (const s of r.srcs) console.log('         ~ ' + s); }
     };
     const click = sel => () => page.click(sel);
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
 
     // ===== 开局：第一趟（手把手）→ 结算卡（翻牌、对比行）=====
     await scen('开局·历练出发页', null, click('[data-nav="exp"]'));
     await scen('出发页→确认页', null, click('#modal .card[data-k="0"]'));
     const BT_OK = ['scene', 'goal', 'cult', 'stats', 'tick'];   // 进出战斗：修为条、数值格、传讯换成战斗条，场景让高度——一下到位；顶栏、时间条、底栏不动
     await scen('确认页→出发(战斗画面)', null, click('#modal .foot .btn.gold'), { ms: 900, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(0));
     await scen('战斗进行', null, () => wait(1500), { ms: 300, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
-    await scen('战斗结束→结算卡', null, () => ev(() => { const X = window.__xm; if (X.st.exp) { X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); } }), { ms: 1200, allow: BT_OK });
+    await scen('战斗结束→结算卡', null, () => ev(() => window.__xm_bt.all()), { ms: 1200, allow: BT_OK });
     await scen('结算卡翻牌', null, () => ev(() => { const b = document.querySelector('#modal .lt-flip'); if (b && b.flipAll) b.flipAll(); }), { ms: 1800 });
     await scen('结算卡关闭→下一张', null, () => ev(() => window.__xm.closeModal()), { ms: 900 });
     await closeAll();
@@ -154,13 +151,14 @@ function analyze(rec, allow) {
       st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
       L.petGive(st, { sp: 'p_hu2', src: 'shop' }); L.petGive(st, { sp: 'p_he' }); st.pets[0].lv = 4;
       st.storyQ = []; st.achQ = []; st.market.evQ = []; st.visitor = null;
-      L.checkQuests(st); st.achQ = []; st.storyQ = [];
+      L.checkQuests(st); st.achQ = []; st.storyQ = []; st.cnQ = []; window.__xm.unlockQ.length = 0; st.ap.left = 3;   // 造局面一口气开的系统、入宗：不出解锁卡与过场（它们现在由结算链在空下来时当场出）
       for (const h of window.__xm.hints) st.hintSeen[h.id] = 1;
       window.__xm.closeModal();
     });
     await closeAll();
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
 
+    // 造局面以后结算链里可能还排着东西（剧情、章末卡）：点完再测
+    for (let i = 0; i < 12; i++) { const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? 'talk' : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?')); if (!t) { await wait(300); if (await ev(() => document.getElementById('modal').hidden && !(window.__xm_talk && window.__xm_talk.on))) break; continue; } if (process.env.JV) console.log('     链：' + t); await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); else window.__xm.closeModal(); }); await wait(450); }
     // ===== 底栏五格互点（开着一个面板时直接点另一格）=====
     await scen('底栏·打开历练', null, click('[data-nav="exp"]'));
     for (const [a, b2] of [['exp', 'home'], ['home', 'gear'], ['gear', 'world'], ['world', 'path'], ['path', 'exp'], ['exp', 'gear'], ['gear', 'home']]) await scen(`底栏 ${a}→${b2}`, null, click(`[data-nav="${b2}"]`));
@@ -226,11 +224,9 @@ function analyze(rec, allow) {
     // ===== 历练出发页 → 战斗 → 结算 =====
     await scen('出发页', null, click('[data-nav="exp"]'));
     await scen('出发页→确认页(中期)', null, click('#modal .card[data-k="0"]'));
-    await ev(() => window.__xm.setSpeed(0));
     await scen('确认页→战斗(中期)', null, click('#modal .foot .btn.gold'), { ms: 2500, allow: BT_OK });
     await scen('战斗进行(中期)', null, () => wait(1500), { ms: 300, allow: BT_OK });
-    await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
-    await scen('战斗→结算卡(中期)', null, () => ev(() => { const X = window.__xm; if (X.st.exp) { X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); } }), { ms: 1200, allow: BT_OK });
+    await scen('战斗→结算卡(中期)', null, () => ev(() => window.__xm_bt.all()), { ms: 1200, allow: BT_OK });
     await scen('结算卡翻牌(中期)', null, () => ev(() => { const b = document.querySelector('#modal .lt-flip'); if (b && b.flipAll) b.flipAll(); }), { ms: 2200 });
     await closeAll();
     // ===== 过场结束接结果卡（突破）=====

@@ -89,7 +89,7 @@ function showDeath() {
   const line = L.restLine ? L.restLine(st) : '戒中老祖：“别灰心。本座护住你一缕真灵，带着这一世的感悟，再来一次！”';
   sheet({ title: '坐化', center: true, noClose: true,
     body: `${bdImg('rest', 200)}<div class="center">${myAvImg(66, undefined, 'filter:grayscale(1)')}</div>
-      <p class="center">${lim ? `天道试炼·限时：第 ${L.TRIAL_LIMIT} 个月到了。` : '寿元耗尽。'}${esc(p.name)}于洞府中静静坐化，享年 ${Math.floor(p.age)} 岁，止步${L.stageName(p)}。</p>
+      <p class="center">${lim ? `天道试炼·限时：第 ${seasons(L.TRIAL_LIMIT)} 季到了。` : '寿元耗尽。'}${esc(p.name)}于洞府中静静坐化，享年 ${Math.floor(p.age)} 岁，止步${L.stageName(p)}。</p>
       <p class="center goldt">这一世可带走道果约 ${fmt(f.total)}</p>
       <div class="quote">${esc(line)}</div>`,
     foot: [{ t: '转世重修', gold: true, fn: () => rebirthFlow('rest') }] });
@@ -238,7 +238,7 @@ function showOpening() {
   const sky = L.skyBorn && L.skyBorn(st) ? `<p class="reb-fate">${artIcon('ending', 16)} 你问过天。这一世，你知道题面：道果 ×${L.SKY_MULT.toFixed(2)}。</p>` : '';
   sheet({ title: O.n, center: true, noClose: true,
     body: `<div class="center">${originImg(st.origin || 'qitu', 192)}</div>${O.open.map(t => `<p>${esc(t)}</p>`).join('')}${echo}${fate}${sky}
-      <div class="quote">第 ${L.PACT_TICK} 个月，${pt ? `${esc(pt.title)}：${esc(pt.who)}` : `三年之约：${esc(st.exName)}`}，战力 ${fmt(L.PACT_POWER)}。${st.trials.length ? `<br>天道试炼：${st.trials.map(id => esc(L.TRIAL[id].n)).join('、')}${st.trialEl ? `（封了${L.elName(st.trialEl)}系）` : ''}` : ''}</div>`,
+      <div class="quote">第 ${seasons(L.PACT_TICK)} 季，${pt ? `${esc(pt.title)}：${esc(pt.who)}` : `三年之约：${esc(st.exName)}`}，战力 ${fmt(L.PACT_POWER)}。${st.trials.length ? `<br>天道试炼：${st.trials.map(id => esc(L.TRIAL[id].n)).join('、')}${st.trialEl ? `（封了${L.elName(st.trialEl)}系）` : ''}` : ''}</div>`,
     foot: [{ t: '踏入仙途', gold: true, fn: closeModal }] });
 }
 

@@ -2,6 +2,7 @@
 // 各面板第一屏：除名字和数字外 ≤ 60 个汉字（结算卡 ≤ 40、年报 ≤ 70、解锁卡 ≤ 30）、按钮 ≤ 6（分页条与关闭不算）、小于 14px 的字 = 0、主按钮在第一屏、不横向溢出；
 // 另查：拿到第一件法宝后【装备】1 次点击看到三格装备栏；功法 / 灵宠 2 次；解锁卡【带我去】1 次点击到控件。
 // 变强页（§10.9）：第一屏 ≤ 60 字、≤ 3 张牌、≤ 6 个按钮、没有小于 14px 的字、头和全部动作卡不滚动可见、红按钮恰好 1 个；每张牌 1 个大数字 1 个按钮、名字 ≤ 8 字；
+// 行动点制（docs/AP_PLAN.md §6.5、§8.4）：放置不走时间；#btnSpeed 不存在、行动点一行在；所有花点的按钮都带 ◆N 角标、点数与 L.AP 一致；
 // 目标卡“下一步”、老祖头像、变强页第一张同源；当场能做的牌点一下留在本页、头上的数 300ms 内跳到牌上写的值（差 ≤ 1 个显示单位）；属性页进来明细展开、≤ 6 行、行内没有说明。
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -20,7 +21,6 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
   await page.click('#goStart'); await page.waitForTimeout(700);
   const ev = (fn, a) => page.evaluate(fn, a);
-  await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
   // 第一屏度量：汉字数（名字 .nm / 数字 / 分页 / 标题不算）、按钮数、小字数、横向溢出
   const measure = () => ev(() => {
     const m = document.querySelector('#modal:not([hidden]) .sheet'); if (!m) return null;
@@ -55,7 +55,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('[data-nav="exp"]'); await page.waitForTimeout(250);
   await page.click('#modal .card[data-k="0"]'); await page.waitForTimeout(250);
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300);
-  await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); }); await page.waitForTimeout(700);
+  await ev(() => window.__xm_bt.all()); await page.waitForTimeout(700);
   const r1 = await measure();
   await page.screenshot({ path: `${out}/${dev === '360' ? '360' : 'p7'}-result.png` });
   if (process.env.DUMP && r1) console.log('     ', r1.txt);
@@ -82,7 +82,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     st.pets = []; st.petOut = -1; st.petPend = []; st.feed = 400;
     L.petGive(st, { sp: 'p_hu2', src: 'shop' }); L.petGive(st, { sp: 'p_he' }); st.pets[0].lv = 4;
     st.storyQ = []; st.achQ = []; st.market.evQ = []; st.visitor = null;
-    L.checkQuests(st); st.achQ = []; st.storyQ = [];
+    L.checkQuests(st); st.achQ = []; st.storyQ = []; window.__xm.unlockQ.length = 0;   // L.onbAll 一口气开的系统不出解锁卡（解锁卡现在由结算链在空下来时当场出）
     window.__xm.closeModal();
   });
   await page.waitForTimeout(600);
@@ -100,6 +100,8 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await panel('gear', () => { window.__xm.closeModal(); window.__xm.showEquip(); });
   // 功法、灵宠：从主画面 2 次点击（装备 → 分页）
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(300);
+  // 造局面后结算链里排着的东西（剧情、章末卡、解锁卡）先点完，再量 2 次点击
+  for (let i = 0; i < 16; i++) { const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? 'talk' : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?')); if (!t) { await page.waitForTimeout(300); if (!(await ev(() => window.__xm.busyUI))) break; continue; } if (process.env.DUMP) console.log('     （链：' + t + '）'); await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(450); }
   await page.click('[data-nav="gear"]'); await page.waitForTimeout(250); await page.click('#modal [data-kt="art"]'); await page.waitForTimeout(250);
   check(await ev(() => !!document.querySelector('#modal [data-kt="art"].on')), '功法：2 次点击（装备 → 功法）');
   await panel('arts', () => {});
@@ -170,6 +172,21 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await page.click('#unlGo'); await page.waitForTimeout(500);
   check(await ev(() => document.querySelector('#modal h2') && /洞府/.test(document.querySelector('#modal h2').textContent)), '解锁卡【带我去】1 次点击到达（洞府）');
   void X;
+  // ---------- 行动点制：放置不走时间、没有速度键、花点的按钮都带角标 ----------
+  await ev(() => { for (let i = 0; i < 6; i++) if (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
+  const t0 = await ev(() => ({ tick: window.__xm.st.tick, xp: window.__xm.st.p.xp }));
+  await page.waitForTimeout(4000);
+  const t1 = await ev(() => ({ tick: window.__xm.st.tick, xp: window.__xm.st.p.xp, spd: !!document.getElementById('btnSpeed'), row: !!document.getElementById('apRow') && document.getElementById('apRow').offsetHeight >= 44, nx: !!document.getElementById('btnNext') }));
+  check(t1.tick === t0.tick && t1.xp === t0.xp, `放置 4 秒：时间不走（第 ${t0.tick} → ${t1.tick} 月）、修为不涨`);
+  check(!t1.spd && t1.row && t1.nx, '没有速度键；行动点一行在（≥ 44px）、有【下一季】');
+  // 花点的按钮：出发页、确认页（出发 / 扫荡）、洞府（闭关 / 打坐）都带 ◆N，点数 = L.AP
+  const apScan = async (name, fn) => { await ev(fn); await page.waitForTimeout(350); return ev(n => { const AP = window.__xm.L.AP, bad = []; let n0 = 0; for (const b of document.querySelectorAll('#modal button, #modal .btn')) { const m = /◆(\d)/.exec(b.textContent); if (!m) continue; n0++; const d = b.dataset.ap || ((b.querySelector('[data-ap]') || {}).dataset || {}).ap; if (String(d) !== m[1]) bad.push(b.textContent.trim().slice(0, 8)); } return { n0, bad, name: n, ok: Object.values(AP).length > 0 }; }, name); };
+  const s1 = await apScan('确认页', () => { const X = window.__xm; X.closeModal(); X.confirmExp(0, 0, 0); });
+  const fb = await ev(() => { const b = [...document.querySelectorAll('#modal .foot .btn')].find(x => /出发/.test(x.textContent)); return b ? { t: b.textContent, ap: +b.dataset.ap } : null; });
+  check(!!fb && /◆2/.test(fb.t) && fb.ap === 2, `确认页【${fb && fb.t}】带 ◆2、data-ap = L.AP.exp`);
+  const s2 = await apScan('洞府', () => { const X = window.__xm; X.closeModal(); X.showHome(); });
+  const sit = await ev(() => { const b = document.getElementById('btnSit'); return b ? +b.dataset.ap : -1; });
+  check(s1.bad.length === 0 && s2.bad.length === 0 && sit === 1 && s2.n0 >= 1, `花点的按钮都带角标且与 data-ap 一致（确认页 ${s1.n0} 个、洞府 ${s2.n0} 个；打坐 data-ap ${sit}）${s1.bad.concat(s2.bad).join(' ')}`);
   console.log(errs.join('\n') || 'no errors');
   console.log(fails.length ? `${fails.length} 项未通过：\n` + fails.join('\n') : '全部通过');
   await b.close();

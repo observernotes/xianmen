@@ -1,6 +1,7 @@
 /* 废柴仙途 · 界面片段 battle：历练的节点与战斗画面（docs/COMBAT_LOOT.md §2；示意图 docs/combat_mock/02_battle.png、03_battle_ult.png）
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。
- *   主循环（boot.js 的 frame）在历练有节点表时调 btDrive(ms)：月份由节点推进，不再按秒走——走路 1.5 秒 → 战斗（每轮 1.0 秒 ÷ 速度档）→ L.expNodeDone → L.flow(1) + onTick()。
+ *   主循环（boot.js 的 frame）在历练有节点表时调 btDrive(ms)：一趟当场打完，不占时间（docs/AP_PLAN.md §2.3）——走路 1.5 秒 → 战斗（每轮 1.0 秒 ÷ 战斗速度 ×1 / ×2）→ L.tripStep 推一个节点；
+ *   途中遭遇（L.tripStep 给的 enc）当场出抉择；最后一个节点打完 L.tripEnd 结算，结算卡、翻牌和它引出的戏由结算链（settle.js 的 settle）一张接一张出。
  *   引擎是逻辑层的 L.battleStep（src/logic/battle.js）；这里只把事件数组演出来：小人帧、ART.skillFx / ultFx、飘字、血条与罩格、冷却、怒气。
  *   输入三个：大按钮（绝招）、丹、撤。关键时刻（怒气满且对面在蓄力）：第一章停住等你，之后 2.5 秒慢镜头。
  *   第一次看到蓄力 / 罩 / 克制 / 怒气满，各停一次、屏幕中央一行字（st.flags.btSeen），不出老祖对话框。
@@ -8,9 +9,10 @@
 const BTS = { round: 1000, first: 1400, walk: 1500, gather: 2400, end: 650, slow: 2500, hint: 2600, xMe: 56, foot: 128, xFoe: 134, gapFoe: 32 };
 let btv = null;
 const btOn = () => !!(st && ((st.exp && st.exp.nodes && L.TRIP_ON !== false && !st.run) || (btv && btv.mode === 'boss')));
-// 首领战（§8.4 P0）：不在历练途中，打的时候时间不走；打完把结果交给 L.fightBoss(st, k, { res })
+// 首领战（§8.4 P0）：花 1 点（AP_PLAN §2.2）；打完把结果交给 L.act(st, 'boss', { k, res })（settle.js 让 'boss' 透传 res 给 L.fightBoss）
 function btBossStart(k) {
-  if (!st || L.busy(st) || !L.bossReady(st, k)) return false;
+  if (!st || L.busy(st) || !L.bossReady(st, k) || chainOn) return false;
+  const why = L.apWhy(st, 'boss', { k }); if (why) { sayLine(why); SFX.fail(); return false; }
   btv = { mode: 'boss', k, e: null, ph: 'fight', t: 0, acc: BTS.round * 0.5, B: L.bossBattle(st, k), fx: [], hold: null, q: {}, meAct: -1e9, meHit: -1e9, foeAct: {}, foeHit: {}, deadAt: {}, scroll: 0, log: '' };
   btv.B.foes.forEach(f => { (st.meta.foes || (st.meta.foes = {}))[f.id] = 1; });
   btLog(`${L.BOSSES[k].n}：“${L.BOSSES[k].line}”`);
@@ -22,9 +24,10 @@ function btBossStart(k) {
 function btBossEnd() {
   const v = btv, k = v.k, res = L.battleResult(v.B);
   btStop();
-  const out = L.fightBoss(st, k, { res });
-  if (out && typeof bossResultUI === 'function') bossResultUI(k, out);
+  const out = L.act(st, 'boss', { k, res });
+  if (!out) { const o2 = L.fightBoss(st, k, { res }); if (o2 && typeof bossResultUI === 'function') bossResultUI(k, o2); updateHUD(); return; }   // 点不够等（出发前判过，不该走到这里）
   updateHUD();
+  settle('act');   // 首领结果卡（L.act 排进结算链）→ 它引出的戏（boss:N）
 }
 const btRegion = () => (btv && btv.mode === 'boss' ? btv.k : st.exp ? st.exp.k : 0);
 const btSeenMap = () => (st.flags.btSeen || (st.flags.btSeen = {}));
@@ -48,42 +51,49 @@ function btDrive(ms) {
   const v = btv, e = st.exp;
   if (v.hold) { if (v.hold.auto) { v.hold.left -= ms; if (v.hold.left <= 0) btRelease(); } btPaint(); return true; }
   v.t += ms;
-  const m = e.total - e.left;
-  if (e.ni > m) { btMonth(); return true; }
   const n = e.nodes[e.ni];
-  if (!n) { btMonth(); return true; }
+  if (!n) { btNode(undefined); return true; }
   if (v.ph === 'walk') {
     v.scroll += ms * 0.035;
     const dur = e.quick ? 250 : L.nodeIsFight(n) || n.t === 'home' ? BTS.walk : BTS.gather;
     if (v.t >= dur) {
       if (L.nodeIsFight(n)) btBegin();
       else {
-        L.expNodeDone(st, null);
         if (n.t === 'treasure') { floatRaw(BTS.xMe + 30, 92, '宝箱！归来多翻一张牌', '#ffe39a'); SFX.reveal(2); }
         else if (n.t === 'herb') { floatRaw(BTS.xMe + 20, 92, '采得灵草', '#8ff5d0'); SFX.coin(); }
-        btMonth();
+        btNode(null);
       }
     }
   } else if (v.ph === 'fight') {
     v.acc += ms;
     if (v.acc >= (v.first ? BTS.first : BTS.round)) { v.acc = 0; btRound(); }
   } else if (v.ph === 'end') {
-    if (v.t >= BTS.end) { const res = L.battleResult(v.B); L.expNodeDone(st, res); btMonth(); }
+    if (v.t >= BTS.end) btNode(L.battleResult(v.B));
   }
   btPaint();
   return true;
 }
-// 过一个月（节点打完）：照常的每月结算；这一趟结束时 onTick 会弹结算卡
-function btMonth() {
+// 一个节点打完（res：这一场的结果；非战斗节点 null）：L.tripStep 推进。途中遭遇当场出抉择（弹窗开着时主循环不推，选完接着走）；走完就结算
+function btNode(res) {
   if (btv) { btv.ph = 'walk'; btv.t = 0; btv.B = null; }
-  L.flow(st, 1);
-  onTick();
+  const x = L.tripStep(st, res);
+  if (x.enc && !(st.guide && !st.guide.done)) { const ce = x.enc; showChoice(ce); }
+  if (x.done || !st.exp || L.tripDone(st)) { tripFinish(); return; }
   if (!btOn()) btStop(); else btShow();
+}
+// 这一趟走完：结算（L.tripEnd：结算对象排进结算链）→ 结算链（结算卡 + 翻牌 → 它引出的戏 → 解锁卡）
+function tripFinish() {
+  btStop();
+  if (!st.exp) return;
+  const r = L.tripEnd(st);
+  if (r) seasonLog.push(r.sweep ? '扫荡' : '历练 · ' + L.RATINGS[r.rating]);
+  updateHUD();
+  settle('act');
 }
 function btBegin() {
   const v = btv, e = st.exp;
   v.B = L.expBattle(st);
-  if (!v.B) { L.expNodeDone(st, null); btMonth(); return; }
+  if (!v.B) { btNode(null); return; }
   v.ph = 'fight'; v.t = 0; v.acc = BTS.round * 0.5; v.deadAt = {}; v.foeAct = {}; v.foeHit = {}; v.fx = [];
   v.first = L.tripSeq(st) === 1 && e.ni === 0;
   // 速战（§2.2）：同一套引擎瞬间算完，只给这一场 1 秒的结果条
@@ -267,6 +277,7 @@ function btEl() {
       const b = ev.target.closest('[data-bt]'); if (!b || b.disabled) return;
       ac(); const k = b.dataset.bt;
       if (k === 'ult') btUlt(); else if (k === 'pill') btPill(); else if (k === 'flee') btFlee(); else if (k === 'auto') { st.flags.autoUlt = st.flags.autoUlt ? 0 : 1; btShow(true); }
+      else if (k === 'spd') { btSpeed = btSpeed > 1 ? 1 : 2; savePref(); btShow(true); }   // 战斗速度 ×1 / ×2（只影响演出；第一章不显示）
       else if (k === 'go') btTapHold();
     });
   }
@@ -290,7 +301,7 @@ function btShow(force) {
   const fresh = el.hidden;
   if (fresh) { el.hidden = false; document.body.classList.add('bt-on'); }
   const me = B ? B.me : L.btMe(st);
-  const key = [e.ni, v && v.ph, B ? 1 : 0, me.skills.map(s => s.id).join(), v && v.hold ? v.hold.text : '', st.flags.autoUlt, btCh1(), B ? B.pills : 0].join('|');
+  const key = [e.ni, v && v.ph, B ? 1 : 0, me.skills.map(s => s.id).join(), v && v.hold ? v.hold.text : '', st.flags.autoUlt, btCh1(), B ? B.pills : 0, btSpeed].join('|');
   if (!force && el._k === key) { btPaint(); return; }
   el._k = key;
   const path = e.nodes.map((n, i) => `${i ? `<i class="bt-ln${i <= e.ni ? ' ok' : ''}"></i>` : ''}<b class="bt-nd${i < e.ni ? ' ok' : i === e.ni ? ' now' : ''}${n.t === 'elite' || n.t === 'boss' ? ' el' : ''}">${L.NODE_N[n.t]}</b>`).join('');
@@ -304,7 +315,7 @@ function btShow(force) {
   el.innerHTML = `<div class="bt-path">${path}</div>
     <div class="bt-me"><div class="bt-bar"><i id="btHp"></i><em><span>气血</span><span id="btHpT"></span></em></div><div class="bt-bar rg"><i id="btRg"></i><em><span>怒气</span><span id="btRgT"></span></em></div></div>
     <div class="bt-sks">${slots}</div>
-    <div class="bt-ult"><button class="bt-big" data-bt="ult" id="btUlt">${esc(me.ult.n)}<small id="btUltS">怒气满了才能放</small></button>${pills > 0 ? `<button class="bt-sm" data-bt="pill" id="btPill">${artIcon('liaoshang', 24) || '丹'}<span>丹 ×${pills}</span></button>` : ''}<button class="bt-sm" data-bt="flee">${artIcon('flee', 24)}<span>撤</span></button>${btCh1() ? '' : `<button class="bt-sm${st.flags.autoUlt ? ' on' : ''}" data-bt="auto"><span>自动</span><span>${st.flags.autoUlt ? '开' : '关'}</span></button>`}</div>
+    <div class="bt-ult"><button class="bt-big" data-bt="ult" id="btUlt">${esc(me.ult.n)}<small id="btUltS">怒气满了才能放</small></button>${pills > 0 ? `<button class="bt-sm" data-bt="pill" id="btPill">${artIcon('liaoshang', 24) || '丹'}<span>丹 ×${pills}</span></button>` : ''}<button class="bt-sm" data-bt="flee">${artIcon('flee', 24)}<span>撤</span></button>${btCh1() ? '' : `<button class="bt-sm${st.flags.autoUlt ? ' on' : ''}" data-bt="auto"><span>自动</span><span>${st.flags.autoUlt ? '开' : '关'}</span></button><button class="bt-sm${btSpeed > 1 ? ' on' : ''}" data-bt="spd"><span>速度</span><span>×${btSpeed}</span></button>`}</div>
     ${hold || `<div class="bt-log" id="btLog">${esc((v && v.log) || '')}</div>`}`;
   if (fresh) fitScene();
   btPaint();
@@ -355,7 +366,7 @@ function btPrepHTML(k, d, a) {
   // 近期大节点优先：克这一格的另有一门时只提一句，不给按钮（免得回来又叫你换回去）
   const alt = rc && rc.ctx.kind === 'duel' ? L.artRecommend(st, 1, { k, d, here: true, force: true }) : null, altId = alt && alt.id !== (recId || rc.cur) && alt.ke ? alt.id : '';
   const recBtn = (recId ? `<div class="row bt-rec"><button class="btn sm alt eq grow" data-swapz="${recId}">荐 换上《${esc(L.art(recId).n)}》：${esc(rc.why)}</button></div>` : '')
-    + (altId ? `<div class="muted bt-alt">克这一格的是《${esc(L.art(altId).n)}》；${esc(rc.ctx.label)}还有 ${rc.ctx.left} 月，先按它配</div>` : '');
+    + (altId ? `<div class="muted bt-alt">克这一格的是《${esc(L.art(altId).n)}》；${esc(rc.ctx.label)}还有 ${seasons(rc.ctx.left)} 季，先按它配</div>` : '');
   if (!red) return foes + `<div class="bt-kebar ok">${icons}<span class="grow">${known.length && known.every(ke) ? '都克得动 ✓' : bits.join(' ') || (known.length ? '不相克' : '这里的五行：去过才知道')}</span></div>` + recBtn;
   // 【换 ▸】：手里的战技（≤ 4 行，每行写克谁），点一下换好回到出发页
   const zs = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').map(id => ({ id, A: L.art(id) })).sort((x, y) => ((y.id === recId) - (x.id === recId)) || (L.elKe(y.A.el, eliteEl) - L.elKe(x.A.el, eliteEl)) || y.A.t - x.A.t).slice(0, 4);
@@ -364,14 +375,15 @@ function btPrepHTML(k, d, a) {
 }
 // 招式格出手时亮一下
 function btFire(id) { const c = document.querySelector(`#bt [data-sk="${id}"]`); if (!c) return; c.classList.remove('fire'); void c.offsetWidth; c.classList.add('fire'); }
-// 测试脚本用：把正在打的这一场按 'smart' 一口气打完（首领战直接出结果卡；历练节点记下结果、过这一月）
+// 测试脚本用：把正在打的这一场按 'smart' 一口气打完（首领战直接出结果卡；历练节点记下结果、推到下一个节点）；all() = 这一趟剩下的全部自动打完并结算
 window.__xm_bt = {
   get on() { return !!btv; }, get ph() { return btv ? btv.ph : ''; },
   finish() {
     const v = btv; if (!v) return false;
     if (v.B && !v.B.done) L.battleAuto(v.B, 'smart');
     if (v.mode === 'boss') { btBossEnd(); return true; }
-    if (v.B) { L.expNodeDone(st, L.battleResult(v.B)); btMonth(); }
+    if (v.B) btNode(L.battleResult(v.B));
     return true;
   },
+  all() { if (!st || !st.exp) return false; L.tripAuto(st, ev => { if (L.resolveChoice) { const i = ev.choices.findIndex(c => L.choiceShown(st, c) && L.costOk(st, c.cost)); if (i >= 0) L.resolveChoice(st, ev, i); } }); tripFinish(); return true; },
 };

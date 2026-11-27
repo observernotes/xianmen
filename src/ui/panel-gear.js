@@ -199,7 +199,7 @@ function showForge() {
   const zt = Object.keys(st.gear.zhentu).map(id => `《${L.ZHENTU[id]}》`).join('、');
   const s = sheet({ title: '器炉 · 打造', sub: `${open ? `器炉 ${L.forgeLv(st)} 级` : '打造' + L.gearOpenWhy(st, 'forge')} · 灵矿 ${fmt(st.ore || 0)}`,
     body: rows + (missRows ? `<details class="more"><summary>没得到的器方 ${miss.length} 张</summary>${missRows}</details>` : '')
-      + `<details class="more"><summary>器方、材料从哪来</summary><div class="muted">器方来自首领首杀、拍卖、宗门宝库与奇遇链；首领材料首杀 ×2，金丹后每 48 月可再战一次 ×1。打成的法宝词条固定，走对比卡换上。器炉建成前借用丹炉等级。${zt ? `<br>阵图：${zt}` : ''}</div></details>`,
+      + `<details class="more"><summary>器方、材料从哪来</summary><div class="muted">器方来自首领首杀、拍卖、宗门宝库与奇遇链；首领材料首杀 ×2，金丹后每 16 季可再战一次 ×1。打成的法宝词条固定，走对比卡换上。器炉建成前借用丹炉等级。${zt ? `<br>阵图：${zt}` : ''}</div></details>`,
     foot: [{ t: '回法宝页', alt: true, fn: () => showGear() }] });
   s.querySelectorAll('[data-forge]').forEach(b => b.onclick = () => {
     const it = L.forge(st, b.dataset.forge);

@@ -25,7 +25,7 @@ function yinBar() {
 function cropOutText(id) {
   const C = L.CROP[id], h = L.cropHarvest(st, id);
   if (C.out === 'stones') return `每块每月灵石 +${dec(h / C.cyc)}`;
-  return `${C.cyc} 月收${L.cropOutN(C)} ${dec(h)}`;
+  return `${seasons(C.cyc)} 季收${L.cropOutN(C)} ${dec(h)}`;
 }
 // 把第 i 块（或全部）改种成 id 之前 / 之后：灵石收入、这种产出每月多少
 function plantDelta(id, all) {
@@ -51,7 +51,7 @@ function showField(sel, still) {
   if (fieldSel >= plots.length) fieldSel = 0;
   const cards = plots.map((x, i) => {
     const C = L.CROP[x.c], left = L.plotLeft(x);
-    return `<button class="fplot${i === fieldSel && !fieldAll ? ' sel' : ''}${fieldAll ? ' all' : ''}" data-fp="${i}">${plotImg(x, 2)}<span class="nm">${C.n}</span><span class="muted">${left <= 1 ? '下月收' : left + ' 月后收'}</span></button>`;
+    return `<button class="fplot${i === fieldSel && !fieldAll ? ' sel' : ''}${fieldAll ? ' all' : ''}" data-fp="${i}">${plotImg(x, 2)}<span class="nm">${C.n}</span><span class="muted">${seasons(left) <= 1 ? '本季末收' : seasons(left) + ' 季后收'}</span></button>`;
   }).join('');
   const rec = cropRec(), cur = plots[fieldSel];
   // 作物卡：图标 + 名字（荐 / 旺季）+ 改种后的变化（灵石 a → ▲b，或一茬收多少）+【改种】；只有“荐”的那一行是金色；没开的作物收进折叠
@@ -64,7 +64,7 @@ function showField(sel, still) {
     const btn = here || every ? `<button class="btn sm alt" disabled>种着</button>` : `<button class="btn sm ${open && C.id === rec.id ? 'gold' : 'alt'}" data-crop="${C.id}" ${open ? '' : 'disabled'}>${fieldAll ? '全改' : '改种'}</button>`;
     const key = !open ? `<span class="seal">${esc(why)}</span>` : d && Math.abs(d.b - d.a) >= 0.05 ? `灵石 <b class="${d.b > d.a ? 'pn-up' : 'pn-dn'}">${d.b > d.a ? '+' : '−'}${dec(Math.abs(d.b - d.a))}</b>/月` : esc(cropOutText(C.id));
     return pnFold('crop-' + C.id, { cls: 'crow' + (open ? '' : ' off pn-off'), ic: cropIcon(C.id, 2), nm: `${C.id === rec.id ? '<span class="chip warn">荐</span> ' : ''}${C.n}`, badge: sea ? `<span class="chip ok">旺季</span>` : '', k: key, right: btn,
-      body: `${C.id === rec.id ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : ''}<div class="pn-line">${C.cyc} 月一收 · ${open ? esc(cropOutText(C.id)) : '产' + L.cropOutN(C)}</div><div class="pn-line">${tag}</div>${delta ? `<div class="pn-line">${delta}</div>` : ''}` });
+      body: `${C.id === rec.id ? `<div class="pn-line">老祖：${esc(rec.why)}</div>` : ''}<div class="pn-line">${seasons(C.cyc)} 季一收 · ${open ? esc(cropOutText(C.id)) : '产' + L.cropOutN(C)}</div><div class="pn-line">${tag}</div>${delta ? `<div class="pn-line">${delta}</div>` : ''}` });
   };
   const sorted = L.CROPS.slice().sort((a, b) => (b.id === rec.id) - (a.id === rec.id)), cOpen = sorted.filter(C => L.cropOpen(st, C.id)), cLock = sorted.filter(C => !L.cropOpen(st, C.id));
   const list = `<div class="pn-list">${cOpen.map(crow).join('')}</div>${cLock.length ? `<details class="more" data-pn="crop-lock"${pnOpenKeys.has('crop-lock') ? ' open' : ''}><summary>还没开的作物 · ${cLock.length} 种</summary><div class="pn-list">${cLock.map(crow).join('')}</div></details>` : ''}`;
@@ -116,7 +116,7 @@ function cropUnlockTip() {
   if (!st.guide || !st.guide.done || !st.hintSeen || !st.hintSeen.crops || !L.cropsOpen(st)) return;
   const fresh = L.CROPS.filter(C => C.id !== 'herb' && C.id !== 'rice' && L.cropOpen(st, C.id) && !st.seenTips['crop_' + C.id]);
   if (!fresh.length) return;
-  const txt = fresh.map(C => `【${C.n}】${C.cyc} 月收${L.cropOutN(C)} ${dec(L.cropHarvest(st, C.id))}（${L.SEASONS[C.s].n}季 +${Math.round(L.CROP_V.season * 100)}%）`).join('，');
+  const txt = fresh.map(C => `【${C.n}】${seasons(C.cyc)} 季收${L.cropOutN(C)} ${dec(L.cropHarvest(st, C.id))}（${L.SEASONS[C.s].n}季 +${Math.round(L.CROP_V.season * 100)}%）`).join('，');
   for (const C of fresh.slice(1)) st.seenTips['crop_' + C.id] = 1;
   tip('crop_' + fresh[0].id, `灵田能种${txt}了。点画面左下的田改种，种的那块就不结灵石。`);
 }

@@ -1,64 +1,13 @@
-/* 废柴仙途 · 界面片段 boot：每月、主循环、输入、启动
+/* 废柴仙途 · 界面片段 boot：主循环、输入、启动
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE。 */
-// ---------- 每月 ----------
-let monthAcc = 0;
-function onTick() {
-  const out = L.tick(st, true);
-  if (!st.exp && !cine && $('#modal').hidden) {
-    const g = L.gain(st), inc = L.income(st);
-    if (st.p.r <= L.MAXR && !L.isReady(st)) floatText(HOMEPOS.x + 14, HOMEPOS.y - D().sit.h + 2, '+' + fmt(g), '#8ff5d0', false, true);
-    floatText(30, 108, '+' + fmt(inc), '#ffe39a', false, true);
-  }
-  fieldTickFx(out);   // 收成、续炼飘字（panel-field.js）
-  homeTickFx(out);    // 阵法布成、灵泉养伤、拆建教学、洞府的老祖气泡（panel-home.js）
-  if (out.exp) { const r = out.exp; pushPopup(() => showExpResult(r)); }
-  // 途中遭遇是要你做决定的，阻塞；引导期间（前两趟）逻辑层本来就不出
-  if (out.choice && !(st.guide && !st.guide.done)) { const ce = out.choice; pushPopup(() => showChoice(ce)); }
-  // 访客不弹窗：门口出现一个“！”，点它才见（DESIGN D4）；同时进纸鹤，等待期从你回到洞府起算（docs/KAIRO_PLAN.md §3.3）
-  if (out.visitor && st.visitor) { L.mailPush(st, { k: 'visitor', ic: 'mail', t: '有人来访', left: st.visitor.left, data: { id: st.visitor.id } }); notify('tick', null, () => { SFX.reveal(1); floatText(VISIT_POS.x, VISIT_POS.y - 22, '有人来访', '#ffe39a'); }); }
-  if (out.visitorGone) notify('tick', null, () => floatText(VISIT_POS.x, VISIT_POS.y - 22, '访客走了', '#9d93b8'));
-  if (out.retreat) {
-    const r = out.retreat;
-    if (r.kind === 'teach') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '指点完毕 贡献到手', '#8ff5d0');
-    else if (r.kind === 'busy') floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, r.note || (r.label || '') + '完毕', '#8ff5d0');
-    else { floatText(HOMEPOS.x, HOMEPOS.y - D().sit.h - 8, '出关 修为+' + fmt(r.got), '#8ff5d0'); if (r.epi) { banner('顿悟！', '再得修为 ' + fmt(r.epi)); SFX.reveal(4); } }
-  }
-  // 老祖特训不在阻塞清单（§5.1）：进纸鹤，玩家点开才见（GO_K.train）
-  if (out.train) { if (L.mailPush) { L.mailPush(st, { k: 'say', ic: 'quest', t: '老祖要给你特训', left: 4, go: 'train' }); say('老祖要给你特训：看纸鹤'); } else pushPopup(showTrain); }
-  if (st.guide && st.guide.done && st.tick % 3 === 0 && UI.isOpen('arts') && !awayUI()) artRecTip();
-  if (st.guide && st.guide.done && st.tick % 3 === 1 && UI.isOpen('plus') && !awayUI()) gearPlusTip();
-  if (out.auction) notify('tick', { k: 'auction', t: '拍卖会开槌', left: L.AUCTION.len }, () => banner('拍卖会开槌', `坊市 · ${L.AUCTION.len} ${UNIT} · 三件竞价`));
-  // 拍卖散场：竞拍者拿走的（宿敌战力 ×1.04）
-  if (out.aucEnd && out.aucEnd.length && !awayUI()) { const b = out.aucEnd.find(x => x.boost); floatText(100, 40, b ? `${b.n}拍走了【${b.item}】：战力 ×${L.AUCTION.boost}` : `${out.aucEnd[0].n}拍走了【${out.aucEnd[0].item}】`, b ? '#ff9a8a' : '#9d93b8'); }
-  // 天下大势起了：老祖一句“该干什么”；换季：每季头一回提一句（panel-cal.js）
-  if (out.world) { const W = L.WORLD[out.world]; notify('active', { k: 'world', t: '天下大势 · ' + W.n, left: W.len }, () => { banner('天下大势 · ' + W.n, `${W.len} ${UNIT}`); SFX.reveal(3); worldTip(out.world); }); }
-  else if (out.season !== undefined && st.guide && st.guide.done && UI.isOpen('cal')) notify('active', { k: 'season', t: ['入春了', '入夏了', '入秋了', '入冬了'][out.season] || '换季了', left: 3 }, () => seasonTip(out.season));
-  if (out.mjOpen) realmOpenFx(out.mjOpen);   // 入夏，秘境开了（panel-realm.js）
-  if (out.pact) pushPopup(runPact);
-  if (out.invite) pushPopup(showInvite);
-  // 主线保底（mainline.js）：只剩宿敌没打时他上门、卡住时老祖说下一步、降要求
-  if (out.mainFoe) { const id = out.mainFoe; pushPopup(() => runMainFoe(id)); }
-  if (out.mainEase) { const x = out.mainEase; pushPopup(() => showMainEase(x)); }
-  if (out.mainHint) { const h = out.mainHint; pushPopup(() => showMainHint(h)); }
-  if (out.war) pushPopup(runWar);
-  if (out.tourney) pushPopup(runTournament);
-  // 宿敌与新秀（panel-rivals.js）：新秀出世、追到身后强制一战、指点过的新秀送礼
-  if (out.rookieNew) notify('tick', { k: 'rookie', t: '新秀出世 · ' + out.rookieNew.n }, () => { banner('新秀出世', `${out.rookieNew.n} · 天骄榜第 ${L.rookieRank(st)}`, '#ffe39a'); SFX.reveal(2); });
-  if (out.rookie) pushPopup(runRookie);
-  if (out.rkGift && !awayUI()) floatText(100, 40, `${out.rkGift[0].n}送来${out.rkGift[0].what}`, '#8ff5d0');
-  if (out.meet) pushPopup(runSectMeet);
-  if (out.death) pushPopup(showDeath);
-  clockTick(out);   // 大节点预告、备战卡、年报、空转、寿元、圆满自动停、排着的剧情事件（clock.js）
-  if (!awayUI()) guideTick();   // 卡住检测与补齐的老祖气泡（guide-ask.js）
-  saveLocal();
-}
-// E17 老祖特训：约战剩余 ≤ 8 月、胜算 < 60%、未筑基未圆满，第一世只此一次
+/* 时间不再自己走（docs/AP_PLAN.md §6.3）：原来每月的 onTick 拆成 settle.js 的 nextSeason（点【下一季】）→ seasonFx(S) → settle()。 */
+// E17 老祖特训：约战前 3 季内、胜算 < 60%、未筑基未圆满，第一世只此一次；花 2 点，当场得修为（AP_PLAN §2.2）
 function showTrain() {
   if (!L.canTrain(st)) return;
-  const pi = L.pactInfo(st);
+  const pi = L.pactInfo(st), ab = apBtn('train');
   sheet({ title: '老祖特训', center: true, noClose: true,
-    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${pi.left}</b> 个月，胜算才 <b>${L.pct(pi.p)}</b>。坐下，本座亲自给你<b>特训</b>：${L.RET.len} 个月，修炼 <b>×3</b>，不收灵石。</p></div>`,
-    foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训', gold: true, fn: () => { if (L.startTrain(st)) { SFX.gather(); banner('老祖特训', `${L.RET.len} 月 · 修炼 ×3`); } closeModal(); } }] });
+    body: `<div class="speaker">${elderImg(56, 'ang')}<p class="grow" style="margin:0">来不及了。还剩 <b>${seasons(pi.left)}</b> 季，胜算才 <b>${L.pct(pi.p)}</b>。坐下，本座亲自给你<b>特训</b>：修炼 <b>×3</b>，不收灵石。</p></div>${ab.why ? `<p class="center seal">${esc(ab.why)}</p>` : ''}`,
+    foot: [{ t: '不用', alt: true, fn: closeModal }, { t: '接受特训' + ab.tag, gold: !ab.why, disabled: !!ab.why, fn: () => { closeModal(); if (doAct('train')) banner('老祖特训', '修炼 ×3'); } }] });
 }
 function showVisitor() {
   const ev = L.visitorEvent(st);
@@ -67,18 +16,16 @@ function showVisitor() {
 }
 
 // ---------- 主循环 ----------
+// 主循环只画画面、驱动战斗演出（btDrive）、刷 HUD、在没有阻塞层时接着出结算链；不推进时间（AP_PLAN §6.3）
 let last = performance.now(), cloudAcc = 0;
 function frame(now) {
   const dt = Math.min(100, now - last); last = now;
-  const sp = SPEEDS[speedIdx];
-  const running = st && sp > 0 && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !guideHold && !st.run && !autoStop();   // 秘境里、自动停（clock.js）时间不走
-  if (running && btDrive(dt * sp)) { /* 历练有节点表：月份由节点推进（battle.js） */ }
-  else if (running) {
-    const TM = tickMs();
-    L.flow(st, dt * sp / TM);
-    monthAcc += dt * sp;
-    if (monthAcc >= TM) { monthAcc -= TM; onTick(); }
-    craneTimer -= dt;
+  const live = st && $('#modal').hidden && !cine && $('#intro').hidden && st.p.r < 9 && !st.run;
+  if (live && (st.exp || (btv && btv.mode === 'boss'))) {
+    if (!btDrive(dt * btSpeed) && st.exp) { L.tripAuto(st); tripFinish(); }   // 没有节点表的旧式历练：一口气结掉
+  } else if (live) {
+    chainPump();   // 结算链：上一张关掉了就接着出下一张（settle.js）
+    craneTimer -= dt;   // 仙鹤照旧按真实时间飞（纯装饰，AP_PLAN §6.2）
     if (craneTimer <= 0 && !crane && !st.exp) { crane = { x: -12, y: 14 + Math.random() * 22, v: 0.02 }; craneTimer = 70000 + Math.random() * 60000; }
   }
   if (crane) { crane.x += crane.v * dt; if (crane.x > W + 14) crane = null; }
@@ -105,34 +52,30 @@ function sceneClick(e) {
   if (st.run) return;   // 秘境：门卡是场景上的按钮（panel-realm.js）
   if (btv && btv.mode === 'boss') { btTapHold(); return; }
   if (st.exp && btv) { if (btTapHold()) return; if (btv.ph !== 'walk') return; }   // 战斗中点画面：只放过停顿那一下（battle.js）
-  if (st.exp) { SFX.tap(); showExp(); return; }
+  if (st.exp) return;   // 一趟当场打完，途中不弹面板
   if (st.visitor && !st.retreat && Math.abs(x - VISIT_POS.x) < 16 && y > VISIT_POS.y - 58 && y < VISIT_POS.y + 6) { SFX.tap(); showVisitor(); return; }
   if (petSceneHit(x, y)) return;
   if (fieldSceneHit(x, y)) return;
   if (homeSceneHit(x, y)) return;   // 场景里的建筑（panel-home.js）
   const S = D().sit;
+  // 点主角：圆满了就突破，否则打开【变强】页（吐纳已删，AP_PLAN §3.1）
   if (Math.abs(x - HOMEPOS.x) < S.w / 2 + 6 && y > HOMEPOS.y - S.h - 16 && y < HOMEPOS.y + 6) {
-    if (L.isReady(st)) { SFX.tap(); showBreakthrough(); return; }
-    if (st.retreat) { SFX.tap(); showHome(); return; }
-    const g = L.tuna(st);
-    if (g > 0) {
-      SFX.tuna();
-      floatText(HOMEPOS.x + (Math.random() - 0.5) * 20, HOMEPOS.y - S.h - 4 - Math.random() * 12, `吐纳 +${dec(g)}`, '#8ff5d0');
-      for (let k = 0; k < 16; k++) { const a = Math.random() * 6.28, r = 18; parts.push({ x: HOMEPOS.x + Math.cos(a) * r, y: HOMEPOS.y - S.h / 2 + Math.sin(a) * r * 0.6, vx: -Math.cos(a) * 0.03, vy: -Math.sin(a) * 0.018, life: 500, max: 500, c: '#9ff5d8', s: 1 }); }
-    } else floatText(HOMEPOS.x, HOMEPOS.y - S.h - 4, `吐纳环 ${Math.floor(Math.min(st.tuna || 0, L.TUNA_FULL))}/${L.TUNA_FULL}，在洞府打坐时每月蓄一格${L.tunaStep(st) > 1 ? '（引气诀蓄得快些）' : ''}`, '#9d93b8', false, true);
+    if (busyUI()) return;
+    SFX.tap();
+    if (L.isReady(st) && canBreak()) showBreakthrough(); else showGrowth('cul');
     return;
   }
   if (y > 30 && y < 104 && x > 50 && x < 150) { SFX.tap(); showHome(); }
 }
 cvs.addEventListener('click', sceneClick);
-$('#cult').addEventListener('click', () => { if (!st || cine) return; ac(); SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showGrowth('cul'); });
+// 修为条：圆满了点它突破 / 渡劫。演出、对决、过场、链没出完时不开（首领战里点它渡劫会把画面卡死：天劫过场画不出来、点什么都没反应）
+$('#cult').addEventListener('click', () => { if (!st || !canBreak()) return; ac(); SFX.tap(); if (L.isReady(st)) showBreakthrough(); else showGrowth('cul'); });
 // 底栏固定五格（docs/KAIRO_PLAN.md §4.1）：历练 / 洞府 / 装备 / 江湖 / 仙途；没开的那一格只在传讯行说一句条件（goalcard.js 的 navClick）
 $('#nav').addEventListener('click', e => {
-  const b = e.target.closest('button[data-nav]'); if (!b || !st || cine) return;
+  const b = e.target.closest('button[data-nav]'); if (!b || !st || cine || chainOn) return;   // 结算链没出完：底栏不让点（AP_PLAN §4.2）
   ac(); SFX.nav();
   navClick(b.dataset.nav);
 });
-$('#btnSpeed').onclick = () => { ac(); SFX.tap(); if (autoStop()) { resumeClock(); updateHUD(); return; } speedIdx = (speedIdx + 1) % SPEEDS.length; savePref(); updateHUD(); };   // 自动停着时点它 = 继续
 document.addEventListener('visibilitychange', () => { if (document.hidden) { saveLocal(); saveCloud(); } });
 window.addEventListener('pagehide', saveLocal);
 window.addEventListener('resize', () => { setFontSize(); fitScene(); });
@@ -153,11 +96,13 @@ Object.assign(window.__xm_realm = {}, { showRealm, realmEnterUI, realmPickUI, re
 try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ st })); } catch (e) { /* ignore */ }
 const hot = window.claude && window.claude.hot;
 if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
-window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, setSpeed: i => { speedIdx = Math.min(i, SPEEDS.length - 1); }, onTick, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, chalPrep, chalRun, runMainFoe, showMainHint, showMainEase, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
+window.__xm = { get st() { return st; }, L, ART, get hints() { return HINTS; }, showDutyPick, showDiscTeach, nextSeason, settle, doAct, chainPump, get chainOn() { return chainOn; }, get busyUI() { return busyUI(); }, showBreakthrough, closeModal, showEvent, showInvite, runTournament, runPact, runWar, doPromote, showDeath, rebirthPick, showChoice, chalPrep, chalRun, runMainFoe, showMainHint, showMainEase, showRivalCard, showRookieCard, runRookie, tourPrep, showAlchemy, fightBossUI, showMe, runSectMeet, showGrowth,
   showExp, confirmExp, showExpResult, showHome, showMarket, showSect, showQuests, showPact, showTrain, showVisitor, loadState, showGear, showForge, revealItem, doPlus, showPets, showPetJobs, showPetEvo, showCalendar, showBig, worldLine, showDao, showTribPrep, showTribStory, showTribPause, startTribCine, runAct, registerGuide, get bubbleLog() { return bubbleLog; }, get duelFx() { return duelFx; }, duelSkip, showChapterCard, get guideCur() { const c = guideCurShown; return c && { id: c.id, target: c.target || '', btn: c.btn || '' }; }, tribOpts, showField, brewUI, showZhen, get cineState() { return cine; }, get cine() { return !!cine; }, get guideHold() { return guideHold; },
-  UI, get tickMs() { return tickMs(); }, notify, openMail, showPrep, showYearBasic, resumeClock, get autoStop() { return autoStop(); }, watch: null,
+  UI, notify, openMail, showPrep, showYearBasic, showSeasonCard, watch: null,
   get guideDbg() { return { active: activeHint && activeHint.id, temp: !!tempHint, hintCool, bubbleQ: bubbleQ.map(b => b.key), bubble: bubbleCur && bubbleCur.key, step: st && st.guide && st.guide.step, cand: HINTS.filter(h => st && !st.hintSeen[h.id] && h.when()).map(h => h.id) }; } };
 Object.assign(window.__xm, { showArts, showBag, showPetAwake });
-Object.assign(window.__xm, { showGearDetail, showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get pauseIdx() { return SPEEDS.indexOf(0); }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）
-Object.assign(window.__xm, { pushPopup, fitScene });   // 换窗抖动检查（tools/jitter_check.js）用
+Object.assign(window.__xm, { showGearDetail, showEquip, showWorld, showPath, showInbox, showUnlock, showYearReport, showChapterCard, showRecord, showSettings, navClick, goTo, hlOnly, say, get sayLog() { return sayLog; }, get unlockQ() { return unlockQ; }, get navCur() { return navCur; } });   // 开罗式重整（测试与截图用）   // 面板重做 A 线：功法页、包裹、觉醒卡（测试与截图用）
+Object.assign(window.__xm, { pushPopup, fitScene, updateHUD });   // 换窗抖动检查（tools/jitter_check.js）用
+// 旧测试脚本的钩子（tools/content_test.js 还在调）：没有速度档了，setSpeed 什么都不做；onTick = 过一季（跳过链没出完的检查，结算链照常出）
+Object.assign(window.__xm, { setSpeed: () => {}, pauseIdx: 0, onTick: () => { if (st && !st.exp && st.p.r <= L.MAXR) { chainOn = false; queue.length = 0; nextSeason(true); } } });
 Object.assign(window.__xm, { showSaves, showSlot, saveLocal, get slots() { return SLOTS; }, get queueLen() { return queue.length; } });   // 存档页（saves.js；tools/save_check.js 用）

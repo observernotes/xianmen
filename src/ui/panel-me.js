@@ -77,7 +77,7 @@ function showMe(tab) {
     const rivals = rivalListHTML();
     const bosses = L.BOSSES.map((B, k) => `<span class="chip ${st.bosses[k] ? 'ok' : ''}" style="${st.bosses[k] ? '' : 'opacity:.5'}">${B.n}</span>`).join(' ');
     const anyBoss = L.BOSSES.some((B, k) => st.bosses[k] || L.bossReady(st, k));
-    body = `<div class="ksec"><span>天骄榜 · 你第 ${st.rank}</span><span>论道还有 ${L.nextTour(st)} ${MO()}</span></div>${ladderHTML()}${rivals}${anyBoss ? `<div class="ksec"><span>地图首领</span></div><div style="display:flex;flex-wrap:wrap;gap:4px">${bosses}</div>` : ''}`;
+    body = `<div class="ksec"><span>天骄榜 · 你第 ${st.rank}</span><span>论道还有 ${seasons(L.nextTour(st))} 季</span></div>${ladderHTML()}${rivals}${anyBoss ? `<div class="ksec"><span>地图首领</span></div><div style="display:flex;flex-wrap:wrap;gap:4px">${bosses}</div>` : ''}`;
   }
   const s = sheet({ title: shellTitle(sh), body: meTabs(tab) + body });
   if (tab === 'bond' && typeof bindBondTab === 'function') bindBondTab(s);
@@ -98,7 +98,7 @@ function showRecord() {
     + ent('report', '年报', `${hist.length} 年`, 'kRep', hist.length > 0)
     + ent('rank', '成就', `${got} / ${L.ACHS.length}`, 'kAch')
     + ent('codex', '图鉴', UI.isOpen('codex') ? `${L.codexCells ? L.codexCells(st) : 0} 格` : '', 'kCodex', UI.isOpen('codex'))
-    + ent('time', '年历', UI.isOpen('cal') ? `论道还有 ${L.nextTour(st)} ${MO()}` : '', 'kCal', UI.isOpen('cal'))
+    + ent('time', '年历', UI.isOpen('cal') ? `论道还有 ${seasons(L.nextTour(st))} 季` : '', 'kCal', UI.isOpen('cal'))
     + `<div class="ksec"><span>最高纪录</span></div><div class="krow"><span class="k">最高战力</span><span class="v">${fmt(Math.max(best.pw || 0, L.power(st)))}</span></div><div class="krow"><span class="k">最好名次</span><span class="v">${st.bestRank && st.bestRank < 100 ? '第 ' + st.bestRank : '—'}</span></div>`
     + (st.lives.length ? `<div class="ksec"><span>前世 ${st.lives.length}</span></div>${st.lives.slice(-3).map((l, i) => `<div class="krow"><span class="k">第 ${st.lives.length - Math.min(3, st.lives.length) + i + 1} 世</span><span class="v">${esc(l.name)} · ${l.ascended ? '飞升' : L.REALMS[Math.min(l.r, 8)].n + '坐化'}</span></div>`).join('')}` : '')
     + lifeRebirthHTML();
@@ -116,6 +116,8 @@ function showSettings() {
     + `<div class="kslot"><div class="cell" id="btnSound" style="cursor:pointer"></div><div class="mid"><div class="nm">声音</div><small>${['音乐与音效', '仅音效', '静音'][soundMode]}</small></div><button class="kb alt" id="kSnd">切换</button></div>
     <div class="kslot kvrow"><div class="mid"><div class="nm">音乐</div></div>${volBar('m', soundMode === 0 ? AU.mv : 0)}</div>
     <div class="kslot kvrow"><div class="mid"><div class="nm">音效</div></div>${volBar('s', soundMode !== 2 ? AU.sv : 0)}</div>
+    <div class="kslot"><div class="cell">${artIcon('atk', 32)}</div><div class="mid"><div class="nm">战斗速度</div><small>只影响战斗演出 · 现在 ×${btSpeed}</small></div><button class="kb alt" id="kBtSpd">×${btSpeed > 1 ? 1 : 2}</button></div>
+    <div class="kslot"><div class="cell">${artIcon('time', 32)}</div><div class="mid"><div class="nm">【下一季】剩点时确认</div><small>${sitAsk ? '先问一句' : '不问，剩下的点自动打坐'}</small></div><button class="kb alt" id="kSitAsk">${sitAsk ? '不问了' : '要问'}</button></div>
     <div class="kslot"><div class="cell">${artIcon('quest', 32)}</div><div class="mid"><div class="nm">玩法指南</div><small>各系统一句话</small></div><button class="kb alt" id="btnHelp">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('task', 32)}</div><div class="mid"><div class="nm">札记</div><small>本章小任务</small></div><button class="kb alt" id="btnQuests">看</button></div>
     <div class="kslot"><div class="cell">${artIcon('ok', 32)}</div><div class="mid"><div class="nm">存档</div><small>自动 3 · 手动 3 · 云：${esc(cloudStatus)}</small></div><button class="kb alt" id="btnSaves">打开</button></div>
@@ -134,6 +136,8 @@ function showSettings() {
     savePref(); setSoundIcon(); if (w === 's') SFX.coin(); else SFX.tap();
     showSettings();
   });
+  s.querySelector('#kBtSpd').onclick = () => { SFX.tap(); btSpeed = btSpeed > 1 ? 1 : 2; savePref(); showSettings(); };
+  s.querySelector('#kSitAsk').onclick = () => { SFX.tap(); sitAsk = !sitAsk; savePref(); showSettings(); };
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };
   s.querySelector('#btnQuests').onclick = () => { SFX.tap(); showQuests(); };
   s.querySelector('#btnSaves').onclick = () => { SFX.tap(); showSaves(); };   // 存档页（saves.js）

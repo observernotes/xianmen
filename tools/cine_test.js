@@ -65,16 +65,14 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   for (let i = 0; i < 12; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
   await page.click('#goStart'); await page.waitForTimeout(800);
   check(await ev(() => !!window.__xm.st.meta.cine.tuihun), '建档后 st.meta.cine.tuihun = 1');
-  await ev(() => window.__xm.setSpeed(0));
-  // 停表：播的时候修为（L.flow）不涨；不播时涨
-  await ev(() => { const X = window.__xm; X.st.guide.done = true; X.st.guide.step = 999; X.setSpeed(1); });
+  // 时间不再自己走（docs/AP_PLAN.md §6.3）：放着不动时间不走；播的时候【下一季】点不动
+  await ev(() => { const X = window.__xm; X.st.guide.done = true; X.st.guide.step = 999; });
   const xp = () => ev(() => window.__xm.st.p.xp + window.__xm.st.tick * 1e6);
   let a0 = await xp(); await page.waitForTimeout(800); let a1 = await xp();
   await ev(() => { window.__xm_cine.play('ult', {}, { recall: true, force: true }); });
-  const b0 = await xp(); await page.waitForTimeout(1500); const b1 = await xp();
-  check(a1 > a0 && b1 === b0 && !!(await ev(() => window.__xm.cine)), `播的时候停表（不播 ${a0.toFixed(2)} → ${a1.toFixed(2)}；播 ${b0.toFixed(2)} → ${b1.toFixed(2)}）`);
+  const b0 = await xp(); await ev(() => window.__xm.nextSeason(true)); await page.waitForTimeout(1500); const b1 = await xp();
+  check(a1 === a0 && b1 === b0 && !!(await ev(() => window.__xm.cine)) && (await ev(() => window.__xm.busyUI)), `放着不走时间、播的时候【下一季】点不动（${a0.toFixed(2)} → ${a1.toFixed(2)}；播 ${b0.toFixed(2)} → ${b1.toFixed(2)}）`);
   await ev(() => window.__xm_cine.skip()); await page.waitForTimeout(200);
-  await ev(() => window.__xm.setSpeed(window.__xm.pauseIdx));
   await ev(() => { const X = window.__xm, s = X.st; s.p.look = s.p.look || { hair: '#2a2230', skin: '#f2c9a0', f: 0 }; });
   const list = [
     ['tuihun', {}, [[0, 2500], [2, 2400], [3, 3000]]],
@@ -95,10 +93,10 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   // ---------- 只播一次、在外排队、结算卡之前 ----------
   await ev(() => { const X = window.__xm; X.closeModal(); });
   const q1 = await ev(() => { const X = window.__xm, C = window.__xm_cine; X.L.startExp(X.st, 0, 0, 0); C.playCine('boss', { k: 1 }); return { on: !!C.on, q: C.queue, exp: !!X.st.exp }; });
-  check(q1.exp && !q1.on && q1.q.includes('boss:1'), `在外触发的首领过场不当场播，进队（${q1.q.join(',')}）`);
-  await ev(() => { const X = window.__xm; X.st.exp.left = 1; X.L.flow(X.st, 1); X.onTick(); }); await page.waitForTimeout(600);
+  check(q1.exp && !q1.on && q1.q.includes('boss:1'), `历练演出中触发的首领过场不当场播，进队（${q1.q.join(',')}）`);
+  await ev(() => window.__xm_bt.all()); await page.waitForTimeout(600);
   const r1 = await ev(() => ({ on: window.__xm_cine.on, modal: !document.getElementById('modal').hidden }));
-  check(r1.on && r1.on.key === 'boss:1' && !r1.modal, `回洞府：先播排着的过场（${r1.on && r1.on.key}），结算卡等着`);
+  check(r1.on && r1.on.key === 'boss:1' && !r1.modal, `这一趟打完：结算链先播排着的过场（${r1.on && r1.on.key}），结算卡等着`);
   await page.screenshot({ path: `${out}/${tag}-flow-boss-home.png` });
   await page.click('.cn-skip'); await page.waitForTimeout(700);
   const r2 = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
@@ -107,9 +105,9 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(300);
   const again = await ev(() => { const C = window.__xm_cine; C.playCine('boss', { k: 1 }); return { on: !!C.on, q: C.queue }; });
   check(!again.on && !again.q.length, '同一段第二次触发不再播');
-  // 在外：戒中剑意当场播（战斗画面里）
+  // 历练演出中：戒中剑意当场播（战斗画面里）
   const u1 = await ev(() => { const X = window.__xm, C = window.__xm_cine; X.L.startExp(X.st, 0, 0, 0); C.playCine('ult', {}); return { on: C.on && C.on.id, exp: !!X.st.exp }; });
-  check(u1.exp && u1.on === 'ult', '在外：戒中剑意当场播');
+  check(u1.exp && u1.on === 'ult', '历练演出中：戒中剑意当场播');
   await ev(() => window.__xm_cine.skip());
   await ev(() => { const X = window.__xm; X.st.exp = null; X.closeModal(); }); await page.waitForTimeout(300);
   // ---------- 突破筑基：破境过场 → 结果卡 ----------
@@ -126,7 +124,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => window.__xm.closeModal()); await page.waitForTimeout(500);
   for (let i = 0; i < 6; i++) { const t = await ev(() => { const C = window.__xm_cine; if (C.on) C.skip(); const m = document.getElementById('modal'); if (!m.hidden) window.__xm.closeModal(); return C.queue.length; }); await page.waitForTimeout(450); if (!t) break; }
   // ---------- 三年之约：开打前 → 对决 → 打脸 → 章末卡 ----------
-  await ev(() => { const X = window.__xm, s = X.st; while (!document.getElementById('modal').hidden) X.closeModal(); s.p.r = 1; s.bonus.atk = 1e6; X.runPact(); });
+  await ev(() => { const X = window.__xm, s = X.st; while (!document.getElementById('modal').hidden) X.closeModal(); s.p.r = 1; s.bonus.atk = 1e6; s.evDone.s1_night = 1; s.storyQ.length = 0; X.runPact(); });   // 开章那场（破庙第一夜）按看过了算：这里只看约战之后的那条链
   await page.waitForTimeout(400);
   const p0 = await on(); check(p0 && p0.key === 'pact0', `约战开打前：对视（${p0 && p0.key}）`);
   await page.click('.cn-skip'); await page.waitForTimeout(600);
@@ -138,13 +136,22 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const p1 = await on(); check(p1 && p1.key === 'pact1' && p1.n === 2, `赢了：打脸 + 休书（${p1 && p1.key} · ${p1 && p1.n} 镜）`);
   await page.waitForTimeout(300); await page.screenshot({ path: `${out}/${tag}-flow-pact1.png` });
   await page.click('.cn-skip'); await page.waitForTimeout(1600);
-  const ch = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
-  console.log('       约战之后：' + (ch || '（无弹窗）'));
-  check(/章.*完/.test(ch), `约战打脸之后才是章末卡（${ch}）`);
+  // 约战之后同一条结算链：这一章的高潮 / 收尾戏（休书……）→ 章末卡（AP_PLAN §4.2：戏在章末卡之前，中间不回主界面）
+  const after = []; let ch = '';
+  for (let i = 0; i < 12; i++) {
+    const t = await ev(() => (window.__xm_talk && window.__xm_talk.on ? '对话:' + window.__xm_talk.on.id : '') || (document.getElementById('modal').hidden ? '' : (document.querySelector('#modal h2') || {}).textContent || '?'));
+    if (!t) break;
+    if (/章.*完/.test(t)) { ch = t; break; }
+    if (after[after.length - 1] !== t) after.push(t);
+    await ev(() => { if (window.__xm_talk && window.__xm_talk.on) { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.close(); return; } const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); });
+    await page.waitForTimeout(500);
+  }
+  console.log('       约战之后：' + after.concat([ch || '（链断了）']).join(' → '));
+  check(/章.*完/.test(ch) && after.every(t => !/第二章|混沌初醒|三张帖子/.test(t)), `约战打脸之后：这一章的戏 → 章末卡（${after.join(' → ')} → ${ch || '没出'}）`);
   await ev(() => { while (!document.getElementById('modal').hidden) window.__xm.closeModal(); });
   for (let i = 0; i < 6; i++) { const t = await ev(() => { const C = window.__xm_cine; if (C.on) C.skip(); const m = document.getElementById('modal'); if (!m.hidden) window.__xm.closeModal(); return C.queue.length + (m.hidden ? 0 : 1); }); await page.waitForTimeout(450); if (!t) break; }
   // ---------- 首领首杀（洞府里的首领对决）：对决 → 斩首领过场 → 翻牌 / 结果 ----------
-  await ev(() => { const X = window.__xm, s = X.st; s.bosses[2] = 0; s.bonus.atk = 1e7; s.p.inj = 0; X.setSpeed(1); window.__br0 = X.L.bossReady; X.L.bossReady = () => true; X.fightBossUI(2); });   // 打完 L.fightBoss 还要再判一次 bossReady：测完再放回去
+  await ev(() => { const X = window.__xm, s = X.st; s.bosses[2] = 0; s.bonus.atk = 1e7; s.p.inj = 0; s.ap.left = 3; window.__br0 = X.L.bossReady; X.L.bossReady = () => true; X.fightBossUI(2); });   // 打完 L.fightBoss 还要再判一次 bossReady：测完再放回去
   // 回合战在场景里打（battle.js），打完 bossResultUI；旧版是对决（duel）
   for (let i = 0; i < 120; i++) {
     const w = await ev(() => ({ on: !!window.__xm_cine.on, m: !document.getElementById('modal').hidden, d: !!window.__xm.duelFx, foot: !!document.querySelector('#modal .foot .btn') }));
@@ -155,6 +162,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   }
   await ev(() => { window.__xm.L.bossReady = window.__br0; });
   const bk = await on(); check(bk && bk.key === 'boss:2', `首领首杀：对决之后先播斩首领（${bk && bk.key}）`);
+  if (!bk) console.log('       ' + JSON.stringify(await ev(() => ({ chain: window.__xm.chainOn, m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent, ap: window.__xm.st.ap.left, b2: window.__xm.st.bosses[2], say: window.__xm.sayLog.slice(0, 2).map(x => x.text) }))));
   await page.click('.cn-skip'); await page.waitForTimeout(600);
   const bf = await ev(() => (document.querySelector('#modal h2') || {}).textContent || '');
   console.log('       斩首领之后：' + (bf || '（无弹窗）'));

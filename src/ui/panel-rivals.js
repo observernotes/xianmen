@@ -37,7 +37,7 @@ function rivalListHTML() {
       <span class="line">${st.beaten[id] ? '<span class="chip ok">已击败</span>' : `<span class="chip">第${q || '?'}名</span>`}${grudgeTag(g) || `<span class="muted">恩怨 ${g}</span>`}</span></span><span class="rvgo">›</span></button>`;
   });
   const mf = L.mainFoes ? L.mainFoes(st).filter(id => id !== 'mu' || st.pact) : [];
-  const top = mf.length ? `${pnHead('这一章的对手', '点开下战书')}${mf.map(id => { const I = L.challengeInfo(st, id); return `<button class="rvrow" data-rv="${id}" id="rvMain">${rvPortrait(id, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(I.n)}</b><span class="chip warn">主线</span></span><span class="line ${I.why ? 'muted' : 'goldt'}">${I.why ? esc(I.why) : `胜算 ${L.pct(I.p)} · 下战书`}</span></span><span class="rvgo">›</span></button>`; }).join('')}` : '';
+  const top = mf.length ? `${pnHead('这一章的对手', '点开下战书')}${mf.map(id => { const I = L.challengeInfo(st, id); return `<button class="rvrow" data-rv="${id}" id="rvMain">${rvPortrait(id, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(I.n)}</b><span class="chip warn">主线</span></span><span class="line ${I.why ? 'muted' : 'goldt'}">${I.why ? esc(I.why) : `胜算 ${L.pct(I.p)} · 下战书${apTag(L.AP.duel)}`}</span></span><span class="rvgo">›</span></button>`; }).join('')}` : '';
   return `${top}${pnHead('宿敌', '点开看底细')}${rows.join('')}${rookieListHTML()}`;
 }
 function rookieListHTML() {
@@ -47,7 +47,7 @@ function rookieListHTML() {
     const I = L.rookieInfo(st);
     out.push(`<button class="rvrow" data-rk="1">${rkPortrait(rk, pxs(48, 0.75), 'ang')}<span class="rvmain"><span class="line"><b>${esc(rk.n)}</b>${elChip(rk.el, !rk.known)}<span class="chip warn">新秀</span></span>
       <span class="line muted">${esc(rk.s)} · 第 ${I.q} 名 · 战力 ${fmt(I.Q)}</span><span class="line muted">${I.gap <= 1 ? '追到你身后了' : `离你还差 ${I.gap} 名，每届追 ${L.ROOKIE.climb} 名`}</span></span><span class="rvgo">›</span></button>`);
-  } else if (st.p.r >= L.ROOKIE.minR) out.push(`<div class="muted">新秀：化神起每 ${L.ROOKIE.every} 月榜上冒出一位${R2.rkNext !== null && R2.rkNext > st.tick ? `（下一位约 ${R2.rkNext - st.tick} 月后）` : ''}</div>`);
+  } else if (st.p.r >= L.ROOKIE.minR) out.push(`<div class="muted">新秀：化神起每 ${seasons(L.ROOKIE.every)} 季榜上冒出一位${R2.rkNext !== null && R2.rkNext > st.tick ? `（下一位约 ${seasons(R2.rkNext - st.tick)} 季后）` : ''}</div>`);
   for (const x of R2.pool) out.push(`<div class="rvline">${icon16('crush', 1)}<span class="grow">${esc(x.n)} <span class="muted">${esc(x.s)} · 被你打压过</span></span><span class="muted">恩怨 ${x.g}</span>${grudgeTag(x.g)}</div>`);
   for (const x of R2.friends) out.push(`<div class="rvline">${icon16('spar', 1)}<span class="grow">${esc(x.n)} <span class="muted">${esc(x.s)} · 你指点过</span></span><span class="jadet">${x.gifts ? `送过 ${x.gifts} 回礼` : '友善'}</span></div>`);
   return out.length ? `${pnHead('新秀')}${out.join('')}` : '';
@@ -138,8 +138,8 @@ function runRookie() {
       <div class="quote">${esc(rk.n)}：“${esc(L.fill(st, rk.line))}”</div>
       <div class="center">打压的胜算 <b class="${I.p < 0.45 ? 'seal' : I.p < 0.8 ? 'goldt' : 'jadet'}">${L.pct(I.p)}</b></div>
       ${zSwapRow(b, { el: rk.known, gear: rk.known }, 'rkSwap')}
-      <div class="grow-row"><span class="gn">${icon16('spar', 1)}【指点】</span><span class="gm"></span><span class="ga"></span><span class="tipx">不打。他成了友善路人，往后逢年过节托人送礼；${L.ROOKIE.trouble} 月后可能报你的名号闯祸。</span></div>
-      <div class="grow-row"><span class="gn">${icon16('crush', 1)}【打压】</span><span class="gm">${L.pct(I.p)}</span><span class="ga"></span><span class="tipx">赢了得他法宝【${esc(rk.gear.n)}】上的${rk.known && ke ? `「${esc(ke.n)}」` : '一条词条'}（挪到你的兵器上），他记你的仇（恩怨 ${L.GRUDGE.hi}）；输了他排到你前面一名，负伤 2 月。</span></div>`;
+      <div class="grow-row"><span class="gn">${icon16('spar', 1)}【指点】</span><span class="gm"></span><span class="ga"></span><span class="tipx">不打。他成了友善路人，往后逢年过节托人送礼；${seasons(L.ROOKIE.trouble)} 季后可能报你的名号闯祸。</span></div>
+      <div class="grow-row"><span class="gn">${icon16('crush', 1)}【打压】</span><span class="gm">${L.pct(I.p)}</span><span class="ga"></span><span class="tipx">赢了得他法宝【${esc(rk.gear.n)}】上的${rk.known && ke ? `「${esc(ke.n)}」` : '一条词条'}（挪到你的兵器上），他记你的仇（恩怨 ${L.GRUDGE.hi}）；输了他排到你前面一名，负伤（本季末痊愈）。</span></div>`;
     const s = sheet({ title: '新秀挑战', center: true, noClose: true, body, foot: [{ t: '指点', alt: true, fn: teach }, { t: '打压', gold: true, fn: crush }] });
     s.querySelectorAll('[data-zswap]').forEach(bt => bt.onclick = () => { if (L.equipArt(st, bt.dataset.zswap)) { SFX.coin(); render(); } });
   };
@@ -155,7 +155,7 @@ function runRookie() {
       stage: 'cloud', foe: ftRookie(rk), face: true,
       quote: `${res.n}：“${L.fill(st, rk.line)}”`,
       winText: `你当着满场看客把他压了下去。<div class="fxlist"><span>${esc(res.text || '')}</span><span>恩怨 ${L.GRUDGE.hi}：他记下了</span></div>`,
-      loseText: `你输了半招。他愣了一下，朝你抱拳。<div class="fxlist"><span>天骄榜 → 第 ${st.rank}</span><span>负伤 2 月</span></div>`, done: closeModal });
+      loseText: `你输了半招。他愣了一下，朝你抱拳。<div class="fxlist"><span>天骄榜 → 第 ${st.rank}</span><span>负伤（${seasonsT(st.p.inj)}痊愈）</span></div>`, done: closeModal });
   };
   render();
 }
