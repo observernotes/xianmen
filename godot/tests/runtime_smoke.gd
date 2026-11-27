@@ -53,7 +53,22 @@ func _initialize() -> void:
 		var opened := send({"op": "panel", "panel": panel})
 		assert(opened["view"]["panel"]["id"] == panel)
 		assert(opened["view"]["panel"]["entries"].size() > 0)
-	print("Godot native runtime: first story, expedition, settlement resume, season, and XT1 save roundtrip passed")
+	var realm_save: Dictionary = restored["save"]["state"]
+	realm_save["p"]["r"] = 4
+	realm_save["flags"]["maxR"] = 4
+	realm_save["pact"] = 1
+	realm_save["story"]["beat"]["c1_climax"] = 36
+	realm_save["evDone"]["s1_pact_after"] = 1
+	realm_save["mj"]["token"] = 1
+	realm_save["onb"]["at"]["realm"] = 0
+	send({"op": "load", "save": JSON.stringify(realm_save)})
+	var entered := send({"op": "act", "action": "realm", "args": [false]})
+	assert(entered["view"]["notice"]["kind"] == "realm")
+	var resumed := send({"op": "load", "save": JSON.stringify(entered["save"])})
+	assert(resumed["view"]["notice"] == entered["view"]["notice"])
+	var door: Dictionary = resumed["view"]["notice"]["options"][0]
+	send({"op": "realm-action", "move": door["move"], "index": door["index"]})
+	print("Godot native runtime: story, combat, settlement resume, season, management, realm, and XT1 save roundtrip passed")
 	quit()
 
 

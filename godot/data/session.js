@@ -82,6 +82,7 @@
       if (ev) return choiceView(ev);
       encounter = null;
     }
+    if (state.run) return realmView();
     if (battle) {
       return {
         kind: 'battle', title: '历练交手', round: battle.round + 1,
@@ -107,6 +108,46 @@
     throw new Error('结算链没有结束');
   }
 
+  function realmView() {
+    const run = state.run;
+    const event = L.mjEventNow(state);
+    if (event) return choiceView(event);
+    const theme = L.mjTheme(run.theme);
+    const options = [];
+    const add = (label, move, index, why = '') => options.push({ label, move, index, why });
+    if (run.phase === 'door') {
+      const recommended = L.mjDoorRec(state);
+      run.doors.forEach((door, index) => {
+        const kind = L.mjDoorShown(door);
+        const name = kind === 'unk' ? '未知之门' : L.MJ_ROOM[kind].n;
+        add(name + (index === recommended ? ' · 荐' : ''), 'door', index);
+      });
+      if (L.mjCanLeave(state)) add('带着收获离开', 'leave', -1);
+    } else if (run.phase === 'shop') {
+      run.shop.forEach((item, index) => add(item.n + ' · ' + fmt(item.price) + ' 灵石', 'shop', index, L.mjShopWhy(state, index)));
+      add('继续前行', 'shop', -1);
+    } else if (run.phase === 'chest') {
+      run.chest.forEach((item, index) => add(item.n, 'chest', index));
+    }
+    return {
+      kind: 'realm', title: run.xf ? '仙府' : theme.n + '秘境',
+      text: '第 ' + run.floor + ' / ' + run.floors + ' 层 · 收获 ' + L.mjLootN(state) + ' 项',
+      hp: run.hp, maxHp: run.max, options,
+    };
+  }
+
+  function realmEntries() {
+    const entries = [];
+    if (L.mjUnlocked(state)) entries.push({
+      label: L.mjThemeNow(state).n + '秘境', xf: false, ap: L.mjAp(state),
+      why: L.apWhy(state, 'realm', { xf: false }),
+    });
+    if (L.mjXianfu(state)) entries.push({
+      label: '仙府', xf: true, ap: L.mjAp(state), why: L.apWhy(state, 'realm', { xf: true }),
+    });
+    return entries;
+  }
+
   function view() {
     if (!state) return { started: false };
     const notice = nextView();
@@ -119,6 +160,7 @@
       maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{ k, name: map.n, cells: expeditionCells(k) }] : []),
       canRetreat: L.retOpen(state),
       array: arrayView(),
+      realms: notice ? [] : realmEntries(),
       mainActions: L.mainActs(state).filter(action => action.do && action.do.id !== 'exp').map(action => ({
         label: action.t, why: action.why || '', available: action.ok, ap: action.ap || 0,
         id: action.do.id, args: action.do.args,
@@ -182,7 +224,8 @@
   }
 
   function resolve(index) {
-    const event = encounter && L.eventById(encounter);
+    const realmEvent = L.mjEventNow(state);
+    const event = realmEvent || (encounter && L.eventById(encounter));
     const block = !event && L.nextBlock(state);
     const ev = event || (block?.kind === 'story' && block.data);
     if (!ev) throw new Error('没有待选的奇遇');
@@ -191,11 +234,13 @@
     if (block) L.blockDone(state, block);
     const result = L.resolveChoice(state, ev, index);
     if (!result) throw new Error('奇遇未能结算');
+    const realmResult = realmEvent ? L.mjAfterEvent(state) : null;
     if (event) encounter = null;
     const response = choice[result.ok ? 'ok' : 'fail'] || choice.ok;
     note = {
       kind: 'card', key: ev.id + ':result', scene: ev.scene || '',
-      title: fill(ev.title), text: fill(result.text), dialogue: dialogue(response?.talk, ev.id),
+      title: fill(ev.title), text: [fill(result.text), realmResult?.wipe ? '气血耗尽，退出秘境。' : ''].filter(Boolean).join('\n'),
+      dialogue: dialogue(response?.talk, ev.id),
     };
   }
 
@@ -255,6 +300,23 @@
 
     if (op === 'pick') return resolve(message.index);
     if (op === 'combat') return combat(message.move);
+    if (op === 'realm-action') {
+      if (!state.run || note) throw new Error('目前无法行动');
+      const available = realmView().options.some(option => option.move === message.move && option.index === message.index && !option.why);
+      if (!available) throw new Error('这项选择不可用');
+      const actions = { door: L.mjPick, shop: L.mjShop, leave: L.mjLeave, chest: L.mjChest };
+      const result = actions[message.move](state, message.index);
+      if (!result) throw new Error('未能结算秘境');
+      if (!state.run || result.dmg || result.heal || result.loot?.length || result.texts?.length) {
+        note = { kind: 'card', title: state.run ? '秘境所得' : '秘境归来', text: [
+          result.dmg ? '气血 −' + fmt(result.dmg) : '',
+          result.heal ? '气血 +' + fmt(result.heal) : '',
+          ...(result.texts || []), ...(result.loot || []).map(item => item.t).filter(Boolean),
+          ...(result.chest?.texts || []),
+        ].filter(Boolean).join('\n') };
+      }
+      return;
+    }
     if (op === 'advance') {
       if (note) { note = null; return; }
       if (encounter) throw new Error('请先选择奇遇');

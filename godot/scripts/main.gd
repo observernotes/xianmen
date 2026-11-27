@@ -192,6 +192,11 @@ func draw_maps() -> void:
 				draw_map(location)
 				return
 	add_label("外出历练", 24, COLORS.gold)
+	for entry in view["realms"]:
+		var realm_args := [entry["xf"]]
+		add_button(entry["label"] + "  ◆%d" % int(entry["ap"]), func(): start_trip("realm", realm_args), true, not String(entry["why"]).is_empty())
+		if entry["why"]:
+			add_label(entry["why"], 14, COLORS.muted)
 	for location in view["maps"]:
 		var index: int = location["k"]
 		add_button(location["name"] + "  ▸", func():
@@ -266,6 +271,9 @@ func draw_notice(notice: Dictionary) -> void:
 	if notice.get("kind") == "battle":
 		draw_battle(notice)
 		return
+	if notice.get("kind") == "realm":
+		draw_realm(notice)
+		return
 	add_label(notice.get("title", ""), 25, COLORS.gold)
 	var next_key := String(notice.get("key", ""))
 	if next_key != dialogue_key:
@@ -321,6 +329,17 @@ func draw_battle(battle: Dictionary) -> void:
 	add_button("服丹", func(): request({"op": "combat", "move": "pill"}), false, int(battle["pills"]) == 0, actions)
 	add_button("撤退", func(): request({"op": "combat", "move": "flee"}), false, false, actions)
 	add_button("托管本场", func(): request({"op": "combat", "move": "smart"}))
+
+
+func draw_realm(realm: Dictionary) -> void:
+	add_label(realm["title"], 24, COLORS.gold)
+	add_label(realm["text"], 16)
+	add_gauge("气血", realm["hp"], realm["maxHp"], COLORS.jade)
+	for option in realm["options"]:
+		var message := {"op": "realm-action", "move": option["move"], "index": option["index"]}
+		add_button(option["label"], func(): request(message), true, not String(option["why"]).is_empty())
+		if option["why"]:
+			add_label(option["why"], 14, COLORS.muted)
 
 
 func add_gauge(title: String, value: float, maximum: float, tint: Color) -> void:
