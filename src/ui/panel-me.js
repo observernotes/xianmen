@@ -117,7 +117,7 @@ function hdRowHTML() {
   const cur = hdNow(), q = HDX.q === 2 && HDX.lite ? 1.5 : HDX.q;
   const say = cur === 'auto' ? `自动 · 现在：${HD_NAMES[q]}` : `${HD_NAMES[cur]} · ${HD_SAYS[cur]}`;
   return `<div class="kslot kq"><div class="kqh"><div class="cell">${artIcon('rune', 32)}</div><div class="mid"><div class="nm">画质</div><small id="kHdSay">${say}</small></div></div>
-    <div class="kseg" role="radiogroup" aria-label="画质">${HD_VALS.map(v => `<button data-hd="${v}" role="radio" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${HD_NAMES[v]}</button>`).join('')}</div></div>`;
+    <div class="kseg" role="radiogroup" aria-label="画质">${HD_VALS.map(v => `<span data-hd="${v}" role="radio" tabindex="0" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${HD_NAMES[v]}</span>`).join('')}</div></div>`;   // 和音量格一样：一整条算一个控件（KAIRO 每屏按钮数）
 }
 function hdPick(v) { hdPref = v; hdApply(v); savePref(); }
 // 【仙途】→ 设置：声音（三态 + 音乐 / 音效音量）、画质、玩法指南、存档（自动 / 手动档位，saves.js）、重新开始
@@ -148,7 +148,8 @@ function showSettings() {
     savePref(); setSoundIcon(); if (w === 's') SFX.coin(); else SFX.tap();
     showSettings();
   });
-  s.querySelectorAll('[data-hd]').forEach(b => b.onclick = () => { const v = b.dataset.hd === 'auto' ? 'auto' : +b.dataset.hd; SFX.tap(); hdPick(v); showSettings(); });
+  const kq = s.querySelector('.kseg'), hdGo = e => { const b = e.target.closest('[data-hd]'); if (!b) return; e.preventDefault(); const v = b.dataset.hd === 'auto' ? 'auto' : +b.dataset.hd; SFX.tap(); hdPick(v); showSettings(); };
+  if (kq) { kq.onclick = hdGo; kq.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') hdGo(e); }; }
   s.querySelector('#kBtSpd').onclick = () => { SFX.tap(); btSpeed = btSpeed > 1 ? 1 : 2; savePref(); showSettings(); };
   s.querySelector('#kSitAsk').onclick = () => { SFX.tap(); sitAsk = !sitAsk; savePref(); showSettings(); };
   s.querySelector('#btnHelp').onclick = () => { SFX.tap(); showHelp(); };

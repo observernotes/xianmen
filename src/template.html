@@ -1063,9 +1063,9 @@ details.pn-it[open] > summary.pn-row::after { content: ''; background-image: var
 .kslot.kq { flex-direction: column; align-items: stretch; gap: 4px; }
 .kslot.kq .kqh { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .kseg { display: flex; gap: 3px; }
-.kseg button { flex: 1; min-width: 0; min-height: 44px; padding: 0 1px; font: inherit; font-size: 15px; cursor: pointer; border: 2px solid #2c2238; background: #f6ecd2; color: #2c2238; white-space: nowrap; }
-.kseg button.on { background: #f4c542; }
-.kseg button:active { transform: translateY(1px); }
+.kseg span { flex: 1; min-width: 0; min-height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; border: 2px solid #2c2238; background: #f6ecd2; color: #2c2238; white-space: nowrap; user-select: none; }
+.kseg span.on { background: #f4c542; }
+.kseg span:active { transform: translateY(1px); }
 .ksec { font-size: 14px; color: #8a7a5c; margin: 4px 0 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
 .ksec .red { color: #c8323c; }
 .ksec button { font: inherit; font-size: 14px; color: #8a7a5c; background: none; border: 0; cursor: pointer; min-height: 44px; padding: 0 4px; margin: -11px 0; }
@@ -1554,7 +1554,7 @@ body.hd2d { background: radial-gradient(130% 70% at 50% 0%, #241d3c 0%, #120f1c 
 .hd2d .tk-cv { transition: filter .35s; }
 .hd2d .tk-stage.hd-cast .tk-cv { filter: blur(2.4px) saturate(1.08) brightness(.9); }
 :where(.hd2d) .card { box-shadow: 0 2px 0 rgba(90,60,30,.28), 0 4px 10px rgba(90,60,30,.16); }
-:where(.hd2d) .kslot, :where(.hd2d) .kseg button { box-shadow: 0 2px 0 rgba(90,60,30,.22); }
+:where(.hd2d) .kslot, :where(.hd2d) .kseg span { box-shadow: 0 2px 0 rgba(90,60,30,.22); }
 :where(.hd2d) .tk-box { box-shadow: 0 6px 0 rgba(4,3,10,.5), 0 0 34px rgba(110,120,255,.2); }
 </style>
 
