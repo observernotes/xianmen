@@ -370,8 +370,8 @@ const path = require('path');
       if (!st || st.p.r >= 9) break;
       if (L.isReady(st)) {
         if (st.p.inj > 0) L.heal(st);
-        while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) L.buy(st, 'pill');
-        while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) L.buy(st, 'pill');
+        while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) if (!L.buy(st, 'pill')) break;   // 买不到就停（不然死循环）
+        while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) if (!L.buy(st, 'pill')) break;
         if (uiBt < 6) {
           uiBt++; X.showBreakthrough(); await sleep(40);
           for (const b of [...document.querySelectorAll('#modal [data-aid]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(40); }

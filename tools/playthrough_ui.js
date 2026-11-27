@@ -140,14 +140,14 @@ async function play(route, seed) {
         if (st.p.inj > 0 && L.canHeal(st)) L.heal(st);
         // 突破：点界面
         if (L.isReady(st) && !L.busy(st)) {
-          while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) L.buy(st, 'pill');
+          while (st.pills < 3 && st.stones > L.price(st, 'pill') * 2 && !L.btGuard(st)) if (!L.buy(st, 'pill')) break;   // 买不到（货架限购、坊市没开）就停：原来这里会死循环
           // 突破的过场在无头浏览器里按真实时间放（机器忙时一场几分钟），照 longrun.js 直接结算（PT_UIBT=1 时筑基那一回点界面；修炼不是主线，心魔劫照样当剧情弹）
           if (cfg.uiBt && uiBt < 1 && !L.tribNeeded(st)) {
             uiBt++; X.showBreakthrough(); await sleep(30);
             for (const b of [...document.querySelectorAll('#modal [data-aid]:not([disabled])')]) if (!b.closest('.aid').classList.contains('on')) { b.click(); await sleep(20); }
             const go = document.querySelector('#modal .foot .btn.gold:not([disabled])'); if (go) go.click(); else X.closeModal();
           } else {
-            while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) L.buy(st, 'pill');
+            while (L.tribNeeded(st) && st.pills < 5 && st.stones > L.price(st, 'pill') * 2) if (!L.buy(st, 'pill')) break;
             const pre = L.tribPre(st); if (pre) { X.showTribStory(pre, () => X.closeModal()); await sleep(40); await drain(); }
             L.breakthrough(st, Math.min(3, st.pills), { aids: 'all', extra: 'all' });
           }
