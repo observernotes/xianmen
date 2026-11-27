@@ -346,7 +346,7 @@ L.finalP = function (st) {
   const k = L.finalKind(st);
   try {
     if (k === 'heir') { const foe = { kind: 'heir', sect: st.sect.id }; return L.duelP(st, L.duelPower(st, foe), L.heirPower(st), foe); }
-    if (k === 'war') { const foe = { kind: 'war', id: 'tianjian' }; return L.duelP(st, L.duelPower(st, foe) * L.wardMult(st), L.warPower(st), foe); }
+    if (k === 'war') return L.sectWarInfo(st).p;
   } catch (err) { return 0; }
   return 0;
 };

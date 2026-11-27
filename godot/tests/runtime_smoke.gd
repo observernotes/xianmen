@@ -231,8 +231,107 @@ func _initialize() -> void:
 	assert(send({"op": "panel", "panel": "calendar"})["view"]["panel"]["entries"].size() > 3)
 	assert(send({"op": "panel", "panel": "journal"})["view"]["panel"]["entries"].size() > 1)
 	assert(send({"op": "panel", "panel": "codex:gear"})["view"]["panel"]["entries"].size() > 1)
-	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear and save roundtrips passed")
+	check_duels(restored["save"]["state"])
+	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels and save roundtrips passed")
 	quit()
+
+
+func check_duels(base: Dictionary) -> void:
+	var ladder: Dictionary = base.duplicate(true)
+	ladder["p"].merge({"r": 4, "s": 3}, true)
+	ladder["flags"]["maxR"] = 4
+	ladder["pact"] = 1
+	ladder["quest"]["done"]["c0_m"] = 1
+	ladder["story"]["chCard"] = 0
+	ladder["rank"] = 87
+	ladder["bestRank"] = 87
+	ladder["arts"]["own"].merge({"z_liejin": 0, "z_qingteng": 0}, true)
+	ladder["arts"]["slot"][1] = "z_liejin"
+	ladder["onb"]["at"]["zhanji"] = 0
+	var initial := settle_cards(send({"op": "load", "save": ladder}))
+	var rankings := send({"op": "panel", "panel": "rankings"})
+	var target: Dictionary = {}
+	for entry in rankings["view"]["panel"]["entries"]:
+		for button in entry["buttons"]:
+			if button.has("duel") and int(button["duel"].get("q", 0)) == 72:
+				target = button["duel"]
+	assert(not target.is_empty())
+	var prep := send({"op": "duel-prepare", "action": "duel", "args": target})
+	var ap: int = prep["view"]["ap"]
+	assert(prep["view"]["notice"]["kind"] == "duel-prep")
+	assert(ap == initial["view"]["ap"])
+	assert(not request({"op": "advance"})["ok"])
+	var reload := send({"op": "load", "save": prep["save"]})
+	assert(reload["view"]["notice"] == prep["view"]["notice"])
+	var swapped := send({"op": "duel-action", "move": "equip", "art": "z_qingteng"})
+	assert(swapped["save"]["state"]["arts"]["slot"][1] == "z_qingteng")
+	assert(swapped["view"]["ap"] == ap)
+	var cancelled := send({"op": "duel-action", "move": "cancel"})
+	assert(cancelled["view"]["panel"]["id"] == "rankings")
+	assert(cancelled["view"]["ap"] == ap)
+	send({"op": "duel-prepare", "action": "duel", "args": target})
+	var challenge := send({"op": "duel-action", "move": "fight"})
+	assert(challenge["view"]["ap"] == ap - 1)
+	var settled := settle_cards(challenge)
+	assert(settled["save"]["state"]["stats"]["chal"] == 1)
+	assert(not request({"op": "duel-action", "move": "fight"})["ok"])
+	assert(send({"op": "view"})["save"]["state"]["stats"]["chal"] == 1)
+
+	var old_result: Dictionary = settled["save"].duplicate(true)
+	old_result["pending"] = [{"kind": "result", "id": "duel", "data": {"note": "旧版结算"}}]
+	assert(send({"op": "load", "save": old_result})["view"]["notice"]["text"] == "旧版结算")
+	assert(send({"op": "advance"})["view"]["notice"] == null)
+
+	var pact: Dictionary = base.duplicate(true)
+	pact["story"]["bigQ"] = [{"k": "pact"}]
+	var scheduled := settle_cards(send({"op": "load", "save": pact}))
+	assert(scheduled["view"]["notice"]["kind"] == "duel-prep")
+	assert(scheduled["view"]["notice"]["title"] == "三年之约")
+	var resumed := send({"op": "load", "save": scheduled["save"]})
+	assert(resumed["view"]["notice"] == scheduled["view"]["notice"])
+	var fought := send({"op": "duel-action", "move": "fight"})
+	assert(fought["save"]["state"]["pact"] != 0)
+	assert(fought["save"]["state"]["story"]["bigQ"].is_empty())
+	assert(fought["view"]["ap"] == scheduled["view"]["ap"])
+	assert(send({"op": "load", "save": fought["save"]})["view"]["notice"] == fought["view"]["notice"])
+	assert(not request({"op": "duel-action", "move": "fight"})["ok"])
+
+	var rival: Dictionary = ladder.duplicate(true)
+	rival["rank"] = 70
+	rival["quest"]["done"]["c1_m"] = 1
+	rival["story"]["chCard"] = 1
+	rival["story"]["bigQ"] = [{"k": "foe", "data": "zhao"}]
+	var visit := settle_cards(send({"op": "load", "save": rival}))
+	assert(visit["view"]["notice"]["title"] == "宿敌上门")
+	var deferred := send({"op": "duel-action", "move": "cancel"})
+	assert(deferred["save"]["state"]["mainG"]["cd"]["zhao"] > rival["tick"])
+	assert(deferred["save"]["state"]["story"]["bigQ"].is_empty())
+	assert(deferred["save"]["state"]["stats"].get("chal", 0) == 0)
+	send({"op": "load", "save": visit["save"]})
+	var free := send({"op": "duel-action", "move": "fight"})
+	assert(free["view"]["ap"] == visit["view"]["ap"])
+	assert(free["save"]["state"]["stats"]["chal"] == 1)
+	assert(free["save"]["state"]["story"]["bigQ"].is_empty())
+
+	var rookie: Dictionary = ladder.duplicate(true)
+	rookie["rank"] = 20
+	rookie["ladder"][19]["rk"] = "rk1"
+	rookie["rv2"]["rk"] = {
+		"id": "rk1", "n": "试剑新秀", "s": "试剑宗", "el": "jin", "line": "与你一战",
+		"seed": 12, "t0": 0, "climbs": 3, "f": 1, "gear": {"n": "试锋", "aff": "huixin"}, "due": 1,
+	}
+	rookie["story"]["bigQ"] = [{"k": "rookie"}]
+	var rookie_prep := settle_cards(send({"op": "load", "save": rookie}))
+	assert(rookie_prep["view"]["notice"]["opponent"] == "试剑新秀")
+	var taught := send({"op": "duel-action", "move": "teach"})
+	assert(taught["save"]["state"]["rv2"]["teach"] == 1)
+	assert(taught["save"]["state"]["rv2"]["rk"] == null)
+	send({"op": "load", "save": rookie_prep["save"]})
+	var crushed := send({"op": "duel-action", "move": "crush"})
+	var rivals: Dictionary = crushed["save"]["state"]["rv2"]
+	assert(rivals["crush"] + rivals["lost"] == 1)
+	assert(rivals["teach"] == 0 and rivals["rk"] == null)
+	assert(crushed["save"]["state"]["story"]["bigQ"].is_empty())
 
 
 func settle_cards(response: Dictionary, picks := {}) -> Dictionary:
@@ -252,7 +351,12 @@ func settle_cards(response: Dictionary, picks := {}) -> Dictionary:
 
 
 func send(message: Dictionary) -> Dictionary:
+	var response := request(message)
+	assert(response["ok"], String(response.get("error", "Unknown runtime error")))
+	return response
+
+
+func request(message: Dictionary) -> Dictionary:
 	var response = JSON.parse_string(runtime.request(JSON.stringify(message, "", false, true)))
 	assert(response is Dictionary, runtime.get_last_error())
-	assert(response["ok"], response.get("error", "Unknown runtime error"))
 	return response

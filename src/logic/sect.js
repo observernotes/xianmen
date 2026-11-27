@@ -165,11 +165,15 @@ L.vaultBuy = function (st, k) {
 // 天剑宗来犯：对手是天剑宗长老团（约等于炼虚中期的强者；SYSTEMS §18：×7 再 ×3）
 L.warPower = () => P.pw0 * Math.pow(P.pwStage, 21) * Math.pow(P.pwRealm, 5) * 7 * 3;
 L.wardMult = st => Math.pow(1.15, (st.sect && st.sect.build && st.sect.build.ward) || 0);
-L.sectWar = function (st) {
+L.sectWarInfo = function (st) {
   const foe = { kind: 'war', id: 'tianjian' };
   const lead = (L.rivalLeads ? L.rivalLeads(st) : []).find(x => x.nine === 'tianjian');   // 恩怨 ≥ 60 的赵乾 / 楚天阔带头：来敌战力 ×1.1～1.2（rivals2.js）
   const S = L.duelPower(st, foe) * L.wardMult(st), Q = L.warPower(st) * (lead ? lead.m : 1);
   const p = L.duelP(st, S, Q, foe);
+  return { foe, S, Q, p, lead };
+};
+L.sectWar = function (st) {
+  const { foe, S, Q, p, lead } = L.sectWarInfo(st);
   if (L.revealFoe) L.revealFoe(st, foe);
   const win = L.duelWin(st, S, Q, foe, p);
   const res = { S, Q, p, win, lead };

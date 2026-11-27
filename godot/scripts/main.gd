@@ -25,7 +25,7 @@ const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": 
 const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "长老与职司", "disciples": "门下"}
 const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
 const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器"}
-const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "codex": "图鉴"}
+const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴"}
 
 var runtime: Object
 var game_audio := AUDIO.new()
@@ -84,6 +84,9 @@ func request(message: Dictionary) -> void:
 		elif message["op"] in ["import", "load"]:
 			show_saves = false
 			share_code = ""
+		if message["op"] in ["new", "import", "load"]:
+			dialogue_key = ""
+			dialogue_index = 0
 	schedule_draw()
 
 
@@ -144,6 +147,9 @@ func schedule_draw() -> void:
 func draw_view() -> void:
 	redraw_queued = false
 	var notice = view.get("notice")
+	if not notice is Dictionary or not notice.has("dialogue"):
+		dialogue_key = ""
+		dialogue_index = 0
 	game_audio.music(scene_music(notice))
 	var next_page_key := ""
 	if notice is Dictionary:
@@ -216,6 +222,8 @@ func scene_music(notice: Variant) -> String:
 		match notice["kind"]:
 			"battle":
 				return "boss" if notice["boss"] else "road_fight"
+			"duel-prep":
+				return "battle"
 			"travel":
 				return "road"
 			"breakthrough":
@@ -406,7 +414,8 @@ func draw_journey() -> void:
 		var label: String = entry["label"]
 		if int(entry["ap"]) > 0:
 			label += " ◆%d" % int(entry["ap"])
-		var message := {"op": "act", "action": entry.get("id"), "args": entry.get("args")}
+		var command := "duel-prepare" if entry.get("id") in ["duel", "final"] else "act"
+		var message := {"op": command, "action": entry.get("id"), "args": entry.get("args")}
 		add_button(label, func():
 			show_journey = false
 			request(message)
@@ -441,6 +450,12 @@ func draw_management(panel: Dictionary) -> void:
 		if entry["text"]:
 			add_label(entry["text"], 15)
 		for option in entry["buttons"]:
+			if option.has("duel"):
+				var duel := {"op": "duel-prepare", "action": "duel", "args": option["duel"]}
+				add_button(option["label"], func(): request(duel), true, not String(option["why"]).is_empty())
+				if option["why"]:
+					add_label(option["why"], 14, COLORS.muted)
+				continue
 			if option.has("panel"):
 				var target: String = option["panel"]
 				add_button(option["label"], func(): request({"op": "panel", "panel": target}))
@@ -529,6 +544,9 @@ func write_manual_slot(path: String) -> void:
 
 
 func draw_notice(notice: Dictionary) -> void:
+	if notice.get("kind") == "duel-prep":
+		draw_duel_prep(notice)
+		return
 	if notice.get("kind") == "battle":
 		draw_battle(notice)
 		return
@@ -563,7 +581,7 @@ func draw_notice(notice: Dictionary) -> void:
 		dialogue_key = next_key
 		dialogue_index = 0
 	var scene := String(notice.get("scene", ""))
-	var scene_path := "res://art/story-" + scene + ".png"
+	var scene_path := "res://art/chapter.png" if scene == "chapter" else "res://art/story-" + scene + ".png"
 	if not scene.is_empty() and ResourceLoader.exists(scene_path):
 		add_picture(load(scene_path), 210)
 	var lines: Array = notice.get("dialogue", [])
@@ -597,6 +615,27 @@ func draw_notice(notice: Dictionary) -> void:
 	else:
 		draw_result_options(notice)
 		add_button(notice.get("button", "继续  ▸"), func(): request({"op": "advance"}), true)
+
+
+func draw_duel_prep(prep: Dictionary) -> void:
+	add_label(prep["title"], 25, COLORS.gold)
+	if prep["opponent"]:
+		add_label(prep["opponent"], 20, COLORS.jade)
+	if prep["text"]:
+		add_label(prep["text"], 17)
+	if not prep["arts"].is_empty():
+		add_label("备战战技", 18, COLORS.gold)
+		for art in prep["arts"]:
+			var label := ("已装配 · " if art["selected"] else "荐 · " if art["recommended"] else "") + String(art["label"])
+			var message := {"op": "duel-action", "move": "equip", "art": art["id"]}
+			add_button(label, func(): request(message), art["recommended"], art["selected"])
+	for option in prep["options"]:
+		var message := {"op": "duel-action", "move": option["move"]}
+		var why := String(option.get("why", ""))
+		add_button(option["label"], func(): request(message), option["move"] != "cancel", not why.is_empty())
+		var detail := String(option.get("text", why))
+		if not detail.is_empty():
+			add_label(detail, 14, COLORS.muted)
 
 
 func draw_result_options(notice: Dictionary) -> void:

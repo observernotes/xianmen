@@ -11,6 +11,7 @@ def main():
         "globalThis.window = globalThis;",
         events_bundle(),
         logic_bundle(),
+        (data / "duels.js").read_text(encoding="utf-8"),
         (data / "panels.js").read_text(encoding="utf-8"),
         (data / "session.js").read_text(encoding="utf-8"),
     ))

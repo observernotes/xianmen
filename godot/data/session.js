@@ -4,6 +4,7 @@
   let state = null;
   let encounter = null;
   let openEvent = null;
+  let preparedDuel = null;
   let note = null;
   let panel = null;
   let battle = null;
@@ -171,7 +172,11 @@
       return { kind: 'card', title: report.title, text: report.lines.join('\n'), button: report.btn };
     }
     if (block.kind === 'result') {
-      const name = { exp: '历练归来', sweep: '扫荡归来', retreat: '闭关出关', sit: '打坐', boss: '首领战', duel: '天骄对决', deeper: '趁势深入' };
+      const name = { exp: '历练归来', sweep: '扫荡归来', retreat: '闭关出关', sit: '打坐', boss: '首领战', duel: '天骄对决', final: '主线一战', deeper: '趁势深入' };
+      if (block.id === 'duel' || block.id === 'final') {
+        const result = XianmenDuels.result(state, block.id, data);
+        if (result) return result;
+      }
       const lines = [];
       if (data.rating !== undefined) lines.push('评价：' + L.RATINGS[data.rating]);
       if (data.win !== undefined) lines.push(data.win ? '取胜' : '落败');
@@ -193,10 +198,21 @@
         deeper: deeper === null ? null : { why: deeper, ap: L.AP.deeper } };
     }
     if (block.kind === 'big') {
+      const prep = XianmenDuels.prep(state, block.id, block.id === 'foe' ? { id: block.data?.data } : undefined);
+      if (prep) return prep;
       const title = { pact: '三年之约', tour: '天骄论道', meet: '九宗会武', war: '天剑来犯', rookie: '新秀挑战', death: '寿元已尽' };
       return { kind: 'card', title: title[block.id] || '仙途大事', button: '继续 ▸' };
     }
-    if (block.kind === 'chapter') return { kind: 'card', title: '本章了结' };
+    if (block.kind === 'chapter') return {
+      kind: 'card', title: data.chN + ' · ' + data.n,
+      scene: 'chapter', music: 'epic',
+      text: [
+        '历时 ' + Math.ceil(data.months / 3) + ' 季 · 历练 ' + data.exp + ' 趟',
+        '战力 ' + fmt(data.pw0) + ' → ' + fmt(data.pw1),
+        data.bestT ? '最佳历练评价 · ' + data.bestT : '',
+        data.next ? data.next.chN + ' · ' + data.next.n + '\n' + data.next.goal : '',
+      ].filter(Boolean).join('\n'),
+    };
     if (block.kind === 'unlock') return { kind: 'card', title: L.ONB_K[block.id]?.n || '新功能已开' };
     return { kind: 'card', title: '仙途' };
   }
@@ -210,6 +226,7 @@
   function nextView() {
     if (note) return note;
     if (state.settle) return rebirthView();
+    if (preparedDuel) return XianmenDuels.prep(state, preparedDuel.id, preparedDuel.args);
     if (state.trib?.cur || breakthrough) {
       const pre = breakthrough?.pre && L.eventById(breakthrough.pre);
       return pre ? choiceView(pre) : breakthroughView();
@@ -379,6 +396,7 @@
       chain: { ...L.chainOpenNow(state) },
       battle: battle ? battleInputs : null,
       openEvent,
+      preparedDuel,
       panel,
       boss,
       breakthrough,
@@ -404,6 +422,7 @@
     rebirth = native ? parsed.rebirth || null : null;
     returnToGate = native && !!parsed.returnToGate;
     openEvent = native ? parsed.openEvent || null : null;
+    preparedDuel = native && ['duel', 'final'].includes(parsed.preparedDuel?.id) ? parsed.preparedDuel : null;
     panel = native && XianmenPanels.has(parsed.panel) ? parsed.panel : null;
     boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
     if (native && Array.isArray(parsed.battle)) {
@@ -577,6 +596,7 @@
       note = null;
       encounter = null;
       openEvent = null;
+      preparedDuel = null;
       panel = null;
       battle = null;
       boss = null;
@@ -593,6 +613,22 @@
     if (op === 'view') return;
     if (!state) throw new Error('请先踏入仙途');
     if (op === 'export') return L.packSave(JSON.stringify(state));
+    if (op === 'duel-action') {
+      const prep = nextView();
+      if (prep?.kind !== 'duel-prep') throw new Error('目前没有待准备的比试');
+      if (message.move === 'equip') {
+        if (!prep.arts.some(art => art.id === message.art) || !L.equipArt(state, message.art)) throw new Error('无法换上这门战技');
+        return;
+      }
+      const option = prep.options.find(item => item.move === message.move);
+      if (!option || option.why) throw new Error(option?.why || '此刻无法选择');
+      if (preparedDuel) {
+        const { id, args } = preparedDuel;
+        if (message.move !== 'cancel' && !L.act(state, id, args)) throw new Error(L.actLastWhy || '此刻无法交手');
+        preparedDuel = null;
+      } else finishBig(L.nextBlock(state), message.move);
+      return;
+    }
 
     if (op === 'pick') return resolve(message.index);
     if (op === 'reforge-keep') {
@@ -600,7 +636,7 @@
       return;
     }
     if (op === 'result') {
-      if (note || state.exp || state.run || battle || state.trib?.cur) throw new Error('没有当前历练结算');
+      if (note || preparedDuel || state.exp || state.run || battle || state.trib?.cur) throw new Error('没有当前历练结算');
       const block = L.nextBlock(state);
       if (block?.kind !== 'result') throw new Error('没有当前历练结算');
       if (message.move === 'deeper') {
@@ -650,6 +686,7 @@
     }
     if (op === 'advance') {
       if (note) { note = null; return; }
+      if (preparedDuel) throw new Error('请先确认比试或返回');
       if (encounter || currentLocalEvent()) throw new Error('请先选择奇遇');
       if (battle?.done) return finishCombat();
       if (battle) throw new Error('请先完成当前战斗');
@@ -663,13 +700,17 @@
       if (!block) return;
       if (block.kind === 'story' && block.data?.choices) throw new Error('请先选择剧情');
       if (block.kind === 'big' && block.id === 'death' && lifeEnded()) throw new Error('请先结算这一世');
-      const result = block.kind === 'big' ? L.blockRun(state, block) : null;
+      if (block.kind === 'big') return finishBig(block);
       L.blockDone(state, block);
       if (block.kind === 'year') L.yearClose(state);
-      if (result && result.win !== undefined) note = { kind: 'card', title: blockView(block).title, text: result.win ? '取胜' : '落败' };
       return;
     }
     if (nextView()) throw new Error('请先完成当前结算');
+    if (op === 'duel-prepare') {
+      if (!['duel', 'final'].includes(message.action)) throw new Error('没有这场比试');
+      preparedDuel = { id: message.action, args: L.duelArgs(message.args) };
+      return;
+    }
     if (op === 'wish') {
       if (!L.wishOpen(state)) throw new Error('历练四趟后可许愿');
       if (message.clear) L.setWish(state, null);
@@ -748,17 +789,31 @@
     throw new Error('未知操作');
   }
 
+  function finishBig(block, move) {
+    let result;
+    if (block.id === 'rookie' && move === 'crush') {
+      result = L.rookieDuel(state);
+      block.ran = true;
+    } else if (block.id === 'foe' && move === 'fight') {
+      result = L.challengeRival(state, block.data.data);
+      if (!result) throw new Error('此刻无法应战');
+      block.ran = true;
+    } else result = L.blockRun(state, block);
+    L.blockDone(state, block);
+    note = XianmenDuels.result(state, block.id, result);
+  }
+
   globalThis.xianmenRequest = request => {
     let previous;
     try {
       const message = JSON.parse(request);
       if (message.op === 'load' || message.op === 'import') {
-        previous = { state, encounter, openEvent, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
+        previous = { state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
       }
       const result = dispatch(message);
       return JSON.stringify({ ok: true, result, view: view(), save: snapshot() });
     } catch (error) {
-      if (previous) ({ state, encounter, openEvent, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
+      if (previous) ({ state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
       return JSON.stringify({ ok: false, error: previous ? '读不出这份存档' : error.message });
     }
   };

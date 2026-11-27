@@ -265,6 +265,39 @@ globalThis.XianmenPanels = (() => {
     return rows;
   }
 
+  function rankings(st) {
+    const rows = [row('天骄榜第 ' + st.rank + ' 名', '本世最高第 ' + st.bestRank + ' 名')];
+    const targets = L.challengeTargets(st);
+    for (const info of targets.filter(info => info.rankDuel)) rows.push(row(info.n, '第 ' + info.q + ' 名 · 胜算 ' + L.pct(info.p), [
+      { label: '准备下战帖', duel: { q: info.q }, why: L.apWhy(st, 'duel', { q: info.q }) },
+    ]));
+    for (const rival of L.RIVALS) {
+      const id = rival.id;
+      const info = L.challengeInfo(st, id);
+      const dossier = L.RIVAL_INFO[id];
+      const known = L.rivalKnow(st, id);
+      const lines = [rival.sect, '恩怨 ' + L.grudge(st, id), st.beaten[id] ? '已击败' : '第 ' + info.q + ' 名'];
+      lines.push('五行 ' + (known.el ? L.elName(L.RIVAL_EL[id]) : '未知'));
+      lines.push('战技 ' + (known.art ? L.art(dossier.art).n : '未知'));
+      lines.push('法宝 ' + (known.gear ? dossier.gear.n : '未知'));
+      const options = info.main && !st.beaten[id] ? [
+        { label: '准备下战帖', duel: { id }, why: L.apWhy(st, 'duel', { id }) },
+      ] : [];
+      rows.push(row(info.n, lines.join(' · '), options));
+    }
+    const rookie = L.rookieInfo(st);
+    if (rookie) rows.push(row('新秀 · ' + rookie.rk.n,
+      ['第 ' + rookie.q + ' 名 · 战力 ' + fmt(rookie.Q), '「' + L.fill(st, rookie.rk.line) + '」'].join('\n')));
+    for (let start = 1; start <= 100; start += 10) {
+      const entries = Array.from({ length: 10 }, (_, i) => {
+        const q = start + i;
+        return q + ' · ' + (q === st.rank ? st.p.name : L.rivalAt(st, q)?.n || '—');
+      });
+      rows.push(row('第 ' + start + '–' + (start + 9) + ' 名', entries.join('\n')));
+    }
+    return rows;
+  }
+
   function journal(st) {
     const rows = [row('本世',
       [L.stageName(st.p), '享年 ' + fmt(st.p.age) + ' 岁', '寿元剩余 ' + fmt(Math.max(0, L.lifeLeft(st))) + ' 年',
@@ -402,7 +435,7 @@ globalThis.XianmenPanels = (() => {
   }
 
   const views = { equipment, forge, arts, market, auction, sect, sectVault, sectElders, disciples, people,
-    home, formations, fields, alchemy, pets, calendar, journal, codex };
+    home, formations, fields, alchemy, pets, calendar, journal, rankings, codex };
   const codexId = name => typeof name === 'string' && name.startsWith('codex:') ? name.slice(6) : '';
   const has = name => Object.hasOwn(views, name) || Object.hasOwn(L.CODEX_CAT, codexId(name));
   const mutations = {
