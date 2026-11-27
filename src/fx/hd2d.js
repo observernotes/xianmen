@@ -2,7 +2,7 @@
  * 像素画照旧由 src/art.js 逐像素生成；这里负责“次时代”的那一半：
  *   分层合成（天 / 远 / 中 / 地 / 人物 / 前景）、景深、动态光源与辉光、体积光、接触阴影与倒影、轮廓光、
  *   高清粒子、电影调色、暗角、颗粒、色差、缓慢的镜头摇移；人物精灵自动升到 2 倍像素密度。
- * 全部是 Canvas 2D（不依赖 WebGL），四档画质 0 关 / 1 省 / 2 标准 / 3 极致，掉帧时自动降档。
+ * 全部是 Canvas 2D（不依赖 WebGL），画质五档 0 关 / 1 省 / 1.5 标准 / 2 高 / 3 极致，选哪档就一直按哪档画（不自动降级）。
  * 接线方式：ART.setCtx(ctx) 发现画布是 #scene 时自动接管——界面代码一行不用改；关掉（HD2D.setQuality(0)）就是原来的画面。
  */
 (function (root) {
@@ -13,13 +13,11 @@ const S = 2;                 // 人物层 / 图层的像素密度：每个逻辑
 HD.S = S;
 HD.q = 0;                    // 当前画质档
 HD.on = false;               // 已接管场景画布
-HD.auto = true;              // 掉帧自动降档
+HD.auto = false;             // 旧接口：没有“自动”档了（不做任何自动降级），恒为 false
 HD.selfLoop = true;          // 模块自己每帧合成；界面主循环显式调 HD2D.present(now) 时设成 false
 HD.lite = true;              // “标准”档（记作 1.5）：2 档去掉移轴那一遍，默认用它；HD2D.setQuality(2) 是“高”，全开
-HD.half = false;             // 合成隔帧做（30 帧）：降档之前先试这个
 HD.ctx = null;               // 场景画布的 2d 上下文（= 人物层）
-HD.minQ = 0;                 // 自动降档的下限（0 = 实在带不动就退回原画面）
-HD.stats = { ms: 0, frame: 16.7, drops: 0, q: 0 };
+HD.stats = { ms: 0, frame: 16.7, q: 0 };
 const doc = root.document;
 function mkc(w, h) { const c = doc.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
 function g2(c, smooth) { const g = c.getContext('2d'); g.imageSmoothingEnabled = !!smooth; return g; }
@@ -34,33 +32,30 @@ function readPref() {
   try { const m = /[?&]hd=([\w.]+)/.exec(root.location.search); if (m) v = m[1]; else v = root.localStorage.getItem('xm_hd'); } catch (e) { v = null; }
   return v;
 }
+// 五个固定档：0 关 / 1 省 / 1.5 标准（默认）/ 2 高 / 3 极致。玩家选哪档就一直按哪档画——掉帧也不隔帧、不降分辨率、不降档（不做任何自动降级）。
+// 存档里旧的 'auto' 当“标准”
 function defaultQ() {
-  const nav = root.navigator || {}, cores = nav.hardwareConcurrency || 4, mem = nav.deviceMemory || 4;
-  if (cores <= 2 || mem <= 1) return 1;
+  const nav = root.navigator || {};
   if (nav.webdriver) return 0;   // 自动化测试（无头浏览器没有 GPU，多出来的每帧开销会挪动那些按毫秒掐点的用例）：默认不开；测高清用 ?hd=1～3（tools/hd2d_*.js）
-  return 2;
+  return 1.5;
 }
+function prefQ(v) { const f = v === 'auto' ? 1.5 : parseFloat(v) || 0; HD.lite = f === 1.5; return HD.lite ? 2 : clamp(Math.round(f), 0, 3); }
 (function initPref() {
   const v = readPref();
-  if (v === null || v === undefined || v === 'auto') { HD.q = defaultQ(); HD.auto = true; }
-  else { const f = parseFloat(v) || 0; HD.lite = f === 1.5; HD.q = HD.lite ? 2 : clamp(Math.round(f), 0, 3); HD.auto = false; }
+  HD.q = prefQ(v === null || v === undefined || v === 'auto' ? defaultQ() : v);
 })();
-HD.setQuality = function (q, keep) {
-  if (q === 'auto') { HD.auto = true; q = defaultQ(); HD.lite = true; } else { if (!keep) { HD.lite = q === 1.5; HD.auto = false; } q = q === 1.5 ? 2 : clamp(q | 0, 0, 3); }
-  if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ } HD.half = false; lowRes = false; HD.cut = 0; slow = fast = 0; }   // 玩家重新选了档：掉帧时减掉的都还回去
+HD.setQuality = function (q) {
+  q = prefQ(q);
+  try { root.localStorage.setItem('xm_hd', HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ }
   const was = HD.q; HD.q = q; HD.stats.q = q;
-  if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else if (was !== q || !keep) sizePresent(true); }
-  if (HD.skin) HD.skin();   // 换档（包括掉帧自动降到 0）时界面皮肤跟着开关
+  if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else sizePresent(true); }
+  if (HD.skin) HD.skin();   // 换档时界面皮肤跟着开关
   if (HD.onQuality) HD.onQuality(q);
   return q;
 };
 HD.cap3 = 800;               // 3 档合成画布的宽度上限（设备像素）
-HD.cut = 0;                  // 手动档掉帧时效果往下退几级（设置项不变；见 HD.degrade）
-HD.adapt = !(root.navigator && root.navigator.webdriver);   // 掉帧自适应（隔帧 / 降内部分辨率 / 退效果）；自动化测试下关，免得量到一半自己变了
-let lowRes = false;          // 3 档掉帧：内部分辨率降回 400 宽
-// 这一帧实际按哪一档的效果合成：玩家选的档是上限，HD.cut 每多一级往下退一档（3 → 2 → 1.5 → 1）
-const LV = [1, 1.5, 2, 3];
-function effLevel() { const lv = HD.q === 2 && HD.lite ? 1.5 : HD.q; if (!HD.cut) return lv; const i = LV.indexOf(lv); return i < 0 ? lv : LV[Math.max(0, i - HD.cut)]; }
+// 当前档（1 / 1.5 / 2 / 3）
+function effLevel() { return HD.q === 2 && HD.lite ? 1.5 : HD.q; }
 HD.level = effLevel;
 HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false, fg: true, tilt: true, punch: 0.34, vivid: 0.28 };   // 单项开关（调试 / 降级）；punch / vivid：3 档调色层的对比 / 饱和力度（见 gradeLayer）
 
@@ -234,10 +229,10 @@ function sizePresent(force) {
   if (!pc || !HD.on) return;
   const r = main.getBoundingClientRect(), dpr = root.devicePixelRatio || 1;
   // 1、2 档按高清像素（400 宽）合成，交给浏览器放大；3 档按设备像素合成、但封顶 HD.cap3（800 = 高清像素的 2 倍：人物与地面仍是整数倍最近邻，光与粒子比 2 档细一倍）。
-  // 原来 3 档直接用设备像素，骁龙 8 Elite 这类 dpr 3.5 的手机上是 1400×1550，每帧十几遍整屏合成。掉帧时（HD.degrade）先隔帧、再把 3 档降回 400 宽
+  // 原来 3 档直接用设备像素，骁龙 8 Elite 这类 dpr 3.5 的手机上是 1400×1550，每帧十几遍整屏合成
   const dev = Math.round(r.width * dpr) || 200 * S;
   let w = 200 * S;
-  if (HD.q >= 3 && !lowRes && effLevel() >= 3) w = Math.max(200 * S, Math.min(dev, HD.cap3 || 800));
+  if (HD.q >= 3) w = Math.max(200 * S, Math.min(dev, HD.cap3 || 800));
   const h = Math.round(w * logicH / 200);
   if (force || w !== Pw || h !== Ph) {
     Pw = w; Ph = h; if (pc.width !== w) pc.width = w; if (pc.height !== h) pc.height = h; pg = pc.getContext('2d');
@@ -465,7 +460,7 @@ function gradeLayer(gc, ga, t, grain, smFn) {
   gg.globalAlpha = 1;
   return gb.c;
 }
-let halfN = 0, lastNow = 0, slow = 0, fast = 0, covered = false, skipN = 0, inPresent = false;
+let lastNow = 0, covered = false, inPresent = false;
 // 测帧打点（tools/hd2d_perf.js）：HD2D.probe = {} 时，合成的每个阶段之后回读 1 个像素逼浏览器把这一段真画完，各段耗时累加进 probe.t[段名]，帧数在 probe.n。
 // 回读本身有开销（还会让浏览器把画布挪到 CPU 上），只用来看分解，帧间隔另外不开打点量
 let PR = null, prT = 0, beginT = 0;
@@ -486,7 +481,7 @@ function present(now) {
   if (F.age > 4) {   // 这几帧没有哪个场景开画（开场、黑屏）：原样放大
     g.imageSmoothingEnabled = false; g.clearRect(0, 0, Pw, Ph); g.drawImage(main, 0, 0, Pw, Ph); return;
   }
-  const lv = effLevel(), q = lv >= 3 ? 3 : lv >= 1.5 ? 2 : lv, lite = lv === 1.5;   // 这一帧实际按哪一档的效果合成（手动档掉帧时 HD.cut 往下减，设置项不动）
+  const lv = effLevel(), q = lv >= 3 ? 3 : lv >= 1.5 ? 2 : lv, lite = lv === 1.5;
   const P = F.prof || BASE, u = Pw / 200, OY = F.OY, H = logicH, t = now, O = HD.opts, big = Pw >= 2 * 200 * S;   // big：呈现画布是高清像素的 2 倍（3 档 800 宽）
   const key = F.keyL || P.key;
   const cx = O.cam ? (Math.sin(t / 9100) * 1.6 + Math.sin(t / 23000) * 1.1) * u : 0, cy = O.cam ? Math.sin(t / 13000) * 0.6 * u : 0;
@@ -762,39 +757,13 @@ HD.camAt = function (x, y) {
   const sw = 200 / c.z, sh = logicH / c.z, sx = clamp(c.x - sw / 2, 0, 200 - sw), sy = clamp(c.y - sh / 2, 0, logicH - sh);
   return { x: (x - sx) * c.z, y: (y - sy) * c.z, z: c.z };
 };
-// ---------- 掉帧自适应（HD.adapt）：每 150 帧看一次，超过六成的帧间隔大于 26 毫秒就减一级负担，只减不加（玩家重新选档才还回去） ----------
-//   ① 先隔帧合成（30 帧，HD.half）；② 3 档再把内部合成分辨率降回 400 宽；
-//   ③ “自动”档：降一档（HD.setQuality(q − 1, keep)，不写存储，最低 HD.minQ）；手动选的档：设置项不动（玩家选的是上限），效果往下退一级（HD.cut：3 → 2 → 1.5 → 1）
-HD.degrade = function () {
-  HD.stats.drops++;
-  let what = '';
-  if (!HD.half && HD.q >= 1) { HD.half = true; what = 'half'; }
-  else if (HD.q >= 3 && !lowRes && effLevel() >= 3) { lowRes = true; what = 'res'; }
-  else if (HD.auto) { if (HD.q > HD.minQ) { HD.half = false; lowRes = false; HD.setQuality(HD.q - 1, true); what = 'q'; } }
-  else if (effLevel() > 1) { HD.cut++; what = 'cut'; }
-  if (what && what !== 'q') sizePresent(true);
-  HD.stats.deg = HD.degraded();
-  return what;
-};
-HD.degraded = () => !!(HD.on && (HD.half || lowRes || HD.cut > 0));   // 设置页的“掉帧，已减负”提示看这个
-HD.lowRes = () => lowRes;
 function loop(now) {
   root.requestAnimationFrame(loop);
   if (!HD.on) { lastNow = now; return; }
   const dt = now - lastNow; lastNow = now;
   if (pc.offsetParent === null && pc.getClientRects().length === 0) return;   // 场景不在屏上
   if (covered) return;                                                                            // 对话 / 过场盖着整屏：不合成
-  const md = doc.getElementById('modal'), modal = md && !md.hidden;
-  // 帧间隔的滑动平均；持续掉帧就减负（见 HD.degrade）。弹窗压着时合成本来就少，不算
-  if (dt > 0 && dt < 500 && !modal) {
-    HD.stats.frame += (dt - HD.stats.frame) * 0.05;
-    if (HD.adapt && !root.document.hidden) {
-      if (dt > 26) slow++; else fast++;
-      if (slow + fast >= 150) { if (slow > 90) HD.degrade(); slow = 0; fast = 0; }
-    }
-  }
-  if (HD.half && (++halfN & 1)) return;                                                          // 掉帧：隔帧合成
-  if (modal && (++skipN % 6)) return;                                                             // 弹窗压着：六帧合成一次
+  if (dt > 0 && dt < 500) HD.stats.frame += (dt - HD.stats.frame) * 0.05;   // 帧间隔的滑动平均（只是记下来给测帧看，不据此改任何东西）
   if (HD.selfLoop) HD.present(now);
 }
 // ---------- 界面皮肤：九宫格边框升 3 倍密度并补材质（ART.frame 调）；外加一段只改观感、不改尺寸的样式 ----------

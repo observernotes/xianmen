@@ -14,7 +14,7 @@ function clearLocal() { try { SLOTS.retire(st); } catch (e) { /* ignore */ } }  
 // 偏好：音量、战斗演出速度、【下一季】剩点要不要确认。旧的速度档 speedIdx 不再读（AP_PLAN §7）
 // 画质（hd）：只有玩家在设置里点过才记（panel-me.js 的 hdPick）；读回来时网址带 ?hd=N 的优先（测试、样张用）
 function savePref() { try { const o = { soundMode, btSpeed, sitAsk, mv: AU.mv, sv: AU.sv }; if (hdPref !== null) o.hd = hdPref; localStorage.setItem(PREF_KEY, JSON.stringify(o)); } catch (e) { /* ignore */ } }
-function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.btSpeed === 2) btSpeed = 2; sitAsk = !!p.sitAsk; if (HD_VALS.includes(p.hd)) { hdPref = p.hd; if (!/[?&]hd=/.test(location.search) && hdNow() !== p.hd) hdApply(p.hd); } } catch (e) { /* ignore */ } }
+function loadPref() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); if (p.soundMode >= 0) soundMode = p.soundMode; if (p.mv >= 0) AU.mv = Math.min(5, p.mv | 0); if (p.sv >= 0) AU.sv = Math.min(5, p.sv | 0); if (p.btSpeed === 2) btSpeed = 2; sitAsk = !!p.sitAsk; if (p.hd === 'auto') p.hd = 1.5; if (HD_VALS.includes(p.hd)) { hdPref = p.hd; if (!/[?&]hd=/.test(location.search) && hdNow() !== p.hd) hdApply(p.hd); } } catch (e) { /* ignore */ } }
 const cloud = { ref: null, busy: false, lastTick: -1 };
 async function initCloud() {
   try {

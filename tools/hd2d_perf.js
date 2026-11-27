@@ -28,7 +28,7 @@ if (CFG.includes('p7')) RUNS.push({ name: 'Pixel 7', p7: true, rates: [4] });
     await page.goto(url + '?hd=' + hd); await page.waitForTimeout(400);
     for (let i = 0; i < 14; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
     await page.click('#goStart'); await page.waitForTimeout(1200);
-    await page.evaluate(() => { const X = window.__xm, st = X.st, L = X.L; L.onbAll(st); st.guide = { step: 99, done: true }; st.storyQ = []; st.p.r = 3; st.home = Object.assign(st.home || {}, { cave: 4, array: 9 }); X.setSpeed(0); if (window.HD2D) { window.HD2D.debugPhase = 0.95; window.HD2D.auto = false; window.HD2D.adapt = false; } });
+    await page.evaluate(() => { const X = window.__xm, st = X.st, L = X.L; L.onbAll(st); st.guide = { step: 99, done: true }; st.storyQ = []; st.p.r = 3; st.home = Object.assign(st.home || {}, { cave: 4, array: 9 }); X.setSpeed(0); if (window.HD2D) { window.HD2D.debugPhase = 0.95; } });
     for (let i = 0; i < 3; i++) { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(300); }
     await page.addStyleTag({ content: '#tip,#guide{display:none!important}' });
     const cdp = await ctx.newCDPSession(page);

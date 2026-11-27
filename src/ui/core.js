@@ -30,10 +30,10 @@ let btSpeed = 1;      // 战斗演出速度 ×1 / ×2（仙途 · 设置；只�
 let sitAsk = false;   // 【下一季】剩点时要不要确认（默认不确认）
 // HD-2D 渲染模块（src/fx/hd2d.js，docs/ART_HD2D.md）：没有它（老构建、模块没加载）时为 null，界面各处照原样画
 const HDX = window.HD2D && typeof window.HD2D.setQuality === 'function' ? window.HD2D : null;
-// 画质（仙途 · 设置）：0 关 / 1 省 / 1.5 标准（默认）/ 2 高 / 3 极致 / 'auto' 自动（docs/ART_HD2D.md §5.3）。hdPref：玩家点过的那一档，没点过是 null
-const HD_VALS = [0, 1, 1.5, 2, 3, 'auto'];
+// 画质（仙途 · 设置）：0 关 / 1 省 / 1.5 标准（默认）/ 2 高 / 3 极致（docs/ART_HD2D.md §5.3）；选哪档就一直按哪档画，没有自动降级。hdPref：玩家点过的那一档，没点过是 null（旧存档里的 'auto' 当标准）
+const HD_VALS = [0, 1, 1.5, 2, 3];
 let hdPref = null;
-const hdNow = () => (!HDX ? 0 : HDX.auto ? 'auto' : HDX.q === 2 && HDX.lite ? 1.5 : HDX.q);
+const hdNow = () => (!HDX ? 0 : HDX.q === 2 && HDX.lite ? 1.5 : HDX.q);
 let st = null;
 let cine = null;
 const queue = [];

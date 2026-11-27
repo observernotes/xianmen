@@ -109,13 +109,13 @@ function showRecord() {
 }
 // 音量格（0～5 档，五根由矮到高的柱子；不是按钮，一整条算一个控件）
 const volBar = (w, lv) => `<div class="kvol" data-vol="${w}" data-lv="${lv}" role="slider" aria-label="${w === 'm' ? '音乐' : '音效'}音量" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${lv}">${[1, 2, 3, 4, 5].map(i => `<i data-i="${i}" class="${i <= lv ? 'on' : ''}"><b></b></i>`).join('')}</div>`;
-// 画质一行（docs/ART_HD2D.md §5.3 / §6-1）：六个格，点了即时换档；“自动”掉帧时自己往下降（只降不升）
-const HD_NAMES = { 0: '关', 1: '省', 1.5: '标准', 2: '高', 3: '极致', auto: '自动' };
+// 画质一行（docs/ART_HD2D.md §5.3 / §6-1）：五个格，点了即时换档；选哪档就一直按哪档画（不自动降级）
+const HD_NAMES = { 0: '关', 1: '省', 1.5: '标准', 2: '高', 3: '极致' };
 const HD_SAYS = { 0: '原来的像素画面', 1: '分层、灯火、夜色、轮廓光', 1.5: '再加景深、辉光、光束、投影', 2: '再加移轴（远处更虚）', 3: '旗舰机用：光更细、带颗粒' };
 function hdRowHTML() {
   if (!HDX) return '';
-  const cur = hdNow(), q = HDX.q === 2 && HDX.lite ? 1.5 : HDX.q;
-  const say = (cur === 'auto' ? `自动 · 现在：${HD_NAMES[q]}` : `${HD_NAMES[cur]} · ${HD_SAYS[cur]}`) + (HDX.degraded && HDX.degraded() ? '（掉帧，已减负）' : '');   // 掉帧时合成会自己隔帧 / 降分辨率（HD2D.degrade），选的档不变
+  const cur = hdNow();
+  const say = `${HD_NAMES[cur]} · ${HD_SAYS[cur]}`;
   return `<div class="kslot kq"><div class="kqh"><div class="cell">${artIcon('rune', 32)}</div><div class="mid"><div class="nm">画质</div><small id="kHdSay">${say}</small></div></div>
     <div class="kseg" role="radiogroup" aria-label="画质">${HD_VALS.map(v => `<span data-hd="${v}" role="radio" tabindex="0" aria-checked="${v === cur}" class="${v === cur ? 'on' : ''}">${HD_NAMES[v]}</span>`).join('')}</div></div>`;   // 和音量格一样：一整条算一个控件（KAIRO 每屏按钮数）
 }
@@ -148,7 +148,7 @@ function showSettings() {
     savePref(); setSoundIcon(); if (w === 's') SFX.coin(); else SFX.tap();
     showSettings();
   });
-  const kq = s.querySelector('.kseg'), hdGo = e => { const b = e.target.closest('[data-hd]'); if (!b) return; e.preventDefault(); const v = b.dataset.hd === 'auto' ? 'auto' : +b.dataset.hd; SFX.tap(); hdPick(v); showSettings(); };
+  const kq = s.querySelector('.kseg'), hdGo = e => { const b = e.target.closest('[data-hd]'); if (!b) return; e.preventDefault(); const v = +b.dataset.hd; SFX.tap(); hdPick(v); showSettings(); };
   if (kq) { kq.onclick = hdGo; kq.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') hdGo(e); }; }
   s.querySelector('#kBtSpd').onclick = () => { SFX.tap(); btSpeed = btSpeed > 1 ? 1 : 2; savePref(); showSettings(); };
   s.querySelector('#kSitAsk').onclick = () => { SFX.tap(); sitAsk = !sitAsk; savePref(); showSettings(); };

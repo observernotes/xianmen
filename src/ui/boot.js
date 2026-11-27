@@ -21,14 +21,10 @@ let last = performance.now(), cloudAcc = 0;
 // 高清合成（docs/ART_HD2D.md §6-2）：这一帧场景画完就合成，不等 HD2D 自己挂的下一帧（省一帧延迟）。
 // 没有 HD2D（HDX 为空，core.js）、太老的 WebView、?hd=0 时 HD2D.on 是 false，照旧；有人把 selfLoop 拨回 true（tools/hd2d_smoke.js）就交还给模块自己合成
 if (HDX) HDX.selfLoop = false;
-let hdN = 0;
 function hdPresent(now) {
   if (!HDX || !HDX.on || HDX.selfLoop) return;
-  hdN++;
   if (tk || cn) return;                                                    // 对话 / 过场盖着整屏：不合成
   if (cvs.offsetParent === null && cvs.getClientRects().length === 0) return;   // 场景不在屏上
-  if (HDX.half && (hdN & 1)) return;                                       // 掉帧：先隔帧合成（HD2D.degrade 会拨这个；手动选的档也会，设置项不变）
-  if (!$('#modal').hidden && hdN % 6) return;                              // 弹窗压着：六帧合成一次
   HDX.present(now);
 }
 function frame(now) {
