@@ -24,6 +24,44 @@
   const heroArt = () => Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f);
   const battleOptionsOpen = () => !!state.pact || state.rebirth > 0;
   const autoUltimate = () => battleOptionsOpen() && !!state.flags.autoUlt;
+  const firstTripPanel = 'trip:0:0:0';
+
+  function syncGuide() {
+    const saved = state.guide;
+    if (saved?.done || state.rebirth > 0 || state.tick > 0) {
+      if (!saved?.done) state.guide = { step: 4, done: true };
+      return;
+    }
+    const travelling = state.exp || state.stats.exp > 0;
+    const step = travelling ? 3 : panel === firstTripPanel ? 2 :
+      Number.isInteger(saved?.step) && saved.step >= 0 && saved.step <= 2 ? saved.step : 0;
+    if (saved?.step !== step || saved.done !== false) state.guide = { step, done: false };
+  }
+
+  function guideView() {
+    if (state.guide.done) {
+      return !state.hintSeen?.ready && L.isReady(state)
+        ? { target: 'breakthrough', text: '修为圆满，点【突破】。' } : null;
+    }
+    const { step } = state.guide;
+    if (step === 0) return { step, target: 'trip', text: '光坐着赢不了，点【历练】。' };
+    if (step === 1) return { step, target: 'region', text: '点【' + L.REGIONS[0].n + '】。' };
+    if (step === 2) return panel === firstTripPanel ?
+      { step, target: 'depart', text: '点【出发】，当场打完。' } :
+      { step, target: 'prepare', text: '选外围斩妖，打开出发准备。' };
+    return { step, target: 'season', text: L.apLeft(state) > 0
+      ? '剩 ' + L.apLeft(state) + ' 点自动打坐，点下一季。' : '行动点用完了，点下一季。' };
+  }
+
+  function tripProgress() {
+    const trip = state.exp;
+    if (!trip) return null;
+    const loot = L.expPreview(state);
+    return {
+      done: trip.nodes ? trip.ni : trip.total - trip.left, total: trip.total,
+      text: ['灵石 +' + fmt(loot.stones), '灵草 +' + fmt(loot.herbs), loot.ore ? '灵矿 +' + fmt(loot.ore) : '', loot.finds ? '宝物 ' + loot.finds + ' 件' : ''].filter(Boolean).join(' · '),
+    };
+  }
 
   function battlePacing() {
     if (battle.done) return { delay: boss ? 1050 : 650 };
@@ -236,6 +274,10 @@
       }
       const lines = [];
       if (data.rating !== undefined) lines.push('评价：' + L.RATINGS[data.rating]);
+      if (data.bt?.nf) {
+        const b = data.bt;
+        lines.push('取胜 ' + b.won + ' / ' + b.nf + ' 场 · 气血 ' + L.pct(b.hp || 0) + (b.brk ? ' · 破招 ' + b.brk + ' 次' : ''));
+      }
       if (data.win !== undefined) lines.push(data.win ? '取胜' : '落败');
       const rewards = [
         ['灵石', data.stones], ['修为', data.xp || data.got], ['灵草', data.herbs],
@@ -246,12 +288,20 @@
       if (data.inj) lines.push(L.injText(data.inj));
       lines.push(...(data.unlock || []));
       if (data.note) lines.push(data.note);
+      const expedition = ['exp', 'sweep', 'deeper'].includes(block.id);
+      if (expedition && Number.isFinite(data.pw0)) {
+        const goal = L.goalNow(state);
+        const due = L.timeBar(state).big;
+        lines.push('战力 ' + fmt(data.pw0) + ' → ' + fmt(L.power(state)), '离目标 · ' + goal.bar.text);
+        if (due) lines.push(due.n + (due.seasons <= 1 ? ' · 本季末' : ' · 还有 ' + due.seasons + ' 季'));
+      }
       const cards = (data.cards || []).map((card, index) => ({
         index, revealed: !!block.revealed?.includes(index),
-        name: card.name + (card.n > 1 ? ' ×' + card.n : ''),
+        name: card.name + (card.n > 1 ? ' ×' + card.n : '') + (card.item?.equip ? ' · 已装备' : ''),
       }));
       const deeper = deeperWhy(block);
       return { kind: 'card', title: name[block.id] || '行动结算', text: lines.join('\n'), cards,
+        button: expedition ? '回洞府' : undefined,
         deeper: deeper === null ? null : { why: deeper, ap: L.AP.deeper } };
     }
     if (block.kind === 'big') {
@@ -306,7 +356,7 @@
       return {
         kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: Math.max(1, battle.round + Number(!battle.done)),
         region: boss ? boss.k : state.exp.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
-        boss: !!boss, done: !!battle.done, effects: battleEffects,
+        boss: !!boss, done: !!battle.done, effects: battleEffects, trip: tripProgress(),
         outcome: battle.done ? battle.win ? '取胜' : battle.fled ? '撤退' : '落败' : '',
         hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.ceil(battle.max), rage: Math.floor(battle.rage),
         foes: battle.foes.flatMap((foe, index) => foe.hp > 0 || battleEffects.some(effect => effect.target === index) ? [{
@@ -324,8 +374,7 @@
       const node = trip.nodes?.[trip.ni];
       const delay = !node ? 0 : L.nodeIsFight(node) || node.t === 'home' ? 1500 : 2400;
       return { kind: 'travel', title: L.REGIONS[trip.k].n, region: trip.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
-        delay, settingsOpen: battleOptionsOpen(),
-        text: '已走过 ' + (trip.ni || 0) + ' / ' + trip.total + ' 处', button: '继续历练 ▸' };
+        delay, settingsOpen: battleOptionsOpen(), trip: tripProgress(), button: '继续历练 ▸' };
     }
     if (state.gear.rf) {
       const { old, neu, pity } = state.gear.rf;
@@ -446,6 +495,7 @@
       }] : []),
       wishOpen: !notice && L.wishOpen(state),
       wish: !notice && L.wishInfo(state) ? L.wishInfo(state) : null,
+      guide: guideView(),
       canRetreat: L.retOpen(state),
       array: arrayView(),
       realms: notice ? [] : realmEntries(),
@@ -521,7 +571,6 @@
     if (!candidate || !Number.isInteger(candidate.p.r) || candidate.p.r < 0 || candidate.p.r > L.MAXR + 1 ||
         !Number.isInteger(candidate.p.s) || !L.STAGES[candidate.p.s]) throw new Error('读不出这份存档');
     state = candidate;
-    state.guide = { step: 99, done: true };
     encounter = state.exp?.encEv && !state.exp.encDone ? state.exp.encEv : null;
     note = native ? parsed.note || null : null;
     breakthrough = native ? parsed.breakthrough || null : null;
@@ -535,6 +584,7 @@
         typeof bout?.win === 'boolean' && typeof bout.left?.actor === 'string' && typeof bout.right?.actor === 'string')
       ? savedArena : null;
     panel = native && XianmenPanels.has(parsed.panel) ? parsed.panel : null;
+    syncGuide();
     boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
     if (native && Array.isArray(parsed.battle)) {
       battle = boss ? L.bossBattle(state, boss.k, { seed: boss.seed }) : L.expBattle(state);
@@ -725,7 +775,7 @@
     if (op === 'new') {
       state = L.newState({ name: String(message.name || '无名').trim().slice(0, 6) || '无名' });
       if (message.introSeen) XianmenCinematics.mark(state, XianmenCinematics.intro());
-      state.guide = { step: 99, done: true };
+      state.guide = { step: 0, done: false };
       state.story.beat.c1_open = 0;
       L.fireTrigger(state, 'sb:c1_open');
       L.chainOpen(state, 'act');
@@ -879,6 +929,16 @@
       return navigate(guide[0]);
     }
     if (nextView()) throw new Error('请先完成当前结算');
+    if (op === 'guide-nav') {
+      if (state.guide.done || state.guide.step >= 3 || ![null, -1, 0].includes(message.region)) {
+        throw new Error('当前没有这一步历练引导');
+      }
+      if (message.region === 0) return openPanel(firstTripPanel);
+      if (message.region === -1) return navigate('exp');
+      state.guide.step = 0;
+      panel = null;
+      return { navigation: 'cave' };
+    }
     if (op === 'duel-prepare') {
       if (!['duel', 'final'].includes(message.action)) throw new Error('没有这场比试');
       preparedDuel = { id: message.action, args: L.duelArgs(message.args) };
@@ -962,6 +1022,7 @@
     }
     if (op === 'break') {
       if (!L.isReady(state)) throw new Error('修为尚未圆满');
+      (state.hintSeen ||= {}).ready = 1;
       breakthrough = { pills: 0, aids: {} };
       return;
     }
@@ -983,6 +1044,9 @@
     const map = /^(exp|drops):(\d+)/.exec(go);
     if (go === 'exp' || go === 'realm' || map) {
       panel = null;
+      if (!state.guide.done && state.guide.step < 3 && go !== 'realm') {
+        state.guide.step = map ? 2 : 1;
+      }
       return { navigation: map?.[1] === 'drops' ? 'drops' : 'maps', region: map ? Number(map[2]) : -1 };
     }
     if (go === 'bt' || go === 'cult' || go === 'trib') {
@@ -1098,6 +1162,7 @@
       const oldSect = state?.sect?.id;
       const warWon = state?.flags.warWon;
       const result = dispatch(message);
+      if (state) syncGuide();
       const notice = state ? nextView() : null;
       if (state && !['new', 'load', 'import'].includes(message.op)) {
         if (state.sect && state.sect.id !== oldSect) XianmenCinematics.queue(state, 'rzong', { id: state.sect.id });

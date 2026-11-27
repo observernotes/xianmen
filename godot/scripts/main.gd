@@ -149,9 +149,17 @@ func request(message: Dictionary) -> void:
 			show_saves = false
 			share_code = ""
 		if message["op"] in ["new", "import", "load"]:
+			show_maps = false
+			show_drops = false
+			show_journey = false
+			selected_map = -1
 			dialogue_key = ""
 			dialogue_index = 0
 			dialogue_history = false
+		var guide := guide_hint()
+		if int(guide.get("step", -1)) in [1, 2] and not show_drops:
+			show_maps = true
+			selected_map = 0 if guide["step"] == 2 else -1
 	schedule_draw()
 
 
@@ -462,6 +470,14 @@ func draw_title() -> void:
 func draw_cave() -> void:
 	var season := ["春", "夏", "秋", "冬"].find(String(view["date"]).right(1))
 	add_picture(HOME_ART[maxi(season, 0)], 238)
+	var target := String(guide_hint().get("target", ""))
+	match target:
+		"trip":
+			add_guide_button("历练", open_maps)
+		"season":
+			add_guide_button("下一季  ▸", func(): request({"op": "season"}))
+		"breakthrough":
+			add_guide_button("突破", func(): request({"op": "break"}))
 	add_label(view["goal"], 23, COLORS.gold)
 	add_label(view["progress"], 16)
 	if view["advice"]:
@@ -484,7 +500,8 @@ func draw_cave() -> void:
 		add_label("访客将在" + visitor["leave"] + "后离开", 14, COLORS.muted)
 	if not view["ascended"]:
 		add_label("行动点  %d / %d" % [int(view["ap"]), int(view["apTotal"])], 16, COLORS.gold)
-		add_button("历练", open_maps, true)
+		if target != "trip":
+			add_button("历练", open_maps, true)
 		var actions := HBoxContainer.new()
 		actions.add_theme_constant_override("separation", 8)
 		page.add_child(actions)
@@ -501,9 +518,9 @@ func draw_cave() -> void:
 		add_button(upgrade, func(): request({"op": "upgrade-array"}), false, not formation["available"])
 	if not view["ascended"] and not view["mainActions"].is_empty():
 		add_button("主线行动", toggle_journey)
-	if view["canBreak"]:
+	if view["canBreak"] and target != "breakthrough":
 		add_button("突破", func(): request({"op": "break"}), true)
-	if not view["ascended"]:
+	if not view["ascended"] and target != "season":
 		add_button("下一季  ▸", func(): request({"op": "season"}), true)
 	var systems := HBoxContainer.new()
 	systems.add_theme_constant_override("separation", 6)
@@ -536,10 +553,11 @@ func draw_maps() -> void:
 			add_label(entry["why"], 14, COLORS.muted)
 	for location in view["maps"]:
 		var index: int = location["k"]
-		add_button(location["name"] + "  ▸", func():
-			selected_map = index
-			schedule_draw()
-		, true)
+		var label := String(location["name"]) + "  ▸"
+		if index == 0 and guide_hint().get("target") == "region":
+			add_guide_button(label, func(): select_map(index))
+		else:
+			add_button(label, func(): select_map(index), true)
 	add_button("返回洞府", open_maps)
 
 
@@ -566,16 +584,17 @@ func draw_map(location: Dictionary) -> void:
 		var args := [location["k"], cell["d"], cell["a"]]
 		add_label(cell["label"] + " · " + cell["estimate"], 17)
 		add_label("约 " + cell["stones"] + " 灵石 · 负伤 " + cell["risk"], 15, COLORS.muted)
+		var trip_panel := "trip:%d:%d:%d" % args
+		var prepare := func(): request({"op": "panel", "panel": trip_panel})
+		if trip_panel == "trip:0:0:0" and guide_hint().get("target") == "prepare":
+			add_guide_button("出发准备  ▸", prepare)
+			continue
 		var actions := HBoxContainer.new()
 		page.add_child(actions)
-		var trip_panel := "trip:%d:%d:%d" % args
-		add_button("出发准备  ▸", func(): request({"op": "panel", "panel": trip_panel}), true, false, actions)
+		add_button("出发准备  ▸", prepare, true, false, actions)
 		if cell["sweep"]:
 			add_button("扫荡 ◆1", func(): start_trip("sweep", args), false, false, actions)
-	add_button("返回地点", func():
-		selected_map = -1
-		schedule_draw()
-	)
+	add_button("返回地点", func(): select_map(-1))
 
 
 func draw_drops(location: Dictionary) -> void:
@@ -635,7 +654,8 @@ func draw_management(panel: Dictionary) -> void:
 		elif active_id.begins_with("trip:"):
 			title = "出发准备"
 		add_label(title, 24, COLORS.gold)
-		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): request({"op": "panel"}))
+		var back := {"op": "guide-nav", "region": -1} if guide_hint().get("target") == "depart" else {"op": "panel"}
+		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): request(back))
 	if not tabs.is_empty():
 		var tab_row := HBoxContainer.new()
 		page.add_child(tab_row)
@@ -670,12 +690,16 @@ func draw_management(panel: Dictionary) -> void:
 				continue
 			var message := {"op": "panel-action", "action": option["name"], "args": option["args"]}
 			var warning := String(option.get("confirm", ""))
-			add_button(option["label"], func():
+			var perform := func():
 				if warning.is_empty():
 					request(message)
 				else:
 					confirm_action(entry["title"], warning, option["label"], message)
-			, option.get("primary", not option["why"]), not String(option["why"]).is_empty())
+			var disabled := not String(option["why"]).is_empty()
+			if option["name"] == "trip-go" and option["args"][0] == "exp" and guide_hint().get("target") == "depart":
+				add_guide_button(option["label"], perform, disabled)
+			else:
+				add_button(option["label"], perform, option.get("primary", not disabled), disabled)
 			if option["why"]:
 				add_label(option["why"], 14, COLORS.muted)
 
@@ -839,6 +863,7 @@ func draw_notice(notice: Dictionary) -> void:
 	add_label(notice.get("title", ""), 25, COLORS.gold)
 	if notice.get("kind") == "travel":
 		add_battle_scene(notice)
+		draw_trip_progress(notice["trip"])
 		if notice["settingsOpen"]:
 			add_speed_button()
 	var next_key := String(notice.get("key", ""))
@@ -1098,6 +1123,13 @@ func draw_battle(battle: Dictionary) -> void:
 		add_label(" / ".join(skills), 14, COLORS.muted)
 	if battle["text"]:
 		add_label(battle["text"], 15, COLORS.muted)
+	if battle["trip"] is Dictionary:
+		draw_trip_progress(battle["trip"])
+
+
+func draw_trip_progress(trip: Dictionary) -> void:
+	add_gauge("已走过", trip["done"], trip["total"], COLORS.gold)
+	add_label(trip["text"], 15, COLORS.muted)
 
 
 func playback_speed_for(notice: Dictionary) -> int:
@@ -1170,10 +1202,40 @@ func add_gauge(title: String, value: float, maximum: float, tint: Color) -> void
 
 
 func open_maps() -> void:
+	if int(guide_hint().get("step", -1)) in [0, 1, 2]:
+		request({"op": "guide-nav", "region": null if show_maps else -1})
+		return
 	show_maps = not show_maps
 	selected_map = -1
 	show_drops = false
 	schedule_draw()
+
+
+func select_map(index: int) -> void:
+	if index in [-1, 0] and int(guide_hint().get("step", -1)) in [1, 2]:
+		request({"op": "guide-nav", "region": index})
+		return
+	selected_map = index
+	schedule_draw()
+
+
+func guide_hint() -> Dictionary:
+	var hint = view.get("guide")
+	return hint if hint is Dictionary else {}
+
+
+func add_guide_button(text: String, callback: Callable, disabled := false) -> void:
+	var hint := HBoxContainer.new()
+	hint.add_theme_constant_override("separation", 8)
+	page.add_child(hint)
+	var elder := TextureRect.new()
+	elder.texture = STORY_STAGE.portrait_texture("elder|n|")
+	elder.custom_minimum_size = Vector2(36, 36)
+	elder.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	elder.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hint.add_child(elder)
+	add_label(String(guide_hint()["text"]), 16, COLORS.gold, hint)
+	add_button(text, callback, true, disabled)
 
 
 func start_trip(id: String, args: Array) -> void:
