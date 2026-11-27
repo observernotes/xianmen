@@ -145,7 +145,9 @@ for (let s = 1; s <= N; s++) {
   const pp = L.PACT_POWER;
   for (let s = 1; s <= N; s++) {
     L.PACT_POWER = 1e12;
-    const w = play('约战输#' + s, 'guided', 400 + s, { maxT: 60, noJudge: true });
+    // 回合战里 1e12 的对手也有极小的概率被一路好运打赢（改动 RNG 序列后种子 402 就撞上了）：局面没造出来就换种子重来，最多 6 次
+    let w = play('约战输#' + s, 'guided', 400 + s, { maxT: 60, noJudge: true });
+    for (let k = 1; k <= 5 && w.st.pact !== -1; k++) w = play('约战输#' + s, 'guided', 400 + s + 100 * k, { maxT: 60, noJudge: true });
     L.PACT_POWER = pp;
     if (w.st.pact !== -1) fail(w.who, '没输掉约战（测试局面没造出来）');
     if (L.chapterNow(w.st) !== 0 && !w.st.beaten.mu) fail(w.who, '没赢慕容就离开了第一章');
