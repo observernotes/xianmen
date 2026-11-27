@@ -184,7 +184,9 @@ wrap('gearDrop', f => (st, slot, tier, ctx) => {
 });
 wrap('gearDecide', f => (st, u, how) => { const r = f(st, u, how); if (r && U(st, 'gearCmp')) ob(st).c.gdec = C(st, 'gdec') + 1; return r; });
 // 奇遇：会送灵宠、兽粮的（草窠幼兽之类），灵宠开了才出（不然第一章就冒出一只养不了的灵宠）
-const petFx = ev => (ev._onbPet !== undefined ? ev._onbPet : (ev._onbPet = (ev.choices || []).some(c => ['ok', 'fail'].some(r => c[r] && c[r].fx && (c[r].fx.item === 'pet' || c[r].fx.feed || c[r].fx.petXp)))));
+// 缓存放 WeakMap，不写进事件对象：事件被 Object.assign 复制（奇遇链放宽 maxR、补发）时，自有属性会被当成资格字段，evGate 判成未上线
+const PET_FX = new WeakMap();
+const petFx = ev => { let v = PET_FX.get(ev); if (v === undefined) { v = (ev.choices || []).some(c => ['ok', 'fail'].some(r => c[r] && c[r].fx && (c[r].fx.item === 'pet' || c[r].fx.feed || c[r].fx.petXp))); PET_FX.set(ev, v); } return v; };
 wrap('eligible', f => (st, ev, where, ctx) => f(st, ev, where, ctx) && (where === 'story' || U(st, 'pets') || !petFx(ev)));
 // 宗门招揽：宗门开了才上门（入宗是三年之约之后的第一件大事，排在表里的前头）
 wrap('tick', f => (st, cont) => {

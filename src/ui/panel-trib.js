@@ -241,13 +241,13 @@ function daoHook(type, data) {
     const num = { k: [`越级奖励 ×${(2 * L.DAO_V.leap).toFixed(1)}（原来 ×2）`, `对决胜算再低也有 ${L.pct(L.DAO_V.lo)}（原来 3%）`, '丁等不直接负伤，“以伤换命”再战一次'],
       w: [`突破成功率 +${L.pct(L.DAO_V.bt)}`, `闭关花费 −${L.pct(1 - L.DAO_V.ret)}（现在 ${fmt(L.retCost(st))} 灵石）`, '天劫那一停，本座的提示十成准'],
       r: [`来访的人好感多 +${L.DAO_V.aff}`, `徒弟成长 +${L.pct(L.DAO_V.disc - 1)}`, `人物五心只要好感 ${L.DAO_V.heart5}`] }[data.k][data.lv - 1];
-    // 头一回升级由阻塞讲解 dao1 讲（时间暂停）；之后每次升级是气泡
-    if (st.hintSeen && st.hintSeen.dao1) tip(`dao_${data.k}${data.lv}`, `道心·${D0.n}到了${'一二三'[data.lv - 1]}级（${data.n} 笔）：${num}。${nx ? `再 ${nx - data.n} 笔到下一级。` : '三级已满。'}【人物】→ 道心。`);
+    // 开罗式重整后阻塞讲解 dao1 已关：每次升级（含头一回）都走气泡
+    tip(`dao_${data.k}${data.lv}`, `道心·${D0.n}到了${'一二三'[data.lv - 1]}级（${data.n} 笔）：${num}。${nx ? `再 ${nx - data.n} 笔到下一级。` : '三级已满。'}【人物】→ 道心。`);
     banner('道心 · ' + D0.n, `${'一二三'[data.lv - 1]}级：${D0.fx[data.lv - 1]}`); SFX.reveal(4);
   } else if (type === 'karma') {
     if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - 40, '因果 +1', '#ff9a8a');
-    // 头一笔由阻塞讲解 karma1 讲；之后每笔一个气泡
-    if (st.hintSeen && st.hintSeen.karma1) tip('karma_' + L.karmaState(st).list.length, `又记下一笔因果：${data.who}（${data.n}）。眼下没了的 ${L.karmaOpen(st).length} 条。`);
+    // 阻塞讲解 karma1 已关：每笔（含头一笔）一个气泡
+    tip('karma_' + L.karmaState(st).list.length, `又记下一笔因果：${data.who}（${data.n}）。眼下没了的 ${L.karmaOpen(st).length} 条。`);
   } else if (type === 'unkarma') {
     if (!st.exp) floatText(HOMEPOS.x, HOMEPOS.y - 40, '了结一笔因果', '#8ff5d0');
   }

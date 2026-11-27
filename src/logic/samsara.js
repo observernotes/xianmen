@@ -364,7 +364,7 @@ function applyOrigin(st) {
     const rl = perk(st, 'relic'); if (rl) L.gearDrop(st, 'w', rl >= 2 ? 3 : 2, { src: 'perk' });
     if (perk(st, 'slots')) for (const k of ['x', 'z', 'm']) startArt(st, k);
     const lg = st.meta.legacy || {};
-    for (const id of lg.arts || []) if (L.art(id)) { L.giveArt(st, id, { src: 'legacy' }); st.arts.own[id] = Math.max(st.arts.own[id] || 0, L.artNeed(id, 1)); if (!L.artSlots(st)[L.ART_SLOTS.indexOf(L.art(id).k)]) L.equipArt(st, id); }
+    for (const id of lg.arts || []) if (L.art(id)) { L.giveArt(st, id, { src: 'legacy' }); st.arts.own[id] = Math.max(st.arts.own[id] || 0, L.artNeed(id, 1)); { const cur = L.artSlots(st)[L.ART_SLOTS.indexOf(L.art(id).k)]; if (!cur || cur === 'x_yinqi') L.equipArt(st, id); } }   // 槽空或只装着开局自带的引气诀时，传承的那门直接装上
     if (lg.gear) st.legacy.gear = Object.assign({}, lg.gear);
     if (lg.pet) st.legacy.pet = lg.pet;
     st.meta.legacy = {};

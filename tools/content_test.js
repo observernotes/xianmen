@@ -2265,8 +2265,8 @@ async function apSection(quick) {
       L.legacySet(old, { arts: ['x_houtu', 'z_hanyue'], gear: { slot: 'w', aff: 'huixin' }, pet: 'p_hu' });
       const ns = L.rebirthState(old, { t: C0.t, tr: C0.tr });
       // 功法从小成起（own = artNeed(id, 1)、Lv 1）；装上只在那一槽空着时（samsara.js：if (!L.artSlots(st)[槽])）：战技槽是空的 → 装上；
-      // 心法槽开局就有《引气诀》（3.0 开局自带），不空，所以传承的心法《厚土》留在手里、不顶掉在用的心法（见报告：这一条是 3.0 之后的行为变化，是否有意待确认）
-      o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1) && L.artSlots(ns)[1] === 'z_hanyue' && L.artSlots(ns)[0] === 'x_yinqi' && Object.keys(ns.meta.legacy).length === 0;
+      // 心法槽开局装着《引气诀》（3.0 开局自带）：传承的那门顶掉开局自带的这一门直接装上（槽空时同样装上）
+      o.legacyArts = ['x_houtu', 'z_hanyue'].every(id => ns.arts.own[id] === L.artNeed(id, 1) && L.artLv(ns, id) === 1) && L.artSlots(ns)[1] === 'z_hanyue' && L.artSlots(ns)[0] === 'x_houtu' && Object.keys(ns.meta.legacy).length === 0;
       o.legacyCleared = JSON.stringify(ns.meta.legacy) === '{}' && !!ns.legacy.gear && ns.legacy.pet === 'p_hu';
       const r = L.gearDrop(ns, 'r', 2, {}), w1 = L.gearDrop(ns, 'w', 2, {}), w2 = L.gearDrop(ns, 'w', 2, {});
       o.legacyGear = !(r.legacy) && w1.legacy === 'huixin' && w1.gear.aff.includes('huixin') && !w2.legacy && !ns.legacy.gear;
