@@ -214,8 +214,13 @@ function mainNext(st, a) {
   let go = ACT_GO[d.id] || 'path';
   if (d.id === 'duel' && d.args && d.args.id) go = 'mainfoe';
   if (d.id === 'final' && L.finalKind && L.finalKind(st) === 'war') go = 'prep';
-  return { t: cut(a.t, 12), go, hl: d.id === 'promote' ? '#btnPromo' : d.id === 'duel' && d.args && d.args.id ? '#btnChal' : null, why: a.grow ? 'grow' : 'main', k: 'main:' + a.id, ap: a.ap || 0, do: a.do || null, p: a.p, act: a, foe: d.id === 'duel' && d.args ? d.args.id : undefined };
+  return { t: cut(a.t, 12), go, hl: L.actHl(d), why: a.grow ? 'grow' : 'main', k: 'main:' + a.id, ap: a.ap || 0, do: a.do || null, p: a.p, act: a, foe: d.id === 'duel' && d.args ? d.args.id : undefined };
 }
+// 目标卡【去】落到的那个按钮（goalcard.js 的 goDo）：历练 → 出发页的【出发】、下战帖点名的人 → 准备页的【下战书】；
+// 其余（首领、下战帖第 q 名、拜山门、晋升、最后一仗、闭关、打坐）【去】当场就做，不落页、不高亮（晋升的 #btnPromo 只给没有 do 的旧跳转用）
+L.actHl = d => (!d ? null : d.id === 'exp' ? '#btnExpGo' : d.id === 'duel' && d.args && d.args.id ? '#btnChalGo' : d.id === 'promote' ? '#btnPromo' : null);
+// 一项主线行动（L.mainActs 的一项）→ 目标卡“下一步”（测试用：tools/guide_test.js 逐个 id 核对【去】的落点）
+L.goalOfAct = (st, a) => mainNext(st, a);
 
 // ---------- 章末结算 ----------
 L.chapterSummary = function (st, i) {
