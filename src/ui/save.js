@@ -70,7 +70,7 @@ function loadState(s) {
   L.hook = onHook;
   ART.clearCache(); avCache.clear();
   adv = null; lastMode = st.exp ? 'adv' : 'home';
-  renderFeed(); updateHUD();
+  try { renderFeed(); updateHUD(); } catch (e) { console.error('读档后第一次刷新主画面出错（页面照常起来，下一帧再画）：' + (e && e.stack || e)); }   // 偶发：旧档迁移出来的局面某个读数为空，别让整页起不来
   // 渡到一半关了页面：预掷还在 st.trib.cur 里，接着渡（结果不变）
   if (st.trib && st.trib.cur) { const v = L.tribView(st); if (v) setTimeout(() => { if (!cine && st.trib.cur) startTribCine(v); }, 600); }
   // 读档后的第一条结算链（AP_PLAN §4.2 存档点 / §7）：没出完的卡、旧档迁移压着的历练结算与大事、被旧节流压着的戏，接着出（settle.js）

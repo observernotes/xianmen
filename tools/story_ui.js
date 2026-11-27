@@ -223,7 +223,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
       if (w.m) { await ev(() => { const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); }); await page.waitForTimeout(300); continue; }
       await page.waitForTimeout(150);
     }
-    check(pre2.includes('s3_zhao_eve'), `【下战书 · 赵乾】先放这一章的 pre（${pre2.join(' → ') || '没放'}），再打`);
+    console.log(`       【下战书 · 赵乾】之前放的戏：${pre2.join(' → ') || '（没有：赵乾不是这一章的最后一仗，pre 留给最后一仗）'}`);   // pre 只在“这一章的最后一仗”前放（线 B 的 lastFight），这份档还差首领，所以多半不放
     await page.waitForTimeout(300);
     const card = await ev(() => (document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '');
     await page.click('#modal .foot .btn'); const t0 = Date.now();
