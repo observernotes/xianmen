@@ -28,7 +28,7 @@ L.apLootRew = () => (L.AP_ON === false ? 1 : L.AP.lootRew);
 //   PACT_POWER 125 → 250：回合制下只打坐的人每季也有 6 月修为，约战前都已筑基（PACT_ASSIST 只在炼气生效，管不着了），只能靠对手战力把“只打坐”压到 15%～25%
 //     （tools/sim.js 20 种子：PACT_POWER 150 时 idle 57%、250 时 17%，guided 97%、goalcard 97%、lazy 58%）；§3.5 的初值 150 过不了 idle 的门槛
 //   RIVAL_SLOPE 0.0185 → 0.022（§3.5 初值）
-L.AP_CONST = { PACT_POWER: [125, 250], RIVAL_SLOPE: [0.0185, 0.022] };
+L.AP_CONST = { PACT_POWER: [125, 250], RIVAL_SLOPE: [0.0185, 0.029] };
 L.apConst = function () { for (const k in L.AP_CONST) L[k] = L.AP_CONST[k][L.AP_ON === false ? 0 : 1]; };
 L.apConst();
 // 负伤月数：一回合 3 个月，负伤 = 带伤到下季末（设 4：本季末 −3 剩 1，下季末清零）；首领战败两季（7）
@@ -287,7 +287,8 @@ L.regAct('sweep', { ap: () => L.AP.sweep, label: '扫荡',
   run: (st, x) => L.sweep(st, arg(x, 0, 'k'), arg(x, 1, 'd'), arg(x, 2, 'a')) });
 L.regAct('boss', { ap: () => L.AP.boss, label: '讨伐首领',
   why: (st, x) => { const b = busyWhy(st); if (b) return b; return L.bossReady(st, arg(x, 0, 'k')) ? '' : '首领还没现身'; },
-  run: (st, x) => L.fightBoss(st, arg(x, 0, 'k')) });
+  // 界面打出来的回合战结果（args.res）原样透传给 L.fightBoss；没有就由逻辑层自己打
+  run: (st, x) => L.fightBoss(st, arg(x, 0, 'k'), x && typeof x === 'object' && !Array.isArray(x) && x.res ? { res: x.res } : undefined) });
 L.regAct('retreat', { ap: () => L.AP.retreat, label: '闭关',
   why: (st, x) => (x && arg(x, 0, 'sx') ? (L.sxWhy ? L.sxWhy(st) : '还没开放') : L.retWhy(st)),
   run: (st, x) => L.retreatNow(st, x && arg(x, 0, 'sx') ? { sx: true } : undefined) });
@@ -340,9 +341,8 @@ const BIG = [['pact', 'pact'], ['tourney', 'tour'], ['meet', 'meet'], ['war', 'w
 L.seasonEnd = function (st) {
   const a = ap(st), p = st.p;
   const S = { season: L.seasonNow(st), seasonNo: L.seasonNo(st), tick: st.tick, sat: 0, xp: { flow: 0, sit: 0, pre: 0 }, stones: 0, crops: null, pay: 0, notes: [], big: [], visitor: null, year: false, next: null, outs: [], out: {}, pre: {} };
-  // 0. 还挂着的（旧界面直接调了 L.startExp / L.startRetreat）：先结掉，不另扣点
-  if (st.exp) { st.exp.apPaid = 1; L.tripAuto(st); S.pre.exp = L.tripEnd(st); }
-  if (st.retreat) { const x0 = p.xp; S.pre.retreat = finishRetreat(st); S.xp.pre += Math.max(0, p.xp - x0); }
+  // 0. 历练演出还没打完（读档后接着打的那一趟）、差事还挂着：不过季（界面的【下一季】这时本来就是灰的），返回 null
+  if (st.exp || st.retreat) return null;
   // 1. 剩余行动点自动打坐
   if (a.left > 0 && p.r <= L.MAXR) { S.sat = a.left; S.xp.sit = L.sitGain(st, a.left); L.addXp(st, S.xp.sit); st.stats.sit = (st.stats.sit || 0) + a.left; }
   if (a.left > 0) L.apSpend(st, a.left, 'sit*');
@@ -425,7 +425,6 @@ L.seasonReport = function (st, S) {
 function pushBlk(st, x) { const q = blk(st); q.push(x); if (q.length > 40) q.splice(0, q.length - 40); }
 L.blockPush = pushBlk;
 L.chainOpen = function (st, why) {
-  if (why === undefined) return false;   // 兼容垫片：旧的“连续历练开没开”（界面 panel-exp / guide-ask 还在问）——连续历练已删，一律 false；那个解锁判定改名 L.sweepOpen
   const c = chn(st); c.why = why; c.n = 0; c.story = 0; c.at = ap(st).seq;
   return c;
 };
@@ -451,26 +450,13 @@ L.blockDone = function (st, x) {
   chn(st).n++; if (x.kind === 'story') chn(st).story++;
 };
 
-// ---------- 旧界面兼容垫片（线 C 改完界面后拆掉）：旧主循环还在逐月调 L.tick ----------
-// 新流程里 L.seasonEnd 推月之前已经把历练 / 闭关结掉了，这里只接住旧界面直接出发、直接闭关留下的状态：
-// 历练的节点都打完了（或倒下 / 撤）就结算，闭关当月出关，结果照旧放进 out.exp / out.retreat
+// L.tick 外面包一层只为两件事：L.ticking()（季末推月的过程中为真），以及推完把 L._inMonth 复原
+// （tick.js 推过月后把 L._inMonth 设成 st，这个月的结算里 L.season 取 st.tick；里面各层包装都跑完再复原）
 let ticking = 0;
 { const t0 = L.tick; L.tick = function (st, cont) {
   ticking++;
-  let out;
-  const mon0 = L._inMonth;   // tick.js 推过月后把 L._inMonth 设成 st（这个月的结算里 L.season 取 st.tick）；里面各层包装都跑完再复原
-  try { out = t0.apply(this, arguments); } finally { ticking--; L._inMonth = mon0; }
-  const e = st.exp;
-  if (e) {
-    // 照旧主循环的节奏：一个月一个节点（界面已经打完这一格就跳过），走满 total 个月或倒下 / 撤就结算
-    e.apPaid = 1;
-    const m = e.shimM || 0;
-    if (e.nodes && e.ni <= m && !tripDone(e)) { const x = L.tripStep(st); if (x.enc) out.choice = x.enc; }
-    e.shimM = m + 1;
-    if (tripDone(e) || e.shimM >= e.total) { L.tripAuto(st); out.exp = L.tripEnd(st); blk(st).pop(); }
-  }
-  if (st.retreat) { out.retreat = finishRetreat(st); if (out.retreat && out.retreat.visitor) out.visitor = out.retreat.visitor; }
-  return out;
+  const mon0 = L._inMonth;
+  try { return t0.apply(this, arguments); } finally { ticking--; L._inMonth = mon0; }
 }; }
 L.ticking = () => ticking > 0;
 

@@ -27,7 +27,7 @@ L.CHAPTERS = [
       { t: '开一块灵田', c: st => st.home.field >= 1, rw: { herbs: 5 }, go: 'home' },
       { t: '见一位访客', c: st => st.stats.visits >= 1, rw: { pills: 1 }, go: 'cult' },
       { t: '后山野林腹地评价乙以上', c: bestGE(0, 1, 2), rw: { stones: 200 }, go: 'exp' },
-      { t: '吐纳 3 次', c: st => st.stats.tuna >= 3, rw: { stones: 60 }, go: 'cult' },
+      { t: '打坐 3 次', c: st => (st.stats.sit || 0) + (st.stats.tuna || 0) >= 3, rw: { stones: 60 }, go: 'cult' },
       { t: '修到炼气圆满', c: fullAt(0), rw: { stones: 200 }, go: 'cult' },
       { id: 'c0_plus', t: '强化一次兵器', c: st => (st.stats.plus || 0) >= 1, rw: { stones: 100 }, go: 'gear' },
       { t: '突破筑基', c: st => mr(st) >= 1, rw: { stones: 400 }, go: 'cult' },

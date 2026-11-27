@@ -413,7 +413,6 @@ const path = require('path');
       if (st.visitor && !st.retreat && !modal() && L.pgiftVisitor(st)) { await giftAtDoor(); await drain(); }
       if (st.visitor && !st.retreat && Math.random() < 0.5) { X.showVisitor(); await drain(); }
       if (n % 4 === 3 && !X.cine && !modal() && !L.busy(st) && L.PPL.some(id => L.met(st, id))) { await peopleRound(); await drain(); }
-      if (typeof L.tunaReady === 'function' && L.tunaReady(st)) L.tuna(st);   // 吐纳：旧界面才有（A2 删）
       if (n % 8 === 2 && !X.cine) await artRound();
       if (n % 14 === 4 && !X.cine && !modal()) await codexRound();
       if (n % 4 === 1 && !X.cine && L.gearOpen(st, 'plus')) await gearRound();

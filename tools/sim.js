@@ -499,7 +499,7 @@ function homeGuided(st, rec) {
   if (st.pills < 2 && st.stones >= L.price(st, 'pill') * 3) L.buy(st, 'pill');
   if (L.lifeLow(st) && L.marketOpen(st, 'life') && L.lifeTicks(st) < 60 && st.stones >= L.price(st, 'life')) L.buy(st, 'life');
   if (st.sect) {
-    if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
+    if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { const pr = L.promote(st); if (pr && pr.ok && rec.srankAt[st.sect.rank] === undefined) rec.srankAt[st.sect.rank] = st.tick; }
     // 只差人脉的那几季（圣子、宗主）
     if (st.sect.rank === 2 || st.sect.rank === 5) { const nd = L.promoteNeeds(st); if (nd.some(x => x.k === 'elders' && !x.ok) && nd.filter(x => x.k !== 'elders').every(x => x.ok)) rec.favWait[st.sect.rank + 1] = (rec.favWait[st.sect.rank + 1] || 0) + 1; }
     if (SECT2) sectGuided(st, rec);
@@ -633,7 +633,7 @@ function seasonLazy(st, rec) {
   const p = st.p;
   if (p.r > L.MAXR) return;
   if (st.sect) {
-    if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok) rec.srankAt[st.sect.rank] = st.tick; }
+    if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 12) { const pr = L.promote(st); if (pr && pr.ok && rec.srankAt[st.sect.rank] === undefined) rec.srankAt[st.sect.rank] = st.tick; }
     st.sect.tasks.forEach((t, i) => {
       if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort' && t.ty !== 'lecture') L.taskTake(st, i);
       if (L.taskCanDeliver(st, t)) L.taskDeliver(st, i);
@@ -798,8 +798,6 @@ function run(strat, seed, trace, opt) {
     if (out.pact) { rec.zhanN = Object.keys(st.arts.own).filter(id => L.art(id) && L.art(id).k === 'z').length; rec.wStar = st.gear.w ? st.gear.w.star || 0 : -1; rec.wPlus = st.gear.w ? st.gear.w.plus || 0 : -1; rec.bossCh1 = !!st.bosses[0]; rec.wishHit = (st.stats.wishHit || 0) > 0; rec.infuse = (st.stats.infuse || 0) > 0; }
     if (out.pact) { rec.ch1Acts = (st.stats.exp || 0) + (st.stats.retreat || 0); rec.zhujiAtPact = p.r >= 1; rec.pChance = L.pactInfo(st).p; const sl = L.artSlots(st); rec.pactZ = !!sl[1]; rec.pactKe = L.duelElem(st, L.PACT_FOE).m > 1; const r = L.pactDuel(st); rec.pactWin = r.win;
       const w = L.gearEq(st, 'w'); rec.loot1 = { star: w ? w.star || 0 : 0, wish: st.stats.wishHit || 0, plus: st.stats.plus || 0, infuse: st.stats.infuse || 0, zhan: Object.keys(st.arts.own).filter(id => L.art(id).k === 'z').length, boss: !!st.bosses[0], cards: st.stats.lootGear || 0 }; }
-    // 三宗争徒的弹窗（界面 showInvite：挑一家点【拜入】，或【再想想】）：不看境界，第二章“三张帖子”结过、还没宗门才来
-    if (out.invite) { if (strat !== 'idle' && !opt.noSect) L.joinSect(st, simSect); else L.inviteDecline(st); }
     // 这一章要打的宿敌：只剩他时上门下战书（out.mainFoe，界面 runMainFoe）；guided 胜算 ≥ 45% 应战，lazy 一半一半，idle 改日
     if (out.mainFoe) { const I = L.challengeInfo(st, out.mainFoe); const go = I && !I.why && (strat === 'guided' ? I.p >= 0.45 : strat === 'lazy' ? L.rng() < 0.5 : false); if (go) { rec.chal = (rec.chal || 0) + 1; L.challengeRival(st, out.mainFoe); } else L.mainFoeLater(st, out.mainFoe); }
     // 目标卡上的主线一步（mainline.js 的 L.mainStep）：胜算过半的下战书——guided 照做，lazy 三回里做一回（晋升、投帖上面已经照做）
@@ -953,12 +951,14 @@ function summarize(strat, recs, G) {
     const mu60 = frac(recs, x => x.beatAt.mu !== undefined && x.beatAt.mu <= 60);
     row(strat, '击败慕容雪', `第 20 季前 ${pct(mu60)}，中位数第 ${sMed(recs.map(x => x.beatAt.mu))} 季`, '≥95% 在第 20 季前', mu60 >= 0.95);
     const bz = sMed(recs.map(x => x.beatAt.zhao)), bc = sMed(recs.map(x => x.beatAt.chu)), bx = sMed(recs.map(x => x.beatAt.xue));
-    const BZ = [[72, 110], [190, 300], [340, 480]].map(x => x.map(M2S));
+    // 3.0：章由主线推进（境界不推章），赵乾 / 楚天阔 / 血无涯是第三 / 五 / 七章的主线，目标按 AP_PLAN §3.3 逐章预算取（那一章开始 ～ 那一章末 +25%）
+    const BZ = [[26, 54], [63, 104], [104, 155]];
     row(strat, '击败赵乾 / 楚天阔 / 血无涯（季）', `${bz} / ${bc} / ${bx}`, BZ.map(x => x.join('～')).join(' / '), within(bz, ...BZ[0]) && within(bc, ...BZ[1]) && within(bx, ...BZ[2]));
     const r1 = frac(recs, x => x.rank1 !== undefined && (x.ascend === undefined || x.rank1 <= x.ascend)), r1m = sMed(recs.map(x => x.rank1));
     row(strat, '天骄榜第一', `${pct(r1)} 的种子在飞升前拿到，中位数第 ${r1m} 季`, '45%～80%，中位数第 115～140 季（AP_PLAN §3.5）', within(r1, 0.45, 0.8) && within(r1m, 115, 140));
     const sr = [1, 2, 3, 4, 5, 6].map(k => sMed(recs.map(x => x.srankAt[k])));
-    const ST = [[45, 70], [90, 125], [150, 210], [260, 340], [380, 470], [500, 600]].map(x => x.map(M2S));
+    // 内门 / 真传 / 圣子是第二 / 三 / 四章的主线（AP_PLAN §3.3：第 25 / 43 / 63 季，±25%）；长老以后不挂章，仍按 DESIGN §3.12 换算（月 ÷ 3 × 0.8）
+    const ST = [[19, 31], [32, 54], [47, 79]].concat([[260, 340], [380, 470], [500, 600]].map(x => x.map(M2S)));
     row(strat, '内门/真传/圣子/长老/太上/宗主（季）', sr.join(' / '), ST.map(x => x.join('～')).join(' / '), sr.every((v, i) => within(v, ST[i][0], ST[i][1])));
     row(strat, '坐化', pct(died), '0%', died === 0);
     const rm = med(recs.map(x => x.ratioMed)), viol = frac(recs, x => x.maxStreak >= 8);

@@ -26,7 +26,7 @@ L.rivalCurve = (st, q) => Math.exp(L.rivalA(q) + L.RIVAL_SLOPE * st.tick);
 // 云无极（k = 0）不看层数：渡劫初期（from）起才肯上台，之后永远压你一头（你的常驻战力 × c），靠克制、爆气丹、玄霄重来去搏——约六成种子在飞升前拿到榜首。
 // 论道越不过没打赢的卡位宿敌（L.rivalBlock）；你的小层还不到 from 时他不上台（L.rivalRefuses）。
 // 天骄榜曲线照旧是下限：懒散玩家家底薄，曲线比卡位高，赵乾对他仍按曲线打。按曲线涨的天骄榜追不上勤快玩家：guided 第 90 月约是第 45 名曲线的 19 倍。
-L.RIVAL_WALL = { zhao: { i: 9, c: 0.85, k: 1, from: 8 }, chu: { i: 17, c: 1, k: 1, from: 16 }, xue: { i: 26, c: 1, k: 1, from: 25 }, yun: { i: 32, c: 1.45, k: 0, from: 32 } };
+L.RIVAL_WALL = { zhao: { i: 9, c: 0.85, k: 1, from: 8 }, chu: { i: 20, c: 1, k: 1, from: 19 }, xue: { i: 25, c: 1, k: 1, from: 24 }, yun: { i: 32, c: 1.45, k: 0, from: 32 } };
 const WALL_SKIP = { buffs: 1, inj: 1 };
 L.rivalWall = function (st, id) {
   const W = L.RIVAL_WALL[id]; if (!W || !(W.c > 0) || !st || st.p.r > L.MAXR || (st.beaten && st.beaten[id])) return 0;

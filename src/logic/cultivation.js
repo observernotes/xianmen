@@ -5,10 +5,7 @@
 const { R, ri, pick, wpick, clamp, emit } = L.U;
 const P = L.P;
 
-// 吐纳（AP_PLAN §3.1、§3.5）：删除。下面三个是给界面留的空壳（src/ui 的 scene / boot / guide 还在读，线 C 删掉那头后一并拆）：永远不满、点了得 0
-L.TUNA_FULL = 6;
-L.tunaReady = () => false;
-L.tuna = () => 0;
+// 吐纳（AP_PLAN §3.1、§3.5）：删除，由“打坐（1 点）”接替（L.sit，ap.js）
 
 // 突破成功率。n = 服几枚破境丹（true 表示尽量多，最多三枚；SYSTEMS §9 的“临阵吞丹”另算，见 trib.js）
 // 基础成功率在 L.REALMS[r].rate；常驻的加成（道心·稳、心魔劫…）用 L.addBtMod 登记，fn(st) → [显示名, 加多少]；

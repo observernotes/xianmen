@@ -140,8 +140,6 @@ function apMark(root) { root.querySelectorAll('button').forEach(b => { if (b.dat
 // 点数角标：“◆2”；data-ap 给 tools/shot.js 扫（所有花点的按钮都带它，点数与 L.AP 一致）
 const apTag = n => `<span class="apc">◆${n}</span>`;
 const apBtn = (id, args) => { const n = L.apCost(st, id, args), why = L.apWhy(st, id, args); return { n, why, tag: apTag(n), attr: ` data-ap="${n}"` }; };
-// 首领：'boss' 的缺省实现不认界面打出来的回合战结果，这里让它透传 res 给 L.fightBoss（线 A 把这一行收进 ap.js 后可删）
-if (L.ACTS && L.ACTS.boss) L.regAct('boss', { run: (s, x) => L.fightBoss(s, L.actArg(x, 0, 'k'), x && typeof x === 'object' && !Array.isArray(x) && x.res ? { res: x.res } : undefined) });
 
 // ---------- 结算卡 ----------
 function showActResult(id, d, x) {
@@ -212,8 +210,7 @@ function nextSeason(force) {
   }
   SFX.tap();
   const S = L.seasonEnd(st);
-  // 季末 3 个月里出来的、不在 S.big 里的阻塞内容：三宗争徒（线 B 改到第二章开章链末尾之后这一行可删）
-  if (S.outs.some(o => o.invite) && !st.sect) L.blockPush(st, { kind: 'big', id: 'invite', data: { k: 'invite' }, lv: 7 });
+  if (!S) return false;   // 历练演出没打完 / 差事挂着（busyUI 已经挡掉，这里兜底）
   // 主线保底（mainline.js 的 out.mainFoe / mainEase / mainHint）：排在季末卡和大事之后
   for (const k of ['mainFoe', 'mainEase', 'mainHint']) { if (k === 'mainFoe' && chainFull()) continue; const o = S.outs.find(x => x[k]); if (o) { blkStash[k] = o[k]; L.blockPush(st, { kind: 'big', id: k, data: { k }, lv: 7 }); } }   // 线 B：宿敌上门是 'foe' 大事块
   seasonFx(S);

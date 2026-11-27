@@ -92,12 +92,15 @@ function housekeep(st, open) {
 const storyBlock = (st, id, o) => ({ kind: 'story', id, data: L.eventById(id), lv: o.lv, ch: o.ch, loc: o.loc });
 // 解锁卡：已开、还没出过卡的系统项（第一世；入口的第一张历练卡、突破卡由新手引导自己讲）
 const NO_CARD = { exp: 1, bt: 1 };
+// 开局就开着的不出卡。“开局”不看月份（洞府在第一趟历练回来、还是第 0 月时就开）：和界面 src/ui/onboard.js 的 begun() 同一口径——
+// 开局自带的（start）不算；第 0 月开的，只要已经做过第一件事（出过一趟历练）就算后来开的
+const begun = st => st.tick > 0 || ((st.stats && st.stats.exp) || 0) > 0;
 function unlockDue(st) {
   if (!st.onb || !st.onb.at || (st.rebirth || 0) > 0 || L.ONB_ON === false) return [];
   const s = S(st), a = [];
   for (const e of L.ONB || []) {
     const t = st.onb.at[e.k];
-    if (t === undefined || !(t > 0) || s.ucard[e.k] !== undefined || !e.sys || NO_CARD[e.k]) continue;
+    if (t === undefined || e.start || (!(t > 0) && !begun(st)) || s.ucard[e.k] !== undefined || !e.sys || NO_CARD[e.k]) continue;
     let force = false; try { force = !!(e.force && e.force(st)); } catch (err) { force = false; }
     a.push({ k: e.k, force });
   }

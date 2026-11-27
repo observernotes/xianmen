@@ -2908,6 +2908,8 @@ async function apSection(quick) {
       // 历练：行事不对 / 评价不够不算；对了给 +15 与两枚疗伤丹
       s.npc.su.aff = 41; s.ppl.q.su[2] = undefined; delete s.ppl.q.su[2];
       const a0 = L.aff(s, 'su');
+      // 评价由预掷的分数定（plan.rnd / adj）：这一段按旧的分数制量，临时关掉回合战（回合战里评价按打出来的定，COMBAT_LOOT §2.3）
+      const tripQ0 = L.TRIP_ON; L.TRIP_ON = false;
       L.startExp(s, 0, 0, 0); s.exp.left = 0; const r0 = L.resolveExp(s); s.p.inj = 0;
       o.expWrongAct = !(r0.pq && r0.pq.length) && s.ppl.q.su[1].s === 'on';
       L.startExp(s, 3, 2, 2); s.exp.plan.rnd = -12; s.exp.plan.adj = -50; s.exp.left = 0; const r1 = L.resolveExp(s); s.p.inj = 0;
@@ -2916,6 +2918,7 @@ async function apSection(quick) {
       o.expRecall = !(r2.pq && r2.pq.length) && s.ppl.q.su[1].s === 'on';
       L.startExp(s, 0, 0, 2); s.exp.plan.rnd = 24; s.exp.left = 0; const r3 = L.resolveExp(s); s.p.inj = 0;
       o.expDone = r3.rating >= 2 && !!r3.pq && r3.pq.length === 1 && s.ppl.q.su[1].s === 'done' && L.aff(s, 'su') === a0 + 15 && L.bagN(s, 'liaoshang') === 2 && L.pqProg(s, 'su', 1).s === 'done' && s.ppl.qn === 1;
+      L.TRIP_ON = tripQ0;
       // 交付
       s.npc.su.aff = 80; L.pqCheck(s, 'su'); s.dan.bag.liaoshang = [1];
       o.giveShort = L.pqGiveWhy(s, 'su', 2) !== '' && L.pqGive(s, 'su', 2) === null && s.ppl.q.su[2].s === 'on';
@@ -2989,7 +2992,9 @@ async function apSection(quick) {
       const sg = mk({ su: 85 }, x => { x.trials = ['gu']; });
       o.gu = L.trialOn(sg, 'gu') && L.compWhy(sg, 'su').includes('孤星') && L.setComp(sg, 'su') === false;
       // 苏：不负伤。同一份预掷，没同伴负伤，有苏则不负伤（找一个会负伤的格子）
-      const trip = (comp, k, d, a, f) => { const t = mk({ su: 85, ye: 85, chu: 85, ge: 85, bai: 85, mo: 85 }, x => { x.eflags.tiankuo_ally = 1; x.yinOpen = 1; if (f) f(x); }); L.setComp(t, comp); L.startExp(t, k, d, a); t.exp.plan.u = [0.31, 0.62, 0.2, 0.9, 0.1, 0.5, 0.5, 0.99, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; t.p.inj = 0; return { t, res: L.resolveExp(t) }; };
+      // 同伴的这几项（苏不负伤、楚狂斩妖 +10）按旧的分数制量：预掷 plan.u / rnd 只在分数制里决定评价，临时关掉回合战
+      const tripC0 = L.TRIP_ON; L.TRIP_ON = false;
+      const trip = (comp, k, d, a, f) => { const t = mk({ su: 85, ye: 85, chu: 85, ge: 85, bai: 85, mo: 85 }, x => { x.eflags.tiankuo_ally = 1; x.yinOpen = 1; if (f) f(x); }); L.setComp(t, comp); if (!L.startExp(t, k, d, a)) return { t, res: {} }; t.exp.plan.u = [0.31, 0.62, 0.2, 0.9, 0.1, 0.5, 0.5, 0.99, 0.5, 0.5]; t.exp.plan.rnd = 0; t.exp.left = 0; t.p.inj = 0; return { t, res: L.resolveExp(t) }; };
       // 找到会负伤的格子
       let cell = null;
       for (const [k, d, a] of [[3, 2, 0], [3, 2, 1], [3, 1, 0], [4, 2, 0], [2, 2, 0], [1, 2, 0], [4, 2, 1]]) { const r = trip(null, k, d, a); if (r.res.inj) { cell = [k, d, a]; break; } }
@@ -3024,6 +3029,7 @@ async function apSection(quick) {
       const tc = mk({ chu: 85 }); const sc0 = L.expForecast(tc, 0, 0, 0), hc0 = L.expForecast(tc, 0, 0, 2); L.setComp(tc, 'chu');
       const sc1 = L.expForecast(tc, 0, 0, 0), hc1 = L.expForecast(tc, 0, 0, 2);
       o.chuSlay = !!sc0 && sc1.base === sc0.base + 10 && hc1.base === hc0.base;
+      L.TRIP_ON = tripC0;
       // nopeople2：不起作用
       L.PEOPLE2_ON = false; const tn = mk({ su: 85 }); o.offComp = L.compWhy(tn, 'su') !== '' && L.comp(tn) === null; L.PEOPLE2_ON = true;
     }
@@ -3037,8 +3043,8 @@ async function apSection(quick) {
       const stones0 = s.stones, art0 = L.sxArt(s);
       const r = L.shuangxiu(s);
       o.sx = !!r && s.stones === stones0 && s.retreat && s.retreat.sx === 'su' && L.retName(s.retreat) === '双修' && s.flags.retFree === 0 && art0 === 'x_qingmu' && L.artOwned(s, 'x_qingmu') && r.first === true && s.ppl.sxN === 1;
-      o.sxCool = L.sxWhy(s).includes('周天') && L.shuangxiu(s) === null;
-      s.retreat = null; s.ppl.sx = s.tick - 11; o.sxCool11 = L.sxWhy(s).includes('1 周天');
+      o.sxCool = L.sxWhy(s).includes('季') && L.shuangxiu(s) === null;
+      s.retreat = null; s.ppl.sx = s.tick - 11; o.sxCool11 = L.sxWhy(s).includes('1 季');
       s.ppl.sx = s.tick - 12; o.sxCool12 = L.sxWhy(s) === '';
       // 次序：没有的先给；都会了熟练 +20
       const s2 = mkD('su'); for (const a of L.DAOLV_ARTS.su) L.giveArt(s2, a);
@@ -3095,7 +3101,7 @@ async function apSection(quick) {
   const ppNames = { whyNone: '没有访客时送不了', whyOk: '门口就是他时能送', whyOther: '访客不是他时送不了', hdr: '喜好图鉴 18 格、六位各三格、没试过时为空', react: '讨厌的标签优先于喜欢的', optsEmpty: '身上空空时送礼列表为空', optsHave: '送礼列表只列身上有的', like: '♥ +8 并记进图鉴、扣了东西', again: '同一回来访第二次送被拒', dexFound: '图鉴数出一格', mid: '一般 +3 记为 0', optMo: '魔道功法抄本带 art_mo 标签', hate: '✕ −3 并记为 −1', hateKnown: '讨厌的格子进了图鉴', artOnce: '同一门功法抄本只能送同一人一次', artOther: '同一门功法抄本别人还能送', sorted: '送礼列表按 ♥ / ？ / 一般 / ✕ 排序', bagBands: '丹囊里的丹按下品 / 中品 / 上品以上三档分开列', bagHi: '送的是这一档最差的一枚', pav: '迎客亭：正的两档 +1、讨厌不加', pavGive: '迎客亭下送礼实际 +9', unmet: '没见过的人送不了', hint: '老祖点破一样 ♥ 记进图鉴',
     q0: '好感 39 没有委托', q1: '好感到 40 出第 1 件', q2: '好感到 80 出第 2 件', expWrongAct: '历练行事不对不算完成', expLowRating: '历练评价不够不算完成', expRecall: '召回不算完成', expDone: '历练达标：完成、+15 好感、两枚疗伤丹', giveShort: '丹不够交付不了', giveDone: '交付：扣丹、给战技、+15、不能重复', craftDone: '炼出上品丹才算完成（下品不算）并给药引', recipeAlt: '十五格丹方全揭晓：改成炼出两炉上品以上', recipeAlt1: '只炼出一炉不算', recipeAlt2: '炼出两炉完成', recipeNew: '丹方没揭晓满：要试出新的一格', recipeNew0: '丹方数没变不算', recipeNew1: '丹方数增加完成', bossQ: '好感 40 楚狂只有第 1 件', bossDone: '击败首领完成首领委托', realmCan: '测试用的秘境能进', realmComp: '进秘境时记下同伴', realm2: '带着他闯过 2 层还没完成', realm3: '带着他闯过 3 层完成', realmNo: '没带他闯过 3 层不算',
     compOk: '四心可以同行', compNeed4: '好感不到 80 不能同行', compDaolv: '道侣不占同伴位', tianNo: '楚天阔没化敌为友不能同行、宿敌线同行不生效', tianOk: 'tiankuo_ally 后可同行', tianOn: '楚天阔在同伴位时 rivalAllyOn 为真', tianOff: '换成别人 rivalAllyOn 为假', expComp: '出发时记在 st.exp.comp', gu: '孤星试炼下拒绝同伴', injCell: '找得到会负伤的格子', suSafe: '苏同行：本会负伤的一趟不负伤', suForecast: '苏同行：确认页风险为 0', moHalf: '墨无痕同行：禁地风险减半', moOnlyDeep: '墨无痕只在禁地起作用', geHerbs: '葛老同行：灵草 ×2', geYin: '葛老采药多带回稀有药引', baiEnc: '白小九同行：遭遇必出、把握 +10%', baiNo: '不带白小九遭遇不是必出', yeMult: '夜同行：灵石 ×1.2、越级 ×1.5', yeIdle: '夜在同伴位：确认页的灵石也 ×1.2', chuSlay: '楚狂同行：斩妖 +10、采药不加', offComp: 'nopeople2 时不能同行',
-    sxNone: '没有道侣不能双修', sxOk: '有道侣能双修', sx: '双修：不花灵石、不动免费闭关、名叫双修、给功法、第一次', sxCool: '双修后冷却', sxCool11: '冷却差 1 周天仍不行', sxCool12: '满 12 周天可再双修', sxAll: '功法都会了：熟练 +20', sxOrder: '双修按表的次序给功法', sxMast: '五次双修回到表头那门并熟练 +20', sxFree: '双修不消耗第一次闭关免费（原本没有）', sxFree2: '双修不消耗第一次闭关免费（原本有）', sxTrig: '第一次双修才触发 first', sxMul: '道侣常驻 ×1.1，nopeople2 ×1.25', sxBusy: '有事在身不能双修', sxYe: '夜的第一门是烈火诀',
+    sxNone: '没有道侣不能双修', sxOk: '有道侣能双修', sx: '双修：不花灵石、不动免费闭关、名叫双修、给功法、第一次', sxCool: '双修后冷却', sxCool11: '冷却差 1 月仍不行（还要 1 季）', sxCool12: '满 12 月（4 季）可再双修', sxAll: '功法都会了：熟练 +20', sxOrder: '双修按表的次序给功法', sxMast: '五次双修回到表头那门并熟练 +20', sxFree: '双修不消耗第一次闭关免费（原本没有）', sxFree2: '双修不消耗第一次闭关免费（原本有）', sxTrig: '第一次双修才触发 first', sxMul: '道侣常驻 ×1.1，nopeople2 ×1.25', sxBusy: '有事在身不能双修', sxYe: '夜的第一门是烈火诀',
     migIdem: '迁移可重复调用', migPpl: '迁移清掉坏的同伴 / 委托 / 抄本记录', migGift: '迁移清掉坏的喜好键', migExp: '迁移清掉无效的同行', migQ: '迁移按好感补发委托', migOld: '旧档补 st.ppl / st.meta.gift 并补发委托、不发提示' };
   for (const k in PP) expect(PP[k] === true, '人物加深：' + (ppNames[k] || k) + '（' + k + ' = ' + PP[k] + '）');
   for (const k in ppNames) expect(k in PP, '人物加深：检查项缺失 ' + k);
@@ -3128,13 +3134,15 @@ async function apSection(quick) {
         const dpr = window.devicePixelRatio, outer = document.getElementById('sceneOuter'), wrap = document.getElementById('sceneWrap'), app = document.getElementById('app'), feed = document.getElementById('feed');
         let n = Math.round(dpr * 2); const ow = outer.clientWidth || innerWidth; while (n > 1 && 180 * n / dpr > ow + 0.5) n--;
         const small = [];
-        for (const el of document.querySelectorAll('#top button, #stats button, #nav button, #goal, #cult, #btnSpeed')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push((el.id || el.dataset.nav || el.dataset.s || el.className) + ' ' + r.width.toFixed(1) + '×' + r.height.toFixed(1)); }
-        return { dpr, want: 200 * n / dpr, got: wrap.getBoundingClientRect().width, over: document.documentElement.scrollWidth - innerWidth, small, ah: app.clientHeight, feedOff: getComputedStyle(feed).display === 'none', vh: innerHeight };
+        for (const el of document.querySelectorAll('#top button, #stats button, #nav button, #goal, #cult, #btnNext')) { const r = el.getBoundingClientRect(); if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push((el.id || el.dataset.nav || el.dataset.s || el.className) + ' ' + r.width.toFixed(1) + '×' + r.height.toFixed(1)); }
+        return { dpr, want: 200 * n / dpr, got: wrap.getBoundingClientRect().width, over: document.documentElement.scrollWidth - innerWidth, small, ah: app.clientHeight, feed: !!feed, feedOff: feed ? getComputedStyle(feed).display === 'none' : true, tick: (() => { const t = document.getElementById('tick'); return !!t && getComputedStyle(t).display !== 'none' && t.getBoundingClientRect().height > 0; })(), vh: innerHeight };
       });
       expect(Math.abs(lay.want - lay.got) < 0.6, `主界面(${dn})：#sceneWrap 宽 = 200×round(dpr×2)/dpr（${lay.want.toFixed(2)}，实际 ${lay.got.toFixed(2)}，dpr ${lay.dpr}）`);
       expect(lay.over <= 0, `主界面(${dn})：页面无横向溢出（${lay.over}px）`);
       expect(lay.small.length === 0, `主界面(${dn})：#top/#stats/#goal/#nav 里的按钮都 ≥44：${lay.small.join('，')}`);
-      expect(lay.feedOff === (lay.ah < 760), `主界面(${dn})：高度 <760 时 #feed 隐藏（app 高 ${lay.ah}，feed 隐藏 ${lay.feedOff}）`);
+      // 多行的 #feed 已换成固定一行的传讯 #tick（KAIRO_PLAN 版式：矮屏也只占一行，不再藏）；旧的 #feed 还在的话照旧查“矮屏藏”
+      if (lay.feed) expect(lay.feedOff === (lay.ah < 760), `主界面(${dn})：高度 <760 时 #feed 隐藏（app 高 ${lay.ah}，feed 隐藏 ${lay.feedOff}）`);
+      else expect(lay.tick, `主界面(${dn})：一行传讯 #tick 可见（app 高 ${lay.ah}）`);
       await pg.screenshot({ path: U('a1-main-' + dn) });
       // ---- A2 人物页 8 个分页（只在 360 宽跑）----
       if (dn === '360x640') {
@@ -3468,19 +3476,17 @@ async function apSection(quick) {
         document.getElementById('tip').hidden = true;
       });
       await pg.waitForTimeout(600);
-      // 1 底栏解锁：.lkbrk 出现、约 330ms 后撤掉；.unlock 照旧
-      await ev(() => { window.__xm.st.stats.exp = 0; }); await pg.waitForTimeout(700);
-      const lockedBefore = await ev(() => !!document.querySelector('#nav [data-nav="market"] .lock, #nav [data-nav="market"].locked, #nav [data-nav="market"] img[data-lock]') || document.querySelector('#nav [data-nav="market"]').className);
-      await ev(() => { window.__xm.st.stats.exp = 1; });
-      const lk = { seen: false, unlock: false, t0: Date.now(), goneAt: 0, firstAt: 0 };
-      for (let i = 0; i < 40; i++) {
-        const r = await ev(() => ({ brk: !!document.querySelector('#nav button .lkbrk'), un: !!document.querySelector('#nav button.unlock') }));
-        if (r.brk && !lk.seen) { lk.seen = true; lk.firstAt = Date.now() - lk.t0; }
-        if (r.un) lk.unlock = true;
-        if (lk.seen && !r.brk && !lk.goneAt) lk.goneAt = Date.now() - lk.t0;
-        await pg.waitForTimeout(25);
-      }
-      expect(lk.seen && lk.goneAt > 0 && lk.goneAt - lk.firstAt >= 200 && lk.goneAt - lk.firstAt <= 700 && lk.unlock, `阶段四 1 底栏解锁：.lkbrk 出现后约 330ms 撤掉、.unlock 流程照旧：${JSON.stringify(lk)}（解锁前 ${lockedBefore}）`);
+      // 1 底栏五格（KAIRO_PLAN §4.1，开罗式重整之后没有锁碎裂动画了）：没开的那一格灰剪影（.lk）+ 一行“几时开”（.lkw），开了就去掉
+      const nv = await ev(async () => {
+        const X = window.__xm, { st, L } = X, keep = { onb: JSON.stringify(st.onb), pact: st.pact, on: L.ONB_ON };
+        L.ONB_ON = true; st.onb = { at: { exp: 0 }, m: {}, last: 0, c: {} }; st.pact = 0;
+        await new Promise(r => setTimeout(r, 400));
+        const b = document.querySelector('#nav [data-nav="world"]'), lk1 = !!b && b.classList.contains('lk'), why = b ? ((b.querySelector('.lkw') || {}).textContent || '') : '';
+        st.onb = JSON.parse(keep.onb); st.pact = keep.pact; L.ONB_ON = keep.on;
+        await new Promise(r => setTimeout(r, 400));
+        return { lk1, why, lk2: !!b && b.classList.contains('lk') };
+      });
+      expect(nv.lk1 && !!nv.why && !nv.lk2, `阶段四 1 底栏：没开的【江湖】灰着、写“${nv.why}”，开了以后去掉灰：${JSON.stringify(nv)}`);
       // 2 声音三态（开罗式重整：声音键在【仙途】→ 设置）
       await ev(() => window.__xm.showSettings()); await pg.waitForTimeout(200);
       const snd = [];
@@ -3490,16 +3496,10 @@ async function apSection(quick) {
       }
       expect(snd.every(x => x.imgMatch && x.distinct === 3) && new Set(snd.map(x => x.idx)).size === 3 && snd.every((x, i) => i === 0 || x.idx === (snd[i - 1].idx + 1) % 3), '阶段四 2 #btnSound 点三次：图标依次 snd_on / snd_sfx / snd_off、aria-label 三种文案：' + JSON.stringify(snd));
       await pg.click('#btnSound'); await pg.click('#btnSound'); await pg.click('#btnSound');   // 回到起点（点满三下一圈）
-      // 3 速度档
-      await ev(() => window.__xm.setSpeed(0)); await pg.waitForTimeout(400);
-      const spd = [];
-      for (let i = 0; i < 4; i++) {
-        await pg.waitForTimeout(250);
-        spd.push(await ev(() => { const b = document.getElementById('btnSpeed'), r = b.getBoundingClientRect(); return { lab: b.getAttribute('aria-label'), on: b.classList.contains('on'), w: Math.round(r.width), h: Math.round(r.height), img: !!b.querySelector('img') }; }));
-        await pg.click('#btnSpeed');
-      }
-      await ev(() => window.__xm.setSpeed(3)); await pg.waitForTimeout(300);
-      expect(spd.map(x => x.lab).join('|') === ['游戏速度：×1', '游戏速度：×2', '游戏速度：×4', '游戏速度：暂停'].join('|') && spd.map(x => x.on).join() === 'false,false,false,true' && spd.every(x => x.w >= 44 && x.h >= 44 && x.img), '阶段四 3 #btnSpeed 点四次：×1 / ×2 / ×4 / 暂停，暂停时有 .on，按钮 ≥44px、图标是美术：' + JSON.stringify(spd));
+      // 3 速度档已删（AP_PLAN §6.1）：#btnSpeed 不存在；它的位置换成行动点一行的【下一季】，≥44px；放着不动 1 秒 st.tick 不变
+      const spd = await ev(async () => { const X = window.__xm, t0 = X.st.tick; await new Promise(r => setTimeout(r, 1000)); const b = document.getElementById('btnNext'), r = b ? b.getBoundingClientRect() : { width: 0, height: 0 };
+        return { speed: !!document.getElementById('btnSpeed'), next: !!b, w: Math.round(r.width), h: Math.round(r.height), txt: b ? b.textContent : '', t0, t1: X.st.tick }; });
+      expect(!spd.speed && spd.next && spd.w >= 44 && spd.h >= 44 && /下一季|赴约|论道|迎战|会武/.test(spd.txt) && spd.t0 === spd.t1, '阶段四 3 速度键已删：#btnSpeed 不存在、【下一季】≥44px、放置 1 秒时间不动：' + JSON.stringify(spd));
       // 4 掉落翻牌
       const drop = async (drops, legacy) => {
         await ev(([drops, legacy]) => {

@@ -62,7 +62,6 @@ const MAX_TICK = +(process.env.G30_TICKS || 200);
       const X = window.__xm, { st, L } = X;
       if (!st.guide.done) return '';
       if (L.isReady(st)) { X.showBreakthrough(); return 'bt'; }
-      if (L.tunaReady(st)) { L.tuna(st); }
       if (L.busy(st)) return '';
       if (st.p.inj > 0 && L.canHeal(st)) { X.showHome(); const h = document.querySelector('#btnHeal'); if (h) h.click(); X.closeModal(); return 'heal'; }
       if (st.visitor) { X.showVisitor(); return 'visit'; }

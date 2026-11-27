@@ -190,6 +190,8 @@ console.log('旧档迁移（AP_PLAN §7）');
     const o2 = legacy(mid()); o2.tick = 123; L.startRetreat(o2); OLD.ret = JSON.stringify(o2);
     const o3 = legacy(mid()); o3.tick = 121; OLD.tick1 = JSON.stringify(o3);
     OLD.lone3 = JSON.stringify(lone3('A')); }
+  // 调试：SVDUMP=文件 把这几份旧形状的档写出来就退出（给复现偶发问题的脚本用）
+  if (process.env.SVDUMP) { fs.writeFileSync(process.env.SVDUMP, JSON.stringify(OLD)); process.exit(0); }
   L.ONB_ON = onb0; L.rng = rng0;
 }
 // 导出字符串

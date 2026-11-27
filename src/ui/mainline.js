@@ -4,7 +4,6 @@
  *   老祖：卡住时的一句“下一步”（showMainHint，带【去看看】）、降要求那一回（showMainEase）。
  *   目标卡【去】的 mainfoe：打开这一章要打的那位的宿敌卡。
  *   行动点（docs/AP_PLAN.md §2.2）：下战书 = 'duel'（1 点）、投帖 = 'join'（1 点），都走 L.act；结果卡由结算链（settle.js）出，它引出的戏紧跟着放。
- *   A1 的 'duel' / 'join' 缺省实现认 L.challenge / L.knock；主线保底这边的函数叫 L.challengeRival / L.sectApply，没有前者时这里把它们接上（线 B 的 mainline 换成 L.regAct 后可删）。
  * 所有片段共用一个作用域，由 tools/build.py 按 UI_PARTS 的顺序拼进同一个 IIFE（排在 panel-rivals 之后：用 rvPortrait / zSwapRow / showRivalCard）。 */
 GO_K.mainfoe = () => { const id = L.mainFoes(st)[0]; if (id) showRivalCard(id, () => showWorld('rank')); else showWorld('rank'); };
 GO_NAV.mainfoe = 'world';
@@ -12,8 +11,6 @@ GO_NAV.mainfoe = 'world';
 GO_K.sectid = () => { sectTab = 'id'; showWorld('sect'); };
 GO_NAV.sectid = 'world';
 const chalCd = () => (L.MAIN_V_S ? (L.mainEase(st) >= 1 ? L.MAIN_V_S.cdEase : L.MAIN_V_S.cd) : seasons(L.mainEase(st) >= 1 ? L.MAIN_V.cdEase : L.MAIN_V.cd));   // 线 B：L.MAIN_V_S 本来就按季   // 输了几季后可以再来
-if (L.ACTS && L.ACTS.duel && !L.challenge && L.challengeRival) L.regAct('duel', { why: (s, x) => { const I = L.challengeInfo(s, L.actArg(x, 0, 'id')); return !I ? '没有这个人' : I.why || ''; }, run: (s, x) => L.challengeRival(s, L.actArg(x, 0, 'id')) });
-if (L.ACTS && L.ACTS.join && !L.knock && L.sectApply) L.regAct('join', { why: (s, x) => L.sectApplyWhy(s, L.actArg(x, 0, 'id')), run: (s, x) => (L.sectApply(s, L.actArg(x, 0, 'id')) && s.sect ? { id: s.sect.id, sect: s.sect } : null) });
 // 准备页：VS、胜算、换战技；o = { visit 上门的那一回, intro, back }
 function chalPrep(id, o) {
   o = o || {};

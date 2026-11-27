@@ -30,9 +30,9 @@ const SL = 3;   // 一季 = 3 个月（ap.js 的 L.SEASON_LEN；这里加载得�
 const up3 = v => Math.ceil(v / SL) * SL;
 const sn = m => Math.max(0, Math.ceil(m / SL));   // 月 → 季（“还有 N 季”）
 // 兜底的各档（单位：季）。L.MAIN_V 是换算成月的同一组数（逻辑里按 st.tick 比）
-L.MAIN_V_S = { hint: 8, ease: 12, step: 4, inCh: 30, inStep: 8, max: 3, cd: 4, cdEase: 1, pactCd: 1, visit: 2, warRe: 4 };
-L.MAIN_V = { max: 3, cap: [0, 1.6, 1.15, 0.8], rk: [1, 1.5, 2.5], rkAdd: [0, 5, 10], contrib: [1, 0.7, 0.45, 0.25] };
-for (const k of ['hint', 'ease', 'step', 'inCh', 'inStep', 'cd', 'cdEase', 'pactCd', 'visit', 'warRe']) L.MAIN_V[k] = L.MAIN_V_S[k] * SL;
+L.MAIN_V_S = { hint: 8, ease: 12, step: 4, inCh: 30, inStep: 8, max: 3, cd: 4, cdEase: 1, pactCd: 1, visit: 2, warRe: 4, ascIn: 16, ascStep: 4 };
+L.MAIN_V = { max: 3, cap: [0, 1.6, 1.15, 0.8], rk: [1, 1.5, 2.5], rkAdd: [0, 5, 10], contrib: [1, 0.7, 0.45, 0.25], asc: [1, 2, 3, 4] };
+for (const k of ['hint', 'ease', 'step', 'inCh', 'inStep', 'cd', 'cdEase', 'pactCd', 'visit', 'warRe', 'ascIn', 'ascStep']) L.MAIN_V[k] = L.MAIN_V_S[k] * SL;
 L.MAIN_EASE_ON = true;
 const V = L.MAIN_V;
 const wuzong = st => !!(L.trialOn && L.trialOn(st, 'wuzong'));
@@ -69,7 +69,7 @@ L.MAIN_HOW = {
   rank: { sys: ['天骄榜', '下战帖', '天骄论道'], fn: ['challenge', 'challengeTargets', 'tournament'], ui: ['runTournament'], act: '【下战帖 ◆1】打名次门槛前方的一位；每年冬季末天骄论道也往上打' },
   boss: { sys: ['历练', '首领'], fn: ['bossReady', 'fightBoss'], ui: ['fightBossUI', 'showExp'], act: '【历练】那张图的禁地评价打到乙，首领现身后【讨伐首领 ◆1】' },
   meet: { sys: ['九宗会武'], fn: ['sectMeet', 'nextMeet'], ui: ['runSectMeet'], act: '入宗满 4 季后隔年夏季末一届九宗会武，自动登台' },
-  war: { sys: ['天剑宗来犯'], fn: ['sectWar', 'warChapter', 'finalFight'], ui: ['runWar'], act: '第六章进来第 2～3 季的季末来犯（固定日子）；输了 4 季后再来，或【讨回山门 ◆1】提前打' },
+  war: { sys: ['天剑宗来犯'], fn: ['sectWar', 'warChapter', 'finalFight'], ui: ['runWar'], act: '第六章进来后第 12 季的季末来犯（固定日子，L.WAR_LEAD）；输了 4 季后再来，或【讨回山门 ◆1】提前打' },
   flag: { sys: ['剧情节拍'], fn: ['storyTick', 'nextBlock'], ui: ['showChoice'], act: '开章那场戏：上一章章末卡关掉当场接着放' },
   beat: { sys: ['剧情节拍'], fn: ['storyKick', 'nextBlock'], ui: ['showChoice'], act: '高潮那场戏：前置做完当场放（同一条结算链）' },
   asc: { sys: ['突破', '天劫'], fn: ['tribStart', 'tribFinish', 'breakthrough'], ui: ['showBreakthrough'], act: '修到渡劫圆满，点【渡劫】（不花点）' },
@@ -563,7 +563,19 @@ const EASE_T = {
   boss: (st, x, e) => (bossLim(x.n, e) ? `首领少打一个：${bossLim(x.n, e)} 个就够。` : '首领不再要求。'),
   meet: (st, x, e) => (e >= 2 ? '天剑宗放话：楚天阔一败，会武上就弃权。' : ''),
   war: (st, x, e) => `天剑宗内乱，来犯的人马少了（战力封顶为你的 ×${V.cap[e]}）。`,
+  asc: (st, x, e) => `天门将开，灵气倒灌下来（修炼 ×${V.asc[e]}，直到渡劫）。`,
 };
+// 第九章的兜底（3.0 校准，STORY_ACCEPTANCE H8 单章 ≤ 60 季）：第九章的要求是“修到渡劫圆满”，降级就是修炼加快——
+// 主线走得比修为快的玩家（出身差、修炼用得少）在这一章满 ascIn（16）季后修炼 ×2，之后每 ascStep（4）季再 +1（×3、×4……）；只在第九章、渡劫圆满之前
+// 另有一档不看时间：进了第九章境界还在大乘之前（r ≤ 6），修炼 ×(8 − r)（合体 ×2、炼虚 ×3……），到大乘为止——照引导玩的人进第九章时已在大乘前后，碰不到
+L.ascCatch = st => (st.p.r <= 6 ? 8 - st.p.r : 1);
+L.addCulMod('main_asc', 92, st => {
+  if (!st || !st.p || st.p.r > L.MAXR || !st.mainG || st.mainG.ch !== 8 || L.MAIN_EASE_ON === false || L.chapterNow(st) !== 8) return null;
+  // 按在这一章待了多久：满 ascIn 季 ×2，之后每 ascStep 季再 +1（不封顶——这一章的要求只是修为，保证 60 季内渡得完劫）
+  const inCh = st.tick - (st.mainG.in || st.tick), mt = inCh >= V.ascIn ? 2 + Math.floor((inCh - V.ascIn) / V.ascStep) : 1;
+  const m = Math.max(mt, L.ascCatch(st));
+  return m > 1 ? ['天门将开（第九章）', m, 'main'] : null;
+});
 
 // ---------- 每月 ----------
 function track(st, out) {
@@ -576,7 +588,9 @@ function track(st, out) {
   if (L.MAIN_EASE_ON === false) return;
   const stuck = st.tick - g.at, inCh = st.tick - g.in;
   let e = stuck >= V.ease ? 1 + Math.floor((stuck - V.ease) / V.step) : 0;
-  if (inCh >= V.inCh) e = Math.max(e, 1 + Math.floor((inCh - V.inCh) / V.inStep));
+  // 第九章（修到渡劫圆满）：在这一章满 ascIn 季起，每 ascStep 季降一级（修炼加快，见下面的 main_asc）；别的章满 inCh 季起每 inStep 季一级
+  const inC = ch === 8 ? V.ascIn : V.inCh, inS = ch === 8 ? V.ascStep : V.inStep;
+  if (inCh >= inC) e = Math.max(e, 1 + Math.floor((inCh - inC) / inS));
   e = Math.min(V.max, e);
   if (e > (g.e || 0)) {
     g.e = e;

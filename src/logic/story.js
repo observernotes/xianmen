@@ -193,7 +193,7 @@ if (typeof L.companionOn === 'function') { const f0 = L.companionOn; L.companion
 // ---------- 散修之路的第六章：天剑宗照样来犯，打的是你的洞府（tick.js 的来犯判定只看入了宗的；这里补上没入宗的） ----------
 function loneWar(st, out) {
   if (!L.loneRoute(st) || st.flags.warWon || !L.warChapter(st)) return;
-  if (!st.flags.warEve) { st.flags.warEve = st.tick; if (!(st.flags.war > st.tick)) st.flags.war = Math.ceil((st.tick + 6) / 3) * 3; L.fireTrigger(st, 'war_eve:tianjian'); return; }
+  if (!st.flags.warEve) { st.flags.warEve = st.tick; if (!(st.flags.war > st.tick)) st.flags.war = Math.ceil((st.tick + (L.WAR_LEAD || 6)) / 3) * 3; L.fireTrigger(st, 'war_eve:tianjian'); return; }
   if (!out.war && st.tick >= (st.flags.war || 0)) { out.war = true; st.flags.war = st.tick + 9999; }   // 到日子那一季季末必来（AP_PLAN §4.7：不再等“不忙”）
 }
 // 赵乾的信（P22）：头一回排来犯日子时还没放过他，之后才欠下人情的——来犯前一月再补一次

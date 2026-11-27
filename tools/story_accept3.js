@@ -187,6 +187,7 @@ function runCase(c) {
     if (c.overspend && L.apLeft(st) === 0) for (const id of ['exp', 'retreat', 'sit']) { const snap = JSON.stringify(st); const why = L.apWhy(st, id); const r = L.act(st, id); if (r || !why || JSON.stringify(st) !== snap) { fail(`点数用完后 L.act('${id}') 没被拒绝干净（why = “${why}”，返回 ${r ? '非空' : '空'}，状态${JSON.stringify(st) !== snap ? '变了' : '没变'}）`); break; } }
     if (L.isReady(st) && !(c.cap !== undefined && st.p.r >= c.cap) && !(st.p.r === 8 && L.chapterNow(st) < 8 && !c.soft)) { const t0 = st.tick; ADAPTER.breakthrough(st); if (st.tick !== t0) fail('突破之后时间走了'); watch(); settle('act'); }
     if (st.p.r >= 9) break;   // 刚飞升：这一世到此为止，不再过季
+    if (process.env.ACDBG && seasons % 6 === 0) console.log(`  [dbg] 季 ${seasons} 章 ${L.chapterNow(st) + 1} 境界 ${st.p.r}.${st.p.s} xp ${Math.round(st.p.xp)}/${L.pNeed(st.p)} 寿 ${Math.round(st.p.age)}/${Math.round(L.lifespan(st))} e ${st.mainG && st.mainG.e} gain ${Math.round(L.gain(st))} 点 ${JSON.stringify(st.ap.log[L.seasonNo(st)] && st.ap.log[L.seasonNo(st)].acts)}`);
     const t0 = st.tick; L.seasonEnd(st);
     if ((st.tick !== t0 + 3 || st.tick % 3) && st.p.age < L.lifespan(st)) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
     watch(); settle('season');

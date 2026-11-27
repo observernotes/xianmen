@@ -500,7 +500,7 @@ L.sxWhy = function (st) {
   if (L.daolvBlocked && L.daolvBlocked(st)) return '太上无情：双修失效';
   if (st.p.r > L.MAXR) return '已证大道';
   const left = L.sxLeft(st);
-  if (left > 0) return `还要 ${left} 月`;
+  if (left > 0) return `还要 ${Math.ceil(left / 3)} 季`;   // 时长一律写季（AP_PLAN §1.4）
   if (L.busy(st)) return '眼下有事在身';
   if (L.isFull(st)) return '修为已圆满，先去突破';
   return '';
