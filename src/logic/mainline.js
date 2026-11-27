@@ -527,7 +527,7 @@ L.mainStep = function (st) {
   const d = a.do || {};
   const go = d.id === 'join' ? 'sect' : d.id === 'promote' ? 'sectid' : d.id === 'final' ? (L.finalKind(st) === 'heir' ? 'sectid' : 'prep') : d.id === 'boss' ? 'exp' : d.id === 'exp' ? 'exp' : d.id === 'duel' ? (d.args && d.args.id ? 'mainfoe' : 'rivals') : 'path';
   const must = d.id === 'join' || d.id === 'promote' || d.id === 'final' || (d.id === 'duel' && (a.p >= 0.5 || L.mainEase(st) >= 2)) ? 1 : 0;
-  return { id: 'main:' + a.id, t: a.t, say: a.t, go, hl: d.id === 'promote' ? '#btnPromo' : d.id === 'duel' && d.args && d.args.id ? '#btnChal' : null, must, foe: d.id === 'duel' && d.args ? d.args.id : undefined, q: d.id === 'duel' && d.args ? d.args.q : undefined, ap: a.ap, do: a.do, act: a };
+  return { id: 'main:' + a.id, t: a.t, say: a.t, go, hl: L.actHl ? L.actHl(d) : null, must, foe: d.id === 'duel' && d.args ? d.args.id : undefined, q: d.id === 'duel' && d.args ? d.args.q : undefined, ap: a.ap, do: a.do, act: a };
 };
 // 一句话：下一步做什么（老祖的提示、路径页）
 L.mainAdvice = function (st) {

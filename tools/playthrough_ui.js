@@ -50,7 +50,7 @@ async function play(route, seed) {
       X.st.guide = { step: 99, done: true };
       const pactPow = L.PACT_POWER; if (R === 'pactlose') L.PACT_POWER = 1e12;
       const noSect = R === 'sanxiu' || R === 'nosect' || R === 'wuzong' || R === 'oldsave';
-      const stat = { chAt: [0], goMain: 0, goMiss: [], joins: 0, promos: 0, chals: 0, visits: 0, invites: 0, hints: 0, eases: 0, tours: 0, story: 0, picks: {}, pactLost: false, rescue: null, res: {}, km: { cl: [], join: undefined } };
+      const stat = { chAt: [0], goMain: 0, goIds: {}, goMiss: [], joins: 0, promos: 0, chals: 0, visits: 0, invites: 0, hints: 0, eases: 0, tours: 0, story: 0, picks: {}, pactLost: false, rescue: null, res: {}, km: { cl: [], join: undefined } };
       // ---------- 弹窗：按路线的选法 ----------
       const evOf = () => { const c = document.querySelector('#modal .choices[data-ev]'); return c ? L.eventById(c.dataset.ev) : null; };
       async function pickStory(ev, btns) {
@@ -104,15 +104,21 @@ async function play(route, seed) {
         const sig = () => JSON.stringify([X.st.ap && X.st.ap.seq, X.st.sect && X.st.sect.rank, X.st.sect && X.st.sect.id, X.st.bestRank, Object.keys(X.st.beaten || {}).length]);
         const s0 = sig();
         document.querySelector('#gGo').click(); await sleep(120);
+        // 首领：【去】当场开打回合战（结果在打完时才 L.act）——打完再看做没做成
+        for (let w = 0; w < 400 && window.__xm_bt.on && !X.st.exp; w++) { window.__xm_bt.finish(); await sleep(15); }
         const el = nx.hl && document.querySelector(nx.hl);
-        stat.goMain++;
+        stat.goMain++; stat.goIds[(nx.do && nx.do.id) || '-'] = (stat.goIds[(nx.do && nx.do.id) || '-'] || 0) + 1;
         if (!el && sig() !== s0) { if (/promo/.test(nx.k)) stat.promos++; if (/duel|chal/.test(nx.k)) stat.chals++; await drain(); return true; }
-        if (!el) { stat.goMiss.push(`${X.st.tick}:${nx.k}:${nx.hl}`); X.closeModal(); await sleep(40); return false; }
-        if (nx.k === 'main:join') { const b = document.querySelector('#modal [data-join="jian"]:not([disabled])') || el; b.click(); stat.joins++; }
-        else el.click();
-        if (/chal/.test(nx.k)) { stat.chals++; await sleep(80); const go = document.querySelector('#btnChalGo:not([disabled])'); if (go) go.click(); else stat.goMiss.push(`${X.st.tick}:${nx.k}:准备页没有【下战书】`); }
+        // 落到出发页 / 准备页的：那一步的按钮要在屏、可点、金框框着（goalcard.js 的 hlOnly）
+        const hlOn = () => { const h = document.getElementById('hl'); if (!h || h.hidden || !el) return false; const a = h.getBoundingClientRect(), b = el.getBoundingClientRect(); return a.left <= b.left + 2 && a.top <= b.top + 2 && a.right >= b.right - 2 && a.bottom >= b.bottom - 2; };
+        for (let w = 0; w < 30 && el && !hlOn(); w++) await sleep(50);   // 纸卷滑上来的那一下金框跟着走（每 200ms 对一次位置）
+        if (!el || !el.offsetParent || el.disabled || !hlOn()) { const h = document.getElementById('hl'); stat.goMiss.push(`${X.st.tick}:${nx.k}:${nx.hl}${el ? (el.disabled ? '(灰)' : !el.offsetParent ? '(不在屏)' : `(没金框 ${h && !h.hidden ? JSON.stringify(h.getBoundingClientRect()) : '无'} / ${JSON.stringify(el.getBoundingClientRect())})`) : ''}`); X.closeModal(); await sleep(40); return false; }
+        el.click();
+        if (/duel/.test(nx.k)) stat.chals++;
         if (/promo/.test(nx.k)) stat.promos++;
-        await sleep(60); await drain();
+        await sleep(60);
+        if (X.st.exp) { trips++; window.__xm_bt.all(); await sleep(40); }   // 落到出发页、点了【出发】：这一趟当场打完
+        await drain();
         return true;
       }
       // 宗门任务板：接、交（点界面）
@@ -237,7 +243,7 @@ async function play(route, seed) {
     if (r === 'guided' && !s.sect) F('照引导玩却没入宗');
     if (r === 'oldsave') { if (!s.rescue || !s.rescue.rescue || !s.rescue.invite) F('旧档读进来没救场（' + JSON.stringify(s.rescue) + '）'); if (!(s.visits > 0 || s.chals > 0)) F('旧档读进来赵乾既没上门、也没能下战书'); }
     if (process.env.PT_LOG) console.log('  剧情：' + (s.storyIds || []).join(' ') + ' 节拍 ' + s.beat + ' 队列 ' + s.storyQ);
-    console.log(`  ${r.padEnd(9)} ${s.asc ? '飞升' : '第' + N[s.ch] + '章'} ${s.tick} 月 境界 ${s.r}${s.ending ? ' 结局 ' + s.ending : ''} · ${s.sect ? '宗门 ' + s.sect : s.lone ? '散修' : '无宗门'} · 每章用时 ${dur.join(' ')} · 目标卡主线一步 ${s.goMain} 次 · 入宗 ${s.joins} · 晋升 ${s.promos} · 下战书 ${s.chals} · 上门 ${s.visits} · 帖子弹窗 ${s.invites} · 老祖提示 ${s.hints} · 降要求 ${s.eases} · 剧情 ${s.story} 场 · 关键事件→剧情（季） ${(s.lag || []).filter(g => g.shown !== null).map(g => g.id.replace('_climax', '') + '+' + Math.max(0, Math.floor(g.shown / 3) - Math.floor(g.ev / 3))).join(' ')} · ${x.sec} 秒${s.rescue ? ' · 旧档：读档即降到 ' + s.rescue.e + ' 级、补帖 ' + s.rescue.invite : ''}`);
+    console.log(`  ${r.padEnd(9)} ${s.asc ? '飞升' : '第' + N[s.ch] + '章'} ${s.tick} 月 境界 ${s.r}${s.ending ? ' 结局 ' + s.ending : ''} · ${s.sect ? '宗门 ' + s.sect : s.lone ? '散修' : '无宗门'} · 每章用时 ${dur.join(' ')} · 目标卡主线一步 ${s.goMain} 次（${Object.entries(s.goIds || {}).map(([k, v]) => k + '×' + v).join(' ')}）· 入宗 ${s.joins} · 晋升 ${s.promos} · 下战书 ${s.chals} · 上门 ${s.visits} · 帖子弹窗 ${s.invites} · 老祖提示 ${s.hints} · 降要求 ${s.eases} · 剧情 ${s.story} 场 · 关键事件→剧情（季） ${(s.lag || []).filter(g => g.shown !== null).map(g => g.id.replace('_climax', '') + '+' + Math.max(0, Math.floor(g.shown / 3) - Math.floor(g.ev / 3))).join(' ')} · ${x.sec} 秒${s.rescue ? ' · 旧档：读档即降到 ' + s.rescue.e + ' 级、补帖 ' + s.rescue.invite : ''}`);
   }
   console.log(`共 ${routes.length} 局，${Math.round((Date.now() - T0) / 1000)} 秒`);
   if (fails.length) { console.log(`失败 ${fails.length} 条：`); for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
