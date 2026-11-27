@@ -100,9 +100,13 @@ async function play(route, seed) {
         const g = L.goalNow(X.st), nx = g && g.next;
         if (!nx || nx.why !== 'main') return false;
         if (nx.k === 'main:join' && noSect) return false;
+        // 3.0：目标卡【去】带点数、能做就直接做（L.act，AP_PLAN §6.1 / goalcard.js），不再先开面板高亮按钮；做成了（行动序号动了）就算点到了
+        const sig = () => JSON.stringify([X.st.ap && X.st.ap.seq, X.st.sect && X.st.sect.rank, X.st.sect && X.st.sect.id, X.st.bestRank, Object.keys(X.st.beaten || {}).length]);
+        const s0 = sig();
         document.querySelector('#gGo').click(); await sleep(120);
         const el = nx.hl && document.querySelector(nx.hl);
         stat.goMain++;
+        if (!el && sig() !== s0) { if (/promo/.test(nx.k)) stat.promos++; if (/duel|chal/.test(nx.k)) stat.chals++; await drain(); return true; }
         if (!el) { stat.goMiss.push(`${X.st.tick}:${nx.k}:${nx.hl}`); X.closeModal(); await sleep(40); return false; }
         if (nx.k === 'main:join') { const b = document.querySelector('#modal [data-join="jian"]:not([disabled])') || el; b.click(); stat.joins++; }
         else el.click();
