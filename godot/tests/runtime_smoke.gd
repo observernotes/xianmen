@@ -9,7 +9,14 @@ func _initialize() -> void:
 	assert(runtime.load_program(FileAccess.get_file_as_string("res://data/rules.js")), runtime.get_last_error())
 	var start := send({"op": "new", "name": "原生测试"})
 	assert(start["view"]["notice"]["title"] == "破庙第一夜")
-	assert(start["view"]["notice"]["dialogue"].size() > 0)
+	var opening: Array = start["view"]["notice"]["dialogue"]
+	assert(not opening.is_empty())
+	assert(opening[0]["scene"] == "temple")
+	assert(opening.any(func(line): return line["right"] == "elder|n|"))
+	var story_stage := preload("res://scripts/story_stage.gd")
+	assert(story_stage.portrait_texture("elder|n|"))
+	assert(story_stage.portrait_texture("me-0|n|"))
+	assert(story_stage.scene_texture("cg:jade:1"))
 	send({"op": "pick", "index": start["view"]["notice"]["options"][0]["index"]})
 	send({"op": "advance"})
 	var trip := send({"op": "act", "action": "exp", "args": [0, 0, 0]})
@@ -74,10 +81,13 @@ func _initialize() -> void:
 	send({"op": "load", "save": JSON.stringify(realm_save)})
 	var entered := send({"op": "act", "action": "realm", "args": [false]})
 	assert(entered["view"]["notice"]["kind"] == "realm")
+	assert(entered["view"]["notice"]["theme"] in ["jin", "mu", "huo", "shui"])
 	var resumed := send({"op": "load", "save": JSON.stringify(entered["save"])})
 	assert(resumed["view"]["notice"] == entered["view"]["notice"])
 	var door: Dictionary = resumed["view"]["notice"]["options"][0]
-	send({"op": "realm-action", "move": door["move"], "index": door["index"]})
+	assert(door.has("art") and door.has("hint"))
+	assert(send({"op": "realm-action", "move": door["move"], "index": door["index"]})["result"]["realmFx"]["index"] == door["index"])
+	check_realm_settlement(entered["save"])
 	realm_save["best"]["0_2"] = 3
 	send({"op": "load", "save": JSON.stringify(realm_save)})
 	var boss := send({"op": "act", "action": "boss", "args": {"k": 0}})
@@ -133,6 +143,7 @@ func _initialize() -> void:
 	assert(second_gate["view"]["notice"]["key"] == "s9_gate_again")
 	var second_ending := settle_cards(second_gate, {"s9_gate_again": 0})
 	assert(second_ending["view"]["notice"]["mode"] == "ascend")
+	assert(story_stage.scene_texture(second_ending["view"]["notice"]["scene"]))
 	assert(second_ending["save"]["state"]["eflags"]["asc_go"])
 	assert(not second_ending["save"]["state"]["eflags"].has("asc_stay"))
 
@@ -234,6 +245,47 @@ func _initialize() -> void:
 	check_duels(restored["save"]["state"])
 	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels and save roundtrips passed")
 	quit()
+
+
+func check_realm_settlement(entered: Dictionary) -> void:
+	var fixture: Dictionary = entered.duplicate(true)
+	fixture["state"]["stones"] = 1000
+	var run_data: Dictionary = fixture["state"]["run"]
+	run_data["phase"] = "shop"
+	run_data["loot"] = [{"stones": 100, "t": "灵石 100"}]
+	run_data["shop"] = [{"k": "pill", "n": "破境丹", "price": 20, "d": "破境丹 +1"}]
+	var stall := send({"op": "load", "save": fixture})
+	assert(stall["view"]["notice"]["stones"] == "100")
+	assert(stall["view"]["notice"]["options"][0]["detail"] == "破境丹 +1")
+	var bought := send({"op": "realm-action", "move": "shop", "index": 0})
+	var next_floor := send({"op": "advance"})
+	assert(bought["save"]["state"]["run"]["loot"][0]["stones"] == 80)
+	assert(next_floor["view"]["notice"]["phase"] == "door")
+	var before: int = fixture["state"]["stones"]
+	var exited := send({"op": "realm-action", "move": "leave", "index": -1})
+	assert(exited["save"]["state"]["stones"] >= before + 80)
+	assert(exited["view"]["notice"]["text"].contains("灵石 +80"))
+	assert(send({"op": "load", "save": exited["save"]})["view"]["notice"] == exited["view"]["notice"])
+
+	run_data["phase"] = "chest"
+	run_data["floor"] = run_data["floors"]
+	run_data["chest"] = [{"k": "stones", "n": "一囊灵石", "v": 50}]
+	send({"op": "load", "save": fixture})
+	var cleared := send({"op": "realm-action", "move": "chest", "index": 0})
+	assert(cleared["save"]["state"]["stones"] >= before + 150)
+	assert(cleared["view"]["notice"]["title"].ends_with("通关"))
+	assert(cleared["view"]["notice"]["text"].contains("首通称号"))
+	assert(cleared["view"]["notice"]["text"].contains("灵石 +50"))
+
+	run_data["phase"] = "door"
+	run_data["hp"] = 1
+	run_data["doors"] = [{"t": "boss", "unk": false}]
+	send({"op": "load", "save": fixture})
+	var wiped := send({"op": "realm-action", "move": "door", "index": 0})
+	assert(wiped["result"]["realmFx"]["wipe"])
+	assert(wiped["save"]["state"]["run"] == null)
+	assert(wiped["save"]["state"]["stones"] >= before + 40)
+	assert(wiped["view"]["notice"]["text"].contains("灵石 +40"))
 
 
 func check_duels(base: Dictionary) -> void:

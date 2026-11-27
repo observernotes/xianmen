@@ -18,14 +18,26 @@ var elapsed := 0.0
 
 
 func _ready() -> void:
-	if atlas.is_empty():
-		var data = JSON.parse_string(FileAccess.get_file_as_string(ATLAS_PATH))
-		if data is Dictionary:
-			atlas = data
+	load_atlas()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	custom_minimum_size.y = 242
 	clip_contents = true
+
+
+static func load_atlas() -> void:
+	if atlas.is_empty():
+		var data = JSON.parse_string(FileAccess.get_file_as_string(ATLAS_PATH))
+		if data is Dictionary:
+			atlas = data
+
+
+static func actor_frame(index: int) -> Rect2:
+	return Rect2((index % 8) * 96, (index >> 3) * 48, 96, 48)
+
+
+static func hero_frame(hero: int, pose: int) -> Rect2:
+	return actor_frame(int(atlas["heroes"][hero][pose]))
 
 
 func _process(delta: float) -> void:
@@ -49,8 +61,8 @@ func _draw() -> void:
 	var walking: bool = combat.get("kind") == "travel"
 	var pose := 2 if attacking else idle
 	var hero_x := PLAYER_X + (20.0 * sin(animation * PI) if attacking else 2.0 * sin(elapsed * 5.0) if walking else 0.0)
-	var player_frames: Array = atlas["heroes"][int(combat.get("hero", 0))]
-	stamp(int(player_frames[pose]), hero_x)
+	draw_texture_rect_region(ACTORS, Rect2(hero_x - 48.0, FEET - 46.0, 96.0, 48.0),
+		hero_frame(int(combat.get("hero", 0)), pose))
 	var slots := {}
 	for i in foes.size():
 		var foe: Dictionary = foes[i]
@@ -71,8 +83,7 @@ func _draw() -> void:
 
 
 func stamp(index: int, x: float, tint := Color.WHITE) -> void:
-	var source := Rect2((index % 8) * 96, (index >> 3) * 48, 96, 48)
-	draw_texture_rect_region(ACTORS, Rect2(x - 48.0, FEET - 46.0, 96.0, 48.0), source, tint)
+	draw_texture_rect_region(ACTORS, Rect2(x - 48.0, FEET - 46.0, 96.0, 48.0), actor_frame(index), tint)
 
 
 func draw_impact(effect: Dictionary, slots: Dictionary, phase: float) -> void:

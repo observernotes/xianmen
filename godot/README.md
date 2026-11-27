@@ -17,9 +17,9 @@ PYTHON="$PWD/.venv/bin/python" SCONS="$PWD/.venv/bin/scons" tools/build_godot.sh
 
 - 已接通章节剧情和主线行动、历练及首领回合战、掉落心愿与翻牌、法宝洗练与打造、坊市行情和拍卖、洞府访客与人物羁绊、宗门任务与宝库、长老职司和弟子、历法和图鉴、秘境选门与秘藏、渡劫与轮回、洞府经营、灵宠以及存档和 XT1 互导。
 - 历练场景使用原版背景与角色图集，Godot 渲染回合动作和伤害反馈。音乐和音效来自原版曲谱的离线渲染。
-- 天骄榜和大事件已接入备战、换战技和结果结算。还需迁完秘境场景、对话头像、章节及结局过场，以及原版剩余入口。
+- 天骄榜和大事件已接入备战、换战技和结果结算。秘境使用原版四种场景、门卡和房间动画。序章分镜、剧情立绘、关键画面、章节结算和结局插画已接入，独立过场与原版剩余入口还需迁移。
 - 完整迁移需要核对各系统入口、关键剧情与老档的行为，并在 Android 安装包上跑通主线及存读档。当前工程是迁移中的预览版本。
 
 ## 素材更新
 
-先用 `tools/build.py` 生成网页版的离线素材渲染入口。然后运行 `node tools/extract_godot_art.js --combat` 生成战斗图集。音频可用 `tools/audio_render.js` 的 `--loop` 选项渲染完整乐段，将所需 WAV 编码为 Ogg Vorbis 后放入 `godot/audio`。这两个素材工具在开发机使用 Playwright，手机端直接加载导出的图片与音频。
+先用 `tools/build.py` 生成网页版的离线素材渲染入口。用 `node tools/extract_godot_art.js` 分别传入 `--combat`、`--realm` 或 `--story`，生成战斗图集、秘境图集或剧情素材。音频可用 `tools/audio_render.js` 的 `--loop` 选项渲染完整乐段，将所需 WAV 编码为 Ogg Vorbis 后放入 `godot/audio`。素材工具在开发机使用 Playwright，手机端直接加载导出的图片与音频。

@@ -7,12 +7,15 @@ const { chromium } = require('playwright');
 async function run() {
   const combatOnly = process.argv.includes('--combat');
   const homeOnly = process.argv.includes('--home');
+  const realmOnly = process.argv.includes('--realm');
+  const storyOnly = process.argv.includes('--story');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.join(__dirname, '../dist/index.html')).href + '?hd=0');
-    const images = await page.evaluate(({ combat, home }) => {
+    const images = await page.evaluate(({ combat, home, realm, story }) => {
       const { L, ART } = window.__xm;
+      const make = (width, height) => Object.assign(document.createElement('canvas'), { width, height });
       const canvas = document.createElement('canvas');
       canvas.width = 200; canvas.height = 172;
       const context = canvas.getContext('2d');
@@ -20,8 +23,104 @@ async function run() {
       const state = L.newState({ name: '无名' });
       const results = {};
       const png = image => image.toDataURL('image/png').split(',')[1];
+      if (story) {
+        for (let index = 0; index < 3; index++) results['intro-' + index] = png(ART.introPanel(index, state.p.look));
+        for (const id of ART.storyCgIds) {
+          const frames = Array.from({ length: ART.storyCgFrames[id] }, (_, i) => i);
+          if (id === 'two') frames.push('#7fd8b0', '#a81e3a', '#55506e');
+          for (const frame of frames) results['cg-' + id + '-' + String(frame).replace('#', '')] = png(ART.storyCg(id, frame));
+        }
+        for (const id of [...ART.endingPicIds, 'ascend', 'rest', 'summit']) results['end-' + id] = png(ART.endingPic(id));
+        const expressions = new Map();
+        const key = (who, mood, fx) => [who, mood, fx].join('|');
+        function add(who, mood, fx = '') { expressions.set(key(who, mood, fx), { who, mood, fx }); }
+        function collect(value) {
+          if (!value || typeof value !== 'object') return;
+          if (Array.isArray(value) && typeof value[0] === 'string' && typeof value[1] === 'string') {
+            const [who, expression = 'n'] = value[0].split(':');
+            if (who !== '?' && who !== 'nar' && (who === 'me' || ART.hasPortrait(who) || ART.hasTachie(who))) {
+              const [mood = 'n', ...effects] = expression.split('+');
+              add(who, mood, effects.join(' '));
+            }
+          }
+          for (const child of Object.values(value)) collect(child);
+        }
+        for (const event of L.events()) collect(event);
+        if (L.STORY_SLOTS) collect(L.STORY_SLOTS);
+        for (const who of new Set(['me', ...ART.tachieIds(), ...ART.portraitIds()])) {
+          for (const mood of ART.tachieMoods) add(who, mood);
+        }
+        for (const { who, mood, fx } of [...expressions.values()]) {
+          if (who === 'elder' && !fx.includes('fade')) add(who, mood, (fx + ' fade').trim());
+        }
+        const portraits = [];
+        for (const { who, mood, fx } of expressions.values()) {
+          if (who === 'me') {
+            for (let hero = 0; hero < 20; hero++) {
+              const look = { ...state.p.look, f: hero % 2 };
+              portraits.push([key('me-' + hero, mood, fx), ART.tachieMe(look, hero >> 1, mood, fx)]);
+            }
+            continue;
+          }
+          const face = (alt) => {
+            const smallFx = mood === 'cold' ? (fx + ' shade').trim() : fx;
+            return ART.tachie(who, mood, fx, alt) || ART.portraitX(who, mood === 'cold' ? 'n' : mood, smallFx, alt);
+          };
+          const normal = face(false);
+          if (normal) portraits.push([key(who, mood, fx), normal]);
+          if (['mu', 'su', 'ye'].includes(who)) {
+            const other = face(true);
+            if (other && other !== normal) portraits.push([key(who + '-alt', mood, fx), other]);
+          }
+        }
+        const map = {};
+        const columns = 12, rows = 12, capacity = columns * rows;
+        for (let first = 0; first < portraits.length; first += capacity) {
+          const chunk = portraits.slice(first, first + capacity);
+          const atlas = make(columns * 96, Math.ceil(chunk.length / columns) * 128);
+          const context = atlas.getContext('2d');
+          const sheet = first / capacity;
+          chunk.forEach(([id, portrait], index) => {
+            const x = index % columns * 96, y = Math.floor(index / columns) * 128;
+            context.drawImage(portrait, x, y);
+            map[id] = [sheet, x, y, portrait.width, portrait.height];
+          });
+          results['story-cast-' + sheet] = png(atlas);
+        }
+        return { images: results, portraitMap: map };
+      }
+      if (realm) {
+        const stages = make(200 * 12, 160 * ART.realmThemes.length);
+        const stage = stages.getContext('2d');
+        const frame = make(200, 160), fx = frame.getContext('2d');
+        ART.setCtx(fx, frame.width);
+        ART.realmThemes.forEach((theme, y) => {
+          for (let x = 0; x < 12; x++) {
+            fx.clearRect(0, 0, frame.width, frame.height);
+            ART.drawRealm(theme, x * 140, 0);
+            stage.drawImage(frame, x * 200, y * 160);
+          }
+        });
+        const doors = make(32 * ART.doorTypes.length, 40);
+        const door = doors.getContext('2d');
+        ART.doorTypes.forEach((type, x) => door.drawImage(ART.door(type), x * 32, 0));
+        const kinds = [...ART.doorTypes, 'trap'];
+        const effects = make(64 * 8, 56 * kinds.length);
+        const effect = effects.getContext('2d');
+        ART.setCtx(effect, effects.width);
+        kinds.forEach((type, y) => {
+          for (let x = 0; x < 8; x++) {
+            effect.save();
+            effect.beginPath();
+            effect.rect(x * 64, y * 56, 64, 56);
+            effect.clip();
+            ART.drawRoomFx(type, x * 64 + 32, y * 56 + 36, (x + 0.5) / 8);
+            effect.restore();
+          }
+        });
+        return { images: { 'realm-stages': png(stages), 'realm-doors': png(doors), 'realm-effects': png(effects) } };
+      }
       if (combat) {
-        const make = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
         const backgrounds = make(200, 144 * L.REGIONS.length);
         const bg = backgrounds.getContext('2d');
         canvas.height = 160;
@@ -97,11 +196,12 @@ async function run() {
         results['story-' + scene] = ART.storyBg(scene).toDataURL('image/png').split(',')[1];
       }
       return { images: results };
-    }, { combat: combatOnly, home: homeOnly });
+    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly });
     for (const [name, png] of Object.entries(images.images)) {
       fs.writeFileSync(path.join(__dirname, '../godot/art', name + '.png'), Buffer.from(png, 'base64'));
     }
     if (images.map) fs.writeFileSync(path.join(__dirname, '../godot/art/combat-index.json'), JSON.stringify(images.map) + '\n');
+    if (images.portraitMap) fs.writeFileSync(path.join(__dirname, '../godot/art/story-cast-index.json'), JSON.stringify(images.portraitMap) + '\n');
   } finally {
     await browser.close();
   }

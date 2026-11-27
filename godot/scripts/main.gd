@@ -7,6 +7,8 @@ const RULES_PATH := "res://data/rules.js"
 const FONT := preload("res://art/fusion-pixel.ttf")
 const AUDIO := preload("res://scripts/game_audio.gd")
 const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
+const REALM_SCENE := preload("res://scripts/realm_scene.gd")
+const STORY_STAGE := preload("res://scripts/story_stage.gd")
 const COLORS := {
 	"gold": Color("#ffd990"),
 	"text": Color("#efe4cf"),
@@ -26,6 +28,12 @@ const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "�
 const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
 const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器"}
 const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴"}
+const INTRO_TEXT := [
+	"天剑宗外门。\n“杂灵根也配修仙？滚出山门！”\n你被大师兄赵乾一脚踢下了山。",
+	"同一天，婚约也被当众撕毁。\n“废物，你配不上慕容家。三年后落霞城论剑，你若敢来，我便让你输得心服口服。”\n“莫欺少年穷！三年之后，我必登台！”",
+	"当夜，荒山破庙。\n一个废柴的逆天仙途，从这里开始。\n三年之约、天剑宗、天骄榜、宗门之巅——\n还有那九九天劫之后的，白日飞升。",
+]
+const HERO_NAMES := ["林逸尘", "沈青川", "陆长风", "叶知秋", "苏念白", "顾清寒", "江离", "温如玉", "秦慕白", "萧云舟"]
 
 var runtime: Object
 var game_audio := AUDIO.new()
@@ -42,9 +50,13 @@ var share_code := ""
 var redraw_queued := false
 var dialogue_key := ""
 var dialogue_index := 0
+var dialogue_history := false
+var intro_page := -1
+var intro_name := ""
 var rebirth_tab := 0
 var scroll: ScrollContainer
 var page_key := ""
+var realm_transition: Dictionary = {}
 
 
 func _ready() -> void:
@@ -74,6 +86,9 @@ func request(message: Dictionary) -> void:
 		error_text = result.get("error", "无法完成操作")
 	else:
 		error_text = ""
+		var action_result = result.get("result")
+		if action_result is Dictionary and action_result.has("realmFx"):
+			realm_transition = {"view": view["notice"], "effect": action_result["realmFx"]}
 		view = result.get("view", {})
 		play_feedback(message)
 		if result.get("save") != null and message["op"] != "export":
@@ -87,6 +102,7 @@ func request(message: Dictionary) -> void:
 		if message["op"] in ["new", "import", "load"]:
 			dialogue_key = ""
 			dialogue_index = 0
+			dialogue_history = false
 	schedule_draw()
 
 
@@ -150,6 +166,7 @@ func draw_view() -> void:
 	if not notice is Dictionary or not notice.has("dialogue"):
 		dialogue_key = ""
 		dialogue_index = 0
+		dialogue_history = false
 	game_audio.music(scene_music(notice))
 	var next_page_key := ""
 	if notice is Dictionary:
@@ -196,6 +213,9 @@ func draw_view() -> void:
 	add_label(view["realm"] + "   修为 " + view["xp"] + " / " + view["xpNeed"], 17)
 	add_label("战力 " + view["power"] + "    灵石 " + view["stones"], 17, COLORS.jade)
 
+	if not realm_transition.is_empty():
+		draw_realm(realm_transition["view"], realm_transition["effect"])
+		return
 	if notice is Dictionary:
 		draw_notice(notice)
 		return
@@ -215,7 +235,15 @@ func draw_view() -> void:
 
 
 func scene_music(notice: Variant) -> String:
+	if not realm_transition.is_empty():
+		return "realm"
 	if notice is Dictionary:
+		var lines: Array = notice.get("dialogue", [])
+		var index := dialogue_index if notice.get("key", "") == dialogue_key else 0
+		if index < lines.size() and lines[index].has("music"):
+			var cue := String(lines[index]["music"])
+			if cue.is_empty() or game_audio.stream_for("bgm_" + cue):
+				return cue
 		var track := String(notice.get("music", ""))
 		if not track.is_empty() and game_audio.stream_for("bgm_" + track):
 			return track
@@ -266,19 +294,57 @@ func draw_audio_setting() -> void:
 
 
 func draw_title() -> void:
-	var texture := preload("res://art/chapter.png")
-	add_picture(texture, 210)
+	if show_saves:
+		draw_saves()
+		return
+	if intro_page >= 0 and intro_page < INTRO_TEXT.size():
+		add_picture(load("res://art/intro-%d.png" % intro_page), 224)
+		add_label(INTRO_TEXT[intro_page], 18)
+		add_button("继续  ▸", func():
+			intro_page += 1
+			schedule_draw()
+		, true)
+		add_button("跳过序章", func():
+			intro_page = INTRO_TEXT.size()
+			schedule_draw()
+		)
+		return
+	if intro_page < 0:
+		add_picture(preload("res://art/chapter.png"), 210)
+		add_button("开始仙途  ▸", func():
+			intro_page = 0
+			intro_name = HERO_NAMES.pick_random()
+			schedule_draw()
+		, true)
+		add_button("存档", toggle_saves)
+		draw_audio_setting()
+		return
+	add_label("踏上仙途", 24, COLORS.gold)
+	var portrait := STORY_STAGE.portrait_texture("me-0|n|")
+	if portrait:
+		var preview := TextureRect.new()
+		preview.texture = portrait
+		preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.custom_minimum_size.y = 144
+		page.add_child(preview)
 	var name_input := LineEdit.new()
 	name_input.placeholder_text = "道号"
+	name_input.text = intro_name
+	name_input.text_changed.connect(func(value): intro_name = value)
 	name_input.max_length = 6
 	name_input.custom_minimum_size.y = 48
 	page.add_child(name_input)
-	add_button("踏入仙途  ▸", func(): request({"op": "new", "name": name_input.text}), true)
-	if show_saves:
-		draw_saves()
-	else:
-		add_button("存档", toggle_saves)
-	draw_audio_setting()
+	add_button("换个名字", func():
+		name_input.text = HERO_NAMES.filter(func(value): return value != name_input.text).pick_random()
+		intro_name = name_input.text
+	)
+	add_button("踏入仙途  ▸", func():
+		request({"op": "new", "name": intro_name if not intro_name.strip_edges().is_empty() else HERO_NAMES.pick_random()})
+	, true)
+	add_button("返回标题", func():
+		intro_page = -1
+		schedule_draw()
+	)
 
 
 func draw_cave() -> void:
@@ -558,6 +624,9 @@ func draw_notice(notice: Dictionary) -> void:
 		return
 	if notice.get("kind") == "life":
 		add_label(notice["title"], 25, COLORS.gold)
+		var ending_art := STORY_STAGE.scene_texture(notice.get("scene", ""))
+		if ending_art:
+			add_picture(ending_art, 224)
 		add_label(notice["text"], 17)
 		add_button("再入轮回", func(): request({"op": "life", "move": "settle"}), true)
 		if notice["mode"] == "ascend":
@@ -580,13 +649,25 @@ func draw_notice(notice: Dictionary) -> void:
 	if next_key != dialogue_key:
 		dialogue_key = next_key
 		dialogue_index = 0
-	var scene := String(notice.get("scene", ""))
-	var scene_path := "res://art/chapter.png" if scene == "chapter" else "res://art/story-" + scene + ".png"
-	if not scene.is_empty() and ResourceLoader.exists(scene_path):
-		add_picture(load(scene_path), 210)
+		dialogue_history = false
 	var lines: Array = notice.get("dialogue", [])
+	if dialogue_history:
+		add_button("返回剧情", func():
+			dialogue_history = false
+			schedule_draw()
+		, true)
+		for past in lines.slice(0, mini(dialogue_index + 1, lines.size())):
+			var speaker := String(past.get("speaker", ""))
+			add_label((speaker + "\n" if speaker else "") + String(past["text"]), 17)
+		return
 	if dialogue_index < lines.size():
 		var line: Dictionary = lines[dialogue_index]
+		var stage := STORY_STAGE.new()
+		stage.line = {"scene": notice.get("scene", "")}
+		stage.line.merge(line, true)
+		page.add_child(stage)
+		if line.get("echo"):
+			add_label("因为 " + String(line["echo"]), 14, COLORS.gold)
 		if line["speaker"]:
 			add_label(line["speaker"], 15, COLORS.jade)
 		add_label(line["text"], 20)
@@ -599,7 +680,18 @@ func draw_notice(notice: Dictionary) -> void:
 				dialogue_index = lines.size()
 				schedule_draw()
 			)
+		if dialogue_index > 0:
+			add_button("回看", func():
+				dialogue_history = true
+				schedule_draw()
+			)
 		return
+	var scene := String(notice.get("scene", ""))
+	if not lines.is_empty() and not lines.back().get("black", false):
+		scene = String(lines.back().get("scene", scene))
+	var background := STORY_STAGE.scene_texture(scene)
+	if background:
+		add_picture(background, 210)
 	if not String(notice.get("text", "")).is_empty():
 		add_label(notice["text"], 17)
 	if notice.get("kind") == "choice":
@@ -786,13 +878,35 @@ func add_battle_scene(data: Dictionary) -> void:
 	page.add_child(backdrop)
 
 
-func draw_realm(realm: Dictionary) -> void:
+func draw_realm(realm: Dictionary, effect: Dictionary = {}) -> void:
 	add_label(realm["title"], 24, COLORS.gold)
 	add_label(realm["text"], 16)
 	add_gauge("气血", realm["hp"], realm["maxHp"], COLORS.jade)
+	var scene := REALM_SCENE.new()
+	scene.realm = realm
+	scene.effect = effect
+	scene.door_pressed.connect(func(index: int):
+		game_audio.effect("tap")
+		request({"op": "realm-action", "move": "door", "index": index})
+	)
+	scene.effect_finished.connect(func():
+		realm_transition.clear()
+		schedule_draw()
+	)
+	page.add_child(scene)
+	if not effect.is_empty():
+		return
+	if realm["phase"] == "shop":
+		add_label("秘境行商 · 本局灵石 " + realm["stones"], 19, COLORS.gold)
+	elif realm["phase"] == "chest":
+		add_label("秘藏 · 选一样带走", 19, COLORS.gold)
 	for option in realm["options"]:
+		if option["move"] == "door":
+			continue
 		var message := {"op": "realm-action", "move": option["move"], "index": option["index"]}
 		add_button(option["label"], func(): request(message), true, not String(option["why"]).is_empty())
+		if option.get("detail"):
+			add_label(option["detail"], 14)
 		if option["why"]:
 			add_label(option["why"], 14, COLORS.muted)
 

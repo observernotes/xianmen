@@ -20,28 +20,58 @@
   const fill = value => L.fill(state, value);
   const speakers = { elder: '老祖', tian: '楚天阔', tianheng: '陆天衡', jian: '凌虚子', dan: '丹云婆婆', dao: '玄微子', teaman: '卖茶翁', xuehe: '血河老祖' };
 
-  function dialogue(script, event, lines = []) {
-    for (const instruction of script || []) {
-      if (Array.isArray(instruction)) {
-        const [speaker, custom] = instruction[0].split(':');
-        const name = speaker === '?' ? custom : speaker === 'me' ? state.p.name
-          : speakers[speaker] || (L.NPCS[speaker] ? L.npcName(state, speaker)
-            : L.RIVAL_INFO[speaker] ? L.rivalName(state, speaker) : '');
-        lines.push({ speaker: name || '', text: fill(instruction[1]).replace(/[*|]/g, '') });
-      } else if (instruction.slot && L.storyCond(state, instruction.if)) {
-        const cast = L.storySlot(state, event, instruction.slot, instruction.max);
-        if (cast.length) for (const member of cast) dialogue(member.say, event, lines);
-        else dialogue(instruction.say, event, lines);
-      } else if (instruction.say && L.storyCond(state, instruction.if)) {
-        dialogue(instruction.say, event, lines);
-      } else if (instruction.pick) {
-        const branch = instruction.pick.find(option => L.storyCond(state, option.if));
-        if (branch) dialogue(branch.say, event, lines);
-      } else if ('black' in instruction) {
-        lines.push({ speaker: '', text: fill(instruction.black) });
+  const heroArt = () => Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f);
+
+  function face(who, mood = 'n', fx = []) {
+    if (who === 'me') who = 'me-' + heroArt();
+    if (['mu', 'su', 'ye'].includes(who) && state.p.look.f) who += '-alt';
+    if (who === 'elder' && state.eflags.st_farewell && !fx.includes('fade')) fx.push('fade');
+    return [who, mood, fx.join(' ')].join('|');
+  }
+
+  function dialogue(script, event, scene, music) {
+    const lines = [];
+    const stage = { scene, music, left: '', right: '' };
+    flatten(script);
+    return lines;
+
+    function flatten(instructions, echo = '') {
+      for (const instruction of instructions || []) {
+        if (Array.isArray(instruction)) {
+          const [speaker, expression, alias] = instruction[0].split(':');
+          const [mood, ...fx] = (expression || 'n').split('+');
+          const name = speaker === '?' ? expression : alias || (speaker === 'me' ? state.p.name :
+            speaker === 'mu' ? state.exName : speakers[speaker] || (L.NPCS[speaker] ? L.npcName(state, speaker)
+              : L.RIVAL_INFO[speaker] ? L.rivalName(state, speaker) : speaker === 'nar' ? '' : speaker));
+          if (speaker === 'me') stage.left = face(speaker, mood, fx);
+          else if (speaker !== 'nar') {
+            stage.left ||= face('me');
+            stage.right = speaker === '?' ? '' : face(speaker, mood, fx);
+          }
+          if (Object.hasOwn(instruction[2] || {}, 'bgm')) stage.music = instruction[2].bgm || '';
+          lines.push({ ...stage, speaker: name || '', side: speaker === 'me' ? 'left' : speaker === 'nar' ? '' : 'right',
+            text: fill(instruction[1]).replace(/[*|]/g, ''), echo });
+          echo = '';
+        } else if (instruction.slot && L.storyCond(state, instruction.if)) {
+          const cast = L.storySlot(state, event, instruction.slot, instruction.max);
+          if (cast.length) for (const member of cast) flatten(member.say, member.echo || echo);
+          else flatten(instruction.say, instruction.echo || echo);
+        } else if (instruction.say && L.storyCond(state, instruction.if)) {
+          flatten(instruction.say, instruction.echo || echo);
+        } else if (instruction.pick) {
+          const branch = instruction.pick.find(option => L.storyCond(state, option.if));
+          if (branch) flatten(branch.say, branch.echo || echo);
+        } else if ('black' in instruction) {
+          lines.push({ ...stage, speaker: '', text: fill(instruction.black), black: true });
+        } else if (instruction.cg) {
+          stage.scene = 'cg:' + instruction.cg + ':' + (instruction.f || 0);
+        } else if (instruction.scene) {
+          stage.scene = instruction.scene;
+        } else if ('bgm' in instruction) {
+          stage.music = instruction.bgm || '';
+        }
       }
     }
-    return lines;
   }
 
   const choiceView = ev => ({
@@ -51,7 +81,7 @@
     text: fill(ev.text || ev.gist),
     scene: ev.scene || '',
     music: ev.bgm || '',
-    dialogue: dialogue(ev.talk, ev.id),
+    dialogue: dialogue(ev.talk, ev.id, ev.scene || 'cave', ev.bgm || 'home'),
     options: ev.choices.flatMap((choice, index) => {
       const gate = L.choiceGate(state, choice);
       const shown = L.choiceShown(state, choice);
@@ -108,12 +138,12 @@
   function endingView() {
     if (lifeEnded()) return {
       kind: 'life', title: '坐化', text: state.p.name + '止步' + L.stageName(state.p) +
-        '，享年 ' + Math.floor(state.p.age) + ' 岁。\n' + L.restLine(state), mode: 'rest',
+        '，享年 ' + Math.floor(state.p.age) + ' 岁。\n' + L.restLine(state), mode: 'rest', scene: 'end:rest',
     };
     const ending = L.endingOf(state);
     return {
       kind: 'life', title: ending.n, text: [].concat(ending.paras || ending.text || [], L.epilogue(state).map(card => card.who + ' · ' + card.text)).join('\n\n'),
-      mode: 'ascend',
+      mode: 'ascend', scene: 'end:' + ending.pic, music: ending.bg === 'hermit' ? 'home' : 'ascend',
     };
   }
 
@@ -204,13 +234,16 @@
       return { kind: 'card', title: title[block.id] || '仙途大事', button: '继续 ▸' };
     }
     if (block.kind === 'chapter') return {
-      kind: 'card', title: data.chN + ' · ' + data.n,
+      kind: 'card', key: block.id, title: data.chN + ' · ' + data.n + ' · 完',
       scene: 'chapter', music: 'epic',
+      button: data.next ? '开始' + data.next.chN + ' ▸' : '继续 ▸',
       text: [
         '历时 ' + Math.ceil(data.months / 3) + ' 季 · 历练 ' + data.exp + ' 趟',
         '战力 ' + fmt(data.pw0) + ' → ' + fmt(data.pw1),
         data.bestT ? '最佳历练评价 · ' + data.bestT : '',
         data.next ? data.next.chN + ' · ' + data.next.n + '\n' + data.next.goal : '',
+        data.next?.toOpen ? '本章将开放 ' + data.next.toOpen + ' 项功能' : '',
+        data.next?.rw ? '主线奖励 · ' + data.next.rw : '',
       ].filter(Boolean).join('\n'),
     };
     if (block.kind === 'unlock') return { kind: 'card', title: L.ONB_K[block.id]?.n || '新功能已开' };
@@ -300,11 +333,17 @@
       run.doors.forEach((door, index) => {
         const kind = L.mjDoorShown(door);
         const name = kind === 'unk' ? '未知之门' : L.MJ_ROOM[kind].n;
-        add(name + (index === recommended ? ' · 荐' : ''), 'door', index);
+        const hp = L.mjDoorEst(state, door).hp;
+        const hint = L.mjFight(kind) ? (hp ? String(hp) : '无伤') : kind === 'spring' ? '+' + hp : '';
+        options.push({ label: name, move: 'door', index, why: '', art: kind, hint,
+          recommended: index === recommended && run.doors.length > 1, danger: -hp >= run.hp });
       });
-      if (L.mjCanLeave(state)) add('带着收获离开', 'leave', -1);
+      if (L.mjCanLeave(state)) add('带着 ' + L.mjLootN(state) + ' 件收获离开', 'leave', -1);
     } else if (run.phase === 'shop') {
-      run.shop.forEach((item, index) => add(item.n + ' · ' + fmt(item.price) + ' 灵石', 'shop', index, L.mjShopWhy(state, index)));
+      run.shop.forEach((item, index) => {
+        options.push({ label: item.n + ' · ' + fmt(item.price) + ' 灵石', move: 'shop', index,
+          why: L.mjShopWhy(state, index), detail: item.d });
+      });
       add('继续前行', 'shop', -1);
     } else if (run.phase === 'chest') {
       run.chest.forEach((item, index) => add(item.n, 'chest', index));
@@ -312,8 +351,24 @@
     return {
       kind: 'realm', title: run.xf ? '仙府' : theme.n + '秘境',
       text: '第 ' + run.floor + ' / ' + run.floors + ' 层 · 收获 ' + L.mjLootN(state) + ' 项',
+      theme: theme.art, phase: run.phase, hero: heroArt(),
+      stones: run.phase === 'shop' ? fmt(L.mjPending(state).stones) : '',
       hp: run.hp, maxHp: run.max, options,
     };
+  }
+
+  function realmSummary(sum) {
+    const theme = L.mjTheme(sum.theme);
+    const title = (sum.xf ? '仙府' : theme.n + '秘境') + ' · ' +
+      { clear: '通关', leave: '安然归来', wipe: '重伤出局' }[sum.how];
+    const lines = [
+      '已通过 ' + sum.deep + ' / ' + sum.floors + ' 层',
+      sum.how === 'wipe' ? '气血耗尽，收获损失六成。' : '',
+      sum.inj ? L.injText(sum.inj) : '',
+      sum.first ? '首通称号「' + sum.first + '」' : '',
+      ...(sum.got?.texts || []), ...(sum.chest?.texts || []),
+    ].filter(Boolean);
+    return { title, lines };
   }
 
   function realmEntries() {
@@ -385,11 +440,12 @@
     return { level: info.lv, cost: fmt(info.cost), available: !info.max && state.stones >= info.cost, max: info.max };
   }
 
-  function snapshot() {
+  function snapshot(notice) {
     if (!state) return null;
     const pending = (state._apBlk || []).filter(block => ['result', 'season', 'year'].includes(block.kind));
     const checkpoint = note?.title === '突破成功' ? '突破' :
-      pending[0]?.kind === 'year' ? '年报' : pending[0]?.id === 'exp' ? '历练归来' : '';
+      pending[0]?.kind === 'year' ? '年报' : pending[0]?.id === 'exp' ? '历练归来' :
+      notice?.scene === 'chapter' ? '章末' : '';
     return {
       native: 1, state, note,
       pending,
@@ -465,14 +521,16 @@
       if (ev.id === 's9_gate' || !state.eflags.asc_stay) state.flags.endRead = 0;
     }
     const realmResult = realmEvent ? L.mjAfterEvent(state) : null;
+    const realmLines = realmResult?.wipe ? realmSummary(realmResult.wipe).lines :
+      (realmResult?.loot || []).map(item => item.t);
     if (event) encounter = null;
     if (localEvent && openEvent === 'visitor') openEvent = null;
     const response = choice[result.ok ? 'ok' : 'fail'] || choice.ok;
     note = {
       kind: 'card', key: ev.id + ':result', scene: ev.scene || '',
       music: ev.bgm || '',
-      title: fill(ev.title), text: [fill(result.text), ...result.fx, realmResult?.wipe ? '气血耗尽，退出秘境。' : ''].filter(Boolean).join('\n'),
-      dialogue: dialogue(response?.talk, ev.id),
+      title: fill(ev.title), text: [fill(result.text), ...result.fx, ...realmLines].filter(Boolean).join('\n'),
+      dialogue: dialogue(response?.talk, ev.id, ev.scene || 'cave', ev.bgm || 'home'),
     };
   }
 
@@ -674,14 +732,20 @@
       const actions = { door: L.mjPick, shop: L.mjShop, leave: L.mjLeave, chest: L.mjChest };
       const result = actions[message.move](state, message.index);
       if (!result) throw new Error('未能结算秘境');
-      if (!state.run || result.dmg || result.heal || result.loot?.length || result.texts?.length) {
-        note = { kind: 'card', title: state.run ? '秘境所得' : '秘境归来', text: [
+      const summary = result.wipe || (result.how ? result : null);
+      if (summary) {
+        const { title, lines } = realmSummary(summary);
+        note = { kind: 'card', title, music: 'realm', text: lines.join('\n') };
+      } else if (result.dmg || result.heal || result.trap || result.loot?.length || result.texts?.length) {
+        note = { kind: 'card', title: '秘境所得', music: 'realm', text: [
+          result.trap ? '宝箱触发了陷阱。' : '',
           result.dmg ? '气血 −' + fmt(result.dmg) : '',
           result.heal ? '气血 +' + fmt(result.heal) : '',
           ...(result.texts || []), ...(result.loot || []).map(item => item.t).filter(Boolean),
-          ...(result.chest?.texts || []),
         ].filter(Boolean).join('\n') };
       }
+      if (message.move === 'door') return { realmFx: { index: message.index, art: result.trap ? 'trap' : result.t,
+        hp: result.hp1 ?? state.run?.hp ?? 0, wipe: !!result.wipe } };
       return;
     }
     if (op === 'advance') {
@@ -811,7 +875,8 @@
         previous = { state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
       }
       const result = dispatch(message);
-      return JSON.stringify({ ok: true, result, view: view(), save: snapshot() });
+      const current = view();
+      return JSON.stringify({ ok: true, result, view: current, save: snapshot(current.notice) });
     } catch (error) {
       if (previous) ({ state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
       return JSON.stringify({ ok: false, error: previous ? '读不出这份存档' : error.message });
