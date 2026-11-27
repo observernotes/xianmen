@@ -222,7 +222,6 @@ function face2(g, ex, ey, f) {
     patch(g, ex + dx, ey, f ? ['EEEEEE', 'wIEEWw', 'wIEEIw'] : ['EEEEEE', 'wIEEWw', 'sIEEIs']);
     if (f) put(g, ex + dx + (dx ? 6 : -1), ey, 'E'); else tint(g, [[ex + dx + 1, ey + 3], [ex + dx + 2, ey + 3], [ex + dx + 3, ey + 3], [ex + dx + 4, ey + 3]], 's', 'S');
   }
-  if (f) { patch(g, ex - 3, ey + 5, ['mm']); patch(g, ex + 21, ey + 5, ['mm']); }
 }
 // 一组线段上的像素换色：segs = [x0, y0, x1, y1]…
 function folds(g, segs, from, to) { for (const q of segs) tint(g, seg(q[0], q[1], q[2], q[3]), from, to); }
@@ -1792,8 +1791,35 @@ Buf.prototype = {
       if (!col && !o.noOutline && (this.at(x - 1, y) || this.at(x + 1, y) || this.at(x, y - 1) || this.at(x, y + 1))) col = ink;
       if (col) { d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255; }
     }
-    g.putImageData(img, 0, 0); return c;
+    g.putImageData(img, 0, 0);
+    // HD-2D：2 倍密度稿——颜色网格按 Scale2x 放大（描边在放大之后再勾，所以只有 1 个高清像素粗），再跑这张精灵自己的补丁（b.hd = b2 => …，按 2 倍坐标画眼神光、毛发、衣褶）
+    if (!o.noHd && w <= 96 && h <= 96) { const self = this; c._buf = self; c._hdNative = () => { const b2 = self.x2(); b2.eyes(); if (self.hd) self.hd(b2); const c2 = b2.cv(Object.assign({}, o, { max: 0, noHd: 1 })); c2._hd = 2; return c2; }; }
+    return c;
   },
+  x2() {
+    const w = this.w, h = this.h, s = this.d, b = new Buf(w * 2, h * 2), o = b.d, W2 = w * 2;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, P = s[i], A = y > 0 ? s[i - w] : P, D = y < h - 1 ? s[i + w] : P, C = x > 0 ? s[i - 1] : P, B = x < w - 1 ? s[i + 1] : P;
+      let e0 = P, e1 = P, e2 = P, e3 = P;
+      if (A !== D && C !== B) { if (C === A) e0 = A; if (A === B) e1 = B; if (C === D) e2 = C; if (D === B) e3 = B; }
+      const j = y * 2 * W2 + x * 2; o[j] = e0; o[j + 1] = e1; o[j + W2] = e2; o[j + W2 + 1] = e3;
+    }
+    return b;
+  },
+  // 眼神光：原画里 1 像素的深色眼珠放大后是 2×2 的深色小块（四周都是别的颜色）——左上角点一粒白
+  eyes() {
+    const w = this.w, h = this.h, d = this.d;
+    for (let y = 1; y < h - 2; y++) for (let x = 1; x < w - 2; x++) {
+      const c = d[y * w + x]; if (!c || lum(c) > 70 || d[y * w + x + 1] !== c || d[(y + 1) * w + x] !== c || d[(y + 1) * w + x + 1] !== c) continue;
+      let ok = true; for (let j = -1; j <= 2 && ok; j++) for (let i = -1; i <= 2; i++) { if (i >= 0 && i <= 1 && j >= 0 && j <= 1) continue; const n = d[(y + j) * w + x + i]; if (!n || n === c) { ok = false; break; } }
+      if (ok) d[y * w + x] = '#ffffff';
+    }
+    return this;
+  },
+  // 只在已有像素上换色（2 倍补丁用）：pts = [[x, y]…]；from 省略 = 任何已有像素
+  tint(pts, to, from) { for (const q of pts) { const c = this.at(q[0], q[1]); if (c && (!from || from.includes(c))) this.d[q[1] * this.w + q[0]] = to; } return this; },
+  // 沿线段换色
+  tl(x0, y0, x1, y1, to, from) { return this.tint(seg(x0, y0, x1, y1), to, from); },
 };
 
 // ---------- 半身像 48×48 ----------
@@ -2652,6 +2678,8 @@ ART.elderSprite = function (frame) {
     const src = b.cv({ ink: '#27357a', max: 12 }), c = mk(24, 28), g = c.getContext('2d');
     g.globalAlpha = 0.94; g.drawImage(src, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out';
     for (let y = 21; y < 28; y++) for (let x = 0; x < 24; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 20) * 2) g.fillRect(x, y, 1, 1);
+    // HD-2D：2 倍密度稿同样半透明、下摆按 2 倍的抖动散成烟（颗粒细一半）
+    c._buf = b; c._hdNative = () => { const s2 = src._hdNative(), c2 = mk(48, 56), g2 = c2.getContext('2d'); g2.globalAlpha = 0.94; g2.drawImage(s2, 0, 0); g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-out'; for (let y = 42; y < 56; y++) for (let x = 0; x < 48; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 40)) g2.fillRect(x, y, 1, 1); c2._hd = 2; return c2; };
     return c;
   });
 };

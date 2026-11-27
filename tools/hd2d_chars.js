@@ -18,7 +18,8 @@ fs.mkdirSync(out, { recursive: true });
       sit_m: () => [A.sit(M, 0), A.sit(M, 3), A.sit(M, 8)], sit_f: () => [A.sit(F, 0), A.sit(F, 3), A.sit(F, 8)],
       stand_m: () => [A.standRealm(M, 0, 0), A.standRealm(M, 3, 1)], stand_f: () => [A.standRealm(F, 0, 0), A.standRealm(F, 3, 1)],
       fight_m: () => ['idle0', 'windup', 'strike', 'hit'].map(f => A.fighter('me', f, false)),
-      elder: () => [A.elderSprite(0), A.elderSprite(1)],
+      elder: () => [A.elderSprite(0), A.elderSprite(1), A.portrait('elder', 'n'), A.portrait('elder', 'joy')],
+      portraits: () => [A.portraitMe(M, 3, 'n'), A.portraitMe(F, 3, 'n'), A.portrait('mu', 'n'), A.portrait('su', 'n')],
       pets: () => [A.petSprite('p_he', 0, 0), A.petSprite('p_hu2', 0, 0), A.petSprite('p_gui', 0, 0), A.petSprite('p_tu', 0, 0)],
       foes: () => [A.wolf(['#8a7a66', '#5f5244']), A.foeMan(['#4a4a52', '#2c2c34'], 'hill'), A.foeMan(['#cfc8b0', '#8f876c'], 'tomb')].concat(A.mobIds.slice(0, 4).map(id => A.mob(id, 0))),
     };
@@ -32,7 +33,7 @@ fs.mkdirSync(out, { recursive: true });
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
       const bg = (x, w, c1, c2) => { const gr = g.createLinearGradient(0, 0, 0, cv.height); gr.addColorStop(0, c1); gr.addColorStop(1, c2); g.fillStyle = gr; g.fillRect(x, 0, w, cv.height); };
       bg(0, W * 8 + 20, '#6a7a9a', '#8a9a7a'); bg(W * 8 + 20, W * 8 + 20, '#6a7a9a', '#8a9a7a');
-      g.fillStyle = '#fff'; g.font = '16px sans-serif'; g.fillText('原画 ×8', 8, 20); g.fillText('2 倍密度 ×4' + (cs.some(c => c._hdNative) ? '（重画）' : '（自动）'), W * 8 + 28, 20);
+      g.fillStyle = '#fff'; g.font = '16px sans-serif'; g.fillText('原画 ×8', 8, 20); g.fillText('2 倍密度 ×4' + (cs.some(c => c._hdNative && !c._buf) ? '（重画稿）' : cs.some(c => c._hdNative) ? '（细描边稿）' : '（自动）'), W * 8 + 28, 20);
       let x = 10;
       for (const c of cs) { g.drawImage(c, x, 34, c.width * 8, c.height * 8); const u = window.HD2D.up(c); if (u) g.drawImage(u, W * 8 + 20 + x, 34, u.width * 4, u.height * 4); x += (c.width + 4) * 8; }
       const old = document.getElementById('chars'); if (old && old !== cv) old.remove(); document.body.appendChild(cv); return 'ok';
