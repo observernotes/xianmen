@@ -207,17 +207,20 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
       X.loadState(s); }, fx);
     // 读档的那条链先出完（压着的戏、迁移提示）
     await ev(() => { window.__xm_talk.fast = true; });
-    for (let i = 0; i < 30; i++) { const busy = await ev(() => window.__xm.busyUI || !!window.__xm_talk.on); if (!busy) break; await ev(() => { if (window.__xm_talk.on) { window.__xm_talk.close(); return; } const b = [...document.querySelectorAll('#modal .choices .btn:not([disabled]), #modal .foot .btn:not([disabled])')]; if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); }); await page.waitForTimeout(450); }
+    // 对话场景一句一句点完、选项点第一个（只关掉不选的话，这场戏没结算，下一条链开头会把它补回队列——【下战书】之后链里就先放这些旧戏了）
+    for (let i = 0; i < 600; i++) { const busy = await ev(() => window.__xm.busyUI || !!window.__xm_talk.on); if (!busy) break; const tk = await ev(() => { if (window.__xm_talk.on) { const p = window.__xm_talk.on.picking && document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.tap(); return true; } const b = [...document.querySelectorAll('#modal .choices .btn:not([disabled]), #modal .foot .btn:not([disabled])')]; if (b.length) b[b.length - 1].click(); else window.__xm.closeModal(); return false; }); await page.waitForTimeout(tk ? 60 : 450); }
     const pre = await ev(() => { const { st, L } = window.__xm, I = L.challengeInfo(st, 'zhao'); return { ch: L.chapterNow(st), why: I && I.why, ap: st.ap.left, q: st.storyQ.slice() }; });
     // 造出来的局面：第三章开章那场（story_r2）按“早就播过了”算，队列清空——赢下来之后链里只该有这一仗引出的戏
     await ev(() => { const s = window.__xm.st; s.evDone.story_r2 = 1; s.storyQ.length = 0; });
     await ev(() => { window.__xm_talk.fast = false; const L = window.__xm.L; window.__dw0 = L.duelWin; L.duelWin = () => true; window.__xm.doAct('duel', { id: 'zhao' }); L.duelWin = window.__dw0; });
     await page.waitForTimeout(600);
     // 【下战书】→ 这一章的 pre（一赔九，没播过才播）→ 对决 → 结果卡（AP_PLAN §4.3）：先把 pre 点完，再跳过对决
+    // 这份旧档（2.x）里第一、二章有几场没播过的戏（s1_pact_after、s2_invite、s2_rank）：开链时线 B 的补放（storyRepush / storyCatchUp）把它们排在 pre 前头一起放，
+    // 所以这里一句一句点，次数给足（原来 80 次只够点完一场，结果卡还没出来就去点 .foot，超时）
     const pre2 = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 800; i++) {
       const w = await ev(() => ({ tk: window.__xm_talk.on ? window.__xm_talk.on.id : '', pk: !!(window.__xm_talk.on && window.__xm_talk.on.picking), d: !!window.__xm.duelFx, ended: !!(window.__xm.duelFx && window.__xm.duelFx.ended), m: (document.querySelector('#modal:not([hidden]) h2') || {}).textContent || '' }));
-      if (w.tk) { if (!pre2.includes(w.tk)) pre2.push(w.tk); await ev(() => { const p = document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.tap(); }); await page.waitForTimeout(60); continue; }
+      if (w.tk) { if (!pre2.includes(w.tk)) pre2.push(w.tk); await ev(() => { const p = window.__xm_talk.on.picking && document.querySelector('.tk-pick:not([disabled])'); if (p) p.click(); else window.__xm_talk.tap(); }); await page.waitForTimeout(60); continue; }
       if (w.d && !w.ended) { await ev(() => window.__xm.duelSkip()); await page.waitForTimeout(300); continue; }
       if (/下战书/.test(w.m)) break;
       if (w.m) { await ev(() => { const c = document.querySelector('#modal .choices .btn:not([disabled])'); if (c) { c.click(); return; } const f = [...document.querySelectorAll('#modal .foot .btn:not([disabled])')]; if (f.length) f[f.length - 1].click(); }); await page.waitForTimeout(300); continue; }

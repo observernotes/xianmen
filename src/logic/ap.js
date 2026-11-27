@@ -27,8 +27,8 @@ L.apLootRew = () => (L.AP_ON === false ? 1 : L.AP.lootRew);
 // L.AP_ON = false 后调 L.apConst() 换回旧值（sim 的 noap）。
 //   PACT_POWER 125 → 250：回合制下只打坐的人每季也有 6 月修为，约战前都已筑基（PACT_ASSIST 只在炼气生效，管不着了），只能靠对手战力把“只打坐”压到 15%～25%
 //     （tools/sim.js 20 种子：PACT_POWER 150 时 idle 57%、250 时 17%，guided 97%、goalcard 97%、lazy 58%）；§3.5 的初值 150 过不了 idle 的门槛
-//   RIVAL_SLOPE 0.0185 → 0.022（§3.5 初值）
-L.AP_CONST = { PACT_POWER: [125, 250], RIVAL_SLOPE: [0.0185, 0.029] };
+//   PACT_POWER 250 → 268、RIVAL_SLOPE 0.022 → 0.029：线 D2 校准（docs/BALANCE_TODO.md 3.0 一节；guided 95% / idle 15% / goalcard 90%，第八章“进前二”落进预算）
+L.AP_CONST = { PACT_POWER: [125, 268], RIVAL_SLOPE: [0.0185, 0.029] };
 L.apConst = function () { for (const k in L.AP_CONST) L[k] = L.AP_CONST[k][L.AP_ON === false ? 0 : 1]; };
 L.apConst();
 // 负伤月数：一回合 3 个月，负伤 = 带伤到下季末（设 4：本季末 −3 剩 1，下季末清零）；首领战败两季（7）
