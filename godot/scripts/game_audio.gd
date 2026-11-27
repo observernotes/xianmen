@@ -9,7 +9,8 @@ var mode := 0
 var current := ""
 var active := 0
 var players: Array[AudioStreamPlayer] = []
-var effect_player: AudioStreamPlayer
+var effects: Array[AudioStreamPlayer] = []
+var next_effect := 0
 var fade: Tween
 var resources: Dictionary = {}
 
@@ -23,9 +24,10 @@ func _ready() -> void:
 		player.volume_db = SILENCE
 		add_child(player)
 		players.append(player)
-	effect_player = AudioStreamPlayer.new()
-	effect_player.max_polyphony = 3
-	add_child(effect_player)
+	for index in range(3):
+		var player := AudioStreamPlayer.new()
+		add_child(player)
+		effects.append(player)
 
 
 func cycle_mode() -> void:
@@ -37,7 +39,8 @@ func cycle_mode() -> void:
 	if mode != 0:
 		music("")
 	if mode == 2:
-		effect_player.stop()
+		for player in effects:
+			player.stop()
 
 
 func stream_for(key: String) -> AudioStream:
@@ -81,9 +84,11 @@ func music(want: String) -> void:
 
 
 func effect(key: String) -> void:
-	if mode == 2 or effect_player == null:
+	if mode == 2 or effects.is_empty():
 		return
 	var stream := stream_for("sfx_" + key)
 	if stream:
-		effect_player.stream = stream
-		effect_player.play()
+		var player := effects[next_effect]
+		next_effect = (next_effect + 1) % effects.size()
+		player.stream = stream
+		player.play()

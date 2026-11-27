@@ -9,6 +9,7 @@ const AUDIO := preload("res://scripts/game_audio.gd")
 const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
 const REALM_SCENE := preload("res://scripts/realm_scene.gd")
 const STORY_STAGE := preload("res://scripts/story_stage.gd")
+const CINEMATIC_PLAYER := preload("res://scripts/cinematic_player.gd")
 const COLORS := {
 	"gold": Color("#ffd990"),
 	"text": Color("#efe4cf"),
@@ -27,7 +28,7 @@ const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": 
 const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "长老与职司", "disciples": "门下"}
 const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
 const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器"}
-const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴"}
+const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "rankings": "天骄榜", "codex": "图鉴", "memories": "回忆"}
 const INTRO_TEXT := [
 	"天剑宗外门。\n“杂灵根也配修仙？滚出山门！”\n你被大师兄赵乾一脚踢下了山。",
 	"同一天，婚约也被当众撕毁。\n“废物，你配不上慕容家。三年后落霞城论剑，你若敢来，我便让你输得心服口服。”\n“莫欺少年穷！三年之后，我必登台！”",
@@ -53,6 +54,8 @@ var dialogue_index := 0
 var dialogue_history := false
 var intro_page := -1
 var intro_name := ""
+var intro_cine_seen := false
+var replay_cinema: Dictionary = {}
 var rebirth_tab := 0
 var scroll: ScrollContainer
 var page_key := ""
@@ -61,6 +64,9 @@ var realm_transition: Dictionary = {}
 
 func _ready() -> void:
 	add_child(game_audio)
+	var config := ConfigFile.new()
+	if config.load(AUDIO.SETTINGS) == OK:
+		intro_cine_seen = config.get_value("presentation", "tuihun", false) == true
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	theme = Theme.new()
 	theme.default_font = FONT
@@ -73,6 +79,8 @@ func _ready() -> void:
 		error_text = runtime.get_last_error()
 	elif FileAccess.file_exists(SAVE_PATH):
 		request({"op": "load", "save": FileAccess.get_file_as_string(SAVE_PATH)})
+	else:
+		request({"op": "view"})
 	schedule_draw()
 
 
@@ -167,9 +175,13 @@ func draw_view() -> void:
 		dialogue_key = ""
 		dialogue_index = 0
 		dialogue_history = false
-	game_audio.music(scene_music(notice))
+	var cinema := current_cinematic(notice)
+	if cinema.is_empty():
+		game_audio.music(scene_music(notice))
 	var next_page_key := ""
-	if notice is Dictionary:
+	if not cinema.is_empty():
+		next_page_key = "cinema"
+	elif notice is Dictionary:
 		next_page_key = String(notice.get("key", notice["kind"]))
 	elif view.get("panel") is Dictionary:
 		next_page_key = "panel:" + String(view["panel"]["id"])
@@ -205,6 +217,9 @@ func draw_view() -> void:
 	add_label("废柴仙途", 31, COLORS.gold)
 	if error_text:
 		add_label(error_text, 16, COLORS.red)
+	if not cinema.is_empty():
+		draw_cinematic(cinema)
+		return
 	if not view.get("started", false):
 		draw_title()
 		return
@@ -232,6 +247,51 @@ func draw_view() -> void:
 		draw_saves()
 		return
 	draw_cave()
+
+
+func current_cinematic(notice: Variant) -> Dictionary:
+	if not replay_cinema.is_empty():
+		return replay_cinema
+	if not view.get("started", false):
+		var intro = view.get("introClip")
+		if intro_page == 1 and not intro_cine_seen and intro is Dictionary:
+			return intro
+		return {}
+	if not realm_transition.is_empty():
+		return {}
+	var before = view.get("cinema")
+	if before is Dictionary:
+		return before
+	var after = view.get("cinemaAfter")
+	if after is Dictionary and notice is Dictionary and not dialogue_history:
+		var lines: Array = notice.get("dialogue", [])
+		if lines.is_empty() or (notice.get("key", "") == dialogue_key and dialogue_index >= lines.size()):
+			return after
+	return {}
+
+
+func draw_cinematic(clip: Dictionary) -> void:
+	add_label(clip["title"], 24, COLORS.gold)
+	var film := CINEMATIC_PLAYER.new()
+	film.clip = clip
+	film.music_cue.connect(game_audio.music)
+	film.sound_cue.connect(game_audio.effect)
+	film.completed.connect(func():
+		if not replay_cinema.is_empty():
+			replay_cinema.clear()
+			schedule_draw()
+		elif clip.get("token") == "intro:tuihun":
+			intro_cine_seen = true
+			var config := ConfigFile.new()
+			config.load(AUDIO.SETTINGS)
+			config.set_value("presentation", "tuihun", true)
+			config.save(AUDIO.SETTINGS)
+			intro_page = 2
+			schedule_draw()
+		else:
+			request({"op": "cinema-done", "token": clip["token"]})
+	)
+	page.add_child(film)
 
 
 func scene_music(notice: Variant) -> String:
@@ -339,7 +399,8 @@ func draw_title() -> void:
 		intro_name = name_input.text
 	)
 	add_button("踏入仙途  ▸", func():
-		request({"op": "new", "name": intro_name if not intro_name.strip_edges().is_empty() else HERO_NAMES.pick_random()})
+		request({"op": "new", "name": intro_name if not intro_name.strip_edges().is_empty() else HERO_NAMES.pick_random(),
+			"introSeen": intro_cine_seen})
 	, true)
 	add_button("返回标题", func():
 		intro_page = -1
@@ -516,6 +577,13 @@ func draw_management(panel: Dictionary) -> void:
 		if entry["text"]:
 			add_label(entry["text"], 15)
 		for option in entry["buttons"]:
+			if option.has("cine"):
+				var clip: Dictionary = option["cine"]
+				add_button(option["label"], func():
+					replay_cinema = clip.duplicate(true)
+					schedule_draw()
+				)
+				continue
 			if option.has("duel"):
 				var duel := {"op": "duel-prepare", "action": "duel", "args": option["duel"]}
 				add_button(option["label"], func(): request(duel), true, not String(option["why"]).is_empty())

@@ -76,7 +76,8 @@ globalThis.XianmenDuels = (() => {
         });
       }
     }
-    return { kind: 'duel-prep', title, opponent: info?.n || '', text: stats.join('\n') || (id === 'tour' ? '登台后将按天骄榜与战力匹配对手。' : ''),
+    return { kind: 'duel-prep', fight: id,
+      title, opponent: info?.n || '', text: stats.join('\n') || (id === 'tour' ? '登台后将按天骄榜与战力匹配对手。' : ''),
       arts, options };
   }
 
@@ -102,7 +103,8 @@ globalThis.XianmenDuels = (() => {
       if (out.text) lines.push(out.text);
       if (st.p.inj) lines.push(L.injText(st.p.inj));
     }
-    return lines.length ? { kind: 'card', title, text: lines.join('\n'), music: 'battle' } : null;
+    return lines.length ? { kind: 'card', title, text: lines.join('\n'), music: 'battle',
+      cineRival: id === 'duel' || id === 'foe' ? out.id || '' : '' } : null;
   }
 
   return { prep, result };

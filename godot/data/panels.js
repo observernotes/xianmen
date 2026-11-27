@@ -435,7 +435,7 @@ globalThis.XianmenPanels = (() => {
   }
 
   const views = { equipment, forge, arts, market, auction, sect, sectVault, sectElders, disciples, people,
-    home, formations, fields, alchemy, pets, calendar, journal, rankings, codex };
+    home, formations, fields, alchemy, pets, calendar, journal, rankings, codex, memories: XianmenCinematics.memories };
   const codexId = name => typeof name === 'string' && name.startsWith('codex:') ? name.slice(6) : '';
   const has = name => Object.hasOwn(views, name) || Object.hasOwn(L.CODEX_CAT, codexId(name));
   const mutations = {
