@@ -13,7 +13,7 @@
 //   再照目标卡【去】指向的主线行动做（L.mainActs 里第一项可做的：下战帖 / 拜山门 / 讨伐首领 / 最后一仗）、剩下的点花在闭关 / 历练上，最后点【下一季】（window.__xm.nextSeason）；
 //   链里每一张卡点主按钮（抉择随手选，三宗帖子 drain 里照随机）。前 4 趟历练走界面（历练面板 → 确认页 → 出发），其余直接 L.act。
 //   新增的断言（NEW_UI = 界面有 window.__xm.nextSeason 才判；界面线 C 还没合进来时退回逐月推进旧界面，只跑原有的那些检查，并在输出里标 “旧界面”）：
-//     · 每条链结束后 st.storyQ.length === 0（卡片一张接一张出到没东西为止，不留到下一季）；
+//     · 每条链结束后 st.storyQ.length === 0（卡片一张接一张出到没东西为止，不留到下一季；闲戏除外——线 B 定的闲戏只在季初出，飞升以后也不算）；
 //     · 关键戏（节拍 open / climax / end、beat:* 对决、boss:*、sect 入宗、srank、rank:12、trib、war_eve）开播时不是它那条链的第一层——前面有它对应的结算卡 / 对决 / 章末卡，
 //       两层之间没有露出主界面（层与层的空隙 < 700ms）：界面层的“零延迟”（§4.2）；
 //     · 放置 60 秒 st.tick 不变（没有任何东西会自己推时间）；全程无报错。
@@ -67,17 +67,19 @@ const path = require('path');
     let duelSkips = 0, zSwap = 0, petAct = 0, petFeed = 0, popups = 0, uiBt = 0, uiExp = 0, trips = 0, artEq = 0, artPage = 0, gEq = 0, gSmelt = 0, gLock = 0, gPlus = 0, mSell = 0, mBuy = 0, mBid = 0, mEv = 0, calOpen = 0;
     const title = () => { const h = document.querySelector('#modal:not([hidden]) h2'); return h ? h.textContent : ''; };
     // 坊市：先过坊市事件（打开坊市时弹），再卖、买、出价——都点界面上的按钮
+    // 坊市现在是【江湖】里的一页（标题是“江湖”，分页条 data-kon="market"），不再按标题“坊市”认
+    const inMarket = () => !!document.querySelector('#modal:not([hidden]) .ktabs[data-kon="market"]');
     async function marketRound() {
       if (X.st.p.r >= 9) return;
       X.showMarket(); await sleep(40);
-      for (let g = 0; g < 6 && title() && title() !== '坊市'; g++) {
+      for (let g = 0; g < 6 && title() && !inMarket(); g++) {
         const ch = [...document.querySelectorAll('#modal .choices .btn:not([disabled])')];
         if (ch.length) { ch[Math.floor(Math.random() * ch.length)].click(); mEv++; seen['坊市事件'] = 1; await sleep(60); continue; }
         if (X.cine) { await sleep(150); continue; }
         if (document.querySelector('#modal [data-gcmp]')) { await drainCards(); continue; }
         const f = document.querySelector('#modal .foot .btn:not([disabled])'); if (f) { f.click(); await sleep(1300); } else break;
       }
-      if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') { await drain(); return; } }
+      if (!inMarket()) { await drain(); X.showMarket(); await sleep(40); if (!inMarket()) { await drain(); return; } }
       const st = X.st;
       // 卖：破境丹 6 枚以上、行情不差就卖一半；灵草远多于炼丹所需、行情 ≥ ×1.15 卖一半；筑基后没卖过东西的，挑行情最好的那样试着卖一半
       const sellClick = async sel => { const b = document.querySelector(`#modal [data-sell="${sel}"]:not([disabled])`); if (b) { b.click(); mSell++; seen['行情卖出'] = 1; await sleep(40); } };
@@ -93,7 +95,7 @@ const path = require('path');
         b.click(); mBuy++; seen['货架轮换货'] = 1; await sleep(600);
         break;
       }
-      if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') { await drain(); return; } }
+      if (!inMarket()) { await drain(); X.showMarket(); await sleep(40); if (!inMarket()) { await drain(); return; } }
       if (L.auctionOpen(st)) for (let i = 0; i < 3 && L.auctionBidsLeft(st) > 0; i++) {
         const it = st.auction.items[i]; if (it.res) continue;
         if (!(['g', 'a', 'frag', 'xisui', 'plan'].includes(it.k) || (it.k === 'treasure' && st.treasure < 3))) continue;
@@ -101,7 +103,7 @@ const path = require('path');
         const b = [it.comp && it.comp.kind !== 'npc' ? 2 : 1, 1, 0].map(t => document.querySelector(`#modal [data-bid="${i}:${t}"]:not([disabled])`)).find(Boolean);
         if (!b) continue;
         b.click(); mBid++; seen['拍卖竞价'] = 1; await sleep(600);
-        if (title() !== '坊市') { await drain(); X.showMarket(); await sleep(40); if (title() !== '坊市') break; }
+        if (!inMarket()) { await drain(); X.showMarket(); await sleep(40); if (!inMarket()) break; }
       }
       if (title()) X.closeModal(); await sleep(450); await drain();
     }
@@ -313,7 +315,7 @@ const path = require('path');
         cineWait = 0;
         if (X.duelFx && !X.duelFx.ended) { X.duelSkip(); duelSkips++; await sleep(40); continue; }   // 场景内对决：机器人一律直接跳过（跳过后收尾 0.26 秒）
         if (window.__xm_bt && window.__xm_bt.on && window.__xm_bt.ph === 'fight') { window.__xm_bt.finish(); await sleep(60); continue; }   // 场景里的回合战（首领、历练节点）：一场一场直接打完（停顿等玩家点的那一下机器人不会点，原来首领战会一直挂着）
-        if (!modal()) { await sleep(450); if (!modal() && !X.cine) { chainEnds.push({ tick: X.st.tick, q: X.st.storyQ.length, ids: X.st.storyQ.slice(0, 3) }); return; } continue; }
+        if (!modal()) { await sleep(450); if (!modal() && !X.cine) { const s = X.st; chainEnds.push({ tick: s.tick, q: s.storyQ.length, ids: s.storyQ.slice(0, 3), idle: s.storyQ.every(id => L.storyIdle && L.storyIdle(L.eventById(id))), asc: s.p.r > L.MAXR }); return; } continue; }
         const title = document.querySelector('#modal h2'); if (title) seen[title.textContent.replace(/\d+/g, 'N')] = 1;
         const cand = document.querySelector('#modal .cand:not(.hide):not(.sel)');
         if (cand && !document.querySelector('#modal .cand.sel')) { cand.click(); await sleep(40); continue; }
@@ -480,7 +482,7 @@ const path = require('path');
     res.life2 = 'not-tried';
     if (st.p.r >= 9) {
       const dg = L.daoFruit(st).total;
-      X.showMe('attr'); await sleep(60);
+      X.showMe('rec'); await sleep(60);   // 【再入轮回】在【仙途】→ 记录（人物页并进了仙途）
       const rb = document.querySelector('#btnReborn');
       if (!rb) res.life2 = '人物页没有再入轮回按钮';
       else {
@@ -526,8 +528,8 @@ const path = require('path');
       const gap = e >= 0 ? LAY[k].t - LAY[e].t : 1e9, prev = e > 0 ? LAY[e].from : '';
       lead.push({ id: r.id, trg: r.trg, prev, gap: Math.round(gap), first: gap >= 700 && k > 0 && LAY[k].from === '' });
     }
-    res.zd = { newUi: NEW_UI, recBug: window.__lrRecBug, keyStories: lead.length, leadFirst: lead.filter(x => x.first).map(x => `${x.id}(${x.trg})`), leadMiss: lead.filter(x => x.miss).length,
-      stuck, chainEnds: chainEnds.length, chainLeft: chainEnds.filter(x => x.q > 0).slice(0, 5), idle: idleOK, goalActs, goalMiss };
+    res.zd = { newUi: NEW_UI, recBug: window.__lrRecBug, keyStories: lead.length, leadFirst: lead.filter(x => x.first).map(x => `${x.id}(${x.trg}；前一层“${x.prev}”、中间露出主界面 ${x.gap}ms)`), leadMiss: lead.filter(x => x.miss).length,
+      stuck, chainEnds: chainEnds.length, chainLeft: chainEnds.filter(x => x.q > 0 && !x.idle && !x.asc).slice(0, 5), idle: idleOK, goalActs, goalMiss };
     return res;
   });
   clearInterval(prog);
