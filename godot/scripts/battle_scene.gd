@@ -14,6 +14,7 @@ const FEET := 128.0
 
 static var atlas: Dictionary = {}
 var combat: Dictionary = {}
+var playback_speed := 1
 var elapsed := 0.0
 
 
@@ -41,7 +42,7 @@ static func hero_frame(hero: int, pose: int) -> Rect2:
 
 
 func _process(delta: float) -> void:
-	elapsed += delta
+	elapsed += minf(delta, 0.1) * playback_speed
 	queue_redraw()
 
 

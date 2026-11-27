@@ -21,6 +21,27 @@
   const speakers = { elder: '老祖', tian: '楚天阔', tianheng: '陆天衡', jian: '凌虚子', dan: '丹云婆婆', dao: '玄微子', teaman: '卖茶翁', xuehe: '血河老祖' };
 
   const heroArt = () => Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f);
+  const battleOptionsOpen = () => !!state.pact || state.rebirth > 0;
+  const autoUltimate = () => battleOptionsOpen() && !!state.flags.autoUlt;
+
+  function battlePacing() {
+    if (battle.done) return { delay: boss ? 1050 : 650 };
+    const canUlt = battle.rage >= 100;
+    const seen = state.flags.btSeen || {};
+    const charging = battle.foes.some(foe => foe.hp > 0 && foe.charge);
+    if (canUlt && !autoUltimate()) {
+      if (!seen.rage) return { delay: -1, hint: '怒气满了，可以释放绝招。' };
+      if (charging) return { delay: battleOptionsOpen() ? 2500 : -1, hint: '敌人在蓄力，绝招可以打断重击。' };
+    }
+    if (battle.round === 0 && !seen.shield && battle.foes.some(foe => foe.sh > 0)) {
+      return { delay: 2600, hint: '用五行克制的招式可以削掉护罩。' };
+    }
+    if (battle.round === 0) {
+      return { delay: !boss && L.tripSeq(state) === 1 && state.exp.ni === 0 ? 900 : 500 };
+    }
+    if (charging && !seen.charge) return { delay: 2600, hint: '敌人正在蓄力。' };
+    return { delay: 1000 };
+  }
 
   function face(who, mood = 'n', fx = []) {
     if (who === 'me') who = 'me-' + heroArt();
@@ -292,12 +313,17 @@
           maxHp: Math.ceil(foe.max), shield: foe.sh, charge: !!foe.charge,
         }] : []),
         ultimate: battle.me.ult.n, canUlt: battle.rage >= 100, pills: battle.pillUsed ? 0 : battle.pills,
+        skills: battle.me.skills.map(skill => ({ name: skill.n, cooldown: Math.max(0, battle.cds[skill.id] || 0) })),
+        settingsOpen: battleOptionsOpen(), autoUlt: autoUltimate(), ...battlePacing(),
         text: battleLog || battle.momText,
       };
     }
     if (state.exp) {
       const trip = state.exp;
+      const node = trip.nodes?.[trip.ni];
+      const delay = !node ? 0 : L.nodeIsFight(node) || node.t === 'home' ? 1500 : 2400;
       return { kind: 'travel', title: L.REGIONS[trip.k].n, region: trip.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
+        delay, settingsOpen: battleOptionsOpen(),
         text: '已走过 ' + (trip.ni || 0) + ' / ' + trip.total + ' 处', button: '继续历练 ▸' };
     }
     if (state.gear.rf) {
@@ -562,6 +588,12 @@
     battleLog = events.flatMap(event => {
       if (['hit', 'skill', 'ult', 'heavy'].includes(event.t)) return [(event.n || '重击') + ' ' + fmt(event.dmg || 0)];
       if (event.t === 'break' || event.t === 'brk') return [event.t === 'brk' ? '破招' : '护罩碎裂'];
+      if (event.t === 'shield') return ['削罩 ' + event.cut + ' 格'];
+      if (event.t === 'ke') return ['五行克制'];
+      if (event.t === 'beike') return ['五行被克'];
+      if (event.t === 'chain') return ['相生连携'];
+      if (event.t === 'pill') return ['服下疗伤丹'];
+      if (event.t === 'timeout') return ['久战不下，撤退'];
       if (event.t === 'summon' || event.t === 'charge') return [event.n];
       return [];
     }).join(' · ');
@@ -576,12 +608,21 @@
   function combat(move) {
     if (!battle) throw new Error('目前没有战斗');
     if (battle.done) throw new Error('请先结算战斗');
+    if (!['tick', 'next', 'ult', 'pill', 'flee', 'smart'].includes(move)) throw new Error('未知战斗操作');
+    if (move === 'tick' && battlePacing().delay < 0) throw new Error('等待战斗指令');
+    if (move === 'ult' && battle.rage < 100) throw new Error('怒气未满');
+    if (move === 'pill' && (battle.pillUsed || battle.pills <= 0)) throw new Error('本场无法再服丹');
     if (move === 'smart') {
       L.battleAuto(battle, 'smart');
       if (battle.done) finishCombat();
     } else {
-      if (move === 'ult' && battle.rage >= 100) XianmenCinematics.queue(state, 'ult');
-      const input = { ult: move === 'ult', pill: move === 'pill', flee: move === 'flee' };
+      const seen = state.flags.btSeen ||= {};
+      if (battle.rage >= 100 && !autoUltimate()) seen.rage = 1;
+      if (battle.foes.some(foe => foe.hp > 0 && foe.charge)) seen.charge = 1;
+      if (battle.foes.some(foe => foe.hp > 0 && foe.sh > 0)) seen.shield = 1;
+      if (move === 'ult') XianmenCinematics.queue(state, 'ult');
+      const input = { ult: move === 'ult' || ((move === 'tick' || move === 'pill') && autoUltimate() && L.btWantUlt(battle, 'auto')),
+        pill: move === 'pill', flee: move === 'flee' };
       playRound(input);
       battleInputs.push(input);
     }
@@ -590,17 +631,17 @@
   function finishCombat() {
     const result = L.battleResult(battle);
     const target = boss;
+    if (target) {
+      const first = !state.bosses[target.k];
+      if (!L.act(state, 'boss', { k: target.k, res: result })) throw new Error(L.actLastWhy || '首领战未能结算');
+      if (first && state.bosses[target.k]) XianmenCinematics.queue(state, 'boss', { k: target.k });
+    }
     battle = null;
     boss = null;
     battleInputs = [];
     battleLog = '';
     battleEffects = [];
     if (!target) finishTripStep(result);
-    else {
-      const first = !state.bosses[target.k];
-      if (!L.act(state, 'boss', { k: target.k, res: result })) throw new Error(L.actLastWhy || '首领战未能结算');
-      if (first && state.bosses[target.k]) XianmenCinematics.queue(state, 'boss', { k: target.k });
-    }
   }
 
   function changeBreakthrough(message) {
@@ -753,6 +794,11 @@
       return;
     }
     if (op === 'combat') return combat(message.move);
+    if (op === 'battle-auto-ult') {
+      if (!battleOptionsOpen() || !battle || battle.done) throw new Error('此刻无法更改自动绝招');
+      state.flags.autoUlt = !state.flags.autoUlt;
+      return;
+    }
     if (op === 'breakthrough') return changeBreakthrough(message);
     if (op === 'life') return changeLife(message);
     if (op === 'realm-action') {

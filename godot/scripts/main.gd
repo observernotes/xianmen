@@ -67,6 +67,10 @@ var scroll: ScrollContainer
 var page_key := ""
 var realm_transition: Dictionary = {}
 var item_icons: Dictionary = {}
+var battle_speed := 1
+var playback_remaining := 0.0
+var playback_action: Dictionary = {}
+var app_paused := false
 
 
 func _ready() -> void:
@@ -74,6 +78,7 @@ func _ready() -> void:
 	var config := ConfigFile.new()
 	if config.load(AUDIO.SETTINGS) == OK:
 		intro_cine_seen = config.get_value("presentation", "tuihun", false) == true
+		battle_speed = 2 if config.get_value("presentation", "battle_speed", 1) == 2 else 1
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	theme = Theme.new()
 	theme.default_font = FONT
@@ -94,9 +99,29 @@ func _ready() -> void:
 	schedule_draw()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		app_paused = true
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		app_paused = false
+
+
+func _process(delta: float) -> void:
+	if playback_action.is_empty() or app_paused or redraw_queued:
+		return
+	# Keep the current controls alive until a tap or scroll gesture is released.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return
+	var notice: Dictionary = view["notice"]
+	playback_remaining -= minf(delta, 0.1) * playback_speed_for(notice)
+	if playback_remaining <= 0:
+		request(playback_action)
+
+
 func request(message: Dictionary) -> void:
 	if runtime == null or redraw_queued:
 		return
+	playback_action = {}
 	var result = JSON.parse_string(runtime.request(JSON.stringify(message, "", false, true)))
 	if not result is Dictionary:
 		error_text = runtime.get_last_error()
@@ -185,6 +210,7 @@ func schedule_draw() -> void:
 
 func draw_view() -> void:
 	redraw_queued = false
+	playback_action = {}
 	var notice = view.get("notice")
 	if not notice is Dictionary or not notice.has("dialogue"):
 		dialogue_key = ""
@@ -248,6 +274,9 @@ func draw_view() -> void:
 		return
 	if notice is Dictionary:
 		draw_notice(notice)
+		if error_text.is_empty() and notice.get("delay", -1) >= 0:
+			playback_remaining = notice["delay"] / 1000.0
+			playback_action = {"op": "advance"} if notice["kind"] == "travel" or notice["done"] else {"op": "combat", "move": "tick"}
 		return
 	if view["panel"] is Dictionary:
 		draw_management(view["panel"])
@@ -803,6 +832,8 @@ func draw_notice(notice: Dictionary) -> void:
 	add_label(notice.get("title", ""), 25, COLORS.gold)
 	if notice.get("kind") == "travel":
 		add_battle_scene(notice)
+		if notice["settingsOpen"]:
+			add_speed_button()
 	var next_key := String(notice.get("key", ""))
 	if next_key != dialogue_key:
 		dialogue_key = next_key
@@ -1004,6 +1035,27 @@ func draw_rebirth(form: Dictionary) -> void:
 func draw_battle(battle: Dictionary) -> void:
 	add_label(battle["title"] + " · 第 %d 轮" % int(battle["round"]), 24, COLORS.gold)
 	add_battle_scene(battle)
+	if battle["done"]:
+		add_label(battle["outcome"], 18, COLORS.gold)
+		add_button("结算战斗", func(): request({"op": "advance"}), true)
+	else:
+		var actions := HBoxContainer.new()
+		page.add_child(actions)
+		add_button(battle["ultimate"], func(): request({"op": "combat", "move": "ult"}), battle["canUlt"], not battle["canUlt"], actions)
+		add_button("服丹 ×%d" % int(battle["pills"]), func(): request({"op": "combat", "move": "pill"}), false, int(battle["pills"]) == 0, actions)
+		add_button("撤退", func(): request({"op": "combat", "move": "flee"}), false, false, actions)
+		if battle["settingsOpen"]:
+			var settings := HBoxContainer.new()
+			page.add_child(settings)
+			var auto_label := "自动绝招 · " + ("开" if battle["autoUlt"] else "关")
+			add_button(auto_label, func(): request({"op": "battle-auto-ult"}), battle["autoUlt"], false, settings)
+			add_speed_button(settings)
+		if battle.get("hint"):
+			add_label(battle["hint"], 16, COLORS.gold)
+		if battle["delay"] < 0 or not error_text.is_empty():
+			add_button("继续交手", func(): request({"op": "combat", "move": "next"}))
+	add_gauge("气血", battle["hp"], battle["maxHp"], COLORS.jade)
+	add_gauge("怒气", battle["rage"], 100, COLORS.gold)
 	for foe in battle["foes"]:
 		if foe["hp"] <= 0:
 			continue
@@ -1013,26 +1065,36 @@ func draw_battle(battle: Dictionary) -> void:
 		if int(foe["shield"]) > 0:
 			target += " · 护罩 %d" % int(foe["shield"])
 		add_gauge(target, foe["hp"], foe["maxHp"], COLORS.red)
-	add_gauge("气血", battle["hp"], battle["maxHp"], COLORS.jade)
-	add_gauge("怒气", battle["rage"], 100, COLORS.gold)
+	var skills := PackedStringArray()
+	for skill in battle["skills"]:
+		var cooldown := int(skill["cooldown"])
+		skills.append(skill["name"] + (" · %d 轮" % cooldown if cooldown > 0 else " · 可用"))
+	if not skills.is_empty():
+		add_label(" / ".join(skills), 14, COLORS.muted)
 	if battle["text"]:
 		add_label(battle["text"], 15, COLORS.muted)
-	if battle["done"]:
-		add_label(battle["outcome"], 18, COLORS.gold)
-		add_button("结算战斗", func(): request({"op": "advance"}), true)
-		return
-	add_button("下一轮  ▸", func(): request({"op": "combat", "move": "next"}), true)
-	var actions := HBoxContainer.new()
-	page.add_child(actions)
-	add_button(battle["ultimate"], func(): request({"op": "combat", "move": "ult"}), false, not battle["canUlt"], actions)
-	add_button("服丹", func(): request({"op": "combat", "move": "pill"}), false, int(battle["pills"]) == 0, actions)
-	add_button("撤退", func(): request({"op": "combat", "move": "flee"}), false, false, actions)
-	add_button("托管本场", func(): request({"op": "combat", "move": "smart"}))
+
+
+func playback_speed_for(notice: Dictionary) -> int:
+	return battle_speed if notice.get("settingsOpen", false) else 1
+
+
+func add_speed_button(parent: Container = null) -> void:
+	add_button("速度 ×%d" % battle_speed, func():
+		battle_speed = 1 if battle_speed == 2 else 2
+		var config := ConfigFile.new()
+		config.load(AUDIO.SETTINGS)
+		config.set_value("presentation", "battle_speed", battle_speed)
+		if config.save(AUDIO.SETTINGS) != OK:
+			error_text = "无法保存战斗速度。"
+		schedule_draw()
+	, battle_speed == 2, false, parent)
 
 
 func add_battle_scene(data: Dictionary) -> void:
 	var backdrop := BATTLE_SCENE.new()
 	backdrop.combat = data
+	backdrop.playback_speed = playback_speed_for(data)
 	page.add_child(backdrop)
 
 

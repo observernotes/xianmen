@@ -40,6 +40,8 @@ func _initialize() -> void:
 	assert(trip["view"]["notice"]["kind"] == "travel")
 	var saved_trip := send({"op": "load", "save": JSON.stringify(trip["save"])})
 	assert(saved_trip["view"]["notice"]["kind"] == "travel")
+	check_battle_playback(saved_trip["save"])
+	saved_trip = send({"op": "load", "save": saved_trip["save"]})
 	var result := saved_trip
 	var checked_battle := false
 	for i in range(18):
@@ -118,6 +120,8 @@ func _initialize() -> void:
 	var settled_boss := send({"op": "advance"})
 	assert(settled_boss["view"]["ap"] == 2)
 	assert(settled_boss["view"]["notice"]["title"] == "首领战")
+	assert(not request({"op": "combat", "move": "flee"})["ok"])
+	assert(send({"op": "advance"})["view"]["ap"] == 2)
 
 	var late_save: Dictionary = realm_save.duplicate(true)
 	late_save["p"].merge({"r": 1, "s": 3, "xp": 1e9}, true)
@@ -271,6 +275,48 @@ func _initialize() -> void:
 	check_duels(restored["save"]["state"])
 	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels, player panels and save roundtrips passed")
 	quit()
+
+
+func check_battle_playback(save: Dictionary) -> void:
+	var fixture := save.duplicate(true)
+	fixture["state"]["exp"]["rage"] = 100
+	var travel := send({"op": "load", "save": fixture})
+	assert(travel["view"]["notice"]["delay"] == 1500)
+	var holding := send({"op": "advance"})
+	assert(holding["view"]["notice"]["canUlt"])
+	assert(holding["view"]["notice"]["delay"] == -1)
+	assert(not holding["view"]["notice"]["settingsOpen"])
+	assert(not request({"op": "combat", "move": "tick"})["ok"])
+	assert(not request({"op": "combat", "move": "invalid"})["ok"])
+	assert(not request({"op": "battle-auto-ult"})["ok"])
+	assert(send({"op": "load", "save": holding["save"]})["view"]["notice"] == holding["view"]["notice"])
+	var manual := send({"op": "combat", "move": "ult"})
+	assert(manual["view"]["cinema"]["asset"] == "ult")
+	var mid_cinematic := send({"op": "load", "save": manual["save"]})
+	assert(mid_cinematic["view"]["cinema"] == manual["view"]["cinema"])
+	var after_cinematic := send({"op": "cinema-done", "token": manual["view"]["cinema"]["token"]})
+	assert(after_cinematic["view"]["notice"] == manual["view"]["notice"])
+	assert(after_cinematic["save"]["battle"].size() == 1)
+
+	fixture["state"]["pact"] = 1
+	send({"op": "load", "save": fixture})
+	var unlocked := send({"op": "advance"})
+	assert(unlocked["view"]["notice"]["settingsOpen"])
+	var enabled := send({"op": "battle-auto-ult"})
+	assert(enabled["view"]["notice"]["autoUlt"])
+	assert(enabled["view"]["notice"]["delay"] >= 0)
+	assert(send({"op": "load", "save": enabled["save"]})["view"]["notice"] == enabled["view"]["notice"])
+	var fired := send({"op": "combat", "move": "tick"})
+	assert(fired["save"]["battle"][0] == {"ult": true, "pill": false, "flee": false})
+	assert(fired["view"]["notice"]["effects"][0]["kind"] == "ult")
+	assert(fired["view"]["ap"] == travel["view"]["ap"])
+	var auto_off: Dictionary = fired["save"].duplicate(true)
+	auto_off["state"]["flags"]["autoUlt"] = false
+	var resumed := send({"op": "load", "save": auto_off})
+	var expected: Dictionary = fired["view"]["notice"].duplicate(true)
+	expected["autoUlt"] = false
+	assert(resumed["view"]["notice"] == expected)
+	assert(resumed["save"]["battle"] == fired["save"]["battle"])
 
 
 func check_player_panels(sect_base: Dictionary, base: Dictionary) -> void:
