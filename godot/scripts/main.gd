@@ -55,7 +55,10 @@ var selected_map := -1
 var show_drops := false
 var show_journey := false
 var show_saves := false
-var share_code := ""
+var save_page := ""
+var import_draft := ""
+var export_code := ""
+var clipboard_notice := ""
 var redraw_queued := false
 var dialogue_key := ""
 var dialogue_index := 0
@@ -97,6 +100,12 @@ func _ready() -> void:
 		error_text = runtime.get_last_error()
 	elif FileAccess.file_exists(SAVE_PATH):
 		request({"op": "load", "save": FileAccess.get_file_as_string(SAVE_PATH)})
+		if current_save.is_empty() and not error_text.is_empty():
+			var fallback = JSON.parse_string(runtime.request('{"op":"view"}'))
+			if fallback is Dictionary and fallback.get("ok"):
+				view = fallback["view"]
+			error_text = "自动 1 读不出来。可尝试读取自动 2 或自动 3。"
+			show_saves = true
 	else:
 		request({"op": "view"})
 	schedule_draw()
@@ -133,6 +142,20 @@ func request(message: Dictionary) -> void:
 		error_text = result.get("error", "无法完成操作")
 	else:
 		error_text = ""
+		var save = result.get("save")
+		if save is Dictionary and message["op"] != "export":
+			var replacing: bool = message["op"] in ["load", "import", "new"] and not current_save.is_empty()
+			if not update_auto_save(save, replacing):
+				error_text = "本地存档更新失败。"
+				if replacing:
+					var restored = JSON.parse_string(runtime.request(JSON.stringify({"op": "load", "save": current_save}, "", false, true)))
+					if restored is Dictionary and restored.get("ok"):
+						error_text = "进度备份或写入失败，已保留当前进度。"
+					else:
+						runtime = null
+						error_text = "进度写入失败。重新打开游戏可从磁盘存档恢复。"
+					schedule_draw()
+					return
 		var action_result = result.get("result")
 		if action_result is Dictionary:
 			loot_flips = action_result.get("lootFlips", [])
@@ -145,19 +168,22 @@ func request(message: Dictionary) -> void:
 			selected_map = int(action_result.get("region", -1))
 		view = result.get("view", {})
 		play_feedback(message)
-		if result.get("save") != null and message["op"] != "export":
-			var replacing: bool = message["op"] in ["load", "import", "new"] and not current_save.is_empty()
-			update_auto_save(result["save"], replacing)
 		if message["op"] == "export":
-			share_code = result.get("result", "")
-		elif message["op"] in ["import", "load"]:
+			export_code = result.get("result", "")
+			save_page = "export"
+		if message["op"] in ["new", "import", "load", "title"]:
 			show_saves = false
-			share_code = ""
-		if message["op"] in ["new", "import", "load"]:
+			save_page = ""
+			import_draft = ""
+			export_code = ""
+			clipboard_notice = ""
 			show_maps = false
 			show_drops = false
 			show_journey = false
 			selected_map = -1
+			intro_page = -1
+			realm_transition.clear()
+			replay_cinema.clear()
 			dialogue_key = ""
 			dialogue_index = 0
 			dialogue_history = false
@@ -194,8 +220,22 @@ func store_save(save: Dictionary, path: String) -> bool:
 	return DirAccess.rename_absolute(absolute_source, absolute_target) == OK
 
 
-func update_auto_save(save: Dictionary, replacing: bool) -> void:
-	var previous := read_save(SAVE_PATH)
+func archive_auto_save(save: Dictionary, reason := "") -> bool:
+	var saved := save
+	if not reason.is_empty():
+		saved = save.duplicate()
+		var heading: Dictionary = save.get("summary", {})
+		saved["summary"] = heading.merged({"why": reason, "key": true}, true)
+	var second := read_save(AUTO_SLOTS[1])
+	if second == saved:
+		return true
+	if not second.is_empty() and not store_save(second, AUTO_SLOTS[2]):
+		return false
+	return store_save(saved, AUTO_SLOTS[1])
+
+
+func update_auto_save(save: Dictionary, replacing: bool) -> bool:
+	var previous := current_save if replacing else read_save(SAVE_PATH)
 	var last_summary: Dictionary = previous.get("summary", {})
 	var next_summary: Dictionary = save.get("summary", {})
 	var overwriting_checkpoint: bool = last_summary.get("key", false) and (
@@ -203,17 +243,26 @@ func update_auto_save(save: Dictionary, replacing: bool) -> void:
 	)
 	var backup_ok := true
 	if not previous.is_empty() and (replacing or overwriting_checkpoint):
-		var second := read_save(AUTO_SLOTS[1])
-		if not second.is_empty():
-			backup_ok = store_save(second, AUTO_SLOTS[2])
-		if backup_ok:
-			if replacing:
-				previous["summary"] = last_summary.duplicate()
-				previous["summary"]["why"] = "读档前"
-			backup_ok = store_save(previous, AUTO_SLOTS[1])
-	current_save = save
-	if not backup_ok or not store_save(save, SAVE_PATH):
-		error_text = "本地存档更新失败。"
+		backup_ok = archive_auto_save(previous, "读档前" if replacing else "")
+	var written := backup_ok and store_save(save, SAVE_PATH)
+	if written or not replacing:
+		current_save = save
+	return written
+
+
+func restart_game() -> void:
+	if current_save.is_empty():
+		return
+	if not archive_auto_save(current_save, "重来前"):
+		error_text = "备份未能写入，已保留当前进度。"
+		schedule_draw()
+		return
+	if FileAccess.file_exists(SAVE_PATH) and DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH)) != OK:
+		error_text = "无法清除当前自动档，已保留当前进度。"
+		schedule_draw()
+		return
+	current_save = {}
+	request({"op": "title"})
 
 
 func schedule_draw() -> void:
@@ -244,7 +293,7 @@ func draw_view() -> void:
 	elif view.get("panel") is Dictionary:
 		next_page_key = "panel:" + String(view["panel"]["id"])
 	elif show_saves:
-		next_page_key = "saves"
+		next_page_key = "saves/" + save_page
 	elif show_maps and selected_map >= 0:
 		next_page_key = "drops" if show_drops else "map"
 	var scroll_position := 0
@@ -762,28 +811,74 @@ func meter_range(track: Control, start: float, end: float, tint: Color) -> void:
 
 func draw_saves() -> void:
 	add_label("存档", 22, COLORS.gold)
+	if not save_page.is_empty():
+		draw_save_transfer()
+		return
 	add_button("返回", toggle_saves)
+	var transfer := HBoxContainer.new()
+	page.add_child(transfer)
+	add_button("导入存档", func():
+		save_page = "import"
+		clipboard_notice = ""
+		schedule_draw()
+	, true, false, transfer)
+	if view.get("started", false):
+		add_button("导出存档", func(): request({"op": "export"}), false, false, transfer)
 	for index in AUTO_SLOTS.size():
 		draw_save_slot(AUTO_SLOTS[index], "自动 %d" % (index + 1), false)
 	for index in MANUAL_SLOTS.size():
 		draw_save_slot(MANUAL_SLOTS[index], "手动 %d" % (index + 1), true)
 	if view.get("started", false):
-		add_button("生成导出码", func(): request({"op": "export"}))
-		if share_code.begins_with("XT1."):
-			add_button("复制存档码", func(): DisplayServer.clipboard_set(share_code))
+		add_button("重新开始", func():
+			confirm_action("重新开始", "当前进度会移到自动 2，可随时读回。", "确定重来", {"op": "restart"})
+		)
+
+
+func draw_save_transfer() -> void:
+	var exporting := save_page == "export"
+	add_label("导出存档" if exporting else "导入存档", 20, COLORS.jade)
+	add_button("返回存档", func():
+		save_page = ""
+		clipboard_notice = ""
+		error_text = ""
+		schedule_draw()
+	)
 	var field := TextEdit.new()
-	field.placeholder_text = "粘贴由游戏导出的存档"
-	field.text = share_code
-	field.custom_minimum_size.y = 112
+	field.placeholder_text = "XT1. …"
+	field.text = export_code if exporting else import_draft
+	field.editable = not exporting
+	field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	field.custom_minimum_size.y = 180
 	page.add_child(field)
-	add_button("导入", func():
-		share_code = field.text
-		var message := {"op": "import", "code": share_code}
-		if current_save.is_empty():
-			request(message)
-		else:
-			confirm_action("导入存档", "当前进度会备份到自动 2。", "导入", message)
-	, true)
+	if exporting:
+		add_button("复制存档码", func():
+			var copied := export_code
+			DisplayServer.clipboard_set(copied)
+			await get_tree().create_timer(0.18).timeout
+			if show_saves and save_page == "export" and export_code == copied:
+				clipboard_notice = "已复制存档码。" if DisplayServer.clipboard_get() == copied else "剪贴板不可用，可手动选中存档码。"
+				schedule_draw()
+		, true, export_code.is_empty())
+	else:
+		field.text_changed.connect(func(): import_draft = field.text)
+		add_button("粘贴存档码", func():
+			var pasted := DisplayServer.clipboard_get().strip_edges()
+			clipboard_notice = "剪贴板没有可粘贴的文字。" if pasted.is_empty() else ""
+			if not pasted.is_empty():
+				import_draft = pasted
+				error_text = ""
+			schedule_draw()
+		)
+		add_button("导入", func():
+			import_draft = field.text
+			var message := {"op": "import", "code": import_draft}
+			if current_save.is_empty():
+				request(message)
+			else:
+				confirm_action("导入存档", "当前进度会先备份到自动 2。", "导入", message)
+		, true)
+	if not clipboard_notice.is_empty():
+		add_label(clipboard_notice, 15, COLORS.muted)
 
 
 func draw_save_slot(path: String, title: String, manual: bool) -> void:
@@ -797,8 +892,12 @@ func draw_save_slot(path: String, title: String, manual: bool) -> void:
 	else:
 		var name := String(summary.get("name", player.get("name", "")))
 		var detail := [name, String(summary.get("realm", ""))]
+		if summary.has("ch"):
+			detail.append("第 %d 章" % (int(summary["ch"]) + 1))
 		if summary.has("y"):
 			detail.append("第 %d 年" % int(summary["y"]))
+		if int(summary.get("life", 1)) > 1:
+			detail.append("第 %d 世" % int(summary["life"]))
 		if summary.get("why", ""):
 			detail.append(String(summary["why"]))
 		add_label(" · ".join(detail.filter(func(part): return not String(part).is_empty())), 15)
@@ -1075,10 +1174,14 @@ func confirm_action(title: String, prompt: String, label: String, message: Dicti
 	dialog.ok_button_text = label
 	dialog.cancel_button_text = "取消"
 	add_child(dialog)
+	dialog.get_ok_button().custom_minimum_size = Vector2(86, 48)
+	dialog.get_cancel_button().custom_minimum_size = Vector2(86, 48)
 	dialog.confirmed.connect(func():
 		dialog.queue_free()
 		if message["op"] == "write-slot":
 			write_manual_slot(message["path"])
+		elif message["op"] == "restart":
+			restart_game()
 		elif message["op"] == "delete-slot":
 			if MANUAL_SLOTS.has(message["path"]):
 				var removed := DirAccess.remove_absolute(ProjectSettings.globalize_path(message["path"]))
@@ -1300,6 +1403,8 @@ func action(id: String) -> void:
 
 func toggle_saves() -> void:
 	show_saves = not show_saves
+	save_page = ""
+	clipboard_notice = ""
 	schedule_draw()
 
 

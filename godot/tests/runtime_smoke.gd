@@ -105,6 +105,16 @@ func _initialize() -> void:
 	var restored := send({"op": "import", "code": code})
 	assert(restored["view"]["name"] == "原生测试")
 	assert(restored["view"]["date"] == "第 1 年 · 夏")
+	assert(not request({"op": "import", "code": code.left(-5)})["ok"])
+	assert(send({"op": "view"})["view"] == restored["view"])
+	var title := send({"op": "title"})
+	assert(not title["view"]["started"])
+	assert(title["save"] == null)
+	var unicode_name := "林逸尘青云𠮷"
+	assert(send({"op": "new", "name": unicode_name})["view"]["name"] == unicode_name)
+	var unicode_code: String = send({"op": "export"})["result"]
+	assert(send({"op": "import", "code": unicode_code})["view"]["name"] == unicode_name)
+	restored = send({"op": "import", "code": code})
 	var broken_save: Dictionary = restored["save"].duplicate(true)
 	broken_save["state"]["p"]["r"] = -1
 	var rejected = JSON.parse_string(runtime.request(JSON.stringify({"op": "load", "save": broken_save})))

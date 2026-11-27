@@ -836,13 +836,17 @@
 
   function dispatch(message) {
     const { op } = message;
-    if (op === 'new') {
-      state = L.newState({ name: String(message.name || '无名').trim().slice(0, 6) || '无名' });
-      if (message.introSeen) XianmenCinematics.mark(state, XianmenCinematics.intro());
-      state.guide = { step: 0, done: false };
-      state.story.beat.c1_open = 0;
-      L.fireTrigger(state, 'sb:c1_open');
-      L.chainOpen(state, 'act');
+    if (op === 'new' || op === 'title') {
+      state = null;
+      if (op === 'new') {
+        const name = Array.from(String(message.name || '').trim()).slice(0, 6).join('') || '无名';
+        state = L.newState({ name });
+        if (message.introSeen) XianmenCinematics.mark(state, XianmenCinematics.intro());
+        state.guide = { step: 0, done: false };
+        state.story.beat.c1_open = 0;
+        L.fireTrigger(state, 'sb:c1_open');
+        L.chainOpen(state, 'act');
+      }
       note = null;
       encounter = null;
       openEvent = null;

@@ -1,6 +1,6 @@
 # 废柴仙途 Godot 移动端迁移
 
-移动端界面由 Godot 4 的 Control、场景和纹理驱动。游戏规则和剧情数据使用同一份 `src/logic` 和 `src/content`，由原生 GDExtension 中的 QuickJS 执行。安卓包内没有 HTML 页面或 WebView。旧版 XT1 导出码用于跨客户端迁移存档。Godot 有三份自动档和三份手动档，自动档还记录未关闭的结算卡，读取其他档位前会备份当前进度。
+移动端界面由 Godot 4 的 Control、场景和纹理驱动。游戏规则和剧情数据使用同一份 `src/logic` 和 `src/content`，由原生 GDExtension 中的 QuickJS 执行。安卓包内没有 HTML 页面或 WebView。可在存档页复制或粘贴 XT1 存档码，用于旧版和 Godot 之间迁移。Godot 有三份自动档和三份手动档，自动档还记录未关闭的结算卡，读档、导入或重新开始前会备份当前进度。
 
 ## 构建
 
