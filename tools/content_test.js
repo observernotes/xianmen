@@ -3366,7 +3366,8 @@ async function apSection(quick) {
         await pg.evaluate(setup); await pg.waitForTimeout(wait);
         return pg.evaluate(() => ({ title: document.getElementById('modal').hidden ? '' : document.querySelector('#modal h2').textContent, stamp: !!document.querySelector('#modal .duel-ch-stamp'), tip: window.__xm.bubbleLog.length }));
       };
-      const ch0 = await chap(() => { const X = window.__xm, { L } = X; const s = L.newState({ name: '章' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); X.st.stats.exp = 1; L.checkQuests(X.st); X.onTick(); }, 3000);
+      // 只量章末卡本身：主线节拍（开章、高潮、收尾的戏）关掉（L.STORYLINE = false），不然新档一读进来结算链先放“破庙第一夜”
+      const ch0 = await chap(() => { const X = window.__xm, { L } = X; L.STORYLINE = false; const s = L.newState({ name: '章' }); s.guide = { step: 99, done: true }; s.storyQ = []; s.hintSeen = {}; for (const h of X.hints) s.hintSeen[h.id] = 1; X.loadState(JSON.parse(JSON.stringify(s))); X.setSpeed(3); X.st.stats.exp = 1; L.checkQuests(X.st); X.onTick(); }, 3000);
       expect(ch0.title === '', '章末卡：做完的只是小任务（历练一次），不弹章末卡：' + JSON.stringify(ch0));
       const ch1 = await chap(() => { const X = window.__xm; X.st.beaten.mu = 1; X.L.checkQuests(X.st); X.onTick(); }, 3500);
       expect(/^第一章/.test(ch1.title) && ch1.stamp, '章末卡：本章主线（赢下三年之约）刚完成时弹出，带“完”印：' + JSON.stringify(ch1));
@@ -3376,6 +3377,7 @@ async function apSection(quick) {
       expect(ch2.title === '', '章末卡：只弹一次');
       const ch3 = await chap(() => { const X = window.__xm, { st, L } = X; st.p.r = 3; st.flags.maxR = 3; st.quest.done = {}; st.beaten.mu = 0; X.onTick(); st.beaten.mu = 1; L.checkQuests(st); X.onTick(); }, 3000);
       expect(ch3.title === '' || !/^第一章/.test(ch3.title), '章末卡：早已过去的章节（元婴期补完第一章主线）不弹卡，只留一句气泡：' + JSON.stringify(ch3));
+      await pg.evaluate(() => { window.__xm.L.STORYLINE = true; });
       await ctx.close();
     }
     // ---- 札记：带自己 id 的新任务可完成、不占序号（旧档记录不错位）----
