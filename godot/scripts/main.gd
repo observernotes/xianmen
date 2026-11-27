@@ -208,6 +208,16 @@ func draw_maps() -> void:
 
 func draw_map(location: Dictionary) -> void:
 	add_label(location["name"], 24, COLORS.gold)
+	var boss = location.get("boss")
+	if boss is Dictionary:
+		var target := {"k": location["k"]}
+		add_button("讨伐" + boss["name"] + " ◆1", func():
+			show_maps = false
+			selected_map = -1
+			request({"op": "act", "action": "boss", "args": target})
+		, true, not String(boss["why"]).is_empty())
+		if boss["why"]:
+			add_label(boss["why"], 14, COLORS.muted)
 	for cell in location["cells"]:
 		var args := [location["k"], cell["d"], cell["a"]]
 		add_label(cell["label"] + " · " + cell["estimate"], 17)

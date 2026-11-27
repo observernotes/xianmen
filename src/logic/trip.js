@@ -256,7 +256,8 @@ L.tripDead = e => !!(e && e.nodes && e.bt && e.bt.dead);
 L.bossBattle = function (st, k, opt) {
   const foes = [L.btFoe(L.bossFoeId(k), L.rec(k, 2))];
   const T = L.btPower(st, k, 2, 0);
-  return L.battleNew(st, foes, 1 + Math.floor(R() * 1e9), Object.assign({ T, pills: pillsOf(st) }, opt || {}));
+  const { seed = 1 + Math.floor(R() * 1e9), ...overrides } = opt || {};
+  return L.battleNew(st, foes, seed, Object.assign({ T, pills: pillsOf(st) }, overrides));
 };
 // 胜算：同一只首领跑 30 个种子（'smart'）
 const bmemo = new Map();

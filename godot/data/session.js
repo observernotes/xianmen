@@ -6,6 +6,7 @@
   let note = null;
   let panel = null;
   let battle = null;
+  let boss = null;
   let battleInputs = [];
   let battleLog = '';
 
@@ -85,7 +86,7 @@
     if (state.run) return realmView();
     if (battle) {
       return {
-        kind: 'battle', title: '历练交手', round: battle.round + 1,
+        kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: battle.round + 1,
         hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.round(battle.max), rage: Math.floor(battle.rage),
         foes: battle.foes.filter(foe => foe.hp > 0).map(foe => ({
           name: foe.n, hp: Math.ceil(foe.hp), maxHp: Math.round(foe.max), shield: foe.sh, charge: !!foe.charge,
@@ -157,7 +158,10 @@
       stones: fmt(state.stones), power: fmt(L.power(state)), xp: fmt(state.p.xp), xpNeed: fmt(L.pNeed(state.p)),
       ap: L.apLeft(state), apTotal: L.AP.per, canBreak: L.isReady(state),
       goal: goal.t, progress: goal.bar.text, advice: goal.next?.t || '',
-      maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{ k, name: map.n, cells: expeditionCells(k) }] : []),
+      maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{
+        k, name: map.n, cells: expeditionCells(k),
+        boss: L.bossReady(state, k) ? { name: L.BOSSES[k].n, why: L.apWhy(state, 'boss', { k }) } : null,
+      }] : []),
       canRetreat: L.retOpen(state),
       array: arrayView(),
       realms: notice ? [] : realmEntries(),
@@ -199,6 +203,7 @@
       pending: (state._apBlk || []).filter(block => ['result', 'season', 'year'].includes(block.kind)),
       chain: { ...L.chainOpenNow(state) },
       battle: battle ? battleInputs : null,
+      boss,
     };
   }
 
@@ -212,7 +217,10 @@
     encounter = state.exp?.encEv && !state.exp.encDone ? state.exp.encEv : null;
     note = native ? parsed.note || null : null;
     panel = null;
-    battle = native && Array.isArray(parsed.battle) ? L.expBattle(state) : null;
+    boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
+    if (native && Array.isArray(parsed.battle)) {
+      battle = boss ? L.bossBattle(state, boss.k, { seed: boss.seed }) : L.expBattle(state);
+    } else battle = null;
     battleInputs = battle ? parsed.battle : [];
     battleLog = '';
     if (battle) for (const input of battleInputs) playRound(input);
@@ -270,10 +278,13 @@
     }
     if (!battle.done) return;
     const result = L.battleResult(battle);
+    const target = boss;
     battle = null;
+    boss = null;
     battleInputs = [];
     battleLog = '';
-    finishTripStep(result);
+    if (!target) finishTripStep(result);
+    else if (!L.act(state, 'boss', { k: target.k, res: result })) throw new Error(L.actLastWhy || '首领战未能结算');
   }
 
   function dispatch(message) {
@@ -288,6 +299,7 @@
       encounter = null;
       panel = null;
       battle = null;
+      boss = null;
       battleInputs = [];
       battleLog = '';
       return;
@@ -350,6 +362,16 @@
       return;
     }
     if (op === 'act') {
+      if (message.action === 'boss') {
+        const k = L.actArg(message.args, 0, 'k');
+        const why = L.apWhy(state, 'boss', { k });
+        if (why) throw new Error(why);
+        boss = { k, seed: 1 + Math.floor(L.rng() * 1e9) };
+        battle = L.bossBattle(state, k, { seed: boss.seed });
+        const seen = state.meta.foes || (state.meta.foes = {});
+        for (const foe of battle.foes) seen[foe.id] = 1;
+        return;
+      }
       if (!L.act(state, message.action, message.args)) throw new Error(L.actLastWhy || '此刻无法行动');
       return;
     }

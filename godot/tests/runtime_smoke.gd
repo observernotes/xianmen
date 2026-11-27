@@ -68,6 +68,15 @@ func _initialize() -> void:
 	assert(resumed["view"]["notice"] == entered["view"]["notice"])
 	var door: Dictionary = resumed["view"]["notice"]["options"][0]
 	send({"op": "realm-action", "move": door["move"], "index": door["index"]})
+	realm_save["best"]["0_2"] = 3
+	send({"op": "load", "save": JSON.stringify(realm_save)})
+	var boss := send({"op": "act", "action": "boss", "args": {"k": 0}})
+	assert(boss["view"]["notice"]["kind"] == "battle")
+	var resumed_boss := send({"op": "load", "save": JSON.stringify(boss["save"])})
+	assert(resumed_boss["view"]["notice"] == boss["view"]["notice"])
+	var settled_boss := send({"op": "combat", "move": "smart"})
+	assert(settled_boss["view"]["ap"] == 2)
+	assert(settled_boss["view"]["notice"]["title"] == "首领战")
 	print("Godot native runtime: story, combat, settlement resume, season, management, realm, and XT1 save roundtrip passed")
 	quit()
 
