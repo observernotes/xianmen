@@ -27,7 +27,7 @@ function hdPresent(now) {
   hdN++;
   if (tk || cn) return;                                                    // 对话 / 过场盖着整屏：不合成
   if (cvs.offsetParent === null && cvs.getClientRects().length === 0) return;   // 场景不在屏上
-  if (HDX.half && (hdN & 1)) return;                                       // 掉帧：先隔帧合成（HD2D.auto 会拨这个）
+  if (HDX.half && (hdN & 1)) return;                                       // 掉帧：先隔帧合成（HD2D.degrade 会拨这个；手动选的档也会，设置项不变）
   if (!$('#modal').hidden && hdN % 6) return;                              // 弹窗压着：六帧合成一次
   HDX.present(now);
 }
