@@ -9,6 +9,9 @@
   let boss = null;
   let battleInputs = [];
   let battleLog = '';
+  let breakthrough = null;
+  let rebirth = null;
+  let returnToGate = false;
 
   const fmt = L.fmt;
   const fill = value => L.fill(state, value);
@@ -46,16 +49,122 @@
     scene: ev.scene || '',
     dialogue: dialogue(ev.talk, ev.id),
     options: ev.choices.flatMap((choice, index) => {
-      if (!L.choiceShown(state, choice)) return [];
-      return [{ index, label: fill(choice.t), available: L.costOk(state, choice.cost) }];
+      const gate = L.choiceGate(state, choice);
+      const shown = L.choiceShown(state, choice);
+      if (!shown && gate.ok) return [];
+      const text = [gate.ok ? choice.hint : gate.why, choice.cost && L.costText(state, choice.cost)].filter(Boolean).join(' · ');
+      return [{ index, label: fill(choice.t), available: shown && L.costOk(state, choice.cost), text }];
     }),
   });
+
+  function breakthroughView() {
+    const active = state.trib?.cur && L.tribView(state);
+    const trib = L.tribNeeded(state);
+    const sure = active ? active.sure : state.flags.sureBt || (!trib && L.btGuard(state));
+    const selection = breakthrough || { pills: 0, aids: {} };
+    const aids = trib ? (active ? active.canAdd : ['fa', 'pet', 'daolv', 'zhen']) : [];
+    const pillMax = sure ? 0 : active ? active.pillMax : L.btPills(state, true);
+    const rate = active ? active.p : trib ? L.tribRate(state, selection) : L.btRate(state, selection.pills);
+    return {
+      kind: 'breakthrough', title: active ? '天劫暂歇' : state.p.r === L.MAXR ? '飞升天劫' : '境界突破',
+      text: active ? '第 ' + active.pauseAfter + ' / ' + active.N + ' 道雷已落。\n' + active.hint.text
+        : '冲击' + (state.p.r === L.MAXR ? '飞升' : L.REALMS[state.p.r + 1].n) + ' · 成功率 ' + L.pct(rate),
+      shield: active ? active.shield * 100 : null, active: !!active, trib,
+      pills: Math.min(selection.pills, pillMax), pillMax,
+      aids: sure ? [] : aids.map(key => {
+        const info = L.aidInfo(state, key);
+        return { key, text: info.n + ' +' + L.pct(info.v), why: info.ok ? '' : info.why, cost: info.cost, selected: !!selection.aids[key] };
+      }),
+    };
+  }
+
+  function finishBreakthrough(result) {
+    if (!result) throw new Error('此刻无法突破');
+    breakthrough = null;
+    const lines = [result.ok ? L.stageName(state.p) : '这次未能突破'];
+    if (result.tb?.grade) lines.push('渡劫评价 · ' + result.tb.grade);
+    if (result.dan) lines.push(result.dan);
+    if (result.daoji?.add) lines.push('道基 +' + L.pct(result.daoji.add));
+    lines.push(...(result.tb?.costs || []));
+    note = { kind: 'card', title: result.ok ? '突破成功' : '突破失败', text: lines.join('\n') };
+    L.chainOpen(state, 'act');
+  }
+
+  const lifeEnded = () => state.p.r <= L.MAXR && (
+    L.lifeLeft(state) <= 0 || L.trialOn(state, 'limit') && state.tick >= L.TRIAL_LIMIT
+  );
+
+  function ascensionGate() {
+    if (state.p.r <= L.MAXR) return null;
+    if (returnToGate && state.eflags.asc_stay) return L.eventById('s9_gate_again');
+    if (!state.evDone.s9_gate && !L.STORY_ASC.some(flag => state.eflags[flag])) return L.eventById('s9_gate');
+    return null;
+  }
+
+  function endingView() {
+    if (lifeEnded()) return {
+      kind: 'life', title: '坐化', text: state.p.name + '止步' + L.stageName(state.p) +
+        '，享年 ' + Math.floor(state.p.age) + ' 岁。\n' + L.restLine(state), mode: 'rest',
+    };
+    const ending = L.endingOf(state);
+    return {
+      kind: 'life', title: ending.n, text: [].concat(ending.paras || ending.text || [], L.epilogue(state).map(card => card.who + ' · ' + card.text)).join('\n\n'),
+      mode: 'ascend',
+    };
+  }
+
+  function recordLife() {
+    const summary = L.lifeSummary(state);
+    const index = state.flags.lifeIdx;
+    if (Number.isInteger(index) && state.lives[index]) state.lives[index] = summary;
+    else state.flags.lifeIdx = state.lives.push(summary) - 1;
+  }
+
+  function rebirthView() {
+    if (!rebirth) rebirth = {
+      cards: L.rebirthCards(state, L.rebirthCardN(state)),
+      origin: L.originOpen(state, state.origin) ? state.origin : 'qitu',
+      trials: (state.trials || []).slice(), card: 0,
+    };
+    const candidates = L.legacyCands(state);
+    const legacy = state.meta.legacy || {};
+    const gearMatch = item => legacy.gear?.slot === item.slot && legacy.gear?.aff === item.aff;
+    return {
+      kind: 'rebirth', title: '轮回殿',
+      text: '本世道果 +' + fmt(state.settle.total) + ' · 余额 ' + fmt(L.daoguo(state)),
+      cards: rebirth.cards.map((card, index) => ({
+        label: L.TALENTS[card.t].n + ' · ' + L.TRAITS[card.tr[0]].n, index, selected: rebirth.card === index,
+      })),
+      origins: L.ORIGIN_IDS.filter(id => L.originOpen(state, id)).map(id => ({ id, label: L.ORIGINS[id].n, selected: rebirth.origin === id })),
+      trials: L.TRIALS.map(trial => ({ id: trial.id, label: trial.n, text: trial.d, selected: rebirth.trials.includes(trial.id) })),
+      hall: L.HALL.map(item => ({
+        id: item.id, label: item.n, text: item.d, why: L.hallWhy(state, item.id), cost: fmt(L.hallCost(state, item.id)),
+      })),
+      legacy: [
+        ...candidates.arts.map(item => ({ move: 'legacy-art', id: item.id, label: '功法 · ' + item.n, selected: !!legacy.arts?.includes(item.id) })),
+        ...candidates.gear.map((item, index) => ({ move: 'legacy-gear', id: index, label: '器灵 · ' + item.n + ' · ' + item.an, selected: gearMatch(item) })),
+        ...candidates.pets.map(item => ({ move: 'legacy-pet', id: item.sp, label: '血脉 · ' + item.n, selected: legacy.pet === item.sp })),
+      ],
+    };
+  }
 
   function blockView(block) {
     const data = block.data || {};
     if (block.kind === 'story' && data.choices) return choiceView(data);
     if (block.kind === 'season' || block.kind === 'year') {
       const report = L.seasonReport(state, data);
+      if (block.kind === 'year' && L.yearDue(state)) {
+        const year = L.yearReport(state);
+        const lines = [
+          '境界 ' + year.realm.join(' → '),
+          '战力 ' + year.pw.map(fmt).join(' → '),
+          '灵石收入 ' + fmt(year.earn) + ' · 花费 ' + fmt(year.spend),
+          '历练 ' + year.exp + ' 趟' + (year.bestT ? ' · 最好 ' + year.bestT : ''),
+          ...(year.rank ? ['天骄榜 ' + year.rank.join(' → ')] : []),
+          year.say,
+        ];
+        return { kind: 'card', title: '第 ' + year.y + ' 年 · 年报', text: lines.join('\n'), button: report.btn };
+      }
       return { kind: 'card', title: report.title, text: report.lines.join('\n'), button: report.btn };
     }
     if (block.kind === 'result') {
@@ -63,8 +172,15 @@
       const lines = [];
       if (data.rating !== undefined) lines.push('评价：' + L.RATINGS[data.rating]);
       if (data.win !== undefined) lines.push(data.win ? '取胜' : '落败');
-      if (data.stones) lines.push('灵石 +' + fmt(data.stones));
-      if (data.xp || data.got) lines.push('修为 +' + fmt(data.xp || data.got));
+      const rewards = [
+        ['灵石', data.stones], ['修为', data.xp || data.got], ['灵草', data.herbs],
+        ['灵矿', data.ore], ['破境丹', data.pills], ['天材地宝', data.treasure],
+        ['宗门贡献', data.contrib], ['返还行动点', data.refund],
+      ];
+      lines.push(...rewards.filter(([, value]) => value > 0).map(([label, value]) => label + ' +' + fmt(value)));
+      if (data.inj) lines.push(L.injText(data.inj));
+      lines.push(...(data.unlock || []));
+      if (data.cards?.length) lines.push('翻牌所得 · ' + data.cards.map(card => card.name + (card.n > 1 ? ' ×' + card.n : '')).join('、'));
       return { kind: 'card', title: name[block.id] || '行动结算', text: lines.join('\n') };
     }
     if (block.kind === 'big') {
@@ -78,6 +194,11 @@
 
   function nextView() {
     if (note) return note;
+    if (state.settle) return rebirthView();
+    if (state.trib?.cur || breakthrough) {
+      const pre = breakthrough?.pre && L.eventById(breakthrough.pre);
+      return pre ? choiceView(pre) : breakthroughView();
+    }
     if (encounter) {
       const ev = L.eventById(encounter);
       if (ev) return choiceView(ev);
@@ -87,9 +208,9 @@
     if (battle) {
       return {
         kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: battle.round + 1,
-        hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.round(battle.max), rage: Math.floor(battle.rage),
+        hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.ceil(battle.max), rage: Math.floor(battle.rage),
         foes: battle.foes.filter(foe => foe.hp > 0).map(foe => ({
-          name: foe.n, hp: Math.ceil(foe.hp), maxHp: Math.round(foe.max), shield: foe.sh, charge: !!foe.charge,
+          name: foe.n, hp: Math.ceil(foe.hp), maxHp: Math.ceil(foe.max), shield: foe.sh, charge: !!foe.charge,
         })),
         ultimate: battle.me.ult.n, canUlt: battle.rage >= 100, pills: battle.pillUsed ? 0 : battle.pills,
         text: battleLog || battle.momText,
@@ -102,11 +223,17 @@
     // Deferred mainline fights have no prepare panel of their own.
     for (let i = 0; i < 12; i++) {
       const block = L.nextBlock(state);
-      if (!block) return null;
+      if (!block) break;
+      if (block.kind === 'big' && block.id === 'death' && lifeEnded()) return endingView();
+      if (block.kind === 'story' && !block.data) { L.blockDone(state, block); continue; }
       if (block.kind !== 'act') return blockView(block);
       L.blockDone(state, block);
     }
-    throw new Error('结算链没有结束');
+    if (lifeEnded()) return endingView();
+    const gate = ascensionGate();
+    if (gate) return choiceView(gate);
+    if (state.p.r > L.MAXR && !state.flags.endRead) return endingView();
+    return null;
   }
 
   function realmView() {
@@ -157,6 +284,8 @@
       started: true, name: state.p.name, date: L.dateText(state), realm: L.stageName(state.p),
       stones: fmt(state.stones), power: fmt(L.power(state)), xp: fmt(state.p.xp), xpNeed: fmt(L.pNeed(state.p)),
       ap: L.apLeft(state), apTotal: L.AP.per, canBreak: L.isReady(state),
+      canRebirth: state.p.r >= 2, canReturnToGate: !!(state.p.r > L.MAXR && state.eflags.asc_stay),
+      ascended: state.p.r > L.MAXR,
       goal: goal.t, progress: goal.bar.text, advice: goal.next?.t || '',
       maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{
         k, name: map.n, cells: expeditionCells(k),
@@ -165,9 +294,9 @@
       canRetreat: L.retOpen(state),
       array: arrayView(),
       realms: notice ? [] : realmEntries(),
-      mainActions: L.mainActs(state).filter(action => action.do && action.do.id !== 'exp').map(action => ({
-        label: action.t, why: action.why || '', available: action.ok, ap: action.ap || 0,
-        id: action.do.id, args: action.do.args,
+      mainActions: notice ? [] : L.mainActs(state).map(action => ({
+        label: action.t, why: action.why || '', available: action.ok && !!action.do, ap: action.ap || 0,
+        id: action.do?.id, args: action.do?.args, chance: action.p,
       })),
       panel: panel && !notice ? { id: panel, entries: XianmenPanels.read(state, panel) } : null,
       notice,
@@ -204,6 +333,9 @@
       chain: { ...L.chainOpenNow(state) },
       battle: battle ? battleInputs : null,
       boss,
+      breakthrough,
+      rebirth,
+      returnToGate,
     };
   }
 
@@ -216,6 +348,9 @@
     state.guide = { step: 99, done: true };
     encounter = state.exp?.encEv && !state.exp.encDone ? state.exp.encEv : null;
     note = native ? parsed.note || null : null;
+    breakthrough = native ? parsed.breakthrough || null : null;
+    rebirth = native ? parsed.rebirth || null : null;
+    returnToGate = native && !!parsed.returnToGate;
     panel = null;
     boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
     if (native && Array.isArray(parsed.battle)) {
@@ -224,24 +359,36 @@
     battleInputs = battle ? parsed.battle : [];
     battleLog = '';
     if (battle) for (const input of battleInputs) playRound(input);
-    L.chainOpen(state, 'load');
-    if (native) {
+    if (native && parsed.chain) {
       for (const block of parsed.pending || []) L.blockPush(state, block);
-      Object.assign(L.chainOpenNow(state), parsed.chain || {});
-    }
+      Object.assign(L.chainOpenNow(state), parsed.chain);
+    } else L.chainOpen(state, 'load');
   }
 
   function resolve(index) {
+    if (note) throw new Error('请先完成当前结算');
     const realmEvent = L.mjEventNow(state);
     const event = realmEvent || (encounter && L.eventById(encounter));
-    const block = !event && L.nextBlock(state);
-    const ev = event || (block?.kind === 'story' && block.data);
+    const pre = breakthrough?.pre && L.eventById(breakthrough.pre);
+    const gate = ascensionGate();
+    const block = !event && !pre && L.nextBlock(state);
+    const ev = event || pre || (block?.kind === 'story' && block.data) || (!block && gate);
     if (!ev) throw new Error('没有待选的奇遇');
     const choice = ev.choices[index];
     if (!choice || !L.choiceShown(state, choice) || !L.costOk(state, choice.cost)) throw new Error('目前无法选择这个选项');
     if (block) L.blockDone(state, block);
     const result = L.resolveChoice(state, ev, index);
     if (!result) throw new Error('奇遇未能结算');
+    if (pre) {
+      delete breakthrough.pre;
+      L.tribStart(state, breakthrough);
+      breakthrough = null;
+    }
+    if (ev.id === 's9_gate' || ev.id === 's9_gate_again') {
+      returnToGate = false;
+      L.checkQuests(state);
+      if (ev.id === 's9_gate' || !state.eflags.asc_stay) state.flags.endRead = 0;
+    }
     const realmResult = realmEvent ? L.mjAfterEvent(state) : null;
     if (event) encounter = null;
     const response = choice[result.ok ? 'ok' : 'fail'] || choice.ok;
@@ -287,6 +434,68 @@
     else if (!L.act(state, 'boss', { k: target.k, res: result })) throw new Error(L.actLastWhy || '首领战未能结算');
   }
 
+  function changeBreakthrough(message) {
+    if (nextView()?.kind !== 'breakthrough') throw new Error('目前没有待处理的突破');
+    const form = breakthroughView();
+    if (!breakthrough) breakthrough = { pills: 0, aids: {} };
+    if (message.move === 'pill') {
+      breakthrough.pills = Math.max(0, Math.min(form.pillMax, breakthrough.pills + Math.sign(message.step || 0)));
+    } else if (message.move === 'aid') {
+      if (!form.aids.some(aid => aid.key === message.key && !aid.why)) throw new Error('这项护劫手段不可用');
+      breakthrough.aids[message.key] = !breakthrough.aids[message.key];
+    } else if (message.move === 'cancel' && !form.active) {
+      breakthrough = null;
+    } else if (message.move === 'confirm') {
+      if (form.active) finishBreakthrough(L.tribFinish(state, { ...breakthrough.aids, pills: breakthrough.pills }));
+      else if (form.trib) {
+        const pre = L.tribPre(state);
+        if (pre) breakthrough.pre = pre.id;
+        else if (L.tribStart(state, breakthrough)) breakthrough = null;
+      } else finishBreakthrough(L.breakthrough(state, breakthrough.pills));
+    } else throw new Error('未知突破操作');
+  }
+
+  function changeLife(message) {
+    const visible = nextView();
+    if (message.move === 'return' && visible?.kind === 'life' && visible.mode === 'ascend') {
+      state.flags.endRead = 1;
+      recordLife();
+    } else if (message.move === 'gate' && !visible && state.p.r > L.MAXR && state.eflags.asc_stay) {
+      delete state.evDone.s9_gate_again;
+      returnToGate = true;
+    } else if (message.move === 'settle' && (visible?.kind === 'life' || !visible && state.p.r >= 2)) {
+      L.settle(state, visible?.mode || (state.p.r > L.MAXR ? 'ascend' : 'bingjie'));
+      recordLife();
+    } else if (visible?.kind === 'rebirth') {
+      if (message.move === 'card' && rebirth.cards[message.index]) rebirth.card = message.index;
+      else if (message.move === 'origin' && L.ORIGIN_IDS.includes(message.id) && L.originOpen(state, message.id)) rebirth.origin = message.id;
+      else if (message.move === 'hall' && L.HALL_NODE[message.id] && L.hallBuy(state, message.id)) return;
+      else if (message.move === 'trial' && L.TRIALS.some(trial => trial.id === message.id)) {
+        if (rebirth.trials.includes(message.id)) rebirth.trials = rebirth.trials.filter(id => id !== message.id);
+        else rebirth.trials.push(message.id);
+      } else if (visible.legacy.some(item => item.move === message.move && item.id === message.id)) {
+        const picks = { ...(state.meta.legacy || {}) };
+        const candidates = L.legacyCands(state);
+        if (message.move === 'legacy-art') {
+          const arts = picks.arts || [];
+          picks.arts = arts.includes(message.id) ? arts.filter(id => id !== message.id) : [...arts, message.id].slice(-candidates.artN);
+        } else if (message.move === 'legacy-gear') {
+          const { slot, aff } = candidates.gear[message.id];
+          picks.gear = picks.gear?.slot === slot && picks.gear?.aff === aff ? null : { slot, aff };
+        } else picks.pet = picks.pet === message.id ? null : message.id;
+        L.legacySet(state, picks);
+      } else if (message.move === 'begin') {
+        const prev = state;
+        state = L.rebirthState(prev, { ...rebirth.cards[rebirth.card], origin: rebirth.origin, trials: rebirth.trials });
+        state.guide = { step: 99, done: true };
+        note = { kind: 'card', title: '第 ' + (state.rebirth + 1) + ' 世', text: [...L.originOf(state).open, L.rebirthLine(state, state.meta.prev)].join('\n\n') };
+        rebirth = null;
+        panel = null;
+        L.chainOpen(state, 'act');
+      } else throw new Error('这项轮回选择不可用');
+    } else throw new Error('此刻无法进行这一操作');
+  }
+
   function dispatch(message) {
     const { op } = message;
     if (op === 'new') {
@@ -302,6 +511,9 @@
       boss = null;
       battleInputs = [];
       battleLog = '';
+      breakthrough = null;
+      rebirth = null;
+      returnToGate = false;
       return;
     }
     if (op === 'load') return load(message.save);
@@ -312,9 +524,11 @@
 
     if (op === 'pick') return resolve(message.index);
     if (op === 'combat') return combat(message.move);
+    if (op === 'breakthrough') return changeBreakthrough(message);
+    if (op === 'life') return changeLife(message);
     if (op === 'realm-action') {
       if (!state.run || note) throw new Error('目前无法行动');
-      const available = realmView().options.some(option => option.move === message.move && option.index === message.index && !option.why);
+      const available = realmView().options?.some(option => option.move === message.move && option.index === message.index && !option.why);
       if (!available) throw new Error('这项选择不可用');
       const actions = { door: L.mjPick, shop: L.mjShop, leave: L.mjLeave, chest: L.mjChest };
       const result = actions[message.move](state, message.index);
@@ -333,6 +547,7 @@
       if (note) { note = null; return; }
       if (encounter) throw new Error('请先选择奇遇');
       if (battle) throw new Error('请先完成当前战斗');
+      if (state.run || state.trib?.cur || breakthrough || state.settle) throw new Error('请先完成当前选择');
       if (state.exp) {
         battle = L.expBattle(state);
         if (!battle) finishTripStep(null);
@@ -341,8 +556,10 @@
       const block = L.nextBlock(state);
       if (!block) return;
       if (block.kind === 'story' && block.data?.choices) throw new Error('请先选择剧情');
+      if (block.kind === 'big' && block.id === 'death' && lifeEnded()) throw new Error('请先结算这一世');
       const result = block.kind === 'big' ? L.blockRun(state, block) : null;
       L.blockDone(state, block);
+      if (block.kind === 'year') L.yearClose(state);
       if (result && result.win !== undefined) note = { kind: 'card', title: blockView(block).title, text: result.win ? '取胜' : '落败' };
       return;
     }
@@ -381,8 +598,7 @@
     }
     if (op === 'break') {
       if (!L.isReady(state)) throw new Error('修为尚未圆满');
-      const result = L.breakthrough(state, Math.min(state.pills, L.BT.maxPills));
-      note = { kind: 'card', title: '突破', text: result?.ok ? L.stageName(state.p) : '这次未能突破' };
+      breakthrough = { pills: 0, aids: {} };
       return;
     }
     throw new Error('未知操作');

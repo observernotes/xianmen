@@ -21,6 +21,8 @@ func _initialize() -> void:
 	var checked_battle := false
 	for i in range(18):
 		if result["view"]["notice"]["kind"] == "battle":
+			for foe in result["view"]["notice"]["foes"]:
+				assert(foe["hp"] <= foe["maxHp"])
 			if not checked_battle:
 				result = send({"op": "combat", "move": "next"})
 				var progress: Dictionary = result["view"]["notice"]
@@ -77,12 +79,71 @@ func _initialize() -> void:
 	var settled_boss := send({"op": "combat", "move": "smart"})
 	assert(settled_boss["view"]["ap"] == 2)
 	assert(settled_boss["view"]["notice"]["title"] == "首领战")
-	print("Godot native runtime: story, combat, settlement resume, season, management, realm, and XT1 save roundtrip passed")
+
+	var late_save: Dictionary = realm_save.duplicate(true)
+	late_save["p"].merge({"r": 1, "s": 3, "xp": 1e9}, true)
+	late_save["pills"] = 4
+	late_save["flags"]["sureBt"] = 1
+	var ready := settle_cards(send({"op": "load", "save": late_save}))
+	assert(ready["view"]["canBreak"])
+	var prepared := send({"op": "break"})
+	assert(prepared["view"]["notice"]["kind"] == "breakthrough")
+	var started := send({"op": "breakthrough", "move": "confirm"})
+	assert(started["view"]["notice"]["active"])
+	var resumed_trib := send({"op": "load", "save": started["save"]})
+	assert(resumed_trib["view"]["notice"] == started["view"]["notice"])
+	assert(resumed_trib["save"]["state"]["trib"]["cur"] == started["save"]["state"]["trib"]["cur"])
+	var finished := send({"op": "breakthrough", "move": "confirm"})
+	assert(finished["save"]["state"]["p"]["r"] == 2)
+	assert(finished["save"]["state"]["pills"] == 4)
+
+	late_save["p"].merge({"r": 0, "s": 0, "xp": 0, "age": 100000}, true)
+	var death := settle_cards(send({"op": "load", "save": late_save}))
+	assert(death["view"]["notice"]["title"] == "坐化")
+	var hall := send({"op": "life", "move": "settle"})
+	assert(hall["view"]["notice"]["kind"] == "rebirth")
+	var resumed_hall := send({"op": "load", "save": hall["save"]})
+	assert(resumed_hall["view"]["notice"] == hall["view"]["notice"])
+	var next_life := send({"op": "life", "move": "begin"})
+	assert(next_life["save"]["state"]["rebirth"] == 1)
+	assert(next_life["save"]["state"]["meta"]["lifeN"] == 1)
+	assert(next_life["save"]["state"]["p"]["r"] == 0)
+
+	late_save["p"].merge({"r": 9, "age": 100}, true)
+	late_save["eflags"]["elder_kept"] = 1
+	var ending := settle_cards(send({"op": "load", "save": late_save}), {"s9_gate": 1})
+	assert(ending["view"]["notice"]["mode"] == "ascend")
+	assert(ending["save"]["state"]["eflags"]["asc_stay"])
+	var stayed := send({"op": "life", "move": "return"})
+	assert(stayed["view"]["canReturnToGate"])
+	var second_gate := send({"op": "life", "move": "gate"})
+	assert(second_gate["view"]["notice"]["key"] == "s9_gate_again")
+	var second_ending := settle_cards(second_gate, {"s9_gate_again": 0})
+	assert(second_ending["view"]["notice"]["mode"] == "ascend")
+	assert(second_ending["save"]["state"]["eflags"]["asc_go"])
+	assert(not second_ending["save"]["state"]["eflags"].has("asc_stay"))
+	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth and save roundtrips passed")
 	quit()
 
 
+func settle_cards(response: Dictionary, picks := {}) -> Dictionary:
+	for i in range(30):
+		var notice = response["view"]["notice"]
+		if notice == null:
+			break
+		if notice["kind"] == "choice":
+			var available: Array = notice["options"].filter(func(option): return option["available"])
+			assert(not available.is_empty())
+			response = send({"op": "pick", "index": picks.get(notice["key"], available[0]["index"])})
+		elif notice["kind"] == "card":
+			response = send({"op": "advance"})
+		else:
+			break
+	return response
+
+
 func send(message: Dictionary) -> Dictionary:
-	var response = JSON.parse_string(runtime.request(JSON.stringify(message)))
+	var response = JSON.parse_string(runtime.request(JSON.stringify(message, "", false, true)))
 	assert(response is Dictionary, runtime.get_last_error())
 	assert(response["ok"], response.get("error", "Unknown runtime error"))
 	return response

@@ -30,6 +30,9 @@ var share_code := ""
 var redraw_queued := false
 var dialogue_key := ""
 var dialogue_index := 0
+var rebirth_tab := 0
+var scroll: ScrollContainer
+var page_key := ""
 
 
 func _ready() -> void:
@@ -49,9 +52,9 @@ func _ready() -> void:
 
 
 func request(message: Dictionary) -> void:
-	if runtime == null:
+	if runtime == null or redraw_queued:
 		return
-	var result = JSON.parse_string(runtime.request(JSON.stringify(message)))
+	var result = JSON.parse_string(runtime.request(JSON.stringify(message, "", false, true)))
 	if not result is Dictionary:
 		error_text = runtime.get_last_error()
 	elif not result.get("ok", false):
@@ -72,7 +75,7 @@ func store_save(save: Dictionary) -> void:
 	if out == null:
 		error_text = "本地存档写入失败。"
 		return
-	out.store_string(JSON.stringify(save))
+	out.store_string(JSON.stringify(save, "", false, true))
 	out.flush()
 	out.close()
 	var absolute_source := ProjectSettings.globalize_path(temporary)
@@ -89,6 +92,16 @@ func schedule_draw() -> void:
 
 func draw_view() -> void:
 	redraw_queued = false
+	var notice = view.get("notice")
+	var next_page_key := ""
+	if notice is Dictionary:
+		next_page_key = String(notice.get("key", notice["kind"]))
+	elif view.get("panel") is Dictionary:
+		next_page_key = "panel:" + String(view["panel"]["id"])
+	var scroll_position := 0
+	if is_instance_valid(scroll) and not next_page_key.is_empty() and next_page_key == page_key:
+		scroll_position = scroll.scroll_vertical
+	page_key = next_page_key
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -97,13 +110,15 @@ func draw_view() -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		margins.add_theme_constant_override("margin_" + side, 16)
 	add_child(margins)
-	var scroll := ScrollContainer.new()
+	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	margins.add_child(scroll)
 	page = VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", 12)
 	scroll.add_child(page)
+	if scroll_position > 0:
+		scroll.set_deferred("scroll_vertical", scroll_position)
 
 	add_label("废柴仙途", 31, COLORS.gold)
 	if error_text:
@@ -116,7 +131,6 @@ func draw_view() -> void:
 	add_label(view["realm"] + "   修为 " + view["xp"] + " / " + view["xpNeed"], 17)
 	add_label("战力 " + view["power"] + "    灵石 " + view["stones"], 17, COLORS.jade)
 
-	var notice = view.get("notice")
 	if notice is Dictionary:
 		draw_notice(notice)
 		return
@@ -156,14 +170,15 @@ func draw_cave() -> void:
 	add_label(view["goal"], 23, COLORS.gold)
 	add_label(view["progress"], 16)
 	add_label("下一步 · " + view["advice"], 15, COLORS.muted)
-	add_label("行动点  " + str(view["ap"]) + " / " + str(view["apTotal"]), 16, COLORS.gold)
-	add_button("历练", open_maps, true)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	page.add_child(actions)
-	add_button("打坐 ◆1", func(): action("sit"), false, view["ap"] < 1, actions)
-	if view["canRetreat"]:
-		add_button("闭关 ◆2", func(): action("retreat"), false, view["ap"] < 2, actions)
+	if not view["ascended"]:
+		add_label("行动点  %d / %d" % [int(view["ap"]), int(view["apTotal"])], 16, COLORS.gold)
+		add_button("历练", open_maps, true)
+		var actions := HBoxContainer.new()
+		actions.add_theme_constant_override("separation", 8)
+		page.add_child(actions)
+		add_button("打坐 ◆1", func(): action("sit"), false, view["ap"] < 1, actions)
+		if view["canRetreat"]:
+			add_button("闭关 ◆2", func(): action("retreat"), false, view["ap"] < 2, actions)
 	if view["array"] is Dictionary:
 		var formation: Dictionary = view["array"]
 		var upgrade := "聚灵阵 Lv%d" % int(formation["level"])
@@ -172,16 +187,22 @@ func draw_cave() -> void:
 		else:
 			upgrade += " · 升级 " + formation["cost"] + " 灵石"
 		add_button(upgrade, func(): request({"op": "upgrade-array"}), false, not formation["available"])
-	if not view["mainActions"].is_empty():
+	if not view["ascended"] and not view["mainActions"].is_empty():
 		add_button("主线行动", toggle_journey)
 	if view["canBreak"]:
 		add_button("突破", func(): request({"op": "break"}), true)
-	add_button("下一季  ▸", func(): request({"op": "season"}), true)
+	if not view["ascended"]:
+		add_button("下一季  ▸", func(): request({"op": "season"}), true)
 	var systems := HBoxContainer.new()
 	systems.add_theme_constant_override("separation", 6)
 	page.add_child(systems)
 	for id in PANELS:
 		add_button(PANELS[id], func(): request({"op": "panel", "panel": id}), false, false, systems)
+	if view["canReturnToGate"]:
+		add_button("再登天门", func(): request({"op": "life", "move": "gate"}))
+	if view["canRebirth"]:
+		var label := "再入轮回" if view["ascended"] else "兵解转世"
+		add_button(label, confirm_rebirth)
 	add_button("存档", toggle_saves)
 
 
@@ -240,8 +261,11 @@ func draw_journey() -> void:
 		var label: String = entry["label"]
 		if int(entry["ap"]) > 0:
 			label += " ◆%d" % int(entry["ap"])
-		var message := {"op": "act", "action": entry["id"], "args": entry.get("args")}
-		add_button(label, func(): request(message), true, not entry["available"])
+		var message := {"op": "act", "action": entry.get("id"), "args": entry.get("args")}
+		add_button(label, func():
+			show_journey = false
+			request(message)
+		, true, not entry["available"])
 		if entry["why"]:
 			add_label(entry["why"], 15, COLORS.muted)
 	add_button("返回洞府", toggle_journey)
@@ -284,6 +308,19 @@ func draw_notice(notice: Dictionary) -> void:
 	if notice.get("kind") == "realm":
 		draw_realm(notice)
 		return
+	if notice.get("kind") == "breakthrough":
+		draw_breakthrough(notice)
+		return
+	if notice.get("kind") == "life":
+		add_label(notice["title"], 25, COLORS.gold)
+		add_label(notice["text"], 17)
+		add_button("再入轮回", func(): request({"op": "life", "move": "settle"}), true)
+		if notice["mode"] == "ascend":
+			add_button("留在此世", func(): request({"op": "life", "move": "return"}))
+		return
+	if notice.get("kind") == "rebirth":
+		draw_rebirth(notice)
+		return
 	add_label(notice.get("title", ""), 25, COLORS.gold)
 	var next_key := String(notice.get("key", ""))
 	if next_key != dialogue_key:
@@ -315,8 +352,87 @@ func draw_notice(notice: Dictionary) -> void:
 		for option in notice["options"]:
 			var index: int = option["index"]
 			add_button(option["label"], func(): request({"op": "pick", "index": index}), false, not option["available"])
+			if option["text"]:
+				add_label(option["text"], 14, COLORS.muted)
 	else:
 		add_button(notice.get("button", "继续  ▸"), func(): request({"op": "advance"}), true)
+
+
+func draw_breakthrough(form: Dictionary) -> void:
+	add_label(form["title"], 25, COLORS.gold)
+	add_label(form["text"], 17)
+	if form["active"]:
+		add_gauge("护体", form["shield"], 100, COLORS.jade)
+	if int(form["pillMax"]) > 0:
+		var count_label := "临阵吞丹" if form["active"] else "破境丹"
+		add_label("%s %d / %d" % [count_label, int(form["pills"]), int(form["pillMax"])], 17)
+		var pills := HBoxContainer.new()
+		page.add_child(pills)
+		add_button("−", func(): request({"op": "breakthrough", "move": "pill", "step": -1}), false, int(form["pills"]) == 0, pills)
+		add_button("+", func(): request({"op": "breakthrough", "move": "pill", "step": 1}), false, form["pills"] >= form["pillMax"], pills)
+	for aid in form["aids"]:
+		var key: String = aid["key"]
+		add_button(("✓ " if aid["selected"] else "") + aid["text"], func():
+			request({"op": "breakthrough", "move": "aid", "key": key})
+		, false, not String(aid["why"]).is_empty())
+		add_label(aid["why"] if aid["why"] else aid["cost"], 14, COLORS.muted)
+	var label := "迎接最后两道雷" if form["active"] else "引动天劫" if form["trib"] else "冲击筑基"
+	add_button(label, func(): request({"op": "breakthrough", "move": "confirm"}), true)
+	if not form["active"]:
+		add_button("再等等", func(): request({"op": "breakthrough", "move": "cancel"}))
+
+
+func confirm_rebirth() -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "轮回"
+	dialog.dialog_text = "结算这一世的道果，准备转世？"
+	dialog.ok_button_text = "进入轮回殿"
+	dialog.cancel_button_text = "继续修行"
+	add_child(dialog)
+	dialog.confirmed.connect(func(): request({"op": "life", "move": "settle"}))
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered()
+
+
+func draw_rebirth(form: Dictionary) -> void:
+	add_label(form["title"], 25, COLORS.gold)
+	add_label(form["text"], 17)
+	var tabs := HBoxContainer.new()
+	page.add_child(tabs)
+	var categories := ["命格", "出身", "试炼", "加成", "传承"]
+	for index in categories.size():
+		add_button(categories[index], func():
+			rebirth_tab = index
+			scroll.scroll_vertical = 0
+			schedule_draw()
+		, rebirth_tab == index, false, tabs)
+	if rebirth_tab == 0:
+		for item in form["cards"]:
+			var index: int = item["index"]
+			add_button(item["label"], func(): request({"op": "life", "move": "card", "index": index}), item["selected"])
+	elif rebirth_tab == 1:
+		for item in form["origins"]:
+			var id: String = item["id"]
+			add_button(item["label"], func(): request({"op": "life", "move": "origin", "id": id}), item["selected"])
+	elif rebirth_tab == 2:
+		for item in form["trials"]:
+			var id: String = item["id"]
+			add_button(("✓ " if item["selected"] else "") + item["label"], func(): request({"op": "life", "move": "trial", "id": id}), item["selected"])
+			add_label(item["text"], 14, COLORS.muted)
+	elif rebirth_tab == 3:
+		for item in form["hall"]:
+			var id: String = item["id"]
+			add_button(item["label"] + " · " + item["cost"] + " 道果", func():
+				request({"op": "life", "move": "hall", "id": id})
+			, false, not String(item["why"]).is_empty())
+			add_label(item["text"] if not item["why"] else item["text"] + "\n" + item["why"], 14, COLORS.muted)
+	elif form["legacy"].is_empty():
+		add_label("这一世尚无可传承的功法、器灵或灵宠。", 16, COLORS.muted)
+	else:
+		for item in form["legacy"]:
+			var message := {"op": "life", "move": item["move"], "id": item["id"]}
+			add_button(("✓ " if item["selected"] else "") + item["label"], func(): request(message), item["selected"])
+	add_button("投胎转世", func(): request({"op": "life", "move": "begin"}), true)
 
 
 func draw_battle(battle: Dictionary) -> void:
