@@ -87,6 +87,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const navHome = await ev(() => !document.querySelector('[data-nav="home"]').classList.contains('lk'));
   check(navHome, '【洞府】亮了');
   if (await page.$('#unlGo')) { await page.click('#unlGo'); await page.waitForTimeout(500); }
+  else { await ev(() => window.__xm.closeModal()); await page.waitForTimeout(300); await page.click('[data-nav="home"]'); await page.waitForTimeout(500); }   // 没出解锁卡（记 FAIL）也接着往下测：自己点开洞府
   await shot('g07-home-hl');
   const hl = await ev(() => ({ m: (document.querySelector('#modal h2') || {}).textContent || '', hl: !!document.getElementById('hl') && !document.getElementById('hl').hidden }));
   check(/洞府/.test(hl.m) && hl.hl, `【带我去】1 次点击：洞府 + 金框（${hl.m}）`);
@@ -141,7 +142,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   check(/备战/.test(await modal()) && pf.length === 1 && pf[0] === '知道了', `备战卡：${await modal()} ·【${pf.join('/')}】`);
   await closeAll();
   await page.click('#btnNext'); await page.waitForTimeout(500);
-  for (let i = 0; i < 6 && !(await ev(() => !!document.querySelector('#modal.duel-m'))); i++) { const m = await modal(); if (m) { const f = await page.$$('#modal .foot .btn:not([disabled])'); if (f.length) await f[f.length - 1].click(); } await page.waitForTimeout(500); }
+  for (let i = 0; i < 14 && !(await ev(() => !!document.querySelector('#modal.duel-m'))); i++) { const m = await modal(); if (m) { const ch = await page.$('#modal .choices .btn:not([disabled])'); if (ch) await ch.click(); else { const fb = await page.$$('#modal .foot .btn:not([disabled])'); if (fb.length) await fb[fb.length - 1].click(); } } else if (await ev(() => window.__xm.st.tick === 33 && !window.__xm.busyUI)) await page.click('#btnNext'); await page.waitForTimeout(500); }   // 年报、链里补放的戏（剧情点选项）都点掉，直到约战开演
   await page.waitForTimeout(300); await shot('g13-pact');
   check(await ev(() => !!document.querySelector('#modal.duel-m') && window.__xm.st.tick === 36), '第 36 月：季末结算之后，三年之约在场景里演（同一条结算链）');
   await page.waitForTimeout(1500);
