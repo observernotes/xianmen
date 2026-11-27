@@ -45,7 +45,12 @@ compile() {
 }
 compile platform="$platform" arch="$architecture"
 "$GODOT_BIN" --headless --path "$PROJECT" --editor --import --quit
-"$GODOT_BIN" --headless --path "$PROJECT" --check-only --script res://scripts/main.gd
+if ! check_output=$("$GODOT_BIN" --headless --path "$PROJECT" --check-only --script res://scripts/main.gd 2>&1); then
+  printf '%s\n' "$check_output"
+  exit 1
+fi
+printf '%s\n' "$check_output"
+case "$check_output" in *"SCRIPT ERROR:"*) exit 1 ;; esac
 if ! smoke_output=$("$GODOT_BIN" --headless --path "$PROJECT" --quit-after 600 --script res://tests/runtime_smoke.gd 2>&1); then
   printf '%s\n' "$smoke_output"
   exit 1

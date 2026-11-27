@@ -5,6 +5,8 @@ const AUTO_SLOTS := [SAVE_PATH, "user://xiantu-a2.json", "user://xiantu-a3.json"
 const MANUAL_SLOTS := ["user://xiantu-m1.json", "user://xiantu-m2.json", "user://xiantu-m3.json"]
 const RULES_PATH := "res://data/rules.js"
 const FONT := preload("res://art/fusion-pixel.ttf")
+const AUDIO := preload("res://scripts/game_audio.gd")
+const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
 const COLORS := {
 	"gold": Color("#ffd990"),
 	"text": Color("#efe4cf"),
@@ -20,14 +22,20 @@ const HOME_ART := [
 ]
 const PANELS := {"equipment": "法宝", "arts": "功法", "market": "坊市", "sect": "宗门"}
 const HOME_PANELS := {"home": "经营洞府", "formations": "阵法", "fields": "灵田", "alchemy": "炼丹", "pets": "灵宠"}
+const SECT_PANELS := {"sect": "宗门", "sectVault": "宝库", "sectElders": "长老与职司", "disciples": "门下"}
+const MARKET_PANELS := {"market": "货架与行情", "auction": "拍卖会"}
+const EQUIPMENT_PANELS := {"equipment": "法宝", "forge": "炼器"}
+const RECORD_PANELS := {"journal": "札记", "calendar": "历法", "codex": "图鉴"}
 
 var runtime: Object
+var game_audio := AUDIO.new()
 var view: Dictionary = {}
 var current_save: Dictionary = {}
 var page: VBoxContainer
 var error_text := ""
 var show_maps := false
 var selected_map := -1
+var show_drops := false
 var show_journey := false
 var show_saves := false
 var share_code := ""
@@ -40,6 +48,7 @@ var page_key := ""
 
 
 func _ready() -> void:
+	add_child(game_audio)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	theme = Theme.new()
 	theme.default_font = FONT
@@ -66,6 +75,7 @@ func request(message: Dictionary) -> void:
 	else:
 		error_text = ""
 		view = result.get("view", {})
+		play_feedback(message)
 		if result.get("save") != null and message["op"] != "export":
 			var replacing: bool = message["op"] in ["load", "import", "new"] and not current_save.is_empty()
 			update_auto_save(result["save"], replacing)
@@ -134,6 +144,7 @@ func schedule_draw() -> void:
 func draw_view() -> void:
 	redraw_queued = false
 	var notice = view.get("notice")
+	game_audio.music(scene_music(notice))
 	var next_page_key := ""
 	if notice is Dictionary:
 		next_page_key = String(notice.get("key", notice["kind"]))
@@ -141,11 +152,15 @@ func draw_view() -> void:
 		next_page_key = "panel:" + String(view["panel"]["id"])
 	elif show_saves:
 		next_page_key = "saves"
+	elif show_maps and selected_map >= 0:
+		next_page_key = "drops" if show_drops else "map"
 	var scroll_position := 0
 	if is_instance_valid(scroll) and not next_page_key.is_empty() and next_page_key == page_key:
 		scroll_position = scroll.scroll_vertical
 	page_key = next_page_key
 	for child in get_children():
+		if child == game_audio:
+			continue
 		remove_child(child)
 		child.queue_free()
 	var margins := MarginContainer.new()
@@ -193,6 +208,55 @@ func draw_view() -> void:
 	draw_cave()
 
 
+func scene_music(notice: Variant) -> String:
+	if notice is Dictionary:
+		var track := String(notice.get("music", ""))
+		if not track.is_empty() and game_audio.stream_for("bgm_" + track):
+			return track
+		match notice["kind"]:
+			"battle":
+				return "boss" if notice["boss"] else "road_fight"
+			"travel":
+				return "road"
+			"breakthrough":
+				return "trib" if notice["trib"] else "home"
+			"realm":
+				return "realm"
+			"life":
+				return "ascend" if notice["mode"] == "ascend" else "sorrow"
+			"rebirth":
+				return "fate"
+	if view.get("panel") is Dictionary and view["panel"]["id"] in ["market", "auction"]:
+		return "town"
+	return "home"
+
+
+func play_feedback(message: Dictionary) -> void:
+	var notice = view.get("notice")
+	if message["op"] == "combat" and notice is Dictionary and notice["kind"] == "battle":
+		var effects: Array = notice["effects"]
+		if notice["done"]:
+			game_audio.effect("victory" if notice["outcome"] == "取胜" else "defeat")
+		elif not effects.is_empty():
+			var effect: String = effects[0]["kind"]
+			game_audio.effect(effect if effect in ["ult", "heavy", "hit"] else "hurt" if effect == "fhit" else "hit")
+	elif message["op"] == "result" and message["move"] in ["all", "reveal"]:
+		var index := int(message.get("index", 0)) % 3
+		game_audio.effect("flip_%d-%d" % [index, index])
+	elif message["op"] == "breakthrough" and message["move"] == "confirm" and notice is Dictionary:
+		if notice["kind"] == "breakthrough" and notice["active"]:
+			game_audio.effect("thunder")
+		elif notice["title"] in ["突破成功", "突破失败"]:
+			game_audio.effect("victory" if notice["title"] == "突破成功" else "defeat")
+
+
+func draw_audio_setting() -> void:
+	add_button("声音 · " + AUDIO.MODES[game_audio.mode], func():
+		game_audio.cycle_mode()
+		schedule_draw()
+	)
+
+
 func draw_title() -> void:
 	var texture := preload("res://art/chapter.png")
 	add_picture(texture, 210)
@@ -206,6 +270,7 @@ func draw_title() -> void:
 		draw_saves()
 	else:
 		add_button("存档", toggle_saves)
+	draw_audio_setting()
 
 
 func draw_cave() -> void:
@@ -214,6 +279,10 @@ func draw_cave() -> void:
 	add_label(view["goal"], 23, COLORS.gold)
 	add_label(view["progress"], 16)
 	add_label("下一步 · " + view["advice"], 15, COLORS.muted)
+	if view["visitor"] is Dictionary:
+		var visitor: Dictionary = view["visitor"]
+		add_button("洞府来访 · " + visitor["title"], func(): request({"op": "visitor"}), true)
+		add_label("访客将在" + visitor["leave"] + "后离开", 14, COLORS.muted)
 	if not view["ascended"]:
 		add_label("行动点  %d / %d" % [int(view["ap"]), int(view["apTotal"])], 16, COLORS.gold)
 		add_button("历练", open_maps, true)
@@ -243,12 +312,15 @@ func draw_cave() -> void:
 	for id in PANELS:
 		add_button(PANELS[id], func(): request({"op": "panel", "panel": id}), false, false, systems)
 	add_button("经营洞府", func(): request({"op": "panel", "panel": "home"}))
+	add_button("人物羁绊", func(): request({"op": "panel", "panel": "people"}))
+	add_button("仙途札记", func(): request({"op": "panel", "panel": "journal"}))
 	if view["canReturnToGate"]:
 		add_button("再登天门", func(): request({"op": "life", "move": "gate"}))
 	if view["canRebirth"]:
 		var label := "再入轮回" if view["ascended"] else "兵解转世"
 		add_button(label, confirm_rebirth)
 	add_button("存档", toggle_saves)
+	draw_audio_setting()
 
 
 func draw_maps() -> void:
@@ -274,6 +346,13 @@ func draw_maps() -> void:
 
 func draw_map(location: Dictionary) -> void:
 	add_label(location["name"], 24, COLORS.gold)
+	if show_drops:
+		draw_drops(location)
+		return
+	add_button("掉落一览", func():
+		show_drops = true
+		schedule_draw()
+	)
 	var boss = location.get("boss")
 	if boss is Dictionary:
 		var target := {"k": location["k"]}
@@ -299,6 +378,27 @@ func draw_map(location: Dictionary) -> void:
 	)
 
 
+func draw_drops(location: Dictionary) -> void:
+	add_button("返回历练", func():
+		show_drops = false
+		schedule_draw()
+	)
+	var wish = view.get("wish")
+	if wish is Dictionary:
+		add_label("当前心愿 · %s · %d / %d" % [wish["c"]["n"], int(wish["n"]), int(wish["max"])], 16, COLORS.gold)
+		add_button("取消心愿", func(): request({"op": "wish", "clear": true}))
+	elif not view["wishOpen"]:
+		add_label("历练四趟后可以许愿。", 14, COLORS.muted)
+	for depth in location["drops"]:
+		add_label(depth["title"], 19, COLORS.gold)
+		for item in depth["items"]:
+			add_label(item["title"], 17)
+			add_label(item["text"], 14, COLORS.muted)
+			if view["wishOpen"]:
+				var message := {"op": "wish", "k": location["k"], "d": depth["d"], "index": item["index"]}
+				add_button("已设心愿" if item["pinned"] else "设为心愿", func(): request(message), false, item["pinned"])
+
+
 func draw_journey() -> void:
 	add_label(view["goal"], 24, COLORS.gold)
 	add_label(view["progress"], 16)
@@ -318,19 +418,33 @@ func draw_journey() -> void:
 
 func draw_management(panel: Dictionary) -> void:
 	var active_id: String = panel["id"]
-	add_label(PANELS.get(active_id, HOME_PANELS.get(active_id, "")), 24, COLORS.gold)
-	add_button("返回洞府", func(): request({"op": "panel"}))
-	if HOME_PANELS.has(active_id):
-		var tabs := HBoxContainer.new()
-		page.add_child(tabs)
-		for id in HOME_PANELS:
-			var label := "建筑" if id == "home" else String(HOME_PANELS[id])
-			add_button(label, func(): request({"op": "panel", "panel": id}), id == active_id, id == active_id, tabs)
+	var tabs: Dictionary = {}
+	for group in [HOME_PANELS, SECT_PANELS, MARKET_PANELS, EQUIPMENT_PANELS, RECORD_PANELS]:
+		if group.has(active_id):
+			tabs = group
+			break
+	if active_id.begins_with("codex:"):
+		add_button("返回图鉴", func(): request({"op": "panel", "panel": "codex"}))
+	else:
+		add_label(tabs.get(active_id, PANELS.get(active_id, "人物羁绊")), 24, COLORS.gold)
+		add_button("返回洞府", func(): request({"op": "panel"}))
+	if not tabs.is_empty():
+		var tab_row := HBoxContainer.new()
+		page.add_child(tab_row)
+		for id in tabs:
+			var label := "建筑" if id == "home" else String(tabs[id])
+			add_button(label, func(): request({"op": "panel", "panel": id}), id == active_id, id == active_id, tab_row)
+	if active_id == "people" and view["visitor"] is Dictionary:
+		add_button("接见访客 · " + view["visitor"]["title"], func(): request({"op": "visitor"}))
 	for entry in panel["entries"]:
 		add_label(entry["title"], 19, COLORS.jade)
 		if entry["text"]:
 			add_label(entry["text"], 15)
 		for option in entry["buttons"]:
+			if option.has("panel"):
+				var target: String = option["panel"]
+				add_button(option["label"], func(): request({"op": "panel", "panel": target}))
+				continue
 			var message := {"op": "panel-action", "action": option["name"], "args": option["args"]}
 			var warning := String(option.get("confirm", ""))
 			add_button(option["label"], func():
@@ -434,7 +548,16 @@ func draw_notice(notice: Dictionary) -> void:
 	if notice.get("kind") == "rebirth":
 		draw_rebirth(notice)
 		return
+	if notice.get("kind") == "reforge":
+		add_label(notice["title"], 25, COLORS.gold)
+		add_label("原词条 · " + notice["old"], 17)
+		add_label(("保底词条 · " if notice["pity"] else "新词条 · ") + notice["replacement"], 17)
+		add_button("保留原词条", func(): request({"op": "reforge-keep", "replace": false}))
+		add_button("换成新词条", func(): request({"op": "reforge-keep", "replace": true}), true)
+		return
 	add_label(notice.get("title", ""), 25, COLORS.gold)
+	if notice.get("kind") == "travel":
+		add_battle_scene(notice)
 	var next_key := String(notice.get("key", ""))
 	if next_key != dialogue_key:
 		dialogue_key = next_key
@@ -467,8 +590,34 @@ func draw_notice(notice: Dictionary) -> void:
 			add_button(option["label"], func(): request({"op": "pick", "index": index}), false, not option["available"])
 			if option["text"]:
 				add_label(option["text"], 14, COLORS.muted)
+		if notice.get("dismiss"):
+			add_button(notice["dismiss"], func(): request({"op": "dismiss-event"}))
+		if notice.get("gifts"):
+			add_button("给访客送礼", func(): request({"op": "visitor-gifts"}))
 	else:
+		draw_result_options(notice)
 		add_button(notice.get("button", "继续  ▸"), func(): request({"op": "advance"}), true)
+
+
+func draw_result_options(notice: Dictionary) -> void:
+	var cards: Array = notice.get("cards", [])
+	if not cards.is_empty():
+		add_label("归途翻牌", 19, COLORS.gold)
+		var has_hidden := false
+		for card in cards:
+			if card["revealed"]:
+				add_label(card["name"], 17, COLORS.jade)
+			else:
+				has_hidden = true
+				var message := {"op": "result", "move": "reveal", "index": card["index"]}
+				add_button("翻牌 %d" % (int(card["index"]) + 1), func(): request(message))
+		if has_hidden:
+			add_button("全部翻开", func(): request({"op": "result", "move": "all"}))
+	var deeper = notice.get("deeper")
+	if deeper is Dictionary:
+		add_button("趁势深入 ◆%d" % int(deeper["ap"]), func(): request({"op": "result", "move": "deeper"}), false, not String(deeper["why"]).is_empty())
+		if deeper["why"]:
+			add_label(deeper["why"], 14, COLORS.muted)
 
 
 func draw_breakthrough(form: Dictionary) -> void:
@@ -565,7 +714,10 @@ func draw_rebirth(form: Dictionary) -> void:
 
 func draw_battle(battle: Dictionary) -> void:
 	add_label(battle["title"] + " · 第 %d 轮" % int(battle["round"]), 24, COLORS.gold)
+	add_battle_scene(battle)
 	for foe in battle["foes"]:
+		if foe["hp"] <= 0:
+			continue
 		var target := String(foe["name"])
 		if foe["charge"]:
 			target += " · 蓄力"
@@ -576,6 +728,10 @@ func draw_battle(battle: Dictionary) -> void:
 	add_gauge("怒气", battle["rage"], 100, COLORS.gold)
 	if battle["text"]:
 		add_label(battle["text"], 15, COLORS.muted)
+	if battle["done"]:
+		add_label(battle["outcome"], 18, COLORS.gold)
+		add_button("结算战斗", func(): request({"op": "advance"}), true)
+		return
 	add_button("下一轮  ▸", func(): request({"op": "combat", "move": "next"}), true)
 	var actions := HBoxContainer.new()
 	page.add_child(actions)
@@ -583,6 +739,12 @@ func draw_battle(battle: Dictionary) -> void:
 	add_button("服丹", func(): request({"op": "combat", "move": "pill"}), false, int(battle["pills"]) == 0, actions)
 	add_button("撤退", func(): request({"op": "combat", "move": "flee"}), false, false, actions)
 	add_button("托管本场", func(): request({"op": "combat", "move": "smart"}))
+
+
+func add_battle_scene(data: Dictionary) -> void:
+	var backdrop := BATTLE_SCENE.new()
+	backdrop.combat = data
+	page.add_child(backdrop)
 
 
 func draw_realm(realm: Dictionary) -> void:
@@ -612,6 +774,7 @@ func add_gauge(title: String, value: float, maximum: float, tint: Color) -> void
 func open_maps() -> void:
 	show_maps = not show_maps
 	selected_map = -1
+	show_drops = false
 	schedule_draw()
 
 
@@ -666,5 +829,8 @@ func add_button(text: String, callback: Callable, primary := false, disabled := 
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(2)
 	button.add_theme_stylebox_override("normal", style)
-	button.pressed.connect(callback)
+	button.pressed.connect(func():
+		game_audio.effect("tap")
+		callback.call()
+	)
 	(parent if parent != null else page).add_child(button)

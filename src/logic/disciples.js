@@ -274,9 +274,14 @@ L.supportFx('disc', { ok: v => !!v && typeof v === 'object' && Object.keys(v).le
 } });
 L.supportTrigger('disciple'); L.supportTrigger('disc:');
 // 【出师】按钮：先弹辞行事件（选一样送他的东西），事件没上线时直接出师
-L.discAskGrad = function (st, u) {
+L.discAskGrad = function (st, u, keepQueued) {
   const x = L.discByU(st, u); if (!L.discCanGrad(x)) return null;
-  if (L.discFire(st, 'disc:graduate', x)) { const i = st.storyQ.lastIndexOf('disc_graduate'); if (i >= 0) st.storyQ.splice(i, 1); return { ev: L.eventById('disc_graduate') }; }
+  if (L.discFire(st, 'disc:graduate', x)) {
+    if (!keepQueued) {
+      const i = st.storyQ.lastIndexOf('disc_graduate'); if (i >= 0) st.storyQ.splice(i, 1);
+    }
+    return { ev: L.eventById('disc_graduate') };
+  }
   return { grad: L.discGraduate(st, u) };
 };
 

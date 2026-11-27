@@ -3,12 +3,14 @@
   'use strict';
   let state = null;
   let encounter = null;
+  let openEvent = null;
   let note = null;
   let panel = null;
   let battle = null;
   let boss = null;
   let battleInputs = [];
   let battleLog = '';
+  let battleEffects = [];
   let breakthrough = null;
   let rebirth = null;
   let returnToGate = false;
@@ -47,6 +49,7 @@
     title: fill(ev.title),
     text: fill(ev.text || ev.gist),
     scene: ev.scene || '',
+    music: ev.bgm || '',
     dialogue: dialogue(ev.talk, ev.id),
     options: ev.choices.flatMap((choice, index) => {
       const gate = L.choiceGate(state, choice);
@@ -180,8 +183,14 @@
       lines.push(...rewards.filter(([, value]) => value > 0).map(([label, value]) => label + ' +' + fmt(value)));
       if (data.inj) lines.push(L.injText(data.inj));
       lines.push(...(data.unlock || []));
-      if (data.cards?.length) lines.push('翻牌所得 · ' + data.cards.map(card => card.name + (card.n > 1 ? ' ×' + card.n : '')).join('、'));
-      return { kind: 'card', title: name[block.id] || '行动结算', text: lines.join('\n') };
+      if (data.note) lines.push(data.note);
+      const cards = (data.cards || []).map((card, index) => ({
+        index, revealed: !!block.revealed?.includes(index),
+        name: card.name + (card.n > 1 ? ' ×' + card.n : ''),
+      }));
+      const deeper = deeperWhy(block);
+      return { kind: 'card', title: name[block.id] || '行动结算', text: lines.join('\n'), cards,
+        deeper: deeper === null ? null : { why: deeper, ap: L.AP.deeper } };
     }
     if (block.kind === 'big') {
       const title = { pact: '三年之约', tour: '天骄论道', meet: '九宗会武', war: '天剑来犯', rookie: '新秀挑战', death: '寿元已尽' };
@@ -190,6 +199,12 @@
     if (block.kind === 'chapter') return { kind: 'card', title: '本章了结' };
     if (block.kind === 'unlock') return { kind: 'card', title: L.ONB_K[block.id]?.n || '新功能已开' };
     return { kind: 'card', title: '仙途' };
+  }
+
+  function deeperWhy(block) {
+    if (block.kind !== 'result' || block.id !== 'exp' || block.data.first ||
+        block.data.cards?.deeper || !L.deeperOk(state, L.tripOf(block.data))) return null;
+    return L.apWhy(state, 'deeper', { res: block.data });
   }
 
   function nextView() {
@@ -207,18 +222,35 @@
     if (state.run) return realmView();
     if (battle) {
       return {
-        kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: battle.round + 1,
+        kind: 'battle', title: boss ? L.BOSSES[boss.k].n : '历练交手', round: Math.max(1, battle.round + Number(!battle.done)),
+        region: boss ? boss.k : state.exp.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
+        boss: !!boss, done: !!battle.done, effects: battleEffects,
+        outcome: battle.done ? battle.win ? '取胜' : battle.fled ? '撤退' : '落败' : '',
         hp: Math.max(0, Math.ceil(battle.hp)), maxHp: Math.ceil(battle.max), rage: Math.floor(battle.rage),
-        foes: battle.foes.filter(foe => foe.hp > 0).map(foe => ({
-          name: foe.n, hp: Math.ceil(foe.hp), maxHp: Math.ceil(foe.max), shield: foe.sh, charge: !!foe.charge,
-        })),
+        foes: battle.foes.flatMap((foe, index) => foe.hp > 0 || battleEffects.some(effect => effect.target === index) ? [{
+          id: foe.id, index, element: foe.el, name: foe.n, hp: Math.max(0, Math.ceil(foe.hp)),
+          maxHp: Math.ceil(foe.max), shield: foe.sh, charge: !!foe.charge,
+        }] : []),
         ultimate: battle.me.ult.n, canUlt: battle.rage >= 100, pills: battle.pillUsed ? 0 : battle.pills,
         text: battleLog || battle.momText,
       };
     }
     if (state.exp) {
       const trip = state.exp;
-      return { kind: 'travel', title: L.REGIONS[trip.k].n, text: '已走过 ' + (trip.ni || 0) + ' / ' + trip.total + ' 处', button: '继续历练 ▸' };
+      return { kind: 'travel', title: L.REGIONS[trip.k].n, region: trip.k, hero: Math.min(9, state.p.r) * 2 + Number(!!state.p.look.f),
+        text: '已走过 ' + (trip.ni || 0) + ' / ' + trip.total + ' 处', button: '继续历练 ▸' };
+    }
+    if (state.gear.rf) {
+      const { old, neu, pity } = state.gear.rf;
+      return { kind: 'reforge', title: '洗练结果', old: L.gearAffText(old), replacement: L.gearAffText(neu), pity };
+    }
+    if (openEvent) {
+      const ev = currentLocalEvent();
+      if (ev) return {
+        ...choiceView(ev), dismiss: openEvent === 'market' ? '略过此事' : '稍后再见',
+        gifts: openEvent === 'visitor' && L.PPL.includes(ev.npc) && !L.pgiftWhy(state, ev.npc),
+      };
+      openEvent = null;
     }
     // Deferred mainline fights have no prepare panel of their own.
     for (let i = 0; i < 12; i++) {
@@ -235,6 +267,9 @@
     if (state.p.r > L.MAXR && !state.flags.endRead) return endingView();
     return null;
   }
+
+  const currentLocalEvent = () => openEvent === 'visitor' ? L.visitorEvent(state)
+    : openEvent === 'market' ? L.marketEvent(state) : null;
 
   function realmView() {
     const run = state.run;
@@ -286,11 +321,19 @@
       ap: L.apLeft(state), apTotal: L.AP.per, canBreak: L.isReady(state),
       canRebirth: state.p.r >= 2, canReturnToGate: !!(state.p.r > L.MAXR && state.eflags.asc_stay),
       ascended: state.p.r > L.MAXR,
+      visitor: !notice && L.visitorEvent(state) ? { title: fill(L.visitorEvent(state).title), leave: L.seasonsText(state.visitor.left) } : null,
       goal: goal.t, progress: goal.bar.text, advice: goal.next?.t || '',
       maps: notice ? [] : L.REGIONS.flatMap((map, k) => L.regionOpen(state, k) ? [{
         k, name: map.n, cells: expeditionCells(k),
         boss: L.bossReady(state, k) ? { name: L.BOSSES[k].n, why: L.apWhy(state, 'boss', { k }) } : null,
+        drops: L.DEPTHS.flatMap((title, d) => L.APPR.some((_, a) => L.expOpen(state, k, d, a)) ? [{
+          d, title, items: L.dropTable(state, k, d).map(item => ({
+            index: item.i, title: item.n, text: item.d + ' · ' + item.who, pinned: item.wish,
+          })),
+        }] : []),
       }] : []),
+      wishOpen: !notice && L.wishOpen(state),
+      wish: !notice && L.wishInfo(state) ? L.wishInfo(state) : null,
       canRetreat: L.retOpen(state),
       array: arrayView(),
       realms: notice ? [] : realmEntries(),
@@ -335,6 +378,8 @@
       pending,
       chain: { ...L.chainOpenNow(state) },
       battle: battle ? battleInputs : null,
+      openEvent,
+      panel,
       boss,
       breakthrough,
       rebirth,
@@ -358,13 +403,15 @@
     breakthrough = native ? parsed.breakthrough || null : null;
     rebirth = native ? parsed.rebirth || null : null;
     returnToGate = native && !!parsed.returnToGate;
-    panel = null;
+    openEvent = native ? parsed.openEvent || null : null;
+    panel = native && XianmenPanels.has(parsed.panel) ? parsed.panel : null;
     boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
     if (native && Array.isArray(parsed.battle)) {
       battle = boss ? L.bossBattle(state, boss.k, { seed: boss.seed }) : L.expBattle(state);
     } else battle = null;
     battleInputs = battle ? parsed.battle : [];
     battleLog = '';
+    battleEffects = [];
     if (battle) for (const input of battleInputs) playRound(input);
     if (native && parsed.chain) {
       for (const block of parsed.pending || []) L.blockPush(state, block);
@@ -375,7 +422,8 @@
   function resolve(index) {
     if (note) throw new Error('请先完成当前结算');
     const realmEvent = L.mjEventNow(state);
-    const event = realmEvent || (encounter && L.eventById(encounter));
+    const localEvent = currentLocalEvent();
+    const event = realmEvent || (encounter && L.eventById(encounter)) || localEvent;
     const pre = breakthrough?.pre && L.eventById(breakthrough.pre);
     const gate = ascensionGate();
     const block = !event && !pre && L.nextBlock(state);
@@ -399,19 +447,28 @@
     }
     const realmResult = realmEvent ? L.mjAfterEvent(state) : null;
     if (event) encounter = null;
+    if (localEvent && openEvent === 'visitor') openEvent = null;
     const response = choice[result.ok ? 'ok' : 'fail'] || choice.ok;
     note = {
       kind: 'card', key: ev.id + ':result', scene: ev.scene || '',
-      title: fill(ev.title), text: [fill(result.text), realmResult?.wipe ? '气血耗尽，退出秘境。' : ''].filter(Boolean).join('\n'),
+      music: ev.bgm || '',
+      title: fill(ev.title), text: [fill(result.text), ...result.fx, realmResult?.wipe ? '气血耗尽，退出秘境。' : ''].filter(Boolean).join('\n'),
       dialogue: dialogue(response?.talk, ev.id),
     };
   }
 
   function playRound(input) {
     const events = L.battleStep(battle, input);
+    const attack = events.find(event => event.t === 'ult') || events.find(event => event.t === 'skill') || events.find(event => event.t === 'hit');
+    const wound = events.find(event => event.t === 'heavy') || events.find(event => event.t === 'fhit');
+    battleEffects = [attack, wound].filter(Boolean).map(event => ({
+      kind: event.t, target: event.t === 'heavy' || event.t === 'fhit' ? -1 : event.tgt ?? 0,
+      amount: fmt(event.dmg || 0), el: event.el || '',
+    }));
     battleLog = events.flatMap(event => {
-      if (event.t === 'hit') return [(event.n || '命中') + ' ' + fmt(event.dmg || 0)];
-      if (event.t === 'break' || event.t === 'summon') return [event.n];
+      if (['hit', 'skill', 'ult', 'heavy'].includes(event.t)) return [(event.n || '重击') + ' ' + fmt(event.dmg || 0)];
+      if (event.t === 'break' || event.t === 'brk') return [event.t === 'brk' ? '破招' : '护罩碎裂'];
+      if (event.t === 'summon' || event.t === 'charge') return [event.n];
       return [];
     }).join(' · ');
   }
@@ -424,20 +481,25 @@
 
   function combat(move) {
     if (!battle) throw new Error('目前没有战斗');
+    if (battle.done) throw new Error('请先结算战斗');
     if (move === 'smart') {
       L.battleAuto(battle, 'smart');
+      if (battle.done) finishCombat();
     } else {
       const input = { ult: move === 'ult', pill: move === 'pill', flee: move === 'flee' };
       playRound(input);
       battleInputs.push(input);
     }
-    if (!battle.done) return;
+  }
+
+  function finishCombat() {
     const result = L.battleResult(battle);
     const target = boss;
     battle = null;
     boss = null;
     battleInputs = [];
     battleLog = '';
+    battleEffects = [];
     if (!target) finishTripStep(result);
     else if (!L.act(state, 'boss', { k: target.k, res: result })) throw new Error(L.actLastWhy || '首领战未能结算');
   }
@@ -514,11 +576,13 @@
       L.chainOpen(state, 'act');
       note = null;
       encounter = null;
+      openEvent = null;
       panel = null;
       battle = null;
       boss = null;
       battleInputs = [];
       battleLog = '';
+      battleEffects = [];
       breakthrough = null;
       rebirth = null;
       returnToGate = false;
@@ -531,6 +595,39 @@
     if (op === 'export') return L.packSave(JSON.stringify(state));
 
     if (op === 'pick') return resolve(message.index);
+    if (op === 'reforge-keep') {
+      if (nextView()?.kind !== 'reforge' || !L.gearReforgeKeep(state, message.replace === true)) throw new Error('没有待确认的洗练');
+      return;
+    }
+    if (op === 'result') {
+      if (note || state.exp || state.run || battle || state.trib?.cur) throw new Error('没有当前历练结算');
+      const block = L.nextBlock(state);
+      if (block?.kind !== 'result') throw new Error('没有当前历练结算');
+      if (message.move === 'deeper') {
+        if (deeperWhy(block) !== '' || !L.act(state, 'deeper', { res: block.data })) throw new Error('此刻无法深入');
+        L.blockDone(state, block);
+      } else {
+        const cards = block.data.cards || [];
+        if (message.move === 'all') block.revealed = cards.map((_, i) => i);
+        else if (message.move === 'reveal' && Number.isInteger(message.index) && cards[message.index]) {
+          block.revealed = [...new Set([...(block.revealed || []), message.index])];
+        } else throw new Error('没有这张翻牌');
+      }
+      return;
+    }
+    if (op === 'visitor-gifts') {
+      const visitor = L.pgiftVisitor(state);
+      if (note || openEvent !== 'visitor' || !L.PPL.includes(visitor) || L.pgiftWhy(state, visitor)) throw new Error('当前无法向访客送礼');
+      openEvent = null;
+      panel = 'people';
+      return;
+    }
+    if (op === 'dismiss-event') {
+      if (note || !currentLocalEvent()) throw new Error('没有待处理的奇遇');
+      if (openEvent === 'market') L.marketEventDone(state, currentLocalEvent().id);
+      else openEvent = null;
+      return;
+    }
     if (op === 'combat') return combat(message.move);
     if (op === 'breakthrough') return changeBreakthrough(message);
     if (op === 'life') return changeLife(message);
@@ -553,9 +650,10 @@
     }
     if (op === 'advance') {
       if (note) { note = null; return; }
-      if (encounter) throw new Error('请先选择奇遇');
+      if (encounter || currentLocalEvent()) throw new Error('请先选择奇遇');
+      if (battle?.done) return finishCombat();
       if (battle) throw new Error('请先完成当前战斗');
-      if (state.run || state.trib?.cur || breakthrough || state.settle) throw new Error('请先完成当前选择');
+      if (state.run || state.trib?.cur || breakthrough || state.settle || state.gear.rf) throw new Error('请先完成当前选择');
       if (state.exp) {
         battle = L.expBattle(state);
         if (!battle) finishTripStep(null);
@@ -572,9 +670,22 @@
       return;
     }
     if (nextView()) throw new Error('请先完成当前结算');
+    if (op === 'wish') {
+      if (!L.wishOpen(state)) throw new Error('历练四趟后可许愿');
+      if (message.clear) L.setWish(state, null);
+      else if (!L.regionOpen(state, message.k) || !L.APPR.some((_, a) => L.expOpen(state, message.k, message.d, a)) ||
+        !L.setWish(state, message.k, message.d, message.index)) throw new Error('无法设下这份心愿');
+      return;
+    }
+    if (op === 'visitor') {
+      if (!L.visitorEvent(state)) throw new Error('眼下没有访客');
+      openEvent = 'visitor';
+      return;
+    }
     if (op === 'panel') {
-      if (message.panel) XianmenPanels.read(state, message.panel);
+      if (message.panel && !XianmenPanels.has(message.panel)) throw new Error('找不到这个面板');
       panel = message.panel || null;
+      if (['auction', 'market'].includes(panel) && L.marketEvent(state)) openEvent = 'market';
       return;
     }
     if (op === 'panel-action') {
@@ -587,6 +698,23 @@
         };
       } else if (message.action === 'alchemy-take') {
         note = { kind: 'card', title: '服用' + result.n, text: result.fx };
+      } else if (message.action === 'auction-bid') {
+        note = { kind: 'card', title: result.win ? '拍得' + result.n : '竞价失利', text: result.win
+          ? ['花费 ' + fmt(result.price) + ' 灵石', result.planText, result.it?.name].filter(Boolean).join('\n')
+          : (result.comp ? result.comp.n : '其他修士') + '拍走了' + result.n + '。这次出价未扣灵石。' };
+        if (L.marketEvent(state)) openEvent = 'market';
+      } else if (message.action === 'person-gift') {
+        note = { kind: 'card', title: '送礼 · ' + L.npcName(state, result.id),
+          text: [result.line, '好感 ' + result.a0 + ' → ' + result.a1].join('\n') };
+      } else if (message.action === 'person-quest') {
+        note = { kind: 'card', title: '委托完成', text: [result.line, ...result.texts].join('\n') };
+      } else if (message.action === 'vault-buy') {
+        note = { kind: 'card', title: '换得' + result.n, text: result.planText || result.it?.name || '' };
+      } else if (message.action === 'gear-plus') {
+        note = { kind: 'card', title: result.ok ? '强化成功' : '强化失败', text: result.ok
+          ? '强化 +' + result.from + ' → +' + result.to : '消耗了这次的材料，下次强化成功率提高。' };
+      } else if (message.action === 'disciple-graduate' && result.grad) {
+        note = { kind: 'card', title: result.grad.x.n + '出师', text: '宗门贡献 +' + fmt(result.grad.contrib) };
       }
       return;
     }
@@ -625,12 +753,12 @@
     try {
       const message = JSON.parse(request);
       if (message.op === 'load' || message.op === 'import') {
-        previous = { state, encounter, note, panel, battle, boss, battleInputs, battleLog, breakthrough, rebirth, returnToGate };
+        previous = { state, encounter, openEvent, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
       }
       const result = dispatch(message);
       return JSON.stringify({ ok: true, result, view: view(), save: snapshot() });
     } catch (error) {
-      if (previous) ({ state, encounter, note, panel, battle, boss, battleInputs, battleLog, breakthrough, rebirth, returnToGate } = previous);
+      if (previous) ({ state, encounter, openEvent, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
       return JSON.stringify({ ok: false, error: previous ? '读不出这份存档' : error.message });
     }
   };

@@ -558,10 +558,17 @@ function setSoundIcon() { auApply(); const b = $('#btnSound'); if (!b) return; b
 // what：曲目名，或 'sfx:名字[:参数,参数]'；o: { sec, fight 带战斗层, sr }
 async function auRender(what, o) {
   o = o || {};
-  const sr = o.sr || 44100, sec = o.sec || 20, a = new OfflineAudioContext(2, Math.ceil(sr * sec), sr), G = auGraph(a);
+  const score = o.loop && TRACKS[what] ? bgmCompile(TRACKS[what]) : null;
+  const sr = o.sr || 44100, sec = score ? score.sd * score.len : o.sec || 20;
+  const a = new OfflineAudioContext(2, Math.ceil(sr * sec), sr), G = auGraph(a);
   G.sfx.gain.value = AU.SFX * auVol(3); G.mus.gain.value = AU.MUS * auVol(3);
   if (/^sfx:/.test(what)) { const [, k, arg] = what.split(':'); SX = { G, t: 0.02 }; SFX_DEF[k].apply(null, arg ? arg.split(',').map(x => (isNaN(+x) ? x : +x)) : []); }
-  else { const p = bgmPlayer(G, what, 0.05, 0.05, 0); if (o.fight) p.lay.gain.value = 1; const n = Math.floor((sec - 0.1) / p.C.sd); for (let s = 0; s < n; s++) bgmStep(G, p, s); }
+  else {
+    const p = bgmPlayer(G, what, score ? 0 : 0.05, 0.05, 0);
+    if (o.fight) p.lay.gain.value = 1;
+    const n = score ? score.len : Math.floor((sec - 0.1) / p.C.sd);
+    for (let s = 0; s < n; s++) bgmStep(G, p, s);
+  }
   const buf = await a.startRendering();
   return { sr, l: buf.getChannelData(0), r: buf.getChannelData(1) };
 }
