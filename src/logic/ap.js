@@ -341,8 +341,11 @@ const BIG = [['pact', 'pact'], ['tourney', 'tour'], ['meet', 'meet'], ['war', 'w
 L.seasonEnd = function (st) {
   const a = ap(st), p = st.p;
   const S = { season: L.seasonNow(st), seasonNo: L.seasonNo(st), tick: st.tick, sat: 0, xp: { flow: 0, sit: 0, pre: 0 }, stones: 0, crops: null, pay: 0, notes: [], big: [], visitor: null, year: false, next: null, outs: [], out: {}, pre: {} };
-  // 0. 历练演出还没打完（读档后接着打的那一趟）、差事还挂着：不过季（界面的【下一季】这时本来就是灰的），返回 null
-  if (st.exp || st.retreat) return null;
+  // 0. 历练演出还没打完（读档后接着打的那一趟）：不过季，返回 null（界面这时在演出，【下一季】点不到）
+  if (st.exp) return null;
+  // 挂着的 st.retreat（闭关、差事在 3.0 都当场结掉，不该挂着；绕过 L.act 直接 L.taskTake / L.startRetreat 才会留下它）：季末顺手结掉、不另扣点。
+  // 原来这里也返回 null，而界面的【下一季】并不因它变灰——点了没反应，这一局从此过不了季
+  if (st.retreat) S.pre.retreat = finishRetreat(st);
   // 1. 剩余行动点自动打坐
   if (a.left > 0 && p.r <= L.MAXR) { S.sat = a.left; S.xp.sit = L.sitGain(st, a.left); L.addXp(st, S.xp.sit); st.stats.sit = (st.stats.sit || 0) + a.left; }
   if (a.left > 0) L.apSpend(st, a.left, 'sit*');

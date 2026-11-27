@@ -369,6 +369,7 @@ const path = require('path');
     let builds = 0, zhenSets = 0;
     const T0 = Date.now();
     let idleChecked = false, idleTick0 = -1, idleOK = null;
+    let stuckN = 0, stuck = null;
     for (let n = 0; n < 700; n++) {
       window.__lr = { n, tick: X.st.tick, r: X.st.p.r, modal: modal() ? title() : '', cine: !!X.cine };
       const st = X.st;
@@ -410,7 +411,8 @@ const path = require('path');
       else if (n % 8 === 5 && L.calOpen(st) && !X.cine && !modal()) { document.querySelector('#time').click(); calOpen++; await sleep(60); if (title() === '年历') { seen['年历'] = 1; X.closeModal(); await sleep(450); } await drain(); }
       if (st.sect) {
         if (L.canPromote(st) && st.tick - (st.flags.promoFail || -99) >= 6) { X.doPromote(); await drain(); }
-        st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort') L.taskTake(st, i); if (L.taskCanDeliver(st, t) && st.pills >= 2) L.taskDeliver(st, i); });
+        // 讲法 / 传授是花点的差事（行动 'errand'，当场办完）：界面的【去办】走 L.act；直接 L.taskTake 会把 st.retreat（kind 'busy'）挂着不结，L.seasonEnd 从此不过季（第 168 月原地打转就是这个）
+        st.sect.tasks.forEach((t, i) => { if (!t.taken && t.ty !== 'teach' && t.ty !== 'escort' && t.ty !== 'lecture') L.taskTake(st, i); if (L.taskCanDeliver(st, t) && st.pills >= 2) L.taskDeliver(st, i); });
         for (const k of ['vart', 'vwep']) if (st.sect.pts >= L.vaultCost(st, k)) L.vaultBuy(st, k);
         if (st.sect.rank >= 6) for (const b of L.BUILDS) if (st.stones > L.buildCost(st.sect.build[b.k]) * 1.2) L.sectBuild(st, b.k);
       }
@@ -450,7 +452,18 @@ const path = require('path');
       }
       // 放置不走时间（§8.4）：第 6 季前后，主界面没有任何层时，站着 60 秒，st.tick 不变（新界面才判）
       if (NEW_UI && !idleChecked && n >= 6 && !modal() && !X.cine && !st.exp) { idleChecked = true; idleTick0 = st.tick; await sleep(60000); idleOK = X.st.tick === idleTick0; }
+      const tk0 = X.st.tick;
       await advance();
+      // 原地打转：点了【下一季】季数没动（不是演出、弹窗挡着）——把当时的状态打出来，判死卡，不再空转到 700 季
+      if (X.st.tick === tk0 && X.st.p.r <= L.MAXR && !modal() && !X.cine) {
+        if (++stuckN >= 3) {
+          const s = X.st, b = document.getElementById('btnNext');
+          stuck = { tick: s.tick, r: s.p.r, busyUI: X.busyUI, chainOn: X.chainOn, q: X.queueLen, ap: L.apLeft(s), exp: s.exp ? { k: s.exp.k, left: s.exp.left, ni: s.exp.ni } : null,
+            retreat: s.retreat ? Object.assign({}, s.retreat) : null, run: !!s.run, btnNext: b ? { disabled: b.disabled, text: b.textContent.trim() } : null, nextBlock: L.nextBlock(s), busy: L.busy(s) };
+          console.log('LR 原地打转 ' + JSON.stringify(stuck));
+          break;
+        }
+      } else stuckN = 0;
     }
     await drain();
     const st = X.st;
@@ -514,7 +527,7 @@ const path = require('path');
       lead.push({ id: r.id, trg: r.trg, prev, gap: Math.round(gap), first: gap >= 700 && k > 0 && LAY[k].from === '' });
     }
     res.zd = { newUi: NEW_UI, recBug: window.__lrRecBug, keyStories: lead.length, leadFirst: lead.filter(x => x.first).map(x => `${x.id}(${x.trg})`), leadMiss: lead.filter(x => x.miss).length,
-      chainEnds: chainEnds.length, chainLeft: chainEnds.filter(x => x.q > 0).slice(0, 5), idle: idleOK, goalActs, goalMiss };
+      stuck, chainEnds: chainEnds.length, chainLeft: chainEnds.filter(x => x.q > 0).slice(0, 5), idle: idleOK, goalActs, goalMiss };
     return res;
   });
   clearInterval(prog);
@@ -528,6 +541,7 @@ const path = require('path');
   else {
     if (zd.chainLeft && zd.chainLeft.length) errors.push(`[B/C] 链结束时 st.storyQ 还有剧情压着（${zd.chainLeft.length}+ 条链）：` + zd.chainLeft.map(x => `第 ${x.tick} 月 ${x.ids.join('、')}`).join('；'));
     if (zd.leadFirst && zd.leadFirst.length) errors.push(`[B/C] 关键戏开播时是它那条链的第一层（前面没有它对应的结算卡，或两层之间露出了主界面）：` + zd.leadFirst.slice(0, 6).join('、'));
+    if (zd.stuck) errors.push('第 ' + zd.stuck.tick + ' 月原地打转：点【下一季】季数不动（' + JSON.stringify(zd.stuck) + '）');
     if (zd.idle === false) errors.push('[C] 放置 60 秒 st.tick 变了（时间不该自己走）');
     if (zd.idle === null) errors.push('放置 60 秒的检查没跑到（没有一个空闲的季初）');
     if (!(zd.keyStories > 0)) errors.push('一条关键戏也没记到（STORYLOG 空）');
