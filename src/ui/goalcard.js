@@ -79,13 +79,13 @@ function goTo(k, hl) {
 $('#gGo').addEventListener('click', e => {
   e.stopPropagation(); if (!st || cine || busyUI()) return; ac(); SFX.tap();
   const g = L.goalNow(st), nx = g.next || {}, d = goDoOf(nx);
-  if (d && L.ACTS && L.ACTS[d.id]) { goDo(d); goalKey = ''; return; }
+  if (d && L.ACTS && L.ACTS[d.id]) { goDo(d); goalKey = ''; if (nx.hl) setTimeout(() => hlOnly(nx.hl), 60); return; }   // 落到出发页 / 准备页的：金框框住那一步的按钮（当场做掉的，页上没有它，金框不出）
   if (nx.act) { if (modalOpen()) closeModal(); runAct(nx.act, null); goalKey = ''; }
   else if (nx.go) goTo(nx.go, nx.hl);
 });
 // next.do：线 B 给 { id, args }（也认旧的 next.do = id、next.args）
 const goDoOf = nx => (!nx || !nx.do ? null : typeof nx.do === 'object' ? nx.do : { id: nx.do, args: nx.args });
-// next.do 的执行：历练要先选格子（没给 args 时开出发页）、首领要打回合战、下战书先进准备页（点名的人）；别的当场 L.act
+// next.do 的执行：历练开那一格的出发页（金框【出发】，L.actHl；没给 args 时开历练页）、首领当场开打回合战、下战书点名的人先进准备页（金框【下战书】）；别的当场 L.act
 function goDo(d) {
   const id = d.id, a = d.args;
   if (modalOpen()) closeModal();

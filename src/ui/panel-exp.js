@@ -133,6 +133,7 @@ function confirmExp(k, d, a, still) {
   s.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { SFX.tap(); expOpt[b.dataset.opt] = !expOpt[b.dataset.opt]; confirmExp(k, d, a, true); });
   if (typeof bindCompExp === 'function') bindCompExp(s, () => confirmExp(k, d, a, true));   // 同伴位（panel-people.js）
   bindLootPrep(s, k, d, () => confirmExp(k, d, a, true));   // 这里掉什么、心愿（loot.js）
+  { const go = [...s.querySelectorAll('.foot .btn')].find(b => /出发/.test(b.textContent)); if (go) go.id = 'btnExpGo'; }   // 目标卡【去】落到这一页时金框框它（L.actHl）
   apMark(s);
 }
 function itemLine(it) {

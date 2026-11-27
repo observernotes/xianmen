@@ -160,6 +160,43 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   const g2 = await ev(() => ({ ch: document.getElementById('gCh').textContent, world: !document.querySelector('[data-nav="world"]').classList.contains('lk') }));
   check(g2.ch === (lost ? '第一章' : '第二章') && g2.world, `之后目标卡换成${g2.ch}、【江湖】亮起`);
   await shot('g15-ch2');
+  // ---------- 目标卡【去】：每一种主线行动（L.mainActs 的 do.id）点了要么当场做（L.act / 首领开打），要么落到在屏、可点、金框框着的那个按钮 ----------
+  // 用 L.goalOfAct 把每种行动换成目标卡的“下一步”（同 L.goalNext 的那条路），点【去】，看落点；行动本身真做（不打桩），做完把状态复原
+  const GO_CASES = await ev(() => { const { st, L } = window.__xm, foe = L.mainFoes(st).find(id => id !== 'mu' || st.pact) || 'zhao';
+    return [['exp', { k: 0, d: 0, a: 0 }], ['boss', { k: 0 }], ['duel', { id: foe }], ['duel', { q: Math.max(1, st.rank - 1) }], ['join', { id: 'jian' }], ['promote'], ['final'], ['retreat'], ['sit']]; });
+  const goRes = [];
+  for (const [id, args] of GO_CASES) {
+    await closeAll();
+    const r0 = await ev(([id, args]) => {
+      const X = window.__xm, L = X.L, st = X.st;
+      window.__goSave = JSON.stringify(st); st.ap.left = L.AP.per; st.exp = null; st.retreat = null; st.p.inj = 0;
+      if (id === 'boss') { st.best = st.best || {}; for (let d = 0; d <= 2; d++) st.best['0_' + d] = Math.max(2, st.best['0_' + d] || 0); delete st.bosses[0]; }   // 后山野林的首领现身
+      const d = { id, args }, a = { id: 'test:' + id, t: (L.ACTS[id] && L.ACTS[id].label) || id, ok: true, ap: L.apCost(st, id, args), do: d };
+      const nx = L.goalOfAct(st, a), g0 = L.goalNext;
+      L.goalNext = () => nx; window.__goRestore = () => { L.goalNext = g0; };
+      window.__goActs = []; const act0 = L.act; L.act = function (s, i, x) { window.__goActs.push(i); return act0.apply(this, arguments); }; window.__goRestoreAct = () => { L.act = act0; };
+      return { hl: nx.hl, seq: st.ap.seq, boss: L.bossReady(st, 0) };
+    }, [id, args]);
+    await page.waitForTimeout(450);   // 目标卡按新的“下一步”重画
+    await page.click('#gGo'); await page.waitForTimeout(500);
+    const r = await ev(([id, hl]) => {
+      const X = window.__xm, el = hl && document.querySelector(hl), h = document.getElementById('hl');
+      const box = el && el.getBoundingClientRect(), hb = h && !h.hidden && h.getBoundingClientRect();
+      const lit = !!(box && hb && hb.left <= box.left + 2 && hb.top <= box.top + 2 && hb.right >= box.right - 2 && hb.bottom >= box.bottom - 2);
+      const ran = window.__goActs.includes(id) || !!(window.__xm_bt && window.__xm_bt.on);
+      return { ran, el: !!el, vis: !!(el && el.offsetParent), dis: !!(el && el.disabled), lit, why: el && el.disabled ? (([...document.querySelectorAll('#modal .body p.seal')].pop() || {}).textContent || '') : '' };
+    }, [id, r0.hl]);
+    goRes.push({ id: id + (args ? ':' + Object.keys(args)[0] : ''), r, hl: r0.hl });
+    // 收尾：打完回合战、关掉卡片，状态复原（下一个 id 从同一个局面起）
+    for (let i = 0; i < 40 && (await ev(() => !!(window.__xm_bt && window.__xm_bt.on))); i++) { await ev(() => window.__xm_bt.finish()); await page.waitForTimeout(100); }
+    await closeAll(); await page.waitForTimeout(300); await closeAll();
+    await ev(() => { window.__goRestore(); window.__goRestoreAct(); const X = window.__xm; X.loadState(JSON.parse(window.__goSave)); });
+    await page.waitForTimeout(500); await closeAll();
+  }
+  for (const g of goRes) {
+    const landed = g.hl && g.r.el && g.r.vis && g.r.lit && (!g.r.dis || !!g.r.why);
+    check(g.r.ran || landed, `目标卡【去】· ${g.id}：${g.r.ran ? '当场做了' : g.hl ? `落到 ${g.hl}${g.r.el ? '' : '（不在）'}${g.r.vis ? '' : '（不在屏）'}${g.r.lit ? ' 金框' : '（没金框）'}${g.r.dis ? '（灰：' + g.r.why.trim() + '）' : ''}` : '既没做、也没落到按钮'}`);
+  }
   const blk = await ev(() => window.__blk);
   check(blk === 0, `全程没有带【好】的阻塞讲解（${blk} 次）`);
   console.log('guide done =', await ev(() => window.__xm.st.guide.done));

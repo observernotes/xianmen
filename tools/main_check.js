@@ -209,6 +209,23 @@ for (const R of ROUTES) for (let ch = 0; ch < 9; ch++) {
   ok(L.mainActs(s2).some(a => a.ok && a.do && (a.do.id === 'boss' || a.do.id === 'exp')), who, '主线行动里没有【讨伐首领】或指向首领那一格的历练：' + L.mainActs(s2).map(a => a.t).join(' / '));
   lines.push(`${who}：目标卡“${L.goalNow(s2).bar.text}”，进度 ${txt}；老祖：${L.mainAdvice(s2).t}`);
 }
+// 原地打转（3.0 longrun 第 168 月）：讲法差事绕过 L.act 直接 L.taskTake，st.retreat（kind 'busy'）挂着——L.seasonEnd 原来返回 null、【下一季】点了没反应。
+// 现在季末顺手结掉挂着的差事 / 闭关，照常过季；经 L.act('errand') 走的照旧当场办完、不留 st.retreat
+{ const st = at(ROUTES[0], 3), who = '过季·挂着的差事';
+  if (!st.sect) L.joinSect(st, 'jian');
+  const t = { ty: 'lecture', taken: false, done: false, rw: 10, art: Object.keys(st.arts.own)[0] };
+  for (const how of ['taskTake', 'ret']) {
+    st.exp = null; st.retreat = null; st.sect.tasks = [Object.assign({}, t)];
+    if (how === 'taskTake') L.taskTake(st, 0); else st.retreat = { left: 4, total: 4, m: 2, kind: 'ret', got: 0 };   // 闭关挂着（旧路子 L.startRetreat 不结）
+    const hung = !!st.retreat, t0 = st.tick, S = L.seasonEnd(st);
+    ok(hung, who, `${how} 没有挂上 st.retreat（局面没造出来）`);
+    ok(!!S && st.tick > t0 && st.tick % 3 === 0 && !st.retreat, who, `${how} 挂着 st.retreat 时 L.seasonEnd ${S ? `过了季（${t0} → ${st.tick} 月）但 st.retreat ${st.retreat ? '还在' : '已清'}` : '返回 null（不过季：原地打转）'}`);
+  }
+  st.sect.tasks = [Object.assign({}, t)]; st.ap.left = L.AP.per;
+  const r = L.act(st, 'errand', { task: 0 });
+  ok(!!r && !st.retreat, who, `L.act('errand') 讲法没有当场办完（${r ? 'st.retreat 挂着' : L.actLastWhy}）`);
+  lines.push(`${who}：直接 taskTake / startRetreat 挂着的 st.retreat 季末结掉、照常过季；L.act('errand') 当场办完`);
+}
 if (!Q) console.log(lines.join('\n'));
 console.log(`主线可达性检查：${checks} 项`);
 if (fails.length) { console.log(`失败 ${fails.length} 条：`); for (const f of fails.slice(0, 80)) console.log('  ✗ ' + f); process.exit(1); }
