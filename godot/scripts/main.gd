@@ -55,6 +55,7 @@ var selected_map := -1
 var show_drops := false
 var show_journey := false
 var show_saves := false
+var show_settings := false
 var save_page := ""
 var import_draft := ""
 var export_code := ""
@@ -73,6 +74,7 @@ var page_key := ""
 var realm_transition: Dictionary = {}
 var item_icons: Dictionary = {}
 var battle_speed := 1
+var confirm_idle_ap := false
 var playback_remaining := 0.0
 var playback_action: Dictionary = {}
 var app_paused := false
@@ -80,11 +82,14 @@ var loot_flips: Array = []
 
 
 func _ready() -> void:
+	get_tree().set_quit_on_go_back(false)
+	get_tree().root.go_back_requested.connect(go_back)
 	add_child(game_audio)
 	var config := ConfigFile.new()
 	if config.load(AUDIO.SETTINGS) == OK:
 		intro_cine_seen = config.get_value("presentation", "tuihun", false) == true
 		battle_speed = 2 if config.get_value("presentation", "battle_speed", 1) == 2 else 1
+		confirm_idle_ap = config.get_value("presentation", "confirm_idle_ap", false) == true
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	theme = Theme.new()
 	theme.default_font = FONT
@@ -116,6 +121,60 @@ func _notification(what: int) -> void:
 		app_paused = true
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
 		app_paused = false
+
+
+func go_back() -> void:
+	if redraw_queued:
+		return
+	if DisplayServer.virtual_keyboard_get_height() > 0:
+		DisplayServer.virtual_keyboard_hide()
+		var editor := get_viewport().gui_get_focus_owner()
+		if editor is LineEdit or editor is TextEdit:
+			editor.release_focus()
+		return
+	for child in get_children():
+		if child is ConfirmationDialog and child.visible:
+			child.hide()
+			child.queue_free()
+			return
+	if not replay_cinema.is_empty():
+		close_cinematic_replay()
+		return
+	var notice = view.get("notice")
+	if not current_cinematic(notice).is_empty() or view.get("arena") is Dictionary or not realm_transition.is_empty():
+		return
+	if dialogue_history:
+		close_dialogue_history()
+		return
+	if notice is Dictionary:
+		if notice["kind"] == "breakthrough" and not notice["active"]:
+			request({"op": "breakthrough", "move": "cancel"})
+		elif notice["kind"] == "duel-prep" and notice["fight"] in ["duel", "final"]:
+			request({"op": "duel-action", "move": "cancel"})
+		return
+	if show_saves:
+		if save_page.is_empty():
+			toggle_saves()
+		else:
+			close_save_transfer()
+	elif show_settings:
+		toggle_settings()
+	elif view.get("panel") is Dictionary:
+		close_management(view["panel"]["id"])
+	elif show_drops:
+		close_drops()
+	elif selected_map >= 0:
+		select_map(-1)
+	elif show_maps:
+		open_maps()
+	elif show_journey:
+		toggle_journey()
+	elif not view.get("started", false) and intro_page >= 0:
+		return_to_title()
+	elif Engine.has_singleton("AndroidRuntime"):
+		var activity = Engine.get_singleton("AndroidRuntime").getActivity()
+		if activity != null:
+			activity.moveTaskToBack(true)
 
 
 func _process(delta: float) -> void:
@@ -173,6 +232,7 @@ func request(message: Dictionary) -> void:
 			save_page = "export"
 		if message["op"] in ["new", "import", "load", "title"]:
 			show_saves = false
+			show_settings = false
 			save_page = ""
 			import_draft = ""
 			export_code = ""
@@ -294,6 +354,8 @@ func draw_view() -> void:
 		next_page_key = "panel:" + String(view["panel"]["id"])
 	elif show_saves:
 		next_page_key = "saves/" + save_page
+	elif show_settings:
+		next_page_key = "settings"
 	elif show_maps and selected_map >= 0:
 		next_page_key = "drops" if show_drops else "map"
 	var scroll_position := 0
@@ -359,6 +421,9 @@ func draw_view() -> void:
 	if show_saves:
 		draw_saves()
 		return
+	if show_settings:
+		draw_settings()
+		return
 	draw_cave()
 
 
@@ -391,8 +456,7 @@ func draw_cinematic(clip: Dictionary) -> void:
 	film.sound_cue.connect(game_audio.effect)
 	film.completed.connect(func():
 		if not replay_cinema.is_empty():
-			replay_cinema.clear()
-			schedule_draw()
+			close_cinematic_replay()
 		elif clip.get("token") == "intro:tuihun":
 			intro_cine_seen = true
 			var config := ConfigFile.new()
@@ -405,6 +469,11 @@ func draw_cinematic(clip: Dictionary) -> void:
 			request({"op": "cinema-done", "token": clip["token"]})
 	)
 	page.add_child(film)
+
+
+func close_cinematic_replay() -> void:
+	replay_cinema.clear()
+	schedule_draw()
 
 
 func scene_music(notice: Variant) -> String:
@@ -465,16 +534,44 @@ func play_feedback(message: Dictionary) -> void:
 			game_audio.effect("victory" if notice["title"] == "突破成功" else "defeat")
 
 
-func draw_audio_setting() -> void:
+func draw_settings() -> void:
+	add_label("设置", 24, COLORS.gold)
+	add_button("返回", toggle_settings)
 	add_button("声音 · " + AUDIO.MODES[game_audio.mode], func():
-		game_audio.cycle_mode()
+		error_text = "" if game_audio.cycle_mode() else "无法保存声音设置。"
 		schedule_draw()
 	)
+	draw_volume_controls("音乐", true)
+	draw_volume_controls("音效", false)
+	add_button("战斗速度 · ×%d" % battle_speed, cycle_battle_speed)
+	var idle_ap_text := "先确认" if confirm_idle_ap else "直接打坐"
+	add_button("过季剩余行动点 · " + idle_ap_text, func():
+		confirm_idle_ap = not confirm_idle_ap
+		save_presentation_setting("confirm_idle_ap", confirm_idle_ap)
+	)
+	add_button("存档", toggle_saves)
+
+
+func draw_volume_controls(title: String, for_music: bool) -> void:
+	add_label(title, 17, COLORS.jade)
+	var levels := HBoxContainer.new()
+	page.add_child(levels)
+	var selected: int = game_audio.music_level if for_music else game_audio.effect_level
+	for level in range(6):
+		add_button(str(level), func():
+			error_text = "" if game_audio.set_volume(for_music, level) else "无法保存音量。"
+			if not for_music:
+				game_audio.effect("tap")
+			schedule_draw()
+		, level == selected, false, levels)
 
 
 func draw_title() -> void:
 	if show_saves:
 		draw_saves()
+		return
+	if show_settings:
+		draw_settings()
 		return
 	if intro_page >= 0 and intro_page < INTRO_TEXT.size():
 		add_picture(load("res://art/intro-%d.png" % intro_page), 224)
@@ -496,7 +593,7 @@ func draw_title() -> void:
 			schedule_draw()
 		, true)
 		add_button("存档", toggle_saves)
-		draw_audio_setting()
+		add_button("设置  ▸", toggle_settings)
 		return
 	add_label("踏上仙途", 24, COLORS.gold)
 	var portrait := STORY_STAGE.portrait_texture("me-0|n|")
@@ -521,10 +618,12 @@ func draw_title() -> void:
 		request({"op": "new", "name": intro_name if not intro_name.strip_edges().is_empty() else HERO_NAMES.pick_random(),
 			"introSeen": intro_cine_seen})
 	, true)
-	add_button("返回标题", func():
-		intro_page = -1
-		schedule_draw()
-	)
+	add_button("返回标题", return_to_title)
+
+
+func return_to_title() -> void:
+	intro_page = -1
+	schedule_draw()
 
 
 func draw_cave() -> void:
@@ -535,7 +634,7 @@ func draw_cave() -> void:
 		"trip":
 			add_guide_button("历练", open_maps)
 		"season":
-			add_guide_button("下一季  ▸", func(): request({"op": "season"}))
+			add_guide_button("下一季  ▸", next_season)
 		"breakthrough":
 			add_guide_button("突破", func(): request({"op": "break"}))
 	add_label(view["goal"], 23, COLORS.gold)
@@ -581,7 +680,7 @@ func draw_cave() -> void:
 	if view["canBreak"] and target != "breakthrough":
 		add_button("突破", func(): request({"op": "break"}), true)
 	if not view["ascended"] and target != "season":
-		add_button("下一季  ▸", func(): request({"op": "season"}), true)
+		add_button("下一季  ▸", next_season, true)
 	var systems := HBoxContainer.new()
 	systems.add_theme_constant_override("separation", 6)
 	page.add_child(systems)
@@ -596,7 +695,7 @@ func draw_cave() -> void:
 		var label := "再入轮回" if view["ascended"] else "兵解转世"
 		add_button(label, confirm_rebirth)
 	add_button("存档", toggle_saves)
-	draw_audio_setting()
+	add_button("设置  ▸", toggle_settings)
 
 
 func draw_maps() -> void:
@@ -658,10 +757,7 @@ func draw_map(location: Dictionary) -> void:
 
 
 func draw_drops(location: Dictionary) -> void:
-	add_button("返回历练", func():
-		show_drops = false
-		schedule_draw()
-	)
+	add_button("返回历练", close_drops)
 	var wish = view.get("wish")
 	if wish is Dictionary:
 		add_label("当前心愿 · %s · %d / %d" % [wish["c"]["n"], int(wish["n"]), int(wish["max"])], 16, COLORS.gold)
@@ -706,7 +802,7 @@ func draw_management(panel: Dictionary) -> void:
 			tabs = group
 			break
 	if active_id.begins_with("codex:"):
-		add_button("返回图鉴", func(): request({"op": "panel", "panel": "codex"}))
+		add_button("返回图鉴", func(): close_management(active_id))
 	else:
 		var title := String(tabs.get(active_id, PLAYER_PANELS.get(active_id, PANELS.get(active_id, "人物羁绊"))))
 		if active_id.begins_with("growth:"):
@@ -714,8 +810,7 @@ func draw_management(panel: Dictionary) -> void:
 		elif active_id.begins_with("trip:"):
 			title = "出发准备"
 		add_label(title, 24, COLORS.gold)
-		var back := {"op": "guide-nav", "region": -1} if guide_hint().get("target") == "depart" else {"op": "panel"}
-		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): request(back))
+		add_button("返回" if active_id.begins_with("trip:") else "返回洞府", func(): close_management(active_id))
 	if not tabs.is_empty():
 		var tab_row := HBoxContainer.new()
 		page.add_child(tab_row)
@@ -762,6 +857,15 @@ func draw_management(panel: Dictionary) -> void:
 				add_button(option["label"], perform, option.get("primary", not disabled), disabled)
 			if option["why"]:
 				add_label(option["why"], 14, COLORS.muted)
+
+
+func close_management(panel_id: String) -> void:
+	if panel_id.begins_with("codex:"):
+		request({"op": "panel", "panel": "codex"})
+	elif guide_hint().get("target") == "depart":
+		request({"op": "guide-nav", "region": -1})
+	else:
+		request({"op": "panel"})
 
 
 func draw_entry_title(entry: Dictionary) -> void:
@@ -837,12 +941,7 @@ func draw_saves() -> void:
 func draw_save_transfer() -> void:
 	var exporting := save_page == "export"
 	add_label("导出存档" if exporting else "导入存档", 20, COLORS.jade)
-	add_button("返回存档", func():
-		save_page = ""
-		clipboard_notice = ""
-		error_text = ""
-		schedule_draw()
-	)
+	add_button("返回存档", close_save_transfer)
 	var field := TextEdit.new()
 	field.placeholder_text = "XT1. …"
 	field.text = export_code if exporting else import_draft
@@ -879,6 +978,13 @@ func draw_save_transfer() -> void:
 		, true)
 	if not clipboard_notice.is_empty():
 		add_label(clipboard_notice, 15, COLORS.muted)
+
+
+func close_save_transfer() -> void:
+	save_page = ""
+	clipboard_notice = ""
+	error_text = ""
+	schedule_draw()
 
 
 func draw_save_slot(path: String, title: String, manual: bool) -> void:
@@ -983,10 +1089,7 @@ func draw_notice(notice: Dictionary) -> void:
 		dialogue_history = false
 	var lines: Array = notice.get("dialogue", [])
 	if dialogue_history:
-		add_button("返回剧情", func():
-			dialogue_history = false
-			schedule_draw()
-		, true)
+		add_button("返回剧情", close_dialogue_history, true)
 		for past in lines.slice(0, mini(dialogue_index + 1, lines.size())):
 			var speaker := String(past.get("speaker", ""))
 			add_label((speaker + "\n" if speaker else "") + String(past["text"]), 17)
@@ -1038,6 +1141,11 @@ func draw_notice(notice: Dictionary) -> void:
 	else:
 		draw_result_options(notice)
 		add_button(notice.get("button", "继续  ▸"), func(): request({"op": "advance"}), true)
+
+
+func close_dialogue_history() -> void:
+	dialogue_history = false
+	schedule_draw()
 
 
 func draw_duel_prep(prep: Dictionary) -> void:
@@ -1290,15 +1398,20 @@ func playback_speed_for(notice: Dictionary) -> int:
 
 
 func add_speed_button(parent: Container = null) -> void:
-	add_button("速度 ×%d" % battle_speed, func():
-		battle_speed = 1 if battle_speed == 2 else 2
-		var config := ConfigFile.new()
-		config.load(AUDIO.SETTINGS)
-		config.set_value("presentation", "battle_speed", battle_speed)
-		if config.save(AUDIO.SETTINGS) != OK:
-			error_text = "无法保存战斗速度。"
-		schedule_draw()
-	, battle_speed == 2, false, parent)
+	add_button("速度 ×%d" % battle_speed, cycle_battle_speed, battle_speed == 2, false, parent)
+
+
+func cycle_battle_speed() -> void:
+	battle_speed = 1 if battle_speed == 2 else 2
+	save_presentation_setting("battle_speed", battle_speed)
+
+
+func save_presentation_setting(key: String, value: Variant) -> void:
+	var config := ConfigFile.new()
+	config.load(AUDIO.SETTINGS)
+	config.set_value("presentation", key, value)
+	error_text = "" if config.save(AUDIO.SETTINGS) == OK else "无法保存设置。"
+	schedule_draw()
 
 
 func add_battle_scene(data: Dictionary) -> void:
@@ -1372,6 +1485,11 @@ func select_map(index: int) -> void:
 	schedule_draw()
 
 
+func close_drops() -> void:
+	show_drops = false
+	schedule_draw()
+
+
 func guide_hint() -> Dictionary:
 	var hint = view.get("guide")
 	return hint if hint is Dictionary else {}
@@ -1401,10 +1519,24 @@ func action(id: String) -> void:
 	request({"op": "act", "action": id})
 
 
+func next_season() -> void:
+	var message := {"op": "season"}
+	var left := int(view.get("ap", 0))
+	if confirm_idle_ap and left > 0:
+		confirm_action("过一季", "剩 %d 点自动打坐，修为 +%s。" % [left, view["idleApXp"]], "过季", message)
+	else:
+		request(message)
+
+
 func toggle_saves() -> void:
 	show_saves = not show_saves
 	save_page = ""
 	clipboard_notice = ""
+	schedule_draw()
+
+
+func toggle_settings() -> void:
+	show_settings = not show_settings
 	schedule_draw()
 
 

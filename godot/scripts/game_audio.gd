@@ -4,8 +4,13 @@ const SETTINGS := "user://settings.cfg"
 const MODES := ["音乐与音效", "仅音效", "静音"]
 const MUSIC_VOLUME := -4.0
 const SILENCE := -60.0
+const DEFAULT_LEVEL := 3
+const MUSIC_BUS := "Music"
+const EFFECT_BUS := "Effects"
 
 var mode := 0
+var music_level := DEFAULT_LEVEL
+var effect_level := DEFAULT_LEVEL
 var current := ""
 var active := 0
 var players: Array[AudioStreamPlayer] = []
@@ -19,28 +24,65 @@ func _ready() -> void:
 	var config := ConfigFile.new()
 	if config.load(SETTINGS) == OK:
 		mode = clampi(int(config.get_value("audio", "mode", 0)), 0, MODES.size() - 1)
+		music_level = clampi(int(config.get_value("audio", "music_level", DEFAULT_LEVEL)), 0, 5)
+		effect_level = clampi(int(config.get_value("audio", "effect_level", DEFAULT_LEVEL)), 0, 5)
+	apply_volume(MUSIC_BUS, music_level)
+	apply_volume(EFFECT_BUS, effect_level)
 	for index in range(2):
 		var player := AudioStreamPlayer.new()
+		player.bus = MUSIC_BUS
 		player.volume_db = SILENCE
 		add_child(player)
 		players.append(player)
 	for index in range(3):
 		var player := AudioStreamPlayer.new()
+		player.bus = EFFECT_BUS
 		add_child(player)
 		effects.append(player)
 
 
-func cycle_mode() -> void:
+func apply_volume(bus: String, level: int) -> void:
+	var index := AudioServer.get_bus_index(bus)
+	if index < 0:
+		AudioServer.add_bus()
+		index = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(index, bus)
+	AudioServer.set_bus_mute(index, level == 0)
+	if level > 0:
+		AudioServer.set_bus_volume_db(index, linear_to_db(pow(float(level) / DEFAULT_LEVEL, 1.6)))
+
+
+func cycle_mode() -> bool:
 	mode = (mode + 1) % MODES.size()
+	return save_audio_settings()
+
+
+func set_volume(for_music: bool, level: int) -> bool:
+	if for_music:
+		music_level = level
+		if level > 0:
+			mode = 0
+		apply_volume(MUSIC_BUS, level)
+	else:
+		effect_level = level
+		if level > 0 and mode == 2:
+			mode = 1
+		apply_volume(EFFECT_BUS, level)
+	return save_audio_settings()
+
+
+func save_audio_settings() -> bool:
 	var config := ConfigFile.new()
 	config.load(SETTINGS)
 	config.set_value("audio", "mode", mode)
-	config.save(SETTINGS)
+	config.set_value("audio", "music_level", music_level)
+	config.set_value("audio", "effect_level", effect_level)
 	if mode != 0:
 		music("")
 	if mode == 2:
 		for player in effects:
 			player.stop()
+	return config.save(SETTINGS) == OK
 
 
 func stream_for(key: String) -> AudioStream:
@@ -51,7 +93,7 @@ func stream_for(key: String) -> AudioStream:
 
 
 func music(want: String) -> void:
-	if mode != 0:
+	if mode != 0 or music_level == 0:
 		want = ""
 	if want == current or players.is_empty():
 		return
@@ -84,7 +126,7 @@ func music(want: String) -> void:
 
 
 func effect(key: String) -> void:
-	if mode == 2 or effects.is_empty():
+	if mode == 2 or effect_level == 0 or effects.is_empty():
 		return
 	var stream := stream_for("sfx_" + key)
 	if stream:

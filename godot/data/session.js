@@ -535,10 +535,12 @@
   function view(notice) {
     if (!state) return { started: false, introClip: XianmenCinematics.intro() };
     const goal = L.goalNow(state);
+    const ap = L.apLeft(state);
     return {
       started: true, name: state.p.name, date: L.dateText(state), realm: L.stageName(state.p),
       stones: fmt(state.stones), power: fmt(L.power(state)), xp: fmt(state.p.xp), xpNeed: fmt(L.pNeed(state.p)),
-      ap: L.apLeft(state), apTotal: L.AP.per, canBreak: L.isReady(state),
+      ap, apTotal: L.AP.per, canBreak: L.isReady(state),
+      idleApXp: !notice && ap > 0 && state.p.r <= L.MAXR ? fmt(L.sitGain(state, ap)) : '',
       canRebirth: state.p.r >= 2, canReturnToGate: !!(state.p.r > L.MAXR && state.eflags.asc_stay),
       ascended: state.p.r > L.MAXR,
       visitor: !notice && L.visitorEvent(state) ? { title: fill(L.visitorEvent(state).title), leave: L.seasonsText(state.visitor.left) } : null,
