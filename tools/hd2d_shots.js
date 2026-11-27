@@ -1,4 +1,4 @@
-// HD-2D 样张与前后对比：node tools/hd2d_shots.js [输出目录=docs/hd2d_mock] [only=home,battle,talk,panel,...] [hd=3] [dsf=2]
+// HD-2D 样张与前后对比：node tools/hd2d_shots.js [输出目录=docs/hd2d_mock] [only=home,battle,talk,panel,...] [hd=3] [dsf=2] [page=dist/index.html]
 // 每个画面出两张：*_before.png（?hd=0，原来的画面）、*_after.png（?hd=3），再拼一张 *_cmp.png（左旧右新）。设备 Pixel 7 竖屏。
 const { chromium, devices } = require('playwright');
 const path = require('path');
@@ -10,7 +10,7 @@ const HDQ = (args.find(a => a.startsWith('hd=')) || 'hd=3').slice(3);
 const DSF = parseFloat((args.find(a => a.startsWith('dsf=')) || '').slice(4)) || 0;   // 设备像素比（不写用 Pixel 7 的 2.625）
 const want = k => !only.length || only.includes(k);
 fs.mkdirSync(out, { recursive: true });
-const url = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
+const url = 'file://' + path.resolve((args.find(a => a.startsWith('page=')) || '').slice(5) || path.join(__dirname, '..', 'dist', 'index.html'));   // page=别的构建（前后对比）
 // 中期局面（同 tools/shot.js）
 function midGame() {
   const { st, L } = window.__xm;

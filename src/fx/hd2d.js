@@ -47,14 +47,22 @@ function defaultQ() {
 })();
 HD.setQuality = function (q, keep) {
   if (q === 'auto') { HD.auto = true; q = defaultQ(); HD.lite = true; } else { if (!keep) { HD.lite = q === 1.5; HD.auto = false; } q = q === 1.5 ? 2 : clamp(q | 0, 0, 3); }
-  if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ } }
+  if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ } HD.half = false; lowRes = false; HD.cut = 0; slow = fast = 0; }   // 玩家重新选了档：掉帧时减掉的都还回去
   const was = HD.q; HD.q = q; HD.stats.q = q;
-  if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else if (was !== q) sizePresent(true); }
+  if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else if (was !== q || !keep) sizePresent(true); }
   if (HD.skin) HD.skin();   // 换档（包括掉帧自动降到 0）时界面皮肤跟着开关
   if (HD.onQuality) HD.onQuality(q);
   return q;
 };
-HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false, fg: true, tilt: true };   // 单项开关（调试 / 降级）
+HD.cap3 = 800;               // 3 档合成画布的宽度上限（设备像素）
+HD.cut = 0;                  // 手动档掉帧时效果往下退几级（设置项不变；见 HD.degrade）
+HD.adapt = !(root.navigator && root.navigator.webdriver);   // 掉帧自适应（隔帧 / 降内部分辨率 / 退效果）；自动化测试下关，免得量到一半自己变了
+let lowRes = false;          // 3 档掉帧：内部分辨率降回 400 宽
+// 这一帧实际按哪一档的效果合成：玩家选的档是上限，HD.cut 每多一级往下退一档（3 → 2 → 1.5 → 1）
+const LV = [1, 1.5, 2, 3];
+function effLevel() { const lv = HD.q === 2 && HD.lite ? 1.5 : HD.q; if (!HD.cut) return lv; const i = LV.indexOf(lv); return i < 0 ? lv : LV[Math.max(0, i - HD.cut)]; }
+HD.level = effLevel;
+HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false, fg: true, tilt: true, punch: 0.34, vivid: 0.28 };   // 单项开关（调试 / 降级）；punch / vivid：3 档调色层的对比 / 饱和力度（见 gradeLayer）
 
 // ---------- 精灵升 2 倍密度：Scale2x（EPX）+ 缓存 ----------
 const upCache = new WeakMap();
@@ -190,8 +198,20 @@ HD.attach = function (ctx) {
 };
 function sizeLayers() {
   for (const n of LNAMES) { const k = n === 'ground' ? S : 1, w = 200 * k, h = logicH * k;   // 只有焦平面（地面）用 2 倍密度；天 / 远 / 中 / 前景反正要虚化，1 倍就够
-    let L = layers[n]; if (!L) L = layers[n] = { c: mkc(w, h), used: false, k }; if (L.c.width !== w || L.c.height !== h) { L.c.width = w; L.c.height = h; } if (!L.g) { L.g = L.c.getContext('2d'); L.g.drawImage = shimDraw(L.g.drawImage.bind(L.g)); } L.g.imageSmoothingEnabled = false; }
+    let L = layers[n]; if (!L) L = layers[n] = { c: mkc(w, h), used: false, k }; if (L.c.width !== w || L.c.height !== h) { L.c.width = w; L.c.height = h; } if (!L.g) { L.g = L.c.getContext('2d'); L.g.drawImage = shimDraw(L.g.drawImage.bind(L.g)); if (n === 'fore') trackRows(L); if (n === 'ground') trackSrc(L); } L.g.imageSmoothingEnabled = false; }
   sizePresent(true);
+}
+// 地面层这一帧画进了哪些“大张静态底图”（_hdOK：洞府地形、对决舞台）：拼成一个签名，地形换了（洞府升级、换季）不透明段就重算（opaqueBand）
+let bidN = 0;
+function trackSrc(L) { const d0 = L.g.drawImage; L.sig = 0; L.g.drawImage = function (img) { if (img && img._hdOK === 1) { if (!img._bid) img._bid = ++bidN; L.sig = (L.sig * 31 + img._bid) | 0; } return d0.apply(this, arguments); }; }
+// 记下这一层这一帧画到了哪几行（图层像素）：前景层合成时只画这一条。路径 / 回写像素这类量不出范围的，当整层都有
+function trackRows(L) {
+  const g0 = L.g, di = g0.drawImage, fr = g0.fillRect.bind(g0), full = () => { L.y0 = -1e9; L.y1 = 1e9; };
+  L.y0 = 1e9; L.y1 = -1e9;
+  const tr = (y, h) => { const m = g0.getTransform(); if (m.b || m.c) { full(); return; } let a = m.d * y + m.f, b = m.d * (y + h) + m.f; if (a > b) { const t = a; a = b; b = t; } if (a < L.y0) L.y0 = a; if (b > L.y1) L.y1 = b; };
+  g0.drawImage = function (img, a, b, c, d, e, f, g9, h9) { const n = arguments.length; if (n === 3) tr(b, img.height / (img._hd || 1)); else if (n === 5) tr(b, d); else tr(f, h9); return di.apply(g0, arguments); };
+  g0.fillRect = function (x, y, w, h) { tr(y, h); return fr(x, y, w, h); };
+  for (const m of ['fill', 'stroke', 'putImageData', 'fillText', 'strokeRect']) { const o = g0[m].bind(g0); g0[m] = function () { full(); return o.apply(null, arguments); }; }
 }
 function enable() {
   HD.on = true; HD.stats.q = HD.q;
@@ -213,15 +233,16 @@ function disable() {
 function sizePresent(force) {
   if (!pc || !HD.on) return;
   const r = main.getBoundingClientRect(), dpr = root.devicePixelRatio || 1;
-  let w;
-  if (HD.q >= 3) w = Math.round(r.width * dpr); else w = 200 * S;   // 1、2 档按高清像素（2 倍密度）合成，交给浏览器整数感放大；3 档按设备像素合成，光与粒子是真正平滑的
-  if (!(w > 0)) w = 200 * S;
-  w = Math.max(200 * S, w);
+  // 1、2 档按高清像素（400 宽）合成，交给浏览器放大；3 档按设备像素合成、但封顶 HD.cap3（800 = 高清像素的 2 倍：人物与地面仍是整数倍最近邻，光与粒子比 2 档细一倍）。
+  // 原来 3 档直接用设备像素，骁龙 8 Elite 这类 dpr 3.5 的手机上是 1400×1550，每帧十几遍整屏合成。掉帧时（HD.degrade）先隔帧、再把 3 档降回 400 宽
+  const dev = Math.round(r.width * dpr) || 200 * S;
+  let w = 200 * S;
+  if (HD.q >= 3 && !lowRes && effLevel() >= 3) w = Math.max(200 * S, Math.min(dev, HD.cap3 || 800));
   const h = Math.round(w * logicH / 200);
   if (force || w !== Pw || h !== Ph) {
     Pw = w; Ph = h; if (pc.width !== w) pc.width = w; if (pc.height !== h) pc.height = h; pg = pc.getContext('2d');
-    pc.style.filter = HD.q >= 3 && HD.opts.grade ? 'contrast(1.07) saturate(1.12)' : '';
-    pc.style.imageRendering = HD.q < 3 ? 'pixelated' : 'auto';
+    pc.style.filter = '';   // 3 档的对比度 / 饱和度原来是这里的 CSS 滤镜（安卓 WebView 上大画布每帧都要离屏过一遍），现在烘进合成（gradeLayer）
+    pc.style.imageRendering = HD.q < 3 || w < dev - 1 ? 'pixelated' : 'auto';
   }
 }
 
@@ -236,6 +257,8 @@ HD.begin = function (kind, info) {
   F.kind = kind; F.key = info.key || kind; F.OY = info.OY || 0; F.t = info.t || 0; F.age = 0; F.lights.length = 0; F.amb = null; F.dark = info.dark || 0;
   F.sun = info.sun || null; F.moon = info.moon || null; F.keyL = null; F.rays = null; F.motes = null; F.gradeC = null; F.gradeA = undefined; F.sky = info.sky || null; F.scroll = info.scroll || 0; F.season = info.season || 0;
   F.prof = profile(kind, F.key);
+  F.shaded = F.rimmed = false;   // 这一帧的人物层还没加轮廓光、地面层还没落影（见 present）
+  const FL = layers.fore; if (FL) { FL.y0 = 1e9; FL.y1 = -1e9; } if (layers.ground) layers.ground.sig = 0;
   const tr = mctx.getTransform();
   raw.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, 200 * S, logicH * S); mctx.setTransform(tr);
   for (const n of LNAMES) { const L = layers[n]; if (L.used) { L.g.setTransform(1, 0, 0, 1, 0, 0); L.g.clearRect(0, 0, L.c.width, L.c.height); L.used = false; } }
@@ -358,23 +381,24 @@ function vigTex() {
   gr.addColorStop(0, 'rgba(8,6,20,0)'); gr.addColorStop(0.5, 'rgba(8,6,20,.03)'); gr.addColorStop(0.72, 'rgba(8,6,20,.22)'); gr.addColorStop(1, 'rgba(8,6,20,.82)');   // 中间一大块不压：暗角只收四缘
   g.fillStyle = gr; g.fillRect(0, 0, 96, 96); tex.vig = t; return t;
 }
-function grainTex() {
-  let t = tex.grain; if (t) return t;
-  t = mkc(128, 128); const g = t.getContext('2d'), d = g.createImageData(128, 128);
-  for (let i = 0; i < 128 * 128; i++) { const v = 128 + (hash(i * 3 + 11) - 0.5) * 150; d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255; }
-  g.putImageData(d, 0, 0); tex.grain = t; return t;
-}
 
 // ---------- 合成 ----------
-function softLayer(g, L, amt, dx, dy, zoom, name) {
-  // 把一层画到呈现画布。amt = 0：最近邻（清晰）；amt ≥ 0.6：先缩到一半再双线性放大（虚）；之间：直接双线性放大（微虚）。3 档时中间量是“清晰底 + 一层柔化”
-  const w = Pw * zoom, h = Ph * zoom, x = (Pw - w) / 2 + dx, y = (Ph - h) / 2 + dy, q = HD.q;
+// 一层缩到一半（双线性）：虚化用的小图。合成前先备好（见 present 第一步），画呈现画布时就不用中途切去别的画布
+function halfOf(L, name) { const b = buf('s_' + name, Math.ceil(L.c.width / 2), Math.ceil(L.c.height / 2)); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(L.c, 0, 0, b.c.width, b.c.height); return b.c; }
+function softLayer(g, L, amt, dx, dy, zoom, name, q, rows, half) {
+  // 把一层画到呈现画布（或背景小缓冲，见 present 第 1 步；坐标一律按呈现画布写，小缓冲那边由变换折算）。amt = 0：最近邻（清晰）；amt ≥ 0.6：先缩到一半再双线性放大（虚）；之间：直接双线性放大（微虚）。3 档时中间量是“清晰底 + 一层柔化”
+  // rows：只画这一层有内容的那几行（[y0, y1)，图层像素；洞府前景层的云海只占底下一条，不必整屏画一遍）
+  const w = Pw * zoom, h = Ph * zoom, x = (Pw - w) / 2 + dx, y = (Ph - h) / 2 + dy;
   if (!HD.opts.dof || q < 2) amt = amt >= 1 ? 0.99 : 0;
-  if (amt <= 0) { g.imageSmoothingEnabled = false; g.drawImage(L.c, x, y, w, h); return; }
+  const lw = L.c.width, lh = L.c.height, r0 = rows ? clamp(rows[0], 0, lh) : 0, r1 = rows ? clamp(rows[1], r0, lh) : lh, ky = h / lh;
+  if (r1 <= r0) return;
+  if (amt <= 0) { g.imageSmoothingEnabled = false; g.drawImage(L.c, 0, r0, lw, r1 - r0, x, y + r0 * ky, w, (r1 - r0) * ky); return; }
   if (q >= 3 && amt < 0.5) { g.imageSmoothingEnabled = false; g.drawImage(L.c, x, y, w, h); g.globalAlpha = Math.min(1, amt * 1.6); g.imageSmoothingEnabled = true; g.drawImage(L.c, x, y, w, h); g.globalAlpha = 1; return; }
   g.imageSmoothingEnabled = true;
-  if (amt >= 0.6) { const b = buf('s_' + name, Math.ceil(L.c.width / 2), Math.ceil(L.c.height / 2)); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(L.c, 0, 0, b.c.width, b.c.height); g.drawImage(b.c, x, y, w, h); }
-  else g.drawImage(L.c, x, y, w, h);
+  if (amt >= 0.6) {
+    const b = half || halfOf(L, name), bh = b.height, kb = h / bh, s0 = Math.floor(r0 / 2), s1 = Math.min(bh, Math.ceil(r1 / 2));
+    g.drawImage(b, 0, s0, b.width, s1 - s0, x, y + s0 * kb, w, (s1 - s0) * kb);
+  } else g.drawImage(L.c, 0, r0, lw, r1 - r0, x, y + r0 * ky, w, (r1 - r0) * ky);
 }
 function drawLight(g, l, u, mul) {
   const r = l.r * u * (l.kind === 2 ? 1.5 : l.kind === 1 ? 2.8 : 2.1), x = l.x * u, y = l.y * u, a = clamp(l.a * mul, 0, 1);
@@ -385,8 +409,8 @@ const MOTE = {
   dust: { vy: -0.004, vx: 0.006, sway: 5, size: 1 }, sand: { vy: 0.002, vx: 0.05, sway: 3, size: 1 }, wisp: { vy: -0.012, vx: 0.002, sway: 8, size: 1.6 },
   ember: { vy: -0.03, vx: 0.006, sway: 6, size: 1.2 }, bubble: { vy: -0.02, vx: 0, sway: 4, size: 1.3 }, fly: { vy: 0, vx: 0, sway: 14, size: 1.3 },
 };
-function drawMotes(g, m, t, u, OY, H) {
-  const n = HD.q >= 2 ? m.n : Math.round(m.n * 0.5), K = MOTE[m.kind] || MOTE.dust, tx = glowTex(m.c);
+function drawMotes(g, m, t, u, OY, H, q) {
+  const n = (q === undefined ? HD.q : q) >= 2 ? m.n : Math.round(m.n * 0.5), K = MOTE[m.kind] || MOTE.dust, tx = glowTex(m.c);
   g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
   for (let i = 0; i < n; i++) {
     const h1 = hash(i * 3 + 1), h2 = hash(i * 3 + 2), h3 = hash(i * 3 + 3);
@@ -401,10 +425,51 @@ function drawMotes(g, m, t, u, OY, H) {
   }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
 }
+// 暗角预先铺成一张高清像素分辨率（400 宽）的整图：每帧按最近邻贴一次，不用每帧把 96 像素的小图双线性放大到整屏
+function vigFull(w, h) {
+  const k = 'vf' + w + 'x' + h; let t = tex[k]; if (t) return t;
+  for (const k2 in tex) if (k2.startsWith('vf')) delete tex[k2];
+  t = mkc(w, h); const g = t.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(vigTex(), 0, 0, w, h); tex[k] = t; return t;
+}
+// 3 档的“调色层”：一张高清像素分辨率（400 宽）的不透明图，整张以柔光叠一次，一并做三件事——原来是一次柔光填色 + 每帧平铺的颗粒 + 呈现画布上的 CSS 对比度 / 饱和度滤镜（安卓 WebView 上大画布每帧过一遍 CSS 滤镜很贵）：
+//   ① 主调：底色 = 0.5 + a·(主调色 − 0.5)。柔光在叠色 ≤ 0.5 / > 0.5 两段里各自对叠色是线性的，所以这和“主调色、不透明度 a 的柔光填色”逐像素相等；
+//   ② 对比 / 饱和：按 HD.opts.punch 混进画面的缩小图（柔光叠自己 ≈ 按通道拉开中间调：亮的更亮、暗的更暗），按 HD.opts.vivid 混进“缩小图 − 它的亮度”（颜色更纯）。缩小图是低频的，细节不会被涂糊；
+//   ③ 颗粒：一张 128 的黑白点按高清像素平铺上去，只在 0.5 上下几个色阶里摆动——柔光自然在中间调最明显、死黑与高光里看不出，和原来的“叠加”颗粒一个脾气。
+// 这张图 4 帧才重做一次（颗粒每秒跳 15 次；缩小图本来就是低频的），其余帧直接贴
+const GRAIN_A = 0.085;
+let gradeN = 0, gradeKey = '';
+function grainTex() {
+  let t = tex.grain; if (t) return t;
+  t = mkc(128, 128); const g = t.getContext('2d'), d = g.createImageData(128, 128);
+  for (let i = 0; i < 128 * 128; i++) { const v = (hash(i * 3 + 11) - 0.5) * 2, c = v > 0 ? 255 : 0; d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = c; d.data[i * 4 + 3] = Math.round(Math.abs(v) * 255); }
+  g.putImageData(d, 0, 0); tex.grain = t; return t;
+}
+function gradeLayer(gc, ga, t, grain, smFn) {
+  const B = clamp(+HD.opts.punch || 0, 0, 0.6), V = clamp(+HD.opts.vivid || 0, 0, 0.3), W2 = 200 * S, H2 = logicH * S, gb = buf('grade', W2, H2), gg = gb.g, key2 = gc + ga.toFixed(3) + B + V + W2 + 'x' + H2 + (grain ? 1 : 0);
+  if (key2 === gradeKey && (++gradeN & 3)) return gb.c;
+  gradeKey = key2; gradeN = 0;
+  // 目标：叠色 = 0.5 + a·(主调 − 0.5) + B·(缩小图 − 0.5) + V·(缩小图 − 缩小图的亮度)。后一项让比亮度高的通道再高一点、低的再低一点，就是饱和度。
+  // 画法：底色 x 上以 B + V 的不透明度叠缩小图，再以 V 的强度加（lighter）一张“1 − 亮度”图 → x·(1 − B − V) + (B + V)·缩小图 + V·(1 − 亮度)；x 由此反解
+  const C = rgb(gc), base = C.map(v => clamp(Math.round(255 * (0.5 * (1 - B) + ga * (v / 255 - 0.5) - V) / (1 - B - V)), 0, 255));
+  gg.setTransform(1, 0, 0, 1, 0, 0); gg.globalAlpha = 1; gg.globalCompositeOperation = 'source-over';
+  gg.fillStyle = 'rgb(' + base.join(',') + ')'; gg.fillRect(0, 0, W2, H2);
+  const sm = smFn(), sw = sm.width, sh = sm.height;   // 画面的缩小图（present 拿背景小缓冲、地面层、人物层、光照图拼的，不回读呈现画布）
+  gg.imageSmoothingEnabled = true; gg.globalAlpha = B + V; gg.drawImage(sm, 0, 0, W2, H2);
+  if (V > 0) {
+    const li = buf('gradeL', sw, sh), lg = li.g; lg.globalAlpha = 1; lg.globalCompositeOperation = 'copy'; lg.drawImage(sm, 0, 0);
+    lg.globalCompositeOperation = 'saturation'; lg.fillStyle = '#808080'; lg.fillRect(0, 0, sw, sh);   // 去色 → 亮度
+    lg.globalCompositeOperation = 'difference'; lg.fillStyle = '#ffffff'; lg.fillRect(0, 0, sw, sh);   // → 1 − 亮度
+    gg.globalCompositeOperation = 'lighter'; gg.globalAlpha = V; gg.drawImage(li.c, 0, 0, W2, H2); gg.globalCompositeOperation = 'source-over';
+  }
+  if (grain) { const gt = grainTex(), ox = (hash((t / 66) | 0) * 128) | 0, oy = (hash(((t / 66) | 0) + 9) * 128) | 0; gg.globalAlpha = GRAIN_A; gg.imageSmoothingEnabled = false; for (let y = -oy; y < H2; y += 128) for (let x = -ox; x < W2; x += 128) gg.drawImage(gt, x, y); }
+  gg.globalAlpha = 1;
+  return gb.c;
+}
 let halfN = 0, lastNow = 0, slow = 0, fast = 0, covered = false, skipN = 0, inPresent = false;
 // 测帧打点（tools/hd2d_perf.js）：HD2D.probe = {} 时，合成的每个阶段之后回读 1 个像素逼浏览器把这一段真画完，各段耗时累加进 probe.t[段名]，帧数在 probe.n。
 // 回读本身有开销（还会让浏览器把画布挪到 CPU 上），只用来看分解，帧间隔另外不开打点量
 let PR = null, prT = 0, beginT = 0;
+function pmark(name, c) { if (!PR || !c) return; try { c.getContext('2d').getImageData(0, 0, 1, 1); } catch (e) { /* 无 */ } const n = root.performance.now(); PR.t[name] = (PR.t[name] || 0) + n - prT; prT = n; }   // 备料那一步各项：回读那张小缓冲
 function mark(name) { if (!PR) return; try { pg.getImageData(0, 0, 1, 1); } catch (e) { /* 跨域图不会出现在这里 */ } const n = root.performance.now(); PR.t[name] = (PR.t[name] || 0) + n - prT; prT = n; }
 HD.present = function (now) {
   if (!HD.on || !pc) return;
@@ -421,80 +486,83 @@ function present(now) {
   if (F.age > 4) {   // 这几帧没有哪个场景开画（开场、黑屏）：原样放大
     g.imageSmoothingEnabled = false; g.clearRect(0, 0, Pw, Ph); g.drawImage(main, 0, 0, Pw, Ph); return;
   }
-  const P = F.prof || BASE, u = Pw / 200, OY = F.OY, H = logicH, t = now, O = HD.opts, q = HD.q;
+  const lv = effLevel(), q = lv >= 3 ? 3 : lv >= 1.5 ? 2 : lv, lite = lv === 1.5;   // 这一帧实际按哪一档的效果合成（手动档掉帧时 HD.cut 往下减，设置项不动）
+  const P = F.prof || BASE, u = Pw / 200, OY = F.OY, H = logicH, t = now, O = HD.opts, big = Pw >= 2 * 200 * S;   // big：呈现画布是高清像素的 2 倍（3 档 800 宽）
   const key = F.keyL || P.key;
   const cx = O.cam ? (Math.sin(t / 9100) * 1.6 + Math.sin(t / 23000) * 1.1) * u : 0, cy = O.cam ? Math.sin(t / 13000) * 0.6 * u : 0;
   const lay = n => layers[n].used ? layers[n] : null;
-  // 1 天空
-  let L = lay('sky');
-  if (L) softLayer(g, L, P.blur.sky, cx * P.par.sky, cy * P.par.sky, 1.03, 'sky'); else { g.fillStyle = '#0b0912'; g.fillRect(0, 0, Pw, Ph); }
-  // 2 日 / 月的大光晕（在远山后面）
-  g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
-  if (F.sun && F.sun.a > 0.02) drawLight(g, { x: F.sun.x, y: F.sun.y + OY, r: 26, c: F.sun.c || '#ffe8a8', a: 0.5 * F.sun.a }, u, 1);
-  if (F.moon && F.moon.a > 0.02) drawLight(g, { x: F.moon.x, y: F.moon.y + OY, r: 24, c: '#a8c0ff', a: 0.6 * F.moon.a }, u, 1);
-  if (P.sun) drawLight(g, { x: P.sun.x, y: P.sun.y + OY * 0.6, r: P.sun.r / 2, c: P.sun.c, a: P.sun.a }, u, 1);
-  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  // 3 远景 + 空气透视
-  L = lay('far'); if (L) softLayer(g, L, P.blur.far, cx * P.par.far, cy * P.par.far, 1.04, 'far');
-  if (P.fog && O.grade) { const y0 = (P.fog.y0 + OY) * u, y1 = (P.fog.y1 + OY) * u, gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, hexA(P.fog.c, 0)); gr.addColorStop(0.6, hexA(P.fog.c, P.fog.a)); gr.addColorStop(1, hexA(P.fog.c, 0)); g.fillStyle = gr; g.fillRect(0, y0, Pw, y1 - y0); }
-  L = lay('mid'); if (L) softLayer(g, L, P.blur.mid, cx * P.par.mid, cy * P.par.mid, 1.03, 'mid');
-  mark('bg');
-  // 4 地面（焦平面，清晰）；上半截按移轴的办法稍稍虚掉
-  L = lay('ground');
-  if (L) {
-    g.imageSmoothingEnabled = false; g.drawImage(L.c, 0, 0, Pw, Ph);
-    if (P.tilt && O.dof && O.tilt && q >= 2 && !HD.lite) {
-      const b0 = buf('tilt0', 100, Math.ceil(H / 2)); b0.g.globalCompositeOperation = 'copy'; b0.g.imageSmoothingEnabled = true; b0.g.drawImage(L.c, 0, 0, b0.c.width, b0.c.height);
-      const b = buf('tilt', 200, H); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(b0.c, 0, 0, 200, H);
-      b.g.globalCompositeOperation = 'destination-in'; const gr = b.g.createLinearGradient(0, P.tilt[0] + OY, 0, P.tilt[1] + OY); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.45, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); b.g.fillStyle = gr; b.g.fillRect(0, 0, 200, H);
-      const th = Math.min(H, P.tilt[1] + OY + 1); g.imageSmoothingEnabled = true; g.drawImage(b.c, 0, 0, 200, th, 0, 0, Pw, th * u);   // 只画有虚化的那一截
+  const lw = raw.getW(), lh = raw.getH(), W2 = 200 * S, H2 = logicH * S;
+  // ======== 第一步：备料。只往小缓冲 / 图层里画，不碰呈现画布 ========
+  // 这样第二步往呈现画布上画时一口气画完，中途不切去别的画布（手机 GPU 是分块渲染的，每切一次目标，整张呈现画布就要从显存读回再写出一遍）
+  // 1 背景（天空、日月光晕、远景、空气透视、中景）。2 档起这几层本来就要虚：先按逻辑分辨率（3 档按高清像素）合进一张小缓冲，第二步整张放大一次——原来是每层各画一遍整屏（3 档天与中景还各两遍）。
+  //   小缓冲按 1.03 倍、跟着“锚定层”（有中景用中景，没有用天空）的视差偏移画回去，所以 2 档的锚定层在里面正好 1:1、清晰度不变；其余层相对它的视差差值在小缓冲里按亚像素画。
+  //   3 档的“清晰底 + 一层柔化”在 2 倍的小缓冲里做好，第二步只要一遍双线性
+  //   背景各层变得很慢（星星闪、云一个像素一个像素地挪），不卷动时这张小缓冲隔帧才重做一次；历练路上在卷动，每帧都做
+  const GL = lay('ground'), band = GL ? opaqueBand(GL) : null;   // 地面层整行不透明的那一段：背景在那里被盖住，第二步不画
+  let bgg = null;
+  if (q >= 2) {
+    const anc = lay('mid') ? 'mid' : 'sky', kb = q >= 3 ? 2 : 1, bb = buf('bg', 200 * kb, H * kb), Z = 1.03, bw0 = bb.c.width;
+    const ax = cx * P.par[anc], ay = cy * P.par[anc], s = Pw * Z / bw0, x0 = (Pw - Pw * Z) / 2 + ax, y0 = (Ph - Ph * Z) / 2 + ay, bg = bb.g;
+    const bkey = q + '|' + Pw + 'x' + Ph + '|' + F.kind + ':' + F.key + '|' + F.scroll + '|' + anc + '|' + (band ? band.join(',') : '');
+    bgg = { c: bb.c, anc, ax, ay, Z };
+    if (bkey !== bgKey || (++bgN & 1) === 0 || (band && band[0] === 0 && band[1] >= lh)) {
+      bgKey = bkey; bgN = 0;
+      bg.setTransform(1 / s, 0, 0, 1 / s, -x0 / s, -y0 / s); bg.globalAlpha = 1; bg.globalCompositeOperation = 'source-over';
+      bg.fillStyle = '#0b0912'; bg.fillRect(x0, y0, Pw * Z, Ph * Z);
+      if (!(band && band[0] === 0 && band[1] >= lh)) drawBack(bg, P, cx, cy, OY, u, q, anc, x0, Pw * Z);   // 地面整屏不透明（对决舞台）：背景一点都看不见，不画
+      bg.setTransform(1, 0, 0, 1, 0, 0);
     }
   }
-  mark('ground');
-  const lw = raw.getW(), lh = raw.getH(), k = Pw / lw;
-  // 5 人物的投影与地面反光（脚底在同一条线上的场景）
-  if (P.feet && O.shadow && q >= 2) {
-    const fy = (P.feet + OY) * S, sb = buf('shadow', lw, lh), sg = sb.g;
-    sg.setTransform(1, 0, 0, 1, 0, 0); sg.globalCompositeOperation = 'copy'; sg.imageSmoothingEnabled = false; sg.drawImage(main, 0, 0, lw, fy, 0, 0, lw, fy);
-    sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#0a0618'; sg.fillRect(0, 0, lw, lh);
-    const sk = -(key.dx || 0) * 0.55, sy = 0.26;
-    g.save(); g.beginPath(); g.rect(0, fy * k - 1, Pw, Ph); g.clip();
-    g.setTransform(k, 0, -sk * k, -sy * k, fy * sk * k, fy * (1 + sy) * k); g.imageSmoothingEnabled = true; g.globalAlpha = 0.3; g.drawImage(sb.c, 0, 0);
-    g.restore(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
-    if (P.gloss) {
-      g.save(); g.beginPath(); g.rect(0, fy * k, Pw, 26 * u); g.clip();
-      g.setTransform(k, 0, 0, -0.8 * k, 0, fy * 1.8 * k + u); g.globalAlpha = P.gloss; g.imageSmoothingEnabled = true; g.drawImage(main, 0, 0);
-      g.restore(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
+  pmark('p.bg', bgg && bgg.c);
+  // 4 人物的投影 / 地面反光 / 软落影：画进地面层自己（高清像素分辨率，随地面一次贴上去，不另画整屏）
+  if (GL && O.shadow && q >= 2 && !F.shaded && (P.feet || P.drop)) {
+    F.shaded = true;   // 同一帧场景只落一次（隔帧 / 弹窗时同一帧会合成好几次）
+    const G = GL.g; G.save(); G.setTransform(1, 0, 0, 1, 0, 0); G.globalAlpha = 1; G.globalCompositeOperation = 'source-over';
+    if (P.feet) {   // 脚底在同一条线上的场景：人物层脚线以上的部分压成墨色，带切变倒着落在脚线以下；光滑的地面再叠一层倒影
+      const fy = (P.feet + OY) * S, sb = buf('shadow', lw, lh), sg = sb.g;
+      sg.setTransform(1, 0, 0, 1, 0, 0); sg.globalCompositeOperation = 'copy'; sg.imageSmoothingEnabled = false; sg.drawImage(main, 0, 0, lw, fy, 0, 0, lw, fy);
+      sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#0a0618'; sg.fillRect(0, 0, lw, lh);
+      const sk = -(key.dx || 0) * 0.55, sy = 0.26;
+      G.save(); G.beginPath(); G.rect(0, fy - 1, lw, lh); G.clip();
+      G.setTransform(1, 0, -sk, -sy, fy * sk, fy * (1 + sy)); G.imageSmoothingEnabled = true; G.globalAlpha = 0.3; G.drawImage(sb.c, 0, 0);
+      G.restore();
+      if (P.gloss) {
+        G.save(); G.beginPath(); G.rect(0, fy, lw, 26 * S); G.clip();
+        G.setTransform(1, 0, 0, -0.8, 0, fy * 1.8 + S); G.globalAlpha = P.gloss; G.imageSmoothingEnabled = true; G.drawImage(main, 0, 0);
+        G.restore();
+      }
+    } else {   // 脚底不在一条线上的场景（洞府）：人物层整体往右下落一层糊开的软影，把人和物“按”在地上
+      const db = buf('drop', 100, Math.ceil(H / 2)), dg = db.g; dg.setTransform(1, 0, 0, 1, 0, 0); dg.globalCompositeOperation = 'copy'; dg.imageSmoothingEnabled = true; dg.drawImage(main, 0, 0, db.c.width, db.c.height);
+      dg.globalCompositeOperation = 'source-in'; dg.fillStyle = '#0a0618'; dg.fillRect(0, 0, db.c.width, db.c.height);
+      G.imageSmoothingEnabled = true; G.globalAlpha = P.drop; G.drawImage(db.c, -(key.dx || 0) * 1.6 * S, 2.4 * S, lw, lh);
     }
+    G.restore();
   }
-  if (P.drop && !P.feet && O.shadow && q >= 2) {   // 脚底不在一条线上的场景（洞府）：人物层整体往右下落一层糊开的软影，把人和物“按”在地上
-    const db = buf('drop', 100, Math.ceil(H / 2)), dg = db.g; dg.setTransform(1, 0, 0, 1, 0, 0); dg.globalCompositeOperation = 'copy'; dg.imageSmoothingEnabled = true; dg.drawImage(main, 0, 0, db.c.width, db.c.height);
-    dg.globalCompositeOperation = 'source-in'; dg.fillStyle = '#0a0618'; dg.fillRect(0, 0, db.c.width, db.c.height);
-    g.imageSmoothingEnabled = true; g.globalAlpha = P.drop; g.drawImage(db.c, -(key.dx || 0) * 1.6 * u, 2.4 * u, Pw, Ph); g.globalAlpha = 1;
+  pmark('p.shadow', GL && GL.c);
+  // 4b 移轴：地面层上半截缩到四分之一再放大、按竖向渐变留下远处那一截
+  let tilt = null;
+  if (GL && P.tilt && O.dof && O.tilt && q >= 2 && !lite) {
+    const b0 = buf('tilt0', 100, Math.ceil(H / 2)); b0.g.globalCompositeOperation = 'copy'; b0.g.imageSmoothingEnabled = true; b0.g.drawImage(GL.c, 0, 0, b0.c.width, b0.c.height);
+    const b = buf('tilt', 200, H); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(b0.c, 0, 0, 200, H);
+    b.g.globalCompositeOperation = 'destination-in'; const gr = b.g.createLinearGradient(0, P.tilt[0] + OY, 0, P.tilt[1] + OY); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.45, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); b.g.fillStyle = gr; b.g.fillRect(0, 0, 200, H);
+    tilt = big ? upTo('tiltU', b.c, W2, H2) : b.c;   // 3 档：先放大到高清像素分辨率，第二步按最近邻贴
   }
-  mark('shadow');
-  // 5b 人物身后的灵光（ART.glow 记下的那些）
-  g.globalCompositeOperation = 'screen'; g.imageSmoothingEnabled = true;
-  for (const l of F.lights) if (l.kind === 2) drawLight(g, l, u, 1);
-  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  // 6 人物层（清晰）
-  g.imageSmoothingEnabled = false; g.drawImage(main, 0, 0, Pw, Ph);
-  mark('people');
-  // 7 轮廓光：人物层朝主光那一侧的边缘提亮（颜色跟主光 / 昼夜走）
-  if (O.rim && key && q >= 1) {
-    const rb = buf('rim', lw, lh), rg = rb.g, kc = key.c, ka = key.a;
-    if (ka > 0.03) {
-      rg.setTransform(1, 0, 0, 1, 0, 0); rg.globalCompositeOperation = 'copy'; rg.imageSmoothingEnabled = false; rg.drawImage(main, 0, 0);
-      rg.globalCompositeOperation = 'destination-out'; rg.drawImage(main, -(key.dx || 0), -(key.dy || 0));
-      rg.globalCompositeOperation = 'source-in'; rg.fillStyle = kc; rg.fillRect(0, 0, lw, lh);
-      g.globalCompositeOperation = 'lighter'; g.globalAlpha = ka; g.drawImage(rb.c, 0, 0, Pw, Ph); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    }
+  pmark('p.tilt', tilt);
+  // 6～7 轮廓光：人物层朝主光那一侧的边缘提亮（颜色跟主光 / 昼夜走），直接加进人物层自己（高清像素分辨率），第二步人物层一次贴上去
+  if (O.rim && key && q >= 1 && !F.rimmed && key.a > 0.03) {
+    F.rimmed = true;
+    const rb = buf('rim', lw, lh), rg = rb.g;
+    rg.setTransform(1, 0, 0, 1, 0, 0); rg.globalCompositeOperation = 'copy'; rg.imageSmoothingEnabled = false; rg.drawImage(main, 0, 0);
+    rg.globalCompositeOperation = 'destination-out'; rg.drawImage(main, -(key.dx || 0), -(key.dy || 0));
+    rg.globalCompositeOperation = 'source-in'; rg.fillStyle = key.c; rg.fillRect(0, 0, lw, lh);
+    mctx.save(); raw.setTransform(1, 0, 0, 1, 0, 0); mctx.globalCompositeOperation = 'lighter'; mctx.globalAlpha = key.a; mctx.imageSmoothingEnabled = false; raw.drawImage(rb.c, 0, 0); mctx.restore();
   }
-  mark('rim');
-  // 8 夜色：一张小的光照图——先铺深蓝的环境色，再把每盏灯（连同它落在地上的光池）加上去，整张正片叠底到画面上。
-  //   于是没灯的地方真的暗下去，灯下回到本色并染上灯的暖色；上沿用渐变接回山色（天与远山本来就是按夜色画的）
+  pmark('p.rim', main);
+  // 8 夜色：一张小的光照图——先铺深蓝的环境色，再把每盏灯（连同它落在地上的光池）加上去，第二步整张正片叠底到画面上。
+  //   于是没灯的地方真的暗下去，灯下回到本色并染上灯的暖色；上沿用渐变接回山色（天与远山本来就是按夜色画的）。3 档先把它双线性放大到高清像素分辨率，第二步按最近邻贴（软件光栅下便宜三倍，GPU 上一样）
+  let lm = null;
   if (F.amb) {
-    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lm = buf('lm', lw2, lh2), lg = lm.g, ambD = mix(F.amb, '#070c30', 0.1 * dk);   // 比环境色再压一点（原来压九成，没灯的地方糊成一片黑，石缝屋檐都看不见了）
+    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lb = buf('lm', lw2, lh2), lg = lb.g, ambD = mix(F.amb, '#070c30', 0.1 * dk);   // 比环境色再压一点（原来压九成，没灯的地方糊成一片黑，石缝屋檐都看不见了）
     lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over'; lg.fillStyle = ambD; lg.fillRect(0, 0, lw2, lh2);
     lg.globalCompositeOperation = 'lighter'; lg.imageSmoothingEnabled = true;
     if (F.moon && F.moon.a > 0.1) { lg.globalAlpha = 0.16 * F.moon.a; lg.fillStyle = '#8fa8ff'; lg.fillRect(0, 0, lw2, lh2); }   // 月光：整体提一点冷色
@@ -505,37 +573,17 @@ function present(now) {
     }
     lg.globalAlpha = 1; const y0 = (78 + OY) / 2, y1 = (96 + OY) / 2, gr = lg.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     lg.globalCompositeOperation = 'source-over'; lg.fillStyle = gr; lg.fillRect(0, 0, lw2, y1);
-    g.globalCompositeOperation = 'multiply'; g.imageSmoothingEnabled = true; g.drawImage(lm.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
-  } else if (O.shadow) {   // 白天：人物身后的灵光在地上也落一圈
-    g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
-    for (const l of F.lights) if (l.kind === 2) { const r = l.r * u * 1.7; g.globalAlpha = clamp(l.a * 0.55, 0, 1); g.drawImage(glowTex(l.c), l.x * u - r * 1.5, l.y * u + r * 0.35, r * 3, r * 0.9); }
-    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    lm = big ? upTo('lmU', lb.c, W2, H2) : lb.c;
   }
-  mark('night');
-  // 9 前景（最虚、视差最大）
-  L = lay('fore'); if (L) softLayer(g, L, P.blur.fore, cx * P.par.fore, 0, 1.05, 'fore');
-  if (P.fg && O.dof && O.fg && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
-    const flim = P.focus ? Math.max(4, Math.floor((160 - P.focus[1]) / 2) + (F.kind === 'home' ? 12 : 2)) : 24, ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1, flim), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
-    g.imageSmoothingEnabled = true; g.globalAlpha = F.kind === 'home' ? 0.8 : 0.86;
-    const fh = ft.height, bot = Math.min(fh, FG_BOT), topH = Math.min(fh, FG_TOP);   // 只画有东西的两条：底边的草丛、左上角的枝叶
-    for (let x = sx + ox; x < Pw; x += fw) {
-      g.drawImage(ft, 0, fh - bot, ft.width, bot, x, Ph - bot * Ph / fh, fw, bot * Ph / fh);
-      if (!F.scroll && P.fg.top !== false) g.drawImage(ft, 0, 0, FG_TOPW, topH, x, 0, fw * FG_TOPW / ft.width, topH * Ph / fh);
-    }
-    g.globalAlpha = 1;
-  }
-  mark('fore');
-  // 10 光源
-  g.globalCompositeOperation = 'screen'; g.imageSmoothingEnabled = true;
-  for (const l of F.lights) if (l.kind !== 2) drawLight(g, l, u, l.kind === 1 ? 1.1 : 0.8);
-  g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = 1;
-  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  mark('lights');
-  // 11 光缓冲（四分之一分辨率，一次加回去）：辉光 = 各层缩小 → 自乘两次只留高光 → 再缩一半糊开；体积光也画在这里面（本来就是软的）
+  pmark('p.night', lm);
+  // 9 前景层（最虚）：缩一半的小图
+  const FL = lay('fore'), foreRows = FL && FL.y1 > FL.y0 ? [Math.floor(FL.y0) - 3, Math.ceil(FL.y1) + 3] : null, foreHalf = foreRows ? halfOf(FL, 'fore') : null;
+  pmark('p.fore', foreHalf);
+  // 11 光缓冲（四分之一分辨率）：辉光 = 各层缩小 → 自乘两次只留高光 → 再缩一半糊开；体积光也画在这里面（本来就是软的）。3 档同样先放大到高清像素分辨率
   const rays = F.rays || P.rays, doBloom = O.bloom && q >= 2 && P.bloom > 0, doRays = rays && O.rays && q >= 2 && rays.a > 0.01;
+  let bloom = null;
   if (doBloom || doRays) {
-    const bw = Math.ceil(Pw / (q >= 3 ? 4 : 5)), bh = Math.ceil(bw * H / 200), a = buf('bloomA', bw, bh), ag = a.g, ub = bw / 200;
+    const bw = Math.ceil(Pw / 5), bh = Math.ceil(bw * H / 200), a = buf('bloomA', bw, bh), ag = a.g, ub = bw / 200;
     ag.setTransform(1, 0, 0, 1, 0, 0); ag.globalAlpha = 1; ag.globalCompositeOperation = 'source-over'; ag.fillStyle = '#000'; ag.fillRect(0, 0, bw, bh);
     if (doBloom) {
       ag.imageSmoothingEnabled = true;
@@ -560,19 +608,84 @@ function present(now) {
       gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(e, 'rgba(0,0,0,.7)'); gr.addColorStop(1 - e, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       ag.globalCompositeOperation = 'source-over'; ag.globalAlpha = 1; ag.fillStyle = gr; ag.fillRect(0, f0 - fe, bw, f1 - f0 + 2 * fe);
     }
-    g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.drawImage(a.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
+    bloom = big ? upTo('bloomU', a.c, W2, H2) : a.c;
   }
+  pmark('p.bloom', bloom);
+  // 14 3 档的调色层（主调 + 对比 / 饱和 + 颗粒，见 gradeLayer）；缩小图从背景小缓冲、地面层、人物层、光照图拼，不回读呈现画布
+  const gc = F.gradeC || (P.grade && P.grade.c) || '#808080', ga = P.grade ? P.grade.a * (F.gradeA === undefined ? 1 : F.gradeA) : 0;
+  const grade = O.grade && q >= 3 ? gradeLayer(gc, ga, t, true, () => {
+    const m = buf('gradeM', 200, H), mg = m.g; mg.setTransform(1, 0, 0, 1, 0, 0); mg.globalAlpha = 1; mg.imageSmoothingEnabled = true;
+    mg.globalCompositeOperation = 'copy'; if (bgg) mg.drawImage(bgg.c, 0, 0, 200, H); else { mg.fillStyle = '#0b0912'; mg.fillRect(0, 0, 200, H); }
+    mg.globalCompositeOperation = 'source-over'; if (GL) mg.drawImage(GL.c, 0, 0, 200, H); mg.drawImage(main, 0, 0, 200, H);
+    if (lm) { mg.globalCompositeOperation = 'multiply'; mg.drawImage(lm, 0, 0, 200, H); }
+    const sm = buf('gradeS', 100, Math.ceil(H / 2)); sm.g.globalCompositeOperation = 'copy'; sm.g.imageSmoothingEnabled = true; sm.g.drawImage(m.c, 0, 0, sm.c.width, sm.c.height);
+    return sm.c;
+  }) : null;
+  pmark('p.grade', grade);
+  // ======== 第二步：一口气画到呈现画布 ========
+  // 1～3 背景
+  if (bgg) {   // 只画地面没盖住的那几行（上下两截）
+    const bc = bgg.c, s = Pw * bgg.Z / bc.width, x0 = (Pw - Pw * bgg.Z) / 2 + bgg.ax, y0 = (Ph - Ph * bgg.Z) / 2 + bgg.ay, kp = Pw / lw;
+    let amt = P.blur[bgg.anc]; if (!O.dof) amt = 0;
+    g.imageSmoothingEnabled = amt > 0;
+    const slice = (pa, pb) => { pa = Math.max(0, pa); pb = Math.min(Ph, pb); if (pb > pa) g.drawImage(bc, 0, (pa - y0) / s, bc.width, (pb - pa) / s, x0, pa, Pw * bgg.Z, pb - pa); };
+    if (band && band[1] > band[0]) { slice(0, (band[0] + 2 * S) * kp); slice((band[1] - 2 * S) * kp, Ph); }
+    else slice(0, Ph);
+  }
+  else drawBack(g, P, cx, cy, OY, u, q, '', 0, Pw);
+  mark('bg');
+  // 4 地面（焦平面，清晰）；上半截按移轴的办法稍稍虚掉
+  if (GL) {
+    g.imageSmoothingEnabled = false; g.drawImage(GL.c, 0, 0, Pw, Ph);
+    if (tilt) { const th = Math.min(H, P.tilt[1] + OY + 1), kt = tilt.width / 200; g.imageSmoothingEnabled = !big; g.drawImage(tilt, 0, 0, tilt.width, th * kt, 0, 0, Pw, th * u); }   // 只画有虚化的那一截
+  }
+  mark('ground');
+  // 5 人物身后的灵光（ART.glow 记下的那些）
+  g.globalCompositeOperation = 'screen'; g.imageSmoothingEnabled = true;
+  for (const l of F.lights) if (l.kind === 2) drawLight(g, l, u, 1);
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  // 6 人物层（清晰，轮廓光已在里面）
+  g.imageSmoothingEnabled = false; g.drawImage(main, 0, 0, Pw, Ph);
+  mark('people');
+  // 8 夜色
+  if (lm) { g.globalCompositeOperation = 'multiply'; g.imageSmoothingEnabled = !big; g.drawImage(lm, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
+  else if (O.shadow) {   // 白天：人物身后的灵光在地上也落一圈
+    g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
+    for (const l of F.lights) if (l.kind === 2) { const r = l.r * u * 1.7; g.globalAlpha = clamp(l.a * 0.55, 0, 1); g.drawImage(glowTex(l.c), l.x * u - r * 1.5, l.y * u + r * 0.35, r * 3, r * 0.9); }
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  }
+  mark('night');
+  // 9 前景（最虚、视差最大）：只画这一层有内容的那几行（洞府的云海只在最底下一条）
+  if (foreRows) softLayer(g, FL, P.blur.fore, cx * P.par.fore, 0, 1.05, 'fore', q, foreRows, foreHalf);
+  if (P.fg && O.dof && O.fg && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
+    const flim = P.focus ? Math.max(4, Math.floor((160 - P.focus[1]) / 2) + (F.kind === 'home' ? 12 : 2)) : 24, ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1, flim), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
+    g.imageSmoothingEnabled = true; g.globalAlpha = F.kind === 'home' ? 0.8 : 0.86;
+    const fh = ft.height, bot = Math.min(fh, FG_BOT), topH = Math.min(fh, FG_TOP);   // 只画有东西的两条：底边的草丛、左上角的枝叶
+    for (let x = sx + ox; x < Pw; x += fw) {
+      g.drawImage(ft, 0, fh - bot, ft.width, bot, x, Ph - bot * Ph / fh, fw, bot * Ph / fh);
+      if (!F.scroll && P.fg.top !== false) g.drawImage(ft, 0, 0, FG_TOPW, topH, x, 0, fw * FG_TOPW / ft.width, topH * Ph / fh);
+    }
+    g.globalAlpha = 1;
+  }
+  mark('fore');
+  // 10 光源
+  g.globalCompositeOperation = 'screen'; g.imageSmoothingEnabled = true;
+  for (const l of F.lights) if (l.kind !== 2) drawLight(g, l, u, l.kind === 1 ? 1.1 : 0.8);
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  mark('lights');
+  // 11 辉光 + 体积光，一次加回去
+  if (bloom) { g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = !big; g.drawImage(bloom, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
   mark('bloom');
   // 13 高清粒子
   const motes = F.motes || P.motes;
-  if (motes && O.parts) drawMotes(g, motes, t, u, OY, H);
+  if (motes && O.parts) drawMotes(g, motes, t, u, OY, H, q);
   mark('motes');
-  // 14 调色、暗角、颗粒、色差
+  // 14 调色、暗角、色差
   if (O.grade) {
-    if (P.grade && q >= 2) { g.globalCompositeOperation = 'soft-light'; g.fillStyle = hexA(F.gradeC || P.grade.c, P.grade.a * (F.gradeA === undefined ? 1 : F.gradeA)); g.fillRect(0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
+    if (grade) { g.globalCompositeOperation = 'soft-light'; g.imageSmoothingEnabled = false; g.drawImage(grade, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
+    else if (P.grade && q >= 2) { g.globalCompositeOperation = 'soft-light'; g.fillStyle = hexA(gc, ga); g.fillRect(0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }
     if (P.lift && q >= 2) { g.globalCompositeOperation = 'lighten'; g.fillStyle = P.lift; g.fillRect(0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over'; }   // 抬一点暗部（不让最暗处死黑，偏紫）
-    g.imageSmoothingEnabled = true; g.globalAlpha = clamp(P.vig + F.dark * 0.25, 0, 1); g.drawImage(vigTex(), 0, 0, Pw, Ph); g.globalAlpha = 1;
-    if (q >= 3) { g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.07; const gt = grainTex(), ox = (hash((t / 50) | 0) * 128) | 0, oy = (hash(((t / 50) | 0) + 9) * 128) | 0, gs = Math.max(1, Math.round(u / S)) * 128; for (let y = -oy * gs / 128; y < Ph; y += gs) for (let x = -ox * gs / 128; x < Pw; x += gs) g.drawImage(gt, x, y, gs, gs); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+    g.imageSmoothingEnabled = false; g.globalAlpha = clamp(P.vig + F.dark * 0.25, 0, 1); g.drawImage(vigFull(W2, H2), 0, 0, Pw, Ph); g.globalAlpha = 1;
     if (q >= 3 && O.ca) {   // 色差：红通道沿径向外扩一点点（要回读整张画面，软件光栅下很贵，默认关）
       const cb = buf('ca', Pw, Ph); cb.g.globalCompositeOperation = 'copy'; cb.g.drawImage(pc, 0, 0); cb.g.globalCompositeOperation = 'multiply'; cb.g.fillStyle = '#ff0000'; cb.g.fillRect(0, 0, Pw, Ph);
       g.globalCompositeOperation = 'multiply'; g.fillStyle = '#00ffff'; g.fillRect(0, 0, Pw, Ph);
@@ -590,6 +703,44 @@ function present(now) {
   mark('cam');
   HD.stats.ms += (root.performance.now() - t0 - HD.stats.ms) * 0.1;
 }
+let bgKey = '', bgN = 0;
+// 地面层里整行不透明的最长一段 [y0, y1)（图层像素）：背景在那几行被地面整个盖住，不用画。按场景算一次记下来（只在换场景 / 换季 / 换高度时回读一次，读的是一张拷贝，不让地面层本身变成“常被回读”的画布）；
+// 卷动的历练地图每帧都不一样，不算
+const bandCache = {};
+let bandN = 0;
+function opaqueBand(GL) {
+  if (F.scroll || F.kind === 'adv') return null;
+  const k = F.kind + ':' + F.key + ':' + F.OY + ':' + logicH + ':' + F.season + ':' + GL.c.width + ':' + (GL.sig || 0);
+  if (k in bandCache) return bandCache[k];
+  if (++bandN > 64) { for (const k2 in bandCache) delete bandCache[k2]; bandN = 0; }
+  const w = GL.c.width, h = GL.c.height, t = mkc(w, h), tg = t.getContext('2d', { willReadFrequently: true });
+  let d; try { tg.drawImage(GL.c, 0, 0); d = tg.getImageData(0, 0, w, h).data; } catch (e) { return (bandCache[k] = null); }
+  let best = null, cur = -1;
+  for (let y = 0; y <= h; y++) {
+    let full = y < h; if (full) for (let i = (y * w) * 4 + 3, e = i + w * 4; i < e; i += 4) if (d[i] < 255) { full = false; break; }
+    if (full) { if (cur < 0) cur = y; } else if (cur >= 0) { if (!best || y - cur > best[1] - best[0]) best = [cur, y]; cur = -1; }
+  }
+  return (bandCache[k] = best && best[1] - best[0] >= 8 * S ? best : null);
+}
+// 背景各层（天空、日月光晕、远景、空气透视、中景），坐标一律按呈现画布写。2 档起画进背景小缓冲（变换已折算好，锚定层 anc 在里面 1:1）；1 档直接画到呈现画布（各层都清晰）
+function drawBack(g, P, cx, cy, OY, u, q, anc, fx, fw) {
+  const lay = n => layers[n].used ? layers[n] : null, inBuf = !!anc;
+  let L = lay('sky');
+  if (!L && !inBuf) { g.fillStyle = '#0b0912'; g.fillRect(0, 0, Pw, Ph); }
+  if (L) softLayer(g, L, anc === 'sky' && q < 3 ? 0 : P.blur.sky, cx * P.par.sky, cy * P.par.sky, 1.03, 'sky', q);
+  // 日 / 月的大光晕（在远山后面）
+  g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true;
+  if (F.sun && F.sun.a > 0.02) drawLight(g, { x: F.sun.x, y: F.sun.y + OY, r: 26, c: F.sun.c || '#ffe8a8', a: 0.5 * F.sun.a }, u, 1);
+  if (F.moon && F.moon.a > 0.02) drawLight(g, { x: F.moon.x, y: F.moon.y + OY, r: 24, c: '#a8c0ff', a: 0.6 * F.moon.a }, u, 1);
+  if (P.sun) drawLight(g, { x: P.sun.x, y: P.sun.y + OY * 0.6, r: P.sun.r / 2, c: P.sun.c, a: P.sun.a }, u, 1);
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  // 远景 + 空气透视 + 中景
+  L = lay('far'); if (L) softLayer(g, L, P.blur.far, cx * P.par.far, cy * P.par.far, 1.04, 'far', q);
+  if (P.fog && HD.opts.grade) { const y0 = (P.fog.y0 + OY) * u, y1 = (P.fog.y1 + OY) * u, gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, hexA(P.fog.c, 0)); gr.addColorStop(0.6, hexA(P.fog.c, P.fog.a)); gr.addColorStop(1, hexA(P.fog.c, 0)); g.fillStyle = gr; g.fillRect(fx, y0, fw, y1 - y0); }
+  L = lay('mid'); if (L) softLayer(g, L, anc === 'mid' && q < 3 ? 0 : P.blur.mid, cx * P.par.mid, cy * P.par.mid, 1.03, 'mid', q);
+}
+// 小图双线性放大到 w×h（3 档：光照图、光缓冲先放大到高清像素分辨率，往 800 宽的呈现画布上按最近邻 2 倍贴）
+function upTo(name, src, w, h) { const b = buf(name, w, h); b.g.setTransform(1, 0, 0, 1, 0, 0); b.g.globalAlpha = 1; b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(src, 0, 0, w, h); return b.c; }
 // ---------- 镜头：HD2D.cam({ z, x, y, ms, hold }) ----------
 // z 放大倍数（1 = 不推，突破 / 首领出场 / 出大招给 1.06 左右）；(x, y) 焦点，画布逻辑坐标（y 含 OY），省略 = 画面中心偏下；ms 推过去用多久；hold 给了就在停留这么久之后自己退回去（不给就一直停着，调 HD2D.cam() 退回）
 // HD2D.camAt(x, y) → 推近之后这个逻辑坐标落在哪（界面的飘字、点击判定按它换算）；没在推时原样返回
@@ -611,23 +762,40 @@ HD.camAt = function (x, y) {
   const sw = 200 / c.z, sh = logicH / c.z, sx = clamp(c.x - sw / 2, 0, 200 - sw), sy = clamp(c.y - sh / 2, 0, logicH - sh);
   return { x: (x - sx) * c.z, y: (y - sy) * c.z, z: c.z };
 };
+// ---------- 掉帧自适应（HD.adapt）：每 150 帧看一次，超过六成的帧间隔大于 26 毫秒就减一级负担，只减不加（玩家重新选档才还回去） ----------
+//   ① 先隔帧合成（30 帧，HD.half）；② 3 档再把内部合成分辨率降回 400 宽；
+//   ③ “自动”档：降一档（HD.setQuality(q − 1, keep)，不写存储，最低 HD.minQ）；手动选的档：设置项不动（玩家选的是上限），效果往下退一级（HD.cut：3 → 2 → 1.5 → 1）
+HD.degrade = function () {
+  HD.stats.drops++;
+  let what = '';
+  if (!HD.half && HD.q >= 1) { HD.half = true; what = 'half'; }
+  else if (HD.q >= 3 && !lowRes && effLevel() >= 3) { lowRes = true; what = 'res'; }
+  else if (HD.auto) { if (HD.q > HD.minQ) { HD.half = false; lowRes = false; HD.setQuality(HD.q - 1, true); what = 'q'; } }
+  else if (effLevel() > 1) { HD.cut++; what = 'cut'; }
+  if (what && what !== 'q') sizePresent(true);
+  HD.stats.deg = HD.degraded();
+  return what;
+};
+HD.degraded = () => !!(HD.on && (HD.half || lowRes || HD.cut > 0));   // 设置页的“掉帧，已减负”提示看这个
+HD.lowRes = () => lowRes;
 function loop(now) {
   root.requestAnimationFrame(loop);
   if (!HD.on) { lastNow = now; return; }
   const dt = now - lastNow; lastNow = now;
   if (pc.offsetParent === null && pc.getClientRects().length === 0) return;   // 场景不在屏上
-  if (covered) return;
-  if (HD.half && (++halfN & 1)) return;                                                          // 对话 / 过场盖着整屏：不合成
-  const md = doc.getElementById('modal'); if (md && !md.hidden && (++skipN % 6)) return;   // 弹窗压着：六帧合成一次
-  if (HD.selfLoop) HD.present(now);
-  // 帧间隔的滑动平均；持续掉帧就降一档（只降不升，换场景也不反复横跳）
-  if (dt > 0 && dt < 500) {
+  if (covered) return;                                                                            // 对话 / 过场盖着整屏：不合成
+  const md = doc.getElementById('modal'), modal = md && !md.hidden;
+  // 帧间隔的滑动平均；持续掉帧就减负（见 HD.degrade）。弹窗压着时合成本来就少，不算
+  if (dt > 0 && dt < 500 && !modal) {
     HD.stats.frame += (dt - HD.stats.frame) * 0.05;
-    if (HD.auto && !root.document.hidden) {
+    if (HD.adapt && !root.document.hidden) {
       if (dt > 26) slow++; else fast++;
-      if (slow + fast >= 150) { if (slow > 90) { HD.stats.drops++; if (!HD.half && HD.q >= 2) HD.half = true; else if (HD.q > HD.minQ) { HD.half = false; HD.setQuality(HD.q - 1, true); } } slow = 0; fast = 0; }
+      if (slow + fast >= 150) { if (slow > 90) HD.degrade(); slow = 0; fast = 0; }
     }
   }
+  if (HD.half && (++halfN & 1)) return;                                                          // 掉帧：隔帧合成
+  if (modal && (++skipN % 6)) return;                                                             // 弹窗压着：六帧合成一次
+  if (HD.selfLoop) HD.present(now);
 }
 // ---------- 界面皮肤：九宫格边框升 3 倍密度并补材质（ART.frame 调）；外加一段只改观感、不改尺寸的样式 ----------
 // 返回一张 SVG（固有尺寸仍是 20×20，里面嵌 60×60 的像素图）：CSS 里的 border-image 切片数不用改，放大后多出来的是细节

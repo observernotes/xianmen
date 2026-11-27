@@ -28,7 +28,7 @@ if (CFG.includes('p7')) RUNS.push({ name: 'Pixel 7', p7: true, rates: [4] });
     await page.goto(url + '?hd=' + hd); await page.waitForTimeout(400);
     for (let i = 0; i < 14; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(100); }
     await page.click('#goStart'); await page.waitForTimeout(1200);
-    await page.evaluate(() => { const X = window.__xm, st = X.st, L = X.L; L.onbAll(st); st.guide = { step: 99, done: true }; st.storyQ = []; st.p.r = 3; st.home = Object.assign(st.home || {}, { cave: 4, array: 9 }); X.setSpeed(0); if (window.HD2D) { window.HD2D.debugPhase = 0.95; window.HD2D.auto = false; } });
+    await page.evaluate(() => { const X = window.__xm, st = X.st, L = X.L; L.onbAll(st); st.guide = { step: 99, done: true }; st.storyQ = []; st.p.r = 3; st.home = Object.assign(st.home || {}, { cave: 4, array: 9 }); X.setSpeed(0); if (window.HD2D) { window.HD2D.debugPhase = 0.95; window.HD2D.auto = false; window.HD2D.adapt = false; } });
     for (let i = 0; i < 3; i++) { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(300); }
     await page.addStyleTag({ content: '#tip,#guide{display:none!important}' });
     const cdp = await ctx.newCDPSession(page);
@@ -49,8 +49,10 @@ if (CFG.includes('p7')) RUNS.push({ name: 'Pixel 7', p7: true, rates: [4] });
       setTimeout(() => { const P = H.probe; H.probe = null; delete g.drawImage; delete g.fillRect; const n = P.n || 1, t = {}; for (const k in P.t || {}) t[k] = +(P.t[k] / n).toFixed(2); res({ frames: P.n || 0, big: +(big / n).toFixed(1), cov: +(cov / n).toFixed(1), t }); }, secs2 * 1000);
     }), secs);
     const row = { cfg: R.name, dsf: R.p7 ? 2.625 : R.dsf, hd, res: {} };
+    const fight = () => page.evaluate(() => { const { st, L } = window.__xm; if (!document.getElementById('modal').hidden) window.__xm.closeModal(); if (st.exp && (!window.HD2D || !window.HD2D.on || window.HD2D.F.kind === 'adv')) return false; st.exp = null; st.p.inj = 0; L.startExp(st, 0, 0, 0); return true; });
     const scene = async (nm) => {
       for (const rate of R.rates) {
+        if (nm === 'battle' && await fight()) await page.waitForTimeout(1500);   // 上一段量完历练已经走完了：重开一趟
         await cdp.send('Emulation.setCPUThrottlingRate', { rate });
         await page.waitForTimeout(600);
         const m = await measure(SECS), p = await probe(Math.min(1.5, SECS));
@@ -60,24 +62,23 @@ if (CFG.includes('p7')) RUNS.push({ name: 'Pixel 7', p7: true, rates: [4] });
     };
     if (SCENES.includes('home')) await scene('home');
     if (SCENES.includes('battle')) {
-      await page.evaluate(() => { const { st, L } = window.__xm; st.exp = null; st.p.inj = 0; L.startExp(st, 0, 0, 0); });
-      await page.waitForTimeout(1500);
+      await page.evaluate(() => { window.__xm.st.exp = null; });
       await scene('battle');
     }
     row.errs = errs; out.push(row);
     const f = v => (v === undefined ? '—' : v.toFixed(1)).padStart(6);
-    for (const k in row.res) { const r = row.res[k], p = r.probe; console.log(`${R.name.padEnd(12)} ${String(hd).padEnd(3)} ${k.padEnd(10)} ${r.size.padEnd(12)} 中位 ${f(r.med)} p95 ${f(r.p95)} 合成JS ${f(r.ms)} ${r.kind}${r.half ? ' 隔帧' : ''}${p ? ` | 全屏 ${p.big} 覆盖 ${p.cov} | ` + Object.entries(p.t).map(([a, b]) => a + ' ' + b).join(' ') : ''}${errs.length ? '  错误：' + errs[0] : ''}`); }
+    for (const k in row.res) { const r = row.res[k], p = r.probe; console.log(`${R.name.padEnd(12)} ${String(hd).padEnd(3)} ${k.padEnd(10)} ${r.size.padEnd(12)} 均值 ${f(r.avg)} 中位 ${f(r.med)} p95 ${f(r.p95)} 合成JS ${f(r.ms)} ${r.kind}${r.half ? ' 隔帧' : ''}${p ? ` | 全屏 ${p.big} 覆盖 ${p.cov} | ` + Object.entries(p.t).map(([a, b]) => a + ' ' + b).join(' ') : ''}${errs.length ? '  错误：' + errs[0] : ''}`); }
     await ctx.close();
   }
   await browser.close();
   // 汇总表
   const f = v => (v === undefined ? '—' : v.toFixed(1));
   for (const R of RUNS) for (const rate of R.rates) {
-    console.log(`\n${R.name}，CPU ${rate}×（帧间隔 中位 / p95，ms；全屏次数 = 洞府夜景每帧盖半屏以上的绘制）`);
-    console.log('档   合成画布      | 洞府夜景        | 战斗            | 全屏 覆盖 | 合成分解（洞府，ms/帧）');
+    console.log(`\n${R.name}，CPU ${rate}×（帧间隔 均值 / 中位 / p95，ms；全屏次数 = 洞府夜景每帧盖半屏以上的绘制）`);
+    console.log('档   合成画布      | 洞府夜景              | 战斗                  | 全屏 覆盖 | 合成分解（洞府，ms/帧）');
     for (const r of out.filter(x => x.cfg === R.name)) {
       const h = r.res['home@' + rate], b = r.res['battle@' + rate], p = h && h.probe;
-      console.log(`${String(r.hd).padEnd(4)} ${(h || b).size.padEnd(13)} | ${h ? f(h.med).padStart(5) + ' / ' + f(h.p95).padStart(5) : '      —      '}   | ${b ? f(b.med).padStart(5) + ' / ' + f(b.p95).padStart(5) : '      —      '}   | ${p ? String(p.big).padStart(4) + ' ' + String(p.cov).padStart(4) : '   —     —'} | ${p ? Object.entries(p.t).filter(e => e[1] >= 0.3).map(([a, b2]) => a + ' ' + b2).join(' · ') : ''}`);
+      console.log(`${String(r.hd).padEnd(4)} ${(h || b).size.padEnd(13)} | ${h ? [h.avg, h.med, h.p95].map(v => f(v).padStart(5)).join(' / ') : '         —         '} | ${b ? [b.avg, b.med, b.p95].map(v => f(v).padStart(5)).join(' / ') : '         —         '} | ${p ? String(p.big).padStart(4) + ' ' + String(p.cov).padStart(4) : '   —     —'} | ${p ? Object.entries(p.t).filter(e => e[1] >= 0.3).map(([a, b2]) => a + ' ' + b2).join(' · ') : ''}`);
     }
   }
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(out, null, 1));

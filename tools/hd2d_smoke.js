@@ -1,7 +1,8 @@
 // HD-2D 冒烟测试：node tools/hd2d_smoke.js
 // 自动化下默认不开高清（见 src/fx/hd2d.js 的 defaultQ），这里用 ?hd=2 显式打开，把接管 / 分层 / 换档 / 各场景都走一遍：
 //   接管后界面看到的画布仍是 200×H；呈现画布在、有画面；洞府 → 历练战斗 → 对决 → 秘境 → 对话都不报错；
-//   运行时换档 2 → 0 → 1 → 3 → 2，0 档时画布还原成 200 宽；九宫格是 SVG；版面不横向溢出。
+//   运行时换档 2 → 0 → 1 → 3 → 2，0 档时画布还原成 200 宽（3 档封顶 800 宽）；九宫格是 SVG；版面不横向溢出；
+//   同一帧合成几遍画面不变；掉帧自适应（隔帧 → 3 档降内部分辨率 → 退效果）不改写设置项。
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const fails = [];
@@ -42,7 +43,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   for (const q of [0, 1, 3, 2]) {
     await ev(q2 => window.HD2D.setQuality(q2), q); await page.waitForTimeout(700); s = await info();
     if (q === 0) check(!s.on && s.realW === 200 && !s.shown, `0 档：还原成原画布（宽 ${s.realW}）`);
-    else check(s.on && s.realW === 400 && s.shown && s.colors > 20 && (q === 3 ? s.pw > 800 : s.pw === 400), `${q} 档：呈现画布 ${s.pw} 宽，${s.colors} 色`);
+    else check(s.on && s.realW === 400 && s.shown && s.colors > 20 && (q === 3 ? s.pw === 800 : s.pw === 400), `${q} 档：呈现画布 ${s.pw} 宽，${s.colors} 色`);
   }
   // ---------- 焦段清晰度：默认档（1.5）下，主角 / 石台 / 洞府门脸这一带不许比原画面（0 档）糊 ----------
   // 量法：两边都取成 400 宽，在“门脸（下半，不带进身后的远山）+ 石台”两块矩形里算亮度的拉普拉斯方差（步长 2 个高清像素 = 1 个逻辑像素）；1.5 档 ÷ 0 档 ≥ 0.8。
@@ -109,6 +110,36 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   await ev(() => { window.HD2D.selfLoop = true; window.HD2D.setQuality(2); });
   for (const b2 of bad) console.log('         · ' + b2);
   check(!bad.length, `各档各场景没有多出来的长直硬边（洞府三个时刻 + 10 张地图 + 9 个舞台 × 4 档；多出 ${bad.length} 处）`);
+  // ---------- 同一帧场景合成好几遍（隔帧 / 弹窗压着时会这样）：画面不变——轮廓光加进人物层、落影画进地面层，都只做一次 ----------
+  for (const q of [2, 3]) {
+    const same = await ev(q2 => {
+      const H = window.HD2D, X = window.__xm, cv = document.getElementById('scene'), c = cv.getContext('2d'); H.setQuality(q2); H.selfLoop = false;
+      const OY = cv.height - 160, out = [];
+      for (const m of [['adv', 'forest'], ['duel', 'cloud']]) {
+        X.ART.setCtx(c, 200); c.setTransform(1, 0, 0, 1, 0, OY); if (m[0] === 'adv') X.ART.drawAdventure(m[1], 5000, OY, 30); else X.ART.drawDuelStage(m[1], 5000, OY);
+        const p = document.getElementById('sceneHD'), snap = () => { const t = document.createElement('canvas'); t.width = p.width; t.height = p.height; const g = t.getContext('2d'); g.drawImage(p, 0, 0); return g.getImageData(0, 0, t.width, t.height).data; };
+        H.present(5000); const a = snap(); H.present(5000); H.present(5000); const b = snap();
+        let diff = 0; for (let i = 0; i < a.length; i++) diff = Math.max(diff, Math.abs(a[i] - b[i]));
+        out.push(m[1] + ' ' + diff);
+      }
+      H.selfLoop = true; H.setQuality(2);
+      return out;
+    }, q);
+    check(same.every(s => +s.split(' ')[1] <= 2), `${q} 档同一帧合成三遍画面不变（${same.join('，')}）`);
+  }
+  // ---------- 掉帧自适应：手动选的档是上限——先隔帧，3 档再降内部分辨率，再往下退效果；设置项（localStorage.xm_hd、HD2D.q）不被改写；重新选档全部还回去 ----------
+  const dg = await ev(() => {
+    const H = window.HD2D, pw = () => document.getElementById('sceneHD').width; H.setQuality(3);
+    const steps = []; for (let i = 0; i < 4; i++) { const w = H.degrade(); steps.push(w + ':' + pw() + ':' + H.level()); }
+    const kept = localStorage.getItem('xm_hd'), q = H.q, deg = H.degraded();
+    H.setQuality(3); const back = [H.half, H.cut, H.degraded(), pw()];
+    H.setQuality(2); H.auto = true; const a1 = H.degrade(), a2 = H.degrade(), aq = H.q, akept = localStorage.getItem('xm_hd');
+    H.setQuality(2);
+    return { steps, kept, q, deg, back, a1, a2, aq, akept };
+  });
+  check(dg.steps.join(' ') === 'half:800:3 res:400:3 cut:400:2 cut:400:1.5' && dg.kept === '3' && dg.q === 3 && dg.deg, `手动 3 档掉帧：${dg.steps.join(' → ')}；设置仍是 ${dg.kept}（HD2D.q=${dg.q}）`);
+  check(!dg.back[0] && !dg.back[1] && !dg.back[2] && dg.back[3] === 800, '重新选档后隔帧 / 降分辨率 / 退效果都还回去');
+  check(dg.a1 === 'half' && dg.a2 === 'q' && dg.aq === 1 && dg.akept === '2', `“自动”档掉帧：先隔帧再降档（${dg.a1} → ${dg.a2}，现在 ${dg.aq} 档），不写存储`);
   await ev(() => { window.__xm_talk.fast = false; window.__xm_cine.fast = true; window.__xm.setSpeed(1); window.__xm_talk.play('s1_night'); }); await page.waitForTimeout(1500);
   check(await ev(() => !!document.querySelector('.tk-stage .hd-fx') && document.querySelector('.tk-stage .hd-fx').width > 8), '对话舞台挂上了气氛层');
   for (let i = 0; i < 10; i++) { await ev(() => { window.__xm_talk.tap(); window.__xm_talk.tap(); }); await page.waitForTimeout(300); if (await ev(() => !!document.querySelector('.tk-pt.on:not([hidden])'))) break; }
