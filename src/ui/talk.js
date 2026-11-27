@@ -101,12 +101,13 @@ function tkSize() {
   tkDraw();
 }
 // 画面以外的那一层：底图上沿 14 行拉到屏幕顶、下沿 14 行拉到屏幕底，缩小再放大糊开，压暗（越靠上下两头越暗）
+// 取样按底图的实际尺寸换算（bx / by：每个逻辑像素几个底图像素）：底图换成 400×240 的高清版（docs/ART_HD2D.md §6-6）也取同一块
 function tkAmbient(bg, G) {
   const q = 6, aw = Math.max(8, Math.ceil(G.Wl / q)), ah = Math.max(8, Math.ceil(G.Hl / q)), a = cnCv(aw, ah), g = a.getContext('2d'), t = cnCv(Math.ceil(aw / 2), Math.ceil(ah / 2)), tg = t.getContext('2d');
-  const k = 1 / q / 2, x0 = (G.Wl - 200) / 2 * k, w = 200 * k, y0 = G.py * k, y1 = (G.py + 120) * k, H = t.height;
+  const k = 1 / q / 2, x0 = (G.Wl - 200) / 2 * k, w = 200 * k, y0 = G.py * k, y1 = (G.py + 120) * k, H = t.height, bx = (bg.width || 200) / 200, by = (bg.height || 120) / 120;
   tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high';
-  tg.drawImage(bg, 0, 0, 1, 120, 0, 0, t.width, H); tg.drawImage(bg, 0, 0, 200, 14, x0, 0, w, y0 + 0.5); tg.drawImage(bg, 0, 106, 200, 14, x0, y1 - 0.5, w, H - y1 + 0.5); tg.drawImage(bg, x0, y0, w, y1 - y0);
-  if (x0 > 0) { tg.drawImage(bg, 0, 0, 6, 120, 0, 0, x0 + 0.5, H); tg.drawImage(bg, 194, 0, 6, 120, x0 + w - 0.5, 0, t.width - x0 - w + 0.5, H); }
+  tg.drawImage(bg, 0, 0, bx, 120 * by, 0, 0, t.width, H); tg.drawImage(bg, 0, 0, 200 * bx, 14 * by, x0, 0, w, y0 + 0.5); tg.drawImage(bg, 0, 106 * by, 200 * bx, 14 * by, x0, y1 - 0.5, w, H - y1 + 0.5); tg.drawImage(bg, x0, y0, w, y1 - y0);
+  if (x0 > 0) { tg.drawImage(bg, 0, 0, 6 * bx, 120 * by, 0, 0, x0 + 0.5, H); tg.drawImage(bg, 194 * bx, 0, 6 * bx, 120 * by, x0 + w - 0.5, 0, t.width - x0 - w + 0.5, H); }
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(t, 0, 0, aw, ah);
   g.fillStyle = 'rgba(7,5,12,.42)'; g.fillRect(0, 0, aw, ah);
   const gr = g.createLinearGradient(0, 0, 0, ah), u0 = G.py / G.Hl, u1 = (G.py + 120) / G.Hl;
@@ -166,7 +167,11 @@ function tkStage(now) {
   if (T.bars > 0.01) { const bh = snap(11 * T.bars); g.fillStyle = '#07050c'; g.fillRect(0, wy0, Wl, bh); g.fillRect(0, yb - bh, Wl, bh); }
   // 气氛
   const a = T.amb === undefined ? TK_AMB[String(T.bg).split(':').pop()] || (/^cg:(stab|fade)/.test(T.bg) ? 'storm' : '') : T.amb;
-  if (a) tkParticles(g, a, now / 1000, Wl, Hl);
+  // 雨分层（docs/ART_HD2D.md §6-10）：这一场有没有雨、多大，告诉 HD2D 的气氛层（stageFx 返回对象的 o.rain，舞台上也记一份 data-rain）；
+  // 气氛层自己画远近三层雨丝（HD2D.stageRain 为真）时，这里那层平的雨就不画了，否则照旧画
+  const rain = a === 'rain' || a === 'storm' ? a : '';
+  if (T.rain !== rain) { T.rain = rain; if (T.hdfx && T.hdfx.o) T.hdfx.o.rain = rain; T.root.querySelector('.tk-stage').dataset.rain = rain; }
+  if (a && !(rain && T.hdfx && HDX && HDX.stageRain && HDX.q >= 1)) tkParticles(g, a, now / 1000, Wl, Hl);
   T.dim += (T.dimT - T.dim) * (1 - Math.exp(-dt / 150)); if (Math.abs(T.dimT - T.dim) < 0.004) T.dim = T.dimT;
   if (T.dim > 0.01) { g.globalAlpha = Math.min(0.9, T.dim); g.fillStyle = '#07050c'; g.fillRect(0, 0, Wl, Hl); g.globalAlpha = 1; }
   const f = now - T.flashAt; if (f < 420) { const u = 1 - f / 420; g.globalAlpha = u * u; g.fillStyle = T.flashCol || '#ffffff'; g.fillRect(0, 0, Wl, Hl); g.globalAlpha = 1; }
@@ -316,7 +321,9 @@ function playTalk(ev, back) {
   if (tk) tkClose();
   tkSlotEv = ev.id;
   const root = tkMount();
-  tk = { ev, back, root, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, prevCine: cine, k: 1,
+  // HD-2D 气氛层：自己先挂上（拿到句柄好传雨），不等模块的 MutationObserver；画质 < 1 时不挂，与原来一样
+  const hdfx = HDX && HDX.q >= 1 && HDX.stageFx ? HDX.stageFx(root.querySelector('.tk-stage'), root.querySelector('.tk-cv'), { z: 2 }) : null;
+  tk = { ev, back, root, hdfx, rain: undefined, cv: root.querySelector('.tk-cv'), pts: [root.querySelector('.tk-pt.l'), root.querySelector('.tk-pt.r')], lines: tkFlat(ev.talk), i: 0, hist: [], bg: ev.scene || 'cave', left: null, right: null, prevCine: cine, k: 1,
     zoom: 1, zc: 1, zx: 100, zy: 60, dim: 1, dimT: 0, flashAt: -9999, amb: undefined,
     camA: { z: 1, x: 100, y: 60 }, camB: { z: 1, x: 100, y: 60 }, camT0: 0, camMs: 1, bars: 0, barsT: 0, bgAt: -9999 };
   const T = tk;
