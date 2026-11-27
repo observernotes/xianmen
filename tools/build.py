@@ -161,6 +161,9 @@ def main():
     template = (SRC / "template.html").read_text(encoding="utf-8")
     logic = logic_bundle()
     art = (SRC / "art.js").read_text(encoding="utf-8")
+    # 渲染模块（src/fx/*.js，按文件名顺序）接在美术后面，进同一个 <script>：HD-2D 合成 / 后处理（docs/ART_HD2D.md）
+    for fx in sorted((SRC / "fx").glob("*.js")):
+        art += f"\n/* ===== src/fx/{fx.name} ===== */\n" + fx.read_text(encoding="utf-8")
     events = events_bundle()
     ui = ui_bundle()
     woff2 = build_font(charset([template, logic, art, ui, events]))
