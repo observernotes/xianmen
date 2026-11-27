@@ -11,11 +11,12 @@ async function run() {
   const storyOnly = process.argv.includes('--story');
   const itemsOnly = process.argv.includes('--items');
   const duelOnly = process.argv.includes('--duel');
+  const lootOnly = process.argv.includes('--loot');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.join(__dirname, '../dist/index.html')).href + '?hd=0');
-    const images = await page.evaluate(({ combat, home, realm, story, items, duel }) => {
+    const images = await page.evaluate(({ combat, home, realm, story, items, duel, loot }) => {
       const { L, ART } = window.__xm;
       const make = (width, height) => Object.assign(document.createElement('canvas'), { width, height });
       const canvas = document.createElement('canvas');
@@ -25,6 +26,35 @@ async function run() {
       const state = L.newState({ name: '无名' });
       const results = {};
       const png = image => image.toDataURL('image/png').split(',')[1];
+      if (loot) {
+        const icons = new Map([
+          ['star', ART.star(true)],
+          ...['ore', 'herb', 'pojing', 'treasure', 'rune', 'gscroll', 'stone'].map(id => [id, ART.icon(id)]),
+          ...L.CORE_EL.map(el => ['core:' + el, ART.core(el)]),
+          ...L.BOSSES.map((_, k) => ['boss:' + k, ART.item('boss', k)]),
+        ]);
+        for (let tier = 1; tier <= 7; tier++) {
+          for (const slot of ['w', 'r', 'a']) icons.set(slot + ':' + tier, ART.item(slot, tier));
+        }
+        for (const item of L.gearBases().filter(item => item.slot === 'o')) {
+          icons.set('o:' + item.t + ':' + item.kind, ART.item('o', item.t, item.kind));
+        }
+        const columns = 14;
+        const sheet = make(26 * 9, 34 + 16 * Math.ceil(icons.size / columns));
+        const drawing = sheet.getContext('2d');
+        drawing.imageSmoothingEnabled = false;
+        for (let frame = 0; frame < 2; frame++) drawing.drawImage(ART.lootCard('back', 0, frame), frame * 26, 0, 26, 34);
+        for (let tier = 1; tier <= 7; tier++) drawing.drawImage(ART.lootCard('front', tier), (tier + 1) * 26, 0, 26, 34);
+        const lootMap = {};
+        for (const [id, icon] of icons) {
+          if (!icon) throw new Error('Missing loot icon: ' + id);
+          const i = Object.keys(lootMap).length;
+          const x = i % columns * 16, y = 34 + Math.floor(i / columns) * 16;
+          drawing.drawImage(icon, x, y, id === 'star' ? 7 : 16, id === 'star' ? 7 : 16);
+          lootMap[id] = [x, y];
+        }
+        return { images: { 'loot-art': png(sheet) }, lootMap };
+      }
       if (items) {
         const ids = [
           'stone', 'herb', 'ore', 'treasure', 'pojing', 'feed', 'danbag', 'token', 'yin_f', 'yin_i', 'yin_t', 'yin_w', 'yin_s',
@@ -262,7 +292,7 @@ async function run() {
         results['story-' + scene] = ART.storyBg(scene).toDataURL('image/png').split(',')[1];
       }
       return { images: results };
-    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly, items: itemsOnly, duel: duelOnly });
+    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly, items: itemsOnly, duel: duelOnly, loot: lootOnly });
     for (const [name, png] of Object.entries(images.images)) {
       fs.writeFileSync(path.join(__dirname, '../godot/art', name + '.png'), Buffer.from(png, 'base64'));
     }
@@ -270,6 +300,7 @@ async function run() {
     if (images.portraitMap) fs.writeFileSync(path.join(__dirname, '../godot/art/story-cast-index.json'), JSON.stringify(images.portraitMap) + '\n');
     if (images.itemMap) fs.writeFileSync(path.join(__dirname, '../godot/art/item-icons.json'), JSON.stringify(images.itemMap) + '\n');
     if (images.duelMap) fs.writeFileSync(path.join(__dirname, '../godot/art/duel-index.json'), JSON.stringify(images.duelMap) + '\n');
+    if (images.lootMap) fs.writeFileSync(path.join(__dirname, '../godot/art/loot-index.json'), JSON.stringify(images.lootMap) + '\n');
   } finally {
     await browser.close();
   }

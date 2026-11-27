@@ -8,6 +8,7 @@ const FONT := preload("res://art/fusion-pixel.ttf")
 const AUDIO := preload("res://scripts/game_audio.gd")
 const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
 const DUEL_SCENE := preload("res://scripts/duel_scene.gd")
+const LOOT_CARD := preload("res://scripts/loot_card.gd")
 const REALM_SCENE := preload("res://scripts/realm_scene.gd")
 const STORY_STAGE := preload("res://scripts/story_stage.gd")
 const CINEMATIC_PLAYER := preload("res://scripts/cinematic_player.gd")
@@ -72,6 +73,7 @@ var battle_speed := 1
 var playback_remaining := 0.0
 var playback_action: Dictionary = {}
 var app_paused := false
+var loot_flips: Array = []
 
 
 func _ready() -> void:
@@ -123,6 +125,7 @@ func request(message: Dictionary) -> void:
 	if runtime == null or redraw_queued:
 		return
 	playback_action = {}
+	loot_flips = []
 	var result = JSON.parse_string(runtime.request(JSON.stringify(message, "", false, true)))
 	if not result is Dictionary:
 		error_text = runtime.get_last_error()
@@ -131,6 +134,8 @@ func request(message: Dictionary) -> void:
 	else:
 		error_text = ""
 		var action_result = result.get("result")
+		if action_result is Dictionary:
+			loot_flips = action_result.get("lootFlips", [])
 		if action_result is Dictionary and action_result.has("realmFx"):
 			realm_transition = {"view": view["notice"], "effect": action_result["realmFx"]}
 		if action_result is Dictionary and action_result.has("navigation"):
@@ -395,9 +400,15 @@ func play_feedback(message: Dictionary) -> void:
 		elif not effects.is_empty():
 			var effect: String = effects[0]["kind"]
 			game_audio.effect(effect if effect in ["ult", "heavy", "hit"] else "hurt" if effect == "fhit" else "hit")
-	elif message["op"] == "result" and message["move"] in ["all", "reveal"]:
-		var index := int(message.get("index", 0)) % 3
-		game_audio.effect("flip_%d-%d" % [index, index])
+	elif message["op"] == "result" and not loot_flips.is_empty():
+		var cards: Array = notice.get("cards", [])
+		if loot_flips.any(func(index): return int(cards[int(index)]["stars"]) >= 3):
+			game_audio.effect("reveal_6")
+		else:
+			var index := int(loot_flips.back()) % 3
+			game_audio.effect("flip_%d-%d" % [index, index])
+	elif message["op"] == "result" and message["move"] == "gear" and message["decision"] != "keep":
+		game_audio.effect("reveal_0")
 	elif message["op"] == "breakthrough" and message["move"] == "confirm" and notice is Dictionary:
 		if notice["kind"] == "breakthrough" and notice["active"]:
 			game_audio.effect("thunder")
@@ -973,21 +984,60 @@ func draw_result_options(notice: Dictionary) -> void:
 	var cards: Array = notice.get("cards", [])
 	if not cards.is_empty():
 		add_label("归途翻牌", 19, COLORS.gold)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 6)
+		page.add_child(row)
 		var has_hidden := false
 		for card in cards:
-			if card["revealed"]:
-				add_label(card["name"], 17, COLORS.jade)
-			else:
-				has_hidden = true
+			var tile := LOOT_CARD.new()
+			tile.card = card
+			var order := loot_flips.find(card["index"])
+			if order >= 0:
+				tile.flip_delay = order * 0.10
+			if not card["revealed"]:
 				var message := {"op": "result", "move": "reveal", "index": card["index"]}
-				add_button("翻牌 %d" % (int(card["index"]) + 1), func(): request(message))
+				tile.pressed.connect(func(): request(message))
+				tile.reveal_all.connect(func(): request({"op": "result", "move": "all"}))
+				has_hidden = true
+			row.add_child(tile)
+		loot_flips.clear()
 		if has_hidden:
 			add_button("全部翻开", func(): request({"op": "result", "move": "all"}))
+		for card in cards:
+			if card["revealed"]:
+				draw_loot_detail(card)
+		if notice.get("wishAgain"):
+			add_button("再钉一件  ▸", func(): request({"op": "result", "move": "wish-again"}))
 	var deeper = notice.get("deeper")
 	if deeper is Dictionary:
 		add_button("趁势深入 ◆%d" % int(deeper["ap"]), func(): request({"op": "result", "move": "deeper"}), false, not String(deeper["why"]).is_empty())
 		if deeper["why"]:
 			add_label(deeper["why"], 14, COLORS.muted)
+
+
+func draw_loot_detail(card: Dictionary) -> void:
+	var heading := String(card["name"])
+	if card["stars"] > 0:
+		heading += "  " + "★".repeat(int(card["stars"]))
+	add_label(heading, 17, COLORS.jade)
+	if card.get("wish"):
+		add_label("心愿达成", 15, COLORS.gold)
+	if card.get("detail"):
+		add_label(card["detail"], 14, COLORS.muted)
+	if card.get("status"):
+		add_label(card["status"], 14, COLORS.muted)
+	var comparison = card.get("compare")
+	if comparison is Dictionary:
+		add_label(comparison["text"], 15, COLORS.text)
+		if comparison["replacement"]:
+			add_label(comparison["replacement"], 14, COLORS.muted)
+		var choices := HBoxContainer.new()
+		page.add_child(choices)
+		var choice := {"op": "result", "move": "gear", "index": card["index"]}
+		add_button("换上", func(): request(choice.merged({"decision": "equip"})), comparison["better"], false, choices)
+		add_button("收下", func(): request(choice.merged({"decision": "keep"})), false, false, choices)
+		add_button("熔炼 · 矿+" + comparison["smelt"], func(): request(choice.merged({"decision": "smelt"})), not comparison["better"], false, choices)
 
 
 func draw_breakthrough(form: Dictionary) -> void:

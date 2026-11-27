@@ -303,6 +303,7 @@ func _initialize() -> void:
 	check_player_panels(sect_save, restored["save"]["state"])
 	check_duels(restored["save"]["state"])
 	check_team_duel(job["save"]["state"])
+	check_loot_actions(restored["save"])
 	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels, player panels and save roundtrips passed")
 	quit()
 
@@ -603,6 +604,56 @@ func check_team_duel(base: Dictionary) -> void:
 	assert(resumed["view"]["notice"]["title"] == "九宗会武")
 	assert(resumed["save"]["state"]["sect"]["meets"] == fixture["sect"]["meets"] + 1)
 	assert(resumed["view"]["ap"] == matchup["view"]["ap"])
+
+
+func check_loot_actions(base: Dictionary) -> void:
+	var fixture := base.duplicate(true)
+	var state: Dictionary = fixture["state"]
+	state["stats"]["exp"] = 4
+	state["best"]["0_0"] = 3
+	state["gear"]["w"]["plus"] = 4
+	state["gear"]["uid"] = 102
+	var cards: Array = []
+	for index in 3:
+		var gear := {"id": "w2_0", "u": 100 + index, "slot": "w", "t": 2, "plus": 0, "star": index + 1, "aff": []}
+		state["gear"]["pend"].append(gear)
+		cards.append({"kind": "gear", "name": "试剑 %d" % index, "tier": 2, "stars": index + 1, "el": "jin",
+			"item": {"gear": gear, "u": gear["u"], "pend": true}, "wish": index == 2})
+	fixture["pending"] = [{"kind": "result", "id": "exp", "data": {"k": 0, "d": 0, "a": 0, "rating": 3, "cards": cards}}]
+	var opening := send({"op": "load", "save": fixture})
+	assert(not opening["view"]["notice"]["cards"][0].has("name"))
+	assert(not request({"op": "result", "move": "gear", "index": 0, "decision": "equip"})["ok"])
+	var revealed := send({"op": "result", "move": "reveal", "index": 0})
+	assert(revealed["result"]["lootFlips"].size() == 1 and int(revealed["result"]["lootFlips"][0]) == 0)
+	assert(revealed["view"]["notice"]["cards"][0]["compare"]["text"].contains("强化 +2"))
+	var all := send({"op": "result", "move": "all"})
+	assert(PackedInt32Array(all["result"]["lootFlips"]) == PackedInt32Array([1, 2]))
+	assert(all["view"]["notice"]["wishAgain"])
+	assert(all["save"]["state"]["gear"] == opening["save"]["state"]["gear"])
+	var equipped := send({"op": "result", "move": "gear", "index": 0, "decision": "equip"})
+	assert(equipped["save"]["state"]["gear"]["w"]["u"] == 100)
+	assert(equipped["save"]["state"]["gear"]["w"]["plus"] == 2)
+	var retained := send({"op": "result", "move": "gear", "index": 1, "decision": "keep"})
+	assert(retained["view"]["notice"]["cards"][1]["status"].contains("新到"))
+	assert(retained["save"]["state"]["gear"]["pend"].any(func(item): return item["u"] == 101))
+	var melted := send({"op": "result", "move": "gear", "index": 2, "decision": "smelt"})
+	assert(melted["save"]["state"]["ore"] > retained["save"]["state"]["ore"])
+	assert(melted["save"]["state"]["mats"]["rune"] == retained["save"]["state"]["mats"]["rune"] + 3)
+	var resumed := send({"op": "load", "save": melted["save"]})
+	assert(resumed["view"]["notice"]["cards"] == melted["view"]["notice"]["cards"])
+	assert(not request({"op": "result", "move": "gear", "index": 2, "decision": "smelt"})["ok"])
+	var wishlist := send({"op": "result", "move": "wish-again"})
+	assert(wishlist["result"]["navigation"] == "drops" and int(wishlist["result"]["region"]) == 0)
+	assert(wishlist["view"]["ap"] == opening["view"]["ap"])
+
+	send({"op": "load", "save": retained["save"]})
+	send({"op": "result", "move": "deeper"})
+	send({"op": "advance"})
+	send({"op": "combat", "move": "flee"})
+	var deeper := send({"op": "advance"})
+	assert(deeper["view"]["notice"]["title"] == "趁势深入")
+	assert(deeper["view"]["notice"]["text"].contains("遗失"))
+	assert(send({"op": "load", "save": deeper["save"]})["view"]["notice"] == deeper["view"]["notice"])
 
 
 func settle_cards(response: Dictionary, picks := {}) -> Dictionary:

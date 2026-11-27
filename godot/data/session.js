@@ -247,6 +247,66 @@
     };
   }
 
+  function lootCardView(block, card, index) {
+    if (!block.revealed?.includes(index)) return { index, revealed: false, shiny: card.stars > 0 };
+    const { item, kind, tier, el } = card;
+    const display = { index, revealed: true, tier: tier || 1, stars: card.stars || 0,
+      name: card.name + (card.n > 1 ? ' ×' + card.n : ''), wish: !!card.wish };
+    if (kind === 'gear' && item?.gear) {
+      const gear = item.gear;
+      const base = L.gearBase(gear.id);
+      display.icon = base?.boss !== undefined ? 'boss:' + base.boss :
+        gear.slot + ':' + tier + (gear.slot === 'o' ? ':' + base?.kind : '');
+      display.detail = [el ? L.elName(el) : '', ...(gear.aff || []).map(id => L.AFFIX[id]?.n),
+        L.GOLD_AFFIX[gear.gold]?.n].filter(Boolean).join(' · ');
+      const pending = L.gearPend(state, item.u);
+      const equipped = state.gear[gear.slot]?.u === item.u;
+      const decision = block.lootDecisions?.[index];
+      if (decision) display.status = decision;
+      else if (equipped) display.status = '已装备';
+      else if (item.smelt !== undefined) display.status = '已熔炼 · 灵矿 +' + fmt(item.smelt);
+      else if (item.hold) display.status = '已收下，栏位解锁后自动装备';
+      else if (pending) {
+        const delta = L.gearDelta(state, pending);
+        display.compare = {
+          better: delta.better, smelt: fmt(delta.smelt),
+          text: '战力 ' + fmt(delta.a.p) + ' → ' + fmt(delta.b.p) +
+            (delta.inh[1] ? ' · 装备后强化 +' + delta.inh[1] : ''),
+          replacement: delta.smeltCur ? '换上后旧装熔成灵矿 +' + fmt(delta.smeltCur) : '',
+        };
+      }
+    } else if (kind === 'art' || kind === 'frag') {
+      display.icon = 'a:' + tier;
+      if (item) display.status = item.frag && !item.fragDone ? '残篇 ' + item.frag + ' / 3' :
+        item.dup ? '已学会 · 熟练 +' + item.mastery : item.equip ? '已装配' : '已收入功法';
+    } else if (kind === 'plan') {
+      display.icon = 'gscroll';
+      display.status = item?.text;
+    } else {
+      const icons = { ore: 'ore', herb: 'herb', pill: 'pojing', treasure: 'treasure', rune: 'rune', mat: 'treasure' };
+      display.icon = kind === 'core' ? 'core:' + el : icons[kind] || 'stone';
+    }
+    return display;
+  }
+
+  function decideLoot(block, index, move) {
+    const card = Number.isInteger(index) && block.data.cards?.[index];
+    if (!card || card.kind !== 'gear' || !block.revealed?.includes(index) || block.lootDecisions?.[index] ||
+        !['equip', 'keep', 'smelt'].includes(move)) throw new Error('这张牌无法进行该操作');
+    if (!L.gearPend(state, card.item?.u)) throw new Error('这件法宝已处理');
+    let status = '已收进法宝页的「新到」';
+    if (move !== 'keep') {
+      const result = L.gearDecide(state, card.item.u, move);
+      if (!result) throw new Error('这件法宝已处理');
+      const stars = move === 'equip' ? result.prev?.star : result.x.star;
+      status = move === 'equip' ? '已换上' + (result.prev ? ' · 旧装熔炼 +' + fmt(result.smelt) + ' 灵矿' : '') :
+        '已熔炼 · 灵矿 +' + fmt(result.smelt);
+      if (stars) status += ' · 器纹石 +' + stars;
+    }
+    (block.lootDecisions ||= {})[index] = status;
+    return { lootDecision: move };
+  }
+
   function blockView(block) {
     const data = block.data || {};
     if (block.kind === 'story' && data.choices) return choiceView(data);
@@ -295,13 +355,14 @@
         lines.push('战力 ' + fmt(data.pw0) + ' → ' + fmt(L.power(state)), '离目标 · ' + goal.bar.text);
         if (due) lines.push(due.n + (due.seasons <= 1 ? ' · 本季末' : ' · 还有 ' + due.seasons + ' 季'));
       }
-      const cards = (data.cards || []).map((card, index) => ({
-        index, revealed: !!block.revealed?.includes(index),
-        name: card.name + (card.n > 1 ? ' ×' + card.n : '') + (card.item?.equip ? ' · 已装备' : ''),
-      }));
+      const cards = (data.cards || []).map((card, index) => lootCardView(block, card, index));
+      if (data.trip?.deeper === 'lose' && data.deeperLost?.length) {
+        lines.push('深入失利 · 遗失 ' + data.deeperLost.join('、'));
+      }
       const deeper = deeperWhy(block);
       return { kind: 'card', title: name[block.id] || '行动结算', text: lines.join('\n'), cards,
         button: expedition ? '回洞府' : undefined,
+        wishAgain: expedition && cards.some(card => card.wish),
         deeper: deeper === null ? null : { why: deeper, ap: L.AP.deeper } };
     }
     if (block.kind === 'big') {
@@ -666,7 +727,10 @@
   function finishTripStep(result) {
     const step = L.tripStep(state, result);
     if (step.enc) encounter = step.enc.id;
-    if (step.done) L.tripEnd(state);
+    if (step.done) {
+      const settled = L.tripEnd(state);
+      if (settled?.cards?.deeperLost?.length) settled.deeperLost = settled.cards.deeperLost;
+    }
   }
 
   function combat(move) {
@@ -839,20 +903,28 @@
       return;
     }
     if (op === 'result') {
-      if (note || preparedDuel || state.exp || state.run || battle || state.trib?.cur) throw new Error('没有当前历练结算');
+      if (note || preparedDuel || arena || state.exp || state.run || battle || breakthrough || state.trib?.cur ||
+          state.gear.rf || XianmenCinematics.earlier(state, null)) throw new Error('没有可操作的结算');
       const block = L.nextBlock(state);
-      if (block?.kind !== 'result') throw new Error('没有当前历练结算');
+      if (block?.kind !== 'result') throw new Error('没有可操作的结算');
       if (message.move === 'deeper') {
         if (deeperWhy(block) !== '' || !L.act(state, 'deeper', { res: block.data })) throw new Error('此刻无法深入');
         L.blockDone(state, block);
-      } else {
-        const cards = block.data.cards || [];
-        if (message.move === 'all') block.revealed = cards.map((_, i) => i);
-        else if (message.move === 'reveal' && Number.isInteger(message.index) && cards[message.index]) {
-          block.revealed = [...new Set([...(block.revealed || []), message.index])];
-        } else throw new Error('没有这张翻牌');
+        return;
       }
-      return;
+      const cards = block.data.cards || [];
+      if (message.move === 'gear') return decideLoot(block, message.index, message.decision);
+      if (message.move === 'wish-again' && ['exp', 'sweep', 'deeper'].includes(block.id) &&
+          cards.some((card, index) => card.wish && block.revealed?.includes(index))) {
+        L.blockDone(state, block);
+        return navigate('drops:' + block.data.k);
+      }
+      const indices = message.move === 'all' ? cards.map((_, i) => i) :
+        message.move === 'reveal' && Number.isInteger(message.index) && cards[message.index] ? [message.index] : null;
+      if (!indices) throw new Error('没有这张翻牌');
+      const flipped = indices.filter(index => !block.revealed?.includes(index));
+      block.revealed = [...new Set([...(block.revealed || []), ...flipped])];
+      return { lootFlips: flipped };
     }
     if (op === 'visitor-gifts') {
       const visitor = L.pgiftVisitor(state);
