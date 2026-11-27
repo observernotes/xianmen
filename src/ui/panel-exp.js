@@ -29,7 +29,7 @@ function showExp() {
   const sweep = L.sweepBest(st);
   const sweepArgs = sweep && [sweep.k, sweep.d, sweep.a];
   const sweepBtn = sweep && apBtn('sweep', sweepArgs);
-  const sweepRow = sweep ? `<div class="card flat"><div class="main"><div>${esc(cellName(sweep.k, sweep.d))}</div><div class="muted">约得灵石 ${fmt(sweep.f.stones)}</div></div><button class="btn sm alt exp-sweep" id="expSweep" ${sweepBtn.attr} ${sweepBtn.why ? 'disabled' : ''}>扫荡${sweepBtn.tag}</button></div>` : '';
+  const sweepRow = sweep ? `<div class="card flat"><div class="main"><div>${esc(cellName(sweep.k, sweep.d))}</div><div class="muted" aria-label="预计获得 ${fmt(sweep.f.stones)} 灵石">${artIcon('stone', 16)} ≈ ${fmt(sweep.f.stones)}</div></div><button class="btn sm alt exp-sweep" id="expSweep" ${sweepBtn.attr} ${sweepBtn.why ? 'disabled' : ''}>扫荡${sweepBtn.tag}</button></div>` : '';
   const rows = [];
   for (let k = 0; k < L.REGIONS.length; k++) {
     const rg = L.REGIONS[k];
