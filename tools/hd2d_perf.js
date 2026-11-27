@@ -9,7 +9,7 @@ const url = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
 (async () => {
   const browser = await chromium.launch();
   const rows = [];
-  for (const hd of [0, 1, 2, 3]) {
+  for (const hd of [0, 1, 1.5, 2, 3]) {
     const ctx = await browser.newContext({ ...devices['Pixel 7'] }), page = await ctx.newPage();
     const errs = []; page.on('pageerror', e => errs.push(e.message));
     await page.goto(url + '?hd=' + hd); await page.waitForTimeout(400);
@@ -36,6 +36,6 @@ const url = 'file://' + path.join(__dirname, '..', 'dist', 'index.html');
   const f = v => v.toFixed(1).padStart(6);
   console.log(`CPU 节流 ${rate}×，Pixel 7（412×915，dpr 2.625），无头 Chromium 软件光栅`);
   console.log('档  合成画布        | 洞府：均值  p95  >33ms  合成JS | 战斗：均值  p95  >33ms  合成JS');
-  for (const r of rows) console.log(`${r.hd}   ${String(r.home.size).padEnd(14)} | ${f(r.home.avg)} ${f(r.home.p95)} ${(r.home.slow * 100).toFixed(0).padStart(4)}% ${f(r.home.ms)} | ${f(r.bat.avg)} ${f(r.bat.p95)} ${(r.bat.slow * 100).toFixed(0).padStart(4)}% ${f(r.bat.ms)}${r.errs.length ? '  错误：' + r.errs[0] : ''}`);
+  for (const r of rows) console.log(`${String(r.hd).padEnd(3)} ${String(r.home.size).padEnd(14)} | ${f(r.home.avg)} ${f(r.home.p95)} ${(r.home.slow * 100).toFixed(0).padStart(4)}% ${f(r.home.ms)} | ${f(r.bat.avg)} ${f(r.bat.p95)} ${(r.bat.slow * 100).toFixed(0).padStart(4)}% ${f(r.bat.ms)}${r.errs.length ? '  错误：' + r.errs[0] : ''}`);
   if (rows.some(r => r.errs.length)) process.exitCode = 1;
 })();

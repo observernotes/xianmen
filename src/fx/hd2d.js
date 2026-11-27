@@ -15,6 +15,7 @@ HD.q = 0;                    // 当前画质档
 HD.on = false;               // 已接管场景画布
 HD.auto = true;              // 掉帧自动降档
 HD.selfLoop = true;          // 模块自己每帧合成；界面主循环显式调 HD2D.present(now) 时设成 false
+HD.lite = true;              // “标准”档（记作 1.5）：2 档去掉移轴那一遍，默认用它；HD2D.setQuality(2) 是“高”，全开
 HD.half = false;             // 合成隔帧做（30 帧）：降档之前先试这个
 HD.ctx = null;               // 场景画布的 2d 上下文（= 人物层）
 HD.minQ = 0;                 // 自动降档的下限（0 = 实在带不动就退回原画面）
@@ -30,7 +31,7 @@ function hash(i) { let t = (i * 2654435761) >>> 0; t ^= t >>> 15; t = Math.imul(
 // ---------- 画质档 ----------
 function readPref() {
   let v = null;
-  try { const m = /[?&]hd=(\w+)/.exec(root.location.search); if (m) v = m[1]; else v = root.localStorage.getItem('xm_hd'); } catch (e) { v = null; }
+  try { const m = /[?&]hd=([\w.]+)/.exec(root.location.search); if (m) v = m[1]; else v = root.localStorage.getItem('xm_hd'); } catch (e) { v = null; }
   return v;
 }
 function defaultQ() {
@@ -42,17 +43,17 @@ function defaultQ() {
 (function initPref() {
   const v = readPref();
   if (v === null || v === undefined || v === 'auto') { HD.q = defaultQ(); HD.auto = true; }
-  else { HD.q = clamp(parseInt(v, 10) || 0, 0, 3); HD.auto = false; }
+  else { const f = parseFloat(v) || 0; HD.lite = f === 1.5; HD.q = HD.lite ? 2 : clamp(Math.round(f), 0, 3); HD.auto = false; }
 })();
 HD.setQuality = function (q, keep) {
-  if (q === 'auto') { HD.auto = true; q = defaultQ(); } else { q = clamp(q | 0, 0, 3); if (!keep) HD.auto = false; }
-  if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : String(q)); } catch (e) { /* 无存储 */ } }
+  if (q === 'auto') { HD.auto = true; q = defaultQ(); HD.lite = true; } else { if (!keep) { HD.lite = q === 1.5; HD.auto = false; } q = q === 1.5 ? 2 : clamp(q | 0, 0, 3); }
+  if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ } }
   const was = HD.q; HD.q = q; HD.stats.q = q;
   if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else if (was !== q) sizePresent(true); }
   if (HD.onQuality) HD.onQuality(q);
   return q;
 };
-HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false };   // 单项开关（调试 / 降级）
+HD.opts = { dof: true, bloom: true, rays: true, parts: true, grade: true, cam: true, rim: true, shadow: true, upres: true, skin: true, ca: false, fg: true, tilt: true };   // 单项开关（调试 / 降级）
 
 // ---------- 精灵升 2 倍密度：Scale2x（EPX）+ 缓存 ----------
 const upCache = new WeakMap();
@@ -76,7 +77,8 @@ function scale2x(src, shade) {
 }
 // 2 倍密度下重新打光：把每一行里同一块颜色（衣、发、肤、皮毛）当成一段圆柱面——左侧三分之一处一条受光带、右缘转暗偏冷；
 // 宽的布面再压几道斜向的衣褶（一暗一亮两条细线）；深色的头发加一道竖向的高光。乘在原画自己的明暗上，色阶因此多出两三级
-function relight(d, w, h) {
+function relight(d, w, h, amt) {
+  amt = amt === undefined ? 1 : amt;
   const lum = i => d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
   for (let y = 0; y < h; y++) {
     let x = 0;
@@ -93,11 +95,13 @@ function relight(d, w, h) {
         pr = d[i]; pg = d[i + 1]; pb = d[i + 2]; x++;
       }
       const len = x - x0; if (len < 10) continue;
-      const L0 = r0 * 0.3 + g0 * 0.59 + b0 * 0.11, sat = Math.max(r0, g0, b0) - Math.min(r0, g0, b0), dark = L0 < 78, cloth = len >= 22 && sat > 45 && !dark;
+      const L0 = r0 * 0.3 + g0 * 0.59 + b0 * 0.11, sat = Math.max(r0, g0, b0) - Math.min(r0, g0, b0), dark = L0 < 78, skin = r0 > 170 && r0 > g0 && g0 > b0 && r0 - b0 < 120, cloth = len >= 22 && sat > 45 && !dark && !skin;
       for (let k = 0; k < len; k++) {
         const j = (y * w + x0 + k) * 4, u = k / (len - 1);
         let f = u < 0.1 ? 1 : u < 0.36 ? 1.1 : u < 0.68 ? 1 : u < 0.86 ? 0.9 : 0.8, cool = u >= 0.68 ? (u < 0.86 ? 4 : 9) : 0;
         if (dark) f = u > 0.16 && u < 0.3 ? 1.38 : u >= 0.3 && u < 0.36 ? 1.16 : u > 0.8 ? 0.86 : 1;
+        if (skin) f = 1 + (f - 1) * 0.4;   // 脸和手只要很轻的过渡
+        f = 1 + (f - 1) * amt;
         if (cloth && y > h * 0.3) { const m = (k + (y >> 1) + ((x0 * 7) % 5)) % 11; if (m === 7) f *= 0.87; else if (m === 8) f *= 1.07; }
         d[j] = Math.min(255, d[j] * f + (dark && f > 1.1 ? 6 : 0)); d[j + 1] = Math.min(255, d[j + 1] * f + (dark && f > 1.1 ? 8 : 0)); d[j + 2] = Math.min(255, d[j + 2] * f + cool + (dark && f > 1.1 ? 16 : 0));
       }
@@ -131,7 +135,11 @@ function volume(d, w, h) {
 // 取某张美术画布的 2 倍版（同一张只算一次）。画布之后要是又被改画过，调 HD2D.stale(c)
 HD.up = function (c) {
   let u = upCache.get(c);
-  if (u === undefined) { u = scale2x(c, !c._hdOK && HD.opts.volume !== false); upCache.set(c, u); }
+  if (u === undefined) {
+    if (c._hdNative) { try { u = c._hdNative(); const g = u.getContext('2d'), id = g.getImageData(0, 0, u.width, u.height); relight(id.data, u.width, u.height, 0.6); g.putImageData(id, 0, 0); u._hd = S; } catch (e) { u = null; } }   // 手工重画稿：只叠一层轻一点的打光
+    if (!u) u = scale2x(c, !c._hdOK && HD.opts.volume !== false);
+    upCache.set(c, u);
+  }
   return u;
 };
 HD.stale = c => upCache.delete(c);
@@ -408,11 +416,11 @@ function present(now) {
   L = lay('ground');
   if (L) {
     g.imageSmoothingEnabled = false; g.drawImage(L.c, 0, 0, Pw, Ph);
-    if (P.tilt && O.dof && q >= 2) {
+    if (P.tilt && O.dof && O.tilt && q >= 2 && !HD.lite) {
       const b0 = buf('tilt0', 100, Math.ceil(H / 2)); b0.g.globalCompositeOperation = 'copy'; b0.g.imageSmoothingEnabled = true; b0.g.drawImage(L.c, 0, 0, b0.c.width, b0.c.height);
       const b = buf('tilt', 200, H); b.g.globalCompositeOperation = 'copy'; b.g.imageSmoothingEnabled = true; b.g.drawImage(b0.c, 0, 0, 200, H);
       b.g.globalCompositeOperation = 'destination-in'; const gr = b.g.createLinearGradient(0, P.tilt[0] + OY, 0, P.tilt[1] + OY); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.45, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); b.g.fillStyle = gr; b.g.fillRect(0, 0, 200, H);
-      g.imageSmoothingEnabled = true; g.drawImage(b.c, 0, 0, Pw, Ph);
+      const th = Math.min(H, P.tilt[1] + OY + 1); g.imageSmoothingEnabled = true; g.drawImage(b.c, 0, 0, 200, th, 0, 0, Pw, th * u);   // 只画有虚化的那一截
     }
   }
   const lw = raw.getW(), lh = raw.getH(), k = Pw / lw;
@@ -455,7 +463,7 @@ function present(now) {
   // 8 夜色：一张小的光照图——先铺深蓝的环境色，再把每盏灯（连同它落在地上的光池）加上去，整张正片叠底到画面上。
   //   于是没灯的地方真的暗下去，灯下回到本色并染上灯的暖色；上沿用渐变接回山色（天与远山本来就是按夜色画的）
   if (F.amb) {
-    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lm = buf('lm', lw2, lh2), lg = lm.g, ambD = mix(F.amb, '#0a103a', 0.8 * dk);
+    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lm = buf('lm', lw2, lh2), lg = lm.g, ambD = mix(F.amb, '#070c30', 0.9 * dk);
     lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over'; lg.fillStyle = ambD; lg.fillRect(0, 0, lw2, lh2);
     lg.globalCompositeOperation = 'lighter'; lg.imageSmoothingEnabled = true;
     if (F.moon && F.moon.a > 0.1) { lg.globalAlpha = 0.16 * F.moon.a; lg.fillStyle = '#8fa8ff'; lg.fillRect(0, 0, lw2, lh2); }   // 月光：整体提一点冷色
@@ -464,7 +472,7 @@ function present(now) {
       lg.globalAlpha = a; lg.drawImage(tx, x - r, y - r, r * 2, r * 2);
       lg.globalAlpha = a * 0.7; lg.drawImage(tx, x - r * 1.7, y + r * 0.5, r * 3.4, r * 1.2);   // 落在地上的光池（压扁的椭圆）
     }
-    lg.globalAlpha = 1; const y0 = (72 + OY) / 2, y1 = (98 + OY) / 2, gr = lg.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    lg.globalAlpha = 1; const y0 = (36 + OY) / 2, y1 = (84 + OY) / 2, gr = lg.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     lg.globalCompositeOperation = 'source-over'; lg.fillStyle = gr; lg.fillRect(0, 0, lw2, y1);
     g.globalCompositeOperation = 'multiply'; g.imageSmoothingEnabled = true; g.drawImage(lm.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
   } else if (O.shadow) {   // 白天：人物身后的灵光在地上也落一圈
@@ -474,10 +482,14 @@ function present(now) {
   }
   // 9 前景（最虚、视差最大）
   L = lay('fore'); if (L) softLayer(g, L, P.blur.fore, cx * P.par.fore, 0, 1.05, 'fore');
-  if (P.fg && O.dof && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
+  if (P.fg && O.dof && O.fg && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
     const ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
     g.imageSmoothingEnabled = true; g.globalAlpha = F.amb ? 0.96 : 0.92;
-    for (let x = sx + ox - (F.scroll ? 0 : 0); x < Pw; x += fw) g.drawImage(ft, x, 0, fw, Ph);
+    const fh = ft.height, bot = Math.min(fh, 26), topH = Math.min(fh, 22);   // 只画有东西的两条：底边的草丛、左上角的枝叶
+    for (let x = sx + ox; x < Pw; x += fw) {
+      g.drawImage(ft, 0, fh - bot, ft.width, bot, x, Ph - bot * Ph / fh, fw, bot * Ph / fh);
+      if (!F.scroll && P.fg.top !== false) g.drawImage(ft, 0, 0, 56, topH, x, 0, fw * 56 / ft.width, topH * Ph / fh);
+    }
     g.globalAlpha = 1;
   }
   // 10 光源
@@ -542,8 +554,7 @@ function loop(now) {
     HD.stats.frame += (dt - HD.stats.frame) * 0.05;
     if (HD.auto && !root.document.hidden) {
       if (dt > 26) slow++; else fast++;
-      if (slow + fast >= 150) { if (slow > 90) { HD.stats.drops++; if (!HD.half && HD.q >= 2) HD.half = true; else if (HD.q > HD.minQ) { HD.selfLoop = true;          // 模块自己每帧合成；界面主循环显式调 HD2D.present(now) 时设成 false
-HD.half = false; HD.setQuality(HD.q - 1, true); } } slow = 0; fast = 0; }
+      if (slow + fast >= 150) { if (slow > 90) { HD.stats.drops++; if (!HD.half && HD.q >= 2) HD.half = true; else if (HD.q > HD.minQ) { HD.half = false; HD.setQuality(HD.q - 1, true); } } slow = 0; fast = 0; }
     }
   }
 }

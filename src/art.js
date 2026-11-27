@@ -199,6 +199,73 @@ function hdDataURL() { const h = root.HD2D, P = root.HTMLCanvasElement.prototype
 ART.clearCache = () => { cache.clear(); layerCache.clear(); };
 const layerCache = new Map();
 
+// ---------- 2 倍密度重画稿（HD-2D）：字符网格先按 Scale2x 放大（字母不混色），再用 2 倍密度的小补丁重画五官、发丝、衣褶 ----------
+function grid2x(g) {
+  const h = g.length, w = g[0].length, o = [];
+  for (let y = 0; y < h; y++) { const r0 = [], r1 = []; for (let x = 0; x < w; x++) {
+    const P = g[y][x], A = y > 0 ? g[y - 1][x] : P, D = y < h - 1 ? g[y + 1][x] : P, C = x > 0 ? g[y][x - 1] : P, B = x < w - 1 ? g[y][x + 1] : P;
+    let e0 = P, e1 = P, e2 = P, e3 = P;
+    if (A !== D && C !== B) { if (C === A) e0 = A; if (A === B) e1 = B; if (C === D) e2 = C; if (D === B) e3 = B; }
+    r0.push(e0, e1); r1.push(e2, e3);
+  } o.push(r0, r1); }
+  return o;
+}
+function patch(g, x, y, rows) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const ch = rows[j][i]; if (ch !== ' ') put(g, x + i, y + j, ch); } }
+// 只在已有的某类像素上改色（from 里的字母才会被换）：画衣褶、发丝时不会画出轮廓外
+function tint(g, pts, from, to) { for (const [x, y] of pts) if (g[y] && from.includes(g[y][x])) g[y][x] = to; }
+function seg(x0, y0, x1, y1) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1), o = []; for (let i = 0; i <= n; i++) o.push([Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n)]); return o; }
+function pad2(g) { const w = g[0].length + 2; return [new Array(w).fill('.')].concat(g.map(r => ['.'].concat(r, ['.'])), [new Array(w).fill('.')]); }
+// 2 倍密度的脸：眼睛 6×4（上睫、眼白、瞳、高光、下睑），鼻影，嘴。ex = 左眼左上角；右眼在 ex + 14
+function face2(g, ex, ey, f) {
+  for (const dx of [0, 14]) {
+    for (let y = 0; y < 7; y++) for (let x = -1; x < 7; x++) if ((y < 5 ? 'EwiS' : 'i').includes(g[ey + y][ex + dx + x])) g[ey + y][ex + dx + x] = 's';
+    patch(g, ex + dx, ey, f ? ['EEEEEE', 'wIEEWw', 'wIEEIw'] : ['EEEEEE', 'wIEEWw', 'sIEEIs']);
+    if (f) put(g, ex + dx + (dx ? 6 : -1), ey, 'E'); else tint(g, [[ex + dx + 1, ey + 3], [ex + dx + 2, ey + 3], [ex + dx + 3, ey + 3], [ex + dx + 4, ey + 3]], 's', 'S');
+  }
+  if (f) { patch(g, ex - 3, ey + 5, ['mm']); patch(g, ex + 21, ey + 5, ['mm']); }
+}
+// 一组线段上的像素换色：segs = [x0, y0, x1, y1]…
+function folds(g, segs, from, to) { for (const q of segs) tint(g, seg(q[0], q[1], q[2], q[3]), from, to); }
+ART._g2 = (look, realm) => sitGrid2(look, realm).map(r => r.join('')).join('\n');
+function sitGrid2(look, realm) {
+  const g0 = charGrid(SIT_BODY, look.f, 1); put(g0, 14, 23, 'y'); put(g0, 15, 23, 'G');
+  const g = grid2x(g0);
+  face2(g, 20, 24, look.f);
+  patch(g, 28, 32, look.f ? ['sMMs', 'ssss'] : ['MMMM', 'smms']);
+  // 发丝：几缕分开的暗线和受光的亮线
+  folds(g, [[22, 10, 18, 19], [39, 10, 42, 19], [30, 8, 30, 15]], 'h', 'H');
+  folds(g, [[27, 9, 24, 15], [34, 9, 36, 14], [19, 13, 17, 18]], 'h', 'j');
+  if (!look.f) { folds(g, [[46, 5, 51, 15]], 'h', 'j'); folds(g, [[48, 9, 52, 18]], 'h', 'H'); folds(g, [[37, 1, 44, 3]], 'h', 'j'); }
+  // 衣褶：袖子从肩往肘斜下去两道，胸前领下各一道，膝头向外散开；左边（受光）亮线，右边（背光）再压一级
+  folds(g, [[20, 41, 12, 50], [25, 42, 29, 46], [34, 42, 30, 46], [39, 41, 47, 50], [8, 57, 15, 59], [20, 56, 23, 59], [39, 56, 36, 59], [51, 57, 44, 59], [17, 46, 19, 51], [42, 46, 40, 51]], 'r', 'R');
+  folds(g, [[22, 42, 15, 50], [10, 55, 18, 57]], 'r', 'q');
+  folds(g, [[41, 43, 48, 51], [46, 52, 54, 57]], 'rR', 'D');
+  for (let y = 40; y <= 59; y++) for (let x = 44; x < 60; x++) if (g[y][x] === 'q') g[y][x] = 'r';
+  tint(g, [[27, 52], [30, 53], [33, 52]], 's', 'S');                       // 指缝
+  tint(g, [[24, 46], [25, 46], [26, 46], [27, 46], [32, 46], [33, 46]], 'b', 'R');   // 腰带上缘一线亮
+  for (let x = 6; x < 54; x += 3) tint(g, [[x, 62]], 'vc', 'V');           // 蒲团编纹上的高光点
+  return g;
+}
+function sit2(look, realm, hair, gray) {
+  const R0 = L.REALMS[Math.min(realm, 9)], g = sitGrid2(look, realm);
+  let pal = palette({ ...look, hair }, R0.robe, R0.trim, { W: '#ffffff', I: lerpC(hair, '#5a3a2a', 0.5) });
+  if (realm >= 9) pal.g = '#ffffff';
+  if (gray) pal = grayPal(pal);
+  const c = render(pad2(g), pal); c._hd = 2; return c;
+}
+function standGrid2(gw, look, kind, frame) {
+  const g = grid2x(gw);
+  if (!kind) { face2(g, 12, 24, look.f); patch(g, 20, 32, look.f ? ['sMMs', 'ssss'] : ['MMMM', 'smms']); folds(g, [[14, 10, 10, 19], [31, 10, 34, 19], [22, 8, 22, 15]], 'h', 'H'); folds(g, [[19, 9, 16, 15], [26, 9, 28, 14]], 'h', 'j'); }
+  standFolds(g, frame);
+  return g;
+}
+function standFolds(g, frame) {
+  // 袖子顺着手臂两道、胸前领下各一道、下摆几道长褶（左亮右暗）
+  folds(g, [[11, 41, 7, 49], [17, 43, 20, 46], [26, 43, 23, 46], [15, 53, 10, 65], [18, 54, 16, 65], [26, 53, 28, 65]], 'r', 'R');
+  folds(g, [[32, 41, 36, 49], [30, 54, 33, 65]], 'rR', 'D');
+  folds(g, [[24, 55, 25, 64], [9, 42, 6, 48]], 'r', 'q');
+  for (let y = 40; y < g.length; y++) for (let x = 30; x < g[y].length; x++) if (g[y][x] === 'q') g[y][x] = 'r';
+}
 ART.sit = function (look, realm, opts) {
   const R0 = L.REALMS[Math.min(realm, 9)];
   const hair = realm >= 7 ? '#e9e8f2' : look.hair;
@@ -211,7 +278,9 @@ ART.sit = function (look, realm, opts) {
     let pal = palette({ ...look, hair }, R0.robe, R0.trim);
     if (realm >= 9) pal.g = '#ffffff';
     if (gray) pal = grayPal(pal);
-    return render(g, pal);
+    const c = render(g, pal);
+    c._hdNative = () => sit2(look, realm, hair, gray);   // HD-2D：场景里用 2 倍密度的重画稿
+    return c;
   });
 };
 // 站姿：frame 0/1 两帧衣摆与发带飘动。extra = {horns, pal, kind}
@@ -263,7 +332,10 @@ ART.stand = function (look, robe, trim, frame, extra) {
       put(gw, hx, hy, 's'); put(gw, hx + 1, hy, 's');
     }
     const pal = palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, extra && extra.pal));
-    return render(gw, pal);
+    const c = render(gw, pal);
+    c._hdNative = () => { const G = standGrid2(gw, look, kind, frame); const c2 = render(pad2(G), Object.assign({ W: '#ffffff', I: lerpC(look.hair, '#5a3a2a', 0.5) }, pal)); c2._hd = 2; return c2; };
+    ART._gs = () => standGrid2(gw, look, kind, frame).map(r => r.join('')).join('\n');
+    return c;
   });
 };
 ART.standRealm = function (look, realm, frame) {
