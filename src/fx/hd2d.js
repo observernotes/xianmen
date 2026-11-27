@@ -136,7 +136,7 @@ function volume(d, w, h) {
 HD.up = function (c) {
   let u = upCache.get(c);
   if (u === undefined) {
-    if (c._hdNative) { try { u = c._hdNative(); const g = u.getContext('2d'), id = g.getImageData(0, 0, u.width, u.height); relight(id.data, u.width, u.height, 0.6); g.putImageData(id, 0, 0); u._hd = S; } catch (e) { u = null; } }   // 手工重画稿：只叠一层轻一点的打光
+    if (c._hdNative) { try { u = c._hdNative(); const g = u.getContext('2d'), id = g.getImageData(0, 0, u.width, u.height); const amt = u._relit === undefined ? 0.6 : u._relit; if (amt > 0) { relight(id.data, u.width, u.height, amt); g.putImageData(id, 0, 0); } u._hd = S; } catch (e) { u = null; } }   // 手工重画稿：只叠一层轻一点的打光
     if (!u) u = scale2x(c, !c._hdOK && HD.opts.volume !== false);
     upCache.set(c, u);
   }
@@ -666,9 +666,27 @@ HD.stageFx = function (host, src, o) {
   return s;
 };
 // 立绘画布（对话里的 .tk-pt，界面按固有尺寸画、用 CSS 定大小）：就地换成 2 倍密度 + 体积明暗；界面重画后（尺寸被改回去）下一帧再换
+// 有 2 倍密度重画稿的立绘（art.js 登记在 ART._hdBig）：隔几个像素抽样比对，认出画布上画的是哪一张（正着或镜像）
+function bigOf(c) {
+  const list = root.ART && root.ART._hdBig; if (!list || !list.length) return null;
+  const w = c.width, h = c.height; let d; try { d = c.getContext('2d').getImageData(0, 0, w, h).data; } catch (e) { return null; }
+  for (const s of list) {
+    if (s.width !== w || s.height !== h) continue;
+    const sd = s._sig || (s._sig = s.getContext('2d').getImageData(0, 0, w, h).data);
+    for (let fl = 0; fl < 2; fl++) {
+      let ok = true;
+      for (let y = 3; y < h && ok; y += 5) for (let x = 2; x < w; x += 5) { const i = (y * w + x) * 4, j = (y * w + (fl ? w - 1 - x : x)) * 4; if (Math.abs(d[i + 3] - sd[j + 3]) > 12 || (d[i + 3] > 40 && Math.abs(d[i] - sd[j]) + Math.abs(d[i + 1] - sd[j + 1]) + Math.abs(d[i + 2] - sd[j + 2]) > 30)) { ok = false; break; } }
+      if (ok) return { s, fl };
+    }
+  }
+  return null;
+}
 function upInPlace(c, colL, colR) {
   if (c.hidden || c.width < 8 || c.width + 'x' + c.height === c._upW) return;
-  const u = scale2x(c, true); if (!u) return;
+  let u = null; const big = bigOf(c), n = big && HD.up(big.s);
+  if (n) { u = mkc(n.width, n.height); const ug = u.getContext('2d'); if (big.fl) { ug.translate(n.width, 0); ug.scale(-1, 1); } ug.drawImage(n, 0, 0); }
+  if (!u) u = scale2x(c, true);
+  if (!u) return;
   if (colL && HD.opts.rim) {   // 左缘染左半边背景的亮色、右缘染右半边的（火光在哪边，哪边的脸就暖）：由外向里 5 个高清像素渐弱
     const w = u.width, hh = u.height, ug = u.getContext('2d'), id = ug.getImageData(0, 0, w, hh), d = id.data, L = rgb(colL), R = rgb(colR);
     for (let y = 0; y < hh; y++) {
