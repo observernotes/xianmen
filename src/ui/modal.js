@@ -63,7 +63,9 @@ function closeModal() {
   if (oldU.length) gearLeave(oldU);
   const f = modalOnClose; modalOnClose = null;
   if (f) f();
-  setTimeout(processQueue, 400);
+  // 结算链里还排着下一张（关键戏、章末卡…）：下一帧就接上，不露主界面；链空了才照旧缓 400ms
+  let more = false; try { more = !!(L.nextBlock && L.nextBlock(st)); } catch (e) { more = false; }
+  if (more) requestAnimationFrame(processQueue); else setTimeout(processQueue, 400);
   updateHUD();
 }
 // 弹窗里一行做完换成一句结果（换上 / 熔 / 收）：新的一行至少和旧的一样高，卷轴不缩、上沿不跳
