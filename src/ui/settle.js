@@ -41,7 +41,9 @@ function settle(why) {
 }
 // 章末卡等这一章的高潮 / 收尾那场戏（以及这件事自己的结算卡）出完；下一章的戏不抢在章末卡前头
 const chEndStory = x => { const ev = x && x.kind === 'story' ? x.data || L.eventById(x.id) : null; return !!ev && /^(sb:c\d_(climax|end)|beat:)/.test(ev.trigger || ''); };
-function showBlock(x) {
+// 出一张卡时界面出错：别让结算链卡死（chainOn 一直为真、【下一季】永远是灰的）——记下错误，这一张跳过，接着出下一张
+function showBlock(x) { try { showBlock0(x); } catch (e) { console.error('结算链出卡出错（跳过这一张）：' + (x && x.kind) + ':' + (x && x.id) + ' ' + (e && e.stack || e)); } }
+function showBlock0(x) {
   const d = x.data;
   if (x.kind === 'result') return showActResult(x.id, d, x);
   if (x.kind === 'season') { showSeasonCard(d); return; }

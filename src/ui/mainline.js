@@ -45,9 +45,10 @@ function chalRun(id, visit) {
 }
 function chalShow(res) {
   const id = res.id || res.rid;
-  const img = rvPortrait(id, 66, 'ang', true);
+  // 名次门槛前方的那一位（下战帖 {q}）是榜上的路人、没有宿敌 id：用通用画像与小人（原来 rvPortrait(undefined) 抛错，结算链卡死）
+  const img = id ? rvPortrait(id, 66, 'ang', true) : rivalAvImg({ n: res.n || '对手' }, 66);
   duel({ title: '下战书 · ' + res.n, right: { img, name: res.n, sub: `第 ${res.q} 名 · ${fmt(res.Q)}` }, Q: res.Q, S: res.S, p: res.p, win: res.win,
-    stage: 'cloud', foe: ftRival(id), face: true, quote: `${res.n}：“既然你送上门来——”`,
+    stage: 'cloud', foe: id ? ftRival(id) : ftGen(res.n || '对手'), face: !!id, quote: `${res.n}：“既然你送上门来——”`,
     winText: `${esc(res.n)}收了剑，半晌没有说话。<div class="fxlist"><span>击败${esc(res.n)}</span>${res.rank1 < res.rank0 ? `<span>天骄榜 → 第 ${res.rank1}</span>` : ''}<span>灵石 +${fmt(res.stones || 0)}</span></div>`,
     loseText: `你输了半招。${esc(res.n)}冷笑一声走了。<div class="fxlist"><span>${chalCd()} 季后可以再下战书</span></div>`, done: closeModal });
 }

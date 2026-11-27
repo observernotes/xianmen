@@ -164,7 +164,7 @@ const ROBES = [['#3a5a3a', '#5a8a4a', '#8ab86a'], ['#5a3a6a', '#8a5aa0', '#b88ad
 const RIVAL_PT = { mu: 'mu', zhao: 'zhao', chu: 'tian', xue: 'xue', yun: 'yun' };
 function rivalAvImg(rv, w) {
   if (rv.id && RIVAL_PT[rv.id] && ART.portrait) { const alt = rv.id === 'mu' && !!st.p.look.f; return ptHTML(ART.portrait(RIVAL_PT[rv.id], 'n', alt), ['pt', RIVAL_PT[rv.id], 'n', alt ? 1 : 0].join('|'), w, 'vsR'); }
-  let h = 0; for (const ch of rv.n) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  let h = 0; for (const ch of String(rv.n || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   if (ART.portraitGen) return ptHTML(ART.portraitGen(h, { f: (h >> 3) % 2, realm: Math.min(8, st.p.r) }, 'n'), 'pg|' + h + '|' + Math.min(8, st.p.r), w, 'vsR');
   let o;
   if (rv.id && RIVAL_LOOK[rv.id]) o = RIVAL_LOOK[rv.id](st.p.look.f);
