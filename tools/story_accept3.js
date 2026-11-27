@@ -107,7 +107,8 @@ const ADAPTER = {
 };
 
 // ---------- 跑 ----------
-const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && st.bestRank <= 60, ['s2_rank']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']],   // 线 B 核对：这两场是第三 / 第五章的高潮；在前一章（论道上）就打赢了的，戏在那一章开章的同一条链里接着出，“成立”= 打赢了且章到了
+// rank60：s2_rank 是第二章的高潮（sb:c2_climax），跟着第二章的名次要求走；这一章降过级（名次放宽到前 95 / 前 160，线 B 的兜底）时它在名次真到 60 以前就该放，所以“成立”取“到前 60 / 放宽后的名次够了 / 第二章做完”里先到的那个
+const KEYEV = [['pact', st => !!st.pact, ['s1_pact_after', 's1_pact_lost']], ['rank60', st => !!st.pact && (st.bestRank <= 60 || (L.chapterNow(st) === 1 && L.mainRankOk(st, 60, 1)) || !!st.quest.done.c1_m), ['s2_rank']], ['zhao', st => !!st.beaten.zhao && L.chapterNow(st) >= 2, ['s3_zhao_fall']], ['chu', st => !!st.beaten.chu && L.chapterNow(st) >= 4, ['s5_tiankuo_fall']],   // 线 B 核对：这两场是第三 / 第五章的高潮；在前一章（论道上）就打赢了的，戏在那一章开章的同一条链里接着出，“成立”= 打赢了且章到了
   ['war', st => !!st.flags.warWon, ['s6_after']]].concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => ['m' + (i - 1), st => !!st.quest.done['c' + (i - 1) + '_m'], ['story_r' + i]]));
 function runCase(c) {
   const fails = [], warns = [];
@@ -149,7 +150,7 @@ function runCase(c) {
       if (++n > 40) { fail(`结算链不收敛（${why}，第 ${st.tick} 月，40 张以后还有 ${x.kind}:${x.id}）`); break; }
       if (st.tick !== tick0) fail(`结算链进行中时间走了（${tick0} → ${st.tick}）`);
       seqList.push(x.kind + ':' + (x.id || ''));
-      if (x.kind === 'story' && shown[x.id] === undefined) shown[x.id] = { seq: seq(), tick: st.tick, chain: chainN };
+      if (x.kind === 'story' && shown[x.id] === undefined) { shown[x.id] = { seq: seq(), tick: st.tick, chain: chainN }; }
       if (why === 'season' && x.lv === 8) opening++;
       const r = ADAPTER.show(st, x, choose); if (r === 'nochoice') fail(`剧情 ${x.id} 没有点得到的选项`);
       watch();
@@ -187,7 +188,6 @@ function runCase(c) {
     if (c.overspend && L.apLeft(st) === 0) for (const id of ['exp', 'retreat', 'sit']) { const snap = JSON.stringify(st); const why = L.apWhy(st, id); const r = L.act(st, id); if (r || !why || JSON.stringify(st) !== snap) { fail(`点数用完后 L.act('${id}') 没被拒绝干净（why = “${why}”，返回 ${r ? '非空' : '空'}，状态${JSON.stringify(st) !== snap ? '变了' : '没变'}）`); break; } }
     if (L.isReady(st) && !(c.cap !== undefined && st.p.r >= c.cap) && !(st.p.r === 8 && L.chapterNow(st) < 8 && !c.soft)) { const t0 = st.tick; ADAPTER.breakthrough(st); if (st.tick !== t0) fail('突破之后时间走了'); watch(); settle('act'); }
     if (st.p.r >= 9) break;   // 刚飞升：这一世到此为止，不再过季
-    if (process.env.ACDBG && seasons % 6 === 0) console.log(`  [dbg] 季 ${seasons} 章 ${L.chapterNow(st) + 1} 境界 ${st.p.r}.${st.p.s} xp ${Math.round(st.p.xp)}/${L.pNeed(st.p)} 寿 ${Math.round(st.p.age)}/${Math.round(L.lifespan(st))} e ${st.mainG && st.mainG.e} gain ${Math.round(L.gain(st))} 点 ${JSON.stringify(st.ap.log[L.seasonNo(st)] && st.ap.log[L.seasonNo(st)].acts)}`);
     const t0 = st.tick; L.seasonEnd(st);
     if ((st.tick !== t0 + 3 || st.tick % 3) && st.p.age < L.lifespan(st)) fail(`季末结算后 tick 从 ${t0} 到 ${st.tick}（应 +3 且在季界上）`);
     watch(); settle('season');

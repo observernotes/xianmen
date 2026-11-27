@@ -69,7 +69,7 @@ L.MAIN_HOW = {
   rank: { sys: ['天骄榜', '下战帖', '天骄论道'], fn: ['challenge', 'challengeTargets', 'tournament'], ui: ['runTournament'], act: '【下战帖 ◆1】打名次门槛前方的一位；每年冬季末天骄论道也往上打' },
   boss: { sys: ['历练', '首领'], fn: ['bossReady', 'fightBoss'], ui: ['fightBossUI', 'showExp'], act: '【历练】那张图的禁地评价打到乙，首领现身后【讨伐首领 ◆1】' },
   meet: { sys: ['九宗会武'], fn: ['sectMeet', 'nextMeet'], ui: ['runSectMeet'], act: '入宗满 4 季后隔年夏季末一届九宗会武，自动登台' },
-  war: { sys: ['天剑宗来犯'], fn: ['sectWar', 'warChapter', 'finalFight'], ui: ['runWar'], act: '第六章进来后第 12 季的季末来犯（固定日子，L.WAR_LEAD）；输了 4 季后再来，或【讨回山门 ◆1】提前打' },
+  war: { sys: ['天剑宗来犯'], fn: ['sectWar', 'warChapter', 'finalFight'], ui: ['runWar'], act: '第六章进来后第 14 季的季末来犯（固定日子，L.WAR_LEAD）；输了 4 季后再来，或【讨回山门 ◆1】提前打' },
   flag: { sys: ['剧情节拍'], fn: ['storyTick', 'nextBlock'], ui: ['showChoice'], act: '开章那场戏：上一章章末卡关掉当场接着放' },
   beat: { sys: ['剧情节拍'], fn: ['storyKick', 'nextBlock'], ui: ['showChoice'], act: '高潮那场戏：前置做完当场放（同一条结算链）' },
   asc: { sys: ['突破', '天劫'], fn: ['tribStart', 'tribFinish', 'breakthrough'], ui: ['showBreakthrough'], act: '修到渡劫圆满，点【渡劫】（不花点）' },

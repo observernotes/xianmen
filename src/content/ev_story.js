@@ -35,7 +35,8 @@ const PATCH = {
   // 赵乾落败那场戏里已经定了他的去路；葬剑渊的“顶罪”只给没走过那场戏的旧档
   zhao_2: { not: ['zhao_owes', 'zhao_guide', 'clue_tianjian'] },
   // 正魔大战并进第七章的高潮（s7_war）
-  sect_war_xuesha: { chMax: 5 },
+  // （minR 6 + 章闸 L.storyR = min(境界, 章) 时要第七章才开，与 chMax 5 冲突、永远不出：门槛降到 5，第六章、炼虚起）
+  sect_war_xuesha: { chMax: 5, minR: 5 },
   // 道侣：第四章起（P28）
   su_5: { chMin: 3, patchChoices: (c, i) => { if (i === 0) { c.key = 1; c.hint = '从此有人等你回家'; } } },
   ye_5: { chMin: 3, patchChoices: (c, i) => { if (i === 0) { c.key = 1; c.hint = '从此有人等你回家'; } } },

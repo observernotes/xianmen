@@ -468,7 +468,7 @@ async function apSection(quick) {
   const gx = await page.evaluate(() => { const { st, L } = window.__xm; return L.gainBase(st); });
   await page.click('#modal [data-art="x_qingmu"]'); await page.waitForTimeout(250);
   const gx1 = await page.evaluate(() => { const { st, L } = window.__xm; return { g: L.gainBase(st), slot: L.artSlots(st)[0], dec: L.fmt1 }; });
-  const shownX = await page.evaluate(([a, b]) => { const v = b - a; return `修炼 ${v > 0 ? '+' : '−'}${window.__xm.L.fmt1(Math.abs(v))}/周天`; }, [gx, gx1.g]);
+  const shownX = await page.evaluate(([a, b]) => { const v = b - a; return `修炼 ${v > 0 ? '+' : '−'}${window.__xm.L.fmt1(Math.abs(v))}/月`; }, [gx, gx1.g]);   // 修为的量仍写“/月”（AP_PLAN §1.4：那是量词）
   expect(gx1.slot === 'x_qingmu' && dx === shownX, `换心法：列表写 ${dx}，实际 ${shownX}`);
   await page.click('#modal [data-slot="1"]'); await page.waitForTimeout(200);
   const dz = await rowDelta('z_gengjin');
@@ -639,7 +639,8 @@ async function apSection(quick) {
   expect(await page.evaluate(() => window.__xm.L.canTrain(window.__xm.st)), '约战前 6 周天、胜算低时可以特训');
   await page.evaluate(() => window.__xm.showTrain()); await page.waitForTimeout(300); await shot('c14-train');
   await page.click('#modal .foot .btn.gold'); await page.waitForTimeout(300);
-  expect(await page.evaluate(() => window.__xm.st.retreat && window.__xm.st.retreat.kind === 'train' && window.__xm.st.retreat.m === 3), '接受特训：4 周天 ×3');
+  // 3.0：特训花 2 点、当场结掉（AP_PLAN §3.1），不再留着 st.retreat；修为当场涨、st.flags.trained 记下
+  expect(await page.evaluate(() => !window.__xm.st.retreat && !!window.__xm.st.flags.trained && window.__xm.st.p.xp > 0), '接受特训：当场得修为（老祖特训 ×3，花 2 点）');
   await close();
   // ---------- 历法、天下大势、坊市（SYSTEMS §7、§10）----------
   const CALH = ['cal', 'world1', 'shelf', 'sell', 'auction', 'ready', 'btGo', 'trib', 'afterPact', 'pactSoon', 'field', 'retreat', 'retBtn', 'visitor', 'depth', 'tuna', 'market', 'furnace', 'alch', 'heal', 'sect', 'tourSoon', 'me', 'boss', 'life',
@@ -1286,7 +1287,8 @@ async function apSection(quick) {
     st = L.newState({ name: '魔2' }); st.p.r = 2; st.pact = 1; st.origin = 'moyi'; o.moOrigin = L.sectsFor(st).length === 4;
     st = L.newState({ name: '魔3' }); st.p.r = 2; st.pact = 1; st.eflags.mo_owe = 1; o.moOwe = L.joinSect(st, 'xuesha') && st.sect.id === 'xuesha';
     st = L.newState({ name: '正' }); st.p.r = 2; st.pact = 1; o.moHidden = !L.sectsFor(st).some(x => x.id === 'xuesha') && L.sectsFor(st).length === 3 && L.joinSect(st, 'jian') && st.sect.id === 'jian';
-    { const a = mk('jian', 3, 7), b = mk('xuesha', 3, 7); const ev = L.eventById('sect_war_xuesha'); const ev2 = L.eventById('sect_alliance');
+    { const a = mk('jian', 3, 7), b = mk('xuesha', 3, 7); for (const x of [a, b]) for (let i = 0; i < 5; i++) x.quest.done['c' + i + '_m'] = 1;   // 事件按章开（L.CH_GATE）：正魔大战在第六章
+      const ev = L.eventById('sect_war_xuesha'); const ev2 = L.eventById('sect_alliance');
       const ok = s => !!L.eligible(s, ev, 'home', {}); a.eflags = a.eflags || {}; o.moWar = ok(a) === true && ok(b) === false && L.eligible(a, ev2, 'home', {}) === true && L.eligible(b, ev2, 'home', {}) === false; }
     { const a = mk('jian', 2, 4), b = mk('xuesha', 2, 4); const one = s => { s.p.inj = 4; s.tick = 100; L.sectTick(s, {}); return s.p.inj; }; o.moInj = one(a) === 4 && one(b) === 5; const odd = s => { s.p.inj = 4; s.tick = 101; L.sectTick(s, {}); return s.p.inj; }; o.moInjOdd = odd(b) === 4;
       const ab = mk('jian', 2, 4), bb = mk('xuesha', 2, 4); o.moLeap = Math.abs(L.leapMult(bb) / L.leapMult(ab) - 1.5) < 1e-9;
@@ -1311,8 +1313,9 @@ async function apSection(quick) {
     // ---- 9 边界：空名册 / 没入宗的 disc、busy、favor；busy 碰上历练
     { const s0 = mk('dao', 4, 4); s0.disc = null; const out = L.applyFx(s0, { disc: { grow: 0.1 } }); o.emptyRoster = out.join('').includes('不在门下') && noThrow(() => { L.applyFx(s0, { disc: { out: 1 } }); L.applyFx(s0, { disc: { lv: 1, heart: 1, inj: 1, job: 0.1 } }); L.discTick(s0, {}); L.discTop(s0, 2); L.sectMeet(s0); L.discLectured(s0); L.discSetJob(s0, 99, 'exp'); L.discTeach(s0, 99, 'x_houtu'); L.discGraduate(s0, 99); }) === true && L.discSetJob(s0, 99, 'exp') === false; }
     { const s0 = mk('dao', 4, 4); s0.exp = { k: 0, d: 0, a: 0, left: 3, total: 3, plan: {}, chain: 0 }; const out = L.applyFx(s0, { busy: 3 }); o.busyExp = !s0.retreat && !out.join('').includes('占住');
-      const s1 = mk('dao', 4, 4); const o1 = L.applyFx(s1, { busy: 3 }); o.busyOk = !!s1.retreat && s1.retreat.kind === 'busy' && s1.retreat.left === 3 && L.gain(s1) === 0 && o1.join('').includes('占住 3 个周天');
-      const o2 = L.applyFx(s1, { busy: 2 }); o.busyTwice = !!s1.retreat && s1.retreat.left === 3 && !o2.join('').includes('占住'); }
+      // 3.0（AP_PLAN §3.5）：“占住 v 个月”不再占时间，改成下一季行动点 −1（v ≥ 4 −2），记在 st.ap.debt，一季最多扣光 3 点
+      const s1 = mk('dao', 4, 4); const o1 = L.applyFx(s1, { busy: 3 }); o.busyOk = !s1.retreat && s1.ap.debt === 1 && L.gain(s1) > 0 && o1.join('').includes('下一季行动点 −1');
+      const o2 = L.applyFx(s1, { busy: 4 }); L.applyFx(s1, { busy: 4 }); o.busyTwice = !s1.retreat && s1.ap.debt === 3 && o2.join('').includes('−2'); }
     return o;
   });
   for (const k in sx2) expect(sx2[k], '宗门补测：' + k);
@@ -1473,7 +1476,7 @@ async function apSection(quick) {
   expect(back.ph === 'door' && back.leave && back.t === t0, `续玩后奇遇处理完回到门前、时间没走：${JSON.stringify(back)}`);
   await shot('c20b-realm-back'); await page.click('#realmLeave', { timeout: 5000 }); await page.waitForTimeout(600); await shot('c21-realm-leave');
   const lv = await page.evaluate(() => ({ run: window.__xm.st.run, t: window.__xm.st.tick, title: (document.querySelector('#modal h2') || {}).textContent }));
-  expect(!lv.run && lv.t === t0 + 3 && lv.title === '全身而退', `离开：出来 3 个周天（${JSON.stringify(lv)}）`);
+  expect(!lv.run && lv.t === t0 && lv.title === '全身而退', `离开：秘境不走时间（3.0：出来还是这一季，${JSON.stringify(lv)}）`);
   await close();
   // ---------- 灵田作物与炼丹（SYSTEMS §5、§6.2）----------
   const cr = await page.evaluate(() => {
@@ -1538,9 +1541,11 @@ async function apSection(quick) {
     o.auto = ob.brew && ob.brew.length === 1 && ob.brew[0].k === 'peiyuan' && !ob2.brew && /六十/.test(L.autoWhy(s3, 'peiyuan')) && L.setAuto(s3, 'pojing', true) && L.setAuto(s3, 'liaoshang', true) && !L.setAuto(s3, 'juling', true);
     // 战斗类丹：爆气丹 下一场对决战力 ×1.3（约战胜算涨），约战打完就用掉；雷火丹 下一趟历练分数 +10，出发就用掉
     const s4 = L.newState({ name: '对决' }); s4.tick = 30; s4.p.s = 3; s4.gear.w = { u: 1, id: 'w1_0', slot: 'w', t: 1, plus: 0, aff: [], fail: 0 }; s4.home.furnace = 3; s4.dan.bag.baoqi = [1]; s4.dan.bag.leihuo = [1];
+    const ppB = L.PACT_POWER; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;   // 这一局（第 30 月、只有一把一阶剑）按旧的约战对手量“胜算涨了”；回合制的 268 下它的胜算贴着下限，涨不出来
     const pa = L.pactInfo(s4).p, pw0 = L.duelPower(s4, L.PACT_FOE);
     const tk = L.takePill(s4, 'baoqi');
     o.baoqi = !!tk && Math.abs(L.duelPower(s4, L.PACT_FOE) / pw0 - 1.3) < 1e-9 && L.pactInfo(s4).p > pa && s4.toxin === 15 && L.bagN(s4, 'baoqi') === 0;
+    L.PACT_POWER = ppB;
     o.baoqiAgain = /丹囊里没有/.test(L.takeWhy(s4, 'baoqi'));
     s4.tick = L.PACT_TICK; L.pactDuel(s4); o.baoqiUsed = !L.danNext(s4, 'baoqi');
     L.takePill(s4, 'leihuo'); const lp = L.expExtraParts(s4, 0, 0, 0).find(x => /雷火丹/.test(x[0]));
@@ -1681,7 +1686,7 @@ async function apSection(quick) {
         const pt = mk(); pt.home.cave = 12; L.migrateHome(pt); L.build(pt, 'portal');
         const base = mk(); const len0 = L.expLen(0, base);
         o.portal1 = L.portalLv(pt) === 1 && L.expLen(0, pt) === len0 && L.mjCost(pt) === L.MJ.cost;
-        for (let i = 0; i < 2; i++) L.upgrade(pt, 'portal'); o.portal3 = L.expLen(0, pt) === len0 - 1 && L.expLen(0, base) === len0;
+        for (let i = 0; i < 2; i++) L.upgrade(pt, 'portal'); o.portal3 = L.expLen(0, pt) === len0 && L.strideSrcN(pt, 0) === L.strideSrcN(base, 0) + 1;   // 3.0：传送阵 3 级不再缩短历练，改成一份脚力（AP_PLAN §2.3）
         for (let i = 0; i < 3; i++) L.upgrade(pt, 'portal');
         pt.best['0_0'] = 1; pt.best['0_1'] = 0; const closed = L.depthOpen(pt, 0, 2); pt.best['0_0'] = 2; const open6 = L.depthOpen(pt, 0, 2);
         base.best['0_0'] = 2; base.best['0_1'] = 0; o.portal6 = !closed && open6 && !L.depthOpen(base, 0, 2) && L.depthOpen(pt, 0, 1);
@@ -1931,6 +1936,9 @@ async function apSection(quick) {
   const sam = await page.evaluate(() => {
     const { L } = window.__xm;
     const o = {};
+    // 这一组量的是奇遇链、出身、轮回自己的境界窗口规则（minR / maxR、放宽一档）：按境界判（L.CH_GATE = false，sim 的 nochgate 对照）；
+    // 3.0 的章闸（事件按 min(境界, 章) 判、境界超前时按章出）另由 tools/story_check.js、story_accept3.js 查
+    const chg0 = L.CH_GATE; L.CH_GATE = false;
     const fresh = x => L.newState(Object.assign({ name: '链' }, x || {}));
     const clone = s => JSON.parse(JSON.stringify(s));
     const dumb = (st, ev) => { const i = ev.choices.findIndex(c => L.choiceShown(st, c) && L.costOk(st, c.cost)); return i < 0 ? null : L.resolveChoice(st, ev, i); };
@@ -1960,7 +1968,7 @@ async function apSection(quick) {
     }
     {
       // ch_sword_6 在 r8（炼虚之后）仍可出；ch_sword_2 这种在中途升境界后也不卡死；第 1 步照旧受 maxR 限制
-      const st = fresh(); st.p.r = 8; st.eflags.sword_4 = 1; st.eflags.sword_5 = 1; st.eflags.sword_1 = 1;
+      const st = fresh(); st.p.r = 8; st.eflags.sword_4 = 1; st.eflags.sword_5 = 1; st.eflags.sword_1 = 1; for (let i = 0; i < 7; i++) st.quest.done['c' + i + '_m'] = 1;   // 线 B：重铸那一步定在第八章起（chMin 7）
       const e6 = L.eventById('ch_sword_6');
       o.sword6 = e6.maxR === 7 && L.eligible(st, e6, 'home', { visit: true });
       const stN = clone(st); stN.eflags.sword_5 = 0; o.sword6no = !L.eligible(stN, e6, 'home', { visit: true });
@@ -1983,13 +1991,9 @@ async function apSection(quick) {
       const st8 = fresh(); st8.p.r = 7; st8.eflags.tea_1 = 1; st8.eflags.tea_2 = 1; st8.eflags.tea_3 = 1; st8.eflags.tea_4 = 1; st8.storyQ = []; o.tea5on = L.chainCatchUp(st8) === 1 && st8.storyQ[0] === 'ch_tea_5';
     }
     {
-      // story_r7 结算后 tianheng_2 进队列
-      const st = fresh(); st.p.r = 7; st.storyQ = ['story_r7']; st.eflags.sword_1 = 1;
+      // 3.0（线 B）：了断陆天衡（tianheng_2）是第八章的高潮节拍，前置（st_justice、进前二）满足当场放，不再跟在 story_r7 后面进队
       const e = L.eventById('story_r7');
-      o.r7ev = !!e; if (e) {
-        const had = st.storyQ.includes('tianheng_2');
-        dumb(st, e); o.tian = !had && st.storyQ.includes('tianheng_2');
-      }
+      o.r7ev = !!e; o.tian = L.eventById('tianheng_2').trigger === 'sb:c8_climax' && (L.eventById('tianheng_2').need || []).includes('st_justice');
     }
     {
       // CHAINS_ON = false：ch_* 事件一概不出（洞府、历练各掷 600 次）
@@ -2279,6 +2283,7 @@ async function apSection(quick) {
       o.migBad = bm.meta.perk.wis === undefined && bm.meta.perk.bone === undefined && bm.meta.perk.luck === 1 && bm.meta.daoguo === 0 && bm.trials.join() === 'half' && bm.origin === 'qitu';
     }
 
+    L.CH_GATE = chg0;
     return o;
   });
   expect(Object.keys(sam).length >= 100, '奇遇链·图鉴·轮回检查条数不对：' + Object.keys(sam).length);
@@ -2287,9 +2292,11 @@ async function apSection(quick) {
   // 法宝克、图鉴、新秀出现 / 追赶 / 打压 / 指点 / 看一眼 / 送礼、norivals2、迁移、来犯前夜（zhao_3、raid_intel、raid_delay）。检查体在 tools/ 外无副本，这里每段 evaluate 自成一体 ----------
   const rvL1 = await page.evaluate(() => {
     const { L } = window.__xm; const o = {};
+    // 这一组的局面（第 300 月、化神）是按行动点制之前的天骄榜曲线（RIVAL_SLOPE 0.0185、PACT_POWER 125，L.AP_CONST 的旧值）摆的；回合制下是 0.029 / 268（D2 校准），这里量的是规则本身，按原曲线算
+    const rs0 = L.RIVAL_SLOPE, pp0 = L.PACT_POWER; L.RIVAL_SLOPE = L.AP_CONST ? L.AP_CONST.RIVAL_SLOPE[0] : 0.0185; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;
     const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
     const clone = x => JSON.parse(JSON.stringify(x));
-    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; for (let i = 0; i < 4; i++) s.quest.done['c' + i + '_m'] = 1; return Object.assign(s, o2 || {}); };   // 章跟着境界摆到第五章（事件按章开，L.CH_GATE）
     // 把榜单排成“你在第 rank 名”：榜上 99 个、不含你
     // ---------- 1. 恩怨 ----------
     {
@@ -2339,13 +2346,15 @@ async function apSection(quick) {
       const lead = L.rivalLeads(t);
       o.leads = lead.map(x => x.id).join() === 'zhao,rkA,mu,xue' && lead.every(x => x.m >= 1.1 && x.m <= 1.2) && lead[0].m === 1.2 && lead[3].m === 1.1 && lead[1].rookie === true && lead[0].nine === 'tianjian' && lead[2].nine === '' && lead.every((x, i) => !i || lead[i - 1].g >= x.g);
     }
-    return o;
+    L.RIVAL_SLOPE = rs0; L.PACT_POWER = pp0; return o;
   });
   for (const k in rvL1) expect(rvL1[k], '宿敌与新秀（恩怨、永久系数、抬价与带头）：' + k);
   const rvL2 = await page.evaluate(() => {
     const { L } = window.__xm; const o = {};
+    // 这一组的局面（第 300 月、化神）是按行动点制之前的天骄榜曲线（RIVAL_SLOPE 0.0185、PACT_POWER 125，L.AP_CONST 的旧值）摆的；回合制下是 0.029 / 268（D2 校准），这里量的是规则本身，按原曲线算
+    const rs0 = L.RIVAL_SLOPE, pp0 = L.PACT_POWER; L.RIVAL_SLOPE = L.AP_CONST ? L.AP_CONST.RIVAL_SLOPE[0] : 0.0185; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;
     const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
-    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const mk = (o2) => { const s = L.newState({ name: '宿敌测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; for (let i = 0; i < 4; i++) s.quest.done['c' + i + '_m'] = 1; return Object.assign(s, o2 || {}); };   // 章跟着境界摆到第五章（事件按章开，L.CH_GATE）
     const arts = (s, ids, eq) => { for (const id of ids) L.giveArt(s, id); for (const id of eq) L.equipArt(s, id); return s; };
     // ---------- 2. 论道前的对手与论道第一场一致 ----------
     {
@@ -2355,7 +2364,7 @@ async function apSection(quick) {
       const b = mk({ rank: 80, pact: -1 }); cases.push(['pact', b, 'mu', 72]);   // 三年之约输了：第一场固定是退婚的那位
       const c = mk({ rank: 1 }); cases.push(['top', c, 'yun', 2]);                // 榜首：打第 2 名
       const d = mk({ rank: 50 }); d.beaten.zhao = 1; d.beaten.mu = 1; const none = L.tourFoe(d);   // 打赢过了：没有宿敌
-      const e = mk({ rank: 20, tick: 120 }); e.beaten.mu = 1; cases.push(['chu', e, 'chu', 12]);
+      const e = mk({ rank: 20, tick: 120 }); e.beaten.mu = 1; e.p.r = 5; e.p.s = 0; e.flags.maxR = 5; cases.push(['chu', e, 'chu', 12]);   // 楚天阔卡在炼虚初期（D2 校准：原来化神中期）
       for (const [k, s, id, q] of cases) {
         const tf = L.tourFoe(s);
         const S = L.power(s);
@@ -2367,8 +2376,8 @@ async function apSection(quick) {
       }
       // 约战输了：赵乾排在前方 15 名内更近的位置，第一场也固定是慕容（退婚那位）
       const pz = mk({ rank: 80, pact: -1 }); const zi = pz.ladder.findIndex(x => x.id === 'zhao'); [pz.ladder[zi], pz.ladder[75]] = [pz.ladder[75], pz.ladder[zi]];
-      const pzf = L.tourFoe(pz), pzr = withR(0.99, () => L.tournament(pz)).rounds[0];
-      o.tourFoePact2 = L.rivalRank(pz, 'zhao') === 76 && pzf.id === 'mu' && pzr.rv.id === 'mu' && pzr.q === pzf.q;
+      const pzq = L.rivalRank(pz, 'zhao'), pzf = L.tourFoe(pz), pzr = withR(0.99, () => L.tournament(pz)).rounds[0];   // 名次在论道之前量（论道里别人也在挪位）
+      o.tourFoePact2 = pzq === 76 && pzf.id === 'mu' && pzr.rv.id === 'mu' && pzr.q === pzf.q;
       o.tourFoeNone = none === null;
       o.tourFoeNoPact = mk({ rank: 50, pact: 0 }).pact === 0 && L.tourFoe(mk({ rank: 50, pact: 0 })) === null;
       // 打不过（战力 ≥ 你的 1.6 倍）的宿敌不选：两边都不选他
@@ -2428,17 +2437,19 @@ async function apSection(quick) {
       const r = withR(0.01, () => L.tournament(t)), rd = r.rounds[0];
       o.tourBeat = rd.win && rd.rv.id === 'zhao' && rd.first === true && t.grudge.zhao === g0 + 20 && rd.grudge === 20 && L.rivalKnow(t, 'zhao').gear && L.rivalKnow(t, 'zhao').art;
       // 三年之约赢了：慕容恩怨 +20、图鉴齐
-      const p = mk({ pact: 0, tick: L.PACT_TICK, rank: 100 }); p.p.r = 0; p.p.s = 3; const pr = withR(0.01, () => L.pactDuel(p));
+      const p = mk({ pact: 0, tick: L.PACT_TICK, rank: 100 }); p.p.r = 0; p.p.s = 3; p.bonus.atk = 400; const pr = withR(0.01, () => L.pactDuel(p));   // 约战一场是真打的回合战（固定随机数不保证赢）：战力给足，量的是赢了以后的记账
       o.pactBeat = pr.win && p.grudge.mu === 20 && L.rivalKnow(p, 'mu').gear && L.rivalKnow(p, 'mu').art && p.eflags.beat_mu === 1;
     }
-    return o;
+    L.RIVAL_SLOPE = rs0; L.PACT_POWER = pp0; return o;
   });
   for (const k in rvL2) expect(rvL2[k], '宿敌与新秀（论道前的对手、换战技、法宝克、图鉴）：' + k);
   const rvL3 = await page.evaluate(() => {
     const { L } = window.__xm; const o = {};
+    // 这一组的局面（第 300 月、化神）是按行动点制之前的天骄榜曲线（RIVAL_SLOPE 0.0185、PACT_POWER 125，L.AP_CONST 的旧值）摆的；回合制下是 0.029 / 268（D2 校准），这里量的是规则本身，按原曲线算
+    const rs0 = L.RIVAL_SLOPE, pp0 = L.PACT_POWER; L.RIVAL_SLOPE = L.AP_CONST ? L.AP_CONST.RIVAL_SLOPE[0] : 0.0185; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;
     const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
     const clone = x => JSON.parse(JSON.stringify(x));
-    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; for (let i = 0; i < 4; i++) s.quest.done['c' + i + '_m'] = 1; return Object.assign(s, o2 || {}); };   // 章跟着境界摆到第五章（事件按章开，L.CH_GATE）
     const rkIdx = s => s.ladder.findIndex(x => x.rk);
     // 把时间推到新秀出现：第一次进 rivalTick 排日子（+6 周天），到点出现
     const spawn = (s) => { const log = []; for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; const out = {}; L.rivalTick(s, out); log.push(out); } return log; };
@@ -2484,14 +2495,16 @@ async function apSection(quick) {
       const g = mk({ rank: 40 }); spawn(g); g.rv2.refP = 1e6; const p0 = L.rookiePower(g); g.rv2.rk.climbs = 3; const p3 = L.rookiePower(g);
       o.rkPower = p0 >= 0.45 * 1e6 - 1 && p3 >= g.rv2.rk.f * 1e6 - 1 && p3 > p0 && L.rivalPower(g, L.rookieRank(g)) === p3;
     }
-    return o;
+    L.RIVAL_SLOPE = rs0; L.PACT_POWER = pp0; return o;
   });
   for (const k in rvL3) expect(rvL3[k], '宿敌与新秀（新秀的出现与追赶）：' + k);
   const rvL4 = await page.evaluate(() => {
     const { L } = window.__xm; const o = {};
+    // 这一组的局面（第 300 月、化神）是按行动点制之前的天骄榜曲线（RIVAL_SLOPE 0.0185、PACT_POWER 125，L.AP_CONST 的旧值）摆的；回合制下是 0.029 / 268（D2 校准），这里量的是规则本身，按原曲线算
+    const rs0 = L.RIVAL_SLOPE, pp0 = L.PACT_POWER; L.RIVAL_SLOPE = L.AP_CONST ? L.AP_CONST.RIVAL_SLOPE[0] : 0.0185; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;
     const withR = (v, fn) => { const r0 = L.rng; L.rng = typeof v === 'function' ? v : () => v; try { return fn(); } finally { L.rng = r0; } };
     const clone = x => JSON.parse(JSON.stringify(x));
-    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
+    const mk = (o2) => { const s = L.newState({ name: '新秀测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.stats.tour = 5; s.storyQ = []; s.guide = { step: 99, done: true }; for (let i = 0; i < 4; i++) s.quest.done['c' + i + '_m'] = 1; return Object.assign(s, o2 || {}); };   // 章跟着境界摆到第五章（事件按章开，L.CH_GATE）
     const spawn = (s) => { for (let i = 0; i < 8 && !s.rv2.rk; i++) { s.tick++; L.rivalTick(s, {}); } return s.rv2.rk; };
     // 追到你身后、手里有一把带词条的兵器，新秀法宝上的词条由 aff 指定
     const due = (aff, mine) => {
@@ -2557,7 +2570,7 @@ async function apSection(quick) {
       // 打压的对决：L.rookieDuel 一场定胜负，进池子 / 挤到前面二选一；对手战力 = L.rookiePower
       const d = due('huixin'), I = L.rookieInfo(d), rank0 = d.rank;
       o.rkInfo = I.q === rank0 + 1 && I.gap === 1 && I.Q === L.rookiePower(d) && I.p > 0 && I.p < 1 && I.known === false;
-      const win = withR(0.0, () => L.rookieDuel(d));
+      d.bonus.atk = 400; const win = withR(0.0, () => L.rookieDuel(d));   // 一场是真打的回合战（固定随机数不保证赢）：赢的那一局把战力给足
       const e = due('huixin'); e.p.inj = 0; const lose = withR(0.999999, () => L.rookieDuel(e));
       o.rkDuel = win.win === true && d.rv2.pool.length === 1 && !!win.text && lose.win === false && e.rank === rank0 + 1 && L.rookie(e) === null && L.foeElKnown(d, { kind: 'rookie' }) === false;
     }
@@ -2577,11 +2590,13 @@ async function apSection(quick) {
       withR(0.0, () => { q.tick++; L.rivalTick(q, {}); });
       o.qy = Math.abs(x.pw - 1.05) < 1e-9 && (y.pw || 1) === 1 && q.rv2.qy >= 1 && q.tick % 12 === 6;
     }
-    return o;
+    L.RIVAL_SLOPE = rs0; L.PACT_POWER = pp0; return o;
   });
   for (const k in rvL4) expect(rvL4[k], '宿敌与新秀（新秀的结局、指点、看一眼、norivals2、宿敌奇遇）：' + k);
   const rvL5 = await page.evaluate(() => {
     const { L } = window.__xm; const o = {};
+    // 这一组的局面（第 300 月、化神）是按行动点制之前的天骄榜曲线（RIVAL_SLOPE 0.0185、PACT_POWER 125，L.AP_CONST 的旧值）摆的；回合制下是 0.029 / 268（D2 校准），这里量的是规则本身，按原曲线算
+    const rs0 = L.RIVAL_SLOPE, pp0 = L.PACT_POWER; L.RIVAL_SLOPE = L.AP_CONST ? L.AP_CONST.RIVAL_SLOPE[0] : 0.0185; L.PACT_POWER = L.AP_CONST ? L.AP_CONST.PACT_POWER[0] : 125;
     const clone = x => JSON.parse(JSON.stringify(x));
     const mk = (o2) => { const s = L.newState({ name: '迁移测试' }); s.p.r = 4; s.p.s = 1; s.flags.maxR = 4; s.flags.maxI = 12; s.pact = 1; s.tick = 300; s.storyQ = []; s.guide = { step: 99, done: true }; return Object.assign(s, o2 || {}); };
     // ---------- 5. 迁移 ----------
@@ -2616,21 +2631,22 @@ async function apSection(quick) {
     }
     // ---------- 6. 来犯前夜 ----------
     {
-      const sect = (rank, r) => { const s = mk({ rank: 20 }); s.p.r = r; s.flags.maxR = r; L.joinSect(s, 'dao'); s.sect.rank = rank; return s; };
-      // 宗门身份 ≥ 2 且到炼虚：来犯排到 6 周天后，并触发 zhao_3（需要 zhao_owes）
+      // 3.0：来犯只看章（第六章，L.warChapter；不再看宗门身份与境界），日子排在 L.WAR_LEAD 个月后、取到季界（D2 校准 42 月）
+      const sect = (rank, r, ch) => { const s = mk({ rank: 20 }); s.p.r = r; s.flags.maxR = r; L.joinSect(s, 'dao'); s.sect.rank = rank; for (let i = 0; i < (ch === undefined ? 5 : ch); i++) s.quest.done['c' + i + '_m'] = 1; return s; };
+      const W0 = Math.ceil((400 + L.WAR_LEAD) / 3) * 3;
       const s = sect(2, 5); s.eflags.zhao_owes = 1; s.storyQ = []; s.tick = 400; delete s.flags.war; L.rivalTick(s, {});
-      o.eve = s.flags.warEve === 400 && s.flags.war === 406 && s.storyQ.includes('zhao_3');
+      o.eve = s.flags.warEve === 400 && s.flags.war === W0 && s.storyQ.includes('zhao_3');
       const s2 = sect(2, 5); s2.tick = 400; delete s2.flags.war; s2.storyQ = []; L.rivalTick(s2, {});
-      o.eveNoOwes = s2.flags.war === 406 && !s2.storyQ.includes('zhao_3');
-      const s3 = sect(1, 5); L.rivalTick(s3, {}); const s4 = sect(2, 4); L.rivalTick(s4, {}); const s5 = sect(2, 5); s5.flags.warWon = 1; L.rivalTick(s5, {});
-      o.eveGate = !s3.flags.warEve && !s4.flags.warEve && !s5.flags.warEve;
+      o.eveNoOwes = s2.flags.war === W0 && !s2.storyQ.includes('zhao_3');
+      const s3 = sect(1, 5, 4); L.rivalTick(s3, {}); const s4 = sect(0, 3); L.rivalTick(s4, {}); const s5 = sect(2, 5); s5.flags.warWon = 1; L.rivalTick(s5, {});
+      o.eveGate = !s3.flags.warEve && !!s4.flags.warEve && !s5.flags.warEve;   // 第五章不来；第六章外门弟子、元婴也来；打退过不再来
       const s6 = sect(2, 5); s6.tick = 400; s6.flags.war = 500; L.rivalTick(s6, {});   // 已经排了更晚的日子：不提前
       o.eveKeep = s6.flags.warEve === 400 && s6.flags.war === 500;
-      s.tick = 401; s.storyQ = []; L.rivalTick(s, {}); o.eveOnce = s.flags.war === 406 && !s.storyQ.includes('zhao_3');
-      // raid_delay 推迟 24 周天（只一次，用掉就清）
+      s.tick = 401; s.storyQ = []; L.rivalTick(s, {}); o.eveOnce = s.flags.war === W0 && !s.storyQ.includes('zhao_3');
+      // raid_delay 推迟 24 月（取到季界；只一次，用掉就清）
       const d = sect(2, 5); d.tick = 410; d.flags.warEve = 1; d.flags.war = 410; d.eflags.raid_delay = 1; L.rivalTick(d, {});
       const d1 = d.flags.war; L.rivalTick(d, {});
-      o.delay = d1 === 434 && d.flags.war === 434 && !d.eflags.raid_delay;
+      o.delay = d1 === 435 && d.flags.war === 435 && !d.eflags.raid_delay;
       const dw = sect(2, 5); dw.flags.warEve = 1; dw.flags.warWon = 1; dw.flags.war = 410; dw.eflags.raid_delay = 1; L.rivalTick(dw, {});
       o.delayWon = dw.flags.war === 410 && !dw.eflags.raid_delay;
       // raid_intel：天剑宗来犯战力 ×1.3，打完清掉（不论胜负）；别的对决不吃
@@ -2645,7 +2661,7 @@ async function apSection(quick) {
       const wz = sect(2, 5); wz.grudge.zhao = 100; const lz = L.sectWar(wz), wn = sect(2, 5), ln = L.sectWar(wn);
       o.leadWar = !!lz.lead && lz.lead.id === 'zhao' && Math.abs(lz.Q / ln.Q - 1.2) < 1e-9 && !ln.lead;
     }
-    return o;
+    L.RIVAL_SLOPE = rs0; L.PACT_POWER = pp0; return o;
   });
   for (const k in rvL5) expect(rvL5[k], '宿敌与新秀（迁移与来犯前夜）：' + k);
   {   // 块作用域：下面的局部名不和前文的变量冲突
@@ -2744,7 +2760,7 @@ async function apSection(quick) {
   await page.evaluate(() => window.__xm.runRookie()); await page.waitForTimeout(400);
   await forceR(0.999999); await clickFoot(-1); await page.waitForTimeout(500); await page.evaluate(() => window.__xm.duelSkip()); await page.waitForTimeout(800); await shot('rv06-crush-lose'); await unforceR();
   const cl = await mtext();
-  expect((await mtitle()) === '打压' && cl.includes('败') && cl.includes('负伤 2 周天'), '打压输：对决结果页写败、负伤 2 周天：' + cl.slice(0, 100));
+  expect((await mtitle()) === '打压' && cl.includes('败') && /负伤（.*痊愈）|负伤 \d+ 季/.test(cl), '打压输：对决结果页写败、负伤（按季写）：' + cl.slice(0, 100));
   await clickFoot(0); await page.waitForTimeout(300);
   expect(await page.evaluate(n => { const { st, L } = window.__xm; return st.rank === n + 1 && !L.rookie(st) && st.p.inj >= 2 && L.rivalAt(st, n) && !L.rivalAt(st, n).id; }, rk0.rank), '打压输之后：名次 +1、他排到你前面、负伤');
   await close();

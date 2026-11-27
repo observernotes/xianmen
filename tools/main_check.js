@@ -7,7 +7,7 @@
  * 散修（三张帖子选了“哪家也不去”）、无宗试炼、散修丹师、被除名（入过宗、后来没了宗门），逐项列出它依赖的系统、函数、界面入口、人物，并断言：
  *   1 依赖在：L.MAIN_HOW 里写的逻辑函数都在 L 上；界面入口都在 dist 的界面代码里；
  *   2 能主动去做：宿敌（这一章要打的）在家时 L.challengeInfo 没有拦着（不看境界、名次）；没宗门的人身上不出现要宗门的项（srank / meet）；
- *     内门 / 真传 / 圣子不看境界；天骄论道、九宗会武的下一届在 24 月内；首领表够数；来犯在第六章 30 月内真的来（入宗、散修两条都跑一遍）；
+ *     内门 / 真传 / 圣子不看境界；天骄论道、九宗会武的下一届在 24 月内；首领表够数；来犯在第六章 L.WAR_LEAD + 6 月内真的来（入宗、散修两条都跑一遍）；
  *     剧情项（flag / beat）：节拍在表里、这一章有能放的场景、场景里至少一个不要钱、不设门槛（要打的输了能重来）的选项置上要的标志位，而且照常过月 80 月内真的放出来并置上；
  *     第二章一开（6 月内）就是“三张帖子”（无宗试炼除外）；没宗门的随时【拜山门】；每章每条路线 L.mainActs 非空、做不了的说得出差什么、至少一项现在就能做；
  *   3 目标卡带得到：每一项的进度都有一句话、【去】的键在 goalcard.js 的 GO_K 里；老祖的“下一步”有话说；
@@ -115,8 +115,10 @@ for (const R of ROUTES) for (let ch = 0; ch < 9; ch++) {
     if (x.k === 'meet') { ok(st.sect && L.nextMeet(st) <= 36, who, `下一届会武要 ${st.sect ? L.nextMeet(st) : '∞'} 月`); dep.push('九宗会武（每 24 月）', '人物 楚天阔（天剑宗代表）'); }
     if (x.k === 'boss') { ok(L.BOSSES.length >= x.n, who, `首领只有 ${L.BOSSES.length} 个`); dep.push(`首领表 ${L.BOSSES.length} 个`); }
     if (x.k === 'war') {
-      const w = at(R, ch); const r = runFor(w, 30, (s, out) => !!out.war || !!s.flags.warWon);
-      ok(r.ok, who, `第六章 30 月内天剑宗没有来犯（${st.sect ? '入宗' : '散修'}）`);
+      // 来犯的日子：进第六章后 L.WAR_LEAD 个月（3.0 校准 42 月 = 14 季，docs/AP_PLAN.md D2 一节），取到季界；多给一季余量
+      const lim = (L.WAR_LEAD || 24) + 6;
+      const w = at(R, ch); const r = runFor(w, lim, (s, out) => !!out.war || !!s.flags.warWon);
+      ok(r.ok, who, `第六章 ${lim} 月内天剑宗没有来犯（${st.sect ? '入宗' : '散修'}）`);
       dep.push('天剑宗来犯' + (r.ok ? `（第 ${r.n} 月来）` : ''));
     }
     if (x.k === 'flag' || x.k === 'beat') {

@@ -336,7 +336,7 @@ L.supportTrigger('war_eve:');
 
 // ---------- 每月（tick.js 调，排在宗门的来犯判定之前） ----------
 // 天剑宗来犯（war_eve:tianjian）：头一回满足来犯条件时（进第六章的那一季）先排日子、先来一封信。
-// 日子在 L.WAR_LEAD 个月后（3.0 校准：36 月 = 12 季，第六章的中段戏 mid1～3 在来犯之前播得完，章长落进 AP_PLAN §3.3 的预算）
+// 日子在 L.WAR_LEAD 个月后（3.0 校准：42 月 = 14 季，第六章的中段戏 mid1～3 在来犯之前播得完，章长落进 AP_PLAN §3.3 的预算）
 L.WAR_LEAD = 42;
 function warEve(st) {
   if (!st.sect || st.flags.warWon || st.flags.warEve) return;
