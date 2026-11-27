@@ -10,11 +10,12 @@ async function run() {
   const realmOnly = process.argv.includes('--realm');
   const storyOnly = process.argv.includes('--story');
   const itemsOnly = process.argv.includes('--items');
+  const duelOnly = process.argv.includes('--duel');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(pathToFileURL(path.join(__dirname, '../dist/index.html')).href + '?hd=0');
-    const images = await page.evaluate(({ combat, home, realm, story, items }) => {
+    const images = await page.evaluate(({ combat, home, realm, story, items, duel }) => {
       const { L, ART } = window.__xm;
       const make = (width, height) => Object.assign(document.createElement('canvas'), { width, height });
       const canvas = document.createElement('canvas');
@@ -144,6 +145,47 @@ async function run() {
         });
         return { images: { 'realm-stages': png(stages), 'realm-doors': png(doors), 'realm-effects': png(effects) } };
       }
+      if (duel) {
+        const stages = ['town', 'cloud', 'sect', 'sect_mo', 'wild'];
+        const backgrounds = make(200 * stages.length, 144);
+        const bg = backgrounds.getContext('2d');
+        stages.forEach((id, i) => {
+          context.clearRect(0, 0, 200, 172);
+          ART.drawDuelStage(id, 1000, 0);
+          bg.drawImage(canvas, 0, 0, 200, 144, i * 200, 0, 200, 144);
+        });
+        const rivals = ['mu', 'zhao', 'tian', 'xue', 'yun', 'xiao', 'hongxiu', 'zhibai', 'lixiao',
+          ...Object.values(L.ORIGINS).flatMap(origin => origin.pact ? [origin.pact.img] : [])];
+        const champions = Object.keys(L.NINE_EL).map(id => [id, ART.nineChamp(id)]);
+        const fighters = [
+          ...Array.from({ length: 20 }, (_, hero) => ['me-' + hero, { look: { ...state.p.look, f: hero % 2 }, realm: hero >> 1 }]),
+          ...[...new Set(rivals)].map(id => [id, id]),
+          ...['mu', 'xiao'].map(id => [id + '-alt', id, true]),
+          ...champions.map(([id, who]) => ['nine-' + id, who]),
+          ['war', { hair: '#e9e8f2', skin: '#e8b68a', f: 0, robe: ['#5a6a8a', '#8aa0c8', '#dfe7ef'], trim: '#f4c542' }],
+        ];
+        const robes = [['#3a5a3a', '#5a8a4a', '#8ab86a'], ['#5a3a6a', '#8a5aa0', '#b88ad0'], ['#6a4a2a', '#9a7040', '#c8a060'],
+          ['#2a4a6a', '#4a7aa0', '#7aa8d0'], ['#6a2a2a', '#9a4040', '#c87070'], ['#3a3a4a', '#5a5a70', '#8a8aa0']];
+        for (let i = 0; i < 24; i++) fighters.push(['guest-' + i, {
+          hair: ['#1d1a24', '#3a2a22', '#4a3328', '#2a2230'][i % 4], skin: i % 3 ? '#f2c9a0' : '#e8b68a',
+          f: (i >> 2) % 2, robe: robes[i % 6], trim: '#f3ecdc',
+        }]);
+        const columns = 16, frameSize = 48, frames = ART.fighterFrames;
+        const actors = make(columns * frameSize, Math.ceil(fighters.length * frames.length / columns) * frameSize);
+        const drawing = actors.getContext('2d');
+        const index = { stages, fighters: {} };
+        const dims = ART.dims.fighter;
+        fighters.forEach(([id, actor, alt], i) => {
+          if (!actor) throw new Error('Missing duel fighter: ' + id);
+          index.fighters[id] = i * frames.length;
+          frames.forEach((pose, j) => {
+            const frame = index.fighters[id] + j;
+            drawing.drawImage(ART.fighter(actor, pose, false, alt), frame % columns * frameSize + 24 - dims.ax,
+              Math.floor(frame / columns) * frameSize + 46 - dims.ay);
+          });
+        });
+        return { images: { 'duel-stages': png(backgrounds), 'duel-actors': png(actors) }, duelMap: index };
+      }
       if (combat) {
         const backgrounds = make(200, 144 * L.REGIONS.length);
         const bg = backgrounds.getContext('2d');
@@ -220,13 +262,14 @@ async function run() {
         results['story-' + scene] = ART.storyBg(scene).toDataURL('image/png').split(',')[1];
       }
       return { images: results };
-    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly, items: itemsOnly });
+    }, { combat: combatOnly, home: homeOnly, realm: realmOnly, story: storyOnly, items: itemsOnly, duel: duelOnly });
     for (const [name, png] of Object.entries(images.images)) {
       fs.writeFileSync(path.join(__dirname, '../godot/art', name + '.png'), Buffer.from(png, 'base64'));
     }
     if (images.map) fs.writeFileSync(path.join(__dirname, '../godot/art/combat-index.json'), JSON.stringify(images.map) + '\n');
     if (images.portraitMap) fs.writeFileSync(path.join(__dirname, '../godot/art/story-cast-index.json'), JSON.stringify(images.portraitMap) + '\n');
     if (images.itemMap) fs.writeFileSync(path.join(__dirname, '../godot/art/item-icons.json'), JSON.stringify(images.itemMap) + '\n');
+    if (images.duelMap) fs.writeFileSync(path.join(__dirname, '../godot/art/duel-index.json'), JSON.stringify(images.duelMap) + '\n');
   } finally {
     await browser.close();
   }

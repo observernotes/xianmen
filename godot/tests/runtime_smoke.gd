@@ -273,6 +273,7 @@ func _initialize() -> void:
 	assert(send({"op": "panel", "panel": "codex:gear"})["view"]["panel"]["entries"].size() > 1)
 	check_player_panels(sect_save, restored["save"]["state"])
 	check_duels(restored["save"]["state"])
+	check_team_duel(job["save"]["state"])
 	print("Godot native runtime: story, combat, seasons, management, realm, tribulation, rebirth, events, followers, gear, duels, player panels and save roundtrips passed")
 	quit()
 
@@ -460,7 +461,18 @@ func check_duels(base: Dictionary) -> void:
 	send({"op": "duel-prepare", "action": "duel", "args": target})
 	var challenge := send({"op": "duel-action", "move": "fight"})
 	assert(challenge["view"]["ap"] == ap - 1)
-	var settled := settle_cards(challenge)
+	var arena: Dictionary = challenge["view"]["arena"]
+	assert(arena["bouts"].size() == 1)
+	assert(arena["bouts"][0]["stage"] == "cloud")
+	assert(arena["bouts"][0]["left"]["name"] == challenge["view"]["name"])
+	assert(arena["bouts"][0]["right"]["name"] == prep["view"]["notice"]["opponent"])
+	assert(send({"op": "load", "save": challenge["save"]})["view"]["arena"] == arena)
+	assert(not request({"op": "duel-next", "index": 1})["ok"])
+	var after_arena := send({"op": "duel-next", "index": 0})
+	assert(after_arena["view"]["arena"] == null)
+	assert(after_arena["view"]["ap"] == ap - 1)
+	assert(not request({"op": "duel-next", "index": 0})["ok"])
+	var settled := settle_cards(send({"op": "load", "save": after_arena["save"]}))
 	assert(settled["save"]["state"]["stats"]["chal"] == 1)
 	assert(not request({"op": "duel-action", "move": "fight"})["ok"])
 	assert(send({"op": "view"})["save"]["state"]["stats"]["chal"] == 1)
@@ -482,11 +494,14 @@ func check_duels(base: Dictionary) -> void:
 	send({"op": "cinema-done", "token": resumed["view"]["cinema"]["token"]})
 	var fought := send({"op": "duel-action", "move": "fight"})
 	assert(fought["save"]["state"]["pact"] != 0)
-	assert(fought["view"]["cinema"]["asset"] == ("pact-win" if fought["save"]["state"]["pact"] == 1 else "pact-loss"))
+	assert(fought["view"]["arena"]["bouts"][0]["stage"] == "town")
+	assert(fought["view"]["cinema"] == null)
 	assert(fought["save"]["state"]["story"]["bigQ"].is_empty())
 	assert(fought["view"]["ap"] == scheduled["view"]["ap"])
 	assert(send({"op": "load", "save": fought["save"]})["view"]["notice"] == fought["view"]["notice"])
 	assert(not request({"op": "duel-action", "move": "fight"})["ok"])
+	var aftermath := send({"op": "duel-next", "index": 0})
+	assert(aftermath["view"]["cinema"]["asset"] == ("pact-win" if fought["save"]["state"]["pact"] == 1 else "pact-loss"))
 
 	var rival: Dictionary = ladder.duplicate(true)
 	rival["rank"] = 70
@@ -504,6 +519,11 @@ func check_duels(base: Dictionary) -> void:
 	assert(free["view"]["ap"] == visit["view"]["ap"])
 	assert(free["save"]["state"]["stats"]["chal"] == 1)
 	assert(free["save"]["state"]["story"]["bigQ"].is_empty())
+	assert(free["view"]["cinema"]["asset"] == "rival-zhao")
+	assert(not request({"op": "duel-next", "index": 0})["ok"])
+	var rival_stage := send({"op": "cinema-done", "token": free["view"]["cinema"]["token"]})
+	assert(rival_stage["view"]["arena"]["bouts"][0]["right"]["actor"] == "zhao")
+	assert(send({"op": "duel-next", "index": 0})["view"]["arena"] == null)
 
 	var rookie: Dictionary = ladder.duplicate(true)
 	rookie["rank"] = 20
@@ -518,12 +538,42 @@ func check_duels(base: Dictionary) -> void:
 	var taught := send({"op": "duel-action", "move": "teach"})
 	assert(taught["save"]["state"]["rv2"]["teach"] == 1)
 	assert(taught["save"]["state"]["rv2"]["rk"] == null)
+	assert(taught["view"]["arena"] == null)
 	send({"op": "load", "save": rookie_prep["save"]})
 	var crushed := send({"op": "duel-action", "move": "crush"})
 	var rivals: Dictionary = crushed["save"]["state"]["rv2"]
 	assert(rivals["crush"] + rivals["lost"] == 1)
 	assert(rivals["teach"] == 0 and rivals["rk"] == null)
 	assert(crushed["save"]["state"]["story"]["bigQ"].is_empty())
+	assert(crushed["view"]["arena"]["bouts"][0]["right"]["el"] == "jin")
+
+
+func check_team_duel(base: Dictionary) -> void:
+	var fixture := base.duplicate(true)
+	fixture["sect"]["rank"] = 6
+	var student: Dictionary = fixture["disc"]["list"][0].duplicate(true)
+	student.merge({"u": 2, "n": "问道"}, true)
+	fixture["disc"]["list"].append(student)
+	fixture["story"]["bigQ"] = [{"k": "meet"}]
+	var scheduled := settle_cards(send({"op": "load", "save": fixture}))
+	assert(scheduled["view"]["notice"]["fight"] == "meet")
+	var matchup := send({"op": "duel-action", "move": "fight"})
+	var bouts: Array = matchup["view"]["arena"]["bouts"]
+	assert(bouts.size() >= 3 and bouts.size() % 3 == 0)
+	assert(bouts[0]["left"]["name"] == matchup["view"]["name"])
+	var teammates := [bouts[1]["left"]["name"], bouts[2]["left"]["name"]]
+	assert("试剑" in teammates and "问道" in teammates)
+	var next := send({"op": "duel-next", "index": 0})
+	var resumed := send({"op": "load", "save": next["save"]})
+	assert(resumed["view"]["arena"]["index"] == 1)
+	assert(resumed["view"]["arena"]["bouts"] == bouts)
+	assert(not request({"op": "duel-next", "index": 0})["ok"])
+	for index in range(1, bouts.size()):
+		resumed = send({"op": "duel-next", "index": index})
+	assert(resumed["view"]["arena"] == null)
+	assert(resumed["view"]["notice"]["title"] == "九宗会武")
+	assert(resumed["save"]["state"]["sect"]["meets"] == fixture["sect"]["meets"] + 1)
+	assert(resumed["view"]["ap"] == matchup["view"]["ap"])
 
 
 func settle_cards(response: Dictionary, picks := {}) -> Dictionary:

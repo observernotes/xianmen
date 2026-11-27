@@ -5,6 +5,7 @@
   let encounter = null;
   let openEvent = null;
   let preparedDuel = null;
+  let arena = null;
   let note = null;
   let panel = null;
   let battle = null;
@@ -338,13 +339,14 @@
       };
       openEvent = null;
     }
-    // Deferred mainline fights have no prepare panel of their own.
     for (let i = 0; i < 12; i++) {
       const block = L.nextBlock(state);
       if (!block) break;
       if (block.kind === 'big' && block.id === 'death' && lifeEnded()) return endingView();
       if (block.kind === 'story' && !block.data) { L.blockDone(state, block); continue; }
       if (block.kind !== 'act') return blockView(block);
+      const result = L.blockRun(state, block);
+      if (result) arena = XianmenDuels.arena(state, block.id, result);
       L.blockDone(state, block);
     }
     if (lifeEnded()) return endingView();
@@ -420,9 +422,8 @@
     return entries;
   }
 
-  function view() {
+  function view(notice) {
     if (!state) return { started: false, introClip: XianmenCinematics.intro() };
-    const notice = nextView();
     const goal = L.goalNow(state);
     return {
       started: true, name: state.p.name, date: L.dateText(state), realm: L.stageName(state.p),
@@ -454,10 +455,16 @@
         tripPanel: action.do?.id === 'exp' ? expeditionPanel(action.do.args) : '',
       })),
       panel: panel && !notice ? { id: panel, entries: XianmenPanels.read(state, panel) } : null,
-      cinema: XianmenCinematics.earlier(state, notice),
-      cinemaAfter: XianmenCinematics.later(state, notice),
+      cinema: earlyCinema(notice),
+      cinemaAfter: arena ? null : XianmenCinematics.later(state, notice),
+      arena,
       notice,
     };
+  }
+
+  function earlyCinema(notice) {
+    return arena ? XianmenCinematics.rivalIntro(state, arena.bouts[arena.index].rival) :
+      XianmenCinematics.earlier(state, notice);
   }
 
   function expeditionCells(k) {
@@ -495,6 +502,7 @@
       battle: battle ? battleInputs : null,
       openEvent,
       preparedDuel,
+      arena,
       panel,
       boss,
       breakthrough,
@@ -521,6 +529,11 @@
     returnToGate = native && !!parsed.returnToGate;
     openEvent = native ? parsed.openEvent || null : null;
     preparedDuel = native && ['duel', 'final'].includes(parsed.preparedDuel?.id) ? parsed.preparedDuel : null;
+    const savedArena = native && parsed.arena;
+    arena = savedArena && Array.isArray(savedArena.bouts) && Number.isInteger(savedArena.index) && savedArena.index >= 0 &&
+      savedArena.index < savedArena.bouts.length && savedArena.bouts.every(bout =>
+        typeof bout?.win === 'boolean' && typeof bout.left?.actor === 'string' && typeof bout.right?.actor === 'string')
+      ? savedArena : null;
     panel = native && XianmenPanels.has(parsed.panel) ? parsed.panel : null;
     boss = native && parsed.boss && !L.apWhy(state, 'boss', { k: parsed.boss.k }) ? parsed.boss : null;
     if (native && Array.isArray(parsed.battle)) {
@@ -575,6 +588,7 @@
       title: fill(ev.title), text: [fill(result.text), ...result.fx, ...realmLines].filter(Boolean).join('\n'),
       dialogue: dialogue(response?.talk, ev.id, ev.scene || 'cave', ev.bgm || 'home'),
     };
+    arena = XianmenDuels.arena(state, 'event', result, ev);
   }
 
   function playRound(input) {
@@ -719,6 +733,7 @@
       encounter = null;
       openEvent = null;
       preparedDuel = null;
+      arena = null;
       panel = null;
       battle = null;
       boss = null;
@@ -736,12 +751,17 @@
     if (!state) throw new Error('请先踏入仙途');
     if (op === 'cinema-done') {
       const notice = nextView();
-      const clip = XianmenCinematics.earlier(state, notice) || XianmenCinematics.later(state, notice);
+      const clip = earlyCinema(notice) || (!arena && XianmenCinematics.later(state, notice));
       if (!clip || clip.token !== message.token) throw new Error('当前没有这段过场');
       XianmenCinematics.mark(state, clip);
       return;
     }
     if (op === 'export') return L.packSave(JSON.stringify(state));
+    if (op === 'duel-next') {
+      if (!arena || arena.index !== message.index || earlyCinema(null)) throw new Error('当前没有可继续的比试演出');
+      if (++arena.index >= arena.bouts.length) arena = null;
+      return;
+    }
     if (op === 'duel-action') {
       const prep = nextView();
       if (prep?.kind !== 'duel-prep') throw new Error('目前没有待准备的比试');
@@ -753,7 +773,11 @@
       if (!option || option.why) throw new Error(option?.why || '此刻无法选择');
       if (preparedDuel) {
         const { id, args } = preparedDuel;
-        if (message.move !== 'cancel' && !L.act(state, id, args)) throw new Error(L.actLastWhy || '此刻无法交手');
+        if (message.move !== 'cancel') {
+          const result = L.act(state, id, args);
+          if (!result) throw new Error(L.actLastWhy || '此刻无法交手');
+          arena = XianmenDuels.arena(state, id, result);
+        }
         preparedDuel = null;
       } else finishBig(L.nextBlock(state), message.move);
       return;
@@ -825,6 +849,7 @@
       return;
     }
     if (op === 'advance') {
+      arena = null;
       if (note) { note = null; return; }
       if (preparedDuel) throw new Error('请先确认比试或返回');
       if (encounter || currentLocalEvent()) throw new Error('请先选择奇遇');
@@ -926,7 +951,9 @@
         for (const foe of battle.foes) seen[foe.id] = 1;
         return;
       }
-      if (!L.act(state, message.action, message.args)) throw new Error(L.actLastWhy || '此刻无法行动');
+      const result = L.act(state, message.action, message.args);
+      if (!result) throw new Error(L.actLastWhy || '此刻无法行动');
+      arena = XianmenDuels.arena(state, message.action, result);
       return;
     }
     if (op === 'upgrade-array') {
@@ -1058,6 +1085,7 @@
     L.blockDone(state, block);
     if (block.id === 'pact' && result && !L.pactText(state)) XianmenCinematics.queue(state, 'pact1', { win: result.win });
     note = XianmenDuels.result(state, block.id, result);
+    arena = XianmenDuels.arena(state, block.id, result);
   }
 
   globalThis.xianmenRequest = request => {
@@ -1065,19 +1093,19 @@
     try {
       const message = JSON.parse(request);
       if (message.op === 'load' || message.op === 'import') {
-        previous = { state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
+        previous = { state, encounter, openEvent, preparedDuel, arena, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate };
       }
       const oldSect = state?.sect?.id;
       const warWon = state?.flags.warWon;
       const result = dispatch(message);
+      const notice = state ? nextView() : null;
       if (state && !['new', 'load', 'import'].includes(message.op)) {
         if (state.sect && state.sect.id !== oldSect) XianmenCinematics.queue(state, 'rzong', { id: state.sect.id });
         if (!warWon && state.flags.warWon) XianmenCinematics.queue(state, 'shoushan');
       }
-      const current = view();
-      return JSON.stringify({ ok: true, result, view: current, save: snapshot(current.notice) });
+      return JSON.stringify({ ok: true, result, view: view(notice), save: snapshot(notice) });
     } catch (error) {
-      if (previous) ({ state, encounter, openEvent, preparedDuel, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
+      if (previous) ({ state, encounter, openEvent, preparedDuel, arena, note, panel, battle, boss, battleInputs, battleLog, battleEffects, breakthrough, rebirth, returnToGate } = previous);
       return JSON.stringify({ ok: false, error: previous ? '读不出这份存档' : error.message });
     }
   };

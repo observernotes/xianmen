@@ -7,6 +7,7 @@ const RULES_PATH := "res://data/rules.js"
 const FONT := preload("res://art/fusion-pixel.ttf")
 const AUDIO := preload("res://scripts/game_audio.gd")
 const BATTLE_SCENE := preload("res://scripts/battle_scene.gd")
+const DUEL_SCENE := preload("res://scripts/duel_scene.gd")
 const REALM_SCENE := preload("res://scripts/realm_scene.gd")
 const STORY_STAGE := preload("res://scripts/story_stage.gd")
 const CINEMATIC_PLAYER := preload("res://scripts/cinematic_player.gd")
@@ -217,11 +218,14 @@ func draw_view() -> void:
 		dialogue_index = 0
 		dialogue_history = false
 	var cinema := current_cinematic(notice)
+	var arena = view.get("arena")
 	if cinema.is_empty():
-		game_audio.music(scene_music(notice))
+		game_audio.music("battle" if arena is Dictionary else scene_music(notice))
 	var next_page_key := ""
 	if not cinema.is_empty():
 		next_page_key = "cinema"
+	elif arena is Dictionary:
+		next_page_key = "arena"
 	elif notice is Dictionary:
 		next_page_key = String(notice.get("key", notice["kind"]))
 	elif view.get("panel") is Dictionary:
@@ -263,6 +267,9 @@ func draw_view() -> void:
 		return
 	if not view.get("started", false):
 		draw_title()
+		return
+	if arena is Dictionary:
+		draw_duel_arena(arena)
 		return
 
 	add_label(view["date"] + " · " + view["name"], 15, COLORS.muted)
@@ -917,6 +924,24 @@ func draw_duel_prep(prep: Dictionary) -> void:
 		var detail := String(option.get("text", why))
 		if not detail.is_empty():
 			add_label(detail, 14, COLORS.muted)
+
+
+func draw_duel_arena(arena: Dictionary) -> void:
+	var index := int(arena["index"])
+	var bout: Dictionary = arena["bouts"][index]
+	add_label(arena["title"], 25, COLORS.gold)
+	if bout.get("label"):
+		add_label(bout["label"], 17, COLORS.muted)
+	add_label("%s  对  %s" % [bout["left"]["name"], bout["right"]["name"]], 21, COLORS.text)
+	var stage := DUEL_SCENE.new()
+	stage.bout = bout
+	var proceed := func(): request({"op": "duel-next", "index": index})
+	stage.completed.connect(proceed)
+	stage.sound_cue.connect(game_audio.effect)
+	page.add_child(stage)
+	add_label("战力 %s 对 %s · 胜算 %d%%" % [bout["left"]["power"], bout["right"]["power"],
+		roundi(bout["chance"] * 100.0)], 16, COLORS.muted)
+	add_button("跳过本场", proceed)
 
 
 func draw_result_options(notice: Dictionary) -> void:

@@ -6,7 +6,10 @@ globalThis.XianmenDuels = (() => {
     rookie: '新秀挑战', foe: '宿敌上门', duel: '下战帖', final: '主线一战',
   };
   function describe(st, id, args) {
-    if (id === 'pact') return { ...L.pactInfo(st), n: st.exName, foe: L.PACT_FOE, scale: L.pactAssist(st), story: L.pactText(st) };
+    if (id === 'pact') {
+      const story = L.pactText(st);
+      return { ...L.pactInfo(st), n: story?.who || st.exName, foe: L.PACT_FOE, scale: L.pactAssist(st), story };
+    }
     if (id === 'duel' || id === 'foe') return L.duelInfo(st, args);
     if (id === 'tour') {
       const target = L.tourFoe(st);
@@ -92,6 +95,7 @@ globalThis.XianmenDuels = (() => {
         const name = round.rv?.n || round.foe?.n || '对手';
         const rewards = round.stones ? ' · 灵石 +' + L.fmt(round.stones) : '';
         lines.push('第 ' + (i + 1) + ' 场 · ' + name + ' · ' + (round.win ? '胜' : '负') + rewards);
+        if (round.trio) lines.push(round.trio.map(bout => bout.n + (bout.win ? ' 胜' : ' 负')).join(' · '));
       }
       if (out.hold) lines.push(out.hold.n + '暂未应战 · ' + out.hold.need);
       if (id === 'tour') lines.push('天骄榜第 ' + out.startRank + ' 名 → 第 ' + out.endRank + ' 名');
@@ -110,5 +114,72 @@ globalThis.XianmenDuels = (() => {
       cineRival: id === 'duel' || id === 'foe' ? out.id || '' : '' } : null;
   }
 
-  return { prep, result };
+  const avatar = (realm, f) => 'me-' + (Math.min(9, realm) * 2 + Number(!!f));
+  const rivalActor = { mu: 'mu', zhao: 'zhao', chu: 'tian', xue: 'xue', yun: 'yun' };
+  const guest = name => 'guest-' + (Array.from(name).reduce((h, ch) => (Math.imul(h, 31) + ch.codePointAt(0)) >>> 0, 7) % 24);
+
+  function arena(st, id, out, event) {
+    if (!out) return null;
+    const bouts = [];
+    const sectStage = st.sect?.id === 'xuesha' ? 'sect_mo' : 'sect';
+    const hero = avatar(st.p.r, st.p.look.f);
+    const player = { name: st.p.name, actor: hero, face: hero + '|ang|' };
+    function add(round, foe, name, stage, label = '', left = player, short = false) {
+      if (typeof round.win !== 'boolean') return;
+      const rival = foe?.kind === 'rival' ? foe.id : '';
+      const heir = foe?.kind === 'heir' && L.SECT_HEIR[foe.sect];
+      const portrait = rivalActor[rival] || heir?.img || foe?.portrait || '';
+      const alternate = st.p.look.f && (rival === 'mu' || heir?.nf);
+      const actor = portrait ? portrait + (alternate ? '-alt' : '') :
+        foe?.kind === 'sect' ? 'nine-' + foe.id : foe?.kind === 'war' ? 'war' : guest(name);
+      const element = L.foeEl(foe) || '';
+      bouts.push({
+        stage, label, win: round.win, short, rival: rival || '',
+        chance: Number.isFinite(round.p) ? round.p : 0.5,
+        left: { ...left, power: L.fmt(round.S || out.S || L.power(st)),
+          el: left === player ? L.atkEl(st, element) || L.art(L.artSlots(st)[0])?.el || '' : '' },
+        right: { name, actor, face: portrait ? actor + '|ang|' : '', el: element, power: L.fmt(round.Q || round.P || 0) },
+      });
+    }
+    if (id === 'tour') {
+      for (const [i, round] of out.rounds.entries()) {
+        add(round, round.rv?.id && { kind: 'rival', id: round.rv.id }, round.rv?.n || '论道对手', 'cloud', '第 ' + (i + 1) + ' 场');
+      }
+    } else if (id === 'meet') {
+      for (const [i, round] of out.rounds.entries()) {
+        const foe = { kind: 'sect', id: round.foe.id };
+        const stage = foe.id === 'xuesha' ? 'sect_mo' : sectStage;
+        const label = '第 ' + (i + 1) + ' 场 · ' + round.foe.n;
+        if (!round.trio) add(round, foe, round.foe.champ, stage, label);
+        else for (const [j, bout] of round.trio.entries()) {
+          const disciple = bout.who === 'disc' && L.discByU(st, bout.u);
+          const left = disciple ? { name: bout.n, actor: avatar(L.discRealm(disciple), disciple.f), face: '' } : player;
+          add(bout, j === 0 ? foe : { el: L.foeEl(foe) }, j === 0 ? round.foe.champ : round.foe.n + '门下',
+            stage, label + ' · 第 ' + (j + 1) + ' 局', left, true);
+        }
+      }
+    } else if (id === 'pact') {
+      const pact = L.pactText(st);
+      add(out, pact ? { portrait: pact.img, el: L.foeEl(L.PACT_FOE) } : L.PACT_FOE, pact?.who || st.exName, 'town');
+    } else if (id === 'war' || out.final === 'war') {
+      add(out, { kind: 'war' }, out.lead?.n || '天剑宗长老团', st.sect ? 'sect_mo' : 'wild');
+    } else if (out.final === 'heir' || id === 'promote' && out.duel) {
+      add(out.duel || out, { kind: 'heir', sect: st.sect.id }, L.heirName(st), sectStage);
+    } else if (id === 'duel' || id === 'foe') {
+      add(out, out.id && { kind: 'rival', id: out.id }, out.n || '天骄榜对手', 'cloud');
+    } else if (id === 'rookie' && out.how !== 'teach') {
+      add(out, { el: out.el }, out.n || '新秀', 'cloud');
+    } else if (event && out.duel) {
+      const { duel } = out;
+      const name = duel.n || (duel.foe?.kind === 'rival' ? L.rivalName(st, duel.foe.id) : '对手');
+      add(duel, duel.foe, name, st.exp || st.run ? 'wild' : st.sect ? sectStage : 'town');
+    }
+    return bouts.length ? {
+      title: event ? L.fill(st, event.title) : id === 'pact' ? L.pactText(st)?.title || titles.pact :
+        id === 'promote' || out.final === 'heir' ? '圣子之争' : out.final === 'war' ? '讨回山门' : titles[id],
+      index: 0, bouts,
+    } : null;
+  }
+
+  return { prep, result, arena };
 })();

@@ -83,6 +83,11 @@ globalThis.XianmenCinematics = (() => {
     return seen(st, clip) ? null : clip;
   }
 
+  function rivalIntro(st, rival) {
+    const clip = rivals.includes(rival) && describe(st, 'rival', { id: rival });
+    return seen(st, clip) ? null : clip;
+  }
+
   function later(st, notice) {
     if (!notice?.cineAfter) return null;
     const clip = describe(st, notice.cineAfter);
@@ -140,5 +145,5 @@ globalThis.XianmenCinematics = (() => {
     return rows;
   }
 
-  return { describe, queue, earlier, later, mark, intro, memories };
+  return { describe, queue, earlier, later, rivalIntro, mark, intro, memories };
 })();
