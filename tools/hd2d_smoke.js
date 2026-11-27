@@ -44,6 +44,28 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
     if (q === 0) check(!s.on && s.realW === 200 && !s.shown, `0 档：还原成原画布（宽 ${s.realW}）`);
     else check(s.on && s.realW === 400 && s.shown && s.colors > 20 && (q === 3 ? s.pw > 800 : s.pw === 400), `${q} 档：呈现画布 ${s.pw} 宽，${s.colors} 色`);
   }
+  // ---------- 焦段清晰度：默认档（1.5）下，主角 / 石台 / 洞府门脸这一带不许比原画面（0 档）糊 ----------
+  // 量法：两边都取成 400 宽，在“门脸（下半，不带进身后的远山）+ 石台”两块矩形里算亮度的拉普拉斯方差（步长 2 个高清像素 = 1 个逻辑像素）；1.5 档 ÷ 0 档 ≥ 0.8。
+  // 白天 / 黄昏 / 夜里各量一次，1.5 档量三次取最清楚的一次（浮尘、光柱在动，飘过去的那几帧不算）。虚化近景伸进来、辉光罩成雾、夜色压成一片黑都会掉到 0.8 以下
+  const lapVar = q => ev(q2 => new Promise(res => {
+    const H = window.HD2D, cv = document.getElementById('scene'); H.setQuality(q2);
+    setTimeout(() => {
+      const src = H.on ? document.getElementById('sceneHD') : cv, w = 400, h = cv.height * 2, OY = cv.height - 160, t = document.createElement('canvas'); t.width = w; t.height = h;
+      const g = t.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, w, h);
+      const d = g.getImageData(0, 0, w, h).data, L = (x, y) => { const i = (y * w + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
+      let n = 0, s1 = 0, s2 = 0;
+      for (const [X0, Y0, X1, Y1] of [[80, 88, 120, 104], [46, 104, 154, 146]]) for (let y = (Y0 + OY) * 2; y < (Y1 + OY) * 2; y++) for (let x = X0 * 2; x < X1 * 2; x++) { const lp = 4 * L(x, y) - L(x - 2, y) - L(x + 2, y) - L(x, y - 2) - L(x, y + 2); n++; s1 += lp; s2 += lp * lp; }
+      res(s2 / n - (s1 / n) ** 2);
+    }, 450);
+  }), q);
+  const soft = [];
+  for (const [ph, nm] of [[0.45, '白天'], [0.69, '黄昏'], [0.95, '夜里']]) {
+    await ev(p => { window.HD2D.debugPhase = p; }, ph); await page.waitForTimeout(200);
+    const ref = await lapVar(0), v = []; for (let i = 0; i < 3; i++) v.push(await lapVar(1.5)); v.sort((a, b) => a - b);
+    soft.push(`${nm} ${(v[2] / ref).toFixed(2)}`); if (v[2] / ref < 0.8) fails.push(`焦段清晰度 ${nm} ${(v[2] / ref).toFixed(2)} < 0.8`);
+  }
+  check(!fails.some(f => f.startsWith('焦段清晰度')), `1.5 档洞府焦段（主角 / 石台 / 门脸）的清晰度不低于原画面的八成：${soft.join('，')}`);
+  await ev(() => { window.HD2D.setQuality(2); }); await page.waitForTimeout(300);
   // ---------- 硬边检查：合成出来的画面里不许有“原画面没有的长直线亮度断层”（图层被矩形裁掉、缓冲没铺满之类） ----------
   // 每个画面先取 0 档（原画面）的直线边缘当参照，再取各档合成结果；多出来的长直边（横 ≥ 44、竖 ≥ 36 个逻辑像素）算失败
   const grab = (q, map) => ev(([q2, map2]) => new Promise(res => {
@@ -56,6 +78,14 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
       const out = [], TH = q2 === 0 ? 3 : 7, MH = q2 === 0 ? 5 : 20, MV = q2 === 0 ? 5 : 18;   // 参照用更低的阈值：原画面里本来就有、只是被调色加深了的边不算
       for (let y = 1; y < h - 1; y++) { let run = 0, sg = 0; for (let x = 0; x <= w; x++) { const dv = x < w ? L[(y + 1) * w + x] - L[y * w + x] : 0, s2 = Math.abs(dv) > TH ? Math.sign(dv) : 0; if (s2 && s2 === sg) run++; else { if (run >= MH) out.push(['h', y, x - run, x, sg]); run = s2 ? 1 : 0; sg = s2; } } }
       for (let x = 1; x < w - 1; x++) { let run = 0, sg = 0; for (let y = 0; y <= h; y++) { const dv = y < h ? L[y * w + x + 1] - L[y * w + x] : 0, s2 = Math.abs(dv) > TH ? Math.sign(dv) : 0; if (s2 && s2 === sg) run++; else { if (run >= MV) out.push(['v', x, y - run, y, sg]); run = s2 ? 1 : 0; sg = s2; } } }
+      if (q2 === 0) {   // 参照再加一遍“横向抹平 5 像素”之后的横边：原画里被棋盘抖动打成碎点的长边（石台上沿、地平线），高清下抖动被磨顺会连成一条，本来就有的不算多出来的
+        const L0 = L.slice(); for (let y = 0; y < h; y++) for (let x = 2; x < w - 2; x++) L[y * w + x] = (L0[y * w + x - 2] + L0[y * w + x - 1] + L0[y * w + x] + L0[y * w + x + 1] + L0[y * w + x + 2]) / 5;
+        for (let y = 1; y < h - 1; y++) { let run = 0, sg = 0; for (let x = 0; x <= w; x++) { const dv = x < w ? L[(y + 1) * w + x] - L[y * w + x] : 0, s2 = Math.abs(dv) > 6 ? Math.sign(dv) : 0; if (s2 && s2 === sg) run++; else { if (run >= 12) out.push(['h', y, x - run, x, sg]); run = s2 ? 1 : 0; sg = s2; } } }
+      }
+      // 地面层自己的天际线（上面透明、下面有画）压在虚化的远景上，是分层该有的边，不是裁切边：记下来，后面不算
+      const GL = H.on && H._layer && H._layer('ground');
+      if (GL && GL.used) { const t2 = document.createElement('canvas'); t2.width = w; t2.height = h; const g3 = t2.getContext('2d'); g3.drawImage(GL.c, 0, 0, w, h); const al = g3.getImageData(0, 0, w, h).data, A = (x, y) => (y < 0 || y >= h ? 0 : al[(y * w + x) * 4 + 3]);
+        for (const e of out) if (e[0] === 'h') { let c = 0; for (let x = e[2]; x < e[3]; x++) { let top = false; for (let k = -3; k <= 3 && !top; k++) if (A(x, e[1] + k) < 90 && A(x, e[1] + k + 2) > 160) top = true; if (top) c++; } if (c >= (e[3] - e[2]) * 0.6) e[5] = 'sil'; } }
       res(out);
     };
     if (map2) { const c = cv.getContext('2d'); X.ART.setCtx(c, 200); const OY = cv.height - 160; c.setTransform(1, 0, 0, 1, 0, OY); if (map2[0] === 'adv') X.ART.drawAdventure(map2[1], 5000, OY, 30); else X.ART.drawDuelStage(map2[1], 5000, OY); if (H.on) H.present(5000); read(); }
@@ -64,7 +94,7 @@ const check = (ok, what) => { console.log((ok ? '  ok   ' : '  FAIL ') + what); 
   // 一条边算“原画面里就有”：它的跨度有六成以上被参照里相邻 ±3 行（列）的短边盖住（原画的边常被抖动打成碎段）
   // 细线（光柱、雨丝：几像素内紧跟着一条反号的边）不是裁切边，不算；只看够长的（横 ≥ 44、竖 ≥ 36）
   const thin = (e, cur) => cur.some(o => o[0] === e[0] && o[4] === -e[4] && Math.abs(o[1] - e[1]) <= 5 && Math.min(o[3], e[3]) - Math.max(o[2], e[2]) >= (e[3] - e[2]) * 0.5);
-  const extra = (ref, cur) => cur.filter(e => e[3] - e[2] >= (e[0] === 'h' ? 44 : 36) && !thin(e, cur)).filter(e => { const n = e[3] - e[2], cov = new Uint8Array(n); for (const r of ref) if (r[0] === e[0] && Math.abs(r[1] - e[1]) <= 3) for (let k = Math.max(r[2], e[2]); k < Math.min(r[3], e[3]); k++) cov[k - e[2]] = 1; let c = 0; for (let k = 0; k < n; k++) c += cov[k]; return c < n * 0.6; });
+  const extra = (ref, cur) => cur.filter(e => e[5] !== 'sil' && e[3] - e[2] >= (e[0] === 'h' ? 44 : 36) && !thin(e, cur)).filter(e => { const n = e[3] - e[2], cov = new Uint8Array(n); for (const r of ref) if (r[0] === e[0] && Math.abs(r[1] - e[1]) <= 3) for (let k = Math.max(r[2], e[2]); k < Math.min(r[3], e[3]); k++) cov[k - e[2]] = 1; let c = 0; for (let k = 0; k < n; k++) c += cov[k]; return c < n * 0.6; });
   const TIERS = [1, 1.5, 2, 3], bad = [];
   await ev(() => { window.__xm.setSpeed(window.__xm.pauseIdx === undefined ? 3 : window.__xm.pauseIdx); });
   for (const ph of [0.45, 0.69, 0.95]) {

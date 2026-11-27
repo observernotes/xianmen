@@ -45,7 +45,8 @@ function midGame() {
     for (let i = 0; i < 14; i++) { if (await page.$('#goStart')) break; await page.click('#intro .story'); await page.waitForTimeout(120); }
     await page.click('#goStart'); await page.waitForTimeout(1500);
     await page.evaluate(midGame);
-    const close = async () => { for (let i = 0; i < 3; i++) { await page.evaluate(() => { if (!document.getElementById('modal').hidden) window.__xm.closeModal(); }); await page.waitForTimeout(350); } };
+    // 弹窗：能关的关掉；关不掉的（剧情卡要选一项）点第一个选项打发，直到安静下来
+    const close = async () => { for (let i = 0; i < 8; i++) { const had = await page.evaluate(() => { const m = document.getElementById('modal'); if (m.hidden) return false; window.__xm.closeModal(); if (!m.hidden) { const b = m.querySelector('.btn:not(:disabled), button:not(:disabled)'); if (b) b.click(); } window.__xm.st.storyQ = []; return true; }); await page.waitForTimeout(350); if (!had && i >= 2) break; } };
     await close(); await page.waitForTimeout(600); await close();
     return { page, close };
   }
@@ -63,9 +64,9 @@ function midGame() {
     await hideTip(page);
   };
   const SHOTS = {
-    home: async (page) => { await phase(page, 0.69); await page.waitForTimeout(1500); await hideTip(page); },
-    home_day: async (page) => { await phase(page, 0.45); await page.waitForTimeout(1500); await hideTip(page); },
-    home_night: async (page) => { await phase(page, 0.95); await page.waitForTimeout(1500); await hideTip(page); },
+    home: async (page, close) => { await phase(page, 0.69); await page.waitForTimeout(1500); await close(); await hideTip(page); await page.addStyleTag({ content: '#modal{display:none!important}' }); await page.waitForTimeout(300); },   // 剧情卡关不掉就先藏起来（只为截场景）
+    home_day: async (page, close) => { await phase(page, 0.45); await page.waitForTimeout(1500); await close(); await hideTip(page); await page.addStyleTag({ content: '#modal{display:none!important}' }); await page.waitForTimeout(300); },   // 剧情卡关不掉就先藏起来（只为截场景）
+    home_night: async (page, close) => { await phase(page, 0.95); await page.waitForTimeout(1500); await close(); await hideTip(page); await page.addStyleTag({ content: '#modal{display:none!important}' }); await page.waitForTimeout(300); },   // 剧情卡关不掉就先藏起来（只为截场景）
     battle: async (page) => fight(page, 1),
     battle_forest: async (page) => fight(page, 0),
     talk: async (page) => {

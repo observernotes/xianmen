@@ -1121,7 +1121,7 @@ function hdHomeLight(hd, sky, sunX, sunY, moonX, moonY, season, night) {
   F.keyL = { dx: lx < 100 ? -1 : 1, dy: -1, c: sunUp ? warm : '#a8c0ff', a: sunUp ? 0.35 + 0.3 * low : 0.4 };
   F.rays = { x: lx, y: ly, c: sunUp ? warm : '#9ab0ff', a: sunUp ? 0.07 + 0.2 * low * day : 0.09 * (1 - day), spread: 1.25, dir: Math.atan2(104 - lx, 150 - ly) };
   F.motes = night ? (season === 1 ? { n: 26, c: '#e8ff7a', kind: 'fly' } : { n: 18, c: '#b8c8ff', kind: 'wisp' }) : { n: 30, c: lerpC('#fff6d8', '#ffc890', low), kind: 'dust' };
-  F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 1.2;
+  F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 0.7;
 }
 
 // 洞府场景主绘制。返回需要叠加光照的点
@@ -1157,11 +1157,13 @@ ART.drawHome = function (st, t, OY, parts, opts) {
   hdL(hd, 'far');
   ctx.drawImage(f.mount, 0, 0);
   // 流动的山岚
-  ctx.globalAlpha = 0.45; for (const [y, sp, o] of [[58, 0.004, 0], [74, 0.007, 90], [90, 0.011, 170]]) { const x = -(((t * sp + o) % 260) | 0); ctx.drawImage(f.mist, x, y); ctx.drawImage(f.mist, x + 260, y); } ctx.globalAlpha = 1;
+  ctx.globalAlpha = hd ? 0.3 : 0.45; for (const [y, sp, o] of [[58, 0.004, 0], [74, 0.007, 90], [90, 0.011, 170]])   // 高清：远景整层虚化之后山岚是一条条亮带，淡一些，不在地平线上压出一道直边
+  { const x = -(((t * sp + o) % 260) | 0); ctx.drawImage(f.mist, x, y); ctx.drawImage(f.mist, x + 260, y); } ctx.globalAlpha = 1;
   hdL(hd, 'ground');
   if (hd) {   // 高清：静态地形升 2 倍密度后直接画，环境光每帧现染（不必每个相位重做一张）
     f.terr.c._hdOK = 1; ctx.drawImage(f.terr.c, 0, 0);
-    if (skyNow.amb !== '#ffffff') { ctx.globalCompositeOperation = 'multiply'; R(0, 0, 200, 96, skyNow.amb); ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(f.terr.c, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
+    if (skyNow.amb !== '#ffffff') { ctx.globalCompositeOperation = 'multiply'; const ag = ctx.createLinearGradient(0, 78, 0, 96); ag.addColorStop(0, skyNow.amb); ag.addColorStop(1, '#ffffff'); ctx.fillStyle = ag; ctx.fillRect(0, 0, 200, 96); ctx.globalCompositeOperation = 'destination-in';   // 78～96 行渐渐让给合成时的光照图（那边同一段从无到有），接缝处不留一条亮度台阶
+      ctx.drawImage(f.terr.c, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
   } else ctx.drawImage(f.terrT, 0, 0);
   // 瀑布（颜色随环境光变化）
   const wc = ['#ffffff', '#d4ecff', '#9fcdf0', '#6fa8dc'].map(c => mulC(c, amb));
@@ -6941,6 +6943,10 @@ ART.bossFighter = function (k, frame, flip) {
   { const p0 = ART.portrait; ART.portrait = function (id, mood, alt) { return tag(p0.apply(this, arguments), { id, mood, alt: !!alt }); }; }
   { const p0 = ART.portraitMe; ART.portraitMe = function (look, realm, mood) { return tag(p0.apply(this, arguments), { me: look, realm, mood }); }; }
   { const p0 = ART.portraitX; ART.portraitX = function (id, mood, fx, alt) { const c = p0.apply(this, arguments); if (!c || c._tk) return c; if (typeof id === 'string') return tag(c, { id, mood, alt: !!alt, fx }); return id && id._tk ? tag(c, Object.assign({}, id._tk, { fx: ((id._tk.fx || '') + ' ' + (fx || '')).trim() })) : c; }; }
+  // 2 倍密度的立绘（192×256，docs/ART_HD2D.md §6-6）：有手工重画稿的给重画稿，没有的给自动升密度的那张；没开高清模块时退回原画。界面可以直接画它（画布标了 _hd = 2）
+  const tHD = c => (c && root.HD2D && root.HD2D.up ? root.HD2D.up(c) || c : c);
+  ART.tachieHD = function (id, mood, fx, alt) { return tHD(ART.tachie(id, mood, fx, alt)); };
+  ART.tachieMeHD = function (look, realm, mood, fx) { return tHD(ART.tachieMe(look, realm, mood, fx)); };
   ART.tachieOf = src => { const t = src && src._tk; if (!t) return null; return t.me ? ART.tachieMe(t.me, t.realm, t.mood, t.fx) : ART.tachie(t.id, t.mood, t.fx, t.alt); };
   { const c0 = ART.cutin; ART.cutin = function (src, color, flip, key) {
     const big = ART.tachieOf(src); if (!big) return c0.apply(this, arguments);

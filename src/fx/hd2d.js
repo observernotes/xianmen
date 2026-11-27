@@ -50,6 +50,7 @@ HD.setQuality = function (q, keep) {
   if (!keep) { try { root.localStorage.setItem('xm_hd', HD.auto ? 'auto' : HD.lite ? '1.5' : String(q)); } catch (e) { /* 无存储 */ } }
   const was = HD.q; HD.q = q; HD.stats.q = q;
   if (main) { if (q > 0 && !HD.on) enable(); else if (q === 0 && HD.on) disable(); else if (was !== q) sizePresent(true); }
+  if (HD.skin) HD.skin();   // 换档（包括掉帧自动降到 0）时界面皮肤跟着开关
   if (HD.onQuality) HD.onQuality(q);
   return q;
 };
@@ -245,18 +246,20 @@ HD.layer = function (name) {
   return L.g;
 };
 HD.end = function () { return mctx; };
+HD._layer = n => layers[n];   // 调试 / 测试用：取某一层（tools/hd2d_smoke.js 认地面层的天际线）
 HD.owns = function (c) { for (const n of LNAMES) if (layers[n] && layers[n].g === c) return true; return false; };
 // 一盏灯（逻辑坐标，已含 OY 的平移由 art.js 传进来之前换算好）
 HD.light = function (x, y, r, c, a, kind) { if (F.lights.length < 64) F.lights.push({ x, y, r, c, a, kind: kind || 0 }); };
 HD.night = function (sky, lights) { F.amb = sky && sky.amb && sky.amb !== '#ffffff' ? sky.amb : null; F.dark = sky ? 1 - sky.light : 0; if (lights) for (const l of lights) HD.light(l.x, l.y + F.OY, l.r, l.c, l.a * (0.35 + F.dark), 1); };
 
 // ---------- 场景配置：景深、主光、体积光、粒子、调色 ----------
+// focus：焦段（逻辑 y，不含 OY）——人物、建筑、平台站的那一带：这一带里地面与人物层逐像素清晰，辉光 / 体积光减半，移轴只虚它上面的远处，虚化近景不许伸进来（只留两角）
 // blur：各层的虚化量（0 清晰，1 全虚）；key：主光方向（像素偏移，指向光源）与颜色；rays：体积光；motes：浮尘 / 萤火 / 火星；grade：柔光调色；fog：远景空气透视
-const BASE = { blur: { sky: 0.35, far: 0.7, mid: 0.3, fore: 1 }, par: { sky: 0.12, far: 0.35, mid: 0.65, fore: -1.3 }, key: { dx: -1, dy: -1, c: '#fff1cc', a: 0.5 }, rays: null, motes: { n: 26, c: '#fff6d8', kind: 'dust' }, grade: { c: '#ffb070', a: 0.1 }, vig: 0.5, fog: null, feet: 0, gloss: 0, tilt: null, bloom: 0.4, lift: '#17122a' };
+const BASE = { blur: { sky: 0.35, far: 0.7, mid: 0.3, fore: 1 }, par: { sky: 0.12, far: 0.35, mid: 0.65, fore: -1.3 }, key: { dx: -1, dy: -1, c: '#fff1cc', a: 0.5 }, rays: null, motes: { n: 26, c: '#fff6d8', kind: 'dust' }, grade: { c: '#ffb070', a: 0.1 }, vig: 0.5, fog: null, feet: 0, gloss: 0, tilt: null, bloom: 0.4, lift: '#17122a', focus: null };
 const PROF = {
-  home: { blur: { sky: 0.3, far: 0.9, mid: 0.3, fore: 1 }, tilt: [34, 100], fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass' }, drop: 0.34, motes: { n: 30, c: '#fff6d8', kind: 'dust' }, vig: 0.45 },
-  adv: { feet: 128, tilt: [30, 112], fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass', wide: 1 } },
-  duel: { feet: 128, gloss: 0.16, tilt: [20, 104], fg: { c: '#1a1630', c2: '#3a3458', kind: 'rock', top: false }, motes: { n: 18, c: '#fff6d8', kind: 'dust' } },
+  home: { blur: { sky: 0.3, far: 0.9, mid: 0.3, fore: 1 }, tilt: [26, 70], focus: [72, 150], bloom: 0.28, fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass' }, drop: 0.07, motes: { n: 30, c: '#fff6d8', kind: 'dust' }, vig: 0.4, grade: { c: '#ffb070', a: 0.06 } },
+  adv: { feet: 128, tilt: [26, 84], focus: [86, 136], fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass', wide: 1 } },
+  duel: { feet: 128, gloss: 0.16, tilt: [18, 82], focus: [84, 136], fg: { c: '#1a1630', c2: '#3a3458', kind: 'rock', top: false }, motes: { n: 18, c: '#fff6d8', kind: 'dust' } },
   // 历练地图
   'adv:forest': { key: { dx: -1, dy: -1, c: '#fff4c0', a: 0.55 }, rays: { x: 36, y: 18, c: '#fff2b8', a: 0.2, spread: 0.9, dir: 0.55 }, sun: { x: 36, y: 18, r: 46, c: '#fff0b0', a: 0.5 }, motes: { n: 36, c: '#f4ffb8', kind: 'dust' }, grade: { c: '#a8e070', a: 0.1 }, fog: { c: '#dff4d8', a: 0.22, y0: 70, y1: 126 } },
   'adv:hill': { fg: { c: '#2a1420', c2: '#6a3a30', kind: 'rock', wide: 1 },  key: { dx: 1, dy: -1, c: '#ffc890', a: 0.55 }, sun: { x: 150, y: 44, r: 50, c: '#ffb070', a: 0.5 }, rays: { x: 150, y: 44, c: '#ffb878', a: 0.14, spread: 1.1, dir: -0.5 }, motes: { n: 30, c: '#ffd8a0', kind: 'sand' }, grade: { c: '#ff8a5a', a: 0.14 }, fog: { c: '#c890a0', a: 0.2, y0: 80, y1: 126 } },
@@ -315,21 +318,24 @@ function rayTex(c) {
   tex[k] = t; return t;
 }
 // 虚化近景：按 120×(H/2) 画剪影（底边一排草丛 / 乱石，两角高、中间低；左上角探进来一根枝条），缩小再放大糊两遍
-function fgTex(fg, H, season) {
-  const k = 'fg' + fg.c + fg.kind + H + '|' + season; let t = tex[k]; if (t) return t;
+function fgTex(fg, H, season, lim) {
+  const k = 'fg' + fg.c + fg.kind + H + '|' + season + '|' + lim; let t = tex[k]; if (t) return t;
   const scroll = !!fg.wide, w = scroll ? 240 : 132, hh = Math.ceil(H / 2), a = mkc(w, hh), g = a.getContext('2d');
   let c0 = fg.c, c1 = fg.c2 || mix(fg.c, '#ffffff', 0.18);
   if (season === 2) { c0 = mix(c0, '#7a3a14', 0.55); c1 = mix(c1, '#e08a3a', 0.6); } else if (season === 3) { c0 = mix(c0, '#141a36', 0.75); c1 = mix(c0, '#8fa0d0', 0.3); } else if (season === 0) c1 = mix(c1, '#f7a8c4', 0.35);
-  const n = scroll ? 34 : 20;
+  // 稀疏：不卷动的场景只在两角各 15% 的宽度里长几丛（中间七成留给人物和平台）；卷动的地图隔三差五一丛。高度不超过 lim（焦段下沿以下）
+  const n = scroll ? 34 : 26;
   for (let i = 0; i < n; i++) {
-    const u = (i + hash(i * 3 + 7) * 0.8) / n, x = u * w, edge = scroll ? 0.5 + 0.5 * Math.sin(u * 9.4) : Math.pow(Math.abs(u - 0.5) * 2, 1.1), ht = 6 + edge * (scroll ? 12 : 22) + hash(i * 5 + 1) * 5;
+    const u = (i + hash(i * 3 + 7) * 0.8) / n, x = u * w, side = Math.abs(u - 0.5) * 2;
+    if (scroll ? hash(i * 11 + 5) > 0.42 : side < 0.7) continue;
+    const edge = scroll ? 0.5 + 0.5 * Math.sin(u * 9.4) : (side - 0.7) / 0.3, ht = Math.min(lim, (scroll ? 5 + edge * 6 : 5 + edge * 15) + hash(i * 5 + 1) * 4);
     g.fillStyle = i % 4 ? c0 : c1;
     if (fg.kind === 'rock') { g.beginPath(); g.moveTo(x - 7, hh + 1); g.lineTo(x - 3, hh - ht * 0.7); g.lineTo(x + 2, hh - ht * 0.85); g.lineTo(x + 7, hh + 1); g.fill(); }
     else for (let b = 0; b < 4; b++) { const lean = (b - 1.5) * 0.5 + (hash(i * 13 + b) - 0.5) * 0.4, bh = ht * (0.6 + hash(i * 17 + b) * 0.4); g.save(); g.translate(x + (b - 1.5) * 2.5, hh + 2); g.rotate(lean); g.beginPath(); g.ellipse(0, -bh * 0.5, 2.6 + bh * 0.09, bh * 0.52, 0, 0, 6.3); g.fill(); g.restore(); }   // 一丛 = 四片向外撇开的宽叶
   }
   if (!scroll && fg.top !== false) {   // 左上角的枝叶
-    g.strokeStyle = c0; g.lineWidth = 3; g.beginPath(); g.moveTo(-2, 8); g.quadraticCurveTo(22, 18, 46, 12); g.stroke(); g.lineWidth = 1.6; g.beginPath(); g.moveTo(16, 15); g.quadraticCurveTo(26, 26, 36, 30); g.stroke();
-    for (let i = 0; i < 30; i++) { const x = 2 + hash(i * 7 + 2) * 46, y = 4 + hash(i * 7 + 3) * 30 * (1 - x / 80); g.fillStyle = i % 3 ? c0 : c1; g.beginPath(); g.ellipse(x, y, 4.4, 2, hash(i) * 3, 0, 6.3); g.fill(); }
+    g.strokeStyle = c0; g.lineWidth = 3; g.beginPath(); g.moveTo(-2, 6); g.quadraticCurveTo(14, 13, 30, 9); g.stroke(); g.lineWidth = 1.6; g.beginPath(); g.moveTo(10, 10); g.quadraticCurveTo(17, 18, 23, 21); g.stroke();
+    for (let i = 0; i < 18; i++) { const x = 2 + hash(i * 7 + 2) * 30, y = 3 + hash(i * 7 + 3) * 20 * (1 - x / 52); g.fillStyle = i % 3 ? c0 : c1; g.beginPath(); g.ellipse(x, y, 4.4, 2, hash(i) * 3, 0, 6.3); g.fill(); }
   }
   const b = mkc(Math.ceil(w / 3), Math.ceil(hh / 3)), bg = b.getContext('2d'); bg.imageSmoothingEnabled = true; bg.drawImage(a, 0, 0, b.width, b.height);
   t = mkc(w, hh); const tg = t.getContext('2d'); tg.imageSmoothingEnabled = true; tg.drawImage(b, 0, 0, w, hh); tg.globalAlpha = 0.25; tg.drawImage(a, 0, 0);
@@ -344,11 +350,11 @@ function fgTex(fg, H, season) {
   if (!scroll && fg.top !== false) piece(0, 0, FG_TOPW, topH, [[1, 0, 0.6, 0], [0, 1, 0, 0.6]]);
   tex[k] = fin; return fin;
 }
-const FG_BOT = 50, FG_TOP = 46, FG_TOPW = 72;   // 两条的尺寸（半分辨率像素）
+const FG_BOT = 34, FG_TOP = 32, FG_TOPW = 44;   // 两条的尺寸（半分辨率像素）
 function vigTex() {
   let t = tex.vig; if (t) return t;
   t = mkc(96, 96); const g = t.getContext('2d'), gr = g.createRadialGradient(48, 44, 22, 48, 48, 72);
-  gr.addColorStop(0, 'rgba(8,6,20,0)'); gr.addColorStop(0.55, 'rgba(8,6,20,.16)'); gr.addColorStop(1, 'rgba(8,6,20,.82)');
+  gr.addColorStop(0, 'rgba(8,6,20,0)'); gr.addColorStop(0.5, 'rgba(8,6,20,.03)'); gr.addColorStop(0.72, 'rgba(8,6,20,.22)'); gr.addColorStop(1, 'rgba(8,6,20,.82)');   // 中间一大块不压：暗角只收四缘
   g.fillStyle = gr; g.fillRect(0, 0, 96, 96); tex.vig = t; return t;
 }
 function grainTex() {
@@ -476,7 +482,7 @@ function present(now) {
   // 8 夜色：一张小的光照图——先铺深蓝的环境色，再把每盏灯（连同它落在地上的光池）加上去，整张正片叠底到画面上。
   //   于是没灯的地方真的暗下去，灯下回到本色并染上灯的暖色；上沿用渐变接回山色（天与远山本来就是按夜色画的）
   if (F.amb) {
-    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lm = buf('lm', lw2, lh2), lg = lm.g, ambD = mix(F.amb, '#070c30', 0.9 * dk);
+    const dk = clamp(F.dark / 0.58, 0, 1), lw2 = 100, lh2 = Math.ceil(H / 2), lm = buf('lm', lw2, lh2), lg = lm.g, ambD = mix(F.amb, '#070c30', 0.1 * dk);   // 比环境色再压一点（原来压九成，没灯的地方糊成一片黑，石缝屋檐都看不见了）
     lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over'; lg.fillStyle = ambD; lg.fillRect(0, 0, lw2, lh2);
     lg.globalCompositeOperation = 'lighter'; lg.imageSmoothingEnabled = true;
     if (F.moon && F.moon.a > 0.1) { lg.globalAlpha = 0.16 * F.moon.a; lg.fillStyle = '#8fa8ff'; lg.fillRect(0, 0, lw2, lh2); }   // 月光：整体提一点冷色
@@ -485,7 +491,7 @@ function present(now) {
       lg.globalAlpha = a; lg.drawImage(tx, x - r, y - r, r * 2, r * 2);
       lg.globalAlpha = a * 0.7; lg.drawImage(tx, x - r * 1.7, y + r * 0.5, r * 3.4, r * 1.2);   // 落在地上的光池（压扁的椭圆）
     }
-    lg.globalAlpha = 1; const y0 = (36 + OY) / 2, y1 = (84 + OY) / 2, gr = lg.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    lg.globalAlpha = 1; const y0 = (78 + OY) / 2, y1 = (96 + OY) / 2, gr = lg.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     lg.globalCompositeOperation = 'source-over'; lg.fillStyle = gr; lg.fillRect(0, 0, lw2, y1);
     g.globalCompositeOperation = 'multiply'; g.imageSmoothingEnabled = true; g.drawImage(lm.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
   } else if (O.shadow) {   // 白天：人物身后的灵光在地上也落一圈
@@ -496,8 +502,8 @@ function present(now) {
   // 9 前景（最虚、视差最大）
   L = lay('fore'); if (L) softLayer(g, L, P.blur.fore, cx * P.par.fore, 0, 1.05, 'fore');
   if (P.fg && O.dof && O.fg && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
-    const ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
-    g.imageSmoothingEnabled = true; g.globalAlpha = F.amb ? 0.96 : 0.92;
+    const flim = P.focus ? Math.max(4, Math.floor((160 - P.focus[1]) / 2) + (F.kind === 'home' ? 12 : 2)) : 24, ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1, flim), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
+    g.imageSmoothingEnabled = true; g.globalAlpha = F.kind === 'home' ? 0.8 : 0.86;
     const fh = ft.height, bot = Math.min(fh, FG_BOT), topH = Math.min(fh, FG_TOP);   // 只画有东西的两条：底边的草丛、左上角的枝叶
     for (let x = sx + ox; x < Pw; x += fw) {
       g.drawImage(ft, 0, fh - bot, ft.width, bot, x, Ph - bot * Ph / fh, fw, bot * Ph / fh);
@@ -534,6 +540,11 @@ function present(now) {
         ag.drawImage(tx, -len * (rays.spread || 1) / 2, 0, len * (rays.spread || 1), len); ag.restore();
       }
     }
+    if (P.focus) {   // 焦段里辉光与光柱压到三成（上下各羽化 10 个逻辑像素），不把人物和建筑罩成一片雾
+      const f0 = (P.focus[0] + OY) * ub, f1 = (P.focus[1] + OY) * ub, fe = 10 * ub, gr = ag.createLinearGradient(0, f0 - fe, 0, f1 + fe), e = fe / (f1 - f0 + 2 * fe);
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(e, 'rgba(0,0,0,.7)'); gr.addColorStop(1 - e, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      ag.globalCompositeOperation = 'source-over'; ag.globalAlpha = 1; ag.fillStyle = gr; ag.fillRect(0, f0 - fe, bw, f1 - f0 + 2 * fe);
+    }
     g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.drawImage(a.c, 0, 0, Pw, Ph); g.globalCompositeOperation = 'source-over';
   }
   // 13 高清粒子
@@ -551,8 +562,36 @@ function present(now) {
       g.globalCompositeOperation = 'lighter'; const z = 1.0022; g.imageSmoothingEnabled = true; g.drawImage(cb.c, -(z - 1) * Pw / 2, -(z - 1) * Ph / 2, Pw * z, Ph * z); g.globalCompositeOperation = 'source-over';
     }
   }
+  // 15 镜头推近（HD2D.cam）：整张合成好的画面绕焦点放大。只在推着的时候多一次整幅拷贝
+  const cz = camNow(now);
+  if (cz.z > 1.002) {
+    const cb = buf('cam', Pw, Ph); cb.g.globalCompositeOperation = 'copy'; cb.g.imageSmoothingEnabled = false; cb.g.drawImage(pc, 0, 0);
+    const sw = Pw / cz.z, sh = Ph / cz.z, sx = clamp(cz.x * u - sw / 2, 0, Pw - sw), sy = clamp(cz.y * u - sh / 2, 0, Ph - sh);
+    g.imageSmoothingEnabled = q >= 3; g.drawImage(cb.c, sx, sy, sw, sh, 0, 0, Pw, Ph);
+  }
   HD.stats.ms += (root.performance.now() - t0 - HD.stats.ms) * 0.1;
 }
+// ---------- 镜头：HD2D.cam({ z, x, y, ms, hold }) ----------
+// z 放大倍数（1 = 不推，突破 / 首领出场 / 出大招给 1.06 左右）；(x, y) 焦点，画布逻辑坐标（y 含 OY），省略 = 画面中心偏下；ms 推过去用多久；hold 给了就在停留这么久之后自己退回去（不给就一直停着，调 HD2D.cam() 退回）
+// HD2D.camAt(x, y) → 推近之后这个逻辑坐标落在哪（界面的飘字、点击判定按它换算）；没在推时原样返回
+const CAM = { z0: 1, x0: 100, y0: 100, z1: 1, x1: 100, y1: 100, t0: 0, ms: 1, hold: 0, back: 300 };
+function camNow(now) {
+  let k = clamp((now - CAM.t0) / CAM.ms, 0, 1); k = k * k * (3 - 2 * k);
+  if (CAM.hold && now > CAM.t0 + CAM.ms + CAM.hold) { const c = { z: CAM.z1, x: CAM.x1, y: CAM.y1 }; CAM.z0 = c.z; CAM.x0 = c.x; CAM.y0 = c.y; CAM.z1 = 1; CAM.t0 = now; CAM.ms = CAM.back; CAM.hold = 0; return c; }
+  return { z: CAM.z0 + (CAM.z1 - CAM.z0) * k, x: CAM.x0 + (CAM.x1 - CAM.x0) * k, y: CAM.y0 + (CAM.y1 - CAM.y0) * k };
+}
+HD.cam = function (o) {
+  const now = root.performance.now(), c = camNow(now); o = o || {};
+  CAM.z0 = c.z; CAM.x0 = c.z > 1.002 ? c.x : (o.x === undefined ? 100 : o.x); CAM.y0 = c.z > 1.002 ? c.y : (o.y === undefined ? logicH * 0.6 : o.y);
+  CAM.z1 = clamp(o.z || 1, 1, 1.5); CAM.x1 = o.x === undefined ? CAM.x0 : o.x; CAM.y1 = o.y === undefined ? CAM.y0 : o.y;
+  CAM.t0 = now; CAM.ms = Math.max(1, o.ms === undefined ? 260 : o.ms); CAM.hold = o.hold || 0; CAM.back = o.back || 320;
+  return HD;
+};
+HD.camAt = function (x, y) {
+  const c = camNow(root.performance.now()); if (!HD.on || c.z <= 1.002) return { x, y, z: 1 };
+  const sw = 200 / c.z, sh = logicH / c.z, sx = clamp(c.x - sw / 2, 0, 200 - sw), sy = clamp(c.y - sh / 2, 0, logicH - sh);
+  return { x: (x - sx) * c.z, y: (y - sy) * c.z, z: c.z };
+};
 function loop(now) {
   root.requestAnimationFrame(loop);
   if (!HD.on) { lastNow = now; return; }
@@ -607,37 +646,10 @@ HD.frame = function (c, kind, fill) {
   return 'data:image/svg+xml;base64,' + root.btoa(svg);
 };
 // 加投影的那些规则前缀写成 :where(.hd2d)（不加权重）：界面自己用 box-shadow 画的选中框、提示框照样盖得过它
-const SKIN_CSS = `
-body.hd2d { background: radial-gradient(130% 70% at 50% 0%, #241d3c 0%, #120f1c 52%, #08060e 100%) fixed; }
-:where(.hd2d) .hud { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 10px 22px rgba(4,3,10,.5); }
-.hd2d #sceneWrap { box-shadow: 0 0 0 2px #0b0912, 0 0 0 3px #4a3f6e, 0 14px 30px rgba(0,0,0,.6); }
-.hd2d #cult .xbar { box-shadow: 0 0 0 2px #0b0912, inset 0 2px 0 0 #120e1c, 0 0 10px rgba(76,203,159,.25); }
-.hd2d #cult .xbar i { background: linear-gradient(#d8fff0 0 2px, #8ff5d0 2px 5px, #4ccb9f 5px 11px, #2f9a76 11px 14px, #1f7a5c 14px); box-shadow: 0 0 8px rgba(143,245,208,.55); }
-.hd2d #cult.ready .xbar i { background: linear-gradient(#fffbe0 0 2px, #fff2a8 2px 5px, #f4c542 5px 11px, #c08a1a 11px 14px, #96680e 14px); box-shadow: 0 0 10px rgba(255,226,120,.7); }
-.hd2d #cult #realm { text-shadow: 2px 2px 0 #0b0912, 0 0 12px rgba(255,220,150,.35); }
-.hd2d #nav button img { filter: drop-shadow(0 2px 0 rgba(0,0,0,.5)) drop-shadow(0 0 5px rgba(140,160,255,.22)); }
-:where(.hd2d) #nav button { box-shadow: 0 3px 0 rgba(4,3,10,.55), 0 8px 16px rgba(4,3,10,.45); }
-:where(.hd2d) .sheet { box-shadow: 0 0 0 1px rgba(20,10,4,.6), 0 -10px 40px rgba(0,0,0,.55), 0 0 90px rgba(255,214,140,.1); }
-.hd2d .sheet header h2 { text-shadow: 0 1px 0 rgba(255,255,255,.6); }
-:where(.hd2d) .btn { text-shadow: 0 1px 0 rgba(255,255,255,.28); }
-:where(.hd2d) .btn.gold, :where(.hd2d) #cult.ready { box-shadow: 0 3px 0 rgba(60,30,0,.5), 0 0 16px rgba(255,205,90,.38); }
-.hd2d .res b, .hd2d #stats b { text-shadow: 0 0 8px currentColor; }
-.hd2d #modal { background-image: radial-gradient(120% 80% at 50% 40%, rgba(8,6,16,.5), rgba(4,3,10,.86)); }
-.hd2d .float { text-shadow: 2px 2px 0 #0b0912, 0 0 10px currentColor; }
-.hd2d .sheet .rod { display: block; position: absolute; z-index: -1; pointer-events: none; inset: calc(-4 * var(--u2));
-  background: linear-gradient(#3a2010, #8a5428 22%, #e8bc7a 42%, #a8703a 62%, #4a2a12) top / 100% calc(4 * var(--u2)) no-repeat,
-    linear-gradient(#4a2a12, #a8703a 38%, #e8bc7a 58%, #8a5428 78%, #3a2010) bottom / 100% calc(4 * var(--u2)) no-repeat,
-    radial-gradient(120% 90% at 50% 18%, rgba(255,250,230,.34) 0%, rgba(255,250,230,0) 46%, rgba(132,88,36,.2) 100%), var(--hd-paper, none); }
-.hd2d .tk-cv { transition: filter .35s; }
-.hd2d .tk-stage.hd-cast .tk-cv { filter: blur(2.4px) saturate(1.08) brightness(.9); }
-:where(.hd2d) .card { box-shadow: 0 2px 0 rgba(90,60,30,.28), 0 4px 10px rgba(90,60,30,.16); }
-:where(.hd2d) .tk-box { box-shadow: 0 6px 0 rgba(4,3,10,.5), 0 0 34px rgba(110,120,255,.2); }
-`;
+// 界面皮肤的样式在 src/template.html 的 <style id="hd2d-skin">（全部挂在 body.hd2d 下）；这里只管开关 body.hd2d 和生成宣纸纤维那张小图
 HD.skin = function (on) {
   if (!doc || !doc.body) return;
-  let s = doc.getElementById('hd2d-skin');
   if (on === undefined) on = HD.skinOn();
-  if (on && !s) { s = doc.createElement('style'); s.id = 'hd2d-skin'; s.textContent = SKIN_CSS; doc.head.appendChild(s); }
   if (on && !tex.paper) {   // 宣纸纤维：一张可平铺的小图（短横丝 + 斑点），叠在纸面上
     const p = tex.paper = mkc(96, 96), g = p.getContext('2d');
     for (let i = 0; i < 260; i++) { const x = hash(i * 5 + 1) * 96, y = hash(i * 5 + 2) * 96, len = 2 + hash(i * 5 + 3) * 9, dk = hash(i * 5 + 4) < 0.6; g.fillStyle = dk ? 'rgba(120,84,40,' + (0.04 + hash(i) * 0.07) + ')' : 'rgba(255,252,240,' + (0.1 + hash(i) * 0.16) + ')'; g.fillRect(x | 0, y | 0, len | 0, 1); if (x + len > 96) g.fillRect(0, y | 0, (x + len - 96) | 0, 1); }
@@ -652,8 +664,9 @@ if (doc && HD.skinOn()) { if (doc.body) HD.skin(); else doc.addEventListener('DO
 const stages = [];
 let stageN = 0;
 HD.stageFx = function (host, src, o) {
-  if (!host || !src || host.querySelector('.hd-fx')) return null;
+  if (!host || !src) return null;
   o = o || {};
+  if (host.querySelector('.hd-fx')) { const old = stages.find(x => x.host === host); if (old) Object.assign(old.o, o); return old || null; }   // 已经罩过（界面和自动扫描谁先到都行）：还给同一个对象
   const c = mkc(8, 8); c.className = 'hd-fx'; c.setAttribute('aria-hidden', 'true');
   // 画布整张以“滤色”叠上去（黑 = 不改变底下的画面），所以里面只管往黑底上加光；暗角另用一个渐变层
   c.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;image-rendering:auto;mix-blend-mode:screen;z-index:' + (o.z === undefined ? 2 : o.z) + ';';
@@ -696,7 +709,8 @@ function upInPlace(c, colL, colR) {
         for (let x = dir > 0 ? 0 : w - 1; x >= 0 && x < w; x += dir) {
           const i2 = row + x * 4;
           if (d[i2 + 3] < 40) { run = 0; continue; }
-          run++; if (run > 6) continue;
+          run++; if (run === 1) { const x2 = x + dir * 2; if (x2 < 0 || x2 >= w || d[row + x2 * 4 + 3] < 40 || d[row + (x + dir) * 4 + 3] < 40) run = 99; }   // 抖动散开的孤点（残魂下摆）不是轮廓，不染
+          if (run > 6) continue;
           const k = [0, 0.75, 0.6, 0.45, 0.3, 0.18, 0.08][run], lum = d[i2] * 0.3 + d[i2 + 1] * 0.59 + d[i2 + 2] * 0.11, s = 0.35 + lum / 255;   // 亮的地方吃光多
           d[i2] = Math.min(255, d[i2] + C[0] * k * s); d[i2 + 1] = Math.min(255, d[i2 + 1] + C[1] * k * s); d[i2 + 2] = Math.min(255, d[i2 + 2] + C[2] * k * s);
         }
@@ -717,6 +731,28 @@ function sideColors(s, now) {
   s.cols = [pick(0), pick(4)]; s.colT = now;
   s.bright = (d[0] + d[1] + d[2] > d[4] + d[5] + d[6]) ? 0 : 1;   // 上半张哪边更亮：光束从那边来
   return s.cols;
+}
+// 雨分三层（对话舞台，o.rain = 'rain' | 'storm'）：远——细、密、慢、淡，只落在底图范围里；中——正常；近——镜头跟前几根又长又亮的，落得最快，盖过立绘。
+// 气氛层是“滤色”叠上去的，所以只管往上加亮线。界面那层平的雨见 HD2D.stageRain 为真就不画了
+HD.stageRain = true;
+function drawRain(g, storm, now, w, h, dx, dy, dw, dh) {
+  const u = w / 200, t = now / 1000, k = storm ? 1.7 : 1, slant = storm ? 0.3 : 0.14;
+  g.globalCompositeOperation = 'lighter'; g.lineCap = 'butt';
+  const LAY = [[Math.round(64 * k), 4, 150, 0.2, 0.5, 1], [Math.round(34 * k), 8, 250, 0.3, 0.75, 0], [Math.round(11 * k), 19, 420, 0.3, 1.5, 0]];
+  for (let li = 0; li < 3; li++) {
+    const [n, len, sp, a, th, clip] = LAY[li], x0 = clip ? dx : 0, y0 = clip ? dy : 0, W = clip ? dw : w, H = clip ? dh : h, L = len * u * (storm ? 1.3 : 1), v = sp * u * (storm ? 1.45 : 1);
+    g.strokeStyle = 'rgba(' + (li === 2 ? '226,238,255' : '190,210,255') + ',' + Math.min(1, a * (storm ? 1.3 : 1)) + ')'; g.lineWidth = Math.max(1, th * u * 0.5);
+    g.beginPath();
+    for (let i = 0; i < n; i++) {
+      const h1 = hash(i * 7 + li * 131 + 1), h2 = hash(i * 7 + li * 131 + 2), sv = 0.8 + h1 * 0.4;
+      const y = ((h2 * (H + L) + t * v * sv) % (H + L)) - L, x = ((h1 * (W + H * slant) + i * 3.7 * u) % (W + H * slant)) - y * slant;
+      const xa = x0 + x, ya = y0 + y, yb = Math.min(y0 + H, ya + L);
+      if (yb <= y0 || xa < x0 - L || xa > x0 + W + L) continue;
+      g.moveTo(xa, Math.max(y0, ya)); g.lineTo(xa - (yb - ya) * slant, yb);
+    }
+    g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
 }
 function stageLoop(now) {
   for (let i = stages.length - 1; i >= 0; i--) { const s = stages[i]; if (!s.c.isConnected || !s.src.isConnected) { if (s.c.parentNode) s.c.parentNode.removeChild(s.c); if (s.c._vig.parentNode) s.c._vig.parentNode.removeChild(s.c._vig); stages.splice(i, 1); } }
@@ -750,6 +786,8 @@ function stageLoop(now) {
       for (let i = 0; i < 7; i++) { const r = (0.05 + hash(i * 3 + 1) * 0.07) * w, x = ((hash(i * 3 + 2) * 1.3 * w + now * (0.004 + hash(i) * 0.006)) % (w * 1.3)) - w * 0.15, y = (hash(i * 3 + 3) * h + Math.sin(now / 3100 + i) * h * 0.03); g.globalAlpha = 0.07 + 0.05 * Math.sin(now / 1700 + i * 2); g.drawImage(gt, x - r, y - r, r * 2, r * 2); }
       g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
     }
+    const rain = s.o.rain || s.host.getAttribute('data-rain');
+    if (rain) drawRain(g, rain === 'storm', now, w, h, dx, dy, dw, dh);
     if (HD.opts.parts) drawMotes(g, s.o.motes || { n: 26, c: '#fff2d8', kind: 'dust' }, now, u, 0, Math.ceil(h / u));
   }
 }
