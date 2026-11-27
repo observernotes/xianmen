@@ -252,7 +252,7 @@ HD.night = function (sky, lights) { F.amb = sky && sky.amb && sky.amb !== '#ffff
 
 // ---------- 场景配置：景深、主光、体积光、粒子、调色 ----------
 // blur：各层的虚化量（0 清晰，1 全虚）；key：主光方向（像素偏移，指向光源）与颜色；rays：体积光；motes：浮尘 / 萤火 / 火星；grade：柔光调色；fog：远景空气透视
-const BASE = { blur: { sky: 0.35, far: 0.7, mid: 0.3, fore: 1 }, par: { sky: 0.12, far: 0.35, mid: 0.65, fore: -1.3 }, key: { dx: -1, dy: -1, c: '#fff1cc', a: 0.5 }, rays: null, motes: { n: 26, c: '#fff6d8', kind: 'dust' }, grade: { c: '#ffb070', a: 0.1 }, vig: 0.5, fog: null, feet: 0, gloss: 0, tilt: null, bloom: 0.5, lift: '#17122a' };
+const BASE = { blur: { sky: 0.35, far: 0.7, mid: 0.3, fore: 1 }, par: { sky: 0.12, far: 0.35, mid: 0.65, fore: -1.3 }, key: { dx: -1, dy: -1, c: '#fff1cc', a: 0.5 }, rays: null, motes: { n: 26, c: '#fff6d8', kind: 'dust' }, grade: { c: '#ffb070', a: 0.1 }, vig: 0.5, fog: null, feet: 0, gloss: 0, tilt: null, bloom: 0.4, lift: '#17122a' };
 const PROF = {
   home: { blur: { sky: 0.3, far: 0.9, mid: 0.3, fore: 1 }, tilt: [34, 100], fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass' }, drop: 0.34, motes: { n: 30, c: '#fff6d8', kind: 'dust' }, vig: 0.45 },
   adv: { feet: 128, tilt: [30, 112], fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass', wide: 1 } },
@@ -265,18 +265,18 @@ const PROF = {
   'adv:swords': { fg: { c: '#1c2c44', c2: '#5a7ea8', kind: 'rock', wide: 1 },  key: { dx: -1, dy: -1, c: '#d8f0ff', a: 0.6 }, rays: { x: 60, y: -10, c: '#cfe8ff', a: 0.14, spread: 0.8, dir: 0.4 }, motes: { n: 28, c: '#cfe8ff', kind: 'wisp' }, grade: { c: '#6aa8e0', a: 0.12 }, fog: { c: '#c8dcf0', a: 0.24, y0: 76, y1: 126 } },
   'adv:abyss': { fg: { c: '#160a26', c2: '#40206a', kind: 'rock', wide: 1 },  key: { dx: 0, dy: 1, c: '#b060ff', a: 0.5 }, motes: { n: 30, c: '#c070ff', kind: 'ember' }, grade: { c: '#6a28b0', a: 0.18 }, fog: { c: '#3a1458', a: 0.3, y0: 84, y1: 130 }, vig: 0.8 },
   'adv:sea': { fg: { c: '#0a3a4a', c2: '#2a8a9a', kind: 'grass', wide: 1 },  key: { dx: -1, dy: -1, c: '#c8fff4', a: 0.55 }, rays: { x: 80, y: -20, c: '#a8f0ff', a: 0.2, spread: 1.3, dir: 0.2 }, motes: { n: 34, c: '#d8fff8', kind: 'bubble' }, grade: { c: '#28b0c8', a: 0.14 }, fog: { c: '#5ac8d8', a: 0.2, y0: 70, y1: 126 } },
-  'adv:stars': { fg: { c: '#141234', c2: '#3a3a7a', kind: 'rock', wide: 1 },  key: { dx: 1, dy: -1, c: '#ffe8a0', a: 0.55 }, motes: { n: 34, c: '#ffe8a0', kind: 'wisp' }, grade: { c: '#6a5ad8', a: 0.14 }, vig: 0.7, bloom: 0.8 },
-  'adv:palace': { fg: { c: '#4a3a1a', c2: '#a88a40', kind: 'rock', wide: 1 },  key: { dx: -1, dy: -1, c: '#fff0b0', a: 0.6 }, rays: { x: 100, y: -20, c: '#ffe8a0', a: 0.2, spread: 1.4, dir: 0 }, motes: { n: 34, c: '#ffe8a0', kind: 'dust' }, grade: { c: '#ffc850', a: 0.14 }, fog: { c: '#fff0c8', a: 0.2, y0: 70, y1: 124 }, bloom: 0.75 },
-  'adv:chaos': { fg: { c: '#120a20', c2: '#3a1a5a', kind: 'rock', wide: 1 },  key: { dx: 0, dy: -1, c: '#c85aff', a: 0.5 }, motes: { n: 34, c: '#3ad8c8', kind: 'ember' }, grade: { c: '#6a1aa0', a: 0.16 }, vig: 0.85, bloom: 0.8 },
+  'adv:stars': { fg: { c: '#141234', c2: '#3a3a7a', kind: 'rock', wide: 1 },  key: { dx: 1, dy: -1, c: '#ffe8a0', a: 0.55 }, motes: { n: 34, c: '#ffe8a0', kind: 'wisp' }, grade: { c: '#6a5ad8', a: 0.14 }, vig: 0.7, bloom: 0.45 },
+  'adv:palace': { fg: { c: '#4a3a1a', c2: '#a88a40', kind: 'rock', wide: 1 },  key: { dx: -1, dy: -1, c: '#fff0b0', a: 0.6 }, rays: { x: 100, y: -20, c: '#ffe8a0', a: 0.2, spread: 1.4, dir: 0 }, motes: { n: 34, c: '#ffe8a0', kind: 'dust' }, grade: { c: '#ffc850', a: 0.14 }, fog: { c: '#fff0c8', a: 0.2, y0: 70, y1: 124 }, bloom: 0.5 },
+  'adv:chaos': { fg: { c: '#120a20', c2: '#3a1a5a', kind: 'rock', wide: 1 },  key: { dx: 0, dy: -1, c: '#c85aff', a: 0.5 }, motes: { n: 34, c: '#3ad8c8', kind: 'ember' }, grade: { c: '#6a1aa0', a: 0.16 }, vig: 0.85, bloom: 0.55 },
   // 对决舞台与秘境
   'duel:town': { key: { dx: 1, dy: -1, c: '#ffc890', a: 0.55 }, grade: { c: '#ff9a5a', a: 0.13 }, motes: { n: 20, c: '#ffe0b0', kind: 'dust' } },
-  'duel:cloud': { key: { dx: -1, dy: -1, c: '#ffffff', a: 0.6 }, rays: { x: 100, y: -20, c: '#ffffff', a: 0.16, spread: 1.4, dir: 0 }, grade: { c: '#8ac8ff', a: 0.1 }, gloss: 0.22, bloom: 0.7 },
+  'duel:cloud': { key: { dx: -1, dy: -1, c: '#ffffff', a: 0.6 }, rays: { x: 100, y: -20, c: '#ffffff', a: 0.16, spread: 1.4, dir: 0 }, grade: { c: '#8ac8ff', a: 0.1 }, gloss: 0.22, bloom: 0.22 },
   'duel:sect': { key: { dx: -1, dy: -1, c: '#fff1cc', a: 0.55 }, grade: { c: '#ffb070', a: 0.1 } },
   'duel:wild': { fg: { c: '#101a30', c2: '#2a4a50', kind: 'grass' },  key: { dx: 1, dy: -1, c: '#d0d8ff', a: 0.5 }, motes: { n: 20, c: '#e8ff9a', kind: 'fly' }, grade: { c: '#5a70c8', a: 0.12 }, fog: { c: '#c8c0e0', a: 0.16, y0: 96, y1: 128 }, vig: 0.65 },
   'duel:sect_mo': { key: { dx: 0, dy: -1, c: '#ff6a5a', a: 0.5 }, motes: { n: 26, c: '#8aff8a', kind: 'ember' }, grade: { c: '#c81e3c', a: 0.16 }, vig: 0.8, fog: { c: '#5a2a78', a: 0.22, y0: 100, y1: 132 } },
   'duel:r_jin': { key: { dx: -1, dy: -1, c: '#e8f0ff', a: 0.6 }, motes: { n: 24, c: '#e8f0ff', kind: 'wisp' }, grade: { c: '#a0b8e0', a: 0.12 }, gloss: 0.2 },
   'duel:r_mu': { fg: { c: '#0a241c', c2: '#1c5236', kind: 'grass' },  key: { dx: -1, dy: -1, c: '#e8ffb8', a: 0.55 }, rays: { x: 60, y: -10, c: '#e8ffb8', a: 0.18, spread: 1, dir: 0.4 }, motes: { n: 30, c: '#d8ff9a', kind: 'fly' }, grade: { c: '#70c850', a: 0.12 } },
-  'duel:r_huo': { key: { dx: 0, dy: 1, c: '#ff9a4a', a: 0.6 }, motes: { n: 34, c: '#ffb04a', kind: 'ember' }, grade: { c: '#ff5a1e', a: 0.16 }, vig: 0.7, bloom: 0.8 },
+  'duel:r_huo': { key: { dx: 0, dy: 1, c: '#ff9a4a', a: 0.6 }, motes: { n: 34, c: '#ffb04a', kind: 'ember' }, grade: { c: '#ff5a1e', a: 0.16 }, vig: 0.7, bloom: 0.45 },
   'duel:r_shui': { key: { dx: -1, dy: -1, c: '#b8e8ff', a: 0.55 }, motes: { n: 28, c: '#c8f0ff', kind: 'bubble' }, grade: { c: '#2878c8', a: 0.15 }, gloss: 0.26, vig: 0.7 },
 };
 const profCache = {};
@@ -309,6 +309,9 @@ function rayTex(c) {
   g.globalCompositeOperation = 'destination-in';
   const fr = g.createRadialGradient(128, 0, 8, 128, 0, 256); fr.addColorStop(0, 'rgba(0,0,0,.9)'); fr.addColorStop(0.5, 'rgba(0,0,0,.55)'); fr.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = fr; g.fillRect(0, 0, 256, 256);
+  // 三角形的两条边是硬的（靠近顶点处渐变带比光束宽，被路径裁掉）：整张缩小再放大糊一遍
+  const s = mkc(64, 64), sg = s.getContext('2d'); sg.imageSmoothingEnabled = true; sg.drawImage(t, 0, 0, 64, 64);
+  g.globalCompositeOperation = 'copy'; g.imageSmoothingEnabled = true; g.drawImage(s, 0, 0, 256, 256);
   tex[k] = t; return t;
 }
 // 虚化近景：按 120×(H/2) 画剪影（底边一排草丛 / 乱石，两角高、中间低；左上角探进来一根枝条），缩小再放大糊两遍
@@ -319,10 +322,10 @@ function fgTex(fg, H, season) {
   if (season === 2) { c0 = mix(c0, '#7a3a14', 0.55); c1 = mix(c1, '#e08a3a', 0.6); } else if (season === 3) { c0 = mix(c0, '#141a36', 0.75); c1 = mix(c0, '#8fa0d0', 0.3); } else if (season === 0) c1 = mix(c1, '#f7a8c4', 0.35);
   const n = scroll ? 34 : 20;
   for (let i = 0; i < n; i++) {
-    const u = (i + hash(i * 3 + 7) * 0.8) / n, x = u * w, edge = scroll ? 0.5 + 0.5 * Math.sin(u * 9.4) : Math.pow(Math.abs(u - 0.5) * 2, 1.1), ht = 7 + edge * (scroll ? 16 : 30) + hash(i * 5 + 1) * 6;
+    const u = (i + hash(i * 3 + 7) * 0.8) / n, x = u * w, edge = scroll ? 0.5 + 0.5 * Math.sin(u * 9.4) : Math.pow(Math.abs(u - 0.5) * 2, 1.1), ht = 6 + edge * (scroll ? 12 : 22) + hash(i * 5 + 1) * 5;
     g.fillStyle = i % 4 ? c0 : c1;
     if (fg.kind === 'rock') { g.beginPath(); g.moveTo(x - 7, hh + 1); g.lineTo(x - 3, hh - ht * 0.7); g.lineTo(x + 2, hh - ht * 0.85); g.lineTo(x + 7, hh + 1); g.fill(); }
-    else for (let b = 0; b < 5; b++) { const dx = (b - 2) * 2.2 + hash(i * 11 + b) * 2, lean = (hash(i * 13 + b) - 0.5) * 7, bh = ht * (0.55 + hash(i * 17 + b) * 0.5); g.beginPath(); g.moveTo(x + dx - 1.3, hh + 1); g.quadraticCurveTo(x + dx + lean * 0.3, hh - bh * 0.6, x + dx + lean, hh - bh); g.quadraticCurveTo(x + dx + lean * 0.4, hh - bh * 0.5, x + dx + 1.3, hh + 1); g.fill(); }
+    else for (let b = 0; b < 4; b++) { const lean = (b - 1.5) * 0.5 + (hash(i * 13 + b) - 0.5) * 0.4, bh = ht * (0.6 + hash(i * 17 + b) * 0.4); g.save(); g.translate(x + (b - 1.5) * 2.5, hh + 2); g.rotate(lean); g.beginPath(); g.ellipse(0, -bh * 0.5, 2.6 + bh * 0.09, bh * 0.52, 0, 0, 6.3); g.fill(); g.restore(); }   // 一丛 = 四片向外撇开的宽叶
   }
   if (!scroll && fg.top !== false) {   // 左上角的枝叶
     g.strokeStyle = c0; g.lineWidth = 3; g.beginPath(); g.moveTo(-2, 8); g.quadraticCurveTo(22, 18, 46, 12); g.stroke(); g.lineWidth = 1.6; g.beginPath(); g.moveTo(16, 15); g.quadraticCurveTo(26, 26, 36, 30); g.stroke();
@@ -330,8 +333,18 @@ function fgTex(fg, H, season) {
   }
   const b = mkc(Math.ceil(w / 3), Math.ceil(hh / 3)), bg = b.getContext('2d'); bg.imageSmoothingEnabled = true; bg.drawImage(a, 0, 0, b.width, b.height);
   t = mkc(w, hh); const tg = t.getContext('2d'); tg.imageSmoothingEnabled = true; tg.drawImage(b, 0, 0, w, hh); tg.globalAlpha = 0.25; tg.drawImage(a, 0, 0);
-  tex[k] = t; return t;
+  // 合成时只画两条（底边、左上角）：这里把两条的内缘羽化到全透明，画出来就不会有矩形的硬边
+  const fin = mkc(w, hh), fg2 = fin.getContext('2d'), piece = (sx, sy, sw, sh, fade) => {
+    const pc2 = mkc(sw, sh), pg2 = pc2.getContext('2d'); pg2.drawImage(t, sx, sy, sw, sh, 0, 0, sw, sh); pg2.globalCompositeOperation = 'destination-in';
+    for (const f of fade) { const gr = pg2.createLinearGradient(f[0] * sw, f[1] * sh, f[2] * sw, f[3] * sh); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); pg2.fillStyle = gr; pg2.fillRect(0, 0, sw, sh); }
+    fg2.drawImage(pc2, sx, sy);
+  };
+  const bot = Math.min(hh, FG_BOT), topH = Math.min(hh, FG_TOP);
+  piece(0, hh - bot, w, bot, [[0, 0, 0, 0.3]]);
+  if (!scroll && fg.top !== false) piece(0, 0, FG_TOPW, topH, [[1, 0, 0.6, 0], [0, 1, 0, 0.6]]);
+  tex[k] = fin; return fin;
 }
+const FG_BOT = 50, FG_TOP = 46, FG_TOPW = 72;   // 两条的尺寸（半分辨率像素）
 function vigTex() {
   let t = tex.vig; if (t) return t;
   t = mkc(96, 96); const g = t.getContext('2d'), gr = g.createRadialGradient(48, 44, 22, 48, 48, 72);
@@ -410,7 +423,7 @@ function present(now) {
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   // 3 远景 + 空气透视
   L = lay('far'); if (L) softLayer(g, L, P.blur.far, cx * P.par.far, cy * P.par.far, 1.04, 'far');
-  if (P.fog && O.grade) { const y0 = (P.fog.y0 + OY) * u, y1 = (P.fog.y1 + OY) * u, gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, hexA(P.fog.c, 0)); gr.addColorStop(0.7, hexA(P.fog.c, P.fog.a)); gr.addColorStop(1, hexA(P.fog.c, P.fog.a * 0.5)); g.fillStyle = gr; g.fillRect(0, y0, Pw, y1 - y0); }
+  if (P.fog && O.grade) { const y0 = (P.fog.y0 + OY) * u, y1 = (P.fog.y1 + OY) * u, gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, hexA(P.fog.c, 0)); gr.addColorStop(0.6, hexA(P.fog.c, P.fog.a)); gr.addColorStop(1, hexA(P.fog.c, 0)); g.fillStyle = gr; g.fillRect(0, y0, Pw, y1 - y0); }
   L = lay('mid'); if (L) softLayer(g, L, P.blur.mid, cx * P.par.mid, cy * P.par.mid, 1.03, 'mid');
   // 4 地面（焦平面，清晰）；上半截按移轴的办法稍稍虚掉
   L = lay('ground');
@@ -485,10 +498,10 @@ function present(now) {
   if (P.fg && O.dof && O.fg && q >= 2) {   // 镜头跟前的草叶 / 枝条 / 乱石：预先糊好的一张，视差最大；历练时跟着卷动（比地面快）
     const ft = fgTex(P.fg, H, F.kind === 'home' ? F.season : -1), fw = ft.width * (Pw / 120), sx = F.scroll ? -((F.scroll * 1.9 * u) % fw) : 0, ox = cx * -2.2 - (F.scroll ? 0 : fw * 0.05);
     g.imageSmoothingEnabled = true; g.globalAlpha = F.amb ? 0.96 : 0.92;
-    const fh = ft.height, bot = Math.min(fh, 26), topH = Math.min(fh, 22);   // 只画有东西的两条：底边的草丛、左上角的枝叶
+    const fh = ft.height, bot = Math.min(fh, FG_BOT), topH = Math.min(fh, FG_TOP);   // 只画有东西的两条：底边的草丛、左上角的枝叶
     for (let x = sx + ox; x < Pw; x += fw) {
       g.drawImage(ft, 0, fh - bot, ft.width, bot, x, Ph - bot * Ph / fh, fw, bot * Ph / fh);
-      if (!F.scroll && P.fg.top !== false) g.drawImage(ft, 0, 0, 56, topH, x, 0, fw * 56 / ft.width, topH * Ph / fh);
+      if (!F.scroll && P.fg.top !== false) g.drawImage(ft, 0, 0, FG_TOPW, topH, x, 0, fw * FG_TOPW / ft.width, topH * Ph / fh);
     }
     g.globalAlpha = 1;
   }
