@@ -213,6 +213,8 @@ function grid2x(g) {
 function patch(g, x, y, rows) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const ch = rows[j][i]; if (ch !== ' ') put(g, x + i, y + j, ch); } }
 // 只在已有的某类像素上改色（from 里的字母才会被换）：画衣褶、发丝时不会画出轮廓外
 function tint(g, pts, from, to) { for (const [x, y] of pts) if (g[y] && from.includes(g[y][x])) g[y][x] = to; }
+// 左半边的字符行（右端是中线，短的左边补空）镜像成整行；sw：镜像那半边要换的字母（光从左上来，右半边的高光换成暗部）
+function mirRows(rows, W, sw) { return rows.map(r => { r = r.padStart(W / 2, '.'); let m = ''; for (let i = r.length - 1; i >= 0; i--) m += (sw && sw[r[i]]) || r[i]; return r + m; }); }
 function seg(x0, y0, x1, y1) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1), o = []; for (let i = 0; i <= n; i++) o.push([Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n)]); return o; }
 function pad2(g) { const w = g[0].length + 2; return [new Array(w).fill('.')].concat(g.map(r => ['.'].concat(r, ['.'])), [new Array(w).fill('.')]); }
 // 2 倍密度的脸：眼睛 6×4（上睫、眼白、瞳、高光、下睑），鼻影，嘴。ex = 左眼左上角；右眼在 ex + 14
@@ -454,8 +456,46 @@ const WOLF = [
   '....bbb..ddd...bbb..ddd...',
   '....ww..dd.....ww..dd.....',
 ];
+// 狼的 2 倍密度重画稿（52×30）：尖耳带耳蜗、压低的眉与红眼、长吻一颗獠牙、颈后和背脊炸起的毛、身上斜向的毛流、蓬尾、带爪的腿（远侧两条压暗）
+// 多出来的字母：h 毛尖亮 D 最暗 k 墨线 i 耳蜗 e 眼的亮点
+const WOLF2 = [
+  '...........b.....b',
+  '..........ab....ab',
+  '..........aib...aib',
+  '.........aaibd.aaibd',
+  '.........aabbdaaabbdd.....................ahab',
+  '........aabbbbbabbbbbd..................aahabbbb',
+  '.......aahbbbbbbbbbbbbd................aaabbbbbbb',
+  '......aahbbbbbbbbbbbbbbd.h.h..h........aabbbbbbbbb',
+  '.....aabbkkEbbbbbbbbbbbbahaahaahabbb....abbbbbbbbbd',
+  '....aabbbbEebbbbbbbbbbbbbaaaaaaabbbbbbb..bbbdbbbbbdd',
+  '...aabbbbbbbbbbbbdbbbbbbbbbbbbbbbbbbbbbbbbabbbbdbbdd',
+  '..aabbbbbbbbbbbbbbdbbbbbbbbbdbbbbbbbdbbbbbaabbbbbddd',
+  'bbaabbbbbbbbbwwbbbdbbbbbbbbbbdbbbbbbbdbbbbbbbbbbbdd',
+  'Nbaabbbbbbbbwwwwbbbdbbbbdbbbbbdbbbbbbbdbbbbbbbbdd',
+  'NNwwwwwwwwwwwwwwwbbbbbbbbdbbbbbbbbbdbbbbbbbbbdddd',
+  '.kkkkkkWkwwwwwwwwbbdbbbbbbbbbbbdbbbbbbbbbbbbddd',
+  '..ddwwwWwwwwwwwwwbbbdbbbbbbbbbbbbbbbbbbbbbbbddd',
+  '...ddddddwwwwwwwwwbbbbbbbbbbbbbbbbbbbdbbbbbdd',
+  '.......ddwdwwwwwwwwbbbbbbbbbbbbbbbbbbbbbbbbdd',
+  '.........dwwdwwwwwwwwbbbbbbbbbbbbbbbbbbbbdd',
+  '..........abbbdwwwwwwwwwwwwwwwwwddbbbbbbbd',
+  '..........abbbddwwwwwwwwwwwwwwwwddabbbbbdd',
+  '..........abbb....dddddD........abbbbd..dddddD',
+  '..........abbb....dddddD........abbbd...ddddddD',
+  '..........abbd....ddddD..........bbbd....dddddD',
+  '.........aabbd....ddddD.........abbbd....ddddD',
+  '.........abbbd....ddddD........abbbd.....ddddD',
+  '........abbbd....dddddD.......abbbd.....ddddD',
+  '........wwwwd....ddddD........wwwwd....ddddD',
+  '........wkwk.....dDdD.........wkwk.....dDdD',
+];
 ART.wolf = function (fc) {
-  return cached('wolf' + fc.join(), () => render(grid(WOLF, 26), { b: fc[0], a: lerpC(fc[0], '#fff0d0', 0.3), d: hs(fc[1], 0.9), w: lerpC(fc[0], '#ffffff', 0.5), E: '#ff3a2a', N: '#2a1a26', W: '#ffffff' }));
+  return cached('wolf' + fc.join(), () => {
+    const pal = { b: fc[0], a: lerpC(fc[0], '#fff0d0', 0.3), d: hs(fc[1], 0.9), w: lerpC(fc[0], '#ffffff', 0.5), E: '#ff3a2a', N: '#2a1a26', W: '#ffffff' }, c = render(grid(WOLF, 26), pal);
+    c._hdNative = () => { const c2 = render(pad2(WOLF2.map(r => r.padEnd(52, '.').split(''))), Object.assign({ h: lerpC(fc[0], '#fff0d0', 0.6), D: hs(fc[1], 0.66), k: '#2a1a26', i: lerpC(fc[1], '#d07a7a', 0.5), e: '#ffb060' }, pal)); c2._hd = 2; c2._relit = 0.3; return c2; };
+    return c;
+  });
 };
 
 // ---------- 戒中老祖头像（22×22，半透明的蓝白残魂） ----------
@@ -1081,7 +1121,7 @@ function hdHomeLight(hd, sky, sunX, sunY, moonX, moonY, season, night) {
   F.keyL = { dx: lx < 100 ? -1 : 1, dy: -1, c: sunUp ? warm : '#a8c0ff', a: sunUp ? 0.35 + 0.3 * low : 0.4 };
   F.rays = { x: lx, y: ly, c: sunUp ? warm : '#9ab0ff', a: sunUp ? 0.07 + 0.2 * low * day : 0.09 * (1 - day), spread: 1.25, dir: Math.atan2(104 - lx, 150 - ly) };
   F.motes = night ? (season === 1 ? { n: 26, c: '#e8ff7a', kind: 'fly' } : { n: 18, c: '#b8c8ff', kind: 'wisp' }) : { n: 30, c: lerpC('#fff6d8', '#ffc890', low), kind: 'dust' };
-  F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 1.2;
+  F.gradeC = sky.hor; F.gradeA = night ? 0.5 : 0.7;
 }
 
 // 洞府场景主绘制。返回需要叠加光照的点
@@ -1117,11 +1157,13 @@ ART.drawHome = function (st, t, OY, parts, opts) {
   hdL(hd, 'far');
   ctx.drawImage(f.mount, 0, 0);
   // 流动的山岚
-  ctx.globalAlpha = 0.45; for (const [y, sp, o] of [[58, 0.004, 0], [74, 0.007, 90], [90, 0.011, 170]]) { const x = -(((t * sp + o) % 260) | 0); ctx.drawImage(f.mist, x, y); ctx.drawImage(f.mist, x + 260, y); } ctx.globalAlpha = 1;
+  ctx.globalAlpha = hd ? 0.3 : 0.45; for (const [y, sp, o] of [[58, 0.004, 0], [74, 0.007, 90], [90, 0.011, 170]])   // 高清：远景整层虚化之后山岚是一条条亮带，淡一些，不在地平线上压出一道直边
+  { const x = -(((t * sp + o) % 260) | 0); ctx.drawImage(f.mist, x, y); ctx.drawImage(f.mist, x + 260, y); } ctx.globalAlpha = 1;
   hdL(hd, 'ground');
   if (hd) {   // 高清：静态地形升 2 倍密度后直接画，环境光每帧现染（不必每个相位重做一张）
     f.terr.c._hdOK = 1; ctx.drawImage(f.terr.c, 0, 0);
-    if (skyNow.amb !== '#ffffff') { ctx.globalCompositeOperation = 'multiply'; R(0, 0, 200, 96, skyNow.amb); ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(f.terr.c, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
+    if (skyNow.amb !== '#ffffff') { ctx.globalCompositeOperation = 'multiply'; const ag = ctx.createLinearGradient(0, 78, 0, 96); ag.addColorStop(0, skyNow.amb); ag.addColorStop(1, '#ffffff'); ctx.fillStyle = ag; ctx.fillRect(0, 0, 200, 96); ctx.globalCompositeOperation = 'destination-in';   // 78～96 行渐渐让给合成时的光照图（那边同一段从无到有），接缝处不留一条亮度台阶
+      ctx.drawImage(f.terr.c, 0, 0); ctx.globalCompositeOperation = 'source-over'; }
   } else ctx.drawImage(f.terrT, 0, 0);
   // 瀑布（颜色随环境光变化）
   const wc = ['#ffffff', '#d4ecff', '#9fcdf0', '#6fa8dc'].map(c => mulC(c, amb));
@@ -1793,7 +1835,7 @@ Buf.prototype = {
     }
     g.putImageData(img, 0, 0);
     // HD-2D：2 倍密度稿——颜色网格按 Scale2x 放大（描边在放大之后再勾，所以只有 1 个高清像素粗），再跑这张精灵自己的补丁（b.hd = b2 => …，按 2 倍坐标画眼神光、毛发、衣褶）
-    if (!o.noHd && w <= 96 && h <= 96) { const self = this; c._buf = self; c._hdNative = () => { const b2 = self.x2(); b2.eyes(); if (self.hd) self.hd(b2); const c2 = b2.cv(Object.assign({}, o, { max: 0, noHd: 1 })); c2._hd = 2; return c2; }; }
+    if (!o.noHd && ((w <= 96 && h <= 96) || o.hd)) { const self = this; c._buf = self; c._hdNative = () => { const b2 = (self.hdSrc ? self.hdSrc() : self).x2(); b2.eyes(); if (self.hd) self.hd(b2); const c2 = b2.cv(Object.assign({}, o, { max: 0, noHd: 1 })); c2._hd = 2; if (self.hd) c2._relit = self.relit === undefined ? 0.3 : self.relit; return c2; }; }
     return c;
   },
   x2() {
@@ -1820,6 +1862,43 @@ Buf.prototype = {
   tint(pts, to, from) { for (const q of pts) { const c = this.at(q[0], q[1]); if (c && (!from || from.includes(c))) this.d[q[1] * this.w + q[0]] = to; } return this; },
   // 沿线段换色
   tl(x0, y0, x1, y1, to, from) { return this.tint(seg(x0, y0, x1, y1), to, from); },
+  // ---- 2 倍密度重画用的工具（b.hd = b2 => … 里用） ----
+  clear() { this.d.fill(null); return this; },
+  // 逐像素改色：fn(x, y, c) 返回新颜色（undefined 不动、null 擦掉）
+  map(fn) { const w = this.w, h = this.h, s = this.d.slice(); this._s = s; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = s[y * w + x]; if (c) { const n = fn(x, y, c); if (n !== undefined) this.d[y * w + x] = n; } } this._s = null; return this; },
+  // 椭球体积：cols 里的颜色当成一个受左上来光的椭球（圆心 cx,cy 半径 rx,ry），分成 ramp = [高光, 亮, 原色(null), 暗, 最暗] 五级（哪级给 null 就不动）
+  ball(cols, cx, cy, rx, ry, ramp, o) {
+    o = o || {}; const lx = o.lx === undefined ? -0.52 : o.lx, ly = o.ly === undefined ? -0.62 : o.ly, lz = Math.sqrt(Math.max(0.05, 1 - lx * lx - ly * ly)), th = o.th || [0.9, 0.62, 0.16, -0.22];
+    return this.map((x, y, c) => {
+      if (!cols.includes(c) || (o.box && (x < o.box[0] || y < o.box[1] || x > o.box[2] || y > o.box[3]))) return;
+      const u = (x + 0.5 - cx) / rx, v = (y + 0.5 - cy) / ry, r2 = u * u + v * v, z = Math.sqrt(Math.max(0, 1 - Math.min(1, r2))), k = (u * lx + v * ly) / Math.max(1, Math.sqrt(r2)) + z * lz;
+      const i = k > th[0] ? 0 : k > th[1] ? 1 : k > th[2] ? 2 : k > th[3] ? 3 : 4, n = ramp[i];
+      if (n) return n;
+    });
+  },
+  // 贴着轮廓外缘（朝 dx,dy 方向的邻居是空的）的 cols 像素换成 to：轮廓高光 / 背光压边
+  edge(cols, dx, dy, to, o) { const self = this; return this.map((x, y, c) => { if (cols && !cols.includes(c)) return; const n = self._at0(x + dx, y + dy); if (!n || (o && o.vs && o.vs.includes(n))) return to; }); },
+  _at0(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h ? (this._s || this.d)[y * this.w + x] : null; },
+  // 按 1 倍坐标写的画法直接在 2 倍缓冲上重新落笔：椭圆、斜线按 2 倍密度光栅化（不是把台阶放大），lit() 的亮边暗边只有 1 个高清像素
+  k2() {
+    const B = this, S = {
+      w: B.w / 2, h: B.h / 2, big: B,
+      at(x, y) { return B.at(Math.round(x) * 2, Math.round(y) * 2); },
+      p(x, y, c) { x = Math.round(x); y = Math.round(y); if (c !== undefined) B.r(x * 2, y * 2, 2, 2, c); return S; },
+      r(x, y, w, h, c) { B.r(Math.round(x * 2), Math.round(y * 2), Math.round(w * 2), Math.round(h * 2), c); return S; },
+      hl(x0, x1, y, c) { B.r(x0 * 2, y * 2, (x1 - x0 + 1) * 2, 2, c); return S; },
+      e(cx, cy, rx, ry, c) { B.e(cx * 2, cy * 2, rx * 2, ry * 2, c); return S; },
+      l(x0, y0, x1, y1, c, th) { th = (th || 1) * 2; const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 0.5) * 2, X0 = Math.round(x0) * 2, Y0 = Math.round(y0) * 2, X1 = Math.round(x1) * 2, Y1 = Math.round(y1) * 2; for (let i = 0; i <= n; i++) B.r(Math.round(X0 + (X1 - X0) * i / n), Math.round(Y0 + (Y1 - Y0) * i / n), th, th, c); return S; },
+      m(x, y, rows, pal, flip) { for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const c = pal[rows[j][i]]; if (c) S.p(flip ? S.w - 1 - (x + i) : x + i, y + j, c); } return S; },
+      sy(y0, s, c, cx) { cx = cx || S.w / 2; for (let k = 0; k < s.length; k++) { const hw = parseInt(s[k], 36), pv = k ? parseInt(s[k - 1], 36) : hw, h0 = Math.round(pv * 0.5 + hw * 1.5); if (h0) B.r(cx * 2 - h0, (y0 + k) * 2, h0 * 2, 1, c); if (hw) B.r(cx * 2 - hw * 2, (y0 + k) * 2 + 1, hw * 4, 1, c); } return S; },
+      mir(fn) { const t = new Buf(B.w, B.h); fn(t.k2()); for (let y = 0; y < B.h; y++) for (let x = 0; x < B.w; x++) { const c = t.d[y * B.w + x]; if (c) { B.p(x, y, c); B.p(B.w - 1 - x, y, c); } } return S; },
+      add(fn, o) { B.add(L => fn(L.k2()), o); return S; },
+      lit(n) { B.lit(n); return S; },
+    };
+    return S;
+  },
+  // 一撇短笔触（毛、羽）：从 (x,y) 沿 (dx,dy) 画 n 个像素，只落在 from 上
+  st(x, y, dx, dy, n, to, from) { for (let i = 0; i < n; i++) { const X = Math.round(x + dx * i), Y = Math.round(y + dy * i), c = this.at(X, Y); if (c && (!from || from.includes(c))) this.d[Y * this.w + X] = to; } return this; },
 };
 
 // ---------- 半身像 48×48 ----------
@@ -1931,7 +2010,77 @@ function person(o, mood) {
   b.add(L => { if (o.fr) cap(L, hc, o.fr, o.cap); if (o.hairX) o.hairX(L, hc); }, { sep: 1, cast: [0, 1] });
   if (!o.noGloss) for (const [x0, x1, y] of [[15, 21, 9], [14, 17, 10], [14, 15, 11], [27, 30, 9]]) for (let x = x0; x <= x1; x++) if (b.at(x, y) === hc && x % 4 !== 0) b.p(x, y, up(hc));
   if (o.post) o.post(b, mood, hc, sk);
+  if (o.hd) b.hd = b2 => o.hd(b2, mood, hc, sk);   // HD-2D：这个人物自己的 2 倍密度重画
   return b;
+}
+
+// ---- 老祖半身像的 2 倍密度重画（96×96）：脸整块重铺，眉、眼、须、发丝、玉冠按 2 倍密度重画；灰影全部换成偏蓝的冷影 ----
+const EL2 = { w: '#ffffff', W: '#f0f9ff', v: '#c6d2ee', V: '#98a8d8', h: '#c4e2fa', s: '#a6cdee', S: '#86aede', T: '#6c8fd0', L: '#27357a', I: '#141c4a', i: '#3f5fb8', e: '#e6f6ff', M: '#3f5a9c', t: '#7f6fb0' };
+const EL2_EYES = {
+  n: ['............', '...LLLLLLL..', '.LLLLLLLLLL.', 'L..eeIIiee..', '....uuuuuu..'],
+  joy: ['............', '...LLLLLL...', '.LLL....LLL.', 'LL........LL', '............'],
+  ang: ['LL..........', '.LLLLL......', '...LLLLLLLLL', '...eeIIieLL.', '....uuuuu...'],
+  shock: ['...LLLLLL...', '.LLeeeeeeLL.', 'LeeewIIieeeL', 'LeeeIIIieeeL', '.LeeeeeeeeL.', '...uuuuuu...'],
+  sad: ['............', '.....LLLLLL.', '.LLLLLLLLLLL', 'LL.eeiIIee..', '...uuuuuu...'],
+  cold: ['............', '............', 'LLLLLLLLLLLL', '.LeIIIIieLL.', '...uuuuuu...'],
+};
+// 一笔收尖的线：pts 折线，粗细从 t0 收到 t1
+function taper(B, pts, t0, t1, c) {
+  let tot = 0; const ln = []; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); ln.push(d); tot += d; }
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) { const n = Math.max(1, Math.ceil(ln[i])); for (let k = 0; k <= n; k++) { const u = (acc + ln[i] * k / n) / tot, th = Math.max(1, Math.round(t0 + (t1 - t0) * u)); B.r(Math.round(pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k / n - (th - 1) / 2), Math.round(pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k / n - (th - 1) / 2), th, th, c); } acc += ln[i]; }
+}
+// 老祖的脸：K = 放大倍数的一半（半身像 1，立绘 2），(cx, …) 各部位的坐标由调用方按自己的版式给
+function elderFace2(b2, mood, G) {
+  const P = EL2, { cx, ey, by, k } = G, mir = fn => { fn(1); fn(-1); }, X = (s, d) => (s > 0 ? cx - 1 - d : cx + d);
+  // 眼
+  const rows = EL2_EYES[mood] || EL2_EYES.n, pal = { L: P.L, I: P.I, i: P.i, e: P.e, w: '#ffffff', u: P.S };
+  for (let j = 0; j < rows.length; j++) for (let i2 = 0; i2 < 12; i2++) { const c = pal[rows[j][i2]]; if (!c) continue; for (let a = 0; a < k; a++) for (let q = 0; q < k; q++) { const dx = (15 - i2) * k - q; b2.p(cx - 1 - dx + k - 1, ey + j * k + a, c); b2.p(cx + dx - k + 1, ey + j * k + a, c); } }
+  // 长眉：眉心挑出去，过眼尾垂到颧下
+  const tl = (mood === 'ang' ? 3 : mood === 'sad' ? -3 : 0) * k, b0 = by + (mood === 'shock' ? -2 * k : mood === 'cold' ? 2 * k : 0);
+  mir(sd => { const pts = [[X(sd, 3 * k), b0 + tl], [X(sd, 9 * k), b0 - 1 * k - (tl > 0 ? 0 : 0)], [X(sd, 16 * k), b0 - tl], [X(sd, 21 * k), b0 + 5 * k], [X(sd, 24 * k), b0 + 12 * k], [X(sd, 25 * k), b0 + 24 * k]];
+    taper(b2, pts.map(q => [q[0] + (sd > 0 ? 0 : 0), q[1] + k]), 3 * k, k, P.V); taper(b2, pts, 3 * k, k, sd > 0 ? P.w : P.W); });
+}
+function elderPt2(b2, mood) {
+  const P = EL2, hw = y => 2 * parseInt(FSHAPE.long[Math.min(25, Math.max(0, (y >> 1) - 11))], 36);
+  // 灰影换成偏蓝的冷影
+  const W = '#f0f9ff', hairS = dn(W), hairH = up(W), sk0 = skinTone('#a6cdee');
+  b2.map((x, y, c) => (c === hairS ? P.v : c === hairH ? P.w : c === sk0.S ? P.S : undefined));
+  // 原来的眉梢、须梢（2 像素粗的台阶线）擦掉，下面按 2 倍密度重画
+  b2.map((x, y, c) => { if (((x < 26 || x > 69) && y >= 44 && y <= 66) || (y >= 72 && y <= 76 && ((x >= 33 && x <= 39) || (x >= 56 && x <= 62)))) return null; });
+  // 脸整块重铺（发际线以下）
+  b2.map((x, y, c) => { if (y < 30 || y > 73) return; const w = hw(y) - 1; if (x < 48 - w || x > 47 + w) return; if (y < 38 && (c === W || c === P.v || c === P.w)) return; return P.s; });
+  // 脸的体积：左缘一线亮、右颊两级暗，额上两道皱纹，眼袋
+  b2.map((x, y, c) => { if (c !== P.s || y < 30 || y > 73) return; const w = hw(y) - 1, r = 47 + w - x, l = x - (48 - w); if (r < 2) return P.T; if (r < 5 - (y < 44 ? 2 : 0)) return P.S; if (l < 2 && y > 40) return P.h; if (y > 66 && r < 9) return P.S; });
+  for (let x = 40; x <= 55; x++) { if (x % 9 !== 3) b2.tint([[x, 33]], P.S, [P.s]); if (x > 41 && x < 54 && x % 7 !== 0) b2.tint([[x, 36]], P.S, [P.s]); }
+  b2.r(41, 31, 7, 1, P.h); b2.r(42, 34, 5, 1, P.h);
+  elderFace2(b2, mood, { cx: 48, ey: 48, by: 42, k: 1 });
+  for (const sd of [0, 1]) { const X = x => (sd ? 95 - x : x); for (let x = 33; x <= 42; x++) b2.tint([[X(x), 55 + (x < 35 || x > 40 ? -1 : 0)]], P.S, [P.s]); b2.tint([[X(30), 49], [X(29), 51], [X(30), 53]], P.S, [P.s, P.h]); }
+  // 鼻：鼻梁一线亮、右侧一线影、鼻翼
+  b2.r(47, 50, 1, 8, P.h); b2.r(49, 51, 1, 7, P.S); b2.r(45, 59, 2, 1, P.S); b2.r(46, 60, 5, 1, P.S); b2.r(50, 59, 2, 1, P.T); b2.p(48, 58, P.h);
+  // 口
+  if (mood === 'joy') { b2.r(44, 64, 8, 1, P.M); b2.r(45, 65, 6, 1, P.t); b2.p(43, 63, P.M); b2.p(52, 63, P.M); }
+  else if (mood === 'shock') { b2.r(46, 63, 4, 4, P.M); b2.r(47, 64, 2, 2, P.I); }
+  else b2.r(45, 64, 6, 1, mood === 'ang' || mood === 'sad' ? P.M : P.T);
+  // 须：两撇从人中分开垂下去，下巴一缕长须
+  for (const sd of [1, -1]) { const X = d => (sd > 0 ? 47 - d : 48 + d), pts = [[X(1), 61], [X(6), 63], [X(10), 67], [X(11), 76]]; taper(b2, pts.map(q => [q[0], q[1] + 1]), 3, 1, P.V); taper(b2, pts, 3, 1, sd > 0 ? P.w : P.W); }
+  for (let y2 = 67; y2 <= 93; y2++) { const t = y2 - 67, w = t < 4 ? 3 + t : t < 13 ? 7 : Math.max(1, 7 - Math.round((t - 13) * 0.5)); for (let x = 48 - w; x <= 47 + w; x++) b2.p(x, y2, x === 48 - w ? P.w : x >= 47 + w - 1 ? P.V : P.W); }
+  for (const [x0, y0, x1, y1] of [[43, 70, 45, 86], [46, 69, 47, 91], [50, 70, 49, 89], [53, 71, 51, 84]]) b2.tl(x0, y0, x1, y1, P.v, [P.W]);
+  b2.tl(44, 68, 44, 80, P.w, [P.W]);
+  // 发：顶上几缕暗线和一道高光，两鬓各一线
+  for (const [x0, y0, x1, y1] of [[44, 15, 33, 27], [40, 15, 29, 33], [48, 14, 47, 28], [52, 15, 60, 27], [56, 15, 66, 33], [36, 16, 27, 40], [60, 16, 69, 40]]) b2.tl(x0, y0, x1, y1, P.v, [W]);
+  for (const [x0, y0, x1, y1] of [[42, 15, 31, 27], [46, 14, 44, 27], [34, 18, 27, 34]]) b2.tl(x0, y0, x1, y1, P.w, [W]);
+  for (let y = 40; y < 72; y++) { b2.tint([[27, y]], P.v, [W]); b2.tint([[69, y], [70, y]], P.V, [W, P.v]); b2.tint([[68, y]], P.v, [W]); }
+  b2.edge([W, P.v], 1, 0, P.V);
+  // 玉冠：切面与高光
+  const J = '#5fd3b0', Jd = '#2a8a7a', Jh = '#c8fff0', Jdd = '#1d6a62';
+  b2.map((x, y, c) => { if (y > 13 || (c !== J && c !== Jd && c !== Jh)) return; if (x >= 51 && y < 9) return Jd; if (x <= 41 && y < 9) return Jh; if (y === 5) return Jd; });
+  b2.r(43, 1, 2, 4, Jh); b2.r(46, 2, 1, 2, '#ffffff'); b2.r(45, 9, 6, 1, Jdd); b2.r(44, 11, 2, 2, Jh); b2.edge([J, Jd], 1, 0, Jdd);
+  // 袍：领缘一线亮、肩上的褶
+  const RB = '#7aa8e0', RD = '#3f6aa8', RH = '#c0dcff', RM = '#5c88c8';
+  for (const [x0, y0, x1, y1] of [[30, 80, 24, 95], [36, 82, 33, 95], [62, 80, 66, 95], [70, 81, 76, 95]]) b2.tl(x0, y0, x1, y1, RM, [RB]);
+  for (const [x0, y0, x1, y1] of [[28, 79, 21, 94], [34, 81, 31, 95]]) b2.tl(x0, y0, x1, y1, RH, [RB]);
+  b2.map((x, y, c) => { if (c === RB && x > 62 && y > 80 && (x + y) % 2 === 0 && x > 70) return RM; });
 }
 
 const PINK = tone('#f7a3bd', '#c8607e', '#ffd6e4'), GREEN = tone('#62b25a', '#2f6e4b', '#a8e08a');
@@ -1987,7 +2136,7 @@ const PEOPLE = {
       b.add(L => { L.r(20, 0, 8, 5, JADE); L.r(26, 0, 2, 2, null); L.r(22, 5, 4, 2, JADE); });
       b.hl(16, 31, 3, '#f0f9ff'); b.hl(21, 26, 3, '#2a8a7a');
     },
-    fx: 'ghost',
+hd: elderPt2, fx: 'ghost',
   },
   // 慕容雪：粉衣、高髻金步摇、下巴微抬
   mu: {
@@ -2207,6 +2356,8 @@ function ghost(src) {
     const lv = (y - 40) * 2 + Math.abs(x - 23.5) * 0.28 + Math.sin(x * 0.9 + y * 0.5) * 2.5;
     if (BAYER[(x & 3) + (y & 3) * 4] < lv) g.fillRect(x, y, 1, 1);
   }
+  // HD-2D：2 倍密度稿同样半透明，下缘按 2 倍的抖动散开
+  if (src._hdNative) { c._buf = src._buf; c._hdNative = () => { const s2 = src._hdNative(), c2 = mk(96, 96), g2 = c2.getContext('2d'); g2.globalAlpha = 0.93; g2.drawImage(s2, 0, 0); g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-out'; for (let y = 80; y < 96; y++) for (let x = 0; x < 96; x++) { const lv = (y - 80) + Math.abs(x - 47.5) * 0.14 + Math.sin(x * 0.45 + y * 0.25) * 2.5; if (BAYER[(x & 3) + (y & 3) * 4] < lv) g2.fillRect(x, y, 1, 1); } c2._hd = 2; c2._relit = s2._relit; return c2; }; }
   return c;
 }
 const P_ALIAS = { tiankuo: 'tian', 'rival:chu': 'tian', chutiankuo: 'tian', lingxu: 'jian', danyun: 'dan', xuanwei: 'dao', xuanxiao: 'elder' };
@@ -2488,6 +2639,58 @@ function fighterGrid(base, frame) {
   put(Gd, S[0], S[1] + 1, 's'); put(Gd, S[0] - 1, S[1] + 1, 's');
   return Gd;
 }
+// ---- 对决 / 回合战小人的 2 倍密度重画稿（96×80）----
+// 剑：刃三个高清像素宽（刃口亮 X、刃面 x、刃背暗 z），尖上收两级；护手一横带亮点，缠绳的柄，圆首
+function swordOn2(G, x0, y0, x1, y1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)), ux = (x1 - x0) / n, uy = (y1 - y0) / n, len = Math.hypot(x1 - x0, y1 - y0), vx = ux * n / len, vy = uy * n / len, px = -vy, py = vx;   // (px,py)：刃口那一侧
+  const dot = (x, y, ch) => put(G, Math.round(x), Math.round(y), ch);
+  for (let i = 3; i <= len + 3; i += 0.5) { const tip = len + 3 - i, w = tip < 2 ? 0 : tip < 5 ? 1 : 2; for (let k = -w; k <= w; k += 0.5) dot(x0 + vx * i + px * k * 0.75, y0 + vy * i + py * k * 0.75, k < -w + 0.9 && w ? 'X' : k > w - 0.9 && w ? 'z' : 'x'); }
+  for (let i = 5; i < len - 2; i += 0.5) if ((i | 0) % 9 < 6) dot(x0 + vx * i - px * 0.2, y0 + vy * i - py * 0.2, 'X');
+  for (let k = -5; k <= 5; k += 0.5) { dot(x0 + vx * 2 + px * k, y0 + vy * 2 + py * k, Math.abs(k) > 4 ? 'y' : 'g'); dot(x0 + vx * 3 + px * k, y0 + vy * 3 + py * k, 'G'); }
+  dot(x0 + vx * 2.5, y0 + vy * 2.5, 'y');
+  for (let i = -5; i <= 1; i += 0.5) for (const k of [-0.5, 0.5]) dot(x0 + vx * i + px * k, y0 + vy * i + py * k, (Math.round(i) & 1) ? 'n' : 'N');
+  for (const [a2, b3] of [[-6, -1], [-6, 0], [-6, 1], [-7, 0], [-7, -1]]) dot(x0 + vx * a2 + px * b3 * 0.6, y0 + vy * a2 + py * b3 * 0.6, 'g');
+}
+// base2：60×70 的 2 倍密度站姿（脸、发丝、衣褶已经重画）；按帧摆姿势——倾身按行渐变（1 个高清像素一级，比原画细一倍）
+function fighterGrid2(base2, frame) {
+  const Gd = blank(92, 76), ox = 10, oy = 6;
+  if (frame === 'down') {
+    for (let y = 0; y < base2.length; y++) for (let x = 0; x < 60; x++) { const ch = base2[y][x]; if (ch !== '.') put(Gd, y + 2, 83 - x, ch); }
+    swordOn2(Gd, 70, 73, 88, 74);
+    return Gd;
+  }
+  const lean = ({ windup: -2, strike: 3, hit: -3 }[frame] || 0) * 2, bob = frame === 'idle1' || frame === 'stand1' ? 2 : 0;
+  for (let y = 0; y < base2.length; y++) {
+    const dx = y < 36 ? lean : Math.round(lean * (68 - y) / 34), dy = y < 60 ? bob : 0;
+    for (let x = 0; x < 60; x++) { const ch = base2[y][x]; if (ch !== '.') put(Gd, ox + x + dx, oy + y + dy, ch); }
+  }
+  if (frame === 'stand0' || frame === 'stand1') return Gd;
+  const S = { idle0: [56, 56, 68, 26], idle1: [56, 58, 68, 28], windup: [60, 42, 54, 2], strike: [66, 52, 90, 52], hit: [48, 62, 64, 74] }[frame];
+  if (frame === 'windup' || frame === 'strike') {   // 抬起的手臂：袖子上亮下暗，袖口一圈
+    const sx = ox + 40 + lean, sy = oy + 42, n = Math.max(Math.abs(S[0] - sx), Math.abs(S[1] - sy), 1);
+    for (let i = 0; i <= n; i++) { const x = Math.round(sx + (S[0] - sx) * i / n), y = Math.round(sy + (S[1] - sy) * i / n), cuff = i > n - 3; for (const [d, ch] of [[-2, 'q'], [-1, 'r'], [0, 'r'], [1, 'r'], [2, 'R'], [3, 'D']]) put(Gd, x, y + d, cuff ? (d < 0 ? 'u' : 't') : ch); }
+  }
+  swordOn2(Gd, S[0], S[1], S[2], S[3]);
+  for (const [dx, dy, ch] of [[-1, 1, 's'], [0, 1, 's'], [1, 1, 's'], [-2, 2, 's'], [-1, 2, 's'], [0, 2, 's'], [1, 2, 'S'], [-1, 3, 's'], [0, 3, 'S'], [-2, 1, 's']]) put(Gd, S[0] + dx, S[1] + dy, ch);
+  return Gd;
+}
+function fighterBase2(g, look, frame, plain) {
+  const G = grid2x(g);
+  if (!plain) {
+    if (frame === 'hit' || frame === 'down') {   // 挨打：> < 眼；倒地：闭成一线
+      for (let y = 23; y <= 30; y++) for (let x = 19; x <= 40; x++) if ('Ewi'.includes(G[y][x])) G[y][x] = 's';
+      if (frame === 'hit') { patch(G, 20, 24, ['EE', '..EE', '....EE', '..EE', 'EE']); patch(G, 34, 24, ['....EE', '..EE', 'EE', '..EE', '....EE']); patch(G, 28, 33, ['MMMM', 'MwwM', 'MMMM']); }
+      else { patch(G, 20, 26, ['EEEEEE', 'S....S']); patch(G, 34, 26, ['EEEEEE', 'S....S']); patch(G, 28, 33, ['.MM.', 'MmmM']); }
+    } else { face2(G, 20, 24, look.f); patch(G, 28, 32, look.f ? ['sMMs', 'ssss'] : ['MMMM', 'smms']); }
+    folds(G, [[22, 10, 18, 19], [39, 10, 42, 19], [30, 8, 30, 15]], 'h', 'H'); folds(G, [[27, 9, 24, 15], [34, 9, 36, 14]], 'h', 'j');
+  }
+  // 衣褶同站姿（standFolds 的坐标是切掉左边 4 列之后的，这里整体右移 8）
+  folds(G, [[19, 41, 15, 49], [25, 43, 28, 46], [34, 43, 31, 46], [23, 53, 18, 65], [26, 54, 24, 65], [34, 53, 36, 65]], 'r', 'R');
+  folds(G, [[40, 41, 44, 49], [38, 54, 41, 65]], 'rR', 'D');
+  folds(G, [[32, 55, 33, 64], [17, 42, 14, 48]], 'r', 'q');
+  for (let y = 40; y < G.length; y++) for (let x = 38; x < G[y].length; x++) if (G[y][x] === 'q') G[y][x] = 'r';
+  return G;
+}
 // 对决小人。who：人物 id（同 ART.portrait）| { look, realm }（主角）| { hair, skin, f, robe, trim }（路人换色）
 // frame：'idle0' 'idle1' 'windup' 'strike' 'hit' 'down' 或 0～5（另有不持剑的 'stand0' 'stand1'，访客用）；flip 为真时面朝左（锚点 x 变为 26）
 ART.fighter = function (who, frame, flip, alt) {
@@ -2507,9 +2710,16 @@ ART.fighter = function (who, frame, flip, alt) {
     const g = charGrid(STAND_BODY, look.f, look.hero);
     for (const m of mods) FMOD[m](g);
     if (frame === 'hit' || frame === 'down') { for (const x of [11, 12, 17, 18]) for (const y of [12, 13, 14]) put(g, x, y, 's'); for (const [x, y] of frame === 'hit' ? [[11, 12], [12, 13], [11, 14], [18, 12], [17, 13], [18, 14]] : [[11, 13], [12, 13], [17, 13], [18, 13]]) put(g, x, y, 'E'); }
-    const c = render(fighterGrid(g, frame), palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, pal)));
+    const P0 = palette(look, robe, trim, Object.assign({ o: '#d8ccb0', O: '#a89878', K: '#2c2a36', x: '#aeb8c8', X: '#e8eef6', n: '#5a4030' }, pal));
+    const c = render(fighterGrid(g, frame), P0);
+    // HD-2D：2 倍密度重画稿。主角和没改头脸的人物重画五官；戴帽 / 闭眼 / 蒙面这些改过头的只重画衣褶和剑
+    const plain = mods.some(m => ['shut', 'hat', 'cap', 'horns', 'ears'].includes(m));
+    const hd = () => { const c2 = render(pad2(fighterGrid2(fighterBase2(g, look, frame, plain), frame)), Object.assign({ W: '#ffffff', I: lerpC(look.hair, '#5a3a2a', 0.5), z: '#77829c', N: '#3a2a22' }, P0)); c2._hd = 2; return c2; };
+    c._hdNative = hd;
     if (!flip) return c;
-    const f = mk(c.width, c.height), fg = f.getContext('2d'); fg.translate(c.width, 0); fg.scale(-1, 1); fg.drawImage(c, 0, 0); return f;
+    const f = mk(c.width, c.height), fg = f.getContext('2d'); fg.translate(c.width, 0); fg.scale(-1, 1); fg.drawImage(c, 0, 0);
+    f._hdNative = () => { const n = hd(), f2 = mk(n.width, n.height), g2 = f2.getContext('2d'); g2.translate(n.width, 0); g2.scale(-1, 1); g2.drawImage(n, 0, 0); f2._hd = 2; return f2; };
+    return f;
   });
 };
 
@@ -2661,6 +2871,26 @@ ART.drawDuelStage = function (kind, t, OY) {
 };
 ART.duelStages = () => Object.keys(STAGES);
 
+// 老祖小人的 2 倍密度重画稿（48×56）：左半边字符图 + 镜像。w 发亮 W 发 v 发丝暗线 V 发的深影；h 肤亮 s 肤 S 肤影 E 眼；i j J 玉冠；q r R D 袍四级
+const ELDER_SP2 = [
+  '', 'wW', 'wwWW', 'wWWWW', 'wWWvW', 'iiijjjjj', 'JjjjJ',
+  'wwWWvWW', 'wwWWWWvWW', 'wwWWWWWvWWW', 'wWWWWWWvWWWW', 'wWWWWWWvWWWWW', 'wWWWWWvWWWWWv', 'wWWWWWvWWWWWvW', 'wWWWWvWWWWWvWW',
+  'wWWWWvWWWvVsss', 'wWWWvWWWvVsshhh', 'wWWWvWWvVsshhhs', 'wWWWvWwwwwwwwss', 'wWWvWwwvSSSSSss', 'wWWvwwvsEEEEEss', 'wWWvwwvSsssssss', 'wWWvwwvssssssss',
+  'wWWvWwwvshhsssS', 'wWWWvwwvsswwwww', 'wWWWvVvsswwWWWW', 'WWWvVVSwwWsmmm', 'vWWVVvwWWWWWWW',
+  'RVVwWWWWWWW', 'qqrRwWWWWWWWW', 'qqrrrRwWWWWWWW', 'qqrrrrrDwWWWWWW', 'qrrrrrrrDwWWWWWW', 'qrrrrRrrrRDwWWWWW', 'qrrrRrrrrrRwWWWWW', 'rrrRrrrqqqqrDwWWW', 'rRrrRrqqrrrrrDwWW', 'rRRrrrrrrRRRRRDwW', 'RRRrrrrrRRrrrrDWW', 'RRRRrrRRrrrrrrrD', 'DRRrrrrrrR', 'DRrrrrrR',
+];
+function elderSp2(b2, frame) {
+  const W = '#f0f9ff', pal = { w: '#ffffff', W, v: '#c2cdea', V: '#96a6d6', h: '#c2e0f8', s: '#a6cdee', S: '#84aadc', E: '#27357a', m: '#6f8fcf', i: '#c8fff0', j: '#5fd3b0', J: '#2a8a7a', q: '#c0dcff', r: '#7aa8e0', R: '#5486c6', D: '#3f6aa8' };
+  b2.clear();
+  const dy = frame ? 0 : 2, tail = frame ? [[24, 40], [28, 46], [22, 50], [26, 55]] : [[24, 42], [20, 46], [26, 50], [22, 55]];
+  for (let i = 0; i < 3; i++) { b2.l(tail[i][0] - 3 + i, tail[i][1], tail[i + 1][0] - 3 + i, tail[i + 1][1], pal.r, 6 - i * 2); }
+  for (let i = 0; i < 3; i++) { b2.l(tail[i][0] - 3 + i, tail[i][1], tail[i + 1][0] - 3 + i, tail[i + 1][1], pal.q, 1); b2.l(tail[i][0] + 2 - i, tail[i][1], tail[i + 1][0] + 2 - i, tail[i + 1][1], pal.D, 1); }
+  b2.m(0, dy, mirRows(ELDER_SP2, 48, { w: 'W', q: 'r', h: 's', i: 'j' }), pal);
+  for (const [x0, y0, x1, y1] of [[17, 28, 21, 35], [20, 27, 23, 38], [24, 30, 24, 40], [28, 27, 25, 37], [31, 28, 27, 35]]) b2.tl(x0, y0 + dy, x1, y1 + dy, pal.v, [W]);   // 长须的几缕
+  b2.tl(15, 28 + dy, 21, 38 + dy, pal.w, [W]);
+  // 右半边（背光）：发缘、袍缘压一级
+  b2.edge([W], 1, 0, pal.v).edge([pal.r], 1, 0, pal.R).edge([pal.r, pal.R], 0, 1, pal.D);
+}
 // ---------- 场景里飘出的老祖：24×28，两帧浮动 ----------
 ART.elderSprite = function (frame) {
   frame = frame ? 1 : 0;
@@ -2675,11 +2905,12 @@ ART.elderSprite = function (frame) {
     b.r(8, 10 + dy, 2, 1, '#27357a'); b.r(14, 10 + dy, 2, 1, '#27357a'); b.hl(7, 10, 9 + dy, W); b.hl(13, 16, 9 + dy, W); b.p(6, 10 + dy, W); b.p(17, 10 + dy, W);
     b.add(L => { L.sy(12 + dy, '3432211', W, 12); });
     b.l(9, 16 + dy, 11, 19 + dy, '#e6f6ff'); b.l(14, 16 + dy, 12, 19 + dy, '#e6f6ff');
+    b.hd = b2 => elderSp2(b2, frame);
     const src = b.cv({ ink: '#27357a', max: 12 }), c = mk(24, 28), g = c.getContext('2d');
     g.globalAlpha = 0.94; g.drawImage(src, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out';
     for (let y = 21; y < 28; y++) for (let x = 0; x < 24; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 20) * 2) g.fillRect(x, y, 1, 1);
     // HD-2D：2 倍密度稿同样半透明、下摆按 2 倍的抖动散成烟（颗粒细一半）
-    c._buf = b; c._hdNative = () => { const s2 = src._hdNative(), c2 = mk(48, 56), g2 = c2.getContext('2d'); g2.globalAlpha = 0.94; g2.drawImage(s2, 0, 0); g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-out'; for (let y = 42; y < 56; y++) for (let x = 0; x < 48; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 40)) g2.fillRect(x, y, 1, 1); c2._hd = 2; return c2; };
+    c._buf = b; c._hdNative = () => { const s2 = src._hdNative(), c2 = mk(48, 56), g2 = c2.getContext('2d'); g2.globalAlpha = 0.94; g2.drawImage(s2, 0, 0); g2.globalAlpha = 1; g2.globalCompositeOperation = 'destination-out'; for (let y = 42; y < 56; y++) for (let x = 0; x < 48; x++) if (BAYER[(x & 3) + (y & 3) * 4] < (y - 40)) g2.fillRect(x, y, 1, 1); c2._hd = 2; c2._relit = s2._relit; return c2; };
     return c;
   });
 };
@@ -3380,7 +3611,8 @@ const T3 = c => tone(c, hs(c, 0.66), lerpC(c, '#ffffff', 0.5)), EARIN = '#f7a3bd
 // 四足：兔、狐、熊、虎、白泽、谛听、麒麟
 function petQuad(b, P, f) {
   const c = T3(P.c), leg = P.leg || 2, bry = P.bry || 4.5, brx = P.brx || 7, bx = P.bx || 18, by = 27 - leg - bry, hr = P.hr || 5.5, hx = P.hx || 8, hy = Math.round(by - bry * 0.55) + f, tc = T3(P.tc || P.c), tx = bx + brx - 1, tips = [], el = P.el || 6;
-  if (P.pre) P.pre(b, f);
+  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
+  b.hd = b2 => quadHd(b2, P, f, X);
   b.add(L => {
     const n = P.tails || 1;
     if (P.tail === 'puff') L.e(tx + 1.5, by - 1, 2.3, 2.3, tc);
@@ -3412,13 +3644,133 @@ function petQuad(b, P, f) {
   if (P.horn) b.add(L => { L.l(hx - 2, et + 1, hx - 3, et - 4, T3(P.horn), 2); if (P.horn2) { L.l(hx + 2, et + 1, hx + 4, et - 4, P.horn, 2); L.p(hx - 5, et - 2, P.horn); L.p(hx + 6, et - 2, P.horn); L.p(hx + 1, et - 3, P.horn); } });
   if (P.mark) b.r(hx - 2, et + 1, 2, 1, P.mark);
   if (P.aura) for (const x of [bx - brx, bx + brx - 3]) { b.r(x, 25, 4, 2, P.aura); b.r(x + 1 + f, 23, 2, 2, P.aura); b.p(x + 1, 25, '#fff2a8'); }
-  if (P.post) P.post(b, f, hx, hy, bx, by);
+  if (P.post) X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by));
   return [hx, et - (P.ear === 'long' ? el - 1 : P.horn ? 5 : 3)];
 }
 // 禽：雀、隼、鹤、金乌
+// ---- 灵宠的 2 倍密度重画（HD-2D）----
+// 冷暗部 / 亮部：白羽白毛的暗部往蓝紫里走，不用灰
+const cs = (c, k) => (lum(c) > 190 ? lerpC(c, '#8aa2da', k === 2 ? 0.58 : 0.3) : lerpC(hs(c, k === 2 ? 0.58 : 0.78), '#3a3470', k === 2 ? 0.16 : 0.06));
+const ch = (c, k) => lerpC(c, '#ffffff', k || 0.55);
+// 只取 fn 画上去的那些像素（各形态自带的 pre / post 小件），返回一张单独的 1 倍缓冲
+function petExtra(b, fn) { const s = b.d.slice(); fn(); const e = new Buf(b.w, b.h); for (let i = 0; i < s.length; i++) if (b.d[i] !== s[i] && b.d[i]) e.d[i] = b.d[i]; return e; }
+function stamp2(b2, e) { if (!e) return; const x = e.x2(); for (let i = 0; i < x.d.length; i++) if (x.d[i]) b2.d[i] = x.d[i]; }
+// 鹤（带长颈的禽）：整张按 64×56 重画——红顶、长喙、S 形的颈、三层覆羽、垂下来的尾羽、带膝节的细腿
+function craneHd(b2, P, f, X) {
+  const c = P.c, c1 = cs(c, 1), c2 = cs(c, 2), w = P.w || hs(c, 0.8), w1 = cs(w, 1), w2 = cs(w, 2), wh = ch(w, 0.6), t = P.t || w, t1 = cs(t, 1), th = ch(t, 0.4), lc = P.lc || '#e8a040', l1 = cs(lc, 1), lh = ch(lc, 0.35), bk = P.bk || '#f4c542', cr = P.crest;
+  b2.clear(); stamp2(b2, X.pre);
+  // 远侧的腿
+  b2.r(36, 38, 2, 15, l1); b2.r(34, 52, 4, 2, l1); b2.p(37, 45, lc);
+  // 尾羽：三缕垂下来的长羽
+  for (const [pts, col] of [[[[42, 30], [50, 32], [56, 38]], t], [[[42, 33], [49, 36], [54, 43]], t1], [[[40, 35], [46, 39], [50, 44]], t]]) taper(b2, pts, 4, 1, col);
+  b2.tl(43, 30, 50, 31, th, [t]); b2.tl(51, 32, 55, 36, th, [t]); b2.tl(42, 35, 46, 38, th, [t]);
+  if (P.tip) for (const [x, y] of [[56, 38], [54, 43], [50, 44]]) { b2.p(x, y, P.tip); b2.p(x - 1, y - 1, P.tip); }
+  // 身：蛋形，腹下一层暗
+  b2.e(34, 33, 11, 7.4, c); b2.e(29, 31, 6, 6, c);
+  b2.ball([c], 33, 32, 12, 8, [ch(c, 0.8), null, null, c1, c2], { th: [0.9, 0.62, 0.02, -0.34] });
+  // 颈：S 形
+  taper(b2, [[28, 29], [25, 25], [25, 19], [23, 14]], 5, 4, c);
+  for (let y = 15; y <= 28; y++) for (let x = 20; x <= 31; x++) if (b2.at(x, y) === c && !b2.at(x + 1, y)) { b2.p(x, y, c2); if (b2.at(x - 1, y) === c) b2.p(x - 1, y, c1); }
+  for (let y = 15; y <= 26; y++) for (let x = 20; x <= 31; x++) if (b2.at(x, y) === c && !b2.at(x - 1, y)) b2.p(x, y, ch(c, 0.8));
+  // 头、喙、顶
+  b2.e(21.5, 12.5, 4.6, 4.2, c); b2.ball([c], 21.5, 12.5, 4.6, 4.2, [null, null, null, c1, c1]);
+  const bl = (P.bl || 0) * 2, bx0 = 13 - bl;
+  b2.hl(bx0 + 3, 17, 12, bk); b2.hl(bx0, 17, 13, bk); b2.hl(bx0 + 4, 17, 14, hs(bk, 0.66)); b2.hl(15, 17, 11, ch(bk, 0.5)); b2.p(bx0, 13, hs(bk, 0.8));
+  if (P.hook) { b2.p(bx0, 14, bk); b2.p(bx0 + 1, 14, bk); }
+  b2.r(20, 11, 2, 2, INK); b2.p(20, 11, '#ffffff'); if (P.eye) b2.p(21, 12, P.eye);
+  if (cr) { b2.hl(20, 23, 8, cr); b2.hl(19, 24, 9, cr); b2.hl(20, 22, 7, ch(cr, 0.45)); b2.p(24, 10, hs(cr, 0.7)); b2.p(25, 10, hs(cr, 0.7)); if (P.crest2) { taper(b2, [[24, 8], [27, 5], [30, 3]], 2, 1, cr); b2.p(30, 2, ch(cr, 0.6)); } }
+  // 翅
+  if (!f) {
+    b2.e(37, 34, 8.5, 4.6, w); taper(b2, [[40, 34], [45, 36], [49, 38]], 4, 1, w);
+    for (let y = 28; y <= 40; y++) for (let x = 27; x <= 50; x++) { const k = b2.at(x, y); if (k !== w) continue; if (b2.at(x, y - 1) !== w && b2.at(x, y - 1) !== wh) b2.p(x, y, wh); else if (b2.at(x, y + 1) !== w && b2.at(x, y + 1) !== w2) b2.p(x, y, w2); }
+    // 三层覆羽：一排排扇贝形的暗边
+    for (const [y0, x0, x1] of [[33, 31, 43], [35, 33, 46], [37, 36, 48]]) for (let x = x0; x <= x1; x++) { const k = (x - x0) % 4; b2.tint([[x, y0 + (k === 0 ? -1 : k === 2 ? 1 : 0)]], w1, [w]); }
+    if (P.edge) for (const [x, y] of [[44, 37], [47, 38], [49, 38], [41, 38]]) b2.p(x, y, P.edge);
+  } else {   // 第二帧：翅扬起来，五根飞羽扇开
+    for (let i = 4; i >= 0; i--) { const tx = 40 + i * 4.4, ty = 17 + i * 4.2, col = i % 2 ? w1 : w; taper(b2, [[35, 31], [(35 + tx) / 2 + 1, (31 + ty) / 2 - 2], [tx, ty]], 4, 2, col); b2.tl(36, 30, Math.round(tx), Math.round(ty) - 1, wh, [col]); if (P.edge) b2.p(Math.round(tx), Math.round(ty), P.edge); }
+    b2.e(35, 32, 4.5, 3.5, w); b2.tl(32, 30, 37, 29, wh, [w]); b2.tl(33, 35, 38, 35, w2, [w]);
+  }
+  // 近侧的腿：膝节、三趾
+  b2.r(30, 39, 2, 14, lc); b2.r(30, 39, 1, 14, lh); b2.p(32, 45, lc); b2.p(32, 46, l1); b2.hl(27, 31, 53, lc); b2.hl(28, 30, 52, lc); b2.p(27, 53, lh); b2.p(32, 53, l1);
+  stamp2(b2, X.post);
+}
+// 四足（兔、狐、熊、虎、白泽、谛听、麒麟）：整张按 64×56 重画——骨架与 petQuad 相同（坐标翻倍），圆润的头身、三级毛色、收尖的虎纹、分趾的爪、带虹膜和高光的眼
+function quadHd(b2, P, f, X) {
+  const c = P.c, c1 = cs(c, 1), c2 = cs(c, 2), chh = ch(c, 0.6), leg = (P.leg || 2) * 2, bry1 = P.bry || 4.5, brx1 = P.brx || 7, bx1 = P.bx || 18, by1 = 27 - (P.leg || 2) - bry1, hr1 = P.hr || 5.5, hx1 = P.hx || 8, hy1 = Math.round(by1 - bry1 * 0.55) + f;
+  const bry = bry1 * 2, brx = brx1 * 2, bx = bx1 * 2, by = by1 * 2, hr = hr1 * 2, hx = hx1 * 2, hy = hy1 * 2, tc = P.tc || P.c, t1 = cs(tc, 1), th = ch(tc, 0.55), tx = bx + brx - 2, el = (P.el || (P.ear === 'long' ? 6 : 4)) * 2, et = Math.round(hy1 - hr1) * 2;
+  b2.clear(); stamp2(b2, X.pre);
+  const fill = (fn) => { const L = new Buf(b2.w, b2.h); fn(L); return L; }, put = L => { for (let i = 0; i < L.d.length; i++) if (L.d[i]) b2.d[i] = L.d[i]; };
+  // 尾
+  { const n = P.tails || 1;
+    if (P.tail === 'puff') { b2.e(tx + 5, by - 2, 4.8, 4.8, tc); b2.e(tx + 7, by - 5, 2.4, 2.4, tc); b2.ball([tc], tx + 5, by - 3, 6, 6, [th, th, null, t1, t1]); }
+    else if (P.tail === 'bushy') for (let i = 0; i < n; i++) {
+      const a = -1.15 + (n > 1 ? (i / (n - 1) - 0.5) * (n > 3 ? 2.6 : 1.5) : 0) - f * 0.07, ll = (n > 3 ? 9.5 : n > 1 ? 8 : 6.5) * 2, ex = tx + Math.cos(a) * ll * 0.8, ey = by - 2 + Math.sin(a) * ll, cc = i % 2 ? lerpC(tc, '#ffffff', 0.45) : tc, r = (n > 1 ? 1.8 : 2.4) * 2 + 0.4;
+      const L = fill(T => { taper(T, [[tx - 2, by - 2], [(tx + ex) / 2 + 2, (by + ey) / 2 + 1], [ex, ey]], n > 3 ? 4 : 6, n > 3 ? 4 : 7, cc); T.e(ex + 0.5, ey + 0.5, r, r, cc); });
+      L.edge([cc], -1, 0, ch(cc, 0.6)).edge([cc], 1, 0, cs(cc, 1)); put(L);
+      if (P.tip) { const tp = P.tip, L2 = fill(T => T.e(ex + 0.5 + Math.cos(a) * 3.4, ey + 0.5 + Math.sin(a) * 3.4, r - 1.2, r - 1.2, tp)); for (let k = 0; k < L2.d.length; k++) if (L2.d[k] && b2.d[k] && [cc, ch(cc, 0.6), cs(cc, 1)].includes(b2.d[k])) b2.d[k] = tp; }
+    } else if (P.tail === 'thin') {
+      const pts = [[tx, by + 1], [tx + 6, by - 1], [tx + 8 - f * 2, by - 8], [tx + 8 - f * 2, by - 15]], L = fill(T => taper(T, pts, 4, 3, tc));
+      L.edge([tc], -1, 0, th).edge([tc], 1, 0, t1);
+      if (P.stripe) for (let k = 0; k < 4; k++) { const y = by - 4 - k * 3; for (let x = tx + 3; x < tx + 13; x++) if (L.at(x, y)) L.p(x, y, P.stripe); }
+      if (P.tip) { const ty = by - 15, x0 = tx + 8 - f * 2; for (let y = ty - 2; y <= ty + 2; y++) for (let x = x0 - 2; x <= x0 + 3; x++) if (L.at(x, y)) L.p(x, y, P.tip); L.e(x0 + 1, ty - 1, 2.3, 2.6, P.tip); L.p(x0, ty - 2, ch(P.tip, 0.6)); }
+      put(L);
+    } else if (P.tail === 'stub') { b2.e(tx + 3, by - 4, 3.4, 3.4, tc); b2.ball([tc], tx + 3, by - 4, 3.4, 3.4, [th, null, null, t1, t1]); }
+  }
+  // 远侧的腿
+  for (const x of [bx - brx + 8, bx + brx - 10]) { b2.r(Math.round(x), Math.round(by + bry - 4), 4, leg + 3, c2); if (P.hoof) b2.r(Math.round(x), 52, 4, 2, cs(P.hoof, 1)); }
+  if (P.wing) { const wc = P.wing, w1 = cs(wc, 1), L = fill(T => { for (let i = 3; i >= 0; i--) taper(T, [[bx - 3 + i * 2, by - bry + 4], [bx + 2 + i * 6, by - bry - 14 + i * 4 - f * 2]], 4, 2, i % 2 ? w1 : wc); }); L.edge([wc], -1, 0, ch(wc, 0.6)); put(L); }
+  // 身、胸、近侧的腿
+  const body = fill(T => { T.e(bx, by, brx, bry, c); T.e(bx - brx + 5, by - 1, 7, bry, c); for (const x of [bx - brx + 2, bx + brx - 5]) { T.r(x, Math.round(by + bry - 6), 4, leg + 6, c); T.r(x - 1, 51, 5, 2, c); } });
+  body.ball([c], bx - 1, by - 1, brx + 2, bry + 1.5, [chh, null, null, c1, c2], { th: [0.95, 0.7, 0.12, -0.3] });
+  for (const x of [bx - brx + 2, bx + brx - 5]) { for (let y = Math.round(by + bry - 1); y <= 52; y++) { body.p(x, y, y > by + bry + 1 ? chh : c); body.p(x + 1, y, c); body.p(x + 2, y, c); body.p(x + 3, y, c1); } body.p(x - 1, 51, c); body.p(x - 1, 52, c); body.p(x + 1, 52, c1); body.p(x + 3, 52, c2);
+    if (P.hoof) { body.r(x - 1, 51, 5, 2, P.hoof); body.p(x - 1, 51, ch(P.hoof, 0.5)); } }
+  if (P.b) { const bc = P.b; body.map((x, y, k) => { if (![c, c1, c2].includes(k)) return; const u = (x + 0.5 - bx) / (brx - 2), v = (y + 0.5 - (by + bry)) / (bry * 0.62); if (u * u + v * v < 1 && y <= by + bry) return v > -0.35 ? cs(bc, 1) : bc; }); }
+  if (P.stripe) { const sc = P.stripe; for (let x1 = bx1 - brx1 + 5; x1 < bx1 + brx1 - 1; x1 += 3) { const x = x1 * 2; for (let k = 0; k <= bry + 3; k++) { const w = k < 3 ? 2 : k < bry ? 3 : k < bry + 2 ? 2 : 1, xx = Math.round(x - k * 0.22); for (let i = 0; i < w; i++) if ([c, c1, chh].includes(body.at(xx + i, Math.round(by - bry) + k))) body.p(xx + i, Math.round(by - bry) + k, sc); } }
+    for (const x of [bx - brx + 2, bx + brx - 5]) for (const y of [46, 49]) if (y > by + bry) { body.tint([[x + 1, y], [x + 2, y], [x + 3, y]], sc); } }
+  put(body);
+  if (P.plate) { const pc = P.plate, L = fill(T => { T.e(bx + 1, by - 2, brx - 1, bry - 1, pc); T.r(0, Math.round(by), 64, 30, null); }); L.ball([pc], bx + 1, by, brx - 1, bry + 1, [ch(pc, 0.7), ch(pc, 0.35), null, cs(pc, 1), cs(pc, 2)], { th: [0.95, 0.8, 0.4, 0.1] }); for (let y = 0; y < 56; y++) for (let x = 0; x < 64; x++) if (L.at(x, y) && !L.at(x, y + 1)) L.p(x, y, cs(pc, 2)); for (let x = bx - brx + 6; x < bx + brx - 3; x += 6) { L.tint([[x, Math.round(by) - 3]], ch(pc, 0.8)); L.tint([[x + 1, Math.round(by) - 3]], cs(pc, 2)); } for (const x of [bx - 5, bx + 6]) for (let y = Math.round(by - bry); y < by - 1; y++) L.tint([[x, y]], cs(pc, 1), [pc, ch(pc, 0.35)]); put(L); }
+  if (P.spike) for (let x1 = Math.round(bx1 - brx1 + 4); x1 <= bx1 + brx1 - 2; x1 += 3) { const x = x1 * 2, y = Math.round(by1 - bry1 - 2) * 2; for (let k = 0; k < 7; k++) { const w = k < 2 ? 1 : k < 4 ? 2 : k < 6 ? 3 : 4; for (let i = 0; i < w; i++) b2.p(x + 1 - (w >> 1) + i, y - 2 + k, i === 0 ? ch(P.spike, 0.6) : i === w - 1 && w > 2 ? cs(P.spike, 1) : P.spike); } }
+  // 鬃
+  if (P.mane) { const mc = P.mane, m1 = cs(mc, 1), L = fill(T => { T.e(hx + 5, hy + 1, hr + 2, hr + 2, mc); for (let i = 0; i < 9; i++) { const a = 0.45 + f * 0.15 + i * Math.PI * 2 / 9; taper(T, [[hx + 5 + Math.cos(a) * hr, hy + 1 + Math.sin(a) * hr], [hx + 5 + Math.cos(a) * (hr + 7), hy + 1 + Math.sin(a) * (hr + 7)]], 5, 1, mc); } });
+    L.ball([mc], hx + 5, hy + 1, hr + 8, hr + 8, [ch(mc, 0.5), null, null, m1, m1], { th: [0.92, 0.6, 0.1, -0.3] }); for (let i = 0; i < 9; i++) { const a = 0.75 + f * 0.15 + i * Math.PI * 2 / 9; L.tl(Math.round(hx + 5 + Math.cos(a) * (hr - 3)), Math.round(hy + 1 + Math.sin(a) * (hr - 3)), Math.round(hx + 5 + Math.cos(a) * (hr + 3)), Math.round(hy + 1 + Math.sin(a) * (hr + 3)), m1, [mc]); } put(L); }
+  // 耳、头
+  const ei = P.ei || EARIN, head = fill(T => {
+    if (P.ear === 'long') { for (const [x0, y0, hgt] of [[hx - 6, Math.round(hy1 - hr1 - el / 2 + 2) * 2, el + 3], [hx + 2, Math.round(hy1 - hr1 - el / 2 + 3) * 2, el + 1]]) for (let k = 0; k < hgt; k++) { const w = k < 1 ? 2 : k < 3 ? 3 : 4; T.hl(x0 + (4 - w >> 1), x0 + (4 - w >> 1) + w - 1, y0 + k, c); } }
+    else if (P.ear === 'round') { T.e(hx - 7, hy - hr + 2.4, 4, 4, c); T.e(hx + 7, hy - hr + 2.4, 4, 4, c); }
+    else for (let k = 0; k < el; k++) { const y = Math.round(hy1 - hr1 - el / 2 + 2) * 2 + k, w = Math.min(7, k + 1); T.hl(hx - 8, hx - 8 + w - 1, y, c); T.hl(hx + 7 - w + 1, hx + 7, y, c); }
+    T.e(hx, hy, hr, hr - 1.2, c);
+  });
+  head.ball([c], hx, hy, hr + 1, hr, [chh, null, null, c1, c2], { th: [0.95, 0.68, 0.1, -0.32] });
+  if (P.ear === 'long') { for (const [x0, y0, hgt] of [[hx - 6, Math.round(hy1 - hr1 - el / 2 + 2) * 2, el + 3], [hx + 2, Math.round(hy1 - hr1 - el / 2 + 3) * 2, el + 1]]) { for (let k = 3; k < hgt - 4; k++) { head.p(x0 + 1, y0 + k, ei); head.p(x0 + 2, y0 + k, cs(ei, 1)); } for (let k = 0; k < hgt - 3; k++) head.tint([[x0 + 3, y0 + k]], c1, [c]); } }
+  else if (P.ear === 'round') { head.e(hx - 7, hy - hr + 2.6, 2, 2, cs(c, 2)); head.e(hx + 7, hy - hr + 2.6, 2, 2, cs(c, 2)); }
+  else { const y0 = Math.round(hy1 - hr1 - el / 2 + 2) * 2; for (let k = 2; k < el; k++) { const w = Math.min(4, k - 1); head.hl(hx - 7, hx - 7 + w - 1, y0 + k, ei); head.hl(hx + 6 - w + 1, hx + 6, y0 + k, k % 2 ? ei : cs(ei, 1)); } }
+  if (P.stripe) { const sc = P.stripe; for (const dx of [-3, 0, 3]) head.tl(hx + dx, et + 1, hx + dx, et + (dx ? 3 : 4), sc, [c, chh, c1]); head.tl(hx + 6, hy + 1, hx + hr - 1, hy, sc, [c, c1, c2]); head.tl(hx + 6, hy + 4, hx + hr - 2, hy + 4, sc, [c, c1, c2]); }
+  put(head);
+  // 吻、鼻、口、眼
+  const mz = P.mz || lerpC(P.c, '#ffffff', 0.7), mzL = fill(T => T.e(hx - 6, hy + 4.4, 5.4, 3.9, mz)); mzL.edge([mz], 0, 1, cs(mz, 1)); for (let i = 0; i < mzL.d.length; i++) if (mzL.d[i] && b2.d[i]) b2.d[i] = mzL.d[i];
+  const nose = P.nose || '#3a2230'; b2.r(hx - 11, hy + 2, 3, 2, nose); b2.p(hx - 11, hy + 2, lerpC(nose, '#ffffff', 0.4)); b2.p(hx - 10, hy + 4, nose); b2.tint([[hx - 11, hy + 5], [hx - 9, hy + 5], [hx - 8, hy + 5], [hx - 7, hy + 4]], cs(mz, 2), [mz, cs(mz, 1)]);
+  const eye = P.eye, ex = hx - 3, ey = hy - 4;
+  b2.r(ex, ey, 4, 4, INK); b2.p(ex, ey + 3, eye || '#4a3a5a'); b2.p(ex + 3, ey + 3, eye || '#4a3a5a'); if (eye) { b2.r(ex + 1, ey + 2, 3, 2, eye); b2.p(ex + 2, ey + 2, INK); } b2.p(ex, ey, '#ffffff'); b2.p(ex + 1, ey, '#ffffff'); b2.p(ex, ey + 1, '#ffffff');
+  b2.r(hx - 9, ey, 2, 4, INK); b2.p(hx - 9, ey, '#ffffff'); if (eye) b2.p(hx - 8, ey + 3, eye);
+  if (P.horn) { const hc = P.horn, L = fill(T => { taper(T, [[hx - 4, et + 3], [hx - 5, et - 3], [hx - 7, et - 8]], 4, 1, hc); if (P.horn2) { taper(T, [[hx + 4, et + 3], [hx + 6, et - 3], [hx + 9, et - 8]], 4, 1, hc); taper(T, [[hx - 6, et - 3], [hx - 10, et - 5]], 2, 1, hc); taper(T, [[hx + 7, et - 3], [hx + 12, et - 4]], 2, 1, hc); taper(T, [[hx + 6, et - 4], [hx + 3, et - 7]], 2, 1, hc); } }); L.edge([hc], -1, 0, ch(hc, 0.7)).edge([hc], 1, 0, cs(hc, 1)); put(L); }
+  if (P.mark) { b2.r(hx - 4, et + 2, 4, 2, P.mark); b2.r(hx - 3, et + 1, 2, 4, P.mark); b2.p(hx - 3, et + 2, ch(P.mark, 0.6)); }
+  if (P.aura) for (const x1 of [bx1 - brx1, bx1 + brx1 - 3]) { const x = Math.round(x1) * 2, A = P.aura; for (const [dx, y0, y1] of [[0, 50, 53], [1, 48, 53], [2, 46 - f, 53], [3, 44 - f * 2, 53], [4, 46, 53], [5, 47 + f, 53], [6, 49, 53], [7, 51, 53]]) for (let y = y0; y <= y1; y++) b2.p(x + dx, y, A); for (const [dx, y0] of [[2, 50], [3, 48], [4, 50], [5, 51]]) for (let y = y0; y <= 53; y++) b2.p(x + dx, y, '#fff2a8'); b2.p(x + 3, 52, '#ffffff'); }
+  stamp2(b2, X.post);
+}
+// 雀、隼、金乌：同一套画法在 64×56 上重新落笔之后，补眼（带高光）、喙的明暗、身上的体积
+function birdHd(b2, P, f) {
+  const c = P.c, leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), hr = P.hr || 3.4, hx = bx - brx + 1, hy = by - bry + 0.5 + (P.fly ? 0 : f);
+  b2.ball([c], bx * 2, by * 2, brx * 2 + 1, bry * 2 + 1, [ch(c, 0.6), null, null, cs(c, 1), cs(c, 2)], { th: [0.94, 0.7, 0.05, -0.35], box: [bx * 2 - brx * 2 - 1, by * 2 - bry * 2 - 1, bx * 2 + brx * 2, by * 2 + bry * 2] });
+  b2.ball([c], hx * 2, hy * 2, hr * 2 + 0.5, hr * 2 + 0.5, [ch(c, 0.6), null, null, null, cs(c, 1)], { th: [0.9, 0.7, 0.05, -0.3], box: [hx * 2 - hr * 2 - 1, hy * 2 - hr * 2 - 1, hx * 2 + hr * 2, hy * 2 - 1] });
+  const ix = Math.round(hx - hr), iy = Math.round(hy), ex = (ix + 2) * 2, ey = (iy - 1) * 2, bk = P.bk || '#f4c542';
+  b2.r(ex, ey - (P.eye ? 2 : 0), 2, P.eye ? 4 : 2, INK); if (P.eye) { b2.r(ex, ey, 2, 2, P.eye); b2.p(ex + 1, ey + 1, INK); } b2.p(ex, ey - (P.eye ? 2 : 0), '#ffffff');
+  b2.map((x, y, k) => { if (k === bk && x < ix * 2 + 2 && !b2._at0(x, y - 1)) return ch(bk, 0.5); });
+}
 function petBird(b, P, f) {
   const c = T3(P.c), wc = T3(P.w || hs(P.c, 0.8)), leg = P.leg || 3, bry = P.bry || 4, brx = P.brx || 5.5, bx = P.bx || 16, by = 27 - leg - bry - (P.fly ? 3 + f : 0), nk = P.neck || 0, hr = P.hr || 3.4, hx = bx - brx + 1 - (nk ? 2 : 0), hy = by - bry + 0.5 - nk + (nk || P.fly ? 0 : f), tcol = T3(P.t || P.w || P.c), tl = P.tl || 4, lc = P.lc || '#e8a040';
-  if (P.pre) P.pre(b, f);
+  const X = {}, K = !!b.big;   // K：正在 2 倍缓冲上重新落笔（b 是 k2() 的代理）
+  if (P.pre) { if (K) P.pre(b, f); else X.pre = petExtra(b, () => P.pre(b, f)); }
+  if (!K) { b.hd = nk ? b2 => craneHd(b2, P, f, X) : b2 => { b2.clear(); petBird(b2.k2(), P, f); birdHd(b2, P, f); }; if (!nk) b.relit = 0.2; }
   if (P.fly || P.span) b.add(L => { for (let i = 0; i < 5; i++) L.l(bx - 1, by - 1, bx - 6 + i * 2, by - bry - 7 + i + f * 3, dn(wc), 2); }, { flat: 1 });
   b.add(L => { for (let i = 0; i < (P.tn || 2); i++) { if (P.curl) { const y1 = by - 4 - i * 4 + f; L.l(bx + brx - 2, by, bx + brx + 3, y1 + 3, tcol, 2); L.l(bx + brx + 3, y1 + 3, bx + brx + 7, y1, tcol, 2); L.e(bx + brx + 8, y1, 1.6, 1.6, tcol); } else L.l(bx + brx - 2, by + 1, bx + brx - 2 + tl, by + 3 - i * 2, tcol, 2); } });
   if (P.tip) for (let i = 0; i < (P.tn || 2); i++) P.curl ? b.r(Math.round(bx + brx + 8), Math.round(by - 4 - i * 4 + f), 1, 1, P.tip) : b.p(Math.round(bx + brx - 2 + tl), Math.round(by + 3 - i * 2), P.tip);
@@ -3434,23 +3786,54 @@ function petBird(b, P, f) {
   b.hl(ix - 1 - (P.bl || 0), ix, iy, bk); b.p(ix, iy + 1, hs(bk, 0.7)); if (P.hook) b.p(ix - 1 - (P.bl || 0), iy + 1, bk);
   b.p(ix + 2, iy - 1, P.eye || INK); if (P.eye) b.p(ix + 2, iy - 2, INK);
   if (P.crest) { b.r(Math.round(hx) - 1, Math.round(hy - hr) - 1, 3, 1, P.crest); if (P.crest2) { b.p(Math.round(hx) + 1, Math.round(hy - hr) - 2, P.crest); b.p(Math.round(hx) + 2, Math.round(hy - hr) - 3, P.crest); } }
-  if (P.post) P.post(b, f, hx, hy, bx, by);
+  if (P.post) { if (K) P.post(b, f, hx, hy, bx, by); else X.post = petExtra(b, () => P.post(b, f, hx, hy, bx, by)); }
   return [Math.round(hx), Math.round(hy - hr) - 2];
+}
+// 龟：整张按 64×56 重画——拱起来的壳分三级明暗、六角甲片一暗一亮两条刻线、壳缘一圈裙边、皱皮的颈、带爪的短腿
+function turtleHd(b2, P, f, X) {
+  const sc = P.c, s1 = cs(sc, 1), s2 = cs(sc, 2), sh = ch(sc, 0.16), shh = ch(sc, 0.36), sk = P.sk || '#9ab078', k1 = cs(sk, 1), k2 = cs(sk, 2), kh = ch(sk, 0.4), rim = P.rim || lerpC(P.c, '#f4e08a', 0.5), r1 = cs(rim, 1), rh = ch(rim, 0.5), hy = 40 + f * 2;
+  b2.clear(); stamp2(b2, X.pre);
+  // 远侧的两条腿、尾
+  b2.r(24, 46, 6, 7, k2); b2.r(45, 46, 6, 7, k2);
+  taper(b2, [[50, 44], [54, 46], [58, 49]], 4, 1, sk); b2.tl(51, 46, 57, 49, k1, [sk]);
+  // 颈与头
+  b2.r(14, hy - 1, 12, 7, sk); for (const x of [17, 20, 23]) { b2.r(x, hy, 1, 5, k1); b2.p(x - 1, hy, kh); }
+  b2.hl(14, 25, hy + 5, k1);
+  b2.e(11.5, hy + 0.5, 6.6, 5.6, sk); b2.ball([sk], 11.5, hy + 0.5, 6.6, 5.6, [kh, kh, null, k1, k2]);
+  b2.r(8, hy - 3, 2, 3, INK); b2.p(8, hy - 3, '#ffffff'); if (P.eye) b2.p(9, hy - 1, P.eye);
+  b2.hl(5, 10, hy + 3, k2); b2.p(11, hy + 2, k2); b2.p(5, hy, k2);
+  // 近侧的腿：三只爪
+  for (const x0 of [17, 39]) { b2.r(x0, 45, 8, 8, sk); b2.r(x0, 45, 2, 8, kh); b2.r(x0 + 6, 45, 2, 8, k1); b2.hl(x0, x0 + 7, 53, k1); for (const dx of [0, 3, 6]) b2.p(x0 + dx, 53, '#efe8d0'); b2.p(x0 + 3, 48, k1); b2.p(x0 + 4, 50, k1); }
+  // 壳
+  for (let y = 27; y <= 45; y++) for (let x = 14; x <= 54; x++) { const u = (x + 0.5 - 34) / 19.6, v = (y + 0.5 - 46) / 18.6; if (u * u + v * v <= 1) b2.p(x, y, sc); }
+  b2.ball([sc], 34, 46, 19.6, 18.6, [shh, sh, null, s1, s2], { th: [0.97, 0.88, 0.42, 0.14] });
+  // 甲片：中间一列三片六角、两侧各两片；每条刻线左上再提一线亮
+  const cut = [[26, 30, 23, 44], [42, 30, 45, 44], [26, 30, 42, 30], [20, 36, 24, 36], [44, 36, 50, 36], [30, 30, 28, 37], [38, 30, 40, 37], [28, 37, 31, 44], [40, 37, 37, 44], [28, 37, 40, 37], [34, 27, 34, 30]];
+  const shell = [sc, s1, s2, sh, shh];
+  for (const q of cut) { b2.tl(q[0], q[1], q[2], q[3], '#00000000', shell); }
+  b2.map((x, y, c) => (c === '#00000000' ? s2 : undefined));
+  for (const q of cut) for (const pt of seg(q[0], q[1], q[2], q[3])) { const c = b2.at(pt[0] - 1, pt[1] - 1); if (c && c !== s2 && shell.includes(c) && pt[0] < 40) b2.p(pt[0] - 1, pt[1] - 1, c === sc ? sh : c === sh ? shh : c === s1 ? sc : c); }
+  if (P.moss) for (const [x, y] of [[22, 34], [30, 28], [46, 34], [38, 36], [32, 39]]) { b2.r(x, y, 3, 2, P.moss); b2.p(x + 1, y - 1, P.moss); b2.p(x, y, ch(P.moss, 0.5)); b2.p(x + 2, y + 1, cs(P.moss, 1)); }
+  // 裙边
+  b2.r(16, 44, 38, 4, rim); b2.hl(16, 53, 44, rh); b2.hl(16, 53, 47, r1); for (let x = 20; x < 53; x += 5) { b2.r(x, 45, 1, 2, r1); } b2.r(50, 44, 4, 4, r1);
+  stamp2(b2, X.post);
 }
 function petTurtle(b, P, f) {
   const sc = T3(P.c), sk = T3(P.sk || '#9ab078'), hy = 20 + f;
-  if (P.pre) P.pre(b, f);
+  const X = {}; if (P.pre) X.pre = petExtra(b, () => P.pre(b, f));
+  b.hd = b2 => turtleHd(b2, P, f, X);
   b.add(L => { L.e(6, hy, 3.4, 3, sk); L.r(7, hy, 5, 3, sk); for (const x of [9, 20]) L.r(x, 23, 4, 4, sk); L.l(25, 22, 28, 24, sk, 2); });
   b.add(L => { L.e(17, 22, 9.5, 9, sc); L.r(0, 23, 32, 6, null); });
   b.add(L => L.r(8, 22, 19, 2, T3(P.rim || lerpC(P.c, '#f4e08a', 0.5))), { sep: 1 });
   const D = dn(sc); for (const [x0, y0, x1, y1] of [[13, 15, 12, 21], [21, 15, 22, 21], [13, 15, 21, 15], [10, 18, 12, 18], [22, 18, 25, 18], [17, 14, 17, 15]]) b.l(x0, y0, x1, y1, D);
   if (P.moss) for (const [x, y] of [[11, 17], [15, 14], [23, 17], [19, 18], [16, 19]]) b.p(x, y, P.moss);
   b.p(4, hy - 1, INK); b.p(4, hy, P.eye || INK);
-  if (P.post) P.post(b, f, 6, hy);
+  if (P.post) X.post = petExtra(b, () => P.post(b, f, 6, hy));
   return [6, hy - 5];
 }
 function petBat(b, P, f) {
   const c = T3(P.c), m = T3(P.w || hs(P.c, 0.8)), big = P.big ? 2 : 0, cy = 13 - f;
+  if (!b.big) { b.hd = b2 => { b2.clear(); petBat(b2.k2(), P, f); b2.eyes(); }; b.relit = 0.2; }
   b.add(L => L.mir(T => { for (let x = 3 - big; x <= 13; x++) { const u = (13 - x) / (10 + big), top = cy - 1 - Math.sin(u * 2.2) * (f ? 2 : 6 + big), hh = 4 + Math.abs(Math.sin(u * 3.14 * 1.5)) * 3 + (1 - u) * 2; for (let y = top; y < top + hh; y++) T.p(x, y, m); } }));
   b.mir(T => { const tx = 3 - big, ty = Math.round(cy - 1 - Math.sin(2.2) * (f ? 2 : 6 + big)); T.l(13, cy, tx, ty, dn(c)); T.l(13, cy, 8, ty + 7, dn(m)); T.l(13, cy, 5, ty + 5, dn(m)); });
   b.add(L => { L.e(16, cy + 3, 3.2, 4.2, c); L.e(16, cy - 2, 3.6, 3.2, c); L.mir(T => { for (let k = 0; k < 4 + big; k++) T.hl(12, 12 + Math.min(2, k), cy - 6 - big + k, c); }); });
@@ -3461,6 +3844,7 @@ function petBat(b, P, f) {
 }
 // 蛟：盘身 + 龙首
 function petJiao(b, P, f) {
+  if (!b.big) { b.hd = b2 => { b2.clear(); petJiao(b2.k2(), P, f); b2.eyes(); }; b.relit = 0.2; }
   const c = T3(P.c), bel = P.b || lerpC(P.c, '#ffffff', 0.6), pts = [[10, 14], [13, 18], [10, 23], [17, 25], [24, 23], [25, 17], [21, 13], [24, 8], [27, 6 + f]], hy = 11 + f;
   if (P.wing) b.add(L => { for (let i = 0; i < 5; i++) L.l(17, 14, 14 + i * 3, 3 + i * 1.5 - f, T3(P.wing), 2); });
   const seg = (L2, r0, col, oy) => { for (let k = 0; k < pts.length - 1; k++) for (let i = 0; i <= 8; i++) { const u = (k + i / 8) / (pts.length - 1), x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * i / 8, y = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * i / 8, r = r0 * (1 - u * 0.7); L2.e(x, y + oy, r, r, col); } };
@@ -3553,6 +3937,7 @@ ART.petSprite = function (sp, form, frame, aw) {
     const b = new Buf(32, 28), top = PLAN[S[2]](b, S[3], frame);
     const c = b.cv({ max: 15 });
     if (aw) on(c, () => { const x = top[0], y = Math.max(1, top[1]); for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; R(x + Math.round(Math.cos(a) * 4), y + Math.round(Math.sin(a) * 1.4), 1, 1, Math.sin(a) > 0.3 ? '#a8742a' : i % 3 ? '#f4c542' : '#fff2a8'); } });
+    if (aw && c._hdNative) { const n0 = c._hdNative; c._hdNative = () => { const c2 = n0(), g2 = c2.getContext('2d'), x = top[0] * 2 + 1, y = Math.max(1, top[1]) * 2 + 1; for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12; g2.fillStyle = Math.sin(a) > 0.3 ? '#a8742a' : i % 3 ? '#f4c542' : '#fff2a8'; g2.fillRect(x + Math.round(Math.cos(a) * 8), y + Math.round(Math.sin(a) * 2.8), 1, 1); } return c2; }; }   // 觉醒光环：2 倍密度稿上也要有（细一半的一圈）
     return c;
   });
 };
@@ -5179,6 +5564,26 @@ ART.bossFighter = function (k, frame, flip) {
       const ex = 11 + lx / 2, ey = 17 + bob; b.r(ex, ey, 3, 3, '#fff2a8'); b.r(ex + 5, ey, 3, 3, '#fff2a8'); b.r(ex, ey + 1, 2, 2, '#2c2238'); b.r(ex + 5, ey + 1, 2, 2, '#2c2238'); b.hl(ex, ex + 2, ey - 1, '#1c5a34'); b.hl(ex + 5, ex + 7, ey - 1, '#1c5a34');
       b.hl(ex + 1, ex + 6, ey + 5, '#1c5a34'); b.p(ex + 2, ey + 6, '#ffffff'); b.p(ex + 5, ey + 6, '#ffffff');
       b.p(5 + lx * 2, 11 - bob, '#9be08a'); b.p(27, 12 + bob, '#9be08a'); b.p(21, 15 + bob, '#9be08a'); b.p(22, 21 + bob, '#2a6e3e');
+    }, hd(b2, f) {   // 2 倍细节：藤球分四级、斜压的怒眉、竖瞳、锯齿口两颗獠牙、花瓣的脉与卷边、藤上的小叶
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, G = '#4fae5a', Gd = '#2a6e3e', Gh = '#9be08a', Gm = '#3f9650', V = '#2f8e4b', Vd = '#1c5a34', Vh = '#62d26f', P = '#e0507a', Pd = '#8a2648', Ph = '#ff9ab8', Pm = '#bc3c64';
+      const cx = 32 + lx / 2, cy = 38 + bob, ex = 22 + lx / 2, ey = 34 + bob;
+      b2.ball([G], cx, cy, 16.5, 14.5, ['#c8f4b0', Gh, null, Gm, Gd], { th: [0.95, 0.82, 0.3, -0.02], box: [cx - 17, cy - 15, cx + 17, cy + 15] });
+      for (const [dx, dy] of [[8, 6], [11, 2], [5, 10], [-9, 9], [9, -6]]) b2.tint([[cx + dx, cy + dy], [cx + dx + 1, cy + dy]], Gd, [G, Gm]);
+      for (const x0 of [ex, ex + 10]) {
+        b2.r(x0 - 1, ey - 4, 8, 4, null); for (let y = ey - 4; y < ey; y++) for (let x = x0 - 1; x < x0 + 7; x++) b2.p(x, y, y < cy - 9 ? Gh : G);
+        b2.r(x0, ey, 6, 6, '#fff2a8'); b2.hl(x0, x0 + 5, ey, '#e8cf6a'); b2.hl(x0, x0 + 5, ey + 5, '#d9b85a');
+        b2.r(x0 + 1, ey + 1, 3, 4, '#2c2238'); b2.p(x0 + 1, ey + 1, '#ffffff'); b2.p(x0 + 3, ey + 4, '#6a5a8a');
+      }
+      b2.l(ex - 2, ey - 4, ex + 6, ey - 1, Vd, 2); b2.l(ex + 17, ey - 4, ex + 9, ey - 1, Vd, 2);
+      b2.r(ex + 1, ey + 9, 14, 6, G); b2.hl(ex + 1, ex + 14, ey + 10, Vd); b2.p(ex, ey + 9, Vd); b2.p(ex + 15, ey + 9, Vd);
+      for (const x0 of [ex + 3, ex + 10]) { b2.hl(x0, x0 + 2, ey + 11, '#ffffff'); b2.p(x0 + 1, ey + 12, '#ffffff'); }
+      b2.hl(ex + 5, ex + 10, ey + 13, Gm);
+      // 花
+      b2.ball([P], 32 + lx, 11 + bob, 16, 12, [Ph, Ph, null, Pm, Pd], { th: [0.93, 0.8, 0.22, -0.1], box: [10 + lx, 0, 54 + lx, 22 + bob] });
+      for (const [x1, y1] of [[20, 10], [44, 10], [32, 1], [26, 4], [38, 4], [24, 16], [40, 16]]) b2.tl(32 + lx, 12 + bob, x1 + lx, y1 + bob, Pm, [P, Ph]);
+      if (f !== 2) { b2.p(31 + lx, 10 + bob, '#fff2a8'); b2.p(30 + lx, 11 + bob, '#fff2a8'); b2.tint([[34 + lx, 14 + bob], [35 + lx, 13 + bob], [33 + lx, 15 + bob]], '#c8962a'); }
+      // 藤上的小叶
+      for (const [x, y, d] of [[8 + lx * 2, 30 - bob, -1], [56, 34 + bob, 1], [4 + lx, 42, -1], [58, 46, 1]]) if (b2.at(x, y) || b2.at(x + d, y) || b2.at(x - d, y)) { b2.p(x + d * 2, y - 1, Vh); b2.p(x + d * 3, y - 2, Vh); b2.p(x + d * 3, y - 1, V); b2.p(x + d * 4, y - 2, V); }
     } },
     xiong: { n: '铁背熊', el: 'tu', draw(b, f) { // 四足着地的大熊，背上一层铁甲
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, F = tone('#8a5c36', '#5a3a26', '#b98a4c'), S = tone('#8e96a8', '#4e566c', '#d4dcec'), M = tone('#c8a070', '#8a6a48', '#e8cc94');
@@ -5190,6 +5595,31 @@ ART.bossFighter = function (k, frame, flip) {
       b.r(2 + lx, 15 + bob, 2, 2, '#2c2238'); b.r(6 + lx, 11 + bob, 2, 2, f === 2 ? '#ff6b3a' : '#2c2238'); b.p(6 + lx, 11 + bob, '#ffffff'); b.hl(5 + lx, 8 + lx, 9 + bob, '#5a3a26');
       if (f === 2) { b.r(3 + lx, 18 + bob, 4, 2, '#8a1e2e'); b.p(3 + lx, 18 + bob, '#ffffff'); b.p(6 + lx, 18 + bob, '#ffffff'); b.add(L => { L.l(5, 22, 1, 19, F, 3); }); for (const y of [18, 20, 22]) b.p(0, y, '#ffffff'); }
       for (const x of [8, 10, 21, 23]) b.p(x, 27, '#efe3c4');
+    }, hd(b2, f) {   // 2 倍细节：毛色三级 + 短毛笔触、远侧两腿压暗、圆耳、亮眼、铁甲的受光带与铆钉、三趾爪
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, F = '#8a5c36', Fd = '#5a3a26', Fh = '#b98a4c', Fm = '#74492c', S = '#8e96a8', Sd = '#4e566c', Sh = '#d4dcec', Sm = '#6e768c', M = '#c8a070';
+      // 远侧的腿
+      b2.map((x, y, c) => { if (y >= 42 && ((x >= 26 && x <= 31) || (x >= 50 && x <= 55)) && (c === F || c === Fh)) return Fm; });
+      b2.ball([F], 38, 30 + bob, 24, 15, [Fh, Fh, null, Fm, Fd], { th: [0.96, 0.84, -0.08, -0.42], box: [26, 14, 63, 41 + bob] });
+      b2.ball([F], 16 + lx, 26 + bob, 12.5, 12.5, [Fh, Fh, null, Fm, Fd], { th: [0.95, 0.8, -0.05, -0.4], box: [0, 8, 27 + lx, 40 + bob] });
+      // 短毛：一撇暗一撇亮
+      for (let y = 26 + bob; y < 44; y += 3) for (let x = 24 + ((y * 5) % 7); x < 60; x += 7) { b2.st(x, y, 1, 1, 2, Fd, [F, Fm]); b2.st(x - 3, y - 1, 1, 1, 2, Fh, [F]); }
+      for (const [x, y] of [[20 + lx, 34 + bob], [22 + lx, 30 + bob], [18 + lx, 37 + bob], [24 + lx, 24 + bob]]) b2.st(x, y, 0.5, 1, 3, Fd, [F, Fm]);
+      // 耳
+      for (const [x0, y0] of [[8 + lx, 12 + bob], [20 + lx, 10 + bob]]) { b2.p(x0, y0, null); b2.p(x0 + 5, y0, null); b2.r(x0 + 2, y0 + 2, 2, 3, Fd); b2.p(x0 + 3, y0 + 2, '#a8605a'); }
+      // 眼、眉、鼻、口
+      const ex = 12 + lx, ey = 22 + bob, hot = f === 2;
+      b2.r(ex - 2, ey - 5, 9, 4, F); b2.l(ex - 2, ey - 2, ex + 5, ey - 4, Fd, 1); b2.l(ex - 2, ey - 3, ex + 5, ey - 5, Fh, 1);
+      b2.r(ex, ey, 4, 4, hot ? '#ff6b3a' : '#2c2238'); if (hot) { b2.r(ex + 1, ey + 1, 2, 2, '#fff2a8'); } b2.p(ex, ey, '#ffffff'); b2.p(ex + 1, ey, hot ? '#fff2a8' : '#6a5a8a'); b2.hl(ex, ex + 3, ey + 4, Fm);
+      b2.r(4 + lx, 30 + bob, 4, 4, M); b2.r(4 + lx, 30 + bob, 4, 3, '#2c2238'); b2.p(5 + lx, 30 + bob, '#8a84a0'); b2.p(5 + lx, 33 + bob, '#2c2238');
+      if (!hot) b2.tl(5 + lx, 35 + bob, 11 + lx, 37 + bob, '#8a6a48', [M, '#e8cc94', '#8a6a48']);
+      // 铁甲：上沿一带亮、下沿一带暗，三道接缝，一排铆钉
+      const y0 = 14 + bob;
+      b2.map((x, y, c) => { if (c !== S && c !== Sh && c !== Sd && c !== '#eef4ff') return; if (c === '#eef4ff' || (y >= y0 + 8 && y <= y0 + 9 && c === Sd)) return y < y0 + 8 ? Sh : Sm; if (c !== S) return; if (y < y0 + 4) return '#b4bccc'; if (y >= y0 + 12) return Sm; if (x > 52) return Sm; });
+      b2.hl(22, 53, y0 + 9, Sd); b2.hl(22, 52, y0 + 10, '#b4bccc');
+      for (const x of [26, 34, 42, 50]) { b2.r(x, y0 + 4, 2, 2, Sd); b2.p(x, y0 + 4, '#ffffff'); for (let y = y0 + 11; y < y0 + 15; y++) b2.tint([[x + 4, y]], Sd, [S, Sm]); }
+      b2.tl(24, y0 + 2, 40, y0 + 1, '#ffffff', ['#b4bccc', Sh]);
+      // 爪
+      for (const x0 of [16, 42]) for (const dx of [0, 3, 6]) { b2.p(x0 + dx, 54, '#efe3c4'); b2.p(x0 + dx, 55, '#efe3c4'); b2.tint([[x0 + dx + 1, 54], [x0 + dx + 1, 55]], Fd); }
     } },
     ya: { n: '火鸦', el: 'huo', draw(b, f) { // 展翅的黑红乌鸦，尾羽是火
       const up2 = f === 1 ? 3 : f === 2 ? -2 : 0, lx = f === 2 ? -4 : 0, K = tone('#4a2a34', '#2a1820', '#7a4a52'), Rr = tone('#d8502a', '#8a241e', '#ffb23f');
@@ -5200,6 +5630,26 @@ ART.bossFighter = function (k, frame, flip) {
       b.p(30, 20 + (f & 1), '#fff2a8'); b.p(25, 26, '#ffd86a'); b.p(28, 24, '#ffd86a'); b.p(27, 18, '#fff2a8');
       b.add(L => { L.r(6 + lx, 11, 4, 2, GOLD); L.p(5 + lx, 12, GOLD); }, { sep: 0 }); b.r(11 + lx, 9, 2, 2, '#ffd86a'); b.p(11 + lx, 10, '#ffffff');
       b.r(14 + lx, 20, 1, 4, '#f4c542'); b.r(18 + lx, 20, 1, 4, '#f4c542'); b.hl(13 + lx, 15 + lx, 24, '#f4c542'); b.hl(17 + lx, 19 + lx, 24, '#f4c542');
+    }, hd(b2, f) {   // 2 倍细节：翼下一排收尖的飞羽、胸口的羽片、带瞳的金眼、钩喙、火尾的亮芯
+      const up2 = (f === 1 ? 3 : f === 2 ? -2 : 0) * 2, lx = f === 2 ? -8 : 0, K = '#4a2a34', Kd = '#2a1820', Kh = '#7a4a52', Km = '#5e3a44', Rr = '#d8502a', Rh = '#ffb23f';
+      // 飞羽：沿两翼的下缘各垂五根
+      const FL = new Buf(b2.w, b2.h), wing = (x0, y0, x1, y1, dir) => { for (let i = 1; i <= 5; i++) { const t = 0.25 + i * 0.15, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, len = 3 + i * 1.3; taper(FL, [[x, y + 2], [x + dir * 1.5, y + 2 + len * 0.6], [x + dir * 3.5, y + 2 + len]], 3, 1, i % 2 ? K : Km); } };
+      wing(36 + lx, 28, 56 + lx, 12 + up2, 1); wing(28 + lx, 28, 10 + lx, 10 + up2, -1);
+      for (let i = 0; i < FL.d.length; i++) if (FL.d[i] && !b2.d[i]) b2.d[i] = FL.d[i];   // 垫在身后：只画在空处
+      b2.ball([K], 32 + lx, 30, 10.5, 10.5, [Kh, Km, null, Kd, Kd], { th: [0.92, 0.7, 0.05, -0.3], box: [20 + lx, 19, 43 + lx, 41] });
+      for (const [x, y] of [[28, 30], [33, 31], [30, 34], [35, 35], [27, 36]]) { b2.tint([[x + lx, y], [x + lx + 1, y + 1], [x + lx + 2, y]], Km, [K]); }
+      b2.ball([K], 24 + lx, 22, 8.5, 8.5, [Kh, Km, null, null, Kd], { th: [0.9, 0.7, 0.05, -0.4], box: [15 + lx, 13, 30 + lx, 25] });
+      // 眼
+      const ex = 22 + lx, ey = 18; b2.r(ex, ey, 4, 4, '#ffd86a'); b2.r(ex + 1, ey + 1, 2, 2, '#2a1820'); b2.p(ex, ey, '#ffffff'); b2.p(ex + 3, ey + 3, '#ffb23f'); b2.l(ex - 1, ey - 2, ex + 4, ey - 1, Kd, 1);
+      // 喙
+      const bx = 12 + lx, by = 22; b2.r(bx - 2, by, 10, 4, null); b2.hl(bx, bx + 7, by, '#fff2a8'); b2.hl(bx - 2, bx + 7, by + 1, '#f4c542'); b2.hl(bx - 3, bx + 7, by + 2, '#f4c542'); b2.hl(bx - 3, bx - 2, by + 3, '#a8742a'); b2.hl(bx + 1, bx + 7, by + 3, '#a8742a'); b2.p(bx + 5, by + 1, '#a8742a');
+      // 火尾：外红、中橙、芯黄
+      const fl = (f & 1) * 2;
+      for (const [x0, y0, x1, y1] of [[42 + lx, 38, 52, 45], [52, 45, 59, 44 + fl], [42 + lx, 42, 48, 50]]) { b2.tl(x0 + 1, y0 + 2, x1, y1 + 1, Rh, [Rr]); b2.tl(x0 + 2, y0 + 2, x1, y1, Rh, [Rr]); }
+      b2.tl(46 + lx, 42, 52, 46, '#fff2a8', [Rh]);
+      for (const [x, y] of [[61, 41 + fl], [56, 49], [50, 53], [62, 47]]) { b2.p(x, y, '#ffd86a'); b2.p(x, y - 1, '#fff2a8'); }
+      // 翼上的红纹提一线亮
+      b2.map((x, y, c) => { if (c === Rr && y < 30 && !b2._at0(x, y - 1)) return Rh; });
     } },
     wa: { n: '寒潭蛙', el: 'shui', draw(b, f) { // 蹲着的蓝蛙，背上三根冰棱
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, jy = f === 2 ? -4 : 0, B = tone('#3f8fd0', '#24579a', '#9fd4ff'), I = tone('#bfe8ff', '#6fb0e0', '#ffffff'), W2 = tone('#e8f4ff', '#a8c8e8', '#ffffff');
@@ -5211,6 +5661,23 @@ ART.bossFighter = function (k, frame, flip) {
       b.r(7 + lx, 11 + bob + jy, 2, 3, '#fff2a8'); b.r(14 + lx, 10 + bob + jy, 2, 3, '#fff2a8'); b.p(7 + lx, 12 + bob + jy, '#2c2238'); b.p(14 + lx, 11 + bob + jy, '#2c2238');
       b.hl(6 + lx, 13 + lx, 19 + bob + jy, '#24579a'); if (f === 2) { b.add(L => L.l(5 + lx, 19 + jy, 0, 17 + jy, RED, 2), { sep: 0 }); b.p(0, 17 + jy, '#ff9a8a'); }
       b.p(21, 17 + bob + jy, '#9fd4ff'); b.p(23, 20 + bob + jy, '#9fd4ff'); b.p(18, 5 + bob + jy, '#ffffff');
+    }, hd(b2, f) {   // 2 倍细节：湿亮的背、深色的圆斑、横瞳的鼓眼、上翘的嘴角、冰棱的切面、带蹼的趾
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, jy = f === 2 ? -8 : 0, B = '#3f8fd0', Bd = '#24579a', Bh = '#9fd4ff', Bm = '#3276b8', I = '#bfe8ff', Id = '#6fb0e0', W2 = '#e8f4ff', oy = bob + jy;
+      const cx = 32 + lx / 2, cy = 38 + oy;
+      b2.ball([B], cx, cy, 20.5, 14.5, ['#d4ecff', Bh, null, Bm, Bd], { th: [0.96, 0.86, 0.2, -0.15], box: [cx - 21, cy - 15, cx + 21, cy + 15] });
+      for (const [dx, dy, r] of [[6, -6, 2.2], [12, -1, 1.8], [1, -9, 1.4], [14, 6, 1.6], [-4, -4, 1.2]]) { const L = new Buf(64, 56); L.e(cx + dx, cy + dy, r, r, Bd); for (let i = 0; i < L.d.length; i++) if (L.d[i] && [B, Bm, Bh].includes(b2.d[i])) b2.d[i] = b2.d[i] === Bh ? B : Bd; }
+      b2.tl(cx - 10, cy - 10, cx - 3, cy - 12, '#ffffff', [Bh, '#d4ecff', B]);
+      // 冰棱：左亮右暗，芯上一线白
+      b2.map((x, y, c) => { if (y > 28 + jy || c !== I) return; if (b2._at0(x + 1, y) !== I && b2._at0(x + 1, y) !== '#ffffff') return Id; if (b2._at0(x + 2, y) !== I && b2._at0(x + 2, y) !== '#ffffff' && b2._at0(x + 2, y) !== Id) return Id; });
+      for (const [x, y0, y1] of [[36, 12, 24], [45, 16, 26], [27, 16, 26]]) for (let y = y0 + oy; y < y1 + jy; y += 1) b2.tint([[x + (y & 1 ? 0 : 0), y]], '#ffffff', [I]);
+      // 眼：两只鼓眼各一枚金眼、横瞳
+      for (const [ex, ey] of [[14 + lx, 22 + oy], [28 + lx, 20 + oy]]) { b2.r(ex - 1, ey, 6, 6, B); b2.r(ex, ey, 5, 5, '#fff2a8'); b2.hl(ex, ex + 4, ey, '#f4c542'); b2.hl(ex, ex + 4, ey + 2, '#2c2238'); b2.r(ex + 1, ey + 1, 2, 3, '#2c2238'); b2.p(ex + 1, ey + 1, '#ffffff'); b2.hl(ex, ex + 4, ey + 5, Bd); }
+      // 嘴：一条长线，嘴角上翘；鼻孔
+      const my = 38 + oy; b2.r(12 + lx, my, 16, 2, B); for (let x = 12 + lx; x <= 27 + lx; x++) b2.tint([[x, my + 1]], Bd); b2.tint([[28 + lx, my], [29 + lx, my - 1], [12 + lx, my - 3]], Bd);
+      // 肚皮下缘压一线、蹼
+      b2.map((x, y, c) => { if (c === W2 && !b2._at0(x, y + 1)) return '#a8c8e8'; });
+      for (const x of [9 + lx, 12 + lx, 15 + lx]) { b2.tint([[x, 53 + jy], [x, 52 + jy]], Bd); }
+      for (const x of [52, 56]) b2.tint([[x, 52 + jy / 2], [x, 53 + jy / 2]], Bd);
     } },
     tang: { n: '铁螳螂', el: 'jin', draw(b, f) { // 举着两把镰刀的金螳螂
       const bob = f === 1 ? 1 : 0, lx = f === 2 ? -3 : 0, Y = tone('#c8a23a', '#7a5c1e', '#fff2a8'), S = tone('#dfe7ef', '#8e96a8', '#ffffff');
@@ -5222,6 +5689,25 @@ ART.bossFighter = function (k, frame, flip) {
       b.add(L => { L.l(14, 13 + bob, 8 + lx, 13 + bob - (a ? 0 : 3), Y, 2); L.l(16, 12 + bob, 20, 6 + bob, Y, 2); });
       b.add(L => { if (a) { L.l(8 + lx, 13 + bob, 1, 20, S, 2); L.l(1, 20, 4, 23, S, 1); } else { L.l(8, 10 + bob, 3, 3 + bob, S, 2); L.l(3, 3 + bob, 1, 7 + bob, S, 1); } L.l(20, 6 + bob, 25, 1 + bob, S, 2); L.l(25, 1 + bob, 28, 5 + bob, S, 1); });
       for (const x of [20, 23, 26]) b.p(x, 19 + bob + (x - 20) / 3, '#7a5c1e');
+    }, hd(b2, f) {   // 2 倍细节：腹节一环环、背上一片薄翅、红色的复眼、镰刃的白口与锯齿、腿节
+      const bob = f === 1 ? 2 : 0, lx = f === 2 ? -6 : 0, Y = '#c8a23a', Yd = '#7a5c1e', Yh = '#fff2a8', Ym = '#a8842c', S = '#dfe7ef', Sd = '#8e96a8';
+      // 腹：下半压暗、五道节线、背上的薄翅
+      b2.map((x, y, c) => { if (c !== Y || x < 34 || y < 30 + bob) return; const yy = 34 + bob + (x - 34) * 0.45; if (y > yy + 6) return Ym; });
+      for (let k = 0; k < 5; k++) { const x = 38 + k * 4, y = 36 + bob + k * 1.8; b2.tl(x, Math.round(y) - 2, x - 2, Math.round(y) + 8, Yd, [Y, Ym]); }
+      b2.tl(34, 33 + bob, 56, 43 + bob, '#e8f0c0', [Y, Yh]); b2.tl(36, 33 + bob, 57, 42 + bob, '#f6fadc', [Y, Yh]); b2.tl(38, 36 + bob, 54, 43 + bob, '#b8c890', [Y]);
+      // 胸：一线亮
+      b2.tl(27, 20 + bob, 31, 30 + bob, Yh, [Y]); b2.tl(30, 20 + bob, 34, 30 + bob, Ym, [Y]);
+      // 头：三角脸的亮面、复眼、口器
+      const hx = 22 + lx, hy = 8 + bob;
+      for (const ex of [14 + lx, 24 + lx]) { b2.r(ex, hy + 4, 4, 4, '#d8404a'); b2.r(ex + 1, hy + 5, 2, 2, '#8a1e2e'); b2.p(ex, hy + 4, '#ffffff'); b2.p(ex + 3, hy + 7, '#ff8a8a'); }
+      b2.tint([[hx - 1, hy + 10], [hx, hy + 10], [hx - 1, hy + 12], [hx, hy + 12]], Yd); b2.tint([[hx - 2, hy + 2], [hx - 1, hy + 2], [hx, hy + 2], [hx - 3, hy + 3]], Yh, [Y]);
+      // 镰：刃口一线白、刃背压暗、内侧一排锯齿
+      b2.map((x, y, c) => { if (c !== S) return; if (!b2._at0(x - 1, y) || !b2._at0(x, y - 1)) return '#ffffff'; if (!b2._at0(x + 1, y) || !b2._at0(x, y + 1)) return Sd; });
+      const teeth = (x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 2; i < n; i += 3) { const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n); if (!b2.at(x + 3, y + 1)) b2.p(x + 3, y + 1, Sd); } };
+      if (f === 2) teeth(16 + lx, 26 + bob, 2, 40); else teeth(16, 20 + bob, 6, 6 + bob); teeth(40, 12 + bob, 50, 2 + bob);
+      // 腿节
+      for (const [x, y] of [[36, 40], [42, 40], [48, 38]]) b2.tint([[x, y + bob], [x + 1, y + bob]], Yh, [Y]);
+      b2.edge([Y], 0, 1, Ym);
     } },
   };
   ART.mobIds = Object.keys(MOBS);
@@ -5230,8 +5716,12 @@ ART.bossFighter = function (k, frame, flip) {
   ART.mob = function (id, frame, flip) {
     const m = MOBS[id] || MOBS.teng; frame = Math.max(0, Math.min(2, frame | 0));
     return cached(['mob', id, frame, flip ? 1 : 0].join('|'), () => {
-      const b = new Buf(32, 28); m.draw(b, frame); const c = b.cv();
-      if (!flip) return c; const f = mk(32, 28), g = f.getContext('2d'); g.translate(32, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); return f;
+      const b = new Buf(32, 28); m.draw(b, frame);
+      b.hd = b2 => { b2.clear(); m.draw(b2.k2(), frame); if (m.hd) m.hd(b2, frame); }; b.relit = 0;   // HD-2D：同一套画法在 64×56 上重新落笔，再加各自的 2 倍细节
+      const c = b.cv();
+      if (!flip) return c; const f = mk(32, 28), g = f.getContext('2d'); g.translate(32, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
+      f._hdNative = () => { const n = c._hdNative(), f2 = mk(64, 56), g2 = f2.getContext('2d'); g2.translate(64, 0); g2.scale(-1, 1); g2.drawImage(n, 0, 0); f2._hd = 2; f2._relit = n._relit; return f2; };
+      return f;
     });
   };
   // 精英脚下的光环 40×12，两帧；el 决定颜色
@@ -5973,9 +6463,9 @@ ART.bossFighter = function (k, frame, flip) {
     for (let x = 32; x <= 64; x += 5) { const y0 = tTop(x) + 8, y1 = Math.round(H ? H(x, Math.abs(x - 47.5)) : 24) - 1; for (let y = y0; y <= Math.min(y1, y0 + 9); y++) if (b.at(x, y) === hc) b.p(x, y, d); }
     for (let x = 33; x <= 62; x++) { const y = tTop(x) + 5 + (Math.abs(x - 47.5) < 6 ? 1 : 0); if (x % 7 < 5 && b.at(x, y) !== null && (b.at(x, y) === hc || b.at(x, y) === d)) { b.p(x, y, u); if (x % 7 < 3 && (b.at(x, y + 1) === hc || b.at(x, y + 1) === d)) b.p(x, y + 1, u); } }
   }
-  function tPerson(o, mood) {
+  function tPerson(o, mood, bare) {
     const b = new Buf(TW, TH), sk = skinTone(o.skin || '#f2c9a0'), hc = hairTone(o.hair || HAIR_K), fem = !!o.fem;
-    const E = { b, sk, hc, mood, fem, SW: o.sw || (fem ? 30 : 35), ey: 39, S: T_SHAPE[o.shape || (fem ? 'round' : 'oval')], o };
+    const E = { b, sk, hc, mood, fem, SW: o.sw || (fem ? 30 : 35), ey: 39, S: T_SHAPE[o.shape || (fem ? 'round' : 'oval')], o, bare };
     if (o.back) b.add(L => o.back(L, hc, E));
     if (o.pre) o.pre(b, E);
     tBody(b, o, E);
@@ -5985,6 +6475,7 @@ ART.bossFighter = function (k, frame, flip) {
     if (o.skinX) o.skinX(b, E);
     tHair(b, o, E);
     if (o.post) o.post(b, E);
+    if (o.hd && !bare) { b.hd = b2 => o.hd(b2, E); b.hdSrc = () => tPerson(o, mood, 1); b.relit = o.relit; }   // HD-2D：这张立绘自己的 2 倍密度重画（192×256）；底稿是不画眉须的那一版（E.bare），眉、眼、须在 2 倍稿上重画
     return b;
   }
   // ---- 发式的积木 ----
@@ -6010,20 +6501,88 @@ ART.bossFighter = function (k, frame, flip) {
   const tStrap = b => b.add(L => { for (let k = 0; k <= 44; k++) L.r(64 - Math.round(k * 0.62), 66 + k, 5, 1, '#8a5c36'); }, { sep: 1 });
   const tGem = (b, x, y, c, w, h) => { b.r(x, y, w || 2, h || 3, c); b.p(x, y, '#ffffff'); };
 
+  // ---- 老祖立绘的 2 倍密度重画（192×256）：脸整块重铺成四级明暗；眉、眼、须按 2 倍密度重画；发丝、玉冠切面、衣褶 ----
+  const EL2_EYES_T = {
+    n: ['', '', '.....LLLLLLLLL....', '..LLLLLLLLLLLLLL..', '.LLeeeIIIIIiieeLL.', 'LL.eeeIwIIIjieee..', '....eeeIIIjjee....', '.....uuuuuuuu.....'],
+    joy: ['', '', '......LLLLLL......', '...LLLLLLLLLLLL...', '.LLLL........LLLL.', 'LLL............LLL', 'L................L'],
+    ang: ['LL................', 'LLLLL.............', '..LLLLLLL.........', '....LLLLLLLLLLLLLL', '....eeIIIIIiieeLL.', '.....eeIwIIjiee...', '......uuuuuuu.....'],
+    shock: ['.....LLLLLLLL.....', '...LLLeeeeeeLLL...', '..LLeeeeeeeeeeLL..', '.LLeeeewIIIieeeLL.', '.LeeeeeIIIIjeeeeL.', '.LeeeeeIIIjjeeeeL.', '.LLeeeeeijjeeeeLL.', '..LLeeeeeeeeeeLL..', '....uuuuuuuuuu....'],
+    sad: ['', '', '.........LLLLLLL..', '....LLLLLLLLLLLLL.', '.LLLLLeeIIIIieeLLL', 'LL...eeiIwIjiee...', '......uuuuuuu.....'],
+    cold: ['', '', '', 'LLLLLLLLLLLLLLLLLL', '.LLLLLLLLLLLLLLLL.', '...eeIIIIIIiiee...', '.....uuuuuuu......'],
+  };
+  function elderT2(b2, E) {
+    const P = EL2, mood = E.mood, S = E.S, W = E.hc, hS = dn(W), hH = up(W), H = E.o.hairline;
+    const hw = Y => 2 * S.hw(Y >> 1), hairY = X => 2 * (Math.round(H(X >> 1, Math.abs((X >> 1) - 47.5))) + 1);
+    const mir = fn => { fn(x => x); fn(x => 191 - x); };
+    b2.map((x, y, c) => (c === hS ? P.v : c === hH ? P.w : c === E.sk.S ? P.S : undefined));
+    // 脸：整块重铺，再按左上来光分四级
+    b2.map((x, y, c) => {
+      if (y < 40 || y > 2 * S.chin + 1) return; const w = hw(y) - 1; if (x < 96 - w || x > 95 + w || y < hairY(x)) return;
+      const r = 95 + w - x, l = x - (96 - w), hy = y - hairY(x);
+      if (r < 3) return P.T; if (hy < 2) return P.T; if (hy < 5) return P.S;
+      if (r < 8 || (y > 96 && r < 13 - (y - 96) * 0.25 && r < 13)) return P.S;
+      if (l < 3 && y > 64 && y < 116) return P.h;
+      const fu = (x - 86) / 15, fv = (y - 57) / 5; if (fu * fu + fv * fv < 1) return P.h;                // 额头的亮面
+      const cu = (x - 73) / 7, cv2 = (y - 97) / 4; if (cu * cu + cv2 * cv2 < 1) return P.h;             // 左颧
+      return P.s;
+    });
+    // 皱纹：额上三道、眼尾、眼袋、法令
+    const skin = [P.s, P.h];
+    for (const [y, x0, x1, gap] of [[51, 78, 112, 11], [61, 74, 116, 13], [66, 82, 108, 9]]) for (let x = x0; x <= x1; x++) if (x % gap > 1) b2.tint([[x, y + (x < x0 + 4 || x > x1 - 4 ? 1 : 0)]], P.S, skin);
+    mir(X => { b2.tl(X(66), 82, X(62), 80, P.S, skin); b2.tl(X(66), 85, X(62), 87, P.S, skin); b2.tl(X(70), 91, X(84), 92, P.S, skin); b2.tl(X(71), 90, X(69), 88, P.S, skin); b2.tl(X(88), 101, X(81), 113, P.S, skin); b2.tl(X(86), 76, X(89), 80, P.S, skin); });
+    // 鼻
+    b2.r(94, 80, 2, 18, P.h); b2.r(99, 82, 1, 17, P.S); b2.r(93, 98, 4, 3, P.h); b2.r(98, 98, 3, 3, P.S); b2.r(90, 101, 3, 2, P.S); b2.r(100, 101, 3, 2, P.T); b2.r(93, 103, 7, 1, P.S); b2.p(89, 100, P.S); b2.p(103, 100, P.T);
+    // 眼
+    const rows = EL2_EYES_T[mood] || EL2_EYES_T.n, ep = { L: P.L, I: P.I, i: P.i, j: '#6f8fe0', e: P.e, w: '#ffffff', u: P.S };
+    for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const c = ep[rows[j][i]]; if (c) { b2.p(68 + i, 76 + j, c); b2.p(191 - 68 - i, 76 + j, c); } }
+    // 口（大半藏在须里）
+    if (mood === 'joy') { b2.r(90, 110, 12, 1, P.M); b2.r(92, 111, 8, 2, P.t); b2.p(89, 109, P.M); b2.p(102, 109, P.M); }
+    else if (mood === 'shock') { b2.r(92, 107, 8, 7, P.M); b2.r(93, 108, 6, 5, P.I); b2.r(94, 112, 4, 1, P.t); }
+    else b2.r(91, 110, 10, 1, mood === 'n' ? P.T : P.M);
+    // 身后的长发：几缕长长的暗线和亮线
+    const hair = [W];
+    mir(X => { for (const [x0, y0, x1, y1] of [[58, 60, 55, 190], [63, 96, 61, 196], [67, 120, 66, 190], [71, 128, 71, 180]]) b2.tl(X(x0), y0, X(x1), y1, P.v, hair); });
+    for (const [x0, y0, x1, y1] of [[56, 58, 53, 150], [61, 100, 59, 170], [65, 124, 64, 176]]) b2.tl(x0, y0, x1, y1, P.w, hair);
+    for (const [x0, y0, x1, y1] of [[92, 32, 70, 46], [88, 32, 62, 52], [96, 32, 95, 43], [100, 32, 122, 46], [104, 32, 130, 52], [82, 33, 56, 62], [110, 33, 136, 62]]) b2.tl(x0, y0, x1, y1, P.v, hair);
+    for (const [x0, y0, x1, y1] of [[90, 31, 66, 46], [94, 31, 90, 42], [78, 34, 55, 56]]) b2.tl(x0, y0, x1, y1, P.w, hair);
+    b2.edge([W, P.v], 1, 0, P.V);
+    // 长眉
+    const tl = (mood === 'ang' ? 4 : mood === 'sad' ? -4 : 0), b0 = mood === 'shock' ? 66 : mood === 'cold' ? 72 : 70;
+    mir(X => { const pts = [[X(88), b0 + tl], [X(78), b0 - 2 - tl * 0.3], [X(68), b0 - tl], [X(58), b0 + 5], [X(53), b0 + 18], [X(51), b0 + 38], [X(53), b0 + 54]];
+      taper(b2, pts.map(q => [q[0], q[1] + 2]), 5, 1, P.V); taper(b2, pts, 5, 1, X(0) ? P.W : P.w); taper(b2, pts.slice(0, 4).map(q => [q[0], q[1] - 1]), 2, 1, P.w); });
+    // 须：两撇、下巴一缕
+    mir(X => { const pts = [[X(94), 104], [X(84), 107], [X(77), 116], [X(74), 132], [X(75), 150]]; taper(b2, pts.map(q => [q[0] + 1, q[1] + 2]), 5, 1, P.V); taper(b2, pts, 5, 1, X(0) ? P.W : P.w); });
+    for (let Y = 114; Y <= 176; Y++) { const t = (Y - 114) / 2, w = Math.round(t < 4 ? 6 + 2 * t : t < 12 ? 14 : Math.max(1, 14 - (t - 12) * 0.68)), sw = Math.round(Math.sin(Y * 0.11) * (t > 14 ? 1.5 : 0)); for (let x = 96 - w + sw; x <= 95 + w + sw; x++) b2.p(x, Y, x < 96 - w + sw + 2 ? P.w : x > 95 + w + sw - 3 ? P.V : P.W); }
+    for (const [x0, y0, x1, y1] of [[86, 120, 90, 160], [90, 118, 93, 170], [95, 118, 96, 176], [100, 118, 98, 168], [105, 120, 101, 158], [108, 124, 104, 148]]) b2.tl(x0, y0, x1, y1, P.v, [P.W]);
+    for (const [x0, y0, x1, y1] of [[88, 119, 91, 150], [93, 122, 94, 160]]) b2.tl(x0, y0, x1, y1, P.w, [P.W]);
+    // 玉冠：切面、刻纹、高光；横簪上亮下暗
+    const J = JADE, Jd = dn(JADE), Jh = up(JADE), Jdd = '#1d6a62';
+    b2.map((x, y, c) => { if (y > 36 || (c !== J && c !== Jd && c !== Jh && c !== '#2a8a7a' && c !== '#c8fff0')) return; if (x > 104 && y < 20) return y % 4 === 3 ? Jdd : Jd; if (x < 86 && y < 20) return Jh; });
+    b2.r(84, 4, 2, 14, '#ffffff'); b2.r(88, 5, 1, 6, Jh); b2.r(86, 22, 20, 1, Jdd); b2.r(86, 20, 20, 1, Jh); b2.r(92, 9, 8, 1, '#ffffff'); b2.r(91, 30, 2, 3, Jh);
+    for (const x of [88, 96, 102]) b2.r(x, 12, 1, 6, Jdd);
+    b2.map((x, y, c) => { if (y >= 14 && y <= 17 && (c === '#f0f9ff' || c === '#c0dcff') && (x < 82 || x > 109)) return y < 16 ? '#ffffff' : P.v; });
+    // 袍：袖与胸前的长褶（一暗一亮）、右侧再压一级
+    const RB = E.o.robe[1], RD = E.o.robe[0], RH = E.o.robe[2], RM = lerpC(RB, RD, 0.5), RL = lerpC(RB, RH, 0.55);
+    for (const [x0, y0, x1, y1] of [[40, 156, 30, 250], [52, 150, 48, 240], [60, 176, 62, 255], [70, 160, 76, 255], [124, 160, 118, 255], [134, 176, 132, 255], [142, 150, 148, 240], [156, 156, 164, 250], [22, 190, 18, 250], [172, 186, 176, 250]]) b2.tl(x0, y0, x1, y1, RM, [RB]);
+    for (const [x0, y0, x1, y1] of [[38, 156, 28, 250], [50, 150, 46, 236], [58, 180, 60, 250], [68, 160, 74, 250], [26, 150, 16, 200], [122, 162, 116, 250]]) b2.tl(x0, y0, x1, y1, RL, [RB]);
+    b2.map((x, y, c) => { if (c === RB && y > 150 && x > 150 && ((x + y) & 1) === 0 && x - 150 > (255 - y) * 0.12) return RM; });
+    b2.edge([RB, RL], -1, 0, RH).edge([RB], 0, -1, RH);
+  }
+
   const TACHIE = {
     // 玄霄：青白的残魂。长眉垂到颧下、长须、缺了一角的玉冠，腰以下散成烟
     elder: {
       skin: '#a6cdee', hair: '#f0f9ff', shape: 'long', robe: ['#3f6aa8', '#7aa8e0', '#c0dcff'], trim: '#e6f6ff', inner: '#9cc0ec', sw: 33, noGloss: 1, ghost: 1, belt: '#3f6aa8', knot: '#c0dcff',
-      back: tBack(22, 100, 0.1), hairline: tHigh(72),
+      back: tBack(22, 100, 0.1), hairline: tHigh(72), hd: (b2, E) => elderT2(b2, E),
       F: { eye: 'n', iris: '#27357a', lash: '#27357a', white: '#e6f6ff', brow: { c: 0 }, mouth: { n: 'none', joy: 'none', ang: 'none', shock: 'o', sad: 'none', cold: 'none' } },
       post: (b, E) => {
         const W = E.hc, m = E.mood, tl = m === 'ang' ? 2 : m === 'sad' ? -2 : 0, by = m === 'shock' ? 33 : m === 'cold' ? 36 : 35;
         // 长眉：从眉心挑出去，过了眼尾往下垂
-        b.add(L => L.mir(T => { T.l(44, by + tl, 34, by - tl, W, 2); T.l(33, by - tl, 28, by + 3, W, 2); T.l(28, by + 4, 26, by + 18, W, 2); T.l(26, by + 18, 27, by + 26, W, 1); }));
+        if (!E.bare) b.add(L => L.mir(T => { T.l(44, by + tl, 34, by - tl, W, 2); T.l(33, by - tl, 28, by + 3, W, 2); T.l(28, by + 4, 26, by + 18, W, 2); T.l(26, by + 18, 27, by + 26, W, 1); }));
         // 须：两撇垂下来，下巴一缕长须
-        b.add(L => { L.mir(T => { T.l(46, 52, 41, 54, W, 2); T.l(40, 55, 37, 66, W, 2); T.l(37, 66, 38, 74, W, 1); }); for (let k = 0; k < 30; k++) { const w = k < 4 ? 3 + k : k < 12 ? 6 : Math.max(1, 6 - Math.round((k - 12) * 0.3)); L.hl(48 - w, 47 + w, 57 + k, W); } });
+        if (!E.bare) { b.add(L => { L.mir(T => { T.l(46, 52, 41, 54, W, 2); T.l(40, 55, 37, 66, W, 2); T.l(37, 66, 38, 74, W, 1); }); for (let k = 0; k < 30; k++) { const w = k < 4 ? 3 + k : k < 12 ? 6 : Math.max(1, 6 - Math.round((k - 12) * 0.3)); L.hl(48 - w, 47 + w, 57 + k, W); } });
         for (let y = 60; y < 84; y += 2) { b.p(46, y, '#c0dcff'); b.p(50, y + 1, '#c0dcff'); }
-        if (m === 'joy') b.hl(45, 50, 55, E.sk.M);
+        if (m === 'joy') b.hl(45, 50, 55, E.sk.M); }
         // 玉冠（右上缺一角）与横簪
         b.add(L => { L.r(41, 1, 14, 10, JADE); L.r(39, 10, 18, 4, JADE); L.r(52, 1, 3, 4, null); L.p(51, 1, null); L.r(45, 14, 6, 3, JADE); });
         b.hl(31, 64, 7, '#f0f9ff'); b.hl(31, 64, 8, '#c0dcff'); b.r(43, 6, 10, 3, '#2a8a7a'); b.r(46, 4, 4, 2, '#c8fff0');
@@ -6325,33 +6884,40 @@ ART.bossFighter = function (k, frame, flip) {
   }
 
   // ---- 出图：残魂、表情叠加 ----
+  // K = 1 原画（96×128）| 2 = 2 倍密度稿（192×256）：坐标都按 1 倍写，落笔时乘 K；抖动的颗粒在 2 倍稿上细一半
   function tGhost(src) {
-    const c = mk(TW, TH), g = c.getContext('2d');
+    const K = src.width / TW, c = mk(TW * K, TH * K), g = c.getContext('2d');
     g.globalAlpha = 0.93; g.drawImage(src, 0, 0); g.globalAlpha = 1;
     g.globalCompositeOperation = 'destination-out';
-    for (let y = 98; y < TH; y++) for (let x = 0; x < TW; x++) { const lv = (y - 98) * 0.56 + Math.abs(x - 47.5) * 0.08 + Math.sin(x * 0.45 + y * 0.25) * 2.5; if (BAYER[((x >> 1) & 3) + ((y >> 1) & 3) * 4] < lv) g.fillRect(x, y, 1, 1); }
+    for (let Y = 98 * K; Y < TH * K; Y++) for (let X = 0; X < TW * K; X++) { const x = X / K, y = Y / K, lv = (y - 98) * 0.56 + Math.abs(x - 47.5) * 0.08 + Math.sin(x * 0.45 + y * 0.25) * 2.5; if (BAYER[((X >> 1) & 3) + ((Y >> 1) & 3) * 4] < lv) g.fillRect(X, Y, 1, 1); }
+    if (K === 1 && src._hdNative) c._hdNative = () => { const c2 = tGhost(src._hdNative()); c2._hd = 2; return c2; };
+    if (src._relit !== undefined) c._relit = src._relit;
     return c;
   }
   function tFx(src, fx) {
-    const c = mk(TW, TH), g = c.getContext('2d'), has = k => (' ' + fx + ' ').includes(' ' + k + ' '), ey = 39; g.drawImage(src, 0, 0);
-    const solid = g.getImageData(0, 0, TW, TH).data, px = (x, y, col, a, w, h) => { if (!solid[(y * TW + x) * 4 + 3]) return; g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(x, y, w || 1, h || 1); g.globalAlpha = 1; };
-    if (has('shade') || has('cold')) { const k = has('shade') ? 1 : 0.42, y1 = has('shade') ? ey + 9 : ey + 3; for (let y = ey - 16; y <= y1; y++) for (let x = 32; x < 64; x++) { const i = (y * TW + x) * 4; if (y >= 22 && solid[i + 3] && solid[i] * 0.3 + solid[i + 1] * 0.59 + solid[i + 2] * 0.11 > 120) px(x, y, '#1b1326', k * (y <= ey + 4 ? 0.5 : y <= ey + 6 ? 0.34 : ((x >> 1) + (y >> 1)) % 2 ? 0.3 : 0.12)); } }
+    const K = src.width / TW, W2 = TW * K, H2 = TH * K, c = mk(W2, H2), g = c.getContext('2d'), has = k => (' ' + fx + ' ').includes(' ' + k + ' '), ey = 39; g.drawImage(src, 0, 0);
+    const solid = g.getImageData(0, 0, W2, H2).data, px = (x, y, col, a, w, h) => { if (!solid[(y * K * W2 + x * K) * 4 + 3]) return; g.globalAlpha = a === undefined ? 1 : a; g.fillStyle = col; g.fillRect(x * K, y * K, (w || 1) * K, (h || 1) * K); g.globalAlpha = 1; };
+    if (has('shade') || has('cold')) { const k = has('shade') ? 1 : 0.42, y1 = has('shade') ? ey + 9 : ey + 3; g.fillStyle = '#1b1326'; for (let Y = (ey - 16) * K; Y < (y1 + 1) * K; Y++) for (let X = 32 * K; X < 64 * K; X++) { const i = (Y * W2 + X) * 4, y = Math.floor(Y / K); if (y >= 22 && solid[i + 3] && solid[i] * 0.3 + solid[i + 1] * 0.59 + solid[i + 2] * 0.11 > 120) { g.globalAlpha = k * (y <= ey + 4 ? 0.5 : y <= ey + 6 ? 0.34 : ((X >> 1) + (Y >> 1)) % 2 ? 0.3 : 0.12); g.fillRect(X, Y, 1, 1); } } g.globalAlpha = 1; }
     if (has('blush')) for (const sx of [33, 57]) for (let k = 0; k < 7; k++) { px(sx + k, ey + 9 + (k % 2), '#ff8a8a', 0.8); if (k > 0 && k < 6) px(sx + k, ey + 10 - (k % 2), '#ff8a8a', 0.45); }
     if (has('tear')) for (const sx of [37, 57]) { px(sx, ey + 6, '#e8f8ff', 1, 2, 1); px(sx, ey + 7, '#8ad0ff', 1, 2, 5); px(sx, ey + 8, '#c8f0ff'); px(sx, ey + 12, '#c8f0ff', 1, 2, 2); px(sx, ey + 16, '#8ad0ff', 0.85, 2, 2); px(sx + (sx < 48 ? -1 : 1), ey + 19, '#c8f0ff', 0.7); }
-    if (has('sweat')) { px(67, ey - 12, '#c8f0ff'); px(66, ey - 11, '#c8f0ff', 1, 3, 1); px(66, ey - 10, '#8ad0ff', 1, 3, 3); px(67, ey - 7, '#8ad0ff'); px(66, ey - 10, '#ffffff'); g.fillStyle = '#c8f0ff'; g.fillRect(70, ey - 4, 1, 2); g.fillRect(70, ey - 1, 1, 1); }
+    if (has('sweat')) { px(67, ey - 12, '#c8f0ff'); px(66, ey - 11, '#c8f0ff', 1, 3, 1); px(66, ey - 10, '#8ad0ff', 1, 3, 3); px(67, ey - 7, '#8ad0ff'); px(66, ey - 10, '#ffffff'); g.fillStyle = '#c8f0ff'; g.fillRect(70 * K, (ey - 4) * K, K, 2 * K); g.fillRect(70 * K, (ey - 1) * K, K, K); }
     if (has('blood')) { const my = ey + 14; px(53, my, '#c8323c', 1, 2, 2); px(54, my + 2, '#c8323c', 1, 2, 3); px(54, my + 5, '#8a1020', 1, 1, 2); px(55, my + 5, '#c8323c'); px(54, my + 8, '#c8323c', 0.8); }
-    if (has('mono')) { const d = g.getImageData(0, 0, TW, TH), p = d.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; const l = (p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) / 255; p[i] = Math.round(20 + l * 170); p[i + 1] = Math.round(34 + l * 196); p[i + 2] = Math.round(56 + l * 190); } g.putImageData(d, 0, 0); }
+    if (has('mono')) { const d = g.getImageData(0, 0, W2, H2), p = d.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; const l = (p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) / 255; p[i] = Math.round(20 + l * 170); p[i + 1] = Math.round(34 + l * 196); p[i + 2] = Math.round(56 + l * 190); } g.putImageData(d, 0, 0); }
     if (has('fade')) {
-      const d = g.getImageData(0, 0, TW, TH), p = d.data;
-      for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const i = (y * TW + x) * 4; if (!p[i + 3]) continue; const lv = (y - 62) * 0.36 + Math.sin(x * 0.45 + y * 0.25) * 2; if (BAYER[((x >> 1) & 3) + ((y >> 1) & 3) * 4] < lv) p[i + 3] = 0; else { p[i + 3] = Math.round(p[i + 3] * 0.82); p[i] = Math.min(255, p[i] + 24); p[i + 1] = Math.min(255, p[i + 1] + 30); p[i + 2] = Math.min(255, p[i + 2] + 36); } }
+      const d = g.getImageData(0, 0, W2, H2), p = d.data;
+      for (let Y = 0; Y < H2; Y++) for (let X = 0; X < W2; X++) { const i = (Y * W2 + X) * 4; if (!p[i + 3]) continue; const x = X / K, y = Y / K, lv = (y - 62) * 0.36 + Math.sin(x * 0.45 + y * 0.25) * 2; if (BAYER[((X >> 1) & 3) + ((Y >> 1) & 3) * 4] < lv) p[i + 3] = 0; else { p[i + 3] = Math.round(p[i + 3] * 0.82); p[i] = Math.min(255, p[i] + 24); p[i + 1] = Math.min(255, p[i + 1] + 30); p[i + 2] = Math.min(255, p[i + 2] + 36); } }
       g.putImageData(d, 0, 0);
-      const r = seeded(7); g.fillStyle = '#c8f0ff'; for (let i = 0; i < 40; i++) g.fillRect(8 + Math.floor(r() * 80), 66 + Math.floor(r() * 60), 1 + (i % 3 === 0 ? 1 : 0), 1 + (i % 3 === 0 ? 1 : 0));
+      const r = seeded(7); g.fillStyle = '#c8f0ff'; for (let i = 0; i < 40; i++) { const sz = 1 + (i % 3 === 0 ? 1 : 0); g.fillRect((8 + Math.floor(r() * 80)) * K, (66 + Math.floor(r() * 60)) * K, sz * K, sz * K); }
     }
+    if (K === 1 && src._hdNative) c._hdNative = () => { const c2 = tFx(src._hdNative(), fx); c2._hd = 2; return c2; };
+    if (src._relit !== undefined) c._relit = src._relit;
     return c;
   }
   const tKey = (id, alt) => { id = P_ALIAS[id] || id; return alt && TACHIE[id + '2'] ? id + '2' : id; };
   const tMood = m => (T_MOODS.includes(m) ? m : 'n');
-  const tOut = (spec, mood) => { const c = tPerson(spec, mood).cv({ max: 30 }); return spec.ghost ? tGhost(c) : c; };
+  // 有 2 倍密度重画（spec.hd）的立绘登记在 ART._hdBig：对话舞台把画布就地升 2 倍时（HD2D），认出是哪一张就用重画稿
+  const tBig = c => { if (c && c._hdNative) (ART._hdBig || (ART._hdBig = [])).push(c); return c; };
+  const tOut = (spec, mood) => { const c = tPerson(spec, mood).cv({ max: 30, hd: spec.hd ? 1 : 0, noHd: spec.hd ? 0 : 1 }); return tBig(spec.ghost ? tGhost(c) : c); };
   ART.tachieDims = { w: TW, h: TH, eyeY: 39, faceX: 48 };
   ART.tachieMoods = T_MOODS;
   ART.tachieIds = () => Object.keys(TACHIE);
@@ -6361,7 +6927,7 @@ ART.bossFighter = function (k, frame, flip) {
     const key = tKey(id, alt), spec = TACHIE[key]; if (!spec) return null; mood = tMood(mood); fx = (fx || '').trim();
     const base = cached('tch|' + key + '|' + mood, () => tOut(spec, mood));
     const f = (mood === 'cold' ? 'cold ' : '') + fx;
-    return f ? cached('tchx|' + key + '|' + mood + '|' + fx, () => tFx(base, f)) : base;
+    return f ? cached('tchx|' + key + '|' + mood + '|' + fx, () => tBig(tFx(base, f))) : base;
   };
   // 主角立绘：look = { hair, skin, f }，realm 0～9
   ART.tachieMe = function (look, realm, mood, fx) {
@@ -6369,7 +6935,7 @@ ART.bossFighter = function (k, frame, flip) {
     const k = [look.hair, look.skin, look.f ? 1 : 0, realm, mood].join('|');
     const base = cached('tchme|' + k, () => tOut(tMeSpec(look, realm), mood));
     const f = (mood === 'cold' ? 'cold ' : '') + fx;
-    return f ? cached('tchmex|' + k + '|' + fx, () => tFx(base, f)) : base;
+    return f ? cached('tchmex|' + k + '|' + fx, () => tBig(tFx(base, f))) : base;
   };
 
   // ---- 特写带用立绘：小像的画布记下自己是谁，ART.cutin 见到有立绘的就按原分辨率裁眉眼（不再把 48 像素放大两倍） ----
@@ -6377,6 +6943,10 @@ ART.bossFighter = function (k, frame, flip) {
   { const p0 = ART.portrait; ART.portrait = function (id, mood, alt) { return tag(p0.apply(this, arguments), { id, mood, alt: !!alt }); }; }
   { const p0 = ART.portraitMe; ART.portraitMe = function (look, realm, mood) { return tag(p0.apply(this, arguments), { me: look, realm, mood }); }; }
   { const p0 = ART.portraitX; ART.portraitX = function (id, mood, fx, alt) { const c = p0.apply(this, arguments); if (!c || c._tk) return c; if (typeof id === 'string') return tag(c, { id, mood, alt: !!alt, fx }); return id && id._tk ? tag(c, Object.assign({}, id._tk, { fx: ((id._tk.fx || '') + ' ' + (fx || '')).trim() })) : c; }; }
+  // 2 倍密度的立绘（192×256，docs/ART_HD2D.md §6-6）：有手工重画稿的给重画稿，没有的给自动升密度的那张；没开高清模块时退回原画。界面可以直接画它（画布标了 _hd = 2）
+  const tHD = c => (c && root.HD2D && root.HD2D.up ? root.HD2D.up(c) || c : c);
+  ART.tachieHD = function (id, mood, fx, alt) { return tHD(ART.tachie(id, mood, fx, alt)); };
+  ART.tachieMeHD = function (look, realm, mood, fx) { return tHD(ART.tachieMe(look, realm, mood, fx)); };
   ART.tachieOf = src => { const t = src && src._tk; if (!t) return null; return t.me ? ART.tachieMe(t.me, t.realm, t.mood, t.fx) : ART.tachie(t.id, t.mood, t.fx, t.alt); };
   { const c0 = ART.cutin; ART.cutin = function (src, color, flip, key) {
     const big = ART.tachieOf(src); if (!big) return c0.apply(this, arguments);
